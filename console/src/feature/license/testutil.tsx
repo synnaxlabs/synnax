@@ -8,23 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { Synnax } from "@synnaxlabs/pluto";
-import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { screen } from "@testing-library/react";
 
 import { Guard } from "@/feature/license/Guard";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { renderWithStatus, type StatusHarness } from "@/testutil";
 
 export const GUARDED_CONTENT = "licensed content";
 
 /** Matches the handoff code that the Console puts in a portal link. */
 export const HANDOFF_CODE = /^[0-9a-f-]{36}$/;
-
-export interface GuardHarness {
-  store: TestStore;
-  /** Changes the connection status the Guard sees. */
-  setStatus: (status?: connection.Status) => void;
-}
 
 /**
  * Renders a {@link Guard} over {@link GUARDED_CONTENT} with the given client and
@@ -34,18 +26,13 @@ export interface GuardHarness {
 export const renderGuard = async (
   client: Client | null,
   status?: connection.Status,
-): Promise<GuardHarness> => {
-  const { wrapper, store } = await createConsoleWrapper({ client: null });
-  const ui = (current?: connection.Status): ReactElement => (
-    <Synnax.TestProvider client={client} status={current}>
-      <Guard>
-        <span>{GUARDED_CONTENT}</span>
-      </Guard>
-    </Synnax.TestProvider>
+): Promise<StatusHarness> =>
+  await renderWithStatus(
+    <Guard>
+      <span>{GUARDED_CONTENT}</span>
+    </Guard>,
+    { client, status },
   );
-  const { rerender } = render(ui(status), { wrapper });
-  return { store, setStatus: (next) => rerender(ui(next)) };
-};
 
 /** Finds the button labeled `label` that opens the portal, and returns its link. */
 export const findPortalLink = async (label: string): Promise<string> => {

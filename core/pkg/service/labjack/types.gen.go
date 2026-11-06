@@ -29,43 +29,25 @@ const (
 type ThermocoupleType = versions.ThermocoupleType
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = versions.ThermocoupleTypeJ
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = versions.ThermocoupleTypeK
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = versions.ThermocoupleTypeN
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = versions.ThermocoupleTypeR
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = versions.ThermocoupleTypeS
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = versions.ThermocoupleTypeT
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = versions.ThermocoupleTypeB
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = versions.ThermocoupleTypeE
+	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
 	ThermocoupleTypeC ThermocoupleType = versions.ThermocoupleTypeC
 )
-
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = versions.Scale
-
-// ScaleVariant is implemented by every Scale variant.
-type ScaleVariant = versions.ScaleVariant
-
-// ScaleType is the "type" value that selects a variant of Scale.
-type ScaleType = versions.ScaleType
-
-const (
-	// LinearScaleType maps raw values to engineering units with a slope and offset.
-	LinearScaleType ScaleType = versions.LinearScaleType
-	// MapScaleType maps a raw range linearly onto a scaled range.
-	MapScaleType ScaleType = versions.MapScaleType
-	// NoneScaleType applies no scaling; the raw value is used directly.
-	NoneScaleType ScaleType = versions.NoneScaleType
-)
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = versions.LinearScale
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale = versions.MapScale
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = versions.NoneScale
 
 // BaseReadChannel carries the fields every LabJack read channel shares.
 type BaseReadChannel = versions.BaseReadChannel

@@ -11,7 +11,9 @@ package iterator_test
 
 import (
 	"context"
+	"runtime"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -213,29 +215,42 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
-			It("Should exit on cancel when nothing reads its responses", func(
-				ctx SpecContext,
-			) {
-				calculation := &channel.Channel{
-					Name:       "unread_output",
-					DataType:   telem.Float32T,
-					Expression: "return sensor_1",
-				}
-				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
-				stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
-					Keys:   []channel.Key{calculation.Key()},
-					Bounds: telem.TimeRangeMax,
-				}))
-				sCtx, cancel := signal.Isolated()
-				defer cancel()
-				requests, _ := confluence.Attach(stream)
-				stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
-				Consistently(sCtx.Stopped()).ShouldNot(BeClosed())
-				cancel()
-				Eventually(sCtx.Stopped()).Should(BeClosed())
-				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
-			})
+			DescribeTable(
+				"Should exit on cancel when nothing reads its responses",
+				func(
+					ctx SpecContext,
+					name string,
+					reduction telem.Reduction,
+				) {
+					calculation := &channel.Channel{
+						Name:       name,
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1",
+					}
+					Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+					stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
+						Keys:      []channel.Key{calculation.Key()},
+						Bounds:    telem.TimeRangeMax,
+						Reduction: reduction,
+					}))
+					sCtx, cancel := signal.Isolated()
+					defer cancel()
+					requests, _ := confluence.Attach(stream)
+					stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
+					Consistently(sCtx.Stopped()).ShouldNot(BeClosed())
+					cancel()
+					Eventually(sCtx.Stopped()).Should(BeClosed())
+					Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				},
+				Entry("no reduction", "unread_output", telem.Reduction{}),
+				Entry("point limit", "unread_limited_output", telem.Reduction{
+					Variant: telem.LimitReduction{
+						Aggregation: telem.AggregationMinMax,
+						PointLimit:  2,
+					},
+				}),
+			)
 
 			It("Should carry calculation state across domains", func(
 				ctx SpecContext,
@@ -3030,5 +3045,65 @@ var _ = Describe("Calculations across Cores", func() {
 		}
 		Expect(got).To(Equal(expected))
 		Expect(iter.Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("Canceled peer", func() {
+	// expectReturns fails the spec with every goroutine's stack if f stalls.
+	expectReturns := func(f func()) {
+		GinkgoHelper()
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			f()
+		}()
+		Eventually(done).WithTimeout(30*time.Second).Should(BeClosed(), func() string {
+			stacks := make([]byte, 1<<20)
+			return string(stacks[:runtime.Stack(stacks, true)])
+		})
+	}
+
+	It("Should stop every call and report the cancellation", func(ctx SpecContext) {
+		cluster := testutil.NewCluster(ctx, 0)
+		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
+		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
+		ch := &channel.Channel{
+			Name:        "Nansen",
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: nodes[1].Cluster.HostKey(),
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		// A channel leased by the second Core reaches the first by gossip.
+		Eventually(func(g Gomega) {
+			var res channel.Channel
+			g.Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchKeys(ch.Key())).
+				Entry(&res).
+				Exec(ctx, nil)).To(Succeed())
+		}).Should(Succeed())
+		iterCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		iter := MustSucceed(iteratorSvc.Open(iterCtx, iterator.Config{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		// An ack proves the peer flows, so the cancel reaches its pipeline.
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(Succeed())
+		cancel()
+		expectReturns(func() {
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Error()).To(MatchError(context.Canceled))
+			Expect(iter.Close()).To(MatchError(context.Canceled))
+			Expect(iter.Close()).To(Succeed())
+		})
+		// The peer releases its storage iterator after the gateway closes.
+		writer := channelSvc.NewWriter(nil)
+		Eventually(func() error {
+			return writer.DeleteMany(ctx, []channel.Key{ch.Key()}, false)
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 })

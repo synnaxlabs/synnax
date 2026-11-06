@@ -62,7 +62,8 @@ class DeviceSim(Simulator):
     def start(self) -> None:
         """Start the device server in a subprocess.
 
-        Blocks until the server accepts TCP connections on its port.
+        Blocks until the server accepts TCP connections on its port. On failure, stops
+        the subprocess before raising.
 
         :raises RuntimeError: If the port is already in use, the process dies, or
             the timeout expires.
@@ -74,7 +75,11 @@ class DeviceSim(Simulator):
         self.process.start()
         self._running = True
         self.log(f"Server started with PID: {self.process.pid}")
-        self._wait_for_ready()
+        try:
+            self._wait_for_ready()
+        except BaseException:
+            self.stop()
+            raise
 
     def _wait_for_ready(self) -> None:
         """Poll until the server is accepting connections on its port."""

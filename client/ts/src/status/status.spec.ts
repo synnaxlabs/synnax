@@ -12,16 +12,39 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
+    it("should keep a set that lands before an older fetch", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "before" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.statuses.retrieve(s.key);
+      const { responded, release } = holdResponses(local, "/status/retrieve");
+      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      await responded;
+      await client.statuses.set({ ...s, message: "after" });
+      await expect
+        .poll(() => expectLive(local.statuses.getCached(s.key)).message)
+        .toBe("after");
+      release();
+      await fetching;
+      expect(expectLive(local.statuses.getCached(s.key)).message).toBe("after");
+    });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
         name: "Test Status",
@@ -689,6 +712,46 @@ describe("Status", () => {
       });
 
       expect(results).toHaveLength(0);
+    });
+
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one status, so it takes no filter.
+        client.statuses.retrieve({ key: "status", variant: "error" }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but do not match the single-query " +
+            "schema.\nFailed to parse status single query params (1 issue)\n\n  {\n" +
+            '    "key": "status",\n  ✗ "variant": "error"  × unexpected key\n  }',
+        ),
+      );
+    });
+
+    it("should reject a plain key beside other fields with a details schema", async () => {
+      const params = { key: "status", variant: "error", detailsSchema: z.object({}) };
+      await expect(client.statuses.retrieve(params)).rejects.toThrow(
+        new ValidationError(
+          "status params address a single key but hold other fields.",
+        ),
+      );
     });
 
     it("should filter statuses by a tree of filters", async () => {

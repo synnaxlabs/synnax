@@ -11,6 +11,7 @@ package plumber_test
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,14 +24,37 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// lateSource flows after a pause, so that a source that flowed first can exit.
-type lateSource struct {
-	*confluence.LinearTransform[int, int]
+// startedContext records that a routine has started.
+type startedContext struct {
+	signal.Context
+	started atomic.Bool
 }
 
-func (s *lateSource) Flow(ctx signal.Context, opts ...confluence.Option) {
-	time.Sleep(time.Millisecond)
-	s.LinearTransform.Flow(ctx, opts...)
+func (c *startedContext) Go(
+	f func(ctx context.Context) error,
+	opts ...signal.RoutineOption,
+) {
+	c.started.Store(true)
+	c.Context.Go(f, opts...)
+}
+
+// sequentialSource sends one value. It flows only after every routine that has started
+// exits.
+type sequentialSource struct {
+	confluence.AbstractUnarySource[int]
+	ctx *startedContext
+}
+
+func (s *sequentialSource) Flow(ctx signal.Context, opts ...confluence.Option) {
+	if s.ctx.started.Load() {
+		<-ctx.Stopped()
+	}
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+	ctx.Go(func(context.Context) error {
+		s.Out.Inlet() <- 1
+		return nil
+	}, o.Signal...)
 }
 
 // panicSink panics in Flow.
@@ -80,24 +104,16 @@ var _ = Describe("Pipeline", func() {
 	})
 
 	Describe("Shared outlets", func() {
-		// flowOnCanceled flows sources that share one stream on a canceled context,
-		// each with a value to send, and returns the error of the pipeline.
-		flowOnCanceled := func(sources int) error {
-			GinkgoHelper()
+		It("Should stay open until every source has flowed", func() {
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
 			var (
+				ctx   = &startedContext{Context: sCtx}
 				pipe  = New()
-				addrs = make([]address.Address, sources)
+				addrs = []address.Address{"first", "second"}
 			)
-			for i := range sources {
-				addrs[i] = address.Newf("source_%d", i)
-				t := &confluence.LinearTransform[int, int]{}
-				t.Transform = func(_ context.Context, v int) (int, bool, error) {
-					return v, true, nil
-				}
-				in := confluence.NewStream[int](1)
-				in.Inlet() <- i
-				t.InFrom(in)
-				pipe.SetSource(addrs[i], &lateSource{t})
+			for _, addr := range addrs {
+				pipe.SetSource(addr, &sequentialSource{ctx: ctx})
 			}
 			pipe.SetSink("sink", &confluence.UnarySink[int]{
 				Sink: func(context.Context, int) error { return nil },
@@ -105,23 +121,15 @@ var _ = Describe("Pipeline", func() {
 			MultiRouter[int]{
 				SourceTargets: addrs,
 				SinkTargets:   []address.Address{"sink"},
-				Capacity:      sources,
+				Capacity:      len(addrs),
 				Stitch:        StitchUnary,
 			}.MustRoute(pipe)
-			sCtx, cancel := signal.Isolated()
-			cancel()
 			pipe.Flow(
-				sCtx,
+				ctx,
 				confluence.CloseOutputInletsOnExit(),
 				confluence.RecoverWithErrOnPanic(),
 			)
-			return sCtx.Wait()
-		}
-
-		It("Should stay open until every source has flowed", func() {
-			for range 100 {
-				Expect(flowOnCanceled(2)).To(MatchError(context.Canceled))
-			}
+			Expect(sCtx.Wait()).To(Succeed())
 		})
 	})
 
