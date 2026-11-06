@@ -528,7 +528,7 @@ TEST(TimeRangeTests, testParseStrings) {
 TEST(TimeRangeTests, testParseMissing) {
     x::json::Parser parser(x::json::json{{"start", 5}});
     TimeRange::parse(parser);
-    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should calculate the period from a rate.
