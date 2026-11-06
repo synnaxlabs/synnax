@@ -189,12 +189,9 @@ class Client:
             StrideReduction keeps every factor-th sample. A LimitReduction reduces each
             channel to about point_limit points. Defaults to keeping every sample.
         :returns: An Iterator over the given channels within the provided time
-        range. Each frame also holds the index channels that channels leaves out, after
-        the requested channels. See the Iterator documentation for more.
+        range. See the Iterator documentation for more.
         """
-        adapter = ReadFrameAdapter(
-            self._channels, reduction=reduction, timestamps_included=True
-        )
+        adapter = ReadFrameAdapter(self._channels, reduction=reduction)
         adapter.update(channels)
         return Iterator(
             tr=tr,

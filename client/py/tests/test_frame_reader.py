@@ -242,6 +242,7 @@ class TestReader:
         assert len(df) == 20
         assert df[partial.name].isna().sum() == 15
         assert df[partial.name].dropna().tolist() == [0.0, 1.0, 2.0, 3.0, 4.0]
+        assert df[partial.name].dropna().index.tolist() == df.index[15:].tolist()
 
     def test_read_limited_text_to_df(self, client: sy.Synnax) -> None:
         """Should not index text by time, as a limit reduces only its timestamps."""

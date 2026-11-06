@@ -32,22 +32,6 @@ class TestIterator:
             for f in i:
                 assert np.array_equal(f[idx_ch.key], d)
 
-    def test_iterate_with_index(
-        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ) -> None:
-        """Should hold the index of each channel in each frame"""
-        idx_ch, data_ch = indexed_pair
-        d = seconds_linspace(1, count=5)
-        with client.open_writer(
-            start=1 * sy.TimeSpan.SECOND, channels=indexed_pair
-        ) as w:
-            w.write({idx_ch.key: d, data_ch.key: np.arange(5, dtype=np.float64)})
-            w.commit()
-        with client.open_iterator(sy.TimeRange.MAX, [data_ch.key]) as i:
-            for f in i:
-                assert f.channels == [data_ch.key, idx_ch.key]
-                assert list(f.to_df().columns) == [data_ch.name]
-
     def test_valid(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
