@@ -640,6 +640,43 @@ TEST_F(EtherCATScanDeviceSetTest, PassesTheChosenModeToTheMaster) {
     EXPECT_EQ(this->master->chosen_mode(0), choice);
 }
 
+/// @brief it should drop the settings of a deleted device from the master.
+TEST_F(EtherCATScanDeviceSetTest, DropsTheSettingsOfADeletedDevice) {
+    const auto dev = this->create_slave(false);
+    this->scanner->on_device_set(dev);
+    ASSERT_FALSE(this->master->slave_enabled(0));
+    ASSERT_NIL(this->client->devices.del(dev.key));
+    this->scanner->on_device_delete(dev);
+    EXPECT_TRUE(this->master->slave_enabled(0));
+}
+
+/// @brief it should drop the chosen mode of a deleted device from the master.
+TEST_F(EtherCATScanDeviceSetTest, DropsTheChosenModeOfADeletedDevice) {
+    auto dev = this->create_slave(true);
+    dev.properties["op_mode"] = dc::Choice{.index = 1, .assign_activate = 0x0700}
+                                    .to_json();
+    ASSERT_NIL(this->client->devices.create(dev));
+    this->scanner->on_device_set(dev);
+    ASSERT_TRUE(this->master->chosen_mode(0).has_value());
+    ASSERT_NIL(this->client->devices.del(dev.key));
+    this->scanner->on_device_delete(dev);
+    EXPECT_FALSE(this->master->chosen_mode(0).has_value());
+}
+
+/// @brief it should keep the settings of another device saved at the position of a
+/// deleted device, such as the new device after a module swap.
+TEST_F(EtherCATScanDeviceSetTest, KeepsTheSettingsOfAnotherDeviceAtTheDeletedPosition) {
+    const auto removed = this->create_slave(false);
+    auto kept = removed;
+    kept.key += "_replacement";
+    kept.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(kept));
+    this->scanner->on_device_set(removed);
+    ASSERT_NIL(this->client->devices.del(removed.key));
+    this->scanner->on_device_delete(removed);
+    EXPECT_FALSE(this->master->slave_enabled(0));
+}
+
 /// @brief it should leave the master settings unchanged and report an error status
 /// that names the invalid field.
 TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {

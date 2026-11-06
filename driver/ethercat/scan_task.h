@@ -83,6 +83,10 @@ public:
     /// status when its properties are invalid.
     void on_device_set(const synnax::device::Device &dev) override;
 
+    /// @brief loads the saved settings of each slave on a deleted slave device's
+    /// network into its engine again, so the engine drops the device's settings.
+    void on_device_delete(const synnax::device::Device &dev) override;
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;

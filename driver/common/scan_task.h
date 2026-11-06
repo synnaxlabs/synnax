@@ -116,6 +116,10 @@ struct Scanner {
 
     /// @brief Called when a device is set/updated via the signal channel.
     virtual void on_device_set(const synnax::device::Device &dev) {}
+
+    /// @brief Called with the last known state of a device deleted via the signal
+    /// channel.
+    virtual void on_device_delete(const synnax::device::Device &dev) {}
 };
 
 struct ClusterAPI {
@@ -343,7 +347,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
                         std::lock_guard lock(this->mu);
-                        this->dev_states.erase(dev_key);
+                        const auto node = this->dev_states.extract(dev_key);
+                        if (!node.empty())
+                            this->scanner->on_device_delete(node.mapped());
                     }
             }
         } while (true);
