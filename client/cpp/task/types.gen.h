@@ -16,6 +16,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/device/key.h"
@@ -55,6 +56,75 @@ struct KeyedConfig {
     static KeyedConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief LinearScale maps raw values to engineering units with a slope and offset.
+struct LinearScale {
+    std::string type = "linear";
+    /// @brief slope is the multiplier applied to the raw value.
+    double slope = 1;
+    /// @brief offset is the offset added after scaling.
+    double offset = 0;
+
+    static LinearScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MapScale maps a raw range linearly onto a scaled range.
+struct MapScale {
+    std::string type = "map";
+    /// @brief pre_scaled_min is the lower bound of the raw input range.
+    double pre_scaled_min = 0;
+    /// @brief pre_scaled_max is the upper bound of the raw input range.
+    double pre_scaled_max = 1;
+    /// @brief scaled_min is the lower bound of the scaled output range.
+    double scaled_min = 0;
+    /// @brief scaled_max is the upper bound of the scaled output range.
+    double scaled_max = 1;
+
+    static MapScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief PolynomialScale maps raw values to engineering units with a polynomial.
+struct PolynomialScale {
+    std::string type = "polynomial";
+    /// @brief coeffs are the coefficients from the constant term up, so that index i
+    /// holds the coefficient of x^i.
+    std::vector<double> coeffs = {};
+
+    static PolynomialScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TableScale maps raw values to engineering units by linear interpolation
+/// between the breakpoints, and clips raw values outside the table to its first or last
+/// scaled value.
+struct TableScale {
+    std::string type = "table";
+    /// @brief pre_scaled_vals are the raw breakpoints, in increasing order.
+    std::vector<double> pre_scaled_vals = {};
+    /// @brief scaled_vals are the engineering-unit values at each breakpoint.
+    std::vector<double> scaled_vals = {};
+
+    static TableScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NoneScale applies no scaling; the raw value is used directly.
+struct NoneScale {
+    std::string type = "none";
+
+    static NoneScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scale determines how the raw values of a hardware read channel are
+/// transformed to engineering units.
+using Scale = std::
+    variant<LinearScale, MapScale, PolynomialScale, TableScale, NoneScale>;
+
+Scale parse_scale(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scale &value);
 
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
