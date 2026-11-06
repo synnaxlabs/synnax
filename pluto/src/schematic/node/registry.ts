@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
-import { deep, record } from "@synnaxlabs/x";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { deep, record, type text } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
@@ -122,6 +123,8 @@ export const symbolKey = (config: Config): string =>
 /**
  * Changes the config to the variant the input names. Each field the new variant
  * accepts keeps its value, except the spec key and state overrides of a custom symbol.
+ * On a variant with a default text level, a sized symbol keeps its level, even an
+ * absent one, so it keeps its rendered text size. Any other symbol takes the default.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -129,12 +132,20 @@ export const symbolKey = (config: Config): string =>
 export const changeConfig = <V extends Variant>(
   config: Config,
   input: Input<V>,
-): ConfigOf<V> =>
-  deep.overrideValidItems(
+): ConfigOf<V> => {
+  const next = deep.overrideValidItems(
     createConfig(input),
     record.omit(config as record.Unknown, "specKey", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
+  const spec = resolveSpec(input.variant);
+  if (spec.defaults != null && "level" in spec.defaults) {
+    const old = config as { size?: Component.Size; level?: text.Level };
+    (next as { level?: text.Level }).level =
+      old.size == null ? spec.defaults.level : old.level;
+  }
+  return next;
+};
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.
