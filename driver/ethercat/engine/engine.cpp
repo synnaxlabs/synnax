@@ -243,7 +243,14 @@ void Engine::run() {
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
                 timer = x::loop::Timer(sched->rate.period());
-                phase.emplace(sched->rate.period(), master::DC_EPOCH);
+                if (const auto sync = this->master->dc_sync())
+                    phase.emplace(
+                        sched->rate.period(),
+                        x::telem::TimeSpan(sync->sync0_cycle),
+                        master::DC_EPOCH + x::telem::TimeSpan(sync->sync0_shift)
+                    );
+                else
+                    phase.reset();
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -272,8 +279,8 @@ void Engine::run() {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
                 LOG(WARNING) << "[ethercat] cycles on " << iface
-                             << " run late: a frame passed the reference clock within "
-                                "a quarter period of SYNC0";
+                             << " run late: a frame passed the reference clock near "
+                                "a SYNC0 event";
         }
         if (!err) {
             if (dc) latched_at = clock.map(*dc, sent_at);
@@ -312,7 +319,7 @@ void Engine::run() {
                      << err.message();
     if (late_frames > 0)
         LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << iface
-                     << " passed the reference clock within a quarter period of SYNC0";
+                     << " passed the reference clock near a SYNC0 event";
     LOG(INFO) << "[ethercat] bus stopped on " << iface;
 }
 

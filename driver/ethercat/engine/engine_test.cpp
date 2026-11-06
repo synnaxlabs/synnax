@@ -23,6 +23,8 @@
 
 namespace driver::ethercat::engine {
 namespace {
+/// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
+const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
 const pdo::Entry IN_I24(0, 0x6000, 3, 24, true, x::telem::INT32_T);
@@ -116,16 +118,21 @@ protected:
     }
 
     /// @brief samples, every 20 ms for 3 s, how far the latest frame passed the
-    /// reference clock from half a period after a SYNC0 event. Returns the share of
-    /// samples within a quarter period.
-    [[nodiscard]] double share_in_phase(const x::telem::TimeSpan period) const {
+    /// reference clock from half a period after a SYNC0 event, with SYNC0 events at
+    /// shift after multiples of the period. Returns the share of samples within a
+    /// quarter period.
+    [[nodiscard]] double share_in_phase(
+        const x::telem::TimeSpan period,
+        const x::telem::TimeSpan shift = x::telem::TimeSpan(0)
+    ) const {
         constexpr int SAMPLES = 150;
         int in_phase = 0;
         for (int i = 0; i < SAMPLES; ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             const auto dc = this->master->dc_time().value_or(master::DC_EPOCH);
-            if (((dc - master::DC_EPOCH) % period - period / 2).abs() < period / 4)
-                ++in_phase;
+            const auto phase = ((dc - master::DC_EPOCH - shift) % period + period) %
+                               period;
+            if ((phase - period / 2).abs() < period / 4) ++in_phase;
         }
         return static_cast<double>(in_phase) / SAMPLES;
     }
@@ -208,19 +215,35 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
     }
 }
 
-/// @brief it should hold each frame half a period after a SYNC0 event while the
-/// distributed clock runs 0.5% faster than the host clock.
+/// @brief it should hold each frame half a period after a SYNC0 event, with the SYNC0
+/// shift, while the distributed clock runs 0.5% faster than the host clock.
 TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
+    auto sync = SYNC0_AT_10MS;
+    sync.sync0_shift = 5'000'000;
+    this->master->set_dc_sync(sync);
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_GT(
+        this->share_in_phase(x::telem::MILLISECOND * 10, x::telem::MILLISECOND * 5),
+        0.8
+    );
+}
+
+/// @brief it should leave the cycle unlocked when no slave runs SYNC0.
+TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 /// @brief it should lock the cycle to the distributed clock while the slaves move to
 /// OP and the working counter falls short.
 TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
+    this->master->set_dc_sync(SYNC0_AT_10MS);
     this->master->set_host_dc(1.005);
     this->master->set_start_frames(400);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
@@ -236,6 +259,7 @@ TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
 /// @brief it should not move the cycle on a frame with a short working counter after
 /// the start, as the frame can miss the reference clock.
 TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
+    this->master->set_dc_sync(SYNC0_AT_10MS);
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)

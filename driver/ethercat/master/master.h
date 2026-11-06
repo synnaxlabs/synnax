@@ -21,6 +21,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 
@@ -77,6 +78,11 @@ public:
     /// clock is not aligned to the host clock. Valid after a receive() that returns NIL
     /// or errors::WORKING_COUNTER_ERROR.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
+
+    /// @brief returns the DC registers of the first enabled slave whose SYNC0 events
+    /// the master starts, or nullopt when there is no such slave. Valid from the
+    /// start_cycle call of activate() until deactivate().
+    [[nodiscard]] virtual std::optional<dc::Registers> dc_sync() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;

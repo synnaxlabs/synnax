@@ -12,13 +12,15 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <numeric>
 
 #include "x/cpp/telem/telem.h"
 
 namespace driver::ethercat::engine {
 /// @brief holds the bus cycle at a fixed phase of the distributed clock. Each frame
-/// passes the reference clock half a period after a multiple of the period from origin,
-/// as far as possible from the SYNC0 events.
+/// passes the reference clock midway between SYNC0 events: half a grid after an event,
+/// where the grid is the greatest common divisor of the period and the SYNC0 cycle. No
+/// phase is farther from every SYNC0 event.
 class PhaseLock {
     /// @brief the share of the phase error that each cycle corrects.
     static constexpr double KP = 0.05;
@@ -26,24 +28,34 @@ class PhaseLock {
     /// the drift between the host and DC clocks.
     static constexpr double KI = 0.0001;
     x::telem::TimeSpan period;
-    x::telem::TimeStamp origin;
+    x::telem::TimeSpan grid;
+    x::telem::TimeStamp event;
     x::telem::TimeSpan error;
     double integral = 0;
     bool held = false;
 
 public:
-    PhaseLock(const x::telem::TimeSpan period, const x::telem::TimeStamp origin):
-        period(period), origin(origin) {}
+    /// @param period the bus cycle.
+    /// @param sync0 the SYNC0 cycle.
+    /// @param event the time of a SYNC0 event.
+    PhaseLock(
+        const x::telem::TimeSpan period,
+        const x::telem::TimeSpan sync0,
+        const x::telem::TimeStamp event
+    ):
+        period(period),
+        grid(std::gcd(period.nanoseconds(), sync0.nanoseconds())),
+        event(event) {}
 
     /// @brief returns how far to move the start of the next cycle, at most a tenth of
     /// the period either way. A positive value delays it.
     /// @param dc the DC time at which the latest frame passed the reference clock.
     x::telem::TimeSpan update(const x::telem::TimeStamp dc) {
-        const auto p = this->period.nanoseconds();
-        const auto phase = ((dc - this->origin).nanoseconds() % p + p) % p;
-        this->error = x::telem::TimeSpan(phase - p / 2);
+        const auto g = this->grid.nanoseconds();
+        const auto phase = ((dc - this->event).nanoseconds() % g + g) % g;
+        this->error = x::telem::TimeSpan(phase - g / 2);
         const auto e = static_cast<double>(this->error.nanoseconds());
-        const auto limit = static_cast<double>(p) / 10;
+        const auto limit = static_cast<double>(this->period.nanoseconds()) / 10;
         const auto shift = -(KP * e + KI * (this->integral + e));
         if (std::abs(shift) < limit) this->integral += e;
         if (this->locked()) this->held = true;
@@ -53,8 +65,8 @@ public:
     }
 
     /// @brief true when the latest frame passed the reference clock within a quarter
-    /// period of the target phase.
-    [[nodiscard]] bool locked() const { return this->error.abs() <= this->period / 4; }
+    /// grid of the target phase.
+    [[nodiscard]] bool locked() const { return this->error.abs() <= this->grid / 4; }
 
     /// @brief true when the lock held at an earlier frame and the latest frame is out
     /// of it.

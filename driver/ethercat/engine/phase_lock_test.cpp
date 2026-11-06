@@ -20,24 +20,44 @@ const auto PERIOD = x::telem::MILLISECOND;
 /// of the period from origin, before or after origin.
 TEST(PhaseLock, HoldsAFrameAtTheTargetPhase) {
     const x::telem::TimeStamp origin(x::telem::SECOND);
-    PhaseLock lock(PERIOD, origin);
+    PhaseLock lock(PERIOD, PERIOD, origin);
     EXPECT_EQ(lock.update(origin + PERIOD * 7 + PERIOD / 2), x::telem::TimeSpan(0));
     EXPECT_EQ(lock.update(origin - PERIOD * 7 + PERIOD / 2), x::telem::TimeSpan(0));
+    EXPECT_TRUE(lock.locked());
+}
+
+/// @brief it should hold frames midway between SYNC0 events when SYNC0 runs twice in
+/// each period, and lose the lock on a frame at a SYNC0 event.
+TEST(PhaseLock, HoldsFramesMidwayBetweenFasterSYNC0Events) {
+    PhaseLock lock(PERIOD, PERIOD / 2, x::telem::TimeStamp(0));
+    EXPECT_EQ(lock.update(x::telem::TimeStamp(PERIOD / 4)), x::telem::TimeSpan(0));
+    EXPECT_EQ(lock.update(x::telem::TimeStamp(PERIOD * 3 / 4)), x::telem::TimeSpan(0));
+    EXPECT_TRUE(lock.locked());
+    lock.update(x::telem::TimeStamp(PERIOD / 2));
+    EXPECT_FALSE(lock.locked());
+}
+
+/// @brief it should hold frames half the greatest common divisor of the period and the
+/// SYNC0 cycle after a SYNC0 event.
+TEST(PhaseLock, HoldsFramesMidwayOnTheCommonDivisorOfTheCycles) {
+    PhaseLock lock(PERIOD * 2, PERIOD * 3, x::telem::TimeStamp(0));
+    EXPECT_EQ(lock.update(x::telem::TimeStamp(PERIOD / 2)), x::telem::TimeSpan(0));
+    EXPECT_EQ(lock.update(x::telem::TimeStamp(PERIOD * 5 / 2)), x::telem::TimeSpan(0));
     EXPECT_TRUE(lock.locked());
 }
 
 /// @brief it should delay the cycle after an early frame and advance it after a late
 /// one, the short way around the period.
 TEST(PhaseLock, MovesEachFrameTheShortWayToTheTargetPhase) {
-    PhaseLock early(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock early(PERIOD, PERIOD, x::telem::TimeStamp(0));
     EXPECT_GT(early.update(x::telem::TimeStamp(PERIOD / 10)), x::telem::TimeSpan(0));
-    PhaseLock late(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock late(PERIOD, PERIOD, x::telem::TimeStamp(0));
     EXPECT_LT(late.update(x::telem::TimeStamp(PERIOD * 0.9)), x::telem::TimeSpan(0));
 }
 
 /// @brief it should never move a cycle by more than a tenth of the period.
 TEST(PhaseLock, MovesACycleAtMostATenthOfThePeriod) {
-    PhaseLock lock(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock lock(PERIOD, PERIOD, x::telem::TimeStamp(0));
     for (int i = 0; i < 10'000; ++i)
         EXPECT_LE(lock.update(x::telem::TimeStamp(1)).abs(), PERIOD / 10);
 }
@@ -45,7 +65,7 @@ TEST(PhaseLock, MovesACycleAtMostATenthOfThePeriod) {
 /// @brief it should report the lock lost once a frame passes more than a quarter
 /// period from the target phase.
 TEST(PhaseLock, LosesTheLockPastAQuarterPeriod) {
-    PhaseLock lock(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock lock(PERIOD, PERIOD, x::telem::TimeStamp(0));
     lock.update(x::telem::TimeStamp(PERIOD * 0.7));
     EXPECT_TRUE(lock.locked());
     lock.update(x::telem::TimeStamp(PERIOD * 0.8));
@@ -55,7 +75,7 @@ TEST(PhaseLock, LosesTheLockPastAQuarterPeriod) {
 /// @brief it should report a lost lock only after the lock held, so the frames before
 /// the lock first holds are not late.
 TEST(PhaseLock, ReportsALostLockOnlyAfterItHeld) {
-    PhaseLock lock(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock lock(PERIOD, PERIOD, x::telem::TimeStamp(0));
     lock.update(x::telem::TimeStamp(PERIOD * 0.9));
     EXPECT_FALSE(lock.locked());
     EXPECT_FALSE(lock.lost());
@@ -69,7 +89,7 @@ TEST(PhaseLock, ReportsALostLockOnlyAfterItHeld) {
 /// clock runs 100 ppm faster than the host clock.
 TEST(PhaseLock, HoldsTheTargetPhaseThroughClockDrift) {
     const auto p = PERIOD.nanoseconds();
-    PhaseLock lock(PERIOD, x::telem::TimeStamp(0));
+    PhaseLock lock(PERIOD, PERIOD, x::telem::TimeStamp(0));
     int64_t deadline = p / 10;
     int64_t sent = deadline - p;
     int64_t error = 0;

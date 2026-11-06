@@ -125,6 +125,8 @@ public:
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
+    std::optional<dc::Registers> dc_sync() const override;
+
     std::string interface_name() const override;
 
 private:

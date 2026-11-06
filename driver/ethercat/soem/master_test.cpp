@@ -930,6 +930,32 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
     EXPECT_EQ(this->mock->register_writes, expected);
 }
 
+/// @brief it should report the DC registers of the slave whose SYNC0 events it starts,
+/// until it stops the bus.
+TEST_F(SOEMMasterTest, DCSyncReportsTheSlaveThatRunsSYNC0) {
+    this->initialize_with_dc_slave({DC_SECOND});
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->master->dc_sync(), dc::resolve(DC_SECOND, PERIOD).first);
+    this->master->deactivate();
+    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+}
+
+/// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
+TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
+    );
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+}
+
+/// @brief it should report no DC sync when the slave runs in an SM mode.
+TEST_F(SOEMMasterTest, DCSyncIsEmptyInSMMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+}
+
 /// @brief it should send and receive process data for the group of enabled slaves only.
 TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
     this->initialize_with_slave();
