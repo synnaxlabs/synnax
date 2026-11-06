@@ -148,6 +148,29 @@ struct Cycles {
     bool operator==(const Cycles &) const = default;
 };
 
+namespace details {
+/// @brief returns errors::SLAVE_CONFIG_ERROR when cycles gives a cycle to a mode that
+/// does not run SYNC0.
+inline x::errors::Error check_cycles(const OpMode &mode, const Cycles &cycles) {
+    if ((mode.assign_activate & SYNC0_ACTIVE) != 0) return x::errors::NIL;
+    for (const auto &[name, cycle]:
+         {std::pair{"SYNC0", cycles.sync0}, std::pair{"SYNC1", cycles.sync1}})
+        if (cycle != 0)
+            return x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "mode {}(AssignActivate 0x{:04X}) does not run SYNC0, so it cannot "
+                    "use a {} cycle of {}",
+                    mode.name.empty() ? "" : "\"" + mode.name + "\" ",
+                    mode.assign_activate,
+                    name,
+                    cycle.to_string()
+                )
+            );
+    return x::errors::NIL;
+}
+}
+
 /// @brief the mode that a user chose for a slave.
 struct Choice {
     /// @brief the index of the mode in the modes of the slave.
@@ -191,7 +214,8 @@ struct Choice {
 /// @brief returns the DC mode a slave runs in, or nullopt for SM sync. With no choice,
 /// it is the first DC mode of a slave that lists no SM mode.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the modes of the slave, when modes has no
-/// mode at the index of choice with its AssignActivate.
+/// mode at the index of choice with its AssignActivate, or when choice gives a cycle to
+/// a mode that does not run SYNC0.
 inline std::pair<std::optional<OpMode>, x::errors::Error>
 select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {}) {
     if (!choice) {
@@ -203,6 +227,8 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
     if (choice->index < modes.size() &&
         modes[choice->index].assign_activate == choice->assign_activate) {
         const auto &mode = modes[choice->index];
+        if (const auto err = details::check_cycles(mode, choice->cycles))
+            return {std::nullopt, err};
         if (mode.assign_activate == 0) return {std::nullopt, x::errors::NIL};
         return {mode, x::errors::NIL};
     }
@@ -228,10 +254,11 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
 
 /// @brief returns the DC register values of the mode at the bus period. A nonzero cycle
 /// in cycles replaces the cycle that the mode gives.
-/// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when the mode
-/// gives no SYNC0 cycle, a SYNC0 cycle that is not a whole number of nanoseconds, a
-/// SYNC1 cycle that is not a multiple of the SYNC0 cycle, a SYNC1 shift that puts
-/// SYNC1 before SYNC0, or a cycle that a register cannot hold.
+/// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when cycles gives
+/// a cycle to a mode that does not run SYNC0, or the mode gives no SYNC0 cycle, a SYNC0
+/// cycle that is not a whole number of nanoseconds, a SYNC1 cycle that is not a
+/// multiple of the SYNC0 cycle, a SYNC1 shift that puts SYNC1 before SYNC0, or a cycle
+/// that a register cannot hold.
 inline std::pair<Registers, x::errors::Error> resolve(
     const OpMode &mode,
     const x::telem::TimeSpan period,
@@ -247,6 +274,7 @@ inline std::pair<Registers, x::errors::Error> resolve(
         .assign_activate = mode.assign_activate,
         .sync0_shift = mode.sync0_shift,
     };
+    if (const auto err = details::check_cycles(mode, cycles)) return {Registers{}, err};
     if ((mode.assign_activate & SYNC0_ACTIVE) == 0) return {regs, x::errors::NIL};
     x::telem::TimeSpan sync0(mode.sync0_cycle);
     if (cycles.sync0 != 0) sync0 = cycles.sync0;
