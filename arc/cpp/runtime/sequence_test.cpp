@@ -283,6 +283,38 @@ TEST(FloatConstantTest, WritesF64Values) {
     float_constant::expect_values<double>(x::telem::FLOAT64_T);
 }
 
+namespace float_flow {
+/// @brief sends math.nan and math.inf through flows as T and returns the values
+/// written.
+template<typename T>
+std::pair<T, T> run(const x::telem::DataType &dt) {
+    Sequence h(
+        "import math\n%x% -> math.nan -> %a%\n%x% -> math.inf -> %b%\n",
+        {{"x", dt}, {"a", dt}, {"b", dt}}
+    );
+    h.push("x", x::telem::Series(T(1.5)));
+    const auto out = h.flush();
+    return {last<T>(out, h.key("a")), last<T>(out, h.key("b"))};
+}
+
+template<typename T>
+void expect_values(const x::telem::DataType &dt) {
+    const auto [nan, inf] = run<T>(dt);
+    EXPECT_TRUE(std::isnan(nan));
+    EXPECT_EQ(inf, std::numeric_limits<T>::infinity());
+}
+}
+
+/// @brief it should send bare f32 constants through flows.
+TEST(FloatFlowTest, SendsF32Constants) {
+    float_flow::expect_values<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should send bare f64 constants through flows.
+TEST(FloatFlowTest, SendsF64Constants) {
+    float_flow::expect_values<double>(x::telem::FLOAT64_T);
+}
+
 namespace float_check {
 /// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
 /// for each value on x, and returns the codes in order.

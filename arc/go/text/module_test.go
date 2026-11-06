@@ -42,6 +42,12 @@ var _ = Describe("Loader", func() {
 				ID:   101,
 			},
 			{
+				Name: "outf",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   103,
+			},
+			{
 				Name: "out8",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -107,6 +113,25 @@ var _ = Describe("Loader", func() {
 				sources["m"] = `export func f() i64 { return 1 }`
 				diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should read a user module constant and a math constant the same way",
+			func(ctx SpecContext) {
+				sources["m"] = `export limit := 5`
+				i, diag := analyzeIR(
+					ctx,
+					"import (m math)\n\nm.limit -> out\nmath.inf -> outf",
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				var constants []string
+				for _, n := range i.Nodes {
+					if n.Type == "constant" {
+						constants = append(constants, n.Key)
+					}
+				}
+				Expect(constants).To(HaveLen(2))
 			},
 		)
 

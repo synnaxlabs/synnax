@@ -161,6 +161,83 @@ var _ = Describe("NaN and infinity", func() {
 		Expect(out.Get(200).Series[0].Unmarshal[bool]()[0]).To(BeTrue())
 	})
 
+	DescribeTable("Should send a bare constant through a flow",
+		func(ctx SpecContext, dt types.Type, dataType telem.DataType) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			x -> math.nan -> bad
+			x -> math.inf -> high
+			math.inf -> first`, channelSymbols(map[string]channelDef{
+				"x":     {dt, 100},
+				"bad":   {dt, 200},
+				"high":  {dt, 201},
+				"first": {dt, 202},
+			}),
+				channels.Digest{Key: 100, DataType: dataType},
+				channels.Digest{Key: 200, DataType: dataType},
+				channels.Digest{Key: 201, DataType: dataType},
+				channels.Digest{Key: 202, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesFromAny(1.0, dataType))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			value := func(key uint32) float64 {
+				s := out.Get(key).Series[0]
+				if dataType == telem.Float32T {
+					return float64(s.Unmarshal[float32]()[0])
+				}
+				return s.Unmarshal[float64]()[0]
+			}
+			Expect(math.IsNaN(value(200))).To(BeTrue())
+			Expect(math.IsInf(value(201), 1)).To(BeTrue())
+			Expect(math.IsInf(value(202), 1)).To(BeTrue())
+		},
+		Entry("f32", types.F32(), telem.Float32T),
+		Entry("f64", types.F64(), telem.Float64T),
+	)
+
+	DescribeTable("Should resolve module members in a flow",
+		func(ctx SpecContext, source, message string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
+			}, &symbol.Symbol{
+				Name: "y",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			_, err := arc.CompileText(
+				ctx,
+				arc.Text{Raw: "import math\n" + source},
+				root,
+			)
+			Expect(err).To(MatchError(ContainSubstring(message)))
+		},
+		Entry("constant as a sink", "x -> math.nan", "math.nan is not a channel"),
+		Entry("unknown member", "x -> math.foo -> y", "undefined symbol: foo"),
+	)
+
+	It("Should resolve a bare channel named like a constant", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		nan -> y
+		nan -> math.inf -> z`, channelSymbols(map[string]channelDef{
+			"nan": {types.F64(), 100},
+			"y":   {types.F64(), 200},
+			"z":   {types.F64(), 201},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float64T},
+			channels.Digest{Key: 200, DataType: telem.Float64T},
+			channels.Digest{Key: 201, DataType: telem.Float64T},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV(2.5))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(2.5))
+	})
+
 	It("Should write a constant to a channel from a flow", func(ctx SpecContext) {
 		h := newRuntimeHarness(ctx, `
 		import math
@@ -182,19 +259,6 @@ var _ = Describe("NaN and infinity", func() {
 		Expect(math.IsInf(float64(low), -1)).To(BeTrue())
 		bad := out.Get(201).Series[0].Unmarshal[float32]()[0]
 		Expect(math.IsNaN(float64(bad))).To(BeTrue())
-	})
-
-	It("Should point a bare constant in a flow at parentheses", func(ctx SpecContext) {
-		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
-			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
-		}, &symbol.Symbol{
-			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
-		}))
-		Expect(arc.CompileText(
-			ctx,
-			arc.Text{Raw: "import math\nx -> math.nan -> y"},
-			root,
-		)).Error().To(MatchError(ContainSubstring("use (math.nan) to send its value")))
 	})
 
 	Describe("Mixed float and integer literals", func() {
