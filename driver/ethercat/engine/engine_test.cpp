@@ -218,17 +218,32 @@ TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
     EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
-/// @brief it should keep the cycle locked to the distributed clock while the working
-/// counter falls short, as while the slaves move to OP.
-TEST_F(EngineTest, LocksTheCycleWhileTheWorkingCounterFallsShort) {
+/// @brief it should lock the cycle to the distributed clock while the slaves move to
+/// OP and the working counter falls short.
+TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
     this->master->set_host_dc(1.005);
-    this->master->inject_receive_error(
-        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
-    );
+    this->master->set_start_frames(400);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread start([&] {
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    });
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_EQ(this->master->call_count("op"), 0);
+    start.join();
+    ASSERT_NIL(res.second);
+}
+
+/// @brief it should not move the cycle on a frame with a short working counter after
+/// the start, as the frame can miss the reference clock.
+TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
+    this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    this->master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {

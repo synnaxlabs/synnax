@@ -264,11 +264,10 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        const bool short_count = err.matches(errors::WORKING_COUNTER_ERROR);
-        // The working counter falls short until the slaves reach OP.
-        const bool shortfall = starting && short_count;
-        // A frame with a short working counter still carries the DC time.
-        const auto dc = (!err || short_count) ? this->master->dc_time() : std::nullopt;
+        // The working counter falls short until the slaves reach OP. After that, a
+        // short frame can miss the reference clock, and SOEM repeats the last DC time.
+        const bool shortfall = starting && err.matches(errors::WORKING_COUNTER_ERROR);
+        const auto dc = (!err || shortfall) ? this->master->dc_time() : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
