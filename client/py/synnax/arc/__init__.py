@@ -21,6 +21,7 @@ from synnax.arc.types_gen import (
     Mode,
     Payload,
     Where,
+    WhereInput,
     ontology_id,
 )
 from x.spatial import XY as Position
@@ -42,6 +43,7 @@ __all__ = [
     "TaskConfig",
     "Text",
     "Where",
+    "WhereInput",
     "compiler",
     "graph",
     "ir",
