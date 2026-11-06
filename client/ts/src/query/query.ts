@@ -25,7 +25,7 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type Table, type TableEvent } from "@/query/table";
+import { type Stamp, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
@@ -109,8 +109,8 @@ export interface Watch<P extends Params, K extends record.Key> {
     params: P,
     onEvent: (result: K[] | "refetch") => void,
   ) => destructor.Destructor;
-  /** The watched table's {@link Table.version}. */
-  version: () => number;
+  /** The watched table's {@link Table.stamp}. */
+  stamp: () => Stamp;
 }
 
 /**
@@ -143,7 +143,7 @@ export const watch = <
       }
       if (keys.length > 0) onEvent(keys);
     }),
-  version: () => table.version(),
+  stamp: () => table.stamp(),
 });
 
 /**
@@ -248,12 +248,12 @@ export interface SpaceHooks {
 const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
 const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
-/** What an answer settled against: change delivery and the versions of the tables
- *  that feed it. */
+/** What an answer was fetched against: change delivery and the write stamps of the
+ *  tables that feed it. */
 interface Basis {
   /** The connection epoch, or null when change delivery was off. */
   epoch: number | null;
-  versions: number[];
+  stamps: Stamp[];
 }
 
 type QueryState<K extends record.Key, D extends Data> =
@@ -285,11 +285,11 @@ interface Query<
   /** When the last subscriber left; the sweep tears the query down once this
    *  outlives the grace window. Cleared on resubscribe. */
   idleSince?: TimeStamp;
-  /** Present once the answer settled from a fetch. Maintenance reconfirms the answer
+  /** Taken when the fetch behind the answer started. Maintenance reconfirms the answer
    *  only when a change since then could have gone unobserved. */
   basis?: Basis;
-  /** Set when a change may have outdated the answer and no fetch has confirmed it
-   *  since. Reads fetch instead of trusting it, and the next subscriber refetches. */
+  /** Set when a change may have outdated the answer since its last fetch started.
+   *  Reads fetch instead of trusting it, and the next subscriber refetches. */
   stale?: boolean;
   /** Answer interned against the records it was composed from, so repeated
    *  reads stay referentially stable for useSyncExternalStore consumers. A
@@ -641,10 +641,11 @@ export class Space<
     query: Query<P, K, D, V>,
     expected: QueryState<K, D>,
     next: QueryState<K, D>,
+    basis: Basis,
   ): void {
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
-    this.confirm(query, next);
+    this.confirm(query, next, basis);
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -657,13 +658,15 @@ export class Space<
     this.touch(query);
   }
 
-  /** Publishes a fetch's answer, which covers every change before the fetch ran. */
-  private confirm(query: Query<P, K, D, V>, next: QueryState<K, D>): void {
+  /** Publishes a fetch's answer, which covers every change before the fetch started. */
+  private confirm(
+    query: Query<P, K, D, V>,
+    next: QueryState<K, D>,
+    basis: Basis,
+  ): void {
     query.state = next;
     query.vacated = false;
-    if (next.variant !== "ready") return;
-    query.stale = false;
-    query.basis = { epoch: this.liveEpoch(), versions: this.versions() };
+    if (next.variant === "ready") query.basis = basis;
   }
 
   /**
@@ -686,6 +689,8 @@ export class Space<
       clearTimeout(query.refetchTimer);
       query.refetchTimer = undefined;
     }
+    query.stale = false;
+    const basis = this.basis();
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -696,10 +701,10 @@ export class Space<
           keys.length === 1 &&
           table.status(keys[0]) === "tombstoned"
         ) {
-          this.settle(query, loading, { variant: "deleted", key: keys[0] });
+          this.settle(query, loading, { variant: "deleted", key: keys[0] }, basis);
           throw new NotFoundError(`${name} was deleted`);
         }
-        this.settle(query, loading, { variant: "ready", keys });
+        this.settle(query, loading, { variant: "ready", keys }, basis);
         // The settle drains membership changes that raced the fetch, so the answer
         // comes off the query: the keys the fetch returned are already stale. A drain
         // that leaves the query unfetched asks the server again.
@@ -709,7 +714,7 @@ export class Space<
       },
       (reason: unknown) => {
         const error = errors.fromUnknown(reason);
-        this.settle(query, loading, { variant: "error", error });
+        this.settle(query, loading, { variant: "error", error }, basis);
         throw error;
       },
     );
@@ -735,12 +740,15 @@ export class Space<
       query.stale = true;
       return;
     }
+    query.stale = false;
+    const basis = this.basis();
     const before = query.state;
     let keys: K[];
     try {
       keys = await this.config.fetch(query.params);
     } catch (reason) {
       if (query.state !== before) return;
+      query.stale = true;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away.
       if (before.variant === "ready") return;
@@ -750,7 +758,7 @@ export class Space<
     // Only apply if maintenance hasn't been torn down and no newer fetch
     // superseded this one.
     if (query.state !== before) return;
-    this.confirm(query, { variant: "ready", keys });
+    this.confirm(query, { variant: "ready", keys }, basis);
     this.touch(query);
   }
 
@@ -761,20 +769,21 @@ export class Space<
     return epoch === 0 ? null : epoch;
   }
 
-  private versions(): number[] {
+  private basis(): Basis {
     const { table, watch: watches = [] } = this.config;
-    return [table.version(), ...watches.map((w) => w.version())];
+    const stamps = [table.stamp(), ...watches.map((w) => w.stamp())];
+    return { epoch: this.liveEpoch(), stamps };
   }
 
   /**
-   * Returns whether a change may have reached the answer unobserved since it settled:
-   * change delivery was off or reconnected, or a table that feeds it changed.
+   * Returns whether a change may have reached the answer unobserved since its fetch
+   * started: change delivery was off or reconnected, or a table that feeds it changed.
    */
   private unconfirmed(query: Query<P, K, D, V>): boolean {
     const { basis } = query;
     if (query.stale === true || basis == null || basis.epoch == null) return true;
-    if (basis.epoch !== this.liveEpoch()) return true;
-    return !compare.arraysEqual(basis.versions, this.versions());
+    const now = this.basis();
+    return basis.epoch !== now.epoch || !compare.arraysEqual(basis.stamps, now.stamps);
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {
