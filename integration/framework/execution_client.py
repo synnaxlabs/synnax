@@ -41,8 +41,6 @@ _COLORS: list[str] = [
     "#000033",
 ]
 
-# Seconds past its timeout a test has to finish before the conductor stops waiting on
-# it.
 _TIMEOUT_GRACE = 60.0
 
 # Seconds a test can wait for its resources before the conductor logs the wait.
@@ -73,9 +71,13 @@ class ExecutionClient:
         log: Log,
         on_status_change: Callable[[Test], None],
         on_test_ran: Callable[[], None],
+        timeout_grace: float = _TIMEOUT_GRACE,
     ) -> None:
         """:param cores: The Cores to run tests on. The first one is the only Core
-        whose Driver reads NI devices."""
+        whose Driver reads NI devices.
+        :param timeout_grace: Seconds past its timeout a test has to finish before the
+        client stops waiting on it.
+        """
         self._config_client = config_client
         self._cores = cores
         self._resources = resources
@@ -95,7 +97,7 @@ class ExecutionClient:
         self._total_tests = 0
         self._tests_offset = 0
         self._timeout_thread: threading.Thread | None = None
-        self._watchdog = Watchdog(_TIMEOUT_GRACE)
+        self._watchdog = Watchdog(timeout_grace)
         self._abandoned: dict[threading.Thread, str] = {}
 
     def run(self, sequences: list[Sequence]) -> None:
@@ -171,7 +173,9 @@ class ExecutionClient:
             if not seq.isolated or self.should_stop:
                 continue
             with self._tests_lock:
-                running = sorted(n for t, n in self._abandoned.items() if t.is_alive())
+                running = sorted(
+                    {n for t, n in self._abandoned.items() if t.is_alive()}
+                )
             if not running:
                 self._run_sequence(seq, self._cores[0])
                 continue
@@ -359,7 +363,7 @@ class ExecutionClient:
             if any(str(r) == str(test_def) for r in self._tests):
                 return
             self._tests.append(result)
-        self._on_test_ran()
+            self._on_test_ran()
 
     @staticmethod
     def _result(test_def: TestDefinition, status: STATUS, message: str) -> Test:

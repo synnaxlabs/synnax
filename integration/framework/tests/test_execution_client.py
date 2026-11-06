@@ -111,6 +111,7 @@ def sequence(
     hold: float = 0.3,
     order: str = "sequential",
     isolated: bool = False,
+    timeout: float | None = None,
 ) -> dict[str, object]:
     return {
         "sequence_name": name,
@@ -121,6 +122,7 @@ def sequence(
                 "case": f"lanes_spec/{case}",
                 "name": f"{name}_{i}",
                 "parameters": {"hold": hold, "record": "record.jsonl"},
+                **({} if timeout is None else {"timeout": timeout}),
             }
             for i, case in enumerate(cases)
         ],
@@ -134,6 +136,7 @@ def client(
     browsers: int | None = None,
     active: list[tuple[Any, ...]] | None = None,
     on_test_ran: Callable[[], None] = lambda: None,
+    timeout_grace: float = 60.0,
 ) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
     """Returns a client for the sequences, with the sequences to run and the list it
     records results in."""
@@ -163,6 +166,7 @@ def client(
         log=lambda message, /, *, use_name=True: None,
         on_status_change=lambda _: None,
         on_test_ran=on_test_ran,
+        timeout_grace=timeout_grace,
     )
     return execution, loaded, results
 
@@ -257,6 +261,26 @@ class TestExecutionClient:
         )
         assert spans["t_0"].start >= max(spans["a_0"].end, spans["b_0"].end)
         assert spans["t_0"].port == FIRST_PORT
+
+    def test_isolated_after_abandoned(self, cases_dir: Path) -> None:
+        """Should fail an isolated sequence while an abandoned test still runs."""
+        before = set(threading.enumerate())
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "plain", hold=2, timeout=0.1),
+            sequence("t", "plain", isolated=True),
+            timeout_grace=0,
+        )
+        execution.run(loaded)
+        for t in set(threading.enumerate()) - before:
+            t.join(timeout=5)
+        timed_out = "Test exceeded its timeout (0.1s) and did not stop"
+        blocked = "Abandoned tests still run: lanes_spec/plain (a_0)"
+        assert sorted((t.name, t.status, t.error_message) for t in results) == [
+            ("a_0", STATUS.TIMEOUT, timed_out),
+            ("t_0", STATUS.FAILED, blocked),
+        ]
+        assert "t_0" not in spans(cases_dir)
 
     # A stop ends the running test's thread with SystemExit.
     @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")

@@ -123,19 +123,6 @@ class _TestConductor:
 
         self.config_client = ConfigClient(log=self.log)
 
-        self.core_processes: list[cores.Process] = []
-        if cores_extra > 0:
-            if core_binary is None:
-                raise ValueError("--cores above 1 needs --core-binary")
-            self.log(f"Starting {cores_extra} more Cores from {core_binary}")
-            self.core_processes = cores.start(
-                binary=core_binary,
-                first=self.synnax_connection,
-                count=cores_extra,
-                log_dir=self.run_dir / "cores",
-            )
-        first = Core(connection=self.synnax_connection, log_path=server_log_path)
-
         self.state = _STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
@@ -155,6 +142,30 @@ class _TestConductor:
             get_should_stop=lambda: self.should_stop,
         )
 
+        self.report_client = ReportClient(
+            tests=self.tests,
+            tests_lock=self.tests_lock,
+            test_definitions=self.test_definitions,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log,
+        )
+
+        # main stops these Cores only once this returns, so no step after them can
+        # fail.
+        self.core_processes: list[cores.Process] = []
+        if cores_extra > 0:
+            if core_binary is None:
+                raise ValueError("--cores above 1 needs --core-binary")
+            self.log(f"Starting {cores_extra} more Cores from {core_binary}")
+            self.core_processes = cores.start(
+                binary=core_binary,
+                first=self.synnax_connection,
+                count=cores_extra,
+                log_dir=self.run_dir / "cores",
+            )
+        first = Core(connection=self.synnax_connection, log_path=server_log_path)
+
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
             cores=[first, *(p.core for p in self.core_processes)],
@@ -170,15 +181,6 @@ class _TestConductor:
             log=self.log,
             on_status_change=self._notify_status_change,
             on_test_ran=self.telemetry_client.increment_tests_ran,
-        )
-
-        self.report_client = ReportClient(
-            tests=self.tests,
-            tests_lock=self.tests_lock,
-            test_definitions=self.test_definitions,
-            active_tests=self.active_tests,
-            active_tests_lock=self.active_tests_lock,
-            log=self.log,
         )
 
         signal.signal(signal.SIGINT, self._signal_handler)
