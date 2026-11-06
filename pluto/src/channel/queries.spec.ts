@@ -307,7 +307,7 @@ describe("queries", () => {
       });
       const { result, rerender } = renderHook(
         ({ key }: { key?: channel.Key }) => {
-          const list = Channel.useList({ initialQuery: { rangeKey: range.key } });
+          const list = Channel.useList({ query: { rangeKey: range.key } });
           const item = Flux.useListItem({
             subscribe: list.subscribe,
             getItem: list.getItem,
@@ -351,7 +351,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Channel.useList({
-            initialQuery: { rangeKey: range.key },
+            query: { rangeKey: range.key },
             useCachedList: false,
           }),
         { wrapper },
@@ -379,7 +379,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: {} }),
+          () => Channel.useList({ query: {} }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -403,7 +403,7 @@ describe("queries", () => {
         await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: { searchTerm: "cached" } }),
+          () => Channel.useList({ query: { searchTerm: "cached" } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
