@@ -18,6 +18,10 @@ set -e
 
 PLATFORM=${1:-linux}
 
+# The most runs searched, newest first. Each can cost a fetch of its commit, and the
+# queue reuses runs far newer than this.
+RECENT_RUN_LIMIT=200
+
 if [ "${PLATFORM}" = "all" ]; then
     OS_NAMES=("linux" "windows")
 else
@@ -101,21 +105,27 @@ ensure_history() {
 
 # Fetches the listed commits the checkout lacks in one request. GitHub at times refuses
 # a commit that no branch reaches, which fails the whole request, so the refused commit
-# is dropped and the request sent again. ensure_commit tries the dropped ones later.
+# is dropped and the request sent again. Any other failure is sent again twice, since
+# ensure_commit fetches each commit still missing on its own, about a second each.
 fetch_missing() {
     local todo="${CACHE_DIR}/missing"
-    local err sha
+    local err sha failures=0
     git cat-file --batch-check < "$1" | awk '$2 == "missing" { print $1 }' > "${todo}"
     while [ -s "${todo}" ]; do
         if err=$(xargs git fetch --quiet --depth=1 origin < "${todo}" 2>&1); then
             return 0
         fi
         sha=$(sed -nE 's/.*not our ref ([0-9a-f]{40}).*/\1/p' <<< "${err}" | head -1)
-        if [ -z "${sha}" ] || ! grep -qxF "${sha}" "${todo}"; then
+        if [ -n "${sha}" ] && grep -qxF "${sha}" "${todo}"; then
+            grep -vxF "${sha}" "${todo}" > "${todo}.next" || true
+            mv "${todo}.next" "${todo}"
+            continue
+        fi
+        failures=$((failures + 1))
+        if [ "${failures}" -ge 3 ]; then
+            log "fetch of $(wc -l < "${todo}") commits failed: $(head -1 <<< "${err}")"
             return 0
         fi
-        grep -vxF "${sha}" "${todo}" > "${todo}.next" || true
-        mv "${todo}.next" "${todo}"
     done
 }
 
@@ -489,7 +499,8 @@ main() {
             RECENT_RUNS+="${rows}"$'\n'
         done
     done
-    RECENT_RUNS=$(sed '/^$/d' <<< "${RECENT_RUNS}" | sort -t: -k1,1 -rnu)
+    RECENT_RUNS=$(sed '/^$/d' <<< "${RECENT_RUNS}" | sort -t: -k1,1 -rnu \
+        | awk -v n="${RECENT_RUN_LIMIT}" 'NR <= n')
 
     local shas="${CACHE_DIR}/shas"
     { cut -d: -f2 <<< "${RECENT_RUNS}" && echo "${CANDIDATE_SHAS}"; } \

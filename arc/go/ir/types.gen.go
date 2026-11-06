@@ -60,8 +60,11 @@ type ScopeMode uint8
 //go:generate stringer -type=ScopeMode
 
 const (
+	// ScopeModeUnspecified has no mode set.
 	ScopeModeUnspecified ScopeMode = iota
+	// ScopeModeParallel runs every member of the scope in strata.
 	ScopeModeParallel
+	// ScopeModeSequential runs one step of the scope at a time.
 	ScopeModeSequential
 )
 
@@ -71,8 +74,11 @@ type Liveness uint8
 //go:generate stringer -type=Liveness
 
 const (
+	// LivenessUnspecified has no liveness set.
 	LivenessUnspecified Liveness = iota
+	// LivenessAlways activates the scope with its parent.
 	LivenessAlways
+	// LivenessGated activates the scope when one of its activations fires.
 	LivenessGated
 )
 

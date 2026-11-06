@@ -50,7 +50,12 @@ import {
   retrieveResponseZ,
 } from "@/ranger/types.gen";
 import { createLines, labelChangeAdmits } from "@/ranger/where";
-import { type Lines, matches, serverComputed } from "@/ranger/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -281,6 +286,7 @@ const retrieveMultiParamsZ = z.union([
     where: { overlaps },
   })),
   callerRequestZ,
+  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
 ]);
 
 /**
@@ -301,6 +307,9 @@ const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
 
 const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
   typeof params === "string" ? { key: params } : params;
+
+const isKeyParams = (params: object): params is { key: Key } =>
+  "key" in params && typeof params.key === "string";
 
 const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -416,7 +425,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name
+  Key | Name | { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -507,7 +516,13 @@ export class Client extends query.Retriever<
         ],
       },
       compose: (r) => this.composeOne(r),
-      single: { schema: z.string(), space: single },
+      single: {
+        schema: z.union([
+          z.string(),
+          z.strictObject({ key: keyZ }).transform(({ key }) => key),
+        ]),
+        space: single,
+      },
     });
     this.cfg = cfg;
     this.lines = createLines((r, keys) =>
@@ -647,15 +662,22 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
   async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
   async retrieve(
-    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
+    params:
+      | Key
+      | Name
+      | { key: Key }
+      | Name[]
+      | CrudeTimeRange
+      | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string") return await super.retrieve(params);
+    if (typeof params === "string" || isKeyParams(params))
+      return await super.retrieve(params);
     return await super.retrieve(params);
   }
 

@@ -36,6 +36,9 @@ const (
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
+// oneOption is the client retrieve option that asks for one record.
+const oneOption = "one"
+
 // collectFilter registers a filter definition as a struct holding the tree fields and
 // the typed lines. expandFilters adds the bare lines once the target resolves.
 func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
@@ -491,6 +494,23 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 				fmt.Sprintf("includes the %s of each record.", f.Name),
 				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
 			))
+		}
+	}
+	// A client takes lines and retrieve options side by side, so no line may share a
+	// name with an option in any casing.
+	options := append(
+		lo.Map(request, func(f resolution.Field, _ int) string { return f.Name }),
+		oneOption,
+	)
+	for _, line := range where.Filter.Lines {
+		if lo.Contains(options, casing.FieldSnake(line.Name)) {
+			c.report(diagnostics.Errorf(
+				where.AST.(parser.IFilterDefContext),
+				"filter %s: %q is reserved for retrieve",
+				where.Name,
+				line.Name,
+			))
+			return
 		}
 	}
 	created := []resolution.Type{{
