@@ -913,6 +913,22 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
+/// no frame carries the reference clock to the slaves, since the clock difference of a
+/// slave keeps its old value until one does.
+TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    const auto err = this->master->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "no frame carried the reference clock to the slaves within " +
+            (x::telem::MILLISECOND * 50).to_string()
+    );
+    EXPECT_EQ(this->mock->register_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
 /// @brief it should read bit 31 of the system time difference as its sign.
 TEST_F(SOEMMasterTest, ActivateReadsTheSignOfTheClockDifference) {
     this->initialize_with_dc_slave({DC_ONLY});
