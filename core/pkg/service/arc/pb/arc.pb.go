@@ -18,10 +18,10 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/arc/graph/pb"
-	pb2 "github.com/synnaxlabs/arc/program/pb"
+	pb2 "github.com/synnaxlabs/arc/graph/pb"
+	pb3 "github.com/synnaxlabs/arc/program/pb"
 	pb1 "github.com/synnaxlabs/arc/text/pb"
-	pb3 "github.com/synnaxlabs/x/filter/pb"
+	pb "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -83,41 +83,81 @@ func (Mode) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
 }
 
-// Arc is an Arc module combining visual graph representation and text-based source code
-// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc struct {
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type int32
+
+const (
+	Type_TYPE_AUTOMATION Type = 0
+	Type_TYPE_MODULE     Type = 1
+)
+
+// Enum value maps for Type.
+var (
+	Type_name = map[int32]string{
+		0: "TYPE_AUTOMATION",
+		1: "TYPE_MODULE",
+	}
+	Type_value = map[string]int32{
+		"TYPE_AUTOMATION": 0,
+		"TYPE_MODULE":     1,
+	}
+)
+
+func (x Type) Enum() *Type {
+	p := new(Type)
+	*p = x
+	return p
+}
+
+func (x Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_arc_pb_arc_proto_enumTypes[1].Descriptor()
+}
+
+func (Type) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_arc_pb_arc_proto_enumTypes[1]
+}
+
+func (x Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Type.Descriptor instead.
+func (Type) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+}
+
+// Base carries the fields that every Arc shares.
+type Base struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this module.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the module.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// mode specifies the representation mode for this module. Either "text" for
-	// text-based Arc code or "graph" for visual dataflow.
-	Mode Mode `protobuf:"varint,3,opt,name=mode,proto3,enum=service.arc.pb.Mode" json:"mode,omitempty"`
-	// graph is the visual dataflow graph representation of the module.
-	Graph *pb.Graph `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
-	// text is the text-based Arc source code.
-	Text *pb1.Text `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
-	// program is the compiled module output including IR and WebAssembly bytecode.
-	Program       *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
+	// source is the Arc's source code, written as text or drawn as a graph.
+	Source        *Source `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Arc) Reset() {
-	*x = Arc{}
+func (x *Base) Reset() {
+	*x = Base{}
 	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Arc) String() string {
+func (x *Base) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Arc) ProtoMessage() {}
+func (*Base) ProtoMessage() {}
 
-func (x *Arc) ProtoReflect() protoreflect.Message {
+func (x *Base) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -129,49 +169,28 @@ func (x *Arc) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Arc.ProtoReflect.Descriptor instead.
-func (*Arc) Descriptor() ([]byte, []int) {
+// Deprecated: Use Base.ProtoReflect.Descriptor instead.
+func (*Base) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Arc) GetKey() string {
+func (x *Base) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *Arc) GetName() string {
+func (x *Base) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *Arc) GetMode() Mode {
+func (x *Base) GetSource() *Source {
 	if x != nil {
-		return x.Mode
-	}
-	return Mode_MODE_TEXT
-}
-
-func (x *Arc) GetGraph() *pb.Graph {
-	if x != nil {
-		return x.Graph
-	}
-	return nil
-}
-
-func (x *Arc) GetText() *pb1.Text {
-	if x != nil {
-		return x.Text
-	}
-	return nil
-}
-
-func (x *Arc) GetProgram() *pb2.Program {
-	if x != nil {
-		return x.Program
+		return x.Source
 	}
 	return nil
 }
@@ -320,7 +339,7 @@ func (x *UuidSet) GetIn() *UuidList {
 	return nil
 }
 
-// Where is a filter that selects Arc modules.
+// Where is a filter that selects Arcs.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// and matches when every child matches.
@@ -332,7 +351,7 @@ type Where struct {
 	// key selects by key.
 	Key *UuidSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
 	// name selects by name.
-	Name          *pb3.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Name          *pb.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -395,27 +414,368 @@ func (x *Where) GetKey() *UuidSet {
 	return nil
 }
 
-func (x *Where) GetName() *pb3.String {
+func (x *Where) GetName() *pb.String {
 	if x != nil {
 		return x.Name
 	}
 	return nil
 }
 
+type SourceTextPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// text is the text-based Arc source code.
+	Text          *pb1.Text `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTextPayload) Reset() {
+	*x = SourceTextPayload{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTextPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTextPayload) ProtoMessage() {}
+
+func (x *SourceTextPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTextPayload.ProtoReflect.Descriptor instead.
+func (*SourceTextPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SourceTextPayload) GetText() *pb1.Text {
+	if x != nil {
+		return x.Text
+	}
+	return nil
+}
+
+type SourceGraphPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// graph is the visual dataflow graph representation of the module.
+	Graph         *pb2.Graph `protobuf:"bytes,1,opt,name=graph,proto3" json:"graph,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceGraphPayload) Reset() {
+	*x = SourceGraphPayload{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceGraphPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceGraphPayload) ProtoMessage() {}
+
+func (x *SourceGraphPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceGraphPayload.ProtoReflect.Descriptor instead.
+func (*SourceGraphPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SourceGraphPayload) GetGraph() *pb2.Graph {
+	if x != nil {
+		return x.Graph
+	}
+	return nil
+}
+
+type ArcAutomationPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// program is the compiled module output including IR and WebAssembly bytecode.
+	Program       *pb3.Program `protobuf:"bytes,1,opt,name=program,proto3,oneof" json:"program,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArcAutomationPayload) Reset() {
+	*x = ArcAutomationPayload{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArcAutomationPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArcAutomationPayload) ProtoMessage() {}
+
+func (x *ArcAutomationPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArcAutomationPayload.ProtoReflect.Descriptor instead.
+func (*ArcAutomationPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ArcAutomationPayload) GetProgram() *pb3.Program {
+	if x != nil {
+		return x.Program
+	}
+	return nil
+}
+
+type ArcModulePayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArcModulePayload) Reset() {
+	*x = ArcModulePayload{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArcModulePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArcModulePayload) ProtoMessage() {}
+
+func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArcModulePayload.ProtoReflect.Descriptor instead.
+func (*ArcModulePayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{8}
+}
+
+// Source is the source code of an Arc. The mode selects text or a graph.
+type Source struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Source_Text
+	//	*Source_Graph
+	Variant       isSource_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Source) Reset() {
+	*x = Source{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Source) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Source) ProtoMessage() {}
+
+func (x *Source) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Source.ProtoReflect.Descriptor instead.
+func (*Source) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Source) GetVariant() isSource_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Source) GetText() *SourceTextPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Source_Text); ok {
+			return x.Text
+		}
+	}
+	return nil
+}
+
+func (x *Source) GetGraph() *SourceGraphPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Source_Graph); ok {
+			return x.Graph
+		}
+	}
+	return nil
+}
+
+type isSource_Variant interface {
+	isSource_Variant()
+}
+
+type Source_Text struct {
+	Text *SourceTextPayload `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+}
+
+type Source_Graph struct {
+	Graph *SourceGraphPayload `protobuf:"bytes,2,opt,name=graph,proto3,oneof"`
+}
+
+func (*Source_Text) isSource_Variant() {}
+
+func (*Source_Graph) isSource_Variant() {}
+
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+type Arc struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Base  *Base                  `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Arc_Automation
+	//	*Arc_Module
+	Variant       isArc_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Arc) Reset() {
+	*x = Arc{}
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Arc) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Arc) ProtoMessage() {}
+
+func (x *Arc) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Arc.ProtoReflect.Descriptor instead.
+func (*Arc) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Arc) GetBase() *Base {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
+func (x *Arc) GetVariant() isArc_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Arc) GetAutomation() *ArcAutomationPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Arc_Automation); ok {
+			return x.Automation
+		}
+	}
+	return nil
+}
+
+func (x *Arc) GetModule() *ArcModulePayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Arc_Module); ok {
+			return x.Module
+		}
+	}
+	return nil
+}
+
+type isArc_Variant interface {
+	isArc_Variant()
+}
+
+type Arc_Automation struct {
+	Automation *ArcAutomationPayload `protobuf:"bytes,2,opt,name=automation,proto3,oneof"`
+}
+
+type Arc_Module struct {
+	Module *ArcModulePayload `protobuf:"bytes,3,opt,name=module,proto3,oneof"`
+}
+
+func (*Arc_Automation) isArc_Variant() {}
+
+func (*Arc_Module) isArc_Variant() {}
+
 var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xeb\x01\n" +
-	"\x03Arc\x12\x10\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\\\n" +
+	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
-	"\x04mode\x18\x03 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
-	"\x05graph\x18\x04 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
-	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
-	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01B\n" +
-	"\n" +
-	"\b_program\":\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
+	"\x06source\x18\x03 \x01(\v2\x16.service.arc.pb.SourceR\x06source\":\n" +
 	"\tWhereList\x12-\n" +
 	"\x06values\x18\x01 \x03(\v2\x15.service.arc.pb.WhereR\x06values\"\"\n" +
 	"\bUuidList\x12\x16\n" +
@@ -432,11 +792,34 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
-	"\x05_name*%\n" +
+	"\x05_name\":\n" +
+	"\x11SourceTextPayload\x12%\n" +
+	"\x04text\x18\x01 \x01(\v2\x11.arc.text.pb.TextR\x04text\"?\n" +
+	"\x12SourceGraphPayload\x12)\n" +
+	"\x05graph\x18\x01 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\"Z\n" +
+	"\x14ArcAutomationPayload\x126\n" +
+	"\aprogram\x18\x01 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01B\n" +
+	"\n" +
+	"\b_program\"\x12\n" +
+	"\x10ArcModulePayload\"\x88\x01\n" +
+	"\x06Source\x127\n" +
+	"\x04text\x18\x01 \x01(\v2!.service.arc.pb.SourceTextPayloadH\x00R\x04text\x12:\n" +
+	"\x05graph\x18\x02 \x01(\v2\".service.arc.pb.SourceGraphPayloadH\x00R\x05graphB\t\n" +
+	"\avariant\"\xbe\x01\n" +
+	"\x03Arc\x12(\n" +
+	"\x04base\x18\x01 \x01(\v2\x14.service.arc.pb.BaseR\x04base\x12F\n" +
+	"\n" +
+	"automation\x18\x02 \x01(\v2$.service.arc.pb.ArcAutomationPayloadH\x00R\n" +
+	"automation\x12:\n" +
+	"\x06module\x18\x03 \x01(\v2 .service.arc.pb.ArcModulePayloadH\x00R\x06moduleB\t\n" +
+	"\avariant*%\n" +
 	"\x04Mode\x12\r\n" +
 	"\tMODE_TEXT\x10\x00\x12\x0e\n" +
 	"\n" +
-	"MODE_GRAPH\x10\x01B\xa9\x01\n" +
+	"MODE_GRAPH\x10\x01*,\n" +
+	"\x04Type\x12\x13\n" +
+	"\x0fTYPE_AUTOMATION\x10\x00\x12\x0f\n" +
+	"\vTYPE_MODULE\x10\x01B\xa9\x01\n" +
 	"\x12com.service.arc.pbB\bArcProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/service/arc/pb\xa2\x02\x03SAP\xaa\x02\x0eService.Arc.Pb\xca\x02\x0eService\\Arc\\Pb\xe2\x02\x1aService\\Arc\\Pb\\GPBMetadata\xea\x02\x10Service::Arc::Pbb\x06proto3"
 
 var (
@@ -451,37 +834,49 @@ func file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescData
 }
 
-var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
-	(Mode)(0),           // 0: service.arc.pb.Mode
-	(*Arc)(nil),         // 1: service.arc.pb.Arc
-	(*WhereList)(nil),   // 2: service.arc.pb.WhereList
-	(*UuidList)(nil),    // 3: service.arc.pb.UuidList
-	(*UuidSet)(nil),     // 4: service.arc.pb.UuidSet
-	(*Where)(nil),       // 5: service.arc.pb.Where
-	(*pb.Graph)(nil),    // 6: arc.graph.pb.Graph
-	(*pb1.Text)(nil),    // 7: arc.text.pb.Text
-	(*pb2.Program)(nil), // 8: arc.program.pb.Program
-	(*pb3.String)(nil),  // 9: x.filter.pb.String
+	(Mode)(0),                    // 0: service.arc.pb.Mode
+	(Type)(0),                    // 1: service.arc.pb.Type
+	(*Base)(nil),                 // 2: service.arc.pb.Base
+	(*WhereList)(nil),            // 3: service.arc.pb.WhereList
+	(*UuidList)(nil),             // 4: service.arc.pb.UuidList
+	(*UuidSet)(nil),              // 5: service.arc.pb.UuidSet
+	(*Where)(nil),                // 6: service.arc.pb.Where
+	(*SourceTextPayload)(nil),    // 7: service.arc.pb.SourceTextPayload
+	(*SourceGraphPayload)(nil),   // 8: service.arc.pb.SourceGraphPayload
+	(*ArcAutomationPayload)(nil), // 9: service.arc.pb.ArcAutomationPayload
+	(*ArcModulePayload)(nil),     // 10: service.arc.pb.ArcModulePayload
+	(*Source)(nil),               // 11: service.arc.pb.Source
+	(*Arc)(nil),                  // 12: service.arc.pb.Arc
+	(*pb.String)(nil),            // 13: x.filter.pb.String
+	(*pb1.Text)(nil),             // 14: arc.text.pb.Text
+	(*pb2.Graph)(nil),            // 15: arc.graph.pb.Graph
+	(*pb3.Program)(nil),          // 16: arc.program.pb.Program
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
-	0,  // 0: service.arc.pb.Arc.mode:type_name -> service.arc.pb.Mode
-	6,  // 1: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
-	7,  // 2: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
-	8,  // 3: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
-	5,  // 4: service.arc.pb.WhereList.values:type_name -> service.arc.pb.Where
-	3,  // 5: service.arc.pb.UuidSet.in:type_name -> service.arc.pb.UuidList
-	2,  // 6: service.arc.pb.Where.and:type_name -> service.arc.pb.WhereList
-	2,  // 7: service.arc.pb.Where.or:type_name -> service.arc.pb.WhereList
-	5,  // 8: service.arc.pb.Where.not:type_name -> service.arc.pb.Where
-	4,  // 9: service.arc.pb.Where.key:type_name -> service.arc.pb.UuidSet
-	9,  // 10: service.arc.pb.Where.name:type_name -> x.filter.pb.String
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
+	6,  // 1: service.arc.pb.WhereList.values:type_name -> service.arc.pb.Where
+	4,  // 2: service.arc.pb.UuidSet.in:type_name -> service.arc.pb.UuidList
+	3,  // 3: service.arc.pb.Where.and:type_name -> service.arc.pb.WhereList
+	3,  // 4: service.arc.pb.Where.or:type_name -> service.arc.pb.WhereList
+	6,  // 5: service.arc.pb.Where.not:type_name -> service.arc.pb.Where
+	5,  // 6: service.arc.pb.Where.key:type_name -> service.arc.pb.UuidSet
+	13, // 7: service.arc.pb.Where.name:type_name -> x.filter.pb.String
+	14, // 8: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
+	15, // 9: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
+	16, // 10: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
+	7,  // 11: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
+	8,  // 12: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
+	2,  // 13: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
+	9,  // 14: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
+	10, // 15: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -489,16 +884,24 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 	if File_core_pkg_service_arc_pb_arc_proto != nil {
 		return
 	}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[3].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[9].OneofWrappers = []any{
+		(*Source_Text)(nil),
+		(*Source_Graph)(nil),
+	}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[10].OneofWrappers = []any{
+		(*Arc_Automation)(nil),
+		(*Arc_Module)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_arc_pb_arc_proto_rawDesc), len(file_core_pkg_service_arc_pb_arc_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   5,
+			NumEnums:      2,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

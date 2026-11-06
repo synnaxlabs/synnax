@@ -205,6 +205,13 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
 	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
+	t.ArcCreateDirectory = noop.UnaryServer[
+		apiarc.CreateDirectoryRequest,
+		apiarc.CreateDirectoryResponse,
+	]{}
+	t.ArcRenameDirectory = noop.UnaryServer[apiarc.RenameDirectoryRequest, struct{}]{}
+	t.ArcDeleteDirectory = noop.UnaryServer[apiarc.DeleteDirectoryRequest, struct{}]{}
+	t.ArcMove = noop.UnaryServer[apiarc.MoveRequest, struct{}]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

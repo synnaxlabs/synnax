@@ -12,7 +12,6 @@ import "@/feature/arc/editor/SelectPerformance.css";
 import { type arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -55,27 +54,17 @@ const LEVELS: Level[] = [
   },
 ];
 
-const ITEM_CLASS = CSS.BE("performance-select", "item");
-const LEVEL_CLASS = CSS.BE("performance-select", "level");
-const NAME_CLASS = CSS.BE("performance-select", "name");
-const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
-
 // The trigger shows the selected level's glyph as its icon, so its label is the name.
 const ITEMS = LEVELS.map(({ key, name, description }) => (
   <Select.Item<arc.task.Performance>
     key={key}
     itemKey={key}
     label={name}
-    className={ITEM_CLASS}
     textValue={name}
   >
-    <div className={LEVEL_CLASS}>
-      {GLYPHS[key]}
-      <span className={NAME_CLASS}>{name}</span>
-      <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" overflow="wrap">
-        {description}
-      </Text.Text>
-    </div>
+    {GLYPHS[key]}
+    {name}
+    <Select.ItemDescription>{description}</Select.ItemDescription>
   </Select.Item>
 ));
 

@@ -26,22 +26,21 @@ enum Mode {
   MODE_GRAPH = 1;
 }
 
-// Arc is an Arc module combining visual graph representation and text-based source code
-// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-message Arc {
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+enum Type {
+  TYPE_AUTOMATION = 0;
+  TYPE_MODULE = 1;
+}
+
+// Base carries the fields that every Arc shares.
+message Base {
   // key is the unique identifier for this module.
   string key = 1;
   // name is a human-readable name for the module.
   string name = 2;
-  // mode specifies the representation mode for this module. Either "text" for
-  // text-based Arc code or "graph" for visual dataflow.
-  Mode mode = 3;
-  // graph is the visual dataflow graph representation of the module.
-  .arc.graph.pb.Graph graph = 4;
-  // text is the text-based Arc source code.
-  .arc.text.pb.Text text = 5;
-  // program is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.program.pb.Program program = 6;
+  // source is the Arc's source code, written as text or drawn as a graph.
+  Source source = 3;
 }
 message WhereList {
   repeated Where values = 1;
@@ -59,7 +58,7 @@ message UuidSet {
   UuidList in = 2;
 }
 
-// Where is a filter that selects Arc modules.
+// Where is a filter that selects Arcs.
 message Where {
   // and matches when every child matches.
   WhereList and = 1;
@@ -71,4 +70,35 @@ message Where {
   optional UuidSet key = 4;
   // name selects by name.
   optional .x.filter.pb.String name = 5;
+}
+message SourceTextPayload {
+  // text is the text-based Arc source code.
+  .arc.text.pb.Text text = 1;
+}
+message SourceGraphPayload {
+  // graph is the visual dataflow graph representation of the module.
+  .arc.graph.pb.Graph graph = 1;
+}
+message ArcAutomationPayload {
+  // program is the compiled module output including IR and WebAssembly bytecode.
+  optional .arc.program.pb.Program program = 1;
+}
+message ArcModulePayload {}
+
+// Source is the source code of an Arc. The mode selects text or a graph.
+message Source {
+  oneof variant {
+    SourceTextPayload text = 1;
+    SourceGraphPayload graph = 2;
+  }
+}
+
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+message Arc {
+  Base base = 1;
+  oneof variant {
+    ArcAutomationPayload automation = 2;
+    ArcModulePayload module = 3;
+  }
 }

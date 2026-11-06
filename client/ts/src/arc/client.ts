@@ -24,6 +24,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
+import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
@@ -36,7 +37,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
-import { matches, serverComputed } from "@/arc/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/arc/where.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -51,7 +52,11 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), cachedRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  cachedRequestZ,
+  retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
+]);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -128,6 +133,8 @@ export class Client extends query.Retriever<
   SingleRetrieveParams,
   SingleRetrieveParams
 > {
+  /** directories creates, renames, deletes, and moves the directories of Arcs. */
+  readonly directories: directory.Client;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly store: query.Table<Key, Arc>;
@@ -178,6 +185,10 @@ export class Client extends query.Retriever<
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      ontology: cfg.ontology,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
@@ -272,8 +283,6 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const tsk = await this.retrieveTask(key);
-    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
     // Restores only the name, so the rollback cannot undo edits made after it.
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;

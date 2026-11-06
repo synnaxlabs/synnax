@@ -49,33 +49,6 @@ const (
 	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
 )
 
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = v2.Scale
-
-// ScaleVariant is implemented by every Scale variant.
-type ScaleVariant = v2.ScaleVariant
-
-// ScaleType is the "type" value that selects a variant of Scale.
-type ScaleType = v2.ScaleType
-
-const (
-	// LinearScaleType maps raw values to engineering units with a slope and offset.
-	LinearScaleType ScaleType = v2.LinearScaleType
-	// MapScaleType maps a raw range linearly onto a scaled range.
-	MapScaleType ScaleType = v2.MapScaleType
-	// NoneScaleType applies no scaling; the raw value is used directly.
-	NoneScaleType ScaleType = v2.NoneScaleType
-)
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = v2.LinearScale
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale = v2.MapScale
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = v2.NoneScale
-
 // BaseReadChannel carries the fields every LabJack read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
 
