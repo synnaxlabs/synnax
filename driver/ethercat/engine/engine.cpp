@@ -259,14 +259,10 @@ void Engine::run() {
         // The slaves latched these inputs when the previous cycle's frame passed.
         auto latched_at = sent_at;
         const auto err = this->master->receive();
-        if (err) {
-            if (receive_failures++ == 0) {
-                LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
-                             << err.message();
-                std::lock_guard lock(this->cycle_err_mu);
-                this->cycle_err = err;
-            }
-        } else {
+        // The working counter falls short until the slaves reach OP.
+        const bool shortfall = this->starting.load(std::memory_order_acquire) &&
+                               err.matches(errors::WORKING_COUNTER_ERROR);
+        if (!err) {
             if (const auto dc = this->master->dc_time())
                 latched_at = clock.map(*dc, sent_at);
             if (receive_failures > 0) {
@@ -274,6 +270,11 @@ void Engine::run() {
                           << receive_failures << " failures";
                 receive_failures = 0;
             }
+        } else if (!shortfall && receive_failures++ == 0) {
+            LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
+                         << err.message();
+            std::lock_guard lock(this->cycle_err_mu);
+            this->cycle_err = err;
         }
         const uint8_t *image = this->master->input_data().data();
         for (const auto &[input, decimation]: sched->inputs) {
@@ -332,14 +333,29 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
+    const auto start_cycle = [this, rate] {
+        {
+            std::lock_guard lock(this->write_mu);
+            const auto size = this->master->output_data().size();
+            this->write_staging.assign(size, 0);
+            this->write_active.assign(size, 0);
+        }
+        this->publish_schedule_locked(rate);
+        this->starting.store(true, std::memory_order_release);
+        this->bus.start();
+        this->cycle_thread = std::thread(&Engine::run, this);
+    };
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
         auto err = this->master->initialize();
         if (!err) {
-            err = this->master->activate();
+            err = this->master->activate(start_cycle);
             if (!err) break;
-            this->master->deactivate();
+            if (this->bus.running())
+                this->stop_locked();
+            else
+                this->master->deactivate();
         }
         if (err.matches(errors::STATE_CHANGE_REFUSED) || !retry.wait(err)) {
             retry.stop();
@@ -347,15 +363,7 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
         }
     }
     retry.stop();
-    {
-        std::lock_guard lock(this->write_mu);
-        const auto size = this->master->output_data().size();
-        this->write_staging.assign(size, 0);
-        this->write_active.assign(size, 0);
-    }
-    this->publish_schedule_locked(rate);
-    this->bus.start();
-    this->cycle_thread = std::thread(&Engine::run, this);
+    this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
 }
@@ -363,7 +371,7 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
 void Engine::stop_locked() {
     if (!this->bus.stop()) return;
     this->cycle_thread.join();
-    this->supervisor_thread.join();
+    if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
     this->master->deactivate();
     this->cycle_hz.store(0, std::memory_order_release);
     {

@@ -240,7 +240,7 @@ void Master::write_startup_parameters(
         this->startup_failures[pos] = failure;
 }
 
-x::errors::Error Master::activate() {
+x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
@@ -304,25 +304,14 @@ x::errors::Error Master::activate() {
 
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
-
-    auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
-    if (err) return err;
-
-    err = this->request_operational();
-    if (err) {
-        LOG(WARNING) << "OP transition failed: " << err.message()
-                     << "; attempting recovery to SAFE_OP";
-        auto recovery_err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
-        if (recovery_err) {
-            LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
-                       << "; forcing INIT state";
-            this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
-        }
-        return err;
-    }
-
-    this->cache_pdo_offsets();
     this->activated = true;
+    start_cycle();
+
+    if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
+        return err;
+    if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
+        return err;
+    this->cache_pdo_offsets();
     return x::errors::NIL;
 }
 
@@ -1078,11 +1067,7 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::request_state(
-    const uint16_t state,
-    const int timeout,
-    const std::function<void()> &before_read
-) {
+x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
@@ -1091,7 +1076,6 @@ x::errors::Error Master::request_state(
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::microseconds(timeout);
     while (true) {
-        if (before_read) before_read();
         this->api->readstate();
         std::vector<uint16_t> pending;
         // Like ecx_statecheck, a slave in the state counts even with its error flag
@@ -1120,16 +1104,6 @@ bool Master::al_error(const uint16_t pos) const {
 bool Master::refuses(const uint16_t pos, const uint16_t state) const {
     return this->al_error(pos) &&
            (this->api->slave_state(pos) & ~EC_STATE_ERROR) < state;
-}
-
-x::errors::Error Master::request_operational() {
-    const auto exchange = [this] {
-        this->api->send_processdata(ENABLED_GROUP);
-        this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    };
-    // Slaves with outputs need one valid process data frame before they enter OP.
-    exchange();
-    return this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT, exchange);
 }
 
 x::errors::Error

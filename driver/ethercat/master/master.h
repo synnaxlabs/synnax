@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -55,9 +56,12 @@ public:
     /// back to the defaults of slave::Config. Takes effect at the next activate().
     virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
 
-    /// @brief maps the process data of every enabled slave and transitions the enabled
-    /// slaves to OP.
-    [[nodiscard]] virtual x::errors::Error activate() = 0;
+    /// @brief maps the process data of every enabled slave, calls start_cycle once
+    /// send() and receive() work, then moves the enabled slaves to OP while the caller
+    /// cycles the bus. After an error, the caller stops the cycle it started before it
+    /// calls deactivate().
+    [[nodiscard]] virtual x::errors::Error
+    activate(const std::function<void()> &start_cycle) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;

@@ -80,7 +80,7 @@ public:
 
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate() override;
+    x::errors::Error activate(const std::function<void()> &start_cycle) override;
 
     void deactivate() override;
 
@@ -162,13 +162,8 @@ private:
     x::errors::Error clear_dc_activation();
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
-    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
-    /// before_read, if set, before each read of the slave states.
-    x::errors::Error request_state(
-        uint16_t state,
-        int timeout,
-        const std::function<void()> &before_read = nullptr
-    );
+    /// it, one of them refuses it, or the timeout in microseconds passes.
+    x::errors::Error request_state(uint16_t state, int timeout);
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -177,10 +172,6 @@ private:
     /// error. A slave above the state can still show an error from before a request to
     /// go down.
     [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
-
-    /// @brief transitions all enabled slaves to OP while exchanging process data, so
-    /// slaves with a sync manager watchdog see valid outputs.
-    x::errors::Error request_operational();
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a

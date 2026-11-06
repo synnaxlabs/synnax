@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <span>
@@ -93,7 +94,7 @@ public:
 
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate() override;
+    x::errors::Error activate(const std::function<void()> &start_cycle) override;
 
     void deactivate() override;
 
