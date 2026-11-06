@@ -23,9 +23,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// validateWrite adds the one-entry-per-channel rule to the schema rules of
-// Log.Validate,
-// as Oracle has no rule for uniqueness. Stored logs are not checked on read.
+// validateWrite adds the one-entry-per-channel rule to Log.Validate, as Oracle has no
+// rule for uniqueness.
 func validateWrite(l Log) error {
 	if err := l.Validate(); err != nil {
 		return err
