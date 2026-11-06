@@ -86,6 +86,7 @@ jobs:
             echo "::error::policy must name a branch or commit, and only for a replay."
             exit 1
           fi
+          set -o pipefail
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r --arg head "$HEAD" '
             "head=\(if $head == "" then .head.sha else $head end)", "base=\(.base.sha)",
             "fork=\(.head.repo.full_name != .base.repo.full_name)"' >> "$GITHUB_OUTPUT"
