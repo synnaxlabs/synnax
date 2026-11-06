@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -25,7 +26,6 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
   createReadChannel,
   deployReadConfigZ,
   entryAt,
@@ -35,6 +35,8 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
+  readDataType,
+  readKey,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
 import { type Selector } from "@/platform/selector";
@@ -90,7 +92,7 @@ const Form: FC = () => {
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    return { channel: slave.properties.read.channels[addressKey(ch)] ?? 0 };
+    return { channel: slave.properties.read.channels[readKey(ch)] ?? 0 };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -117,38 +119,70 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
+/**
+ * @throws when two new channels share a name, or when a channel already holds one of
+ * their names.
+ */
+const checkNamesFree = async (client: Synnax, names: string[]): Promise<void> => {
+  const repeated = names.find((name, i) => names.indexOf(name) !== i);
+  if (repeated != null)
+    throw new Error(
+      `Two channels of the task use the name ${repeated}. Choose another name for ` +
+        "one of them.",
+    );
+  // Names with pattern characters match more than themselves.
+  const taken = (await client.channels.retrieve({ names })).find(({ name }) =>
+    names.includes(name),
+  );
+  if (taken != null)
+    throw new Error(
+      `A channel named ${taken.name} already exists. Choose another name.`,
+    );
+};
+
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
+  const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
     const toCreate = await findChannelsToCreate(
       client,
       channels,
       slave.properties.read.channels,
+      readKey,
+      readDataType,
     );
+    const names = toCreate.map((ch) => readChannelName(slave, ch));
+    plans.push({ slave, channels, toCreate, names });
+  }
+  const allNames = plans.flatMap((p) => p.names);
+  if (allNames.length > 0) await checkNamesFree(client, allNames);
+
+  // The checks run before any create, so a failed one leaves nothing behind.
+  for (const { slave, channels, toCreate, names } of plans) {
+    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
 
     if (toCreate.length > 0) {
       modified = true;
       const created = await client.channels.create(
-        toCreate.map((ch) => ({
-          name: readChannelName(slave, ch),
-          dataType: ch.dataType,
+        toCreate.map((ch, i) => ({
+          name: names[i],
+          dataType: readDataType(ch),
           index: slave.properties.readIndex,
         })),
       );
 
       created.forEach((c, i) => {
-        slave.properties.read.channels[addressKey(toCreate[i])] = c.key;
+        slave.properties.read.channels[readKey(toCreate[i])] = c.key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[addressKey(ch)];
+      ch.channel = slave.properties.read.channels[readKey(ch)];
     });
   }
 

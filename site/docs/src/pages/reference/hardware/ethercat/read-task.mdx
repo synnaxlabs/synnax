@@ -200,10 +200,11 @@ setting, with its Python field under it.
 
 Reads one input entry at its CoE address.
 
-| Setting                                   | Default | Notes                                        |
-| ----------------------------------------- | ------- | -------------------------------------------- |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.        |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
+| Setting                                   | Default | Notes                                                              |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
 
 </Channel.Type>
 
@@ -212,6 +213,53 @@ Reads one input entry at its CoE address.
 A task from an earlier release can also hold an `unresolved` channel
 (`UnresolvedReadChannel`). It has the name of an entry, but no address. See
 [troubleshooting](#a-channel-from-an-earlier-release-has-no-entry).
+
+### Scales
+
+A scale converts the raw value of an entry into engineering units:
+
+| Scale type | Parameters                                                     | Result                                              |
+| ---------- | -------------------------------------------------------------- | --------------------------------------------------- |
+| `"none"`   | -                                                              | The raw value                                       |
+| `"linear"` | `slope`, `offset`                                              | `raw × slope + offset`                              |
+| `"map"`    | `pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max` | The raw range mapped linearly onto the scaled range |
+
+A scaled channel writes float values, so its Synnax channel must be `float32` or
+`float64`. The Console creates a `float64` channel for it, apart from the raw channel.
+
+<Client.Tabs exclude={["console"]}>
+  <Fragment slot="python">
+
+```python
+ethercat.EntryReadChannel(
+    device=module.key,
+    index=0x3101,
+    sub_index=0x02,
+    data_type=sy.DataType.INT16,
+    channel=volts.key,  # a float64 channel
+    # Counts to volts for a ±10 V input
+    scale=ethercat.LinearScale(slope=10 / 32767, offset=0),
+)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const channel = {
+  type: "entry",
+  device: module.key,
+  index: 0x3101,
+  subIndex: 0x02,
+  dataType: "int16",
+  channel: volts.key, // a float64 channel
+  // Counts to volts for a ±10 V input
+  scale: { type: "linear", slope: 10 / 32767, offset: 0 },
+};
+```
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 

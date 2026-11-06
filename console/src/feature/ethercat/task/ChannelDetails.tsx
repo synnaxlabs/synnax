@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, type ReactNode } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -43,9 +43,16 @@ export interface ChannelDetailsProps {
   path: deep.Path<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
+  /** Sections shown after the entry while the channel has one. */
+  children?: ReactNode;
 }
 
-const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
+const ChannelDetails: FC<ChannelDetailsProps> = ({
+  path,
+  pdoType,
+  schema,
+  children,
+}) => {
   const ch = PForm.useFieldValue(path);
   return (
     <PForm.Sections>
@@ -63,12 +70,22 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
           </PForm.Field>
         )}
       </PForm.Section>
+      {hasEntry(ch) && children}
     </PForm.Sections>
   );
 };
 
-export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry} />
+export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
+  path,
+}) => (
+  <ChannelDetails path={path} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry}>
+    <PForm.Section title="Scale">
+      <Task.ScaleForm
+        path={deep.variant(path, "type", "entry").scale}
+        schemas={ethercat.SCALE_SCHEMAS}
+      />
+    </PForm.Section>
+  </ChannelDetails>
 );
 
 export const WriteChannelDetails: FC<Task.Views.DetailsProps<WriteChannel>> = (

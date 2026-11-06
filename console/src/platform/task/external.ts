@@ -27,6 +27,7 @@ export * from "@/platform/task/port";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";
 export * from "@/platform/task/registry";
+export * from "@/platform/task/ScaleForm";
 export * from "@/platform/task/selectItems";
 export * from "@/platform/task/TareButton";
 export * from "@/platform/task/types";
