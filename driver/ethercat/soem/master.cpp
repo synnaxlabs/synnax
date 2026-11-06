@@ -26,13 +26,6 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for the SAFE-OP, OP, and INIT transitions in microseconds.
-const int STATE_CHANGE_TIMEOUT = static_cast<int>(
-    (x::telem::SECOND * 2).microseconds()
-);
-/// Timeout for the slaves to reach PRE-OP after discovery in microseconds. It stays
-/// at the PreopTimeout of the ESI files.
-const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to a requested state.
@@ -61,6 +54,12 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+namespace {
+/// @brief converts a span to the microseconds that SOEM timeouts take.
+int micros(const x::telem::TimeSpan span) {
+    return static_cast<int>(span.microseconds());
+}
+}
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
@@ -112,9 +111,10 @@ std::string no_slaves_message(API &api, const std::string &iface) {
 }
 }
 
-Master::Master(std::unique_ptr<API> api, std::string interface_name):
+Master::Master(std::unique_ptr<API> api, std::string interface_name, const Config cfg):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
+    cfg(cfg),
     iomap(DEFAULT_IOMAP_SIZE, 0),
     input_sz(0),
     output_sz(0),
@@ -152,7 +152,7 @@ x::errors::Error Master::initialize() {
 
     // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
     // request to a slave whose last read state is below PRE-OP.
-    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->statecheck(0, EC_STATE_PRE_OP, micros(this->cfg.pre_op_timeout));
     this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
@@ -216,20 +216,19 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
     this->activated = true;
     start_cycle();
 
-    if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
-        return err;
+    const int timeout = micros(this->cfg.state_change_timeout);
+    if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
-    if (auto err = this->wait_for_frame(STATE_CHANGE_TIMEOUT)) return err;
-    if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
-        return err;
+    if (auto err = this->wait_for_frame(timeout)) return err;
+    if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
     this->cache_pdo_offsets();
     return x::errors::NIL;
 }
 
 void Master::deactivate() {
     if (this->activated) {
-        this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
