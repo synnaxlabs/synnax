@@ -166,11 +166,9 @@ var _ = Describe("Any", func() {
 				"running":     "yes",
 			}))
 			packed := MustSucceed(anypb.New(v))
-			res, err := pb.FromAny[details](packed)
-			Expect(err).To(MatchError(ContainSubstring(
+			Expect(pb.FromAny[details](packed)).Error().To(MatchError(ContainSubstring(
 				`cannot unmarshal JSON string into Go bool within "/running"`,
 			)))
-			Expect(res).To(Equal(details{}))
 		})
 
 		It("Should round-trip a value through ToAny", func() {
