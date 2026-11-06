@@ -21,7 +21,7 @@ from framework import resources, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.cores import Core
 from framework.models import STATUS, Log, RunOptions, Test
-from framework.resources import Resources
+from framework.resources import Resources, Unavailable
 from framework.test_case import TestCase
 from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
@@ -259,7 +259,7 @@ class ExecutionClient:
             while t.is_alive() and not self._watchdog.abandoned(t):
                 t.join(timeout=1.0)
             if t.is_alive():
-                self._resources.free(t)
+                self._resources.abandon(t, str(test_def))
 
             self._collect_result(test_def, future)
 
@@ -320,7 +320,7 @@ class ExecutionClient:
                 if self._watchdog.abandoned(t):
                     if slots is not None:
                         slots.free(t)
-                    self._resources.free(t)
+                    self._resources.abandon(t, str(td))
                     self._collect_result(td, ft)
                 elif not t.is_alive():
                     self._collect_result(td, ft)
@@ -365,7 +365,18 @@ class ExecutionClient:
     ) -> None:
         held = self._resources_of(test_def)
         start = time.monotonic()
-        self._resources.acquire(held)
+        try:
+            self._resources.acquire(held)
+        except Unavailable as e:
+            future.set_result(
+                Test(
+                    test_name=test_def.case,
+                    name=test_def.display_name,
+                    status=STATUS.FAILED,
+                    error_message=str(e),
+                )
+            )
+            return
         waited = time.monotonic() - start
         if waited > _WAIT_LOGGED:
             self._log(f"{test_def} waited {waited:.1f}s for {', '.join(sorted(held))}")
