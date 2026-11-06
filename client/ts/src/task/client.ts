@@ -18,7 +18,6 @@ import {
   primitive,
   type record,
   strings,
-  sync,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -134,7 +133,10 @@ export interface ExecuteCommandsParams {
 
 /** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
-  /** How long to wait for the status before giving up. */
+  /**
+   * How long to wait for the Driver to acknowledge the command. Once it does, the
+   * wait lasts until the final status.
+   */
   timeout?: CrudeTimeSpan;
 }
 
@@ -511,7 +513,9 @@ export class Client extends query.Retriever<
       if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
-      this.commandDeadlines.delete(task);
+      // A loading reply acknowledges the command, and a down rack still stands in
+      // until the final reply.
+      if (event.value.variant !== "loading") this.commandDeadlines.delete(task);
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",
@@ -778,7 +782,9 @@ export class Client extends query.Retriever<
         .get(task)
         .some(
           (s) =>
-            s !== pending.optimistic && status.detailsOf(s)?.cmd === pending.cmd.key,
+            s !== pending.optimistic &&
+            s.variant !== "loading" &&
+            status.detailsOf(s)?.cmd === pending.cmd.key,
         );
       if (answered) continue;
       pending.optimistic = this.optimisticStatus(pending.cmd);
@@ -1131,6 +1137,8 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
+  // Any reply acknowledges its command. A loading reply is not the final one.
+  const acknowledged = new Set<string>();
   const collect = async (): Promise<Status<StatusData>[]> => {
     let states: Status<StatusData>[] = [];
     while (true) {
@@ -1153,22 +1161,28 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         }
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
+        acknowledged.add(state.details.cmd);
+        if (state.variant === "loading") continue;
         states = [...states.filter((s) => s.key !== state.key), state];
         if (states.length === cmdKeys.length) return states;
       }
     }
   };
   try {
-    return await sync.withTimeout(
-      collect(),
-      parsedTimeout,
-      async () =>
-        await formatTimeoutError(
+    return await new Promise<Status<StatusData>[]>((resolve, reject) => {
+      // The timeout bounds the wait for each acknowledgment, not for the final reply.
+      const timer = setTimeout(() => {
+        if (acknowledged.size === cmdKeys.length) return;
+        formatTimeoutError(
           taskName,
           parsedTimeout,
           commands.map((c) => c.task),
-        ),
-    );
+        ).then(reject, reject);
+      }, parsedTimeout.milliseconds);
+      collect()
+        .then(resolve, reject)
+        .finally(() => clearTimeout(timer));
+    });
   } finally {
     streamer.close();
   }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -1117,6 +1117,45 @@ describe("Task", async () => {
       await writer.statuses.set(reply);
       expect(await wait).toMatchObject({ message: "Scan complete" });
     });
+
+    it("should wait past the timeout for the final status after a loading reply", async () => {
+      const t = await testRack.createTask({
+        name: `slow-start-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const timeout = TimeSpan.milliseconds(500);
+      const wait = t.executeCommandSync({ type: "start", timeout });
+      const cmd = await readCommand(streamer, t.key);
+      const reply: task.Status = {
+        key: task.statusKey(t.key),
+        name: t.name,
+        variant: "loading",
+        message: "Starting task",
+        description: "",
+        time: TimeStamp.now(),
+        details: {
+          task: t.key,
+          running: false,
+          cmd: cmd.key,
+          configHash: "",
+          rack: testRack.key,
+          data: {},
+        },
+      };
+      await writer.statuses.set(reply);
+      await sleep.sleep(timeout.mult(2));
+      await writer.statuses.set({
+        ...reply,
+        variant: "success",
+        message: "Started task",
+        time: TimeStamp.now(),
+        details: { ...reply.details, running: true },
+      });
+      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+    });
   });
 
   describe("onChange", () => {
@@ -1684,6 +1723,61 @@ describe("Task", async () => {
           message: "Sensor out of range",
           details: { running: true, cmd: "" },
         });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("stands the rack's problem in after the Driver acknowledges a start", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `acknowledged-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          message: "Starting task",
+        });
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.store.get(key)?.message)
+          .toBe("no Driver here");
       } finally {
         vi.useRealTimers();
         off();
