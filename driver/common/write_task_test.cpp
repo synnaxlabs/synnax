@@ -154,6 +154,43 @@ TEST(TestCommonWriteTask, ReadWakesForCommandSetBeforeWait) {
     }
 }
 
+/// @brief after a read reports a command, the next read should wait for a new command
+/// instead of returning at once.
+TEST(TestCommonWriteTask, ReadWaitsForNextCommandAfterReport) {
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    const auto rate = x::telem::HERTZ * 10;
+    const auto half_period = rate.period().chrono() / 2;
+    MockSink sink(
+        rate,
+        {{1, state}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    pipeline::Authorities authorities;
+    x::telem::Frame first(1);
+    first.emplace(1, x::telem::Series(static_cast<uint8_t>(1)));
+    ASSERT_NIL(sink.write(first));
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+
+    auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    EXPECT_GE(std::chrono::steady_clock::now() - start, half_period);
+
+    x::telem::Frame second(1);
+    second.emplace(1, x::telem::Series(static_cast<uint8_t>(0)));
+    ASSERT_NIL(sink.write(second));
+    start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, half_period);
+    EXPECT_EQ(fr.at<uint8_t>(3, 0), 0);
+}
+
 /// @brief it should stream every command channel but report state only for the outputs
 /// that have a state channel.
 TEST(TestCommonWriteTask, OutputWithoutStateChannelReportsNoState) {
