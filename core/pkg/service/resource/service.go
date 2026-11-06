@@ -23,14 +23,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Resource is the ID and name of a record of any type.
-type Resource struct {
-	// ID identifies the record.
-	ID ID `json:"id" msgpack:"id"`
-	// Name is the human-readable name of the record.
-	Name string `json:"name" msgpack:"name"`
-}
-
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database that a nil transaction reads from.

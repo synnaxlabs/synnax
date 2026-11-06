@@ -73,3 +73,17 @@ ID struct {
     @py hand
     @ts hand
 }
+
+Resource struct {
+    id   ID     {
+        @doc value "identifies the record."
+    }
+    name string {
+        @doc value "is the human-readable name of the record."
+    }
+
+    @cpp omit
+    @doc value "is the ID and name of a record of any type."
+    @py hand
+    @ts hand
+}

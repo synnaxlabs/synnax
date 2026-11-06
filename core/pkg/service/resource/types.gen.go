@@ -11,7 +11,10 @@
 
 package resource
 
-import "github.com/synnaxlabs/synnax/pkg/service/resource/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/resource/versions"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Type is the type of the resource.
 type Type = versions.Type
@@ -52,3 +55,19 @@ const (
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
 type ID = versions.ID
+
+// Resource is the ID and name of a record of any type.
+type Resource struct {
+	// ID identifies the record.
+	ID ID `json:"id" msgpack:"id"`
+	// Name is the human-readable name of the record.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Resource) Validate() error {
+	v := validate.New("Resource")
+	v.Exec(func() error { return validate.PathedError(r.ID.Validate(), "id") })
+	return v.Error()
+}
