@@ -29,6 +29,32 @@ def _device(rack: int) -> sy.Device:
 
 
 @pytest.mark.task
+def _reply_to_next_command(
+    client: sy.Synnax,
+    ready: threading.Event,
+    variant: sy.status.Variant,
+    message: str,
+    description: str,
+) -> None:
+    """Answers the next task command with one status, as a driver does."""
+    with client.open_streamer("sy_task_cmd") as s:
+        ready.set()
+        f = s.read(timeout=5)
+        assert f is not None
+        cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+        client.statuses.set(
+            sy.task.Status(
+                key=str(sy.task.ontology_id(cmd.task)),
+                variant=variant,
+                message=message,
+                description=description,
+                details=sy.task.StatusDetails(
+                    task=cmd.task, running=False, cmd=cmd.key
+                ),
+            )
+        )
+
+
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax) -> None:
         task = client.tasks.create(name="test", type="pagerduty_alert")
@@ -369,6 +395,44 @@ class TestTaskClient:
         status = tsk.execute_command_sync("start", timeout=1)
         assert status.variant == sy.status.VARIANT_SUCCESS
         assert status.message == "Started task"
+        t.join()
+
+    @pytest.mark.parametrize("command", ["start", "stop"])
+    def test_start_and_stop_raise_when_the_driver_fails_the_command(
+        self, client: sy.Synnax, command: str
+    ) -> None:
+        """start() and stop() raise the error status that the driver sends."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_ERROR, "Failed", "slave 1 refused"),
+        )
+        t.start()
+        ready.wait()
+        with pytest.raises(RuntimeError) as err:
+            getattr(tsk, command)(timeout=5)
+        assert str(err.value) == "Failed: slave 1 refused"
+        t.join()
+
+    @pytest.mark.parametrize("command", ["start", "stop"])
+    def test_start_and_stop_return_when_the_driver_runs_the_command(
+        self, client: sy.Synnax, command: str
+    ) -> None:
+        """start() and stop() return when the driver sends a success status."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_SUCCESS, "Done", ""),
+        )
+        t.start()
+        ready.wait()
+        getattr(tsk, command)(timeout=5)
         t.join()
 
     def test_execute_command_without_args_sends_empty_object(

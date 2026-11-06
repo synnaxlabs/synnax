@@ -30,7 +30,7 @@ from synnax.framer import Frame
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import VARIANT_INFO, VARIANT_LOADING, VARIANT_SUCCESS
+from synnax.status import VARIANT_ERROR, VARIANT_INFO, VARIANT_LOADING, VARIANT_SUCCESS
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -277,10 +277,17 @@ def _raise_if_rack_down(sample: object, rack_key: str | None) -> None:
         return
     if rack_status.key != rack_key or rack_status.variant in _HEALTHY_RACK_VARIANTS:
         return
-    message = rack_status.message
-    if rack_status.description:
-        message += f": {rack_status.description}"
-    raise RuntimeError(message)
+    raise _status_error(rack_status.message, rack_status.description)
+
+
+def _raise_if_failed(status: Status) -> None:
+    """Raises the final status of a command as an error when the driver failed it."""
+    if status.variant == VARIANT_ERROR:
+        raise _status_error(status.message, status.description)
+
+
+def _status_error(message: str, description: str) -> RuntimeError:
+    return RuntimeError(f"{message}: {description}" if description else message)
 
 
 class Protocol(BaseProtocol):
@@ -321,10 +328,10 @@ class StarterStopperMixin:
             it does, the wait lasts until the final status.
         :raises TimeoutError: If the timeout is reached before the driver acknowledges
             the start.
-        :raises RuntimeError: If the driver of the task goes down during the wait.
-        :raises Exception: If the Synnax cluster fails to start the task correctly.
+        :raises RuntimeError: If the driver fails to start the task, or if the driver
+            goes down during the wait.
         """
-        self._internal.execute_command_sync("start", timeout=timeout)
+        _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the driver sends the final status of the
@@ -334,10 +341,10 @@ class StarterStopperMixin:
             it does, the wait lasts until the final status.
         :raises TimeoutError: If the timeout is reached before the driver acknowledges
             the stop.
-        :raises RuntimeError: If the driver of the task goes down during the wait.
-        :raises Exception: If the Synnax cluster fails to stop the task correctly.
+        :raises RuntimeError: If the driver fails to stop the task, or if the driver
+            goes down during the wait.
         """
-        self._internal.execute_command_sync("stop", timeout=timeout)
+        _raise_if_failed(self._internal.execute_command_sync("stop", timeout=timeout))
 
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
