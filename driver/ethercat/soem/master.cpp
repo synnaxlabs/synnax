@@ -252,6 +252,10 @@ void Master::set_slave_config(const uint16_t position, slave::Config config) {
         this->dc_modes[position] = *config.dc_mode;
     else
         this->dc_modes.erase(position);
+    if (config.sync0_cycle)
+        this->sync0_cycles[position] = *config.sync0_cycle;
+    else
+        this->sync0_cycles.erase(position);
     if (config.sync1_cycle)
         this->sync1_cycles[position] = *config.sync1_cycle;
     else
@@ -263,11 +267,13 @@ void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     this->disabled_slaves.clear();
     this->startup_parameters.clear();
     this->dc_modes.clear();
+    this->sync0_cycles.clear();
     this->sync1_cycles.clear();
     for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
         this->startup_parameters[position] = std::move(config.startup_parameters);
         if (config.dc_mode) this->dc_modes[position] = *config.dc_mode;
+        if (config.sync0_cycle) this->sync0_cycles[position] = *config.sync0_cycle;
         if (config.sync1_cycle) this->sync1_cycles[position] = *config.sync1_cycle;
     }
 }
@@ -389,6 +395,21 @@ x::errors::Error Master::activate(
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT))
         return err;
     this->cache_pdo_offsets();
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto *inputs = this->api->slave_inputs(static_cast<uint16_t>(i));
+        const auto bytes = std::min<size_t>((this->api->slave_Ibits(i) + 7) / 8, 16);
+        if (this->api->slave_group(i) != ENABLED_GROUP || inputs == nullptr) continue;
+        std::string hex;
+        for (size_t b = 0; b < bytes; ++b)
+            hex += std::format("{:02x}", inputs[b]);
+        LOG(INFO) << std::format(
+            "[ethercat] slave {} ({}) in state 0x{:02X}, first inputs {}",
+            i,
+            this->api->slave_name(static_cast<uint16_t>(i)),
+            this->api->slave_state(static_cast<uint16_t>(i)),
+            hex
+        );
+    }
     return x::errors::NIL;
 }
 
@@ -1312,6 +1333,9 @@ Master::resolve_dc(const x::telem::TimeSpan period) {
                     err.data
                 )
             );
+        if (const auto it = this->sync0_cycles.find(props.position);
+            it != this->sync0_cycles.end() && regs.sync0_cycle > 0)
+            regs.sync0_cycle = it->second;
         if (const auto it = this->sync1_cycles.find(props.position);
             it != this->sync1_cycles.end() && regs.sync0_cycle > 0) {
             if (it->second <= regs.sync0_cycle)

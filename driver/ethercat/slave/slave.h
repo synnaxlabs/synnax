@@ -208,6 +208,9 @@ struct Config {
     /// @brief the index in the slave's op_modes of the synchronization mode the master
     /// sets up. When unset, dc::select picks it.
     std::optional<uint16_t> dc_mode;
+    /// @brief the time in nanoseconds between SYNC0 events. When set, it replaces the
+    /// SYNC0 cycle of a mode with SYNC0.
+    std::optional<uint32_t> sync0_cycle;
     /// @brief the time in nanoseconds between SYNC1 events. When set, a mode with
     /// SYNC0 also turns SYNC1 on at this cycle.
     std::optional<uint32_t> sync1_cycle;
@@ -249,8 +252,9 @@ struct Properties {
     /// @brief the index in op_modes of the synchronization mode the master sets up, or
     /// unset to let dc::select pick it. Set by the user, so to_json leaves it out.
     std::optional<uint16_t> dc_mode;
-    /// @brief the SYNC1 cycle in nanoseconds that overrides the mode. Set by the user,
-    /// so to_json leaves it out.
+    /// @brief the SYNC0 and SYNC1 cycles in nanoseconds that override the mode. Set by
+    /// the user, so to_json leaves them out.
+    std::optional<uint32_t> sync0_cycle;
     std::optional<uint32_t> sync1_cycle;
 
     /// @brief returns the settings the master applies to the slave when the bus starts.
@@ -259,6 +263,7 @@ struct Properties {
             .enabled = this->enabled,
             .startup_parameters = this->startup_parameters,
             .dc_mode = this->dc_mode,
+            .sync0_cycle = this->sync0_cycle,
             .sync1_cycle = this->sync1_cycle,
         };
     }
@@ -295,6 +300,8 @@ struct Properties {
             });
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
         if (parser.has("dc_mode")) props.dc_mode = parser.field<uint16_t>("dc_mode");
+        if (parser.has("sync0_cycle"))
+            props.sync0_cycle = parser.field<uint32_t>("sync0_cycle");
         if (parser.has("sync1_cycle"))
             props.sync1_cycle = parser.field<uint32_t>("sync1_cycle");
         const auto pdos_parser = parser.child("pdos");

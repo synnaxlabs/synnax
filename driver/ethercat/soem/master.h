@@ -53,7 +53,9 @@ class Master final : public master::Master {
     /// @brief the index of the synchronization mode set for each slave, keyed by
     /// position. A slave missing from the map gets the mode dc::select picks.
     std::map<uint16_t, uint16_t> dc_modes;
-    /// @brief the SYNC1 cycle in nanoseconds set for each slave, keyed by position.
+    /// @brief the SYNC0 and SYNC1 cycles in nanoseconds set for each slave, keyed by
+    /// position.
+    std::map<uint16_t, uint32_t> sync0_cycles;
     std::map<uint16_t, uint32_t> sync1_cycles;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
