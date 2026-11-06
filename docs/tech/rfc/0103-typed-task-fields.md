@@ -35,12 +35,10 @@ IntegerEntry  struct { label string  value Integer }
 UnsignedEntry struct { label string  value Unsigned }
 StringEntry   struct { label string  value string }
 BooleanEntry  struct { label string  value bool }
-FloatFill    union on type { nan {}  value { value float64 }   label { label string } }
-IntegerFill  union on type { value { value Integer }   label { label string } }
-UnsignedFill union on type { value { value Unsigned }  label { label string } }
+FloatFill    union on type { nan {}  value { value float64 } }
 FloatRead     struct { data_type telem.DataType?  enum_values FloatEntry[]  fill FloatFill? }
-IntegerRead   struct { data_type telem.DataType?  enum_values IntegerEntry[]  fill IntegerFill? }
-UnsignedRead  struct { data_type telem.DataType?  enum_values UnsignedEntry[]  fill UnsignedFill? }
+IntegerRead   struct { data_type telem.DataType?  enum_values IntegerEntry[]  fill Integer? }
+UnsignedRead  struct { data_type telem.DataType?  enum_values UnsignedEntry[]  fill Unsigned? }
 StringRead    struct { enum_values StringEntry[]  fill string? }
 BooleanRead   struct { enum_values BooleanEntry[]  fill bool? }
 TimestampRead struct { time_format TimeFormat  fill telem.TimeStamp? }
@@ -68,15 +66,16 @@ ChannelField union on type payload.Kind extends BaseChannelField {
     float { enum_values payload.FloatEntry[] }
     integer { enum_values payload.IntegerEntry[] }
     unsigned { enum_values payload.UnsignedEntry[] }
-    timestamp { time_format payload.TimeFormat }
-    string {}  boolean {}  json {}  uuid {}  bytes {}
+    string { enum_values payload.StringEntry[] }
+    boolean { enum_values payload.BooleanEntry[] }
+    timestamp { time_format payload.TimeFormat }  json {}  uuid {}  bytes {}
 }
 ```
 
 `BaseReadField` holds `key`, `name`, `disabled`, `channel`, and `pointer`.
-`BaseChannelField` holds `pointer`, `channel`, `name`, and `data_type?`. A numeric
-channel field with `enum_values` writes a value's label. `string` writes the value as
-text, and `boolean` as true or false.
+`BaseChannelField` holds `pointer`, `channel`, `name`, and `data_type?`. A channel field
+writes the label of an entry that matches the value. Otherwise `string` writes text, and
+`boolean` true or false. Integer fills are plain values: one variant needs no union.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
@@ -94,31 +93,32 @@ A raw `int64` does not survive: each config passes through `msgpack.EncodedJSON`
 are distinct types with the JSON string form of `telem.TimeStamp` and `telem.Alignment`
 (`MarshalStringInt64To`, `MarshalStringUint64To`). A negative `uint64` and a value above
 `int64` range are shape errors, and `Unsigned` holds up to 2^64 - 1 at every layer.
-`nan` exists only on `FloatFill`.
-
-Go has hand methods in `x/go/payload`. C++ `Parser` reads digits from a string
-(`json.h:591`). TypeScript holds a decimal `string`, and the Console uses a text input
-that checks range with `BigInt`. Python uses an `int` subclass that dumps a string.
+`nan` exists only on `FloatFill`. Go has hand methods in `x/go/payload`. C++ `Parser`
+reads digits from a string (`json.h:591`). TypeScript holds a decimal `string`, and the
+Console uses a text input that checks range with `BigInt`. Python uses an `int` subclass
+that dumps a string.
 
 JSON numbers parse exactly today in Go and C++. Phase 3 fixes the three inexact places:
 `xjson.Enum.Value` and `x::json::EnumMap` hold a float, `Encoder.Append` compares enums
 through `n.float()`, and `x::json::from_timestamp` goes through `double`. Each entry
-becomes one encoded sample, compared exactly.
+becomes one encoded sample, compared exactly. Phase 3 also adds string and boolean write
+enums: `Encoder.Append` quotes a string sample and writes a boolean with no lookup, and
+`from_sample_value` checks enums only for a numeric value written as a string.
 
 ## 3 Bytes
 
-With a pointer, bytes are standard base64 text, as `AppendSampleText` writes today. An
-empty pointer stays the JSON root value on each other kind, so a bare `99.0` body stays
-valid. Only on `bytes` does it mean a raw payload that is not JSON. A raw read field is
-the only enabled field of its endpoint, record, or entry. A raw channel field is the
-whole payload, and on Kafka this is an empty `value_pointer`.
+With a pointer, bytes are base64 text, as `AppendSampleText` writes. An empty pointer
+stays the JSON root value on other kinds, so a bare `99.0` body stays valid. Only on
+`bytes` does it mean a raw payload that is not JSON. A raw field is the only enabled
+field of its endpoint, record, entry, or target. On Kafka, a raw write is an empty
+`value_pointer`.
 
-- **`x/go/json`**: `NewDecoder` rejects `BytesT`, and `Encoder` quotes raw bytes.
-- **Kafka**: `read_task.go:159` and `write_task.go:261` allow an empty pointer on
-  `bytes`.
+- **`x/go/json`**: `NewDecoder` accepts `BytesT` as base64 text, and `Encoder` writes it
+  as base64, where it quotes raw bytes today.
+- **Kafka**: `read_task.go:159` and `write_task.go:261` start to allow one on `bytes`.
 - **MQTT and HTTP**: A `bytes` field with an empty pointer skips `readTopic.extract` and
   the body parse. `driver/http/read_task.cpp:112` drops its rejection.
-- **`x/cpp`**: `to_sample_value` and `Series` take `BYTES_T`, and `x::base64::decode`
+- **`x/cpp`**: `to_sample_value` and `Series` gain `BYTES_T`, and `x::base64::decode`
   gets a strict form. `variable_samples` (`driver/opcua/telem/telem.cpp:99`) moves to
   `Series`.
 
@@ -149,9 +149,9 @@ function that each service builds, as `slavesOf` does. It skips disabled fields,
 does not allow, a fill or entry that does not fit the channel's width, and a fill on an
 index channel. It clears `data_type`.
 
-**Core config**, in `ValidateEntry`: A `label` fill is in the field's own entries.
-Labels and channel field values are unique. `json` text and `bytes` text are valid. A
-`bytes` field with an empty pointer has no other enabled field.
+**Core config**, in `ValidateEntry`: Labels and channel field values are unique. `json`
+text and `bytes` text are valid. A `bytes` field with an empty pointer has no other
+enabled field.
 
 **Kafka and MQTT** run in the Core. The `ch.DataType` check at task configure becomes a
 kind check. Both gain fill: Kafka skips an absent value today (`read_task.go:767`).
@@ -175,10 +175,10 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
-- **#4594 fill**: A number is `value`, and an enum label is `label`. `optional` with no
-  fill is `nan` on `float`. On each other kind the Driver rejected it, so it was never a
-  working config: it becomes no fill, the field warns as usual, and the migration logs
-  it.
+- **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
+  or is logged and dropped when no entry has it. `optional` with no fill is `nan` on
+  `float`. On each other kind the Driver rejected it, so it was never a working config:
+  it becomes no fill, the field warns as usual, and the migration logs it.
 - **Channel field**: A stored `timestamp` data type wins. `json_type: string` with
   entries, or `number`, becomes the numeric kind. `string` with no entries stays
   `string`.
