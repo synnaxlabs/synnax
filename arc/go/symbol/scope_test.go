@@ -626,6 +626,7 @@ var _ = Describe("Scope", func() {
 				return mod
 			}
 			buildAlias := func(bCtx SpecContext, mod *symbol.Symbol) *symbol.Symbol {
+				GinkgoHelper()
 				root := symbol.NewRoot(nil, nil)
 				return MustSucceed(root.Add(bCtx, symbol.Symbol{
 					Name: "m", Kind: symbol.KindModuleAlias, Target: mod,

@@ -368,6 +368,7 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("IdentifierParts and IdentifierName", func() {
 		identifierOf := func(code string) parser.IIdentifierContext {
+			GinkgoHelper()
 			prog := MustSucceed(parser.Parse(code))
 			return prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
 		}
