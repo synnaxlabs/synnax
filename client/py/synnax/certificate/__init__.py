@@ -16,6 +16,7 @@ from synnax.certificate.types_gen import (
     FileCertificate,
     Key,
     StoredCertificate,
+    Where,
     ontology_id,
 )
 
@@ -29,5 +30,6 @@ __all__ = [
     "New",
     "NewStored",
     "StoredCertificate",
+    "Where",
     "ontology_id",
 ]

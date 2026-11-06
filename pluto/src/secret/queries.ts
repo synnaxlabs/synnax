@@ -15,7 +15,12 @@ import { Flux } from "@/flux";
 const RESOURCE_NAME = "secret";
 const PLURAL_RESOURCE_NAME = "secrets";
 
-export type ListQuery = Omit<secret.RetrieveMultipleParams, "includeUses">;
+// Distributes over the union so each variant keeps its own fields.
+export type ListQuery = secret.RetrieveMultipleParams extends infer P
+  ? P extends unknown
+    ? Omit<P, "includeUses">
+    : never
+  : never;
 
 export const useList = Flux.createList<ListQuery, secret.Key, secret.Secret>({
   name: PLURAL_RESOURCE_NAME,

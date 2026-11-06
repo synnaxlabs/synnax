@@ -36,7 +36,7 @@ describe("queries", () => {
       const second = await createSecret("list 2");
       const { result } = renderHook(() => Secret.useList(), { wrapper });
       await act(async () => {
-        await result.current.retrieveAsync({ keys: [first.key, second.key] });
+        await result.current.retrieveAsync({ key: [first.key, second.key] });
       });
       expect(result.current.data).toEqual([first.key, second.key]);
       expect(result.current.getItem(first.key)).toEqual(first);
@@ -218,7 +218,7 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       await expect(createTestClient().secrets.retrieve(created.key)).rejects.toThrow(
-        `Secrets with keys [${created.key}] not found`,
+        `secret with key ${created.key} not found`,
       );
     });
 

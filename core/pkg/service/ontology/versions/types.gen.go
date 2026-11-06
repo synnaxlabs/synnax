@@ -17,42 +17,70 @@ import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 type ResourceType = v0.ResourceType
 
 const (
-	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
-	ResourceTypeCertificate     ResourceType = v0.ResourceTypeCertificate
-	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = v0.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = v0.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = v0.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = v0.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = v0.ResourceTypeLog
-	ResourceTypeNode            ResourceType = v0.ResourceTypeNode
-	ResourceTypePanel           ResourceType = v0.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = v0.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = v0.ResourceTypeProject
-	ResourceTypeRack            ResourceType = v0.ResourceTypeRack
-	ResourceTypeRange           ResourceType = v0.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = v0.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = v0.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = v0.ResourceTypeSchematic
+	// ResourceTypeArc identifies an Arc module.
+	ResourceTypeArc ResourceType = v0.ResourceTypeArc
+	// ResourceTypeBuiltin identifies a resource that the Core defines.
+	ResourceTypeBuiltin ResourceType = v0.ResourceTypeBuiltin
+	// ResourceTypeChannel identifies a channel.
+	ResourceTypeChannel ResourceType = v0.ResourceTypeChannel
+	// ResourceTypeDevice identifies a device.
+	ResourceTypeDevice ResourceType = v0.ResourceTypeDevice
+	// ResourceTypeFramer identifies the telemetry of a channel.
+	ResourceTypeFramer ResourceType = v0.ResourceTypeFramer
+	// ResourceTypeGroup identifies a group of resources.
+	ResourceTypeGroup ResourceType = v0.ResourceTypeGroup
+	// ResourceTypeLabel identifies a label.
+	ResourceTypeLabel ResourceType = v0.ResourceTypeLabel
+	// ResourceTypeLineplot identifies a line plot.
+	ResourceTypeLineplot ResourceType = v0.ResourceTypeLineplot
+	// ResourceTypeLog identifies a log.
+	ResourceTypeLog ResourceType = v0.ResourceTypeLog
+	// ResourceTypeNode identifies a node of a cluster.
+	ResourceTypeNode ResourceType = v0.ResourceTypeNode
+	// ResourceTypePanel identifies a panel.
+	ResourceTypePanel ResourceType = v0.ResourceTypePanel
+	// ResourceTypePolicy identifies an access control policy.
+	ResourceTypePolicy ResourceType = v0.ResourceTypePolicy
+	// ResourceTypeProject identifies a project.
+	ResourceTypeProject ResourceType = v0.ResourceTypeProject
+	// ResourceTypeRack identifies a rack.
+	ResourceTypeRack ResourceType = v0.ResourceTypeRack
+	// ResourceTypeRange identifies a range.
+	ResourceTypeRange ResourceType = v0.ResourceTypeRange
+	// ResourceTypeRangeAlias identifies an alias of a channel on a range.
+	ResourceTypeRangeAlias ResourceType = v0.ResourceTypeRangeAlias
+	// ResourceTypeRole identifies an access control role.
+	ResourceTypeRole ResourceType = v0.ResourceTypeRole
+	// ResourceTypeSchematic identifies a schematic.
+	ResourceTypeSchematic ResourceType = v0.ResourceTypeSchematic
+	// ResourceTypeSchematicSymbol identifies a schematic symbol.
 	ResourceTypeSchematicSymbol ResourceType = v0.ResourceTypeSchematicSymbol
-	ResourceTypeSecret          ResourceType = v0.ResourceTypeSecret
-	ResourceTypeStatus          ResourceType = v0.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = v0.ResourceTypeTable
-	ResourceTypeTask            ResourceType = v0.ResourceTypeTask
-	ResourceTypeUser            ResourceType = v0.ResourceTypeUser
-	ResourceTypeView            ResourceType = v0.ResourceTypeView
-	ResourceTypeEthercatMaster  ResourceType = v0.ResourceTypeEthercatMaster
-	ResourceTypeEthercatSlave   ResourceType = v0.ResourceTypeEthercatSlave
-	ResourceTypeHTTPServer      ResourceType = v0.ResourceTypeHTTPServer
-	ResourceTypeLabjackDevice   ResourceType = v0.ResourceTypeLabjackDevice
-	ResourceTypeModbusServer    ResourceType = v0.ResourceTypeModbusServer
-	ResourceTypeNiChassis       ResourceType = v0.ResourceTypeNiChassis
-	ResourceTypeNiDevice        ResourceType = v0.ResourceTypeNiDevice
-	ResourceTypeOpcuaServer     ResourceType = v0.ResourceTypeOpcuaServer
+	// ResourceTypeStatus identifies a status.
+	ResourceTypeStatus ResourceType = v0.ResourceTypeStatus
+	// ResourceTypeTable identifies a table.
+	ResourceTypeTable ResourceType = v0.ResourceTypeTable
+	// ResourceTypeTask identifies a task.
+	ResourceTypeTask ResourceType = v0.ResourceTypeTask
+	// ResourceTypeUser identifies a user.
+	ResourceTypeUser ResourceType = v0.ResourceTypeUser
+	// ResourceTypeView identifies a view.
+	ResourceTypeView           ResourceType = v0.ResourceTypeView
+	ResourceTypeEthercatMaster ResourceType = v0.ResourceTypeEthercatMaster
+	ResourceTypeEthercatSlave  ResourceType = v0.ResourceTypeEthercatSlave
+	ResourceTypeHTTPServer     ResourceType = v0.ResourceTypeHTTPServer
+	ResourceTypeLabjackDevice  ResourceType = v0.ResourceTypeLabjackDevice
+	ResourceTypeModbusServer   ResourceType = v0.ResourceTypeModbusServer
+	ResourceTypeNiChassis      ResourceType = v0.ResourceTypeNiChassis
+	ResourceTypeNiDevice       ResourceType = v0.ResourceTypeNiDevice
+	ResourceTypeOpcuaServer    ResourceType = v0.ResourceTypeOpcuaServer
+	ResourceTypeArcDirectory   ResourceType = v0.ResourceTypeArcDirectory
+	// ResourceTypeSecret identifies a secret.
+	ResourceTypeSecret ResourceType = v0.ResourceTypeSecret
+	// ResourceTypeCertificate identifies a certificate.
+	ResourceTypeCertificate ResourceType = v0.ResourceTypeCertificate
 )
 
+// RelationshipType is the kind of link between two resources.
 type RelationshipType = v0.RelationshipType
 
 // ID is a unique identifier for a Resource. An example:

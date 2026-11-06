@@ -341,7 +341,7 @@ x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
             if (!err) break;
             this->master->deactivate();
         }
-        if (!retry.wait(err)) {
+        if (err.matches(errors::STATE_CHANGE_REFUSED) || !retry.wait(err)) {
             retry.stop();
             return err;
         }
@@ -575,6 +575,13 @@ x::errors::Error Engine::ensure_initialized() {
     LOG(INFO) << "[ethercat] " << count << " slaves answer on "
               << this->master->interface_name() << " where " << discovered
               << " were discovered, rediscovering";
+    this->master->deactivate();
+    return this->master->initialize();
+}
+
+x::errors::Error Engine::rediscover() {
+    std::lock_guard lock(this->mu);
+    if (this->running()) return x::errors::NIL;
     this->master->deactivate();
     return this->master->initialize();
 }

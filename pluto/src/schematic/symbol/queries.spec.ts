@@ -473,9 +473,7 @@ describe("Symbol queries", () => {
       });
 
       await expect(
-        client.schematics.symbols.retrieve({
-          keys: [symbol.key],
-        }),
+        client.schematics.symbols.retrieve({ key: symbol.key }),
       ).rejects.toThrow("not found");
     });
   });
@@ -518,7 +516,7 @@ describe("Symbol queries", () => {
       });
 
       await expect(
-        client.schematics.symbols.retrieve({ keys: [symbol.key] }),
+        client.schematics.symbols.retrieve({ key: symbol.key }),
       ).rejects.toThrow("not found");
       await expect(client.groups.retrieve({ key: grp.key })).rejects.toThrow(
         "not found",

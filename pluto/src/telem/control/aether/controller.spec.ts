@@ -398,7 +398,7 @@ describe("control/aether/Controller", SUITE, () => {
       message: "Skipped deleted channels",
       description: [
         "Some symbols use channels that no longer exist.",
-        `Channels with keys [${deleted.key}] not found: not found: query`,
+        `channel not found matching ${deleted.key}`,
       ].join("\n"),
     });
     await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();

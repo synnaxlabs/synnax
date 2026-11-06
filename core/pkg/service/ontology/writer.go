@@ -28,6 +28,8 @@ type Writer struct {
 	tx                gorp.Tx
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[string, Relationship]
+	owned             ownedTypes
+	owner             *Owner
 }
 
 // DefineResources defines one or more new resources with the given [ID]s. If any of the
@@ -88,6 +90,9 @@ func (w Writer) DefineRelationships(
 	rels := make([]Relationship, 0, len(to))
 	for _, id := range to {
 		rel := Relationship{From: from, To: id, Type: relationshipType}
+		if err := w.owned.check(rel, w.owner); err != nil {
+			return err
+		}
 		exists, err := w.checkRelationshipExists(ctx, rel)
 		if err != nil {
 			return err
@@ -111,7 +116,7 @@ func (w Writer) DefineRelationships(
 // are silently skipped.
 func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) error {
 	keys := lo.Map(rels, func(rel Relationship, _ int) string { return rel.GorpKey() })
-	return w.relationshipTable.NewDelete().
+	return w.deleteRelationships().
 		Where(gorp.MatchKeys[string, Relationship](keys...)).
 		Exec(ctx, w.tx)
 }
@@ -125,7 +130,7 @@ func (w Writer) DeleteOutgoingRelationshipsOfType(
 ) error {
 	prefix := from.String() + relationshipKeySep +
 		string(relationshipType) + relationshipKeySep
-	return w.relationshipTable.NewDelete().
+	return w.deleteRelationships().
 		WherePrefix([]byte(prefix)).
 		Exec(ctx, w.tx)
 }
@@ -139,7 +144,7 @@ func (w Writer) ReplaceOutgoingRelationshipsOfType(
 	kept := set.New(to...)
 	prefix := from.String() + relationshipKeySep +
 		string(relationshipType) + relationshipKeySep
-	if err := w.relationshipTable.NewDelete().
+	if err := w.deleteRelationships().
 		WherePrefix([]byte(prefix)).
 		Where(gorp.Match(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			return !kept.Contains(rel.To), nil
@@ -159,11 +164,19 @@ func (w Writer) DeleteIncomingRelationshipsOfType(
 ) error {
 	suffix := []byte(relationshipKeySep + string(relationshipType) +
 		relationshipKeySep + to.String())
-	return w.relationshipTable.NewDelete().
+	return w.deleteRelationships().
 		WhereRaw(func(key, _ []byte) (bool, error) {
 			return bytes.HasSuffix(key, suffix), nil
 		}).
 		Exec(ctx, w.tx)
+}
+
+// deleteRelationships opens a delete that refuses relationships of another owner.
+func (w Writer) deleteRelationships() gorp.Delete[string, Relationship] {
+	return w.relationshipTable.NewDelete().
+		Guard(func(_ gorp.Context, rel Relationship) error {
+			return w.owned.check(rel, w.owner)
+		})
 }
 
 func (w Writer) retrieveOutgoingRelationships(
@@ -214,7 +227,7 @@ func (w Writer) retrieveDescendants(
 
 func (w Writer) deleteIncomingRelationships(ctx context.Context, id ID) error {
 	suffix := []byte(relationshipKeySep + id.String())
-	return w.relationshipTable.NewDelete().
+	return w.deleteRelationships().
 		WhereRaw(func(key, _ []byte) (bool, error) {
 			return bytes.HasSuffix(key, suffix), nil
 		}).
@@ -222,7 +235,7 @@ func (w Writer) deleteIncomingRelationships(ctx context.Context, id ID) error {
 }
 
 func (w Writer) deleteOutgoingRelationships(ctx context.Context, from ID) error {
-	return w.relationshipTable.NewDelete().
+	return w.deleteRelationships().
 		WherePrefix([]byte(from.String()+relationshipKeySep)).
 		Exec(ctx, w.tx)
 }

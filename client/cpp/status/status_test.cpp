@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/testutil/testutil.h"
@@ -480,4 +481,18 @@ TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     EXPECT_TRUE(res.key.empty());
 }
 
+/// @brief it should fall back to the current time when the JSON omits it.
+TEST(StatusTest, ParsesMissingTime) {
+    const auto before = x::telem::TimeStamp::now();
+    x::json::Parser parser(
+        x::json::json{
+            {"variant", "info"},
+            {"message", "Started task"},
+            {"details", nullptr},
+        }
+    );
+    const auto status = Status<>::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_GE(status.time, before);
+}
 }
