@@ -37,6 +37,12 @@ const newTextArc = (name: string): arc.New => ({
 
 describe("arc", () => {
   describe("retrieve", () => {
+    it("should retrieve an arc by its name", async () => {
+      const created = await client.arcs.create(newTextArc(`named-arc-${id.create()}`));
+      const retrieved = await client.arcs.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("should retrieve arcs by search term", async () => {
       const prefix = `searchable-arc-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];

@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -32,8 +33,8 @@ class PulseWidth(Counter):
         name: str,
         device: str,
         *,
-        starting_edge: Literal["Rising", "Falling"] | None = None,
-        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
+        starting_edge: sy.ni.CIEdge | None = None,
+        units: sy.ni.CITimeUnits | Literal["Custom"] | None = None,
         terminal: str | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
