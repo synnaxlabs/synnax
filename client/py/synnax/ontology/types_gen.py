@@ -77,6 +77,8 @@ RESOURCE_TYPE_NI_DEVICE: Literal["ni_device"] = "ni_device"
 
 RESOURCE_TYPE_OPCUA_SERVER: Literal["opcua_server"] = "opcua_server"
 
+RESOURCE_TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
+
 
 ResourceType = Literal[
     "arc",
@@ -111,4 +113,5 @@ ResourceType = Literal[
     "ni_chassis",
     "ni_device",
     "opcua_server",
+    "arc_directory",
 ]

@@ -140,6 +140,8 @@ type lineData struct {
 	Typed bool
 	// Members are the members of a bare line's operator.
 	Members []string
+	// Operators are the Go names of the optional members, the ones that select values.
+	Operators []string
 	// Scalar is true when Func takes one value, so an `in` ORs one call per value.
 	Scalar bool
 	// Field is the selector that reads the target field, for members no matcher covers.
@@ -150,10 +152,37 @@ type lineData struct {
 	Variadic bool
 	// Enum is true when a bare line selects string enum values, which it validates.
 	Enum bool
+	// Text is true when a bare line's operator is filter.String.
+	Text bool
 }
 
 // Has reports whether the line's operator has the member.
 func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member) }
+
+// NoOperator returns the condition that the line sets no operator, wrapped to the line
+// width of the generated file.
+func (l lineData) NoOperator() string {
+	const width, tab = 88, 4
+	var b strings.Builder
+	col := 2*tab + len("if ")
+	for i, op := range l.Operators {
+		term := "l." + op + " == nil"
+		end := " &&"
+		if i == len(l.Operators)-1 {
+			end = " {"
+		}
+		if i > 0 && col+len(" && ")+len(term)+len(end) > width {
+			b.WriteString(" &&\n\t\t\t")
+			col = 3 * tab
+		} else if i > 0 {
+			b.WriteString(" && ")
+			col += len(" && ")
+		}
+		b.WriteString(term)
+		col += len(term)
+	}
+	return b.String()
+}
 
 type comparisonData struct {
 	// Member is the Go field of the ordering member, such as Gt.
@@ -290,6 +319,12 @@ func generateFile(
 		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
 			return f.Name
 		})
+		ld.Operators = lo.FilterMap(
+			opForm.Fields,
+			func(f resolution.Field, _ int) (string, bool) {
+				return naming.ToPascalCase(f.Name), f.Optional
+			},
+		)
 		for _, m := range ld.Members {
 			if !lo.Contains(known, m) {
 				return fail(
@@ -300,6 +335,7 @@ func generateFile(
 				)
 			}
 		}
+		ld.Text = op.QualifiedName == resolution.OperatorString
 		ld.Enum = len(field.Type.TypeArgs) == 1 &&
 			isStringEnum(field.Type.TypeArgs[0], table)
 		// The matcher list leaves out the key, which the service's MatchKeys matches.
@@ -409,15 +445,15 @@ func addImports(data templateData, repoRoot string) {
 	}
 	data.AddExternal("strconv")
 	internal("validate", "x/go/validate")
-	needsRegex := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Has("regex") })
-	needsMatch := needsRegex || lo.SomeBy(data.Lines, func(l lineData) bool {
+	hasText := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Text })
+	hasBare := lo.SomeBy(data.Lines, func(l lineData) bool { return !l.Typed })
+	needsMatch := hasText || lo.SomeBy(data.Lines, func(l lineData) bool {
 		return len(l.Comparisons()) > 0
 	})
-	if needsRegex {
-		data.AddExternal("regexp")
+	if hasBare {
+		internal("filter", "x/go/filter")
 	}
-	needsEnum := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum })
-	if needsRegex || needsEnum {
+	if lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum }) {
 		internal("errors", "x/go/errors")
 	}
 	if needsMatch {
@@ -473,8 +509,41 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- range .Lines}}
 {{- $line := .}}
 	if l := w.{{.GoName}}; l != nil {
+{{- if not .Typed}}
+		if {{.NoOperator}} {
+			return nil, validate.PathedError(filter.ErrNoOperator, "{{.Path}}")
+		}
+{{- end}}
 {{- if .Typed}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
+{{- else if .Text}}
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, {{.Func}}{{$.TypeArgs}}(*l.Eq))
+			}
+{{- if not .Scalar}}
+			if l.In != nil {
+				fs = append(fs, {{.Func}}{{$.TypeArgs}}(l.In...))
+			}
+			text.In = nil
+{{- end}}
+			text.Eq = nil
+		}
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
+			if err != nil {
+				return nil, validate.PathedError(err, "{{.Path}}")
+			}
+			fs = append(fs, Match{{$.TypeArgs}}(func(
+				_ gorp.Context,
+				_ Retrieve{{$.TypeArgs}},
+				e *{{$.Target}},
+			) (bool, error) {
+				return match(e.{{.Field}}), nil
+			}))
+		}
 {{- else}}
 {{- if .Has "eq"}}
 		if l.Eq != nil {
@@ -522,25 +591,6 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 				anyOf[i] = {{.Func}}{{$.TypeArgs}}(v)
 			}
 			fs = append(fs, Or{{$.TypeArgs}}(anyOf...))
-		}
-{{- end}}
-{{- if .Has "regex"}}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
-			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"{{.Path}}",
-					"regex",
-				)
-			}
-			fs = append(fs, Match{{$.TypeArgs}}(func(
-				_ gorp.Context,
-				_ Retrieve{{$.TypeArgs}},
-				e *{{$.Target}},
-			) (bool, error) {
-				return re.MatchString(e.{{.Field}}), nil
-			}))
 		}
 {{- end}}
 {{- range .Comparisons}}

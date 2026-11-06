@@ -56,9 +56,10 @@ describe("Schematic.Symbol.useDeleteGroup", () => {
     await screen.findByText(`Are you sure you want to delete ${grp.name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => expect(await groupExists(grp.key)).toBe(false));
-    expect(await client.schematics.symbols.retrieve(symbols.map((s) => s.key))).toEqual(
-      [],
-    );
+    const keys = symbols.map((s) => s.key);
+    expect(
+      await client.schematics.symbols.retrieve({ where: { key: { in: keys } } }),
+    ).toEqual([]);
   });
 
   it("keeps the group when the deletion is cancelled", async () => {

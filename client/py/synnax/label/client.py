@@ -12,9 +12,10 @@ from typing import overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
+from synnax.exceptions import ValidationError
 from synnax.label.types_gen import Key, Label, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
+from synnax.util import one
 from x import color as color_
 from x import filter
 from x.lists import normalize
@@ -160,11 +161,7 @@ class Client:
         res = self._client.send("/label/retrieve", req, RetrieveResponse)
         if not is_single:
             return res.labels
-        if len(res.labels) == 0:
-            raise NotFoundError(f"Label matching {key or name} not found")
-        if len(res.labels) > 1:
-            raise MultipleFoundError(f"Multiple labels named {name} found")
-        return res.labels[0]
+        return one("Label", key if key is not None else name, res.labels)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes one or more labels and removes them from every resource. Deleting
