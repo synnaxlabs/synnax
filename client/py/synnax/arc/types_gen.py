@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -79,6 +79,21 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+    },
+    total=False,
+)
 
 
 class Base(BaseModel):

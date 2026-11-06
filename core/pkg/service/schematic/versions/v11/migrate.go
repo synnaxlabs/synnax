@@ -11,6 +11,7 @@ package v11
 
 import (
 	"context"
+	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
@@ -65,7 +66,7 @@ func MigrateElementConfig(
 		n := out.Variant.(TankElementConfig)
 		n.BorderRadius = new(o.BorderRadius)
 		n.Bounds = new(o.Bounds)
-		n.Precision = new(o.Precision)
+		n.Precision = migratePrecision(o.Precision)
 		out.Variant = n
 	}
 	return out, nil
@@ -81,8 +82,13 @@ func MigrateNumericTelemConfig(
 	if err != nil {
 		return NumericTelemConfig{}, err
 	}
-	out.Precision = new(old.Precision)
+	out.Precision = migratePrecision(old.Precision)
 	return out, nil
+}
+
+// migratePrecision rounds a stored decimal place count into the byte that v11 holds.
+func migratePrecision(p float64) *uint8 {
+	return new(uint8(min(max(math.Round(p), 0), math.MaxUint8)))
 }
 
 // MigrateScaleIndicatorConfig lifts a v10 scale indicator config to v11, keeping its

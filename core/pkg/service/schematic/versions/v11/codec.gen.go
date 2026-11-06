@@ -1164,7 +1164,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		if v.Precision != nil {
 			w.Bool(true)
-			w.Float64(float64(*v.Precision))
+			w.Uint8(uint8(*v.Precision))
 		} else {
 			w.Bool(false)
 		}
@@ -3021,8 +3021,8 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
+				var hv uint8
+				if hv, err = r.Uint8(); err != nil {
 					return err
 				}
 				v.Precision = &hv
@@ -4372,7 +4372,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		if v.Precision != nil {
 			w.Bool(true)
-			w.Float64(float64(*v.Precision))
+			w.Uint8(uint8(*v.Precision))
 		} else {
 			w.Bool(false)
 		}
@@ -6194,8 +6194,8 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
+				var hv uint8
+				if hv, err = r.Uint8(); err != nil {
 					return err
 				}
 				v.Precision = &hv
@@ -6477,7 +6477,7 @@ func (ntc NumericTelemConfig) EncodeOrc(w *orc.Writer) error {
 	}
 	if ntc.Precision != nil {
 		w.Bool(true)
-		w.Float64(float64(*ntc.Precision))
+		w.Uint8(uint8(*ntc.Precision))
 	} else {
 		w.Bool(false)
 	}
@@ -6523,8 +6523,8 @@ func (ntc *NumericTelemConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
 				return err
 			}
 			ntc.Precision = &hv
@@ -6556,7 +6556,7 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	}
 	if sic.Precision != nil {
 		w.Bool(true)
-		w.Float64(float64(*sic.Precision))
+		w.Uint8(uint8(*sic.Precision))
 	} else {
 		w.Bool(false)
 	}
@@ -6650,8 +6650,8 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
 				return err
 			}
 			sic.Precision = &hv
