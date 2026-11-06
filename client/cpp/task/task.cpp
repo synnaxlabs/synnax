@@ -13,85 +13,29 @@
 #include "x/cpp/json/struct.h"
 
 namespace synnax::task {
-std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
-    return retrieve(key, RetrieveOptions{});
-}
-
 std::pair<Task, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        RetrieveRequest::from(Where{.key = x::filter::Set<Key>{.eq = key}}, options),
-        "key " + key.to_string()
-    );
-}
-
-std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return retrieve(name, RetrieveOptions{});
+    return this->retrieve_one(Where{.key = key}, options, "key " + key.to_string());
 }
 
 std::pair<Task, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        RetrieveRequest::from(Where{.name = x::filter::String{.eq = name}}, options),
-        "name " + name
-    );
-}
-
-std::pair<std::vector<Task>, x::errors::Error>
-Client::retrieve(const std::vector<std::string> &names) const {
-    return retrieve(names, RetrieveOptions{});
+    return this->retrieve_one(Where{.name = name}, options, "name " + name);
 }
 
 std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve(
-        RetrieveRequest::from(Where{.name = x::filter::String{.in = names}}, options)
-    );
-}
-
-std::pair<Task, x::errors::Error>
-Client::retrieve_by_type(const std::string &type) const {
-    return retrieve_by_type(type, RetrieveOptions{});
-}
-
-std::pair<Task, x::errors::Error> Client::retrieve_by_type(
-    const std::string &type,
-    const RetrieveOptions &options
-) const {
-    return this->retrieve_one(
-        RetrieveRequest::from(Where{.type = x::filter::String{.eq = type}}, options),
-        "type " + type
-    );
+    return this->retrieve(Where{.name = names}, options);
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
-Client::retrieve_by_type(const std::vector<std::string> &types) const {
-    return retrieve_by_type(types, RetrieveOptions{});
-}
-
-std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
-    const std::vector<std::string> &types,
-    const RetrieveOptions &options
-) const {
-    return this->retrieve(
-        RetrieveRequest::from(Where{.type = x::filter::String{.in = types}}, options)
-    );
-}
-
-std::pair<std::vector<Task>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto scoped = req;
-    if (this->rack != 0) {
-        const auto on_rack = Where{
-            .rack = x::filter::Set<rack::Key>{.eq = this->rack},
-        };
-        scoped.where = scoped.where.has_value()
-                         ? Where{.and_ = std::vector<Where>{*scoped.where, on_rack}}
-                         : on_rack;
-    }
-    auto [pb_req, pb_err] = scoped.to_proto();
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto scoped = where;
+    if (this->rack != 0) scoped = std::move(scoped) && Where{.rack = this->rack};
+    auto [pb_req, pb_err] = RetrieveRequest::from(std::move(scoped), options)
+                                .to_proto();
     if (pb_err) return {std::vector<Task>(), pb_err};
     grpc::task::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
@@ -102,11 +46,22 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.tasks), x::errors::NIL};
 }
 
-std::pair<Task, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    if (req.limit.has_value() || req.offset != 0)
+std::pair<Task, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve_one(where, options, where.to_json().dump());
+}
+
+std::pair<Task, x::errors::Error> Client::retrieve_one(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::string &query
+) const {
+    if (options.limit.has_value() || options.offset != 0)
         return {Task{}, errors::paged_one_error()};
-    auto [tasks, err] = this->retrieve(req);
+    auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};
     if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
     if (tasks.size() > 1) return {Task{}, errors::multiple_found_error("tasks", query)};
@@ -134,14 +89,5 @@ x::errors::Error Client::del(const Key key) const {
     req.add_keys(key.to_string());
     auto [res, err] = task_delete_client->send("/task/delete", req);
     return err;
-}
-
-std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
-    return list(RetrieveOptions{});
-}
-
-std::pair<std::vector<Task>, x::errors::Error>
-Client::list(const RetrieveOptions &options) const {
-    return this->retrieve(RetrieveRequest::from(Where{}, options));
 }
 }

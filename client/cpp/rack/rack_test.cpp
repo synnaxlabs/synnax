@@ -158,23 +158,8 @@ TEST(RackTests, testRetrieveWhere) {
     ASSERT_NIL(client.racks.create(b));
     ASSERT_NIL(client.racks.create(c));
     const auto racks = ASSERT_NIL_P(client.racks.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{
-                            .integrations =
-                                x::filter::Contains<std::string>{
-                                    .any = std::vector<std::string>{"labjack"},
-                                }
-                        },
-                        Where{.name = x::filter::String{.eq = b.name}},
-                    },
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{a.key, b.key, c.key, 4123456789},
-                },
-            },
-        }
+        (Where{.integrations = "labjack"} || Where{.name = b.name}) &&
+        Where{.key = {a.key, b.key, c.key, 4123456789}}
     ));
     std::set<Key> keys;
     for (const auto &r: racks)
