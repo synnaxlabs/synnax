@@ -271,7 +271,7 @@ void Engine::run() {
         const auto dc = (!err || short_count) ? this->master->dc_time() : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
-            if (!starting && !phase->locked() && late_frames++ == 0)
+            if (!starting && phase->lost() && late_frames++ == 0)
                 LOG(WARNING) << "[ethercat] cycles on " << iface
                              << " run late: a frame passed the reference clock within "
                                 "a quarter period of SYNC0";

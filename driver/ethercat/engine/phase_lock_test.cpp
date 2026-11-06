@@ -52,6 +52,19 @@ TEST(PhaseLock, LosesTheLockPastAQuarterPeriod) {
     EXPECT_FALSE(lock.locked());
 }
 
+/// @brief it should report a lost lock only after the lock held, so the frames before
+/// the lock first holds are not late.
+TEST(PhaseLock, ReportsALostLockOnlyAfterItHeld) {
+    PhaseLock lock(PERIOD, x::telem::TimeStamp(0));
+    lock.update(x::telem::TimeStamp(PERIOD * 0.9));
+    EXPECT_FALSE(lock.locked());
+    EXPECT_FALSE(lock.lost());
+    lock.update(x::telem::TimeStamp(PERIOD / 2));
+    EXPECT_FALSE(lock.lost());
+    lock.update(x::telem::TimeStamp(PERIOD * 0.9));
+    EXPECT_TRUE(lock.lost());
+}
+
 /// @brief it should bring frames to the target phase and hold them there while the DC
 /// clock runs 100 ppm faster than the host clock.
 TEST(PhaseLock, HoldsTheTargetPhaseThroughClockDrift) {

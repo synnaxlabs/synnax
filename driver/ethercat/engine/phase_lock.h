@@ -29,6 +29,7 @@ class PhaseLock {
     x::telem::TimeStamp origin;
     x::telem::TimeSpan error;
     double integral = 0;
+    bool held = false;
 
 public:
     PhaseLock(const x::telem::TimeSpan period, const x::telem::TimeStamp origin):
@@ -45,6 +46,7 @@ public:
         const auto limit = static_cast<double>(p) / 10;
         const auto shift = -(KP * e + KI * (this->integral + e));
         if (std::abs(shift) < limit) this->integral += e;
+        if (this->locked()) this->held = true;
         return x::telem::TimeSpan(
             static_cast<int64_t>(std::clamp(shift, -limit, limit))
         );
@@ -53,5 +55,9 @@ public:
     /// @brief true when the latest frame passed the reference clock within a quarter
     /// period of the target phase.
     [[nodiscard]] bool locked() const { return this->error.abs() <= this->period / 4; }
+
+    /// @brief true when the lock held at an earlier frame and the latest frame is out
+    /// of it.
+    [[nodiscard]] bool lost() const { return this->held && !this->locked(); }
 };
 }
