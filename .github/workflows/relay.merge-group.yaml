@@ -25,7 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
     steps:
+      # A pull request cannot edit the script that runs with this token.
+      - name: Checkout the default branch scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
       - name: Start Check - Review queue
         env:
           GH_REPO: ${{ github.repository }}
@@ -34,5 +43,7 @@ jobs:
           REF: ${{ github.event.repository.default_branch }}
           SHA: ${{ github.event.merge_group.head_sha }}
         run: |
-          gh workflow run check.review.queue.yaml --ref "$REF" \
-            -f queue_ref="${QUEUE_REF#refs/heads/}" -f sha="$SHA"
+          .github/scripts/gh_api.sh \
+            "repos/$GH_REPO/actions/workflows/check.review.queue.yaml/dispatches" \
+            -X POST -f ref="$REF" \
+            -f "inputs[queue_ref]=${QUEUE_REF#refs/heads/}" -f "inputs[sha]=$SHA"

@@ -9,16 +9,17 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs `gh api` with the given arguments. GitHub sometimes answers with an empty, cut,
-# or plain text body, which gh reports as "unexpected end of JSON input" or "invalid
-# character". This retries those failures only. Every other failure, such as a 404,
-# exits at once with gh's output and exit code. A failed write can still land, so only
-# send requests that are safe to repeat.
+# Runs `gh api` with the given arguments. It retries a transient failure: an empty, cut,
+# or plain text body, an HTTP 5xx, or a network error. Every other failure, such as a
+# 404 or 422, exits at once with gh's output and exit code. A failed write can still
+# land, so only send requests that are safe to repeat.
 # GH_API_RETRY_DELAY sets the seconds before the first retry; it doubles after that.
 
 set -uo pipefail
 
 ATTEMPTS=3
+TRANSIENT='unexpected end of JSON input|invalid character|HTTP 5[0-9]{2}([^0-9]|$)'
+TRANSIENT+='|dial tcp|connection reset|i/o timeout|TLS handshake timeout|unexpected EOF'
 
 delay=${GH_API_RETRY_DELAY:-2}
 out=$(mktemp)
@@ -29,10 +30,10 @@ for ((attempt = 1; ; attempt++)); do
     code=0
     gh api "$@" > "$out" 2> "$err" || code=$?
     if ((code == 0 || attempt == ATTEMPTS)) \
-        || ! grep -qE "unexpected end of JSON input|invalid character" "$err"; then
+        || ! grep -qE "$TRANSIENT" "$err"; then
         break
     fi
-    echo "gh api: invalid response, retry $attempt in ${delay}s" >&2
+    echo "gh api: transient failure, retry $attempt in ${delay}s" >&2
     sleep "$delay"
     delay=$((delay * 2))
 done
