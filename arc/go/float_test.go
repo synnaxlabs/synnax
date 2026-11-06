@@ -265,37 +265,37 @@ var _ = Describe("NaN and infinity", func() {
 			}
 			return last.Unmarshal[float64]()[0]
 		}
-		sources := map[string]string{
-			"a flow variable read in a func": `
+		sources := []struct{ name, text string }{
+			{"a flow variable read in a func", `
 			limit T := V
 			func f() {v T} T { return limit }
-			x -> f() -> out`,
-			"a flow variable in a sequence": `
+			x -> f() -> out`},
+			{"a flow variable in a sequence", `
 			sequence main {
 				limit T := V
 				stage a {
 					limit -> out
 				}
 			}
-			x => main`,
-			"a stateful variable in a sequence": `
+			x => main`},
+			{"a stateful variable in a sequence", `
 			sequence main {
 				limit T $= V
 				stage a {
 					limit -> out
 				}
 			}
-			x => main`,
-			"a function input value": `
+			x => main`},
+			{"a function input value", `
 			func f(a T) {v T} T { return a }
-			x -> f(a=V) -> out`,
+			x -> f(a=V) -> out`},
 		}
-		for name, source := range sources {
+		for _, source := range sources {
 			DescribeTable(
-				"Should keep the value of "+name,
+				"Should keep the value of "+source.name,
 				func(ctx SpecContext, dt types.Type, constant string, expected float64) {
 					replacer := strings.NewReplacer("T", dt.String(), "V", constant)
-					got := run(ctx, replacer.Replace(source), dt)
+					got := run(ctx, replacer.Replace(source.text), dt)
 					if math.IsNaN(expected) {
 						Expect(math.IsNaN(got)).To(BeTrue())
 						return
