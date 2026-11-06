@@ -42,10 +42,7 @@ const devConnection = (): ConnectionParams | null => {
   return { ...DEV_CONNECTION, port };
 };
 
-export const detectConnection = (): ConnectionParams | null => {
-  if (Session.Runtime.ENGINE === "tauri") return null;
-  if (new URLSearchParams(window.location.search).has("select-core")) return null;
-  if (IS_DEV) return devConnection();
+const pageConnection = (): ConnectionParams => {
   const url = new URL(window.location.origin);
   return {
     key: Session.Core.SERVED_KEY,
@@ -54,4 +51,21 @@ export const detectConnection = (): ConnectionParams | null => {
     port: url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80,
     secure: url.protocol === "https:",
   };
+};
+
+export const detectConnection = (): ConnectionParams | null => {
+  if (Session.Runtime.ENGINE === "tauri") return null;
+  if (new URLSearchParams(window.location.search).has("select-core")) return null;
+  if (IS_DEV) return devConnection();
+  return pageConnection();
+};
+
+/** Returns true when the browser page came from the Core at the given address. */
+export const servesPage = ({
+  host,
+  port,
+}: Pick<ConnectionParams, "host" | "port">): boolean => {
+  if (Session.Runtime.ENGINE === "tauri") return false;
+  const page = pageConnection();
+  return page.host === host && page.port === port;
 };

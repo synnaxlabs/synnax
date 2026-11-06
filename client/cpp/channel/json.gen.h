@@ -62,7 +62,10 @@ inline Channel Channel::parse(x::json::Parser parser) {
             "operations",
             std::vector<Operation>{}
         ),
-        .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
+        .concurrency = parser.field<::x::control::Concurrency>(
+            "concurrency",
+            ::x::control::Concurrency::Exclusive
+        ),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }

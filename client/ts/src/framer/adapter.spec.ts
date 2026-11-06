@@ -11,7 +11,7 @@ import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { createTestClient } from "@/testutil";
@@ -70,6 +70,13 @@ describe("WriteFrameAdapter", () => {
     expect(res3.series).toHaveLength(1);
     expect(res3.get(dataCh.key)).toHaveLength(1);
     expect(res3.get(dataCh.key).at(0)).toEqual(1);
+  });
+
+  it("should reject a name that matches more than one channel", async () => {
+    const pattern = `(${timeCh.name}|${dataCh.name})`;
+    await expect(adapter.adapt(pattern, new Series(1))).rejects.toThrow(
+      MultipleFoundError,
+    );
   });
 
   it("should correctly adapt multiple names to multiple series", async () => {

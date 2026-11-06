@@ -151,6 +151,57 @@
         "server_computed": true
       },
       {
+        "name": "name contains",
+        "where": { "name": { "contains": "fire" } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name contains compares case",
+        "where": { "name": { "contains": "FIRE" } },
+        "expected": []
+      },
+      {
+        "name": "name starts_with",
+        "where": { "name": { "starts_with": "Cold" } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name starts_with matches only the start",
+        "where": { "name": { "starts_with": "flow" } },
+        "expected": []
+      },
+      {
+        "name": "name eq ignores case",
+        "where": { "name": { "eq": "hotfire 1", "case_insensitive": true } },
+        "expected": ["a"]
+      },
+      {
+        "name": "name in ignores case",
+        "where": { "name": { "in": ["COLD FLOW"], "case_insensitive": true } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name contains ignores case",
+        "where": { "name": { "contains": "FIRE", "case_insensitive": true } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name starts_with ignores case",
+        "where": { "name": { "starts_with": "cold", "case_insensitive": true } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name regex ignores case",
+        "where": { "name": { "regex": "^hot", "case_insensitive": true } },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "a false case_insensitive compares case",
+        "where": { "name": { "eq": "hotfire 1", "case_insensitive": false } },
+        "expected": []
+      },
+      {
         "name": "the slots on one node are ANDed",
         "where": {
           "name": {
@@ -1242,6 +1293,11 @@
         },
         "expected": ["a", "c"],
         "server_computed": true
+      },
+      {
+        "name": "type starts_with ignores case",
+        "where": { "type": { "starts_with": "LABJACK_W", "case_insensitive": true } },
+        "expected": ["a", "c"]
       },
       {
         "name": "rack eq",

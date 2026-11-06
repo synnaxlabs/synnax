@@ -318,6 +318,7 @@ var _ = Describe("Framer", func() {
 			}))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			hasData := func() bool {
+				GinkgoHelper()
 				iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
 					Keys:   keys,
 					Bounds: telem.TimeRangeMax,

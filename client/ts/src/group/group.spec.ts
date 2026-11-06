@@ -76,6 +76,24 @@ describe("Group", () => {
       });
       expect(groups.map((g) => g.key)).toEqual([a.key]);
     });
+    it("should retrieve the children of a parent by a flat filter", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const outside = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "outside",
+      });
+      const groups = await client.groups.retrieve({
+        parent: parentID,
+        key: [a.key, outside.key],
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
     it("should retrieve the children of a parent", async () => {
       const parent = await client.groups.create({
         parent: ontology.ROOT_ID,

@@ -25,6 +25,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
+from synnax.util import one
 from x import filter
 
 
@@ -66,10 +67,12 @@ class Retriever:
 
     @trace("debug")
     def retrieve_one(self, param: Key | str) -> Payload:
-        channels = self.retrieve(param)
-        if len(channels) == 0:
-            raise NotFoundError(f"Could not find channel matching {param}")
-        return channels[0]
+        """Returns the one channel that param names.
+
+        :raises NotFoundError: If no channel matches param.
+        :raises MultipleFoundError: If more than one channel matches param.
+        """
+        return one("Channel", param, self.retrieve(param))
 
     @trace("debug")
     def filter(

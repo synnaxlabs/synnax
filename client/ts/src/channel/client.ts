@@ -46,7 +46,7 @@ import {
   statusZ,
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -223,6 +223,11 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
+const retrieveParamsZ = z.union([
+  retrieveMultipleParamsZ,
+  retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
+]);
+
 const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
   rangeKey: rangerKeyZ.optional(),
@@ -299,7 +304,7 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
-  typeof retrieveMultipleParamsZ,
+  typeof retrieveParamsZ,
   Key,
   Channel,
   Channel,
@@ -368,7 +373,7 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
-        schema: retrieveMultipleParamsZ,
+        schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
         serverComputed: (query) => serverComputed(LINES, query.where),
@@ -516,10 +521,16 @@ export class Client extends query.Retriever<
   async retrieve(params: RetrieveSingleParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
-  async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
+  async retrieve(
+    params: query.RequestInput<typeof retrieveParamsZ>,
+  ): Promise<Channel[]>;
 
   async retrieve(
-    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
+    params:
+      | PrimitiveParams
+      | Payload[]
+      | RetrieveSingleParams
+      | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
