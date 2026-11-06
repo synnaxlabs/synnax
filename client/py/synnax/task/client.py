@@ -29,6 +29,7 @@ from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
+from synnax.status import VARIANT_INFO, VARIANT_SUCCESS
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -78,6 +79,8 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+# The rack monitor marks a rack whose Driver is alive with one of these.
+_HEALTHY_RACK_VARIANTS = {VARIANT_SUCCESS, VARIANT_INFO}
 
 
 class _Keyed(BaseProtocol):
@@ -211,8 +214,13 @@ class Task:
         :param args: The arguments to pass to the command.
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
+        :raises TimeoutError: If the timeout passes before the driver acknowledges the
+        command.
+        :raises RuntimeError: If the rack of the task reports that its driver is down
+        while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
+        rack_key = str(rack_.ontology_id(self.rack)) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
             timer = Timer()
@@ -239,9 +247,28 @@ class Task:
                         # The status channel carries statuses for all tasks and
                         # racks. Rack statuses have a different schema, so
                         # validation failures are expected and should be skipped.
+                        _raise_if_rack_down(sample, rack_key)
                         continue
                     if status.details is not None and status.details.cmd == key:
                         return status
+
+
+def _raise_if_rack_down(sample: object, rack_key: str | None) -> None:
+    """Raises the status of the rack as an error when it reports that its Driver is
+    down. A down Driver never replies, so its rack's problem ends the wait.
+    """
+    if rack_key is None:
+        return
+    try:
+        rack_status = rack_.Status.model_validate(sample)
+    except ValidationError:
+        return
+    if rack_status.key != rack_key or rack_status.variant in _HEALTHY_RACK_VARIANTS:
+        return
+    message = rack_status.message
+    if rack_status.description:
+        message += f": {rack_status.description}"
+    raise RuntimeError(message)
 
 
 class Protocol(BaseProtocol):
