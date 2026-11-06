@@ -126,7 +126,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.tables.create(data.project, data, {
+    await client.tables.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

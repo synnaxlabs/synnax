@@ -304,11 +304,12 @@ describe("queries", () => {
   describe("useChildren", () => {
     it("should return children filtered by a single type", async () => {
       const proj = await client.projects.create({ name: "single_type_ws" });
-      const s1 = await client.schematics.create(proj.key, {
+      const s1 = await client.schematics.create({
+        project: proj.key,
         name: "A Schematic",
       });
-      const l1 = await client.logs.create(proj.key, { name: "My Log" });
-      await client.lineplots.create(proj.key, { name: "My Plot" });
+      const l1 = await client.logs.create({ project: proj.key, name: "My Log" });
+      await client.lineplots.create({ project: proj.key, name: "My Plot" });
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -321,12 +322,13 @@ describe("queries", () => {
 
     it("should return children filtered by multiple types", async () => {
       const proj = await client.projects.create({ name: "multi_type_ws" });
-      const s1 = await client.schematics.create(proj.key, {
+      const s1 = await client.schematics.create({
+        project: proj.key,
         name: "Source Schematic",
       });
-      const lp = await client.lineplots.create(proj.key, { name: "A Plot" });
-      const t1 = await client.tables.create(proj.key, { name: "A Table" });
-      const l1 = await client.logs.create(proj.key, { name: "A Log" });
+      const lp = await client.lineplots.create({ project: proj.key, name: "A Plot" });
+      const t1 = await client.tables.create({ project: proj.key, name: "A Table" });
+      const l1 = await client.logs.create({ project: proj.key, name: "A Log" });
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -343,15 +345,17 @@ describe("queries", () => {
       const proj = await client.projects.create({
         name: "all_but_schematic_ws",
       });
-      const s1 = await client.schematics.create(proj.key, {
+      const s1 = await client.schematics.create({
+        project: proj.key,
         name: "Current Schematic",
       });
-      const s2 = await client.schematics.create(proj.key, {
+      const s2 = await client.schematics.create({
+        project: proj.key,
         name: "Other Schematic",
       });
-      const lp = await client.lineplots.create(proj.key, { name: "Plot" });
-      const t1 = await client.tables.create(proj.key, { name: "Table" });
-      const l1 = await client.logs.create(proj.key, { name: "Log" });
+      const lp = await client.lineplots.create({ project: proj.key, name: "Plot" });
+      const t1 = await client.tables.create({ project: proj.key, name: "Table" });
+      const l1 = await client.logs.create({ project: proj.key, name: "Log" });
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -367,12 +371,8 @@ describe("queries", () => {
 
     it("should exclude the source resource from results", async () => {
       const proj = await client.projects.create({ name: "exclude_ws" });
-      const s1 = await client.schematics.create(proj.key, {
-        name: "Self",
-      });
-      const s2 = await client.schematics.create(proj.key, {
-        name: "Other",
-      });
+      const s1 = await client.schematics.create({ project: proj.key, name: "Self" });
+      const s2 = await client.schematics.create({ project: proj.key, name: "Other" });
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -385,8 +385,8 @@ describe("queries", () => {
 
     it("should return empty for a snapshot that belongs to a range", async () => {
       const proj = await client.projects.create({ name: "snapshot_ws" });
-      const s1 = await client.schematics.create(proj.key, { name: "Source" });
-      await client.schematics.create(proj.key, { name: "Sibling" });
+      const s1 = await client.schematics.create({ project: proj.key, name: "Source" });
+      await client.schematics.create({ project: proj.key, name: "Sibling" });
       const rng = await client.ranges.create({
         name: "Snapshot Range",
         timeRange: new TimeRange(1n, 1000n),
@@ -411,10 +411,12 @@ describe("queries", () => {
 
     it("should find children inside groups", async () => {
       const proj = await client.projects.create({ name: "grouped_ws" });
-      const s1 = await client.schematics.create(proj.key, {
+      const s1 = await client.schematics.create({
+        project: proj.key,
         name: "Top Level",
       });
-      const s2 = await client.schematics.create(proj.key, {
+      const s2 = await client.schematics.create({
+        project: proj.key,
         name: "In Group",
       });
       const g = await client.groups.create({
@@ -434,10 +436,12 @@ describe("queries", () => {
 
     it("should find children in deeply nested groups", async () => {
       const proj = await client.projects.create({ name: "deep_nested_ws" });
-      const s1 = await client.schematics.create(proj.key, {
+      const s1 = await client.schematics.create({
+        project: proj.key,
         name: "Top Level",
       });
-      const s2 = await client.schematics.create(proj.key, {
+      const s2 = await client.schematics.create({
+        project: proj.key,
         name: "Deeply Nested",
       });
       const outerGroup = await client.groups.create({
@@ -464,14 +468,13 @@ describe("queries", () => {
     it("should scope results to the source resource's project", async () => {
       const p1 = await client.projects.create({ name: "scope_p_1" });
       const p2 = await client.projects.create({ name: "scope_p_2" });
-      const s1 = await client.schematics.create(p1.key, {
+      const s1 = await client.schematics.create({
+        project: p1.key,
         name: "P1 Schematic",
       });
-      await client.schematics.create(p2.key, {
-        name: "P2 Schematic",
-      });
-      const lp1 = await client.lineplots.create(p1.key, { name: "P1 Plot" });
-      await client.lineplots.create(p2.key, { name: "P2 Plot" });
+      await client.schematics.create({ project: p2.key, name: "P2 Schematic" });
+      const lp1 = await client.lineplots.create({ project: p1.key, name: "P1 Plot" });
+      await client.lineplots.create({ project: p2.key, name: "P2 Plot" });
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -516,21 +519,11 @@ describe("queries", () => {
 
       beforeEach(async () => {
         const proj = await client.projects.create({ name: "TestSpace" });
-        sA = await client.schematics.create(proj.key, {
-          name: "Schematic A",
-        });
-        sB = await client.schematics.create(proj.key, {
-          name: "Schematic B",
-        });
-        sC = await client.schematics.create(proj.key, {
-          name: "Schematic C",
-        });
-        sD = await client.schematics.create(proj.key, {
-          name: "Schematic D",
-        });
-        sE = await client.schematics.create(proj.key, {
-          name: "Schematic E",
-        });
+        sA = await client.schematics.create({ project: proj.key, name: "Schematic A" });
+        sB = await client.schematics.create({ project: proj.key, name: "Schematic B" });
+        sC = await client.schematics.create({ project: proj.key, name: "Schematic C" });
+        sD = await client.schematics.create({ project: proj.key, name: "Schematic D" });
+        sE = await client.schematics.create({ project: proj.key, name: "Schematic E" });
 
         const g1 = await client.groups.create({
           parent: project.resourceID(proj.key),
@@ -554,19 +547,24 @@ describe("queries", () => {
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
         });
-        sAm = await client.schematics.create(mproj.key, {
+        sAm = await client.schematics.create({
+          project: mproj.key,
           name: "Schematic A Mirrored",
         });
-        sBm = await client.schematics.create(mproj.key, {
+        sBm = await client.schematics.create({
+          project: mproj.key,
           name: "Schematic B Mirrored",
         });
-        sCm = await client.schematics.create(mproj.key, {
+        sCm = await client.schematics.create({
+          project: mproj.key,
           name: "Schematic C Mirrored",
         });
-        sDm = await client.schematics.create(mproj.key, {
+        sDm = await client.schematics.create({
+          project: mproj.key,
           name: "Schematic D Mirrored",
         });
-        sEm = await client.schematics.create(mproj.key, {
+        sEm = await client.schematics.create({
+          project: mproj.key,
           name: "Schematic E Mirrored",
         });
 

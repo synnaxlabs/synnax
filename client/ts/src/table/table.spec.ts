@@ -33,9 +33,7 @@ describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
       const proj = await client.projects.create({ name: "Table" });
-      const t = await client.tables.create(proj.key, {
-        name: "Table",
-      });
+      const t = await client.tables.create({ project: proj.key, name: "Table" });
       expect(t.name).toEqual("Table");
       expect(t.key).not.toEqual(uuid.ZERO);
       const retrieved = await client.tables.retrieve(t.key);
@@ -46,9 +44,7 @@ describe("Table", () => {
   describe("rename", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({ name: "Table" });
-      const t = await client.tables.create(proj.key, {
-        name: "Table",
-      });
+      const t = await client.tables.create({ project: proj.key, name: "Table" });
       await client.tables.rename(t.key, "Table2");
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("Table2");
@@ -59,7 +55,7 @@ describe("Table", () => {
     test("retrieve the tables of a project", async () => {
       const proj = await client.projects.create({ name: "Table" });
       const other = await client.projects.create({ name: "Table" });
-      const v = await client.tables.create(proj.key, { name: "Table" });
+      const v = await client.tables.create({ project: proj.key, name: "Table" });
       expect(v.project).toEqual(proj.key);
       const owned = await client.tables.retrieve({ projects: [proj.key] });
       expect(owned.map(({ key }) => key)).toEqual([v.key]);
@@ -70,7 +66,7 @@ describe("Table", () => {
     test("move to another project", async () => {
       const proj = await client.projects.create({ name: "Table" });
       const dest = await client.projects.create({ name: "Table" });
-      const v = await client.tables.create(proj.key, { name: "Table" });
+      const v = await client.tables.create({ project: proj.key, name: "Table" });
       await client.tables.setProject(v.key, dest.key);
       const res = await client.tables.retrieve({ keys: [v.key] });
       expect(res[0].project).toEqual(dest.key);
@@ -78,7 +74,7 @@ describe("Table", () => {
 
     test("delete with its project", async () => {
       const proj = await client.projects.create({ name: "Table" });
-      const v = await client.tables.create(proj.key, { name: "Table" });
+      const v = await client.tables.create({ project: proj.key, name: "Table" });
       await client.projects.delete(proj.key);
       await vi.waitFor(
         async () =>
@@ -90,9 +86,7 @@ describe("Table", () => {
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({ name: "Table" });
-      const t = await client.tables.create(proj.key, {
-        name: "Table",
-      });
+      const t = await client.tables.create({ project: proj.key, name: "Table" });
       await client.tables.delete(t.key);
       await expect(client.tables.retrieve(t.key)).rejects.toThrow(NotFoundError);
     });
@@ -101,7 +95,8 @@ describe("Table", () => {
   describe("cell config round-trip", () => {
     test("round-trips a fully-populated value cell config", async () => {
       const proj = await client.projects.create({ name: "ConfigTest" });
-      const t = await client.tables.create(proj.key, {
+      const t = await client.tables.create({
+        project: proj.key,
         name: "ConfigTest",
         cells: {
           a: {
@@ -142,7 +137,8 @@ describe("Table", () => {
     test("rejects a cell config that matches no variant", async () => {
       const proj = await client.projects.create({ name: "BadConfig" });
       await expect(
-        client.tables.create(proj.key, {
+        client.tables.create({
+          project: proj.key,
           name: "BadConfig",
           cells: {
             a: { variant: "hologram" } as unknown as table.CellConfig,
@@ -155,7 +151,8 @@ describe("Table", () => {
   describe("dispatch", () => {
     const createTable = async () => {
       const proj = await client.projects.create({ name: "Dispatch" });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "Dispatch",
         rows: [{ key: "r0", size: 30, cells: ["a", "b"] }],
         columns: [
@@ -197,7 +194,7 @@ describe("Table", () => {
 
     test("addRow derives the same bootstrap column keys as the Core", async () => {
       const proj = await client.projects.create({ name: "Dispatch" });
-      const t = await client.tables.create(proj.key, { name: "Dispatch" });
+      const t = await client.tables.create({ project: proj.key, name: "Dispatch" });
       const action = table.addRow({
         index: 0,
         size: 36,
@@ -910,7 +907,8 @@ describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
     await client.connect();
     const project = await client.projects.create({ name: `tbl-${id.create()}` });
-    const created = await client.tables.create(project.key, {
+    const created = await client.tables.create({
+      project: project.key,
       name: `table-${id.create()}`,
     });
     await client.tables.delete(created.key);

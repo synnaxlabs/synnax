@@ -24,7 +24,7 @@ describe("log", () => {
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });
-      const randomLog = await client.logs.create(proj.key, { name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
       );
@@ -37,7 +37,7 @@ describe("log", () => {
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
-      const randomLog = await client.logs.create(proj.key, { name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       const retrieved = await userClient.logs.retrieve(randomLog.key);
       expect(retrieved.key).toBe(randomLog.key);
       expect(retrieved.name).toBe(randomLog.name);
@@ -50,7 +50,7 @@ describe("log", () => {
         actions: ["create"],
       });
       const proj = await client.projects.create({ name: "test" });
-      await userClient.logs.create(proj.key, { name: "test" });
+      await userClient.logs.create({ project: proj.key, name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -61,7 +61,7 @@ describe("log", () => {
       });
       const proj = await client.projects.create({ name: "test" });
       await expect(
-        userClient.logs.create(proj.key, { name: "test" }),
+        userClient.logs.create({ project: proj.key, name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
@@ -72,7 +72,7 @@ describe("log", () => {
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
-      const randomLog = await client.logs.create(proj.key, { name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(
         NotFoundError,
@@ -86,7 +86,7 @@ describe("log", () => {
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });
-      const randomLog = await client.logs.create(proj.key, { name: "test" });
+      const randomLog = await client.logs.create({ project: proj.key, name: "test" });
       await expect(userClient.logs.delete(randomLog.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
       );

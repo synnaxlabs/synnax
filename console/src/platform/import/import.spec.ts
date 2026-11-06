@@ -37,7 +37,10 @@ describe("use", () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
     });
-    const original = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const original = await client.logs.create({
+      project: proj.key,
+      name: uniqueName("log"),
+    });
     const stream = await client.imex.export(log.resourceID(original.key), {
       encoding: "JSON",
     });

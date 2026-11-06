@@ -54,7 +54,8 @@ describe("Log", () => {
 
   it("should send the stored display settings to the log", async () => {
     const project = await client.projects.create({ name: `log_${uuid.create()}` });
-    const created = await client.logs.create(project.key, {
+    const created = await client.logs.create({
+      project: project.key,
       name: "display",
       channels: [clientLog.channelEntryZ.parse({ channel: 0, color: color.ZERO })],
       timestampsHidden: true,

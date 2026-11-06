@@ -54,7 +54,8 @@ export const testProjectKey = async (): Promise<string> =>
 export const createSchematic = async (
   overrides: Partial<schematic.New> = {},
 ): Promise<schematic.Schematic> =>
-  await client.schematics.create(await testProjectKey(), {
+  await client.schematics.create({
+    project: await testProjectKey(),
     name: uniqueName("schematic"),
     ...overrides,
   });
@@ -159,7 +160,8 @@ export const renderSchematic = async (
  */
 export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}) => {
   const proj = await client.projects.create({ name: id.create() });
-  const created = await client.schematics.create(proj.key, {
+  const created = await client.schematics.create({
+    project: proj.key,
     name: uniqueName("schematic"),
     ...overrides,
   });

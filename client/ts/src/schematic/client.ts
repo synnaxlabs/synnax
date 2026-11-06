@@ -166,24 +166,21 @@ export class Client extends query.Retriever<
   }
 
   async create(
-    project: project.Key,
     schematic: New,
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic>;
   async create(
-    project: project.Key,
     schematics: New[],
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic[]>;
   async create(
-    project: project.Key,
     schematics: New | New[],
     opts: query.WriteOptions<Schematic[]> = {},
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
     const optimistic = array
       .toArray(schematics)
-      .map((s) => zod.parse(schematicZ, { ...s, project }, { label: "schematic" }));
+      .map((s) => zod.parse(schematicZ, s, { label: "schematic" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

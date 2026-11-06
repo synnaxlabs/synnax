@@ -26,7 +26,8 @@ describe("table", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomTable = await client.tables.create(proj.key, {
+      const randomTable = await client.tables.create({
+        project: proj.key,
         name: "test",
       });
       await expect(userClient.tables.retrieve(randomTable.key)).rejects.toSatisfy(
@@ -43,7 +44,8 @@ describe("table", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomTable = await client.tables.create(proj.key, {
+      const randomTable = await client.tables.create({
+        project: proj.key,
         name: "test",
       });
       const retrieved = await userClient.tables.retrieve(randomTable.key);
@@ -60,9 +62,7 @@ describe("table", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      await userClient.tables.create(proj.key, {
-        name: "test",
-      });
+      await userClient.tables.create({ project: proj.key, name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -75,9 +75,7 @@ describe("table", () => {
         name: "test",
       });
       await expect(
-        userClient.tables.create(proj.key, {
-          name: "test",
-        }),
+        userClient.tables.create({ project: proj.key, name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
@@ -90,7 +88,8 @@ describe("table", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomTable = await client.tables.create(proj.key, {
+      const randomTable = await client.tables.create({
+        project: proj.key,
         name: "test",
       });
       await userClient.tables.delete(randomTable.key);
@@ -108,7 +107,8 @@ describe("table", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomTable = await client.tables.create(proj.key, {
+      const randomTable = await client.tables.create({
+        project: proj.key,
         name: "test",
       });
       await expect(userClient.tables.delete(randomTable.key)).rejects.toSatisfy(

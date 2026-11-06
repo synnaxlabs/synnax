@@ -68,35 +68,37 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, project: project_.Key, *, name: str) -> Log: ...
+    def create(self, *, name: str, project: project_.Key) -> Log: ...
 
     @overload
-    def create(self, project: project_.Key, logs: Log) -> Log: ...
+    def create(self, logs: Log) -> Log: ...
 
     @overload
-    def create(self, project: project_.Key, logs: list[Log]) -> list[Log]: ...
+    def create(self, logs: list[Log]) -> list[Log]: ...
 
     def create(
         self,
-        project: project_.Key,
         logs: Log | list[Log] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> Log | list[Log]:
-        """Create one or more logs in a project.
+        """Create one or more logs.
 
-        :param project: The key of the project that owns the logs.
-        :param logs: A single log or a list of them. When omitted, an empty log is
-            created from the ``name`` keyword argument.
+        :param logs: A single log or a list of them. Each one belongs to exactly one of
+            a project and a range. When omitted, a log is created from the ``name`` and
+            ``project`` keyword arguments.
         :param name: The name of the log to create when ``logs`` is omitted.
+        :param project: The key of the project that owns the log when ``logs`` is
+            omitted.
         :returns: The created log, or a list of created logs when ``logs`` is a list.
+        :raises ValidationError: If a log does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(logs, list)
         if logs is None:
-            logs = [Log(name=name)]
-        req = _CreateRequest(
-            logs=[r.model_copy(update={"project": project}) for r in normalize(logs)]
-        )
+            logs = Log(name=name, project=project)
+        req = _CreateRequest(logs=normalize(logs))
         res = self._client.send("/log/create", req, _CreateResponse)
         return res.logs[0] if is_single else res.logs
 

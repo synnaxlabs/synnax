@@ -21,7 +21,10 @@ const client = createTestClient();
 describe("Schematic.useLink", () => {
   it("should open a tab for the retrieved schematic", async () => {
     const project = await client.projects.create({ name: id.create() });
-    const s = await client.schematics.create(project.key, { name: "Pump Schematic" });
+    const s = await client.schematics.create({
+      project: project.key,
+      name: "Pump Schematic",
+    });
     const { handler, store } = await renderLinkHook(Schematic.useLink, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: s.key });

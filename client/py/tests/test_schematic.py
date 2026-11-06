@@ -217,19 +217,22 @@ def project(client: sy.Synnax) -> sy.Project:
 class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create a schematic from a name."""
-        s = client.schematics.create(project.key, name="Test Schematic")
+        s = client.schematics.create(name="Test Schematic", project=project.key)
         assert s.name == "Test Schematic"
         assert s.project == project.key
         assert s.range is None
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create a schematic from a Schematic object."""
-        s = client.schematics.create(project.key, sy.Schematic(name="From Object"))
+        s = client.schematics.create(
+            sy.Schematic(name="From Object", project=project.key)
+        )
         assert s.name == "From Object"
 
     def test_diagram_round_trip(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep nodes, edges, and configs through create, retrieve, and copy."""
         diagram = sy.Schematic(
+            project=project.key,
             name="Diagram",
             nodes=[
                 schematic.Node(key="a", position=spatial.XY(x=10, y=20)),
@@ -248,7 +251,7 @@ class TestClient:
                 "e": schematic.PipeElementConfig(),
             },
         )
-        created = client.schematics.create(project.key, diagram)
+        created = client.schematics.create(diagram)
         retrieved = client.schematics.retrieve(key=created.key)
         copied = client.schematics.copy(created.key, name="Diagram Copy")
         for s in (created, retrieved, copied):
@@ -259,37 +262,39 @@ class TestClient:
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple schematics."""
         schematics = client.schematics.create(
-            project.key,
-            [sy.Schematic(name="Multi 1"), sy.Schematic(name="Multi 2")],
+            [
+                sy.Schematic(name="Multi 1", project=project.key),
+                sy.Schematic(name="Multi 2", project=project.key),
+            ],
         )
         assert [s.name for s in schematics] == ["Multi 1", "Multi 2"]
 
     def test_retrieve_by_key(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve a schematic by key."""
-        created = client.schematics.create(project.key, name="Retrieve Me")
+        created = client.schematics.create(name="Retrieve Me", project=project.key)
         retrieved = client.schematics.retrieve(key=created.key)
         assert retrieved.key == created.key
         assert retrieved.name == "Retrieve Me"
 
     def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve multiple schematics by keys."""
-        s1 = client.schematics.create(project.key, name="Schematic A")
-        s2 = client.schematics.create(project.key, name="Schematic B")
+        s1 = client.schematics.create(name="Schematic A", project=project.key)
+        s2 = client.schematics.create(name="Schematic B", project=project.key)
         retrieved = client.schematics.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
     def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve only the schematics the project owns."""
-        a = client.schematics.create(project.key, name="Child A")
-        b = client.schematics.create(project.key, name="Child B")
+        a = client.schematics.create(name="Child A", project=project.key)
+        b = client.schematics.create(name="Child B", project=project.key)
         other = client.projects.create(name="Other Project")
-        client.schematics.create(other.key, name="Other")
+        client.schematics.create(name="Other", project=other.key)
         retrieved = client.schematics.retrieve(projects=[project.key])
         assert {s.key for s in retrieved} == {a.key, b.key}
 
     def test_retrieve_by_range(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve only the schematics the range owns."""
-        s = client.schematics.create(project.key, name="Original")
+        s = client.schematics.create(name="Original", project=project.key)
         rng = client.ranges.create(
             name="Snapshot Range",
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
@@ -305,13 +310,13 @@ class TestClient:
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a schematic."""
-        s = client.schematics.create(project.key, name="Before Rename")
+        s = client.schematics.create(name="Before Rename", project=project.key)
         client.schematics.rename(s.key, "After Rename")
         assert client.schematics.retrieve(key=s.key).name == "After Rename"
 
     def test_copy(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should copy a schematic under a new key and name."""
-        s = client.schematics.create(project.key, name="Original")
+        s = client.schematics.create(name="Original", project=project.key)
         c = client.schematics.copy(s.key, name="Copy")
         assert c.key != s.key
         assert c.name == "Copy"
@@ -321,13 +326,13 @@ class TestClient:
 
     def test_copy_snapshot(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should copy a schematic as an immutable snapshot."""
-        s = client.schematics.create(project.key, name="Original")
+        s = client.schematics.create(name="Original", project=project.key)
         c = client.schematics.copy(s.key, name="Snapshot", snapshot=True)
         assert c.snapshot
 
     def test_copy_into_range(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should give a copy into a range to the range instead of the project."""
-        s = client.schematics.create(project.key, name="Original")
+        s = client.schematics.create(name="Original", project=project.key)
         rng = client.ranges.create(
             name="Snapshot Range",
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
@@ -338,15 +343,15 @@ class TestClient:
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a schematic."""
-        s = client.schematics.create(project.key, name="To Delete")
+        s = client.schematics.create(name="To Delete", project=project.key)
         client.schematics.delete(s.key)
         with pytest.raises(NotFoundError):
             client.schematics.retrieve(key=s.key)
 
     def test_delete_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete multiple schematics."""
-        s1 = client.schematics.create(project.key, name="Delete 1")
-        s2 = client.schematics.create(project.key, name="Delete 2")
+        s1 = client.schematics.create(name="Delete 1", project=project.key)
+        s2 = client.schematics.create(name="Delete 2", project=project.key)
         client.schematics.delete([s1.key, s2.key])
         with pytest.raises(NotFoundError):
             client.schematics.retrieve(keys=[s1.key, s2.key])

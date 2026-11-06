@@ -41,7 +41,8 @@ const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
 const client = createTestClient();
 
 const createTestSchematic = async (projectKey: string): Promise<schematic.Schematic> =>
-  await client.schematics.create(projectKey, {
+  await client.schematics.create({
+    project: projectKey,
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -170,7 +171,7 @@ describe("schematic queries", () => {
       // Restoring re-creates from the corpse, which keeps the original key.
       // The read heals off the cache alone: no boundary reset, no refetch.
       const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
-      await client.schematics.create(proj.key, corpse);
+      await client.schematics.create({ ...corpse, project: proj.key });
       await waitFor(() => expect(result.current).toBeNull());
     });
   });
@@ -412,8 +413,8 @@ describe("schematic queries", () => {
         timeRange: new TimeRange(1n, 1000n),
       });
       const [source] = await Promise.all([
-        client.schematics.create(proj.key, { name: "list_source" }),
-        client.schematics.create(proj.key, { name: "list_other" }),
+        client.schematics.create({ project: proj.key, name: "list_source" }),
+        client.schematics.create({ project: proj.key, name: "list_other" }),
       ]);
       const snapshot = await client.schematics.copy({
         key: source.key,
@@ -433,7 +434,10 @@ describe("schematic queries", () => {
 
   describe("useSnapshot", () => {
     it("should copy the schematics into the range as snapshots", async () => {
-      const source = await client.schematics.create(proj.key, { name: "source" });
+      const source = await client.schematics.create({
+        project: proj.key,
+        name: "source",
+      });
       const rng = await client.ranges.create({
         name: "snapshot_range",
         timeRange: new TimeRange(1n, 1000n),
@@ -1135,7 +1139,8 @@ describe("schematic queries", () => {
     });
 
     it("should set the first entry of an empty list without keys", async () => {
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "test_schematic",
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         configs: { n1: { variant: "string_display" } },

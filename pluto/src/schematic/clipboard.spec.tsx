@@ -53,7 +53,8 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   const proj = await client.projects.create({
     name: `project_${uuid.create()}`,
   });
-  return await client.schematics.create(proj.key, {
+  return await client.schematics.create({
+    project: proj.key,
     name: `schem_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -217,7 +218,8 @@ describe("schematic clipboard", () => {
       const proj = await client.projects.create({
         name: `project_${uuid.create()}`,
       });
-      return await client.schematics.create(proj.key, {
+      return await client.schematics.create({
+        project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
           { key: "n1", position: { x: 0, y: 0 } },
@@ -377,7 +379,8 @@ describe("schematic clipboard", () => {
       const proj = await client.projects.create({
         name: `project_${uuid.create()}`,
       });
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
           { key: "g1", position: { x: -30, y: -30 }, zIndex: -1 },

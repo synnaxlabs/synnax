@@ -57,7 +57,7 @@ const CORE = createCore("test");
 const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
-  await client.lineplots.create(await project(), { name: uniqueName("plot") });
+  await client.lineplots.create({ project: await project(), name: uniqueName("plot") });
 
 interface SetupParams {
   plots: lineplot.LinePlot[];

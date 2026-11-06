@@ -23,7 +23,10 @@ const createLogID = async (): Promise<resource.ID> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
-  const created = await client.logs.create(proj.key, { name: uniqueName("log") });
+  const created = await client.logs.create({
+    project: proj.key,
+    name: uniqueName("log"),
+  });
   return log.resourceID(created.key);
 };
 

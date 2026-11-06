@@ -101,7 +101,8 @@ describe("Table", () => {
     // A value cell, not a text cell: value is the variant that draws on the
     // canvas, so its recorded draw calls pin the centering offset into the
     // canvas path alongside the DOM transform.
-    const created = await client.tables.create(project.key, {
+    const created = await client.tables.create({
+      project: project.key,
       name: "center_table",
       rows: [{ key: "r0", size: ROW_SIZE, cells: ["a"] }],
       columns: [{ size: COL_SIZE }],
@@ -287,7 +288,8 @@ describe("Table", () => {
 
     const createTextTable = async (): Promise<table.Key> => {
       const project = await client.projects.create({ name: "undo" });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "undo_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],
         columns: [{ size: COL_SIZE }],
@@ -415,7 +417,8 @@ describe("Table", () => {
         }),
       }));
       const project = await client.projects.create({ name });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: `${name}_table`,
         rows: rowSpecs,
         columns: Array.from({ length: cols }, () => ({ size: COL_SIZE })),
@@ -519,7 +522,8 @@ describe("Table", () => {
 
     const createGrid = async (): Promise<table.Key> => {
       const project = await client.projects.create({ name: "move" });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "move_table",
         rows: CELLS.map((cells, y) => ({ key: `r${y}`, size: ROW_SIZE, cells })),
         columns: CELLS.map((_, x) => ({ key: `c${x}`, size: COL_SIZE })),
@@ -742,7 +746,8 @@ describe("Table", () => {
     it("should blank the value cells a move displaces until it ends", async () => {
       const keys = ["a", "b", "c"];
       const project = await client.projects.create({ name: "move_values" });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "move_values_table",
         rows: [{ size: ROW_SIZE, cells: keys }],
         columns: keys.map(() => ({ size: COL_SIZE })),
@@ -804,7 +809,8 @@ describe("Table", () => {
     // schema defaults, so it renders instead of crashing on missing fields.
     it("renders a value cell carrying only its variant", async () => {
       const project = await client.projects.create({ name: "sparse" });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "sparse_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],
         columns: [{ size: COL_SIZE }],

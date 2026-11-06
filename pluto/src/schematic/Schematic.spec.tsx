@@ -41,7 +41,8 @@ const renderSchematic = async (): Promise<{
   utils: ReturnType<typeof render>;
 }> => {
   const project = await client.projects.create({ name: `project_${uuid.create()}` });
-  const { key } = await client.schematics.create(project.key, {
+  const { key } = await client.schematics.create({
+    project: project.key,
     name: "schematic",
     nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
     configs: { n1: { variant: "tank", label: { label: "Pump" } } },

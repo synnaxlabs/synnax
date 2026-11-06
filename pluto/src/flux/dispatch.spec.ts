@@ -705,7 +705,8 @@ describe("Flux.createDispatch", () => {
       const proj = await client.projects.create({
         name: `dispatch_${uuid.create()}`,
       });
-      return await client.schematics.create(proj.key, {
+      return await client.schematics.create({
+        project: proj.key,
         name: `dispatch_live_${uuid.create()}`,
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         edges: [],

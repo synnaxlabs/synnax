@@ -105,7 +105,7 @@ describe("Panel tab", () => {
       const { key: project } = await client.projects.create({
         name: uniqueName("project"),
       });
-      const schem = await client.schematics.create(project, { name: "Guarded" });
+      const schem = await client.schematics.create({ project, name: "Guarded" });
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
@@ -159,7 +159,7 @@ describe("Panel tab", () => {
       // re-reads its own query: no boundary reset and no refetch.
       const corpse = query.requireCorpse(client.schematics.getCached(schem.key));
       await act(async () => {
-        await client.schematics.create(project, corpse);
+        await client.schematics.create({ ...corpse, project });
       });
       expect(await screen.findByText("live content")).toBeTruthy();
     });

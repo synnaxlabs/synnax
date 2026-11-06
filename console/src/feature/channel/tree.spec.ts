@@ -122,7 +122,8 @@ describe("channel/ontology", () => {
       const proj = await client.projects.create({
         name: uniqueName("proj"),
       });
-      const plot = await client.lineplots.create(proj.key, {
+      const plot = await client.lineplots.create({
+        project: proj.key,
         name: uniqueName("plot"),
       });
       const host = hostChannels(ch);

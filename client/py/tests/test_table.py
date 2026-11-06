@@ -66,7 +66,7 @@ class TestTable:
 class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create an empty table from a name."""
-        t = client.tables.create(project.key, name="Test Table")
+        t = client.tables.create(name="Test Table", project=project.key)
         assert t.name == "Test Table"
         assert t.project == project.key
         assert t.rows == []
@@ -75,7 +75,6 @@ class TestClient:
         """Should persist the rows, columns, and cells of a table."""
         row = table.Row(cells=["a", "b"])
         t = client.tables.create(
-            project.key,
             table.Table(
                 name="Full Table",
                 rows=[row],
@@ -84,6 +83,7 @@ class TestClient:
                     "a": table.TextCellConfig(value="Pressure"),
                     "b": table.ValueCellConfig(units="psi"),
                 },
+                project=project.key,
             ),
         )
         retrieved = client.tables.retrieve(key=t.key)
@@ -95,24 +95,26 @@ class TestClient:
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple tables."""
         tables = client.tables.create(
-            project.key,
-            [table.Table(name="Multi 1"), table.Table(name="Multi 2")],
+            [
+                table.Table(name="Multi 1", project=project.key),
+                table.Table(name="Multi 2", project=project.key),
+            ],
         )
         assert [t.name for t in tables] == ["Multi 1", "Multi 2"]
 
     def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve multiple tables by key."""
-        t1 = client.tables.create(project.key, name="Table A")
-        t2 = client.tables.create(project.key, name="Table B")
+        t1 = client.tables.create(name="Table A", project=project.key)
+        t2 = client.tables.create(name="Table B", project=project.key)
         tables = client.tables.retrieve(keys=[t1.key, t2.key])
         assert {t.key for t in tables} == {t1.key, t2.key}
 
     def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve only the tables the project owns."""
-        a = client.tables.create(project.key, name="Child A")
-        b = client.tables.create(project.key, name="Child B")
+        a = client.tables.create(name="Child A", project=project.key)
+        b = client.tables.create(name="Child B", project=project.key)
         other = client.projects.create(name="Other Project")
-        client.tables.create(other.key, name="Other")
+        client.tables.create(name="Other", project=other.key)
         retrieved = client.tables.retrieve(projects=[project.key])
         assert {r.key for r in retrieved} == {a.key, b.key}
 
@@ -120,7 +122,7 @@ class TestClient:
         self, client: sy.Synnax, project: sy.Project
     ) -> None:
         """Should return no tables when the range owns none."""
-        client.tables.create(project.key, name="Project Owned")
+        client.tables.create(name="Project Owned", project=project.key)
         rng = client.ranges.create(
             name="Empty Range",
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
@@ -134,14 +136,14 @@ class TestClient:
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a table."""
-        t = client.tables.create(project.key, name="Before Rename")
+        t = client.tables.create(name="Before Rename", project=project.key)
         client.tables.rename(t.key, "After Rename")
         assert client.tables.retrieve(key=t.key).name == "After Rename"
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete multiple tables."""
-        t1 = client.tables.create(project.key, name="Delete 1")
-        t2 = client.tables.create(project.key, name="Delete 2")
+        t1 = client.tables.create(name="Delete 1", project=project.key)
+        t2 = client.tables.create(name="Delete 2", project=project.key)
         client.tables.delete([t1.key, t2.key])
         with pytest.raises(NotFoundError):
             client.tables.retrieve(keys=[t1.key, t2.key])

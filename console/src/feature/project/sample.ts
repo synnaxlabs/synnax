@@ -213,8 +213,8 @@ export interface Programs {
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
-  await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch));
+  await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
+  await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
   // Overwriting an existing schematic or line plot keeps its project and group, and the
   // user can have moved either one. Both go back to the top of the sample project.
   await client.batch.send([

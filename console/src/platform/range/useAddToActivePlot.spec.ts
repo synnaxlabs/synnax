@@ -32,7 +32,10 @@ const createTestPlot = async (): Promise<lineplot.LinePlot> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
   });
-  return await client.lineplots.create(project.key, { name: uniqueName("plot") });
+  return await client.lineplots.create({
+    project: project.key,
+    name: uniqueName("plot"),
+  });
 };
 
 // createFocusedPanel persists a panel whose only tab holds the resource id, and marks

@@ -105,7 +105,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.logs.create(data.project, data, {
+    await client.logs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

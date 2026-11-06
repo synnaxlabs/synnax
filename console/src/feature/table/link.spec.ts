@@ -22,7 +22,10 @@ describe("Table.useLink", () => {
     const project = await client.projects.create({
       name: id.create(),
     });
-    const table = await client.tables.create(project.key, { name: "Sensor Table" });
+    const table = await client.tables.create({
+      project: project.key,
+      name: "Sensor Table",
+    });
     const { handler, store } = await renderLinkHook(Table.useLink, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: table.key });

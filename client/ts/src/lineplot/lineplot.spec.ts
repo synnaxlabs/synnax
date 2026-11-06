@@ -23,7 +23,10 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(uuid.ZERO);
     });
@@ -33,7 +36,10 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       await client.lineplots.rename(linePlot.key, "Line Plot2");
       const res = await client.lineplots.retrieve(linePlot.key);
       expect(res.name).toEqual("Line Plot2");
@@ -43,7 +49,7 @@ describe("LinePlot", () => {
     test("retrieve the lineplots of a project", async () => {
       const proj = await client.projects.create({ name: "Line Plot" });
       const other = await client.projects.create({ name: "Line Plot" });
-      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       expect(v.project).toEqual(proj.key);
       const owned = await client.lineplots.retrieve({ projects: [proj.key] });
       expect(owned.map(({ key }) => key)).toEqual([v.key]);
@@ -54,7 +60,7 @@ describe("LinePlot", () => {
     test("move to another project", async () => {
       const proj = await client.projects.create({ name: "Line Plot" });
       const dest = await client.projects.create({ name: "Line Plot" });
-      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.lineplots.setProject(v.key, dest.key);
       const res = await client.lineplots.retrieve({ keys: [v.key] });
       expect(res[0].project).toEqual(dest.key);
@@ -62,7 +68,7 @@ describe("LinePlot", () => {
 
     test("delete with its project", async () => {
       const proj = await client.projects.create({ name: "Line Plot" });
-      const v = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.projects.delete(proj.key);
       await vi.waitFor(
         async () =>
@@ -76,7 +82,10 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve(linePlot.key)).rejects.toThrow(
         NotFoundError,
@@ -86,8 +95,11 @@ describe("LinePlot", () => {
 });
 
 const seedPlot = async (): Promise<lineplot.LinePlot> => {
-  const project = await client.projects.create({ name: `lp-${id.create()}` });
-  return await client.lineplots.create(project.key, { name: `plot-${id.create()}` });
+  const proj = await client.projects.create({ name: `lp-${id.create()}` });
+  return await client.lineplots.create({
+    project: proj.key,
+    name: `plot-${id.create()}`,
+  });
 };
 
 const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {

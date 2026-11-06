@@ -26,7 +26,8 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await expect(
@@ -43,7 +44,8 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       const retrieved = await userClient.schematics.retrieve(randomSchematic.key);
@@ -60,9 +62,7 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      await userClient.schematics.create(proj.key, {
-        name: "test",
-      });
+      await userClient.schematics.create({ project: proj.key, name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -75,9 +75,7 @@ describe("schematic", () => {
         name: "test",
       });
       await expect(
-        userClient.schematics.create(proj.key, {
-          name: "test",
-        }),
+        userClient.schematics.create({ project: proj.key, name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
@@ -90,7 +88,8 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await userClient.schematics.delete(randomSchematic.key);
@@ -108,7 +107,8 @@ describe("schematic", () => {
       const proj = await client.projects.create({
         name: "test",
       });
-      const randomSchematic = await client.schematics.create(proj.key, {
+      const randomSchematic = await client.schematics.create({
+        project: proj.key,
         name: "test",
       });
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toSatisfy(

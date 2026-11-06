@@ -82,7 +82,7 @@ describe("Project", () => {
 
     test("export documents and panels as a zip bundle", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
-      const l = await client.logs.create(proj.key, { name: "Metrics Log" });
+      const l = await client.logs.create({ project: proj.key, name: "Metrics Log" });
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
@@ -111,7 +111,7 @@ describe("Project", () => {
         parent: project.resourceID(proj.key),
         name: "Propulsion",
       });
-      const l = await client.logs.create(proj.key, { name: "Pressure" });
+      const l = await client.logs.create({ project: proj.key, name: "Pressure" });
       await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const archive = await download(proj.key);
       expect(archive).toContain("Propulsion/Pressure.json");
@@ -119,8 +119,8 @@ describe("Project", () => {
 
     test("suffixes the second of two members taking one file name", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
-      await client.logs.create(proj.key, { name: "Pressure" });
-      await client.logs.create(proj.key, { name: "pressure" });
+      await client.logs.create({ project: proj.key, name: "Pressure" });
+      await client.logs.create({ project: proj.key, name: "pressure" });
       const archive = await download(proj.key);
       expect(archive).toContain("Pressure.json");
       expect(archive).toContain("pressure (1).json");
@@ -129,7 +129,7 @@ describe("Project", () => {
   describe("import", () => {
     test("imports an exported bundle back as a fresh project", async () => {
       const src = await client.projects.create({ name: `import-${id.create()}` });
-      const l = await client.logs.create(src.key, { name: "Metrics" });
+      const l = await client.logs.create({ project: src.key, name: "Metrics" });
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
@@ -166,7 +166,7 @@ describe("Project", () => {
         parent: project.resourceID(src.key),
         name: "Propulsion",
       });
-      const l = await client.logs.create(src.key, { name: "Pressure" });
+      const l = await client.logs.create({ project: src.key, name: "Pressure" });
       await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const stream = await client.projects.export(src.key, { encoding: "JSON" });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());

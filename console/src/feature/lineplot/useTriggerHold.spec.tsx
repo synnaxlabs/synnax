@@ -18,7 +18,8 @@ import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const renderTriggerHold = async (enabled: boolean) => {
-  const plot = await client.lineplots.create(await project(), {
+  const plot = await client.lineplots.create({
+    project: await project(),
     name: uniqueName("plot"),
   });
   const { wrapper: Console } = await createConsoleWrapper({ client });

@@ -28,7 +28,7 @@ describe("Project.importBundle", () => {
     const src = await client.projects.create({
       name: uniqueName("import"),
     });
-    await client.logs.create(src.key, { name: "Metrics" });
+    await client.logs.create({ project: src.key, name: "Metrics" });
     const bundle = await exportBundle(src.key);
     const { store } = await createConsoleWrapper({ client });
     await Project.importBundle(`${src.name}.zip`, bundle, { client, store });

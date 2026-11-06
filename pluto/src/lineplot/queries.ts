@@ -351,7 +351,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.lineplots.create(data.project, data, {
+    await client.lineplots.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

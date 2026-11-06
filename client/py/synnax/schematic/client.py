@@ -12,7 +12,8 @@ from typing import Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax import project, ranger
+from synnax import project as project_
+from synnax import ranger
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import Key, Schematic
 from x.lists import normalize
@@ -28,7 +29,7 @@ class _CreateResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     keys: list[Key] | None = None
-    projects: list[project.Key] | None = None
+    projects: list[project_.Key] | None = None
     ranges: list[ranger.Key] | None = None
 
 
@@ -81,46 +82,39 @@ class Client:
         self.symbols = symbol.Client(client)
 
     @overload
-    def create(self, project: project.Key, *, name: str) -> Schematic: ...
+    def create(self, *, name: str, project: project_.Key) -> Schematic: ...
 
     @overload
-    def create(self, project: project.Key, schematics: Schematic) -> Schematic: ...
+    def create(self, schematics: Schematic) -> Schematic: ...
 
     @overload
-    def create(
-        self, project: project.Key, schematics: list[Schematic]
-    ) -> list[Schematic]: ...
+    def create(self, schematics: list[Schematic]) -> list[Schematic]: ...
 
     def create(
         self,
-        project: project.Key,
         schematics: Schematic | list[Schematic] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> Schematic | list[Schematic]:
-        """Creates one or more schematics in a project.
+        """Create one or more schematics.
 
-        :param project: The key of the project to create the schematics in.
-        :param schematics: A single schematic or a list of them. When omitted, an empty
-            schematic is created from the ``name`` keyword argument.
-        :param name: The name of the schematic to create when ``schematics`` is
-            omitted.
+        :param schematics: A single schematic or a list of them. Each one belongs to
+            exactly one of a project and a range. When omitted, a schematic is created
+            from the ``name`` and ``project`` keyword arguments.
+        :param name: The name of the schematic to create when ``schematics`` is omitted.
+        :param project: The key of the project that owns the schematic when
+            ``schematics`` is omitted.
         :returns: The created schematic, or a list of created schematics when
             ``schematics`` is a list.
+        :raises ValidationError: If a schematic does not belong to exactly one of a
+            project and a range.
         """
         is_single = not isinstance(schematics, list)
         if schematics is None:
-            schematics = Schematic(name=name)
-        res = self._client.send(
-            "/schematic/create",
-            _CreateRequest(
-                schematics=[
-                    s.model_copy(update={"project": project})
-                    for s in normalize(schematics)
-                ]
-            ),
-            _CreateResponse,
-        )
+            schematics = Schematic(name=name, project=project)
+        req = _CreateRequest(schematics=normalize(schematics))
+        res = self._client.send("/schematic/create", req, _CreateResponse)
         return res.schematics[0] if is_single else res.schematics
 
     @overload
@@ -131,7 +125,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
-        projects: list[project.Key] | None = None,
+        projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> list[Schematic]: ...
 
@@ -140,7 +134,7 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
-        projects: list[project.Key] | None = None,
+        projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> Schematic | list[Schematic]:
         """Retrieves one or more schematics.

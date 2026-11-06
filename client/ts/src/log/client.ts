@@ -121,25 +121,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     this.dispatcher = dispatcher;
   }
 
+  async create(log: New, opts?: query.WriteOptions<Log[]>): Promise<Log>;
+  async create(logs: New[], opts?: query.WriteOptions<Log[]>): Promise<Log[]>;
   async create(
-    project: project.Key,
-    log: New,
-    opts?: query.WriteOptions<Log[]>,
-  ): Promise<Log>;
-  async create(
-    project: project.Key,
-    logs: New[],
-    opts?: query.WriteOptions<Log[]>,
-  ): Promise<Log[]>;
-  async create(
-    project: project.Key,
     logs: New | New[],
     opts: query.WriteOptions<Log[]> = {},
   ): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
     const optimistic = array
       .toArray(logs)
-      .map((l) => zod.parse(logZ, { ...l, project }, { label: "log" }));
+      .map((l) => zod.parse(logZ, l, { label: "log" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

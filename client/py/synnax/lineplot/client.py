@@ -66,41 +66,38 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, project: project_.Key, *, name: str) -> LinePlot: ...
+    def create(self, *, name: str, project: project_.Key) -> LinePlot: ...
 
     @overload
-    def create(self, project: project_.Key, line_plots: LinePlot) -> LinePlot: ...
+    def create(self, line_plots: LinePlot) -> LinePlot: ...
 
     @overload
-    def create(
-        self, project: project_.Key, line_plots: list[LinePlot]
-    ) -> list[LinePlot]: ...
+    def create(self, line_plots: list[LinePlot]) -> list[LinePlot]: ...
 
     def create(
         self,
-        project: project_.Key,
         line_plots: LinePlot | list[LinePlot] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> LinePlot | list[LinePlot]:
-        """Create one or more line plots in a project.
+        """Create one or more line plots.
 
-        :param project: The key of the project that owns the line plots.
-        :param line_plots: A single line plot or a list of them. When omitted, a line
-            plot is created from the ``name`` keyword argument.
-        :param name: The name of the line plot to create when ``line_plots`` is
-            omitted.
+        :param line_plots: A single line plot or a list of them. Each one belongs to
+            exactly one of a project and a range. When omitted, a line plot is created
+            from the ``name`` and ``project`` keyword arguments.
+        :param name: The name of the line plot to create when ``line_plots`` is omitted.
+        :param project: The key of the project that owns the line plot when
+            ``line_plots`` is omitted.
         :returns: The created line plot, or a list of created line plots when
             ``line_plots`` is a list.
+        :raises ValidationError: If a line plot does not belong to exactly one of a
+            project and a range.
         """
         is_single = not isinstance(line_plots, list)
         if line_plots is None:
-            line_plots = LinePlot(name=name)
-        req = _CreateRequest(
-            line_plots=[
-                r.model_copy(update={"project": project}) for r in normalize(line_plots)
-            ]
-        )
+            line_plots = LinePlot(name=name, project=project)
+        req = _CreateRequest(line_plots=normalize(line_plots))
         res = self._client.send("/lineplot/create", req, _CreateResponse)
         return res.line_plots[0] if is_single else res.line_plots
 

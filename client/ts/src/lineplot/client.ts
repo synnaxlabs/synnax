@@ -132,25 +132,19 @@ export class Client extends query.Retriever<
     this.dispatcher = dispatcher;
   }
 
+  async create(linePlot: New, opts?: query.WriteOptions<LinePlot[]>): Promise<LinePlot>;
   async create(
-    project: project.Key,
-    linePlot: New,
-    opts?: query.WriteOptions<LinePlot[]>,
-  ): Promise<LinePlot>;
-  async create(
-    project: project.Key,
     linePlots: New[],
     opts?: query.WriteOptions<LinePlot[]>,
   ): Promise<LinePlot[]>;
   async create(
-    project: project.Key,
     linePlots: New | New[],
     opts: query.WriteOptions<LinePlot[]> = {},
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
     const optimistic = array
       .toArray(linePlots)
-      .map((p) => zod.parse(linePlotZ, { ...p, project }, { label: "line plot" }));
+      .map((p) => zod.parse(linePlotZ, p, { label: "line plot" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

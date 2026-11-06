@@ -97,7 +97,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced line plot", async () => {
-    const target = await client.lineplots.create(await testProjectKey(), {
+    const target = await client.lineplots.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
@@ -108,7 +109,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced log", async () => {
-    const target = await client.logs.create(await testProjectKey(), {
+    const target = await client.logs.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
@@ -119,7 +121,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced table", async () => {
-    const target = await client.tables.create(await testProjectKey(), {
+    const target = await client.tables.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({

@@ -42,7 +42,11 @@ describe("log queries", () => {
     const proj = await client.projects.create({
       name: `log_ws_${uuid.create()}`,
     });
-    return await client.logs.create(proj.key, { name: "test_log", ...overrides });
+    return await client.logs.create({
+      project: proj.key,
+      name: "test_log",
+      ...overrides,
+    });
   };
 
   const loadAndSelect = async <T>(

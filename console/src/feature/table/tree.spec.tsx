@@ -52,7 +52,7 @@ const CORE = createCore("test");
 const Item = Table.TREE_ITEMS.table;
 
 const createTable = async (): Promise<table.Table> =>
-  await client.tables.create(await project(), { name: uniqueName("table") });
+  await client.tables.create({ project: await project(), name: uniqueName("table") });
 
 interface SetupParams {
   tables: table.Table[];

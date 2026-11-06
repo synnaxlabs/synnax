@@ -124,7 +124,8 @@ const createSnapshot = async (rng: ranger.Range): Promise<resource.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
   });
-  const sch = await client.schematics.create(project.key, {
+  const sch = await client.schematics.create({
+    project: project.key,
     name: uniqueName("sch"),
   });
   const snap = await client.schematics.copy({

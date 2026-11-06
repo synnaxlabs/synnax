@@ -64,38 +64,38 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, project: project_.Key, *, name: str) -> Table: ...
+    def create(self, *, name: str, project: project_.Key) -> Table: ...
 
     @overload
-    def create(self, project: project_.Key, tables: Table) -> Table: ...
+    def create(self, tables: Table) -> Table: ...
 
     @overload
-    def create(self, project: project_.Key, tables: list[Table]) -> list[Table]: ...
+    def create(self, tables: list[Table]) -> list[Table]: ...
 
     def create(
         self,
-        project: project_.Key,
         tables: Table | list[Table] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> Table | list[Table]:
-        """Create one or more tables in a project.
+        """Create one or more tables.
 
-        :param project: The key of the project that owns the tables.
-        :param tables: A single table or a list of them. When omitted, an empty table
-            is created from the ``name`` keyword argument.
+        :param tables: A single table or a list of them. Each one belongs to exactly one
+            of a project and a range. When omitted, a table is created from the ``name``
+            and ``project`` keyword arguments.
         :param name: The name of the table to create when ``tables`` is omitted.
+        :param project: The key of the project that owns the table when ``tables`` is
+            omitted.
         :returns: The created table, or a list of created tables when ``tables`` is a
             list.
+        :raises ValidationError: If a table does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(tables, list)
         if tables is None:
-            tables = [Table(name=name)]
-        req = _CreateRequest(
-            tables=[
-                r.model_copy(update={"project": project}) for r in normalize(tables)
-            ]
-        )
+            tables = Table(name=name, project=project)
+        req = _CreateRequest(tables=normalize(tables))
         res = self._client.send("/table/create", req, _CreateResponse)
         return res.tables[0] if is_single else res.tables
 

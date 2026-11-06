@@ -84,7 +84,10 @@ describe("channel/search", () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
     });
-    const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: uniqueName("plot"),
+    });
     const store = await renderSearchItem(
       createResource(channelClient.resourceID(ch.key), ch.name),
     );
@@ -141,7 +144,10 @@ describe("channel/search", () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
     });
-    const doc = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const doc = await client.logs.create({
+      project: proj.key,
+      name: uniqueName("log"),
+    });
     const store = await renderSearchItem(
       createResource(channelClient.resourceID(ch.key), ch.name, {
         virtual: true,

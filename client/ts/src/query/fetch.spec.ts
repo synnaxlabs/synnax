@@ -39,28 +39,30 @@ const DOMAINS: Domain[] = [
   {
     name: "schematic",
     create: async () =>
-      (await writer.schematics.create(proj.key, { name: `s-${id.create()}` })).key,
+      (await writer.schematics.create({ project: proj.key, name: `s-${id.create()}` }))
+        .key,
     del: async (key) => await writer.schematics.delete(key),
     retrieveKeys: async (reader, keys) => await reader.schematics.retrieve({ keys }),
   },
   {
     name: "lineplot",
     create: async () =>
-      (await writer.lineplots.create(proj.key, { name: `lp-${id.create()}` })).key,
+      (await writer.lineplots.create({ project: proj.key, name: `lp-${id.create()}` }))
+        .key,
     del: async (key) => await writer.lineplots.delete(key),
     retrieveKeys: async (reader, keys) => await reader.lineplots.retrieve({ keys }),
   },
   {
     name: "log",
     create: async () =>
-      (await writer.logs.create(proj.key, { name: `log-${id.create()}` })).key,
+      (await writer.logs.create({ project: proj.key, name: `log-${id.create()}` })).key,
     del: async (key) => await writer.logs.delete(key),
     retrieveKeys: async (reader, keys) => await reader.logs.retrieve({ keys }),
   },
   {
     name: "table",
     create: async () =>
-      (await writer.tables.create(proj.key, { name: `t-${id.create()}` })).key,
+      (await writer.tables.create({ project: proj.key, name: `t-${id.create()}` })).key,
     del: async (key) => await writer.tables.delete(key),
     retrieveKeys: async (reader, keys) => await reader.tables.retrieve({ keys }),
   },

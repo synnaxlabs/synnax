@@ -96,7 +96,8 @@ export const renderTable = async (
   Component: ComponentType,
   { table: overrides, preloadedState, as = client }: RenderTableOptions = {},
 ) => {
-  const created = await client.tables.create(await project(), {
+  const created = await client.tables.create({
+    project: await project(),
     name: "Test Table",
     ...overrides,
   });
