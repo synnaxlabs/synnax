@@ -513,6 +513,29 @@ describe("Read", () => {
     expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
   });
 
+  it("should reject a custom name that the slave's index holds", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, { name: `${identifier}_time` }),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${identifier}_time already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
   it("should reject a default name that a renamed slave's channel holds", async () => {
     const identifier = createIdentifier();
     const pdos = { inputs: [STATUS_ENTRY], outputs: [] };

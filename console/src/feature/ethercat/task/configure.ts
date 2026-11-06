@@ -284,11 +284,12 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
 
 /**
  * Binds each channel to the Synnax channel that a deleted device left under its name.
- * An orphaned channel has the index the task gives the channel, and no slave maps it.
+ * An orphaned channel is not an index, has the index the task gives the channel, and no
+ * slave maps it.
  *
  * @returns the channels that still need a Synnax channel.
- * @throws {Error} if a channel on another index or a channel that a slave maps holds a
- * name, or if an orphaned channel holds another data type.
+ * @throws {Error} if an index, a channel on another index, or a channel that a slave
+ * maps holds a name, or if an orphaned channel holds another data type.
  */
 export const bindOrphanedChannels = async <C extends EntryChannel>({
   client,
@@ -318,7 +319,12 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
     const orphan = existing.get(names[i]);
     if (orphan == null) return true;
     const expected = index(i);
-    if (expected == null || orphan.index !== expected || bound.has(orphan.key))
+    if (
+      expected == null ||
+      orphan.isIndex ||
+      orphan.index !== expected ||
+      bound.has(orphan.key)
+    )
       throw new Error(
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );
