@@ -413,6 +413,19 @@ var _ = Describe("Is", func() {
 			Expect(errors.MessageWithout(err, ref)).To(Equal("first\nsecond"))
 		})
 
+		DescribeTable("Should recover a panic in a member of a join",
+			func(member error, want string) {
+				err := errors.Join(member, errors.Wrap(ref, "second"))
+				Expect(errors.MessageWithout(err, ref)).To(Equal(want + "\nsecond"))
+			},
+			Entry("a typed nil", (*customError)(nil), "<nil>"),
+			Entry(
+				"a member that panics",
+				panicError{},
+				"%!v(PANIC=SafeFormatter method: member failed)",
+			),
+		)
+
 		It("Should keep the message of an error without the reference", func() {
 			err := errors.Wrap(errors.New("other"), "outer")
 			Expect(errors.MessageWithout(err, ref)).To(Equal("outer: other"))

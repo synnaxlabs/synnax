@@ -207,7 +207,12 @@ func MessageWithout(err, ref error) string {
 	if members, ok := joinMembers(err); ok {
 		messages := make([]string, 0, len(members))
 		for _, member := range members {
-			if msg := MessageWithout(member, ref); msg != "" {
+			// joinText recovers a panic in a member, as the message of the join does.
+			msg := joinText{member}.Error()
+			if CheapIs(member, ref) {
+				msg = MessageWithout(member, ref)
+			}
+			if msg != "" {
 				messages = append(messages, msg)
 			}
 		}

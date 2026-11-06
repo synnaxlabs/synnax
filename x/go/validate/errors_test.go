@@ -16,6 +16,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+type fieldError struct{ msg string }
+
+func (e *fieldError) Error() string { return e.msg }
+
 var _ = Describe("Errors", func() {
 	Describe("PathedError", func() {
 		It("Should add a path to an error", func() {
@@ -163,6 +167,17 @@ var _ = Describe("Errors", func() {
 				MatchError(validate.ErrValidation),
 				MatchError("first\nsecond: validation error"),
 			))
+		})
+
+		It("Should send a join with a typed nil member", func(ctx SpecContext) {
+			err := errors.Join(
+				(*fieldError)(nil),
+				errors.Wrap(validate.ErrValidation, "second"),
+			)
+			Expect(errors.Encode(ctx, err, false)).To(Equal(errors.Payload{
+				Type: "sy.validation",
+				Data: "<nil>\nsecond",
+			}))
 		})
 
 		It("Should send an empty message for the bare sentinel", func(ctx SpecContext) {
