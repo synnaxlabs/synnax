@@ -25,15 +25,18 @@ TESTS_DIR="integration/tests"
 EXEMPT="example"
 
 # Matrix definition (single source of truth)
-# Format: "name:target:hosted:args" where target can be comma-separated file prefixes.
-# hosted is true when the suite runs on a GitHub-hosted runner. A suite that needs NI
-# software, the timer precision of a test bot, or more than 4 CPUs is not hosted. args
-# are more flags for the test conductor. The Driver suite waits on its devices more
-# than it computes, so it runs its sequences on four Cores at once.
+# Format: "name:target:hosted:shards:args" where target can be comma-separated file
+# prefixes. hosted is true when the suite runs on a GitHub-hosted runner. A suite that
+# needs NI software, the timer precision of a test bot, or more than 4 CPUs is not
+# hosted. An entry with more than one shard becomes the jobs name-1 to name-N, each
+# running its part of target. args are more flags for the test conductor. The Driver
+# suite waits on its devices more than it computes, so it runs its sequences on four
+# Cores at once. A hosted runner has the CPU for one browser, so the Console suite
+# runs as shards.
 MATRIX_ENTRIES=(
-    "arc:arc,control:true:"
-    "console:console:false:"
-    "driver:driver,latency:false:--cores 4 --browsers 1"
+    "arc:arc,control:true:1:"
+    "console:console:true:5:--browsers 1"
+    "driver:driver,latency:false:1:--cores 4 --browsers 1"
 )
 
 covered=""
@@ -91,14 +94,22 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    IFS=: read -r name target hosted args <<< "$entry"
-    if [ "$first" = true ]; then
-        first=false
-    else
-        json+=","
-    fi
-    json+="{\"name\":\"$name\",\"target\":\"$target\",\"hosted\":$hosted,"
-    json+="\"args\":\"$args\"}"
+    IFS=: read -r name target hosted shards args <<< "$entry"
+    for shard in $(seq 1 "$shards"); do
+        job=$name
+        job_args=$args
+        if [ "$shards" -gt 1 ]; then
+            job="$name-$shard"
+            job_args="$args --shard $shard/$shards"
+        fi
+        if [ "$first" = true ]; then
+            first=false
+        else
+            json+=","
+        fi
+        json+="{\"name\":\"$job\",\"target\":\"$target\",\"hosted\":$hosted,"
+        json+="\"args\":\"$job_args\"}"
+    done
 done
 json+=']}'
 
