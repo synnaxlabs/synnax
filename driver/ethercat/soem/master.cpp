@@ -265,7 +265,13 @@ x::errors::Error Master::activate(
     if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
-    if (auto err = this->wait_for_frame(timeout)) return err;
+    if (!this->wait_for_frame(
+            std::chrono::steady_clock::now() + std::chrono::microseconds(timeout)
+        ))
+        return x::errors::Error(
+            errors::STATE_CHANGE_ERROR,
+            "failed to reach OP: no process data passed the slaves in SAFE-OP"
+        );
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
     this->cache_pdo_offsets();
     return x::errors::NIL;
@@ -331,11 +337,12 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
-std::optional<dc::Registers> Master::dc_sync() const {
+std::vector<dc::Registers> Master::dc_sync() const {
+    std::vector<dc::Registers> syncs;
     for (const auto &[pos, regs]: this->dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & PDI_SYNC_UNIT) == 0)
-            return regs;
-    return std::nullopt;
+            syncs.push_back(regs);
+    return syncs;
 }
 
 std::span<const uint8_t> Master::input_data() {
@@ -1124,6 +1131,14 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
 x::errors::Error Master::wait_for_dc_settle() {
     const auto deadline = std::chrono::steady_clock::now() +
                           this->cfg.dc_settle_timeout.chrono();
+    // 0x092C keeps its old value until a frame carries the reference clock to the
+    // slave.
+    if (!this->wait_for_frame(deadline))
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no frame carried the reference clock to the slaves within " +
+                this->cfg.dc_settle_timeout.to_string()
+        );
     while (true) {
         uint16_t worst_pos = 0;
         x::telem::TimeSpan worst(0);
@@ -1246,20 +1261,16 @@ bool Master::al_error(const uint16_t pos) const {
            this->api->slave_ALstatuscode(pos) != 0;
 }
 
-x::errors::Error Master::wait_for_frame(const int timeout) {
+bool Master::wait_for_frame(
+    const std::chrono::steady_clock::time_point deadline
+) const {
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(timeout);
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (std::chrono::steady_clock::now() >= deadline)
-            return x::errors::Error(
-                errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data passed the slaves in SAFE-OP"
-            );
+        if (std::chrono::steady_clock::now() >= deadline) return false;
         std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
     }
-    return x::errors::NIL;
+    return true;
 }
 
 bool Master::refuses(const uint16_t pos, const uint16_t state) const {

@@ -118,7 +118,7 @@ public:
     /// @brief returns nullopt, since this master does not read the distributed clock.
     std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
 
-    std::optional<dc::Registers> dc_sync() const override { return std::nullopt; }
+    std::vector<dc::Registers> dc_sync() const override { return {}; }
 
     std::string interface_name() const override;
 

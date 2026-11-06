@@ -84,10 +84,9 @@ public:
     /// or errors::WORKING_COUNTER_ERROR.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
-    /// @brief returns the DC registers of the first enabled slave whose SYNC0 events
-    /// the master starts, or nullopt when there is no such slave. Valid from the
-    /// start_cycle call of activate() until deactivate().
-    [[nodiscard]] virtual std::optional<dc::Registers> dc_sync() const = 0;
+    /// @brief returns the DC registers of each enabled slave whose SYNC0 events the
+    /// master starts. Valid from the start_cycle call of activate() until deactivate().
+    [[nodiscard]] virtual std::vector<dc::Registers> dc_sync() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;

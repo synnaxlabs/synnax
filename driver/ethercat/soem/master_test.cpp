@@ -913,6 +913,22 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
+/// no frame carries the reference clock to the slaves, since the clock difference of a
+/// slave keeps its old value until one does.
+TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    const auto err = this->master->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "no frame carried the reference clock to the slaves within " +
+            (x::telem::MILLISECOND * 50).to_string()
+    );
+    EXPECT_EQ(this->mock->register_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
 /// @brief it should read bit 31 of the system time difference as its sign.
 TEST_F(SOEMMasterTest, ActivateReadsTheSignOfTheClockDifference) {
     this->initialize_with_dc_slave({DC_ONLY});
@@ -967,14 +983,26 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
     EXPECT_EQ(this->mock->register_writes, expected);
 }
 
-/// @brief it should report the DC registers of the slave whose SYNC0 events it starts,
+/// @brief it should report the DC registers of each slave whose SYNC0 events it starts,
 /// until it stops the bus.
-TEST_F(SOEMMasterTest, DCSyncReportsTheSlaveThatRunsSYNC0) {
-    this->initialize_with_dc_slave({DC_SECOND});
+TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    this->set_op_modes({DC_SECOND});
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->outputs_wkc = 2;
+    this->mock->inputs_wkc = 2;
+    this->mock->receive_return = 6;
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), dc::resolve(DC_SECOND, PERIOD).first);
+    const auto regs = dc::resolve(DC_SECOND, PERIOD).first;
+    EXPECT_EQ(this->master->dc_sync(), (std::vector{regs, regs}));
     this->master->deactivate();
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
@@ -983,14 +1011,14 @@ TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
         {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
     );
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should report no DC sync when the slave runs in an SM mode.
 TEST_F(SOEMMasterTest, DCSyncIsEmptyInSMMode) {
     this->initialize_with_dc_slave({SM, DC_SECOND});
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.
@@ -1296,7 +1324,7 @@ TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->activate());
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
     EXPECT_EQ(this->mock->slave_infos[1].group, 2);
 }
