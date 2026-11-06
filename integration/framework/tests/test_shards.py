@@ -16,10 +16,17 @@ import pytest
 from framework import config_client, resources, shards
 
 
-def sequence(name: str, *cases: str, isolated: bool = False) -> config_client.Sequence:
+def sequence(
+    name: str, *cases: str, isolated: bool = False, independent: bool = False
+) -> config_client.Sequence:
     tests = [config_client.TestDefinition(case=c) for c in cases]
     return config_client.Sequence(
-        name=name, order="sequential", pool_size=-1, tests=tests, isolated=isolated
+        name=name,
+        order="asynchronous",
+        pool_size=3,
+        tests=tests,
+        isolated=isolated,
+        independent=independent,
     )
 
 
@@ -106,6 +113,33 @@ class TestSelect:
         ]
         durations = {"t/iso": 6.0, "t/a": 10.0, "t/b": 10.0}
         assert select(sequences, "1/2", durations, cores=4) == ["iso"]
+
+    def test_split_independent(self) -> None:
+        """Should split an independent sequence into single tests, and keep its tests
+        and its order in file order."""
+        sequences = [
+            sequence("a", "t/a1", "t/a2", "t/a3", "t/a4", independent=True),
+            sequence("b", "t/b"),
+        ]
+        durations = {"t/a1": 4.0, "t/a2": 3.0, "t/a3": 2.0, "t/a4": 1.0, "t/b": 5.0}
+        picked = [
+            shards.select(
+                sequences,
+                shards.parse(f"{i}/2"),
+                durations=durations,
+                resources_of=browser_cases,
+                cores=1,
+                browsers=None,
+            )
+            for i in (1, 2)
+        ]
+        assert [[(s.name, [t.case for t in s.tests]) for s in p] for p in picked] == [
+            [("a", ["t/a3", "t/a4"]), ("b", ["t/b"])],
+            [("a", ["t/a1", "t/a2"])],
+        ]
+        assert {(s.order, s.pool_size) for p in picked for s in p} == {
+            ("asynchronous", 3)
+        }
 
     def test_empty_shard(self) -> None:
         """Should raise when a shard gets no sequences."""
