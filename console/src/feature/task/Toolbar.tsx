@@ -59,8 +59,7 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  internal: false,
-  snapshot: false,
+  where: { internal: { eq: false }, snapshot: { eq: false } },
 };
 
 const filter = (task: task.Task) =>
@@ -138,9 +137,10 @@ const Content = () => {
           </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
-                <Icon.Add />
-              </Toolbar.Action>
+              <Toolbar.CreateAction
+                tooltip="Create task"
+                onClick={() => openSelector()}
+              />
             </Toolbar.Actions>
           )}
         </Toolbar.Header>

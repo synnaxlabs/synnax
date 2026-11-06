@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
-from typing import Any
+from typing import Unpack
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -24,8 +24,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.test_case import TestCase
+from framework import resources
+from framework.models import STATUS
+from framework.test_case import Config, TestCase, param
 
 
 class ConsoleCase(TestCase):
@@ -45,14 +46,12 @@ class ConsoleCase(TestCase):
     default_nav_timeout: int
     console: Console
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.BROWSER}
+
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
@@ -74,10 +73,10 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        headed = self.params.get("headed", self.options.headed)
-        slow_mo = self.params.get("slow_mo", self.options.slow_mo)
-        default_timeout = self.params.get("default_timeout", 15000)  # 15s
-        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
+        headed = param(self.params, "headed", self.options.headed)
+        slow_mo = param(self.params, "slow_mo", self.options.slow_mo)
+        default_timeout = param(self.params, "default_timeout", 15000)  # 15s
+        default_nav_timeout = param(self.params, "default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
@@ -114,16 +113,22 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-    def _goto_console(self, query: str = "") -> None:
+    def _goto_console(
+        self, query: str = "", host: str | None = None, port: int | None = None
+    ) -> None:
         """Navigate to the Console, falling back to the dev server when the
         Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
-        ``"?select-core"``)."""
-        host = self.synnax_connection.server_address
-        port = self.synnax_connection.port
+        ``"?select-core"``). ``host`` and ``port`` default to the Core's."""
+        host = host or self.synnax_connection.server_address
+        port = port or self.synnax_connection.port
 
         # A plain request finds the Console's port without a page load in the browser.
         with urlopen(f"http://{host}:{port}/", timeout=5) as res:
             if b"core built without embedded console" in res.read().lower():
+                # The dev Console connects to the Core whose port this key holds.
+                self.page.add_init_script(
+                    f"localStorage.setItem('synnax-dev-connection-port', '{port}')"
+                )
                 port = 5173
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 

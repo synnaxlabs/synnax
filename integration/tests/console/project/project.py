@@ -11,7 +11,8 @@ import json
 import os
 import shutil
 import tempfile
-from typing import Any
+
+from pydantic import BaseModel, Field
 
 from console.case import ConsoleCase
 from console.log import Log
@@ -21,6 +22,20 @@ from console.table import Table
 from framework.utils import get_fixture_path, resolve_channel_placeholders
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
+
+
+class _PanelTab(BaseModel):
+    variant: str
+    resource: str | None = None
+
+
+class _PanelNode(BaseModel):
+    """A node of the layout tree of an exported panel."""
+
+    variant: str
+    tabs: list[_PanelTab] = Field(default_factory=list)
+    first: "_PanelNode | None" = None
+    last: "_PanelNode | None" = None
 
 
 class Project(ConsoleCase):
@@ -260,16 +275,19 @@ class Project(ConsoleCase):
         assert manifest["version"] == 1, f"Unexpected manifest: {manifest}"
         assert manifest["name"] == "ImportSpace", f"Unexpected manifest: {manifest}"
 
-        def collect_references(node: dict[str, Any], out: list[str]) -> None:
-            if node["variant"] == "leaf":
-                out.extend(
-                    tab["resource"]
-                    for tab in node["tabs"]
-                    if tab["variant"] == "resource"
-                )
+        def collect_references(node: _PanelNode, out: list[str]) -> None:
+            if node.variant == "leaf":
+                for tab in node.tabs:
+                    if tab.variant != "resource":
+                        continue
+                    assert tab.resource is not None, f"Tab without resource: {tab}"
+                    out.append(tab.resource)
                 return
-            collect_references(node["first"], out)
-            collect_references(node["last"], out)
+            assert node.first is not None and node.last is not None, (
+                f"Split node without children: {node}"
+            )
+            collect_references(node.first, out)
+            collect_references(node.last, out)
 
         referenced: list[str] = []
         for entry in os.listdir(self._export_dir):
@@ -278,7 +296,9 @@ class Project(ConsoleCase):
             with open(os.path.join(self._export_dir, entry), encoding="utf-8") as f:
                 envelope = json.load(f)
             if envelope.get("type") == "panel":
-                collect_references(envelope["root"], referenced)
+                collect_references(
+                    _PanelNode.model_validate(envelope["root"]), referenced
+                )
 
         expected = {
             "Metrics Plot": "lineplot",

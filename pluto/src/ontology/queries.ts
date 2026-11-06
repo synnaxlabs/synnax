@@ -138,16 +138,37 @@ export const { use: useChildren } = Flux.createRetrieve<
     client.ontology.children.getCached({ ids: id, ...options }),
 });
 
-type RetrieveResourceQuery = {
-  ids: ontology.ID[];
-};
+export type RetrieveRootChildQuery = { name: string };
 
-export const { use: useResource } = Flux.createRetrieve<
-  RetrieveResourceQuery,
+export const { use: useRootChildID } = Flux.createRetrieve<
+  RetrieveRootChildQuery,
+  ontology.ID | undefined
+>({
+  name: "root child",
+  retrieve: async ({ client, query: { name } }) => {
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
+    return res.find((r) => r.name === name)?.id;
+  },
+});
+
+export const { useResult: useResultResources } = Flux.createRetrieve<
+  ListQuery,
   ontology.Resource[]
 >({
-  name: RESOURCE_RESOURCE_NAME,
+  name: PLURAL_RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
   onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
   getCached: ({ client, query }) => client.ontology.getCached(query),
+});
+
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  ontology.AncestorParams,
+  ontology.Ancestry
+>({
+  name: "resource ancestors",
+  retrieve: async ({ client, query }) =>
+    await client.ontology.ancestors.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.ontology.ancestors.onChange(query, handler),
+  getCached: ({ client, query }) => client.ontology.ancestors.getCached(query),
 });

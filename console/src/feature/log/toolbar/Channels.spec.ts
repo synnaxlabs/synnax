@@ -16,10 +16,12 @@ import { describe, expect, it } from "vitest";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
-const createChannel = async (): Promise<channel.Key> => {
+const createChannel = async (
+  dataType: DataType = DataType.FLOAT32,
+): Promise<channel.Key> => {
   const ch = await client.channels.create({
     name: id.create(),
-    dataType: DataType.FLOAT32,
+    dataType,
     virtual: true,
   });
   return ch.key;
@@ -57,17 +59,49 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByDisplayValue("pressure")).toBeDefined();
   });
 
-  it("renders an absent precision as Auto", async () => {
+  it("limits an alias to 64 characters, counting an emoji as one", async () => {
+    const key = await createChannel();
+    const { key: logKey } = await renderChannels([entry(key)]);
+    const { name } = await client.channels.retrieve(key);
+    fireEvent.change(await screen.findByPlaceholderText(name), {
+      target: { value: "😀".repeat(65) },
+    });
+    await waitFor(async () =>
+      expect((await client.logs.retrieve(logKey)).channels[0].alias).toBe(
+        "😀".repeat(64),
+      ),
+    );
+  });
+
+  it("renders an absent precision as an empty field with an auto chip", async () => {
     await renderChannels([entry(await createChannel())]);
-    const input = await screen.findByPlaceholderText("Auto");
-    expect((input as HTMLInputElement).value).toEqual("");
+    const [row] = await waitFor(() => {
+      const rows = channelRows();
+      expect(rows).toHaveLength(1);
+      return rows;
+    });
+    expect(within(row).getByText("Auto")).toBeDefined();
+    expect(within(row).queryByLabelText("Auto")).toBeNull();
   });
 
   it("clears the precision with the Auto button", async () => {
     const ch = await createChannel();
     const { key } = await renderChannels([entry(ch, { precision: 3 })]);
     expect(await screen.findByDisplayValue("3")).toBeDefined();
-    fireEvent.click(await screen.findByLabelText("Enable auto precision"));
+    fireEvent.click(await screen.findByLabelText("Auto"));
+    await waitFor(async () =>
+      expect(
+        (await client.logs.retrieve({ key })).channels[0].precision,
+      ).toBeUndefined(),
+    );
+  });
+
+  it("clears the precision when its field is emptied", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
     await waitFor(async () =>
       expect(
         (await client.logs.retrieve({ key })).channels[0].precision,
@@ -120,6 +154,36 @@ describe("log/toolbar/Channels permissions", () => {
     const { result } = await renderChannels([entry(ch)]);
     await waitFor(() => expect(channelRows()).toHaveLength(1));
     await waitFor(() => expect(isAddRowFrozen(result)).toBe(false));
+  });
+
+  const isFrozen = (element: Element | null | undefined): boolean =>
+    element?.getAttribute("aria-disabled") === "true";
+
+  const swatch = (result: { container: HTMLElement }): Element | null =>
+    result.container.querySelector(".lyra-color-swatch");
+
+  it("should leave a row's controls live for a subject who may write", async () => {
+    const { result } = await renderChannels([entry(await createChannel())]);
+    const standard = await screen.findByText("Standard");
+    await waitFor(() => expect(isAddRowFrozen(result)).toBe(false));
+    expect(isFrozen(standard.closest("button"))).toBe(false);
+    expect(isFrozen(swatch(result))).toBe(false);
+  });
+
+  it("should freeze the number controls of a row for a viewer", async () => {
+    const ch = await createChannel();
+    const { result } = await renderChannels([entry(ch)], await roles.get("Viewer"));
+    const standard = await screen.findByText("Standard");
+    await waitFor(() => expect(isFrozen(standard.closest("button"))).toBe(true));
+    expect(isFrozen(swatch(result))).toBe(true);
+  });
+
+  it("should freeze the timestamp controls of a row for a viewer", async () => {
+    const ch = await createChannel(DataType.TIMESTAMP);
+    await renderChannels([entry(ch)], await roles.get("Viewer"));
+    const local = await screen.findByText("Local");
+    await waitFor(() => expect(isFrozen(local.closest("button"))).toBe(true));
+    expect(isFrozen(screen.getByText("Precise date").closest("button"))).toBe(true);
   });
 
   it("should freeze the add row for a viewer", async () => {

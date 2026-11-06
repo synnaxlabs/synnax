@@ -12,50 +12,17 @@ import "@/feature/arc/editor/SelectPerformance.css";
 import { type arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-type ManualPerformance = Exclude<arc.task.Performance, "auto">;
-
-/** The number of meter bars each level fills. */
-const FILLED: Record<ManualPerformance, number> = { low: 1, medium: 2, high: 3 };
-
-const BAR_HEIGHTS = [6, 10, 14];
-const BAR_CLASS = CSS.BE("performance-select", "bar");
-
-/** Creates an icon that shows a level as three rising bars, filled up to the level. */
-const createMeter = (level: ManualPerformance): Icon.FC =>
-  Icon.wrapSVGIcon(
-    (props) => (
-      <svg viewBox="0 0 16 16" {...props}>
-        {BAR_HEIGHTS.map((height, i) => (
-          <rect
-            key={height}
-            className={CSS.cls(BAR_CLASS, i < FILLED[level] && CSS.M("filled"))}
-            x={1.5 + i * 5}
-            y={15 - height}
-            width={3}
-            height={height}
-            rx={1}
-          />
-        ))}
-      </svg>
-    ),
-    `performance-${level}`,
-    { className: CSS.BM("performance-select-meter", level) },
-  );
-
-const LowMeter = createMeter("low");
-const MediumMeter = createMeter("medium");
-const HighMeter = createMeter("high");
-
 const GLYPHS: Record<arc.task.Performance, Icon.ReactElement> = {
   auto: <Icon.Auto className={CSS.BE("performance-select", "auto")} />,
-  low: <LowMeter />,
-  medium: <MediumMeter />,
-  high: <HighMeter />,
+  low: <Icon.Meter.Low className={CSS.BM("performance-select-meter", "low")} />,
+  medium: (
+    <Icon.Meter.Medium className={CSS.BM("performance-select-meter", "medium")} />
+  ),
+  high: <Icon.Meter.High className={CSS.BM("performance-select-meter", "high")} />,
 };
 
 interface Level {
@@ -87,25 +54,17 @@ const LEVELS: Level[] = [
   },
 ];
 
-const ITEM_CLASS = CSS.BE("performance-select", "item");
-const LEVEL_CLASS = CSS.BE("performance-select", "level");
-const NAME_CLASS = CSS.BE("performance-select", "name");
-const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
-
+// The trigger shows the selected level's glyph as its icon, so its label is the name.
 const ITEMS = LEVELS.map(({ key, name, description }) => (
   <Select.Item<arc.task.Performance>
     key={key}
     itemKey={key}
-    className={ITEM_CLASS}
+    label={name}
     textValue={name}
   >
-    <div className={LEVEL_CLASS}>
-      {GLYPHS[key]}
-      <span className={NAME_CLASS}>{name}</span>
-      <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" overflow="wrap">
-        {description}
-      </Text.Text>
-    </div>
+    {GLYPHS[key]}
+    {name}
+    <Select.ItemDescription>{description}</Select.ItemDescription>
   </Select.Item>
 ));
 
@@ -148,7 +107,7 @@ export const SelectPerformance = ({
     triggerProps={TRIGGER_PROPS}
     dialogProps={DIALOG_PROPS}
     resourceName="performance"
-    searchName="level"
+    searchHidden
   >
     {ITEMS}
   </Select.Simple>

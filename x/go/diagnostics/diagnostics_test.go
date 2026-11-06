@@ -10,6 +10,8 @@
 package diagnostics_test
 
 import (
+	"context"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,6 +72,12 @@ func hint(msg string) diagnostics.Diagnostic {
 }
 
 var _ = Describe("Diagnostics", func() {
+	It("Should unwrap to the errors the diagnostics were created from", func() {
+		var d diagnostics.Diagnostics
+		d.Add(diagnostics.Error(context.Canceled, nil))
+		Expect(d).To(MatchError(context.Canceled))
+	})
+
 	Describe("Deduplication", func() {
 		It("Should not add duplicate errors with same location and message", func() {
 			var d diagnostics.Diagnostics

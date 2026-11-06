@@ -22,12 +22,15 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/label",
+        "//core/pkg/api/status:status_grpc",
         "//core/pkg/service/status:status_grpc",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
         "//x/cpp/errors",
+        "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/mem",
         "//x/cpp/pb",
         "//x/cpp/telem",
         "//x/cpp/uuid",
@@ -44,6 +47,17 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/json/testutil",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "where_test",
+    size = "small",
+    srcs = ["where_test.cpp"],
+    deps = [
+        ":status",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

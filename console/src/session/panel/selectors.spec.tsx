@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore, type Store } from "@reduxjs/toolkit";
+import { combineReducers, type Store } from "@reduxjs/toolkit";
 import { panel, project, type Synnax } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
@@ -31,6 +31,7 @@ import { pickSynchronizer } from "@/session/synchronizer/testutil";
 import {
   assertDefined,
   createConsoleWrapper,
+  createMinimalStore,
   createTestStore,
   type TestStore,
   uniqueName,
@@ -44,7 +45,7 @@ const rootReducer = combineReducers({
 type TestState = ReturnType<typeof rootReducer>;
 
 const createStore = () =>
-  configureStore({
+  createMinimalStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
   });

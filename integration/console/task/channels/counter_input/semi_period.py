@@ -26,10 +26,10 @@ class SemiPeriod(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["Seconds", "Ticks", "Custom"] | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

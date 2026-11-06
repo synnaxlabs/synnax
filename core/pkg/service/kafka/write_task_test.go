@@ -12,6 +12,8 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
+	"math"
 	"time"
 	"uuid"
 
@@ -283,14 +285,17 @@ var _ = Describe("Write task", func() {
 		Entry(
 			"a channel pointer equal to the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value")},
-			`record.value_pointer "/value" and record.channel_pointer "/value" overlap`,
+			`record.value_pointer "/value" and record.channel_pointer "/value" `+
+				`overlap`,
 		),
 		Entry("a channel pointer nested inside the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
-			`record.channel_pointer "/value/name" overlap`),
+			`record.value_pointer "/value" and `+
+				`record.channel_pointer "/value/name" overlap`),
 		Entry("a timestamp pointer lacking its leading slash",
 			kafka.Record{TimestampPointer: new("timestamp")},
-			`record.timestamp_pointer: pointer "timestamp" must start with '/'`),
+			`record.timestamp_pointer: json pointer "timestamp" must be empty or `+
+				`start with "/"`),
 		Entry("a field pointer that contains the value pointer",
 			kafka.Record{
 				ValuePointer: "/meta/value",
@@ -303,7 +308,8 @@ var _ = Describe("Write task", func() {
 					Value:    "synnax",
 				}}},
 			},
-			`record.value_pointer "/meta/value" and field "source" "/meta" overlap`),
+			`record.value_pointer "/meta/value" and field "source" "/meta" `+
+				`overlap`),
 	)
 
 	// startOne configures and starts a write task producing one channel of dt.
@@ -427,6 +433,66 @@ var _ = Describe("Write task", func() {
 		Expect(string(recs[0].Value)).To(ContainSubstring(`"value":9007199254740993`))
 	})
 
+	It("Should write record members in config order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		startTask(ctx, kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  topic,
+			Record: kafka.Record{
+				ValuePointer:     "/payload/value",
+				ChannelPointer:   new("/channel"),
+				TimestampPointer: new("/meta/sent"),
+				TimeFormat:       http.TimeFormatUnixNs,
+				Fields: []http.WriteField{
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "unit", Pointer: "/payload/unit",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "psi",
+					}},
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "source", Pointer: "/meta/source",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "synnax",
+					}},
+				},
+			},
+			Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+		})
+		start := 10 * telem.SecondTS
+		writeFrame(ctx, index, data, []telem.TimeStamp{start},
+			telem.NewSeriesV[float64](1.5))
+		recs := consume(ctx, topic, 1)
+		Expect(string(recs[0].Value)).To(Equal(
+			`{"payload":{"value":1.5,"unit":"psi"},"channel":"` + data.Name +
+				`","meta":{"sent":10000000000,"source":"synnax"}}`,
+		))
+	})
+
+	DescribeTable("Should write a number in its shortest JSON form",
+		func(ctx SpecContext, value float64, expected string) {
+			index, data, topic, _ := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)},
+				telem.NewSeriesV(value))
+			recs := consume(ctx, topic, 1)
+			Expect(string(recs[0].Value)).To(Equal(`{"value":` + expected + `}`))
+		},
+		Entry("a whole number", 100000.0, "100000"),
+		Entry("a fraction", 0.1, "0.1"),
+		Entry("negative zero", math.Copysign(0, -1), "-0"),
+		Entry("the largest plain number", 1e20, "100000000000000000000"),
+		Entry("the first exponent past it", 1e21, "1e+21"),
+		Entry("the smallest plain number", 1e-6, "0.000001"),
+		Entry("a one-digit negative exponent", 1e-7, "1e-7"),
+		Entry("a two-digit negative exponent", 1.5e-10, "1.5e-10"),
+	)
+
 	DescribeTable("Should report a sample that does not serialize",
 		func(
 			ctx SpecContext,
@@ -448,12 +514,35 @@ var _ = Describe("Write task", func() {
 			telem.Uint8T, telem.NewSeriesV[uint8](5),
 			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
 			"no enum label for value 5"),
-		Entry("a string as a number",
-			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
-			"only serializes as a string"),
-		Entry("a UUID as a number",
-			telem.UUIDT, telem.NewSeriesV(writeUUID), kafka.WriteChannel{},
-			"only serializes as a string"),
+		Entry("NaN as a number",
+			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
+			"NaN is not a JSON number"),
+		Entry("infinity as a number",
+			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
+			"+Inf is not a JSON number"),
+	)
+
+	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
+		func(ctx SpecContext, dt telem.DataType, jsonType http.JSONType) {
+			_, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := kafka.WriteConfig{
+				Device: dev.Key,
+				Topic:  "t",
+				Channels: []kafka.WriteChannel{
+					{Key: "c1", Channel: data.Key(), JSONType: jsonType},
+				},
+			}
+			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					`channel "c1": data type %s only serializes as a string`, dt,
+				))),
+			))
+		},
+		Entry("a string as a number", telem.StringT, http.JSONTypeNumber),
+		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
 	)
 
 	DescribeTable("Should reject an invalid config",

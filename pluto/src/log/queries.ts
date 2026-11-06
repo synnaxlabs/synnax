@@ -24,9 +24,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   log.Log
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.logs.retrieve(query),
-  onChange: ({ client, query }, handler) => client.logs.onChange(query, handler),
-  getCached: ({ client, query }) => client.logs.getCached(query),
+  retrieve: async ({ client, query }) => await client.logs.retrieve(query.key),
+  onChange: ({ client, query }, handler) => client.logs.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.logs.getCached(query.key),
   awaitCreation: true,
 });
 
@@ -69,8 +69,8 @@ export const useIsHidingChannelNames = Scope.bindHook(
   createSelector(({ channelNamesHidden }) => channelNamesHidden),
 );
 
-export const useIsHidingReceiptTimestamp = Scope.bindHook(
-  createSelector(({ receiptTimestampHidden }) => receiptTimestampHidden),
+export const useIsHidingTimestamps = Scope.bindHook(
+  createSelector(({ timestampsHidden }) => timestampsHidden),
 );
 
 export const {

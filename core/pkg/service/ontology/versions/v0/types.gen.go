@@ -17,37 +17,70 @@ import "github.com/synnaxlabs/x/validate"
 type ResourceType string
 
 const (
-	ResourceTypeArc             ResourceType = "arc"
-	ResourceTypeBuiltin         ResourceType = "builtin"
-	ResourceTypeChannel         ResourceType = "channel"
-	ResourceTypeDevice          ResourceType = "device"
-	ResourceTypeFramer          ResourceType = "framer"
-	ResourceTypeGroup           ResourceType = "group"
-	ResourceTypeLabel           ResourceType = "label"
-	ResourceTypeLineplot        ResourceType = "lineplot"
-	ResourceTypeLog             ResourceType = "log"
-	ResourceTypeNode            ResourceType = "node"
-	ResourceTypePanel           ResourceType = "panel"
-	ResourceTypePolicy          ResourceType = "policy"
-	ResourceTypeProject         ResourceType = "project"
-	ResourceTypeRack            ResourceType = "rack"
-	ResourceTypeRange           ResourceType = "range"
-	ResourceTypeRangeAlias      ResourceType = "range-alias"
-	ResourceTypeRole            ResourceType = "role"
-	ResourceTypeSchematic       ResourceType = "schematic"
+	// ResourceTypeArc identifies an Arc module.
+	ResourceTypeArc ResourceType = "arc"
+	// ResourceTypeBuiltin identifies a resource that the Core defines.
+	ResourceTypeBuiltin ResourceType = "builtin"
+	// ResourceTypeChannel identifies a channel.
+	ResourceTypeChannel ResourceType = "channel"
+	// ResourceTypeDevice identifies a device.
+	ResourceTypeDevice ResourceType = "device"
+	// ResourceTypeFramer identifies the telemetry of a channel.
+	ResourceTypeFramer ResourceType = "framer"
+	// ResourceTypeGroup identifies a group of resources.
+	ResourceTypeGroup ResourceType = "group"
+	// ResourceTypeLabel identifies a label.
+	ResourceTypeLabel ResourceType = "label"
+	// ResourceTypeLineplot identifies a line plot.
+	ResourceTypeLineplot ResourceType = "lineplot"
+	// ResourceTypeLog identifies a log.
+	ResourceTypeLog ResourceType = "log"
+	// ResourceTypeNode identifies a node of a cluster.
+	ResourceTypeNode ResourceType = "node"
+	// ResourceTypePanel identifies a panel.
+	ResourceTypePanel ResourceType = "panel"
+	// ResourceTypePolicy identifies an access control policy.
+	ResourceTypePolicy ResourceType = "policy"
+	// ResourceTypeProject identifies a project.
+	ResourceTypeProject ResourceType = "project"
+	// ResourceTypeRack identifies a rack.
+	ResourceTypeRack ResourceType = "rack"
+	// ResourceTypeRange identifies a range.
+	ResourceTypeRange ResourceType = "range"
+	// ResourceTypeRangeAlias identifies an alias of a channel on a range.
+	ResourceTypeRangeAlias ResourceType = "range-alias"
+	// ResourceTypeRole identifies an access control role.
+	ResourceTypeRole ResourceType = "role"
+	// ResourceTypeSchematic identifies a schematic.
+	ResourceTypeSchematic ResourceType = "schematic"
+	// ResourceTypeSchematicSymbol identifies a schematic symbol.
 	ResourceTypeSchematicSymbol ResourceType = "schematic_symbol"
-	ResourceTypeStatus          ResourceType = "status"
-	ResourceTypeTable           ResourceType = "table"
-	ResourceTypeTask            ResourceType = "task"
-	ResourceTypeUser            ResourceType = "user"
-	ResourceTypeView            ResourceType = "view"
+	// ResourceTypeStatus identifies a status.
+	ResourceTypeStatus ResourceType = "status"
+	// ResourceTypeTable identifies a table.
+	ResourceTypeTable ResourceType = "table"
+	// ResourceTypeTask identifies a task.
+	ResourceTypeTask ResourceType = "task"
+	// ResourceTypeUser identifies a user.
+	ResourceTypeUser ResourceType = "user"
+	// ResourceTypeView identifies a view.
+	ResourceTypeView           ResourceType = "view"
+	ResourceTypeEthercatMaster ResourceType = "ethercat_master"
+	ResourceTypeEthercatSlave  ResourceType = "ethercat_slave"
+	ResourceTypeHTTPServer     ResourceType = "http_server"
+	ResourceTypeLabjackDevice  ResourceType = "labjack_device"
+	ResourceTypeModbusServer   ResourceType = "modbus_server"
+	ResourceTypeNiChassis      ResourceType = "ni_chassis"
+	ResourceTypeNiDevice       ResourceType = "ni_device"
+	ResourceTypeOpcuaServer    ResourceType = "opcua_server"
+	ResourceTypeArcDirectory   ResourceType = "arc_directory"
 )
 
 // IsValid reports whether r is one of the defined ResourceType
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer, ResourceTypeArcDirectory:
 		return true
 	default:
 		return false

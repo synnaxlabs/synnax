@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
 import "schemas/x/spatial"
@@ -117,28 +118,52 @@ EdgeConfig union on variant {
 }
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "aligns content to the start."
+    }
+    center  = "center" {
+        @doc value "aligns content to the center."
+    }
+    end     = "end" {
+        @doc value "aligns content to the end."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content to fill the available space."
+    }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 ComponentSize enum {
-    tiny   = "tiny"
-    small  = "small"
-    medium = "medium"
-    large  = "large"
-    huge   = "huge"
+    tiny   = "tiny" {
+        @doc value "is the smallest preset."
+    }
+    small  = "small" {
+        @doc value "is the preset between tiny and medium."
+    }
+    medium = "medium" {
+        @doc value "is the default preset."
+    }
+    large  = "large" {
+        @doc value "is the preset between medium and huge."
+    }
+    huge   = "huge" {
+        @doc value "is the largest preset."
+    }
 
     @doc value "is a discrete size preset for interactive components."
 }
 
 ButtonMode enum {
-    fire      = "fire"
-    momentary = "momentary"
-    pulse     = "pulse"
+    fire      = "fire" {
+        @doc value "writes once on click."
+    }
+    momentary = "momentary" {
+        @doc value "writes on press and clears on release."
+    }
+    pulse     = "pulse" {
+        @doc value "writes a one-cycle pulse."
+    }
 
     @doc value """
         is the actuation behavior of a button: fire writes once on click, momentary
@@ -1000,6 +1025,13 @@ Schematic struct {
     @retrieve
 }
 
+Where filter Schematic {
+    key
+
+    @doc value         "is a filter that selects schematics."
+    @go request_output "core/pkg/api/schematic"
+}
+
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
     bounds       spatial.Bounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
@@ -1045,10 +1077,18 @@ ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
 }
 
 PageType enum {
-    schematic = "schematic"
-    lineplot  = "lineplot"
-    log       = "log"
-    table     = "table"
+    schematic = "schematic" {
+        @doc value "is a schematic page."
+    }
+    lineplot  = "lineplot" {
+        @doc value "is a line plot page."
+    }
+    log       = "log" {
+        @doc value "is a log page."
+    }
+    table     = "table" {
+        @doc value "is a table page."
+    }
 
     @doc value "names the kinds of page an off-page reference can link to."
 }

@@ -13,6 +13,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -34,25 +35,35 @@ replace_all(std::string s, const std::string &from, const std::string &to) {
 struct ChannelSpec {
     std::string name;
     x::telem::DataType data_type;
+    /// @brief the declared name of the index channel; empty for a virtual channel.
+    std::string index;
+    /// @brief true when this spec declares an index channel.
+    bool is_index = false;
 };
 
 /// @brief the channels a test program runs against, created on the cluster under
-/// generated names so repeated runs never collide.
+/// generated names so repeated runs never collide. An index is declared before the
+/// channels it indexes.
 class Channels {
     std::unordered_map<std::string, synnax::channel::Channel> created;
 
+    [[nodiscard]] std::pair<synnax::channel::Channel, x::errors::Error>
+    create(const synnax::Synnax &client, const ChannelSpec &spec) const {
+        const auto name = make_unique_channel_name(spec.name);
+        if (spec.is_index) return client.channels.create(name, spec.data_type, 0, true);
+        if (spec.index.empty()) return client.channels.create(name, spec.data_type);
+        return client.channels.create(name, spec.data_type, this->key(spec.index));
+    }
+
 public:
     Channels(const synnax::Synnax &client, const std::vector<ChannelSpec> &specs) {
-        for (const auto &[name, data_type]: specs) {
-            auto [ch, err] = client.channels.create(
-                make_unique_channel_name(name),
-                data_type
-            );
+        for (const auto &spec: specs) {
+            auto [ch, err] = this->create(client, spec);
             if (err)
                 throw std::runtime_error(
-                    "Failed to create channel " + name + ": " + err.message()
+                    "Failed to create channel " + spec.name + ": " + err.message()
                 );
-            this->created.emplace(name, std::move(ch));
+            this->created.emplace(spec.name, std::move(ch));
         }
     }
 
@@ -76,20 +87,23 @@ public:
 /// @brief Compiles an Arc program via the Synnax client.
 inline arc::program::Program
 compile_text(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::arc::Arc{
-        .name = make_unique_channel_name("test_arc"),
-        .mode = synnax::arc::MODE_TEXT
+    synnax::arc::AutomationArc automation{
+        {.name = make_unique_channel_name("test_arc")}
     };
-    arc.text.raw = source;
+    automation.source = synnax::arc::TextSource{.text = {.raw = source}};
+    synnax::arc::Arc arc = automation;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     synnax::arc::RetrieveOptions opts;
-    opts.compile = true;
-    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
+    opts.include_program = true;
+    auto [compiled, err] = client.arcs.retrieve_by_key(
+        synnax::arc::base(arc).key,
+        opts
+    );
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    if (!compiled.program.has_value())
-        throw std::runtime_error("Compiled arc has no program");
-    return *compiled.program;
+    const auto &program = std::get<synnax::arc::AutomationArc>(compiled).program;
+    if (!program.has_value()) throw std::runtime_error("Compiled arc has no program");
+    return *program;
 }
 }

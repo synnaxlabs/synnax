@@ -11,7 +11,10 @@
 
 package arc
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for an Arc module.
 type Key = versions.Key
@@ -20,10 +23,59 @@ type Key = versions.Key
 type Mode = versions.Mode
 
 const (
-	ModeText  Mode = versions.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = versions.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = versions.ModeGraph
 )
+
+// Source is the source code of an Arc. The mode selects text or a graph.
+type Source = versions.Source
+
+// SourceVariant is implemented by every Source variant.
+type SourceVariant = versions.SourceVariant
+
+// TextSource is Arc source code written as text.
+type TextSource = versions.TextSource
+
+// GraphSource is Arc source code drawn as a visual dataflow graph.
+type GraphSource = versions.GraphSource
+
+// Base carries the fields that every Arc shares.
+type Base = versions.Base
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = versions.Arc
+
+// ArcVariant is implemented by every Arc variant.
+type ArcVariant = versions.ArcVariant
+
+// AutomationArc is an Arc that runs on a rack as a task.
+type AutomationArc = versions.AutomationArc
+
+// ModuleArc is an Arc that holds code for other Arcs to import.
+type ModuleArc = versions.ModuleArc
+
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type = versions.Type
+
+const (
+	TypeAutomation Type = versions.TypeAutomation
+	TypeModule     Type = versions.TypeModule
+)
+
+// Where is a filter that selects Arcs.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+}

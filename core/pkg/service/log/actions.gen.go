@@ -20,22 +20,49 @@ import (
 )
 
 const (
-	ActionTypeCreate                    = "create"
-	ActionTypeRename                    = "rename"
-	ActionTypeAddChannel                = "add_channel"
-	ActionTypeRemoveChannel             = "remove_channel"
-	ActionTypeSetChannelEntry           = "set_channel_entry"
-	ActionTypeSetChannelColor           = "set_channel_color"
-	ActionTypeSetChannelNotation        = "set_channel_notation"
-	ActionTypeSetChannelPrecision       = "set_channel_precision"
-	ActionTypeSetChannelAlias           = "set_channel_alias"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
+	ActionTypeAddChannel = "add_channel"
+	// ActionTypeRemoveChannel is the Type of an Action that carries
+	// RemoveChannelPayload.
+	ActionTypeRemoveChannel = "remove_channel"
+	// ActionTypeSetChannelEntry is the Type of an Action that carries
+	// SetChannelEntryPayload.
+	ActionTypeSetChannelEntry = "set_channel_entry"
+	// ActionTypeSetChannelColor is the Type of an Action that carries
+	// SetChannelColorPayload.
+	ActionTypeSetChannelColor = "set_channel_color"
+	// ActionTypeSetChannelNotation is the Type of an Action that carries
+	// SetChannelNotationPayload.
+	ActionTypeSetChannelNotation = "set_channel_notation"
+	// ActionTypeSetChannelPrecision is the Type of an Action that carries
+	// SetChannelPrecisionPayload.
+	ActionTypeSetChannelPrecision = "set_channel_precision"
+	// ActionTypeSetChannelAlias is the Type of an Action that carries
+	// SetChannelAliasPayload.
+	ActionTypeSetChannelAlias = "set_channel_alias"
+	// ActionTypeSetChannelTimestampFormat is the Type of an Action that carries
+	// SetChannelTimestampFormatPayload.
 	ActionTypeSetChannelTimestampFormat = "set_channel_timestamp_format"
-	ActionTypeSetChannelTimestampTz     = "set_channel_timestamp_tz"
-	ActionTypeSetChannels               = "set_channels"
-	ActionTypeSwapChannel               = "swap_channel"
-	ActionTypeSetTimestampPrecision     = "set_timestamp_precision"
-	ActionTypeSetChannelNamesHidden     = "set_channel_names_hidden"
-	ActionTypeSetReceiptTimestampHidden = "set_receipt_timestamp_hidden"
+	// ActionTypeSetChannelTimestampTz is the Type of an Action that carries
+	// SetChannelTimestampTzPayload.
+	ActionTypeSetChannelTimestampTz = "set_channel_timestamp_tz"
+	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
+	ActionTypeSetChannels = "set_channels"
+	// ActionTypeSwapChannel is the Type of an Action that carries SwapChannelPayload.
+	ActionTypeSwapChannel = "swap_channel"
+	// ActionTypeSetTimestampPrecision is the Type of an Action that carries
+	// SetTimestampPrecisionPayload.
+	ActionTypeSetTimestampPrecision = "set_timestamp_precision"
+	// ActionTypeSetChannelNamesHidden is the Type of an Action that carries
+	// SetChannelNamesHiddenPayload.
+	ActionTypeSetChannelNamesHidden = "set_channel_names_hidden"
+	// ActionTypeSetTimestampsHidden is the Type of an Action that carries
+	// SetTimestampsHiddenPayload.
+	ActionTypeSetTimestampsHidden = "set_timestamps_hidden"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -89,7 +116,7 @@ type SetChannelNotationPayload struct {
 // no entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
-	Precision *int32      `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
 }
 
 // SetChannelAliasPayload sets the human-readable alias of the entry identified by
@@ -130,7 +157,7 @@ type SwapChannelPayload struct {
 
 // SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
 type SetTimestampPrecisionPayload struct {
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
 // SetChannelNamesHiddenPayload sets whether channel names are hidden.
@@ -138,9 +165,9 @@ type SetChannelNamesHiddenPayload struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 }
 
-// SetReceiptTimestampHiddenPayload sets whether the receipt timestamp column is hidden.
-type SetReceiptTimestampHiddenPayload struct {
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+// SetTimestampsHiddenPayload sets whether entry timestamps are hidden.
+type SetTimestampsHiddenPayload struct {
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
@@ -162,7 +189,7 @@ type Action struct {
 	SwapChannel               *SwapChannelPayload               `json:"swap_channel,omitzero" msgpack:"swap_channel,omitempty"`
 	SetTimestampPrecision     *SetTimestampPrecisionPayload     `json:"set_timestamp_precision,omitzero" msgpack:"set_timestamp_precision,omitempty"`
 	SetChannelNamesHidden     *SetChannelNamesHiddenPayload     `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
-	SetReceiptTimestampHidden *SetReceiptTimestampHiddenPayload `json:"set_receipt_timestamp_hidden,omitzero" msgpack:"set_receipt_timestamp_hidden,omitempty"`
+	SetTimestampsHidden       *SetTimestampsHiddenPayload       `json:"set_timestamps_hidden,omitzero" msgpack:"set_timestamps_hidden,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -248,11 +275,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelNamesHidden.Handle(state)
-		case ActionTypeSetReceiptTimestampHidden:
-			if a.SetReceiptTimestampHidden == nil {
+		case ActionTypeSetTimestampsHidden:
+			if a.SetTimestampsHidden == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetReceiptTimestampHidden.Handle(state)
+			state, err = a.SetTimestampsHidden.Handle(state)
 		default:
 			return state, union.UnknownVariant(a.Type)
 		}
@@ -338,7 +365,7 @@ func NewSetChannelNamesHiddenAction(p SetChannelNamesHiddenPayload) Action {
 	return Action{Type: ActionTypeSetChannelNamesHidden, SetChannelNamesHidden: &p}
 }
 
-// NewSetReceiptTimestampHiddenAction wraps a SetReceiptTimestampHiddenPayload in an Action envelope.
-func NewSetReceiptTimestampHiddenAction(p SetReceiptTimestampHiddenPayload) Action {
-	return Action{Type: ActionTypeSetReceiptTimestampHidden, SetReceiptTimestampHidden: &p}
+// NewSetTimestampsHiddenAction wraps a SetTimestampsHiddenPayload in an Action envelope.
+func NewSetTimestampsHiddenAction(p SetTimestampsHiddenPayload) Action {
+	return Action{Type: ActionTypeSetTimestampsHidden, SetTimestampsHidden: &p}
 }

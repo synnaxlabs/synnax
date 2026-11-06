@@ -20,6 +20,7 @@ import {
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
+import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
@@ -35,6 +36,8 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
     allowEmpty?: boolean;
     /** Whether to outline the field while editing. Defaults to true. */
     outline?: boolean;
+    /** The most characters the field takes. Typed or pasted text past it is dropped. */
+    maxLength?: number;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -109,6 +112,31 @@ export const edit = (id: string, options?: AsyncEditOptions): void => {
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
 
+const HIGH_SURROGATE = /[\uD800-\uDBFF]/;
+
+// Input lands before the caret, so the characters past the limit are the ones just
+// before it.
+const dropOverflow = (el: HTMLElement, maxLength: number): void => {
+  const text = el.textContent;
+  const overflow = text.length - maxLength;
+  if (overflow <= 0) return;
+  const selection = window.getSelection();
+  let caret = text.length;
+  if (selection?.focusNode != null && el.contains(selection.focusNode)) {
+    // Pasted markup can split the text, so the caret's offset spans every child node.
+    const before = document.createRange();
+    before.selectNodeContents(el);
+    before.setEnd(selection.focusNode, selection.focusOffset);
+    caret = before.toString().length;
+  }
+  const end = Math.max(caret, overflow);
+  let kept = end - overflow;
+  // Keep a surrogate pair whole, or the cut leaves half of an emoji.
+  if (kept > 0 && HIGH_SURROGATE.test(text[kept - 1])) kept--;
+  el.textContent = text.slice(0, kept) + text.slice(end);
+  if (el.firstChild != null) selection?.collapse(el.firstChild, kept);
+};
+
 /**
  * Text that turns into a field in place. Commits on Enter or blur, reverts on Escape.
  * Give it an id to drive it from elsewhere with {@link edit}.
@@ -123,6 +151,9 @@ export const Editable = ({
   allowEmpty = false,
   style,
   outline = true,
+  maxLength,
+  onInput,
+  highlight,
   ...rest
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
@@ -138,6 +169,9 @@ export const Editable = ({
   // repaints from value, which still carries the old text until the caller's write
   // lands, so the committed text stands in until value moves off what it replaced.
   const committedRef = useRef<{ text: string; replaced: string } | null>(null);
+  // Enter and Escape give the focus back here, such as to a list that answers the arrow
+  // keys.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Writing modes like vertical-rl do not lay out again when the value or the inline
   // size changes, so a change forces a reflow.
@@ -202,7 +236,8 @@ export const Editable = ({
     if (ref.current == null) return;
     setEditable(false);
     handleUpdate(el, e.key === "Escape");
-    el.blur();
+    returnFocusRef.current?.focus({ preventScroll: true });
+    if (document.activeElement === el) el.blur();
   };
 
   const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
@@ -211,12 +246,21 @@ export const Editable = ({
     if (ref.current == null || !editable) return;
     triggerReflow(ref.current);
     const { current: el } = ref;
+    // An edit runs over plain text, so the tint marks go.
+    el.replaceChildren(el.textContent);
+    const active = document.activeElement;
+    returnFocusRef.current = active instanceof HTMLElement ? active : null;
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    // Editing scrolls a cut field to the caret, so the end of an edit scrolls it back.
+    // Not scrollTo: WebKit ignores it until the field lays out again after a reflow.
+    return () => {
+      el.scrollLeft = 0;
+    };
   }, [editable]);
 
   // Editing replaces the text React rendered, so the shown text is written by hand.
@@ -224,10 +268,10 @@ export const Editable = ({
     if (ref.current == null || editable) return;
     const { current: committed } = committedRef;
     if (committed != null && value === committed.replaced)
-      ref.current.textContent = committed.text;
+      paintHighlight(ref.current, committed.text, highlight);
     else {
       committedRef.current = null;
-      ref.current.textContent = value;
+      paintHighlight(ref.current, value, highlight);
     }
   });
 
@@ -260,6 +304,11 @@ export const Editable = ({
       }}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
+      onInput={(e) => {
+        if (maxLength != null && !e.nativeEvent.isComposing)
+          dropOverflow(e.currentTarget, maxLength);
+        onInput?.(e);
+      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
@@ -289,6 +338,7 @@ export const MaybeEditable = ({
   disabled = false,
   value,
   allowDoubleClick,
+  maxLength,
   ...rest
 }: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || onChange === false)
@@ -298,6 +348,7 @@ export const MaybeEditable = ({
   return (
     <Editable
       allowDoubleClick={allowDoubleClick}
+      maxLength={maxLength}
       onChange={onChange}
       value={value}
       {...rest}

@@ -18,6 +18,8 @@ type Concurrency uint8
 //go:generate stringer -type=Concurrency
 
 const (
+	// ConcurrencyExclusive allows one subject to act on the resource at a time.
 	ConcurrencyExclusive Concurrency = iota
+	// ConcurrencyShared allows many subjects to act on the resource at once.
 	ConcurrencyShared
 )

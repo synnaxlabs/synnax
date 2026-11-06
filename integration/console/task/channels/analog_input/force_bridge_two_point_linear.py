@@ -39,10 +39,10 @@ class ForceBridgeTwoPointLinear(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
         bridge_configuration: (
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None

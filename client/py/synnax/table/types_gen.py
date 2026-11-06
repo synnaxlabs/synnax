@@ -15,11 +15,11 @@ from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_
 from synnax.ontology.payload import ID
-from x import color, text
+from x import color, filter, text
 from x import notation as notation_
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
@@ -47,7 +47,7 @@ class Row(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(ge=1, default=36)
+    size: float = Field(default=36, ge=1)
     cells: list[str] = Field(default_factory=list)
 
 
@@ -60,7 +60,7 @@ class Column(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(ge=1, default=72)
+    size: float = Field(default=72, ge=1)
 
 
 class TextCellConfig(BaseModel):
@@ -69,7 +69,7 @@ class TextCellConfig(BaseModel):
     variant: Literal["text"] = "text"
     value: str = ""
     level: text.Level = "h5"
-    weight: float = Field(ge=1, le=1000, default=400)
+    weight: float = Field(default=400, ge=1, le=1000)
     align: FlexAlignment = "center"
     fill_color: color.Color | None = None
     text_color: color.Color | None = None
@@ -80,7 +80,7 @@ class ValueCellConfig(BaseModel):
 
     variant: Literal["value"] = "value"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    rolling_average: int = Field(ge=1, default=1, le=2147483647)
+    rolling_average: int = Field(default=1, ge=1, le=2147483647)
     precision: int | None = Field(default=None, ge=-2147483648, le=2147483647)
     notation: notation_.Notation = "standard"
     redline: color.Scale = Field(default_factory=lambda: color.Scale())
@@ -88,7 +88,7 @@ class ValueCellConfig(BaseModel):
     level: text.Level = "h5"
     text_color: color.Color | None = None
     units: str = ""
-    staleness_timeout: float = Field(ge=1, default=5)
+    staleness_timeout: float = Field(default=5, ge=1)
     staleness_color: color.Color | None = None
 
 
@@ -98,6 +98,24 @@ CellConfig = Annotated[
     TextCellConfig | ValueCellConfig,
     Field(discriminator="variant"),
 ]
+
+
+class Where(BaseModel):
+    """Is a filter that selects tables.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
 
 
 class Cell(BaseModel):
@@ -137,6 +155,37 @@ class Table(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve tables.
+
+    Attributes:
+        where: Selects the tables to retrieve. An absent where selects all of them.
+        search_term: Keeps the tables that match the term, closest match first.
+        limit: Is the most tables to return.
+        offset: Is the number of matching tables to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the tables a RetrieveRequest selects.
+
+    Attributes:
+        tables: Are the tables the request selects.
+    """
+
+    tables: list[Table] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="table")

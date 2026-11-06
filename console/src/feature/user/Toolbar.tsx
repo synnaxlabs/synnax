@@ -9,7 +9,7 @@
 
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -30,9 +30,10 @@ const Content = (): ReactElement => {
         </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
-              <Icon.Add />
-            </Toolbar.Action>
+            <Toolbar.CreateAction
+              onClick={() => openRegister()}
+              tooltip="Create user"
+            />
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
@@ -44,7 +45,7 @@ const Content = (): ReactElement => {
 };
 
 const Body = (): ReactElement => {
-  const groupID = User.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Users" });
   return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
