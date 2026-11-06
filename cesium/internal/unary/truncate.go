@@ -84,7 +84,7 @@ func (db *DB) findCuts(ctx context.Context) (cuts []cut, err error) {
 			covered, count int64
 			offset         telem.Size
 		)
-		if end, covered, err = db.index().Coverage(ctx, tr.Start); err != nil {
+		if end, covered, err = db.index().Coverage(ctx, tr); err != nil {
 			return nil, err
 		}
 		// A domain ends 1 ns after its last sample, so a domain that ends inside the
