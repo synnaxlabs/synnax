@@ -92,7 +92,8 @@ permissions:
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths. The ci output is a JSON list of the jobs that an
-  # edit to this file or the change map selects.
+  # edit to this file or the change map selects. spec_only is true when the change
+  # touches only unit tests.
   changes:
     # paths-filter lists the changed files of a pull request through the API.
     permissions:
@@ -138,7 +139,6 @@ jobs:
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
-      non_spec: ${{ steps.filter.outputs.non_spec }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       oracle_language: ${{ steps.filter.outputs.oracle_language }}
@@ -150,6 +150,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
@@ -181,6 +182,17 @@ jobs:
             python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Find whether the change touches only unit tests
+        id: spec
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          spec_only=$(uv run --locked --project .github/scripts \
+            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+          echo "$spec_only"
+          echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 
   actionlint:
     needs: changes
@@ -805,7 +817,7 @@ jobs:
     needs: changes
     if:
       inputs.full || (github.event_name == 'merge_group' &&
-      needs.changes.outputs.non_spec == 'true' || inputs.integration) &&
+      needs.changes.outputs.spec_only != 'true' || inputs.integration) &&
       (needs.changes.outputs.integration == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'integration'))
     permissions:
