@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -56,6 +58,8 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
+    /// @brief the process data frames that came back to the master.
+    std::atomic<uint64_t> frames{0};
 
 public:
     /// @brief constructs a SOEM master with injected API and interface name.
@@ -146,6 +150,11 @@ private:
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
+
+    /// @brief waits until a frame that the cycle sent after the call comes back, or the
+    /// timeout in microseconds passes.
+    /// @returns errors::STATE_CHANGE_ERROR when the timeout passes.
+    x::errors::Error wait_for_frame(int timeout);
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
