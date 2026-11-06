@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // MigrateLog lifts a v2 log to v3, clamping the timestamp precision to 0-3. It drops
@@ -28,6 +29,7 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	}
 	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 3))
 	out.TimestampsHidden = old.ReceiptTimestampHidden
+	out.Tz = telem.TimeZoneLocal
 	out.Channels = lo.UniqBy(
 		lo.Reject(
 			out.Channels,

@@ -166,6 +166,12 @@ func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
+// Handle sets the time zone of the line times and day rows.
+func (p SetTzPayload) Handle(state Log) (Log, error) {
+	state.Tz = p.Tz
+	return state, nil
+}
+
 // channelEntryIndex returns the index of the entry referencing the given channel,
 // or -1 when no entry references it.
 func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {

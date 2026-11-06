@@ -10,8 +10,8 @@
 import { log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Access, Log } from "@synnaxlabs/pluto";
-import { type bounds } from "@synnaxlabs/x";
+import { Access, Log, Telem } from "@synnaxlabs/pluto";
+import { type bounds, type TimeZone } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -24,10 +24,13 @@ export const Properties = (): ReactElement => {
   const channelNamesHidden = Log.useIsHidingChannelNames();
   const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
+  const tz = Log.useTz();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
   const handlePrecisionChange = (timestampPrecision: number) =>
     dispatch(log.setTimestampPrecision({ timestampPrecision }));
+
+  const handleTzChange = (tz: TimeZone) => dispatch(log.setTz({ tz }));
 
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
@@ -54,6 +57,13 @@ export const Properties = (): ReactElement => {
             disabled={!hasEditPermission || timestampsHidden}
           />
         </Flex.Box>
+      </Input.Item>
+      <Input.Item label="Time zone">
+        <Telem.SelectTimeZone
+          value={tz}
+          onChange={handleTzChange}
+          disabled={!hasEditPermission || timestampsHidden}
+        />
       </Input.Item>
       <Input.Item label="Show channel names">
         <Input.Switch

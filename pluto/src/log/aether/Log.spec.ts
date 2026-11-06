@@ -1371,6 +1371,46 @@ describe("log/aether/Log", () => {
       expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
     });
 
+    describe("time zone", () => {
+      it("should split day rows at midnight in UTC", () => {
+        const entries = [entry("2026-11-03T23:00:00Z"), entry("2026-11-04T01:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { tz: "UTC" });
+        log.render();
+        const texts = shown(recorder);
+        expect(texts).toContain("Tue, Nov 3, 2026");
+        expect(texts).toContain("Wed, Nov 4, 2026");
+      });
+
+      it("should show one day row for entries of one UTC day", () => {
+        const entries = [entry("2026-11-04T01:00:00Z"), entry("2026-11-04T23:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { tz: "UTC" });
+        log.render();
+        expect(shown(recorder).filter((t) => t.includes("2026"))).toEqual([
+          "Wed, Nov 4, 2026",
+        ]);
+      });
+
+      it("should show line times and copied dates in UTC", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
+          tz: "UTC",
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+
+      it("should default to local time", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03")], REGION_500, {
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.state.tz).toBe("local");
+        expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+    });
+
     it("should show no day rows when timestamps are hidden", () => {
       const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
         timestampsHidden: true,

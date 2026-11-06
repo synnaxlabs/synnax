@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -86,10 +87,15 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// TimestampsHidden is true when entry timestamps are hidden.
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+	// Tz is the time zone of the line times and day rows of the log.
+	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
+	if l.Tz == "" {
+		l.Tz = "local"
+	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
 	}
@@ -99,6 +105,7 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
+	v.Ternaryf("tz", !l.Tz.IsValid(), "invalid tz: %v", l.Tz)
 	v.NotEmptyString("name", l.Name)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {

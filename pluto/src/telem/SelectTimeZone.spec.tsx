@@ -40,6 +40,15 @@ describe("SelectTimeZone", () => {
     expect(c.getByText("Local")).toBeTruthy();
   });
 
+  it("should not change the time zone when disabled", () => {
+    const onChange = vi.fn();
+    const c = render(
+      <Telem.SelectTimeZone value="local" onChange={onChange} disabled />,
+    );
+    fireEvent.click(c.getByText("UTC"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("should mark the selected time zone as selected", () => {
     const c = render(<Wrapper initial="UTC" />);
     expect(c.getByText("UTC").closest("button")?.classList).toContain("lyra--selected");

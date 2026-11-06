@@ -185,6 +185,13 @@ export const setTimestampsHiddenPayloadZ = z.object({
 
 export type SetTimestampsHiddenPayload = z.infer<typeof setTimestampsHiddenPayloadZ>;
 
+/** SetTz sets the time zone of the line times and day rows of the log. */
+export const setTzPayloadZ = z.object({
+  tz: telem.timeZoneZ,
+});
+
+export type SetTzPayload = z.infer<typeof setTzPayloadZ>;
+
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
@@ -213,7 +220,8 @@ export type Action =
       type: "set_channel_names_hidden";
       setChannelNamesHidden: SetChannelNamesHiddenPayload;
     }
-  | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload };
+  | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload }
+  | { type: "set_tz"; setTz: SetTzPayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -262,6 +270,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     type: z.literal("set_timestamps_hidden"),
     setTimestampsHidden: setTimestampsHiddenPayloadZ,
   }),
+  z.object({ type: z.literal("set_tz"), setTz: setTzPayloadZ }),
 ]);
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
@@ -398,6 +407,13 @@ export const setTimestampsHidden = (
   }),
 });
 
+export const setTz = (payload: z.input<typeof setTzPayloadZ>): Action => ({
+  type: "set_tz",
+  setTz: zod.parse(setTzPayloadZ, payload, {
+    label: "log set_tz action payload",
+  }),
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
@@ -449,6 +465,7 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetTimestampsHiddenPayload,
   ) => HandlerResult;
+  setTz: (state: Draft<Log>, payload: SetTzPayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -489,6 +506,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelNamesHidden(state, action.setChannelNamesHidden);
       case "set_timestamps_hidden":
         return handlers.setTimestampsHidden(state, action.setTimestampsHidden);
+      case "set_tz":
+        return handlers.setTz(state, action.setTz);
     }
   });
 

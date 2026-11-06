@@ -129,6 +129,7 @@ var _ = Describe("Migration", func() {
 		Expect(got.TimestampPrecision).To(Equal(uint8(stored.TimestampPrecision)))
 		Expect(got.ChannelNamesHidden).To(BeTrue())
 		Expect(got.TimestampsHidden).To(BeTrue())
+		Expect(got.Tz).To(BeEquivalentTo(telem.TimeZoneLocal))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
 				Channel:   7,
