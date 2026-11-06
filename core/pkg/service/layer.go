@@ -471,6 +471,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	// Users and racks reference roles, and racks take the Driver role, so roles open
+	// first.
+	roles, err := rbac.OpenRoles(ctx, rbac.RolesConfig{
+		Instrumentation: cfg.Child("rbac"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Signals:         l.Signals,
+	})
+	if !ok(err, roles) {
+		return nil, err
+	}
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
@@ -513,13 +524,30 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			)
 		}
 	}
-	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
+	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
+		Instrumentation: cfg.Child("rack"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		HostProvider:    cfg.Distribution.Cluster,
+		Status:          l.Status,
+		DriverRole:      roles.Builtin.DriverKey,
+	}); !ok(err, l.Rack) {
+		return nil, err
+	}
+	if closer, err := l.Signals.PublishFromGorp(
+		ctx,
+		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
+	); !ok(err, closer) {
+		return nil, err
+	}
+	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
 		Instrumentation: cfg.Child("rbac"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Signals:         l.Signals,
+		Roles:           roles,
 		User:            l.User,
-	}); !ok(err, l.RBAC) {
+		Rack:            l.Rack,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
@@ -623,22 +651,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Table) {
-		return nil, err
-	}
-	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		Instrumentation: cfg.Child("rack"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		HostProvider:    cfg.Distribution.Cluster,
-		Status:          l.Status,
-		DriverRole:      l.RBAC.Builtin.DriverKey,
-	}); !ok(err, l.Rack) {
-		return nil, err
-	}
-	if closer, err := l.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{

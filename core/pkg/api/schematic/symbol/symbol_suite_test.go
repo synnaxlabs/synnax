@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -70,11 +71,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:       db,
 		Ontology: otg,
 		User:     userSvc,
-	}))
+		Status:   statusSvc,
+	})).RBAC
 	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

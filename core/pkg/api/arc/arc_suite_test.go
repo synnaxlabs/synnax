@@ -90,18 +90,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-	}))
+	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db, Ontology: otg}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          rbacSvc.Builtin.DriverKey,
+		DriverRole:          roles.Builtin.DriverKey,
+	}))
+	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Roles:    roles,
+		User:     userSvc,
+		Rack:     rackSvc,
 	}))
 	imexSvc := imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))

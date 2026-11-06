@@ -58,11 +58,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: dist.DB, Ontology: otg, Group: groupSvc,
 	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: otg,
-		User:     userSvc,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: dist.DB, Ontology: otg, Group: groupSvc,
 	}))
@@ -70,6 +65,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       dist.DB,
 		Ontology: otg,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:       dist.DB,
+		Ontology: otg,
+		User:     userSvc,
+		Status:   statusSvc,
+	})).RBAC
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      dist.Channel,
 		DB:           dist.DB,

@@ -19,10 +19,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -73,11 +75,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	writer = userSvc.NewWriter(nil)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:       db,
 		Ontology: otg,
 		User:     userSvc,
-	}))
+		Status:   statusSvc,
+	})).RBAC
 	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
 		RBAC:     rbacSvc,
 		User:     userSvc,

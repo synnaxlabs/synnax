@@ -35,6 +35,7 @@ var (
 	otg         *ontology.Ontology
 	groupSvc    *group.Service
 	rbacSvc     *rbac.Service
+	roles       *rbac.Roles
 	userSvc     *user.Service
 	passwordSvc *password.Service
 	rackSvc     *rack.Service
@@ -62,11 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "suite-root", Password: "p"},
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-	}))
+	roles = MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db, Ontology: otg}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -81,23 +78,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:     otg,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
-		DriverRole:   rbacSvc.Builtin.DriverKey,
+		DriverRole:   roles.Builtin.DriverKey,
+	}))
+	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Roles:    roles,
+		User:     userSvc,
+		Rack:     rackSvc,
 	}))
 })
 
-// newConfig opens a database and the services an RBAC service on it needs, apart from
-// the suite's database.
-func newConfig(ctx context.Context) rbac.ServiceConfig {
+// newRolesConfig opens a database and an ontology on it, apart from the suite's
+// database.
+func newRolesConfig(ctx context.Context) rbac.RolesConfig {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-	users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-	}))
-	return rbac.ServiceConfig{DB: db, Ontology: otg, User: users}
+	return rbac.RolesConfig{DB: db, Ontology: otg}
 }
 
 func TestRBAC(t *testing.T) {

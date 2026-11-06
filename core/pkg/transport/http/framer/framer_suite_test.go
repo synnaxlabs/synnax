@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -83,11 +83,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:       node.DB,
 		Ontology: otg,
 		User:     userSvc,
-	}))
+		Status:   statusSvc,
+	})).RBAC
 	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,

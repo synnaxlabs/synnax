@@ -29,7 +29,7 @@ var _ = Describe("Provision", func() {
 	Describe("Built-in roles", func() {
 		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It(
-			"Should have created all built-in roles during OpenService",
+			"Should have created all built-in roles during OpenRoles",
 			func(ctx SpecContext) {
 				for _, name := range []string{"Owner", "Engineer", "Driver", "Operator", "Viewer"} {
 					var r role.Role
@@ -184,8 +184,8 @@ var _ = Describe("Provision", func() {
 		It(
 			"Should produce the same role keys when opened again",
 			func(ctx SpecContext) {
-				cfg := newConfig(ctx)
-				svc1 := MustSucceed(rbac.OpenService(ctx, cfg))
+				cfg := newRolesConfig(ctx)
+				svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 				var ownerBefore role.Role
 				Expect(
 					svc1.Role.NewRetrieve().
@@ -195,7 +195,7 @@ var _ = Describe("Provision", func() {
 				).To(Succeed())
 				Expect(svc1.Close()).To(Succeed())
 
-				svc2 := MustOpen(rbac.OpenService(ctx, cfg))
+				svc2 := MustOpen(rbac.OpenRoles(ctx, cfg))
 				var ownerAfter role.Role
 				Expect(
 					svc2.Role.NewRetrieve().
@@ -210,8 +210,8 @@ var _ = Describe("Provision", func() {
 
 	Describe("Renames", func() {
 		It("Should rename a stored Host role to Driver", func(ctx SpecContext) {
-			cfg := newConfig(ctx)
-			svc1 := MustSucceed(rbac.OpenService(ctx, cfg))
+			cfg := newRolesConfig(ctx)
+			svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 			var driver role.Role
 			Expect(svc1.Role.NewRetrieve().
 				Where(role.MatchNames("Driver")).
@@ -238,7 +238,7 @@ var _ = Describe("Provision", func() {
 				}).Exec(ctx, staleTx)).To(Succeed())
 			Expect(staleTx.Commit(ctx)).To(Succeed())
 
-			svc2 := MustOpen(rbac.OpenService(ctx, cfg))
+			svc2 := MustOpen(rbac.OpenRoles(ctx, cfg))
 			Expect(svc2.Builtin.DriverKey).To(Equal(driver.Key))
 			var roles []role.Role
 			Expect(svc2.Role.NewRetrieve().
@@ -260,13 +260,13 @@ var _ = Describe("Provision", func() {
 
 	Describe("Custom roles", func() {
 		It("Should not take over a custom role named Driver", func(ctx SpecContext) {
-			cfg := newConfig(ctx)
-			svc1 := MustSucceed(rbac.OpenService(ctx, cfg))
+			cfg := newRolesConfig(ctx)
+			svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 			custom := role.Role{Name: "Driver", Description: "custom"}
 			Expect(svc1.Role.NewWriter(nil, false).Create(ctx, &custom)).
 				To(Succeed())
 			Expect(svc1.Close()).To(Succeed())
-			svc2 := MustOpen(rbac.OpenService(ctx, cfg))
+			svc2 := MustOpen(rbac.OpenRoles(ctx, cfg))
 			Expect(svc2.Builtin.DriverKey).ToNot(Equal(custom.Key))
 			var stored role.Role
 			Expect(svc2.Role.NewRetrieve().
@@ -282,8 +282,8 @@ var _ = Describe("Provision", func() {
 		It(
 			"Should update existing policy objects on re-provision",
 			func(ctx SpecContext) {
-				cfg := newConfig(ctx)
-				svc1 := MustSucceed(rbac.OpenService(ctx, cfg))
+				cfg := newRolesConfig(ctx)
+				svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 				var ownerPolicy policy.Policy
 				Expect(svc1.Policy.NewRetrieve().
 					Where(policy.MatchNames("Owner")).
@@ -304,7 +304,7 @@ var _ = Describe("Provision", func() {
 				Expect(staleTx.Commit(ctx)).To(Succeed())
 
 				// Re-open service, which re-provisions
-				svc2 := MustOpen(rbac.OpenService(ctx, cfg))
+				svc2 := MustOpen(rbac.OpenRoles(ctx, cfg))
 
 				var updated policy.Policy
 				Expect(svc2.Policy.NewRetrieve().

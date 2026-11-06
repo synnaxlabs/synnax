@@ -17,12 +17,13 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -64,11 +65,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
 		),
 	)
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:       db,
 		Ontology: otg,
 		User:     userSvc,
-	}))
+		Status:   statusSvc,
+	})).RBAC
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())

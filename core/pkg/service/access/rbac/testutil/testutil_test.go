@@ -14,12 +14,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -38,11 +38,16 @@ var _ = Describe("Grant", func() {
 			Ontology: otg,
 			Group:    groups,
 		}))
-		rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 			DB:       db,
 			Ontology: otg,
 			User:     users,
-		}))
+			Status:   statuses,
+		})).RBAC
 		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{Name: "u"}))
 		req := access.Request{
 			Subject: u.ResourceID(),

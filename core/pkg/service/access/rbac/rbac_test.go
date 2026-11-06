@@ -55,7 +55,9 @@ var _ = Describe("ServiceConfig", func() {
 		cfg = rbac.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+			Roles:    roles,
 			User:     userSvc,
+			Rack:     rackSvc,
 		}
 	})
 	Describe("Override", func() {
@@ -65,7 +67,9 @@ var _ = Describe("ServiceConfig", func() {
 				result := rbac.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
+				Expect(result.Roles).To(Equal(roles))
 				Expect(result.User).To(Equal(userSvc))
+				Expect(result.Rack).To(Equal(rackSvc))
 			},
 		)
 		It(
@@ -74,7 +78,9 @@ var _ = Describe("ServiceConfig", func() {
 				result := cfg.Override(rbac.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
+				Expect(result.Roles).To(Equal(roles))
 				Expect(result.User).To(Equal(userSvc))
+				Expect(result.Rack).To(Equal(rackSvc))
 			},
 		)
 	})
@@ -99,9 +105,19 @@ var _ = Describe("ServiceConfig", func() {
 				"ontology: must be non-nil",
 			),
 			Entry(
+				"roles",
+				func(c *rbac.ServiceConfig) { c.Roles = nil },
+				"roles: must be non-nil",
+			),
+			Entry(
 				"user",
 				func(c *rbac.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
+			),
+			Entry(
+				"rack",
+				func(c *rbac.ServiceConfig) { c.Rack = nil },
+				"rack: must be non-nil",
 			),
 		)
 	})
@@ -110,16 +126,37 @@ var _ = Describe("ServiceConfig", func() {
 var _ = Describe("Service", func() {
 	var tx gorp.Tx
 
-	Describe("OpenService", func() {
-		It("Should open a service with a valid configuration", func(ctx SpecContext) {
-			s := MustSucceed(rbac.OpenService(ctx, newConfig(ctx)))
-			Expect(s).ToNot(BeNil())
-			Expect(s.Policy).ToNot(BeNil())
-			Expect(s.Role).ToNot(BeNil())
-			Expect(s.Close()).To(Succeed())
+	Describe("OpenRoles", func() {
+		It("Should open roles with a valid configuration", func(ctx SpecContext) {
+			r := MustSucceed(rbac.OpenRoles(ctx, newRolesConfig(ctx)))
+			Expect(r.Policy).ToNot(BeNil())
+			Expect(r.Role).ToNot(BeNil())
+			Expect(r.Close()).To(Succeed())
 		})
+		DescribeTable(
+			"Should return an error when a required field is missing",
+			func(ctx SpecContext, mutate func(*rbac.RolesConfig), errorMsg string) {
+				cfg := newRolesConfig(ctx)
+				mutate(&cfg)
+				Expect(rbac.OpenRoles(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(errorMsg)))
+			},
+			Entry(
+				"db",
+				func(c *rbac.RolesConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
+				"ontology",
+				func(c *rbac.RolesConfig) { c.Ontology = nil },
+				"ontology: must be non-nil",
+			),
+		)
+	})
+
+	Describe("NewService", func() {
 		It("Should propagate ServiceConfig.Validate errors", func(ctx SpecContext) {
-			Expect(rbac.OpenService(ctx, rbac.ServiceConfig{})).
+			Expect(rbac.NewService(ctx, rbac.ServiceConfig{})).
 				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 	})

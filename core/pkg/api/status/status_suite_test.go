@@ -61,12 +61,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db, Ontology: otg, Group: g,
 	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, User: userSvc,
-	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:       db,
+		Ontology: otg,
+		User:     userSvc,
+		Status:   statusSvc,
+	})).RBAC
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
 		RBAC:   rbacSvc,

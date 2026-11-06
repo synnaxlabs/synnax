@@ -34,15 +34,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening a [Service].
-type ServiceConfig struct {
+// RolesConfig is the configuration for opening [Roles].
+type RolesConfig struct {
 	// Instrumentation is the Alamos instrumentation used for logging, tracing, and
 	// metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// DB is the Gorp database used to persist roles, policies, and the legacy
-	// permission migration namespace.
+	// DB is the Gorp database used to persist roles and policies.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -55,11 +54,99 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
+}
+
+var _ config.Config[RolesConfig] = RolesConfig{}
+
+// Override implements [config.Config].
+func (c RolesConfig) Override(other RolesConfig) RolesConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Signals = override.Nil(c.Signals, other.Signals)
+	return c
+}
+
+// Validate implements [config.Config].
+func (c RolesConfig) Validate() error {
+	v := validate.New("rbac.roles")
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	return v.Error()
+}
+
+// Roles holds the role and policy services and the keys of the built-in roles.
+type Roles struct {
+	Policy *policy.Service
+	Role   *role.Service
+	// Builtin holds the keys of the built-in roles.
+	Builtin builtin.ProvisionResult
+	closer  io.MultiCloser
+}
+
+// Close shuts down the role and policy services.
+func (r *Roles) Close() error { return r.closer.Close() }
+
+// OpenRoles opens the role and policy services, and provisions the built-in roles and
+// their policies.
+func OpenRoles(ctx context.Context, configs ...RolesConfig) (r *Roles, err error) {
+	cfg, err := config.New(RolesConfig{}, configs...)
+	if err != nil {
+		return nil, err
+	}
+	r = &Roles{}
+	cleanup, ok := service.NewOpener(ctx, &r.closer)
+	defer func() { err = cleanup(err) }()
+	if r.Role, err = role.OpenService(ctx, role.ServiceConfig{
+		Instrumentation: cfg.Child("role"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Signals:         cfg.Signals,
+	}); !ok(err, r.Role) {
+		return nil, err
+	}
+	// Policies reference roles, so the role table opens and migrates first.
+	if r.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
+		Instrumentation: cfg.Child("policy"),
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Ontology:        cfg.Ontology,
+		Role:            r.Role,
+	}); !ok(err, r.Policy) {
+		return nil, err
+	}
+	r.Builtin, err = builtin.Provision(ctx, cfg.DB, r.Policy, r.Role)
+	return r, err
+}
+
+// ServiceConfig is the configuration for creating a [Service].
+type ServiceConfig struct {
+	// Instrumentation is the Alamos instrumentation used for logging, tracing, and
+	// metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// DB is the Gorp database that holds the legacy permission migration namespace.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is the ontology that the legacy permission migration reads.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Roles holds the roles and policies that the service enforces.
+	//
+	// [REQUIRED]
+	Roles *Roles
 	// User is the user service that holds the roles of each user. It assigns the Owner
 	// role to root users at startup.
 	//
 	// [REQUIRED]
 	User *user.Service
+	// Rack is the rack service that holds the roles of each rack.
+	//
+	// [REQUIRED]
+	Rack *rack.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -69,8 +156,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Roles = override.Nil(c.Roles, other.Roles)
 	c.User = override.Nil(c.User, other.User)
+	c.Rack = override.Nil(c.Rack, other.Rack)
 	return c
 }
 
@@ -79,61 +167,26 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("rbac")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
+	v.NotNil("roles", c.Roles)
 	v.NotNil("user", c.User)
+	v.NotNil("rack", c.Rack)
 	return v.Error()
 }
 
+// Service enforces access control on the roles that users and racks hold.
 type Service struct {
-	Policy *policy.Service
-	Role   *role.Service
-	// Builtin holds the keys of the built-in roles.
-	Builtin builtin.ProvisionResult
-	closer  io.MultiCloser
-	cfg     ServiceConfig
+	*Roles
+	cfg ServiceConfig
 }
 
-// Close shuts down the RBAC service and its sub-services.
-func (s *Service) Close() error { return s.closer.Close() }
-
-// OpenService creates a new RBAC service with both Policy and Role sub-services. It
-// also provisions built-in roles/policies and runs legacy permission migrations.
-func OpenService(
-	ctx context.Context,
-	configs ...ServiceConfig,
-) (s *Service, err error) {
+// NewService creates a Service. It runs the legacy permission migrations and gives the
+// Owner role to every root user.
+func NewService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
-	cleanup, ok := service.NewOpener(ctx, &s.closer)
-	defer func() { err = cleanup(err) }()
-	if s.Role, err = role.OpenService(ctx, role.ServiceConfig{
-		Instrumentation: cfg.Child("role"),
-		DB:              cfg.DB,
-		Ontology:        cfg.Ontology,
-		Signals:         cfg.Signals,
-	}); !ok(err, s.Role) {
-		return nil, err
-	}
-	// Policies reference roles, so the role table opens and migrates first.
-	if s.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
-		Instrumentation: cfg.Child("policy"),
-		DB:              cfg.DB,
-		Signals:         cfg.Signals,
-		Ontology:        cfg.Ontology,
-		Role:            s.Role,
-	}); !ok(err, s.Policy) {
-		return nil, err
-	}
-	// Provision built-in roles and policies. This is idempotent and runs every startup
-	// to ensure policy definitions stay up to date.
-	s.Builtin, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
-	if !ok(err, nil) {
-		return nil, err
-	}
-	// The migrations assign roles to users, so they run after provisioning creates the
-	// built-in roles.
+	s := &Service{Roles: cfg.Roles, cfg: cfg}
 	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
@@ -143,13 +196,10 @@ func OpenService(
 			Ontology: cfg.Ontology,
 			Roles:    s.Builtin,
 		}),
-	}); !ok(err, nil) {
+	}); err != nil {
 		return nil, err
 	}
-	// assignOwnerToRoots ensures every user with RootUser=true holds the Owner role.
-	// Reconciliation of which users are flagged as root happens earlier in
-	// user.OpenService; this step only wires the role assignment.
-	if err = s.assignOwnerToRoots(ctx, s.Builtin.OwnerKey); !ok(err, nil) {
+	if err = s.assignOwnerToRoots(ctx, s.Builtin.OwnerKey); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -219,11 +269,9 @@ func (s *Service) rolesOf(
 		if err != nil {
 			return nil, err
 		}
-		// The rack service takes the Driver role from this service, so it opens later
-		// and racks are read from their table.
 		var r rack.Rack
-		err = gorp.NewRetrieve[rack.Key, rack.Rack]().
-			Where(gorp.MatchKeys[rack.Key, rack.Rack](key)).
+		err = s.cfg.Rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
 			Entry(&r).
 			Exec(ctx, tx)
 		return r.Roles, err
