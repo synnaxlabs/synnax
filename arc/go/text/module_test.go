@@ -80,9 +80,16 @@ var _ = Describe("Loader", func() {
 		}
 		return t
 	}
+	analyzeIR := func(
+		ctx context.Context,
+		source string,
+	) (ir.IR, *diagnostics.Diagnostics) {
+		GinkgoHelper()
+		return text.Analyze(ctx, parse(source), newRoot())
+	}
 	analyze := func(ctx context.Context, source string) *diagnostics.Diagnostics {
 		GinkgoHelper()
-		_, diag := text.Analyze(ctx, parse(source), newRoot())
+		_, diag := analyzeIR(ctx, source)
 		return diag
 	}
 	analyzeModule := func(
@@ -168,6 +175,52 @@ var _ = Describe("Loader", func() {
 			sources["m"] = `export func f( {`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
+		})
+
+		Describe("Imported sequences", func() {
+			BeforeEach(func() {
+				sources["m"] = `export sequence s { stage a { trig -> out8 } }`
+			})
+
+			It("Should activate by the qualified name", func(ctx SpecContext) {
+				diag := analyze(ctx, "import m\n\ntrig > 0 => m.s")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			})
+
+			It(
+				"Should not bind to a sibling stage of the same name",
+				func(ctx SpecContext) {
+					i, diag := analyzeIR(ctx, `
+import m
+
+sequence main {
+    stage s { trig -> out8 }
+    stage b { trig > 0 => m.s }
+}
+`)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					main := findTopLevelScope(i, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					Expect(main.Transitions[0].Target.Variant).To(
+						Equal(ir.ScopeTarget{Key: "m.s"}),
+					)
+				},
+			)
+
+			It(
+				"Should not activate a local scope of the same name",
+				func(ctx SpecContext) {
+					i, diag := analyzeIR(ctx, `
+import m
+
+sequence s { stage a { trig -> out8 } }
+
+trig > 0 => m.s
+`)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					Expect(findTopLevelScope(i, "s").Activations).To(BeEmpty())
+				},
+			)
 		})
 
 		It("Should not search import paths", func(ctx SpecContext) {
