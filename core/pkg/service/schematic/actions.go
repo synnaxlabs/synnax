@@ -38,8 +38,7 @@ func (SetGroupPayload) Handle(Schematic) (Schematic, error) {
 }
 
 // Handle rejects a client dispatch. The Core moves a schematic into a project through
-// its
-// writer and emits this action itself.
+// its writer and emits this action itself.
 func (SetProjectPayload) Handle(Schematic) (Schematic, error) {
 	return Schematic{}, errors.Wrap(
 		validate.ErrValidation, "only the Core dispatches a schematic project change",

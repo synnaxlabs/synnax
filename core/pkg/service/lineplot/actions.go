@@ -37,8 +37,7 @@ func (SetGroupPayload) Handle(LinePlot) (LinePlot, error) {
 }
 
 // Handle rejects a client dispatch. The Core moves a line plot into a project through
-// its
-// writer and emits this action itself.
+// its writer and emits this action itself.
 func (SetProjectPayload) Handle(LinePlot) (LinePlot, error) {
 	return LinePlot{}, errors.Wrap(
 		validate.ErrValidation, "only the Core dispatches a line plot project change",

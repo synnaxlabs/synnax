@@ -36,8 +36,8 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Pa
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project or range of each stored panel from the ontology
-// edge that owned it, and deletes each panel with no owner.
+// OwnersMigration sets the project or range of each stored panel from the ontology edge
+// that owned it, and deletes each panel with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Panel]{
 		Name:     "v61_panel_owner",

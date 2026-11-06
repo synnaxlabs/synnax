@@ -102,8 +102,8 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
     const repair = (): void => {
       repairMembership(params).catch(console.error);
     };
-    // The client maintains the by-project answer itself, tracking optimistic
-    // creates and project changes a manual retrieve would race.
+    // The client maintains the by-project answer itself, tracking optimistic creates
+    // and project changes a manual retrieve would race.
     let removeQuery: destructor.Destructor | undefined;
     const subscribeProject = (projectKey: project.Key | undefined): void => {
       removeQuery?.();

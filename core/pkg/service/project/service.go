@@ -108,8 +108,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// Children returns the ID of every record that references the project with key, as
-// seen by tx: the groups directly under it and every visualization it owns.
+// Children returns the ID of every record that references the project with key, as seen
+// by tx: the groups directly under it and every visualization it owns.
 func (s *Service) Children(
 	ctx context.Context,
 	tx gorp.Tx,

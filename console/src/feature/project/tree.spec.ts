@@ -187,7 +187,7 @@ describe("project ontology service", () => {
 });
 
 describe("project tree children", () => {
-  it("should list the groups and the ungrouped visualizations of the project", async () => {
+  it("should list the project's groups and ungrouped visualizations", async () => {
     const p = await createProject();
     const id = project.resourceID(p.key);
     const g = await client.groups.create({ parent: id, name: uniqueName("group") });

@@ -463,7 +463,9 @@ var _ = Describe("Create in a group", func() {
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, author), db,
 				apischematic.CreateRequest{
-					Schematics: []schematic.Schematic{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
+					Schematics: []schematic.Schematic{
+						{Project: &proj.Key, Name: "Denied", Group: &g.Key},
+					},
 				},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
@@ -493,7 +495,9 @@ var _ = Describe("Create in a group", func() {
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, author), db,
 			apischematic.CreateRequest{
-				Schematics: []schematic.Schematic{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
+				Schematics: []schematic.Schematic{
+					{Project: &proj.Key, Name: "Granted", Group: &g.Key},
+				},
 			},
 		))
 		Expect(retrieveSchematic(ctx, res.Schematics[0].Key).Group).To(Equal(&g.Key))

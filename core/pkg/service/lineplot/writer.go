@@ -54,9 +54,8 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot
-// must belong to exactly one of a project and a range. An existing line plot keeps its
-// group, project, and range.
+// plot must belong to exactly one of a project and a range. An existing line plot keeps
+// its group, project, and range.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, lp) })
 }
@@ -163,8 +162,7 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 }
 
 // CreateMany creates the given line plots. If line plots with the same key already
-// exist,
-// they will be overwritten.
+// exist, they will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {
 	for i := range *plots {
 		if err := w.Create(ctx, &(*plots)[i]); err != nil {

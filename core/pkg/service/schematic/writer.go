@@ -135,8 +135,8 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// SetProject moves the schematics with keys into the project p. It returns a
-// validation error when a schematic belongs to a range.
+// SetProject moves the schematics with keys into the project p. It returns a validation
+// error when a schematic belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).

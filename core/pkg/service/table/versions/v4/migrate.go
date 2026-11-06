@@ -36,8 +36,8 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ta
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project or range of each stored table from the ontology
-// edge that owned it, and deletes each table with no owner.
+// OwnersMigration sets the project or range of each stored table from the ontology edge
+// that owned it, and deletes each table with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Table]{
 		Name:     "v61_table_owner",

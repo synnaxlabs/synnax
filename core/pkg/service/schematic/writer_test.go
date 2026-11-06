@@ -627,7 +627,9 @@ var _ = Describe("Writer", func() {
 			Expect(
 				svc.NewWriter(tx).
 					Copy(ctx, s.Key, "snap", true, &missing, &schematic.Schematic{}),
-			).To(MatchError(ContainSubstring("range: range " + missing.String() + " does not exist")))
+			).To(MatchError(ContainSubstring(
+				"range: range " + missing.String() + " does not exist",
+			)))
 		})
 		It(
 			"Should copy a Schematic into a snapshot that cannot be modified",

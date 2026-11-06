@@ -175,8 +175,8 @@ type (
 	}
 )
 
-// Retrieve returns the tables that match req. A request with no keys, groups,
-// grouped, projects, or ranges filter matches nothing.
+// Retrieve returns the tables that match req. A request with no keys, groups, grouped,
+// projects, or ranges filter matches nothing.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

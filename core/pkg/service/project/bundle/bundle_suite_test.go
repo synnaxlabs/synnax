@@ -64,92 +64,90 @@ var (
 	tx          gorp.Tx
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
-		db = node.DB
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		imexSvc = imex.NewService()
-		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imexSvc,
-		}))
-		lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imex.NewService(),
-		}))
-		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Status:       statusSvc,
-			HostProvider: node.Cluster,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
-		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
-		arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
-		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			ImEx:     imexSvc,
-			Configs: MustSucceed(config.NewRegistry(
-				slices.Concat(pd.Stores(), arcTaskSvc.Stores())...,
-			)),
-			ImExExcluded: []string{arctask.Type},
-		}))
-		testRack = rack.Rack{Name: "Project Test Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
-		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           db,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Status:       statusSvc,
-		}))
-		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:         db,
-			Table:      arcTable,
-			Ontology:   otg,
-			Channel:    channelSvc,
-			Task:       taskSvc,
-			MatchTasks: arcTaskSvc.MatchArcs,
-			Status:     statusSvc,
-			ImEx:       imexSvc,
-		}))
-		projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		svc = MustSucceed(bundle.NewService(bundle.Config{
-			DB:       db,
-			Ontology: otg,
-			Project:  projectSvc,
-			Group:    groupSvc,
-			Panel:    panelSvc,
-			ImEx:     imexSvc,
-		}))
-		writer = projectSvc.NewWriter(nil)
-	})
-)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	imexSvc = imex.NewService()
+	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imexSvc,
+	}))
+	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		ImEx:     imex.NewService(),
+	}))
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:           db,
+		Ontology:     otg,
+		Status:       statusSvc,
+		HostProvider: node.Cluster,
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+	}))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Rack:     rackSvc,
+		Status:   statusSvc,
+		ImEx:     imexSvc,
+		Configs: MustSucceed(config.NewRegistry(
+			slices.Concat(pd.Stores(), arcTaskSvc.Stores())...,
+		)),
+		ImExExcluded: []string{arctask.Type},
+	}))
+	testRack = rack.Rack{Name: "Project Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           db,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Status:       statusSvc,
+	}))
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+		DB:         db,
+		Table:      arcTable,
+		Ontology:   otg,
+		Channel:    channelSvc,
+		Task:       taskSvc,
+		MatchTasks: arcTaskSvc.MatchArcs,
+		Status:     statusSvc,
+		ImEx:       imexSvc,
+	}))
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	svc = MustSucceed(bundle.NewService(bundle.Config{
+		DB:       db,
+		Ontology: otg,
+		Project:  projectSvc,
+		Group:    groupSvc,
+		Panel:    panelSvc,
+		ImEx:     imexSvc,
+	}))
+	writer = projectSvc.NewWriter(nil)
+})

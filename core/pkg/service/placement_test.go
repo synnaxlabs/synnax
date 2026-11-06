@@ -33,12 +33,15 @@ import (
 
 var _ = Describe("Visualization exports", Ordered, func() {
 	var (
-		l     *service.Layer
-		proj  project.Project
-		g     group.Group
-		rng   ranger.Range
-		owned []resource.ID
-		snap  schematic.Schematic
+		l    *service.Layer
+		proj project.Project
+		g    group.Group
+		rng  ranger.Range
+		sch  schematic.Schematic
+		lp   lineplot.LinePlot
+		lg   log.Log
+		tb   table.Table
+		snap schematic.Schematic
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -48,22 +51,16 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		Expect(l.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 		g = group.Group{Name: "Propulsion", Parent: new(project.ResourceID(proj.Key))}
 		Expect(l.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
-		sch := schematic.Schematic{Name: "Schematic", Project: &proj.Key, Group: &g.Key}
+		sch = schematic.Schematic{Name: "Schematic", Project: &proj.Key, Group: &g.Key}
 		Expect(l.Schematic.NewWriter(nil).Create(ctx, &sch)).To(Succeed())
-		lp := lineplot.LinePlot{Name: "Plot", Project: &proj.Key, Group: &g.Key}
+		lp = lineplot.LinePlot{Name: "Plot", Project: &proj.Key, Group: &g.Key}
 		Expect(l.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
-		lg := log.Log{Name: "Log", Project: &proj.Key, Group: &g.Key}
+		lg = log.Log{Name: "Log", Project: &proj.Key, Group: &g.Key}
 		Expect(l.Log.NewWriter(nil).Create(ctx, &lg)).To(Succeed())
-		tb := table.Table{Name: "Table", Project: &proj.Key, Group: &g.Key}
+		tb = table.Table{Name: "Table", Project: &proj.Key, Group: &g.Key}
 		Expect(l.Table.NewWriter(nil).Create(ctx, &tb)).To(Succeed())
 		pn := panel.Panel{Name: "Panel", Project: &proj.Key, Group: &g.Key}
 		Expect(l.Panel.NewWriter(nil).Create(ctx, &pn)).To(Succeed())
-		owned = []resource.ID{
-			schematic.ResourceID(sch.Key),
-			lineplot.ResourceID(lp.Key),
-			log.ResourceID(lg.Key),
-			table.ResourceID(tb.Key),
-		}
 		rng = ranger.Range{
 			Name:      "Run",
 			TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -82,14 +79,17 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		Expect(body).ToNot(HaveKey("range"))
 	}
 
-	It("Should leave the placement out of a single-resource export", func(
-		ctx SpecContext,
-	) {
-		for _, id := range append(owned, schematic.ResourceID(snap.Key)) {
-			env := MustSucceed(l.ImEx.Export(ctx, id))
+	DescribeTable("Should leave the placement out of a single-resource export",
+		func(ctx SpecContext, id func() resource.ID) {
+			env := MustSucceed(l.ImEx.Export(ctx, id()))
 			expectUnplaced(MustSucceed(json.Marshal(env)))
-		}
-	})
+		},
+		Entry("schematic", func() resource.ID { return sch.ResourceID() }),
+		Entry("line plot", func() resource.ID { return lp.ResourceID() }),
+		Entry("log", func() resource.ID { return lg.ResourceID() }),
+		Entry("table", func() resource.ID { return tb.ResourceID() }),
+		Entry("range snapshot", func() resource.ID { return snap.ResourceID() }),
+	)
 
 	It("Should leave the placement out of every member of a project bundle", func(
 		ctx SpecContext,

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package bundle exports a project and its members as a directory of files, and
-// imports one back as a new project.
+// Package bundle exports a project and its members as a directory of files, and imports
+// one back as a new project.
 package bundle
 
 import (
@@ -110,8 +110,8 @@ const (
 
 // unreachedTypes are the resource types a bundle can hold that the walk over the
 // project's members never reaches, since no project owns a task or an Arc. A panel tab
-// is the only way one enters a bundle, and an import leaves each where its importer
-// put it rather than under the directory that held it.
+// is the only way one enters a bundle, and an import leaves each where its importer put
+// it rather than under the directory that held it.
 var unreachedTypes = set.New(
 	resource.TypeTask,
 	resource.TypeArc,
@@ -444,10 +444,9 @@ func (w *bundleWalk) encodePanels(
 
 // Import creates a fresh project from the bundle in files on tx: the manifest (or the
 // extension-stripped fileName) names it, directories become groups, members import
-// through the leaf registry, and panels are recreated with their resource tabs
-// resolved to the minted IDs. A root LAYOUT.json with no manifest is the legacy
-// (version 0) format. Invalid bundles return validation errors naming the offending
-// file.
+// through the leaf registry, and panels are recreated with their resource tabs resolved
+// to the minted IDs. A root LAYOUT.json with no manifest is the legacy (version 0)
+// format. Invalid bundles return validation errors naming the offending file.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -707,8 +706,8 @@ func (s *Service) bundleMembers(
 }
 
 // validateMemberPaths rejects two names in one directory that compare equal
-// case-folded, which collide when the Console extracts a bundle onto a
-// case-insensitive filesystem. File and directory names share the namespace.
+// case-folded, which collide when the Console extracts a bundle onto a case-insensitive
+// filesystem. File and directory names share the namespace.
 func validateMemberPaths(paths []string) error {
 	type segment struct {
 		path string

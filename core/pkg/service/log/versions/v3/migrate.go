@@ -59,8 +59,8 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Lo
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project or range of each stored log from the ontology
-// edge that owned it, and deletes each log with no owner.
+// OwnersMigration sets the project or range of each stored log from the ontology edge
+// that owned it, and deletes each log with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Log]{
 		Name:     "v61_log_owner",

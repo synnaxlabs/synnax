@@ -158,7 +158,9 @@ var _ = Describe("Writer", func() {
 					Project: &other.Key,
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(retrieve(ctx, tx, first.Key).Project).To(HaveValue(Equal(proj.Key)))
+				Expect(
+					retrieve(ctx, tx, first.Key).Project,
+				).To(HaveValue(Equal(proj.Key)))
 			},
 		)
 

@@ -166,8 +166,8 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// CreateMany creates the given tables. If tables with the same key already exist,
-// they will be overwritten.
+// CreateMany creates the given tables. If tables with the same key already exist, they
+// will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
 		if err := w.Create(ctx, &(*tables)[i]); err != nil {

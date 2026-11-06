@@ -299,8 +299,8 @@ const descendantGroups = async (
   return out;
 };
 
-// A visualization from another project changes project, and so does every
-// visualization inside a group from another project.
+// A visualization from another project changes project, and so does every visualization
+// inside a group from another project.
 const setProjectRequests = async (
   client: Client,
   items: Tree.Dropped[],

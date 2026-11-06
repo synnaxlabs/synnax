@@ -25,8 +25,8 @@ import {
 
 const client = createTestClient();
 
-// Panel creation requires a project; panels whose project is irrelevant to the
-// test at hand share this one.
+// Panel creation requires a project; panels whose project is irrelevant to the test at
+// hand share this one.
 let defaultProject: project.Key;
 
 beforeAll(async () => {

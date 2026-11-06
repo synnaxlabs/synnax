@@ -109,7 +109,9 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
-				Tables: []table.Table{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
+				Tables: []table.Table{
+					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
+				},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)

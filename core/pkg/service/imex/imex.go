@@ -241,9 +241,8 @@ type BodyExporter interface {
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
 // A BodyExporter is reduced through ExportBody instead of directly. references names
-// the
-// top-level fields that hold Gorp references. Encode leaves them out, since they hold
-// keys local to this Core.
+// the top-level fields that hold Gorp references. Encode leaves them out, since they
+// hold keys local to this Core.
 func (env *Envelope) Encode[T any](data T, references ...string) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {

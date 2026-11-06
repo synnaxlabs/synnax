@@ -121,7 +121,9 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
+				LinePlots: []lineplot.LinePlot{
+					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
+				},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -131,7 +133,9 @@ var _ = Describe("Create in a group", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(
 			apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
+				LinePlots: []lineplot.LinePlot{
+					{Project: &proj.Key, Name: "Granted", Group: &g.Key},
+				},
 			}),
 		)
 		Expect(retrieveLinePlot(ctx, res.LinePlots[0].Key).Group).To(Equal(&g.Key))

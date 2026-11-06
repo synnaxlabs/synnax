@@ -243,8 +243,8 @@ type (
 		Name     string        `json:"name"     msgpack:"name"`
 		Key      schematic.Key `json:"key"      msgpack:"key"`
 		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
-		// Range, when set, makes the copy belong to the range instead of the
-		// original's project.
+		// Range, when set, makes the copy belong to the range instead of the original's
+		// project.
 		Range *ranger.Key `json:"range" msgpack:"range"`
 	}
 	CopyResponse struct {

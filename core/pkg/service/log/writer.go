@@ -56,9 +56,9 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates the given log, assigning a new key when l.Key is zero. The log
-// must belong to exactly one of a project and a range. An existing log keeps its
-// group, project, and range.
+// Create creates the given log, assigning a new key when l.Key is zero. The log must
+// belong to exactly one of a project and a range. An existing log keeps its group,
+// project, and range.
 func (w Writer) Create(ctx context.Context, l *Log) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, l) })
 }
@@ -138,8 +138,8 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// SetProject moves the logs with keys into the project p. It returns a validation
-// error when a log belongs to a range.
+// SetProject moves the logs with keys into the project p. It returns a validation error
+// when a log belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
@@ -161,8 +161,8 @@ func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// CreateMany creates the given logs. If logs with the same key already exist,
-// they will be overwritten.
+// CreateMany creates the given logs. If logs with the same key already exist, they will
+// be overwritten.
 func (w Writer) CreateMany(ctx context.Context, logs *[]Log) error {
 	for i := range *logs {
 		if err := w.Create(ctx, &(*logs)[i]); err != nil {
