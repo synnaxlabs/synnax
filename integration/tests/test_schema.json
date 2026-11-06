@@ -31,12 +31,12 @@
           },
           "isolated": {
             "type": "boolean",
-            "description": "Runs on the first Core after every other sequence ends, with nothing else running, as a timing test needs.",
+            "description": "Runs alone on the first Core after other sequences end.",
             "default": false
           },
           "independent": {
             "type": "boolean",
-            "description": "No test needs another test of the sequence, so shards can split it.",
+            "description": "No test needs another, so shards can split the sequence.",
             "default": false
           },
           "tests": {
