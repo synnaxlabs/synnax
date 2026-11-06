@@ -220,7 +220,8 @@ shapes, while the others fail loudly: an absent `array_mode` reads as false and 
 array task as unary, an absent `json_type` reads as `number` and sends a number for a
 `string` or `boolean` channel field, and an enum entry past 2^53 rounds. Upgrade
 standalone Drivers with the Core for these shapes, and the release notes for the release
-that ends the hold must say so.
+that ends the hold must say so. PR #4493 would reject a lagging Driver, but this RFC
+does not depend on it.
 
 | Phase | Scope                                                 | Touches                                                                                                               | Depends on         |
 | ----- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------ |
