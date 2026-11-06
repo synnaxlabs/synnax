@@ -16,7 +16,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -98,12 +97,6 @@ const SAMPLING_TRIGGER_PROPS = {
   variant: "shadow",
   className: CSS.BE("line-plot", "toolbar-sampling-trigger"),
 } as const;
-const SAMPLING_DIALOG_PROPS = {
-  className: CSS.BE("line-plot", "toolbar-sampling-dialog"),
-};
-const SAMPLING_OPTION_CLASS = CSS.BE("line-plot", "toolbar-sampling-option");
-const SAMPLING_BODY_CLASS = CSS.BE("line-plot", "toolbar-sampling-body");
-const SAMPLING_DESCRIPTION_CLASS = CSS.BE("line-plot", "toolbar-sampling-description");
 
 interface SelectSamplingProps<K extends string> extends Pick<
   Select.SingleSimpleProps<K>,
@@ -132,28 +125,12 @@ const SelectSampling = <K extends string>({
     searchHidden
     icon={options.find((o) => o.key === value)?.icon}
     triggerProps={SAMPLING_TRIGGER_PROPS}
-    dialogProps={SAMPLING_DIALOG_PROPS}
   >
     {options.map(({ key, name, label, description, icon }) => (
-      <Select.Item<K>
-        key={key}
-        itemKey={key}
-        label={label}
-        textValue={name}
-        className={SAMPLING_OPTION_CLASS}
-      >
-        <div className={SAMPLING_BODY_CLASS}>
-          {icon}
-          <span>{name}</span>
-          <Text.Text
-            className={SAMPLING_DESCRIPTION_CLASS}
-            color={9}
-            level="small"
-            overflow="wrap"
-          >
-            {description}
-          </Text.Text>
-        </div>
+      <Select.Item<K> key={key} itemKey={key} label={label} textValue={name}>
+        {icon}
+        {name}
+        <Select.ItemDescription>{description}</Select.ItemDescription>
       </Select.Item>
     ))}
   </Select.Simple>

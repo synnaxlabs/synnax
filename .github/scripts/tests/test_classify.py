@@ -250,6 +250,25 @@ class TestMain:
         classify.main()
         assert [args[3] for args, _ in gh.writes] == [COMMENTS]
 
+    def test_reads_the_number_from_the_environment_first(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pr" / "number").write_text("99\n")
+        monkeypatch.setenv("PR", "5")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_leaves_an_unchanged_comment_alone(self, gh: FakeGH) -> None:
+        classify.main()
+        ((_, body),) = gh.writes
+        assert body is not None
+        gh.comments = [{"id": 9, "body": json.loads(body)["body"]}]
+        gh.writes = []
+        gh.heads = ["abc", "abc"]
+        classify.main()
+        assert gh.writes == []
+
     def test_writes_nothing_when_the_head_moves_during_the_run(
         self, gh: FakeGH
     ) -> None:

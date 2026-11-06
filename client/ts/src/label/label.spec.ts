@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, uuid } from "@synnaxlabs/x";
+import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createProxiedTestClient,
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  FAST_RETRY,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -281,6 +290,40 @@ describe("cached reads", () => {
     }
   });
 
+  it("should update a for query from its own writes without a retrieve", async () => {
+    const fresh = createTestClient();
+    await fresh.connect();
+    const item = await fresh.labels.create({
+      name: `qry-item-${id.create()}`,
+      color: "#E774D0",
+    });
+    const lbl = await fresh.labels.create({
+      name: `qry-attached-${id.create()}`,
+      color: "#E774D0",
+    });
+    const itemID = label.ontologyID(item.key);
+    const params = { where: { for: itemID } };
+    const off = fresh.labels.onChange(params, vi.fn());
+    const send = spyOnSend(fresh);
+    try {
+      await fresh.labels.retrieve(params);
+      send.mockClear();
+      await fresh.labels.label(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params)).map((l) => l.key)).toEqual([
+        lbl.key,
+      ]);
+      await fresh.labels.remove(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
+      await sleep.sleep(TimeSpan.milliseconds(250));
+      expect(send.mock.calls.map(([target]) => target)).toEqual([
+        "/label/set",
+        "/label/remove",
+      ]);
+    } finally {
+      off();
+    }
+  });
+
   describe("a label attached before the client connected", () => {
     const attach = async (): Promise<{ item: label.Label; lbl: label.Label }> => {
       const item = await remote.labels.create({
@@ -339,6 +382,97 @@ describe("cached reads", () => {
         off();
       }
     });
+  });
+
+  // The remote change lands while the proxy is severed, so only the refetch on
+  // reconnect tells the client about it. A later rename makes the client check the
+  // label against its cached relationships.
+  describe("a label attached or removed during a change stream gap", () => {
+    const setup = async () => {
+      const { proxy, client: local } = await createProxiedTestClient({
+        retry: FAST_RETRY,
+        onRetry: () => {},
+      });
+      await local.connect();
+      const [item, kept, changed] = await local.labels.create(
+        [0, 1, 2].map(() => ({ name: `qry-gap-${id.create()}`, color: "#E774D0" })),
+      );
+      const itemID = label.ontologyID(item.key);
+      const params = { where: { for: itemID } };
+      const keys = () => {
+        const cached = local.labels.getCached(params);
+        return query.isLive(cached) ? cached.map((l) => l.key).sort() : undefined;
+      };
+      const duringGap = async (change: () => Promise<void>) => {
+        await proxy.sever();
+        await change();
+        await proxy.restore();
+        await waitForStreamLive(local.connection);
+      };
+      const rename = async () => {
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...changed, name });
+        await expect
+          .poll(() => {
+            const cached = local.labels.getCached(changed.key);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toEqual(name);
+      };
+      return { local, itemID, params, kept, changed, keys, duringGap, rename };
+    };
+
+    it("should keep a label removed during the gap out of a for query", async () => {
+      const { local, itemID, params, kept, changed, keys, duringGap, rename } =
+        await setup();
+      await local.labels.label(itemID, [kept.key, changed.key]);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await local.labels.retrieve(params);
+        await duringGap(async () => await remote.labels.remove(itemID, [changed.key]));
+        await expect.poll(keys).toEqual([kept.key]);
+        await rename();
+        expect(keys()).toEqual([kept.key]);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should keep a label attached again during the gap in a for query", async () => {
+      const { local, itemID, params, kept, changed, keys, duringGap, rename } =
+        await setup();
+      await local.labels.label(itemID, [kept.key, changed.key]);
+      await local.labels.remove(itemID, [changed.key]);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await local.labels.retrieve(params);
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        const both = [kept.key, changed.key].sort();
+        await expect.poll(keys).toEqual(both);
+        await rename();
+        expect(keys()).toEqual(both);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should keep a label attached during the gap when an older fetch lands late", async () => {
+      const { local, itemID, params, changed, keys, duringGap } = await setup();
+      const { responded, release } = holdResponses(local, "/label/retrieve");
+      const stale = local.labels.retrieve(params);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await responded;
+        spyOnSend(local).mockRestore();
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        await expect.poll(keys).toEqual([changed.key]);
+        release();
+        await stale;
+        expect(keys()).toEqual([changed.key]);
+      } finally {
+        off();
+      }
+    }, 30000);
   });
 });
 
