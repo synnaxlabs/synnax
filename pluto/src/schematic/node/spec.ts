@@ -56,6 +56,8 @@ export interface Spec<
   name: string;
   /** The text written into the symbol's label on creation. Defaults to name. */
   label?: string;
+  /** Values a new symbol takes where the schema default does not apply. */
+  defaults?: Partial<Config>;
   Form: FC<FormProps>;
   Node: Node<Config>;
   Preview: FC<PreviewProps<Config>>;

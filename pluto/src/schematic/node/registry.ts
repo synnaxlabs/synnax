@@ -70,13 +70,14 @@ export const isConfig = (config: schematic.ElementConfig): config is Config =>
 
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
- * schema, except the label, which names the symbol unless the input sets it.
+ * spec's defaults, then the schema, except the label, which names the symbol unless the
+ * input sets it.
  * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
 export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
-  const config = configZ.parse(input) as ConfigOf<V>;
   const spec = resolveSpec(input.variant);
+  const config = configZ.parse({ ...spec.defaults, ...input }) as ConfigOf<V>;
   const labeled = input as { label?: { label?: string } };
   if ("label" in config && labeled.label?.label == null)
     config.label.label = spec.label ?? spec.name;
