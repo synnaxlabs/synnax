@@ -133,6 +133,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     if (missing.length > 0) modified = true;
     const toCreate = await bindOrphanedChannels({
       client,
+      slave: slave.key,
       channels: missing,
       names: missing.map((ch) => readChannelName(slave, ch)),
       index: () => slave.properties.readIndex,

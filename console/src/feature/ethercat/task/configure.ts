@@ -10,7 +10,7 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import { MAKE, SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   addressKey,
   DIRECTIONS,
@@ -261,6 +261,8 @@ const checkDataType = (existing: channel.Channel, dataType: string): void => {
 
 export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
   client: Synnax;
+  /** the key of the slave that deploys the channels. */
+  slave: string;
   /** the channels that have no Synnax channel yet. */
   channels: C[];
   /** the name deploying gives each channel's Synnax channel. */
@@ -277,15 +279,15 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
 
 /**
  * Binds each channel to the Synnax channel that a deleted device left under its name.
- * An orphaned channel has the index the task gives the channel, so no other device
- * writes to it.
+ * An orphaned channel has the index the task gives the channel, and no slave maps it.
  *
  * @returns the channels that still need a Synnax channel.
- * @throws {Error} if a channel on another index or a channel the device already maps
- * holds a name, or if an orphaned channel holds another data type.
+ * @throws {Error} if a channel on another index or a channel that a slave maps holds a
+ * name, or if an orphaned channel holds another data type.
  */
 export const bindOrphanedChannels = async <C extends EntryChannel>({
   client,
+  slave,
   channels,
   names,
   index,
@@ -293,7 +295,19 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   mapKey = addressKey,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
-  const bound = new Set(Object.values(map));
+  const others = await client.devices.retrieve({
+    where: { make: { eq: MAKE } },
+    schemas: SLAVE_SCHEMAS,
+  });
+  const bound = new Set([
+    ...Object.values(map),
+    ...others
+      .filter(({ key }) => key !== slave)
+      .flatMap(({ properties: { read, write } }) => [
+        ...Object.values(read.channels),
+        ...Object.values(write.channels),
+      ]),
+  ]);
   return channels.filter((ch, i) => {
     const orphan = existing.get(names[i]);
     if (orphan == null) return true;
