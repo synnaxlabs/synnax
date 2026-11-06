@@ -22,7 +22,7 @@ set -euo pipefail
 
 TESTS_DIR="integration/tests"
 # Test prefixes exempt from the integration matrix — these run in dedicated workflows.
-EXEMPT="example"
+EXEMPT="example driver latency"
 
 # Matrix definition (single source of truth)
 # Format: "name:target:hosted:shards:args" where target can be comma-separated file
@@ -34,7 +34,8 @@ EXEMPT="example"
 # sequences on four Cores at once.
 MATRIX_ENTRIES=(
     "arc:arc,control:true:1:"
-    "bot:console,driver,latency:false:2:--cores 4 --browsers 3"
+    "hb1:console:true:4:--browsers 1"
+    "hb2:console:true:2:--browsers 2"
 )
 
 covered=""
