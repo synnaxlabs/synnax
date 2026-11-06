@@ -13,6 +13,7 @@
 #include <cstring>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,10 @@ class MockAPI final : public API {
 public:
     std::vector<MockSlaveInfo> slave_infos;
     x::errors::Error check_socket_err = x::errors::NIL;
+    /// @brief the interfaces whose adapters the DewesoftX filter is bound to.
+    std::set<std::string> filtered_interfaces;
+    /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
+    std::map<std::string, std::string> adapter_names;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -105,6 +110,16 @@ private:
 public:
     x::errors::Error check_socket(const char *) override {
         return this->check_socket_err;
+    }
+
+    bool dewesoft_filter_bound(const char *ifname) override {
+        return this->filtered_interfaces.contains(ifname);
+    }
+
+    std::optional<std::string> adapter_name(const char *ifname) override {
+        const auto it = this->adapter_names.find(ifname);
+        if (it == this->adapter_names.end()) return std::nullopt;
+        return it->second;
     }
 
     int init(const char *) override {
