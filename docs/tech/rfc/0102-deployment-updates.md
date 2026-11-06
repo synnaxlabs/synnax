@@ -12,9 +12,9 @@ A deployment is one Core with the Consoles and external Drivers that connect to 
 Core version becomes the version of the whole deployment. An admin updates the Core with
 one command, `synnax update`. Each Console then offers the update that the Core serves,
 and each Driver updates itself from the Core. A Console or Driver on another minor stops
-work and says how to fix it. The Core backs up its metadata when its version changes and
-refuses data that a newer Core wrote. Only users with `update` on `builtin:version` can
-move a Console past its Core.
+work and says how to fix it. The Core backs up its metadata when its version changes,
+undoes an update that fails before it serves, and refuses data that a newer Core wrote.
+Only users with `update` on `builtin:version` can move a Console past its Core.
 
 ## 1 Motivation
 
@@ -46,7 +46,8 @@ move a Console past its Core.
    the failure that this RFC removes.
 3. **The Core protects its own data at start**: Every update path (`synnax update`, the
    Windows installer, a Docker pull, a binary replaced by hand, Synnax Desktop) starts
-   the same Core, so the backup and the downgrade check run there.
+   the same Core, so the backup, the downgrade check, and the undo of a failed update
+   run there.
 4. **Updates work without internet**: Test-cell networks and air-gapped sites update
    from the Core and from a release bundle.
 
@@ -58,33 +59,48 @@ The Core writes its version to `<data>/VERSION`. In `storage.OpenLayer`, after
 `acquireLock` and before `openKV` (`core/pkg/storage/layer.go:223-233`), it compares
 that version with its own:
 
-| Recorded version | Action                                           |
-| ---------------- | ------------------------------------------------ |
-| Same             | Opens.                                           |
-| Older or none    | Backs up (§3.1), writes its version, then opens. |
-| Newer            | Stops with the error below.                      |
+| Recorded version | Action                                                        |
+| ---------------- | ------------------------------------------------------------- |
+| Same             | Opens.                                                        |
+| Older or none    | Backs up (§3.1), migrates, then commits or undoes the update. |
+| Newer            | Stops with the error below.                                   |
 
 The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer, or undo
 the update with `synnax update undo`."
 
-The Core writes the file right after the backup, before any migration runs. A crash
-during a migration then resumes at the next start and does not replace the good backup.
-A `0.0.0` dev Core neither checks nor writes the file, as in the client checks (RFC 0058
-§2.2).
+The Core writes the file and an `UPDATING` marker right after the backup, before any
+migration runs, so an older Core refuses the half-migrated data. Once the Core serves,
+it commits the update by removing the marker. The commit also needs the license to cover
+the new version when it covered the old one
+(`core/pkg/service/license/service.go:426-471`). A failure before the commit restores
+the backup (§3.1) and exits with: "Update to Core 0.61.0 failed: no space left on
+device. The data is back at Core 0.60.1. Run Core 0.60.1, or fix the cause and run
+`synnax update retry`." No client writes before the commit, so the undo loses nothing. A
+start that finds the marker treats the earlier start as failed, as Mender does after a
+reboot before its commit.
+
+After an undo, the Core records the failed version in `<data>/UPDATE_FAILED`. A later
+start of that version refuses at once, with no backup and no migration, so a Docker,
+systemd, or Windows service restart does not loop. Another version updates as normal.
+`synnax update retry` removes the record. A `0.0.0` dev Core neither checks nor writes
+`VERSION`, as in the client checks (RFC 0058 §2.2).
 
 ### 3.1 Backups and undo
 
-The backup copies `kv/` and the `meta.json` of every Cesium channel to
-`<data>/backups/<unix seconds>-<old version>`, with a `.partial` name until the copy is
-done. It keeps the newest 3. A failed copy stops the Core from starting. Telemetry files
-stay out: Cesium migrations must not write them
-(`cesium/internal/migrate/migrate.go:70`), and they can be terabytes. A Cesium migration
-test fails when a migration changes a telemetry file. A release that changes the
-telemetry format must also handle undo for that update. The embedded Driver key stays
-out too: a Driver whose saved key fails after an undo makes a new one
+The backup copies `kv/` and the `meta.json` of every Cesium channel into one archive,
+`<data>/backups/<unix seconds>-<old version>.tar`, with a `.partial` name until it is
+done. One archive needs one sync: for 10,000 channels and 500 MB of `kv/`, a sync for
+each file took 48 s, and the archive took 4 s. It keeps the newest 3. A failed copy
+stops the Core from starting. Telemetry files stay out: Cesium migrations must not write
+them (`cesium/internal/migrate/migrate.go:70`), and they can be terabytes. A Cesium
+migration test fails when a migration changes a telemetry file. A release that changes
+the telemetry format must also handle undo for that update. The embedded Driver key
+stays out too: a Driver whose saved key fails after an undo makes a new one
 (`core/pkg/driver/driver.go:480-517`). This is the Synnax Desktop backup
 (`console/src-tauri/src/supervisor/backup.rs`) moved into the Core, and the Desktop copy
-is deleted.
+is deleted. The `--no-update-backup` start flag turns off the backup, and with it the
+undo of a failed update, for sites that snapshot the data directory before each update.
+The downgrade check still runs.
 
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
 one it names, writes its version to `VERSION`, and prints the Core version to run. With
@@ -108,24 +124,19 @@ admin rights on the host, which is the access control for a Core update.
 
 1. Stops the Core service. A Core that runs in a terminal must be stopped by hand first.
 2. Keeps the old binary as `<binary>.old` and puts the new one in its place.
-3. Starts the Core, which backs up and migrates (§3.0).
-4. Waits for `/connectivity/check` to answer
-   (`core/pkg/api/connectivity/connectivity.go:76-89`). A license state of `ok` before
-   the update must stay `ok`, which covers the license version cap
-   (`core/pkg/service/license/service.go:426-471`). A `missing` or `expired` state has
-   nothing to lose.
-5. On a failure, stops the Core and puts the old binary back. If step 3 made a backup,
-   it first restores that backup (§3.1). With no new backup, the data did not change. It
-   then starts the old Core.
+3. Starts the Core, which backs up, migrates, and commits or undoes the update (§3.0).
+4. Waits for the commit. If the Core undoes the update, puts the old binary back and
+   starts the old Core.
 
 `synnax update undo` also puts `<binary>.old` back when it exists.
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
 code instead of its own stop, replace, and start
-(`.github/scripts/windows_installer.nsi:81-133`). Docker users pull and re-create; §3.0
-and §3.1 still run. When a Core release exists past the connected Core, users with
-`update` on `builtin:version` see a notice with the command for their Core.
+(`.github/scripts/windows_installer.nsi:81-133`). Docker users pull and re-create. The
+Core still backs up and undoes a failed update (§3.0), and the admin then runs the old
+image. When a Core release exists past the connected Core, users with `update` on
+`builtin:version` see a notice with the command for their Core.
 
 ### 3.3 Console updates
 
@@ -234,7 +245,7 @@ the most risk, so it goes last. Each phase updates the docs pages that it change
 | 3     | Report Driver versions and stop tasks on a mismatch     | `schemas/synnax/rack.oracle`, `driver/rack`, `driver/task`, `console/src/feature/rack`                            | -          |
 | 4     | Serve the matching Console update from the Core         | `core/pkg/console`, `.github/workflows/build.synnax.yaml`                                                         | -          |
 | 5     | Update the Console from its Core                        | `console/src/platform/version`, `console/src-tauri`                                                               | 1, 4       |
-| 6     | Update the Core from a file with `synnax update`        | `core/cmd`, `.github/scripts/windows_installer.nsi`                                                               | 2          |
+| 6     | Undo a failed Core update, and update from a file       | `core/pkg/storage`, `core/cmd`, `.github/scripts/windows_installer.nsi`                                           | 2          |
 | 7     | Sign releases and download them in `synnax update`      | `.github/workflows/build.synnax.yaml`, `core/cmd`, `console/src/platform/version`, `site/docs/src/pages/releases` | 6          |
 | 8     | Run the Driver as a service on every platform           | `driver/daemon`, `driver/cmd`                                                                                     | -          |
 | 9     | Serve Driver binaries and release bundles from the Core | `core/pkg/driver`, `core/cmd`, `.github/workflows/release.yaml`                                                   | 7          |
@@ -260,8 +271,12 @@ manual update to a release with phase 10.
    limit), and host admin rights are already the right gate. Ignition also updates
    through an installer on the Gateway host. The word is "update" everywhere, as in the
    Console.
-5. **The backup runs in the Core**: A step inside `synnax update` was rejected, because
-   the installer, Docker, and hand updates would skip it.
+5. **The backup and the undo of a failed update run in the Core**: Steps inside
+   `synnax update` were rejected, because the installer, Docker, and hand updates would
+   skip them. Mender, snapd, and the Home Assistant Supervisor undo from outside the
+   process, because a new binary cannot bring back the old one. The Core cannot either,
+   but it can put the data back, and no client writes before the commit. MySQL, Gitea,
+   and Grafana migrate at start and leave recovery to a backup.
 6. **Downgrades are refused by version**: Per-layer checks for unknown migrations were
    rejected; they need code in Gorp, Cesium, and Pebble for downgrades that the docs
    already do not support. Postgres refuses data from another version the same way
@@ -284,11 +299,14 @@ manual update to a release with phase 10.
     about 310 MB it may not use.
 12. **A Driver on another minor runs no tasks**: With hardware, a wrong output is worse
     than no output.
+13. **A failed version is not retried by itself**: A retry at each start was rejected.
+    Restart policies would loop, and each pass would push a good backup out of the 3
+    kept. snapd also skips a revision that it reverted.
 
 ## 7 Open questions
 
-- The health-check timeout of `synnax update`, and the name of the start flag that turns
-  off Driver downloads.
+- How long `synnax update` waits for the commit, and the name of the start flag that
+  turns off Driver downloads.
 - Whether Driver and Core signatures reuse the Console's minisign key.
 - The Linux path that the `synnax` service user owns for the Driver binary.
 - How a Core built without the `driver` tag learns its Driver version.
