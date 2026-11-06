@@ -983,14 +983,26 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
     EXPECT_EQ(this->mock->register_writes, expected);
 }
 
-/// @brief it should report the DC registers of the slave whose SYNC0 events it starts,
+/// @brief it should report the DC registers of each slave whose SYNC0 events it starts,
 /// until it stops the bus.
-TEST_F(SOEMMasterTest, DCSyncReportsTheSlaveThatRunsSYNC0) {
-    this->initialize_with_dc_slave({DC_SECOND});
+TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    this->set_op_modes({DC_SECOND});
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->outputs_wkc = 2;
+    this->mock->inputs_wkc = 2;
+    this->mock->receive_return = 6;
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), dc::resolve(DC_SECOND, PERIOD).first);
+    const auto regs = dc::resolve(DC_SECOND, PERIOD).first;
+    EXPECT_EQ(this->master->dc_sync(), (std::vector{regs, regs}));
     this->master->deactivate();
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
@@ -999,14 +1011,14 @@ TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
         {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
     );
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should report no DC sync when the slave runs in an SM mode.
 TEST_F(SOEMMasterTest, DCSyncIsEmptyInSMMode) {
     this->initialize_with_dc_slave({SM, DC_SECOND});
     ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->master->dc_sync(), std::nullopt);
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.

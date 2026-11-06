@@ -330,11 +330,12 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
-std::optional<dc::Registers> Master::dc_sync() const {
+std::vector<dc::Registers> Master::dc_sync() const {
+    std::vector<dc::Registers> syncs;
     for (const auto &[pos, regs]: this->dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & PDI_SYNC_UNIT) == 0)
-            return regs;
-    return std::nullopt;
+            syncs.push_back(regs);
+    return syncs;
 }
 
 std::span<const uint8_t> Master::input_data() {

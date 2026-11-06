@@ -243,14 +243,17 @@ void Engine::run() {
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
                 timer = x::loop::Timer(sched->rate.period());
-                if (const auto sync = this->master->dc_sync())
-                    phase.emplace(
-                        sched->rate,
-                        x::telem::TimeSpan(sync->sync0_cycle),
-                        master::DC_EPOCH + x::telem::TimeSpan(sync->sync0_shift)
-                    );
-                else
+                std::vector<PhaseLock::Sync0> syncs;
+                for (const auto &regs: this->master->dc_sync())
+                    syncs.push_back({
+                        .cycle = x::telem::TimeSpan(regs.sync0_cycle),
+                        .event = master::DC_EPOCH +
+                                 x::telem::TimeSpan(regs.sync0_shift),
+                    });
+                if (syncs.empty())
                     phase.reset();
+                else
+                    phase.emplace(sched->rate, syncs);
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))

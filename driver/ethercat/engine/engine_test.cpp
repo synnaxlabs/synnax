@@ -221,7 +221,7 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
 TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
     auto sync = SYNC0_AT_10MS;
     sync.sync0_shift = 500'000;
-    this->master->set_dc_sync(sync);
+    this->master->set_dc_sync({sync});
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
@@ -244,7 +244,7 @@ TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
 /// @brief it should lock the cycle to the distributed clock while the slaves move to
 /// OP and the working counter falls short.
 TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
-    this->master->set_dc_sync(SYNC0_AT_10MS);
+    this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
     this->master->set_start_frames(1000);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
@@ -260,7 +260,7 @@ TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
 /// @brief it should not move the cycle on a frame with a short working counter after
 /// the start, as the frame can miss the reference clock.
 TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
-    this->master->set_dc_sync(SYNC0_AT_10MS);
+    this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
