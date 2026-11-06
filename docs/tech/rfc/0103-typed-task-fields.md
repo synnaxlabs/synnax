@@ -72,10 +72,9 @@ ChannelField union on type payload.Kind extends BaseChannelField {
 }
 ```
 
-`BaseReadField` holds `key`, `name`, `disabled`, `channel`, and `pointer`.
+`BaseReadField` holds `key`, `name`, `disabled`, `channel`, and `pointer`, and
 `BaseChannelField` holds `pointer`, `channel`, `name`, and `data_type?`. A channel field
-writes the label of an entry that matches the value. Otherwise `string` writes text, and
-`boolean` true or false.
+writes a matching entry's label, or else `string` writes text and `boolean` a boolean.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
