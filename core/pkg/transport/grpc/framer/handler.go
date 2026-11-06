@@ -132,9 +132,10 @@ func (frameWriterResponseTranslator) Forward(
 	msg framer.WriterResponse,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
-		Command: int32(msg.Command),
-		End:     int64(msg.End),
-		Error:   errors.TranslatePayloadForward(msg.Err),
+		Command:    int32(msg.Command),
+		End:        int64(msg.End),
+		Error:      errors.TranslatePayloadForward(msg.Err),
+		Authorized: msg.Authorized,
 	}, nil
 }
 

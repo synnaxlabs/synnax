@@ -353,6 +353,14 @@ private:
     friend class Writer;
 };
 
+/// @brief the result of a commit.
+struct CommitResult {
+    /// @brief the end of the committed time range. Zero if the commit has no control.
+    x::telem::TimeStamp end;
+    /// @brief whether the writer had control of every channel it writes at the commit.
+    bool authorized = false;
+};
+
 /// @brief used to write a new domain of telemetry frames to a set of channels in
 /// time order. Writer cannot be constructed directly, and should instead be opened
 /// using the FrameClient.
@@ -419,6 +427,12 @@ public:
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
     std::pair<x::telem::TimeStamp, x::errors::Error> commit();
+
+    /// @brief commits like commit(), and also reports whether the writer had control.
+    /// @returns the result of the commit. When authorized is false, the writer lacks
+    /// control of a channel, the end is zero, and the writer stays open so that it can
+    /// regain control.
+    [[nodiscard]] std::pair<CommitResult, x::errors::Error> commit_result();
 
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.

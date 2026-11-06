@@ -61,11 +61,23 @@ x::errors::Error Writer::write(const x::telem::Frame &fr) {
 }
 
 std::pair<x::telem::TimeStamp, x::errors::Error> Writer::commit() {
-    if (this->close_err) return {x::telem::TimeStamp(0), this->close_err};
+    const auto [res, err] = this->commit_result();
+    return {res.end, err};
+}
+
+std::pair<CommitResult, x::errors::Error> Writer::commit_result() {
+    if (this->close_err) return {CommitResult{}, this->close_err};
     grpc::framer::WriterRequest req;
     req.set_command(COMMIT);
     const auto [res, err] = this->exec(req, true);
-    return {x::telem::TimeStamp(res.end()), err};
+    if (err) return {CommitResult{}, err};
+    return {
+        CommitResult{
+            .end = x::telem::TimeStamp(res.end()),
+            .authorized = res.authorized()
+        },
+        x::errors::NIL,
+    };
 }
 
 x::errors::Error Writer::set_authority(const x::control::Authority &auth) {

@@ -218,19 +218,28 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Eventually(errs).Should(Receive(MatchError(query.ErrNotFound)))
 		})
 
-		It("Should send the command and end of a response", func(ctx SpecContext) {
-			serve(transport.FrameWriter, 1, framer.WriterResponse{
-				Command: framer.WriterCommandCommit,
-				End:     telem.TimeStamp(123),
-			})
-			res := exchange(
-				MustSucceed(client.Exec(ctx)),
-				1,
-				&grpcframer.WriterRequest{Command: int32(framer.WriterCommandCommit)},
-			)[0]
-			Expect(res.Command).To(Equal(int32(framer.WriterCommandCommit)))
-			Expect(res.End).To(Equal(int64(123)))
-		})
+		DescribeTable(
+			"Should send the command, end, and authorization of a response",
+			func(ctx SpecContext, authorized bool) {
+				serve(transport.FrameWriter, 1, framer.WriterResponse{
+					Command:    framer.WriterCommandCommit,
+					End:        telem.TimeStamp(123),
+					Authorized: authorized,
+				})
+				res := exchange(
+					MustSucceed(client.Exec(ctx)),
+					1,
+					&grpcframer.WriterRequest{
+						Command: int32(framer.WriterCommandCommit),
+					},
+				)[0]
+				Expect(res.Command).To(Equal(int32(framer.WriterCommandCommit)))
+				Expect(res.End).To(Equal(int64(123)))
+				Expect(res.Authorized).To(Equal(authorized))
+			},
+			Entry("authorized", true),
+			Entry("unauthorized", false),
+		)
 	})
 
 	Describe("Streamer", func() {
