@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -317,6 +316,11 @@ func frozenFile(
 			pred.aliased.Add(ns + "." + name)
 		}
 	}
+	shared, err := sharedMembers(ctx, req, livePath, f.Chain, k)
+	if err != nil {
+		return plugin.File{}, err
+	}
+	used := referencedAt(table, ns)
 	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
@@ -327,6 +331,12 @@ func frozenFile(
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
 		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
+			continue
+		}
+		// A current package drops a live-omitted declaration, unless something uses it.
+		live, has := liveType(req, livePath, name)
+		if has && omit.IsType(live, "go") && shared.Contains(name) &&
+			!used.Contains(t.QualifiedName) {
 			continue
 		}
 		switch t.Form.(type) {
@@ -340,16 +350,6 @@ func frozenFile(
 			typedefs = append(typedefs, t)
 		}
 	}
-	// The live @go omit drops an enum that nothing at k stores, as a current package
-	// does.
-	stored := enum.CollectReferenced(table.TypesInNamespace(ns), table)
-	enums = slices.DeleteFunc(enums, func(e resolution.Type) bool {
-		live, has := liveType(req, livePath, e.Name)
-		return has && omit.IsType(live, "go") &&
-			!slices.ContainsFunc(stored, func(s resolution.Type) bool {
-				return s.QualifiedName == e.QualifiedName
-			})
-	})
 	vkPath := versioning.VersionedPath(origPath, k)
 	// A fully hand-written frozen package (every declaration @go hand) keeps its
 	// historical files; there is nothing to generate.
@@ -378,6 +378,71 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
+// sharedMembers returns the names that version k and the chain's current version
+// resolve
+// to the same definition.
+func sharedMembers(
+	ctx context.Context,
+	req *plugin.Request,
+	livePath string,
+	chain versions.Chain,
+	k int,
+) (set.Set[string], error) {
+	current, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	if err != nil {
+		return nil, err
+	}
+	frozen, err := req.Versions.Surface(ctx, livePath, k)
+	if err != nil {
+		return nil, err
+	}
+	shared := make(set.Set[string])
+	for name, def := range current {
+		if at, member := frozen[name]; member && at.Version == def.Version {
+			shared.Add(name)
+		}
+	}
+	return shared, nil
+}
+
+// referencedAt returns the qualified names that the declarations in ns reference. An
+// enum's extends copies its members, so the extended enum does not count.
+func referencedAt(table *resolution.Table, ns string) set.Set[string] {
+	used := make(set.Set[string])
+	var walk func(ref resolution.TypeRef)
+	walk = func(ref resolution.TypeRef) {
+		for _, arg := range ref.TypeArgs {
+			walk(arg)
+		}
+		if t, ok := ref.Resolve(table); ok {
+			used.Add(t.QualifiedName)
+		}
+	}
+	for _, t := range table.TypesInNamespace(ns) {
+		switch form := t.Form.(type) {
+		case resolution.StructForm:
+			for _, ext := range form.Extends {
+				walk(ext)
+			}
+			for _, field := range form.Fields {
+				walk(field.Type)
+			}
+		case resolution.UnionForm:
+			for _, ext := range form.Extends {
+				walk(ext)
+			}
+			for _, v := range form.Variants {
+				walk(v.Type)
+			}
+		case resolution.AliasForm:
+			walk(form.Target)
+		case resolution.DistinctForm:
+			walk(form.Base)
+		}
+	}
+	return used
+}
+
 // withLiveMethods copies the live file's @validate rules, @default groups, and @go
 // to_any markers onto the version k surface members that the chain's current version
 // aliases, and onto the inline variant payloads of those unions. The current package's
@@ -390,19 +455,13 @@ func withLiveMethods(
 	chain versions.Chain,
 	k int,
 ) error {
-	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	shared, err := sharedMembers(ctx, req, livePath, chain, k)
 	if err != nil {
 		return err
 	}
-	frozen, err := req.Versions.Surface(ctx, livePath, k)
-	if err != nil {
-		return err
-	}
-	aliased := make(set.Set[string])
-	for name, def := range surf {
-		if at, member := frozen[name]; member && at.Version == def.Version {
-			aliased.Add(ns + "." + name)
-		}
+	aliased := make(set.Set[string], len(shared))
+	for name := range shared {
+		aliased.Add(ns + "." + name)
 	}
 	for _, t := range table.Types {
 		u, isUnion := t.Form.(resolution.UnionForm)
