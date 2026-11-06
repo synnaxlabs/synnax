@@ -9,3 +9,4 @@
 
 export * from "@/device/client";
 export * from "@/device/types.gen";
+export { type WhereInput } from "@/device/where.gen";

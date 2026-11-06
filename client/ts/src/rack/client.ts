@@ -70,7 +70,7 @@ const singleRetrieveParamsZ = z.union([
 ]);
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 

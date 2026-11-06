@@ -71,7 +71,6 @@ const filterParamsZ = query.shippedZ(
     racks: "rack",
   },
 );
-type FilterParams = query.RequestInput<typeof filterParamsZ>;
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -100,7 +99,7 @@ const singleRetrieveParamsZ = z
   }));
 
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const retrieveParamsZ = z.union([
   singleRetrieveParamsZ,
@@ -252,17 +251,13 @@ export class Client extends query.Retriever<
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: (RetrieveMultipleParams | FilterParams) &
-      RetrieveSchemas<Properties, Make, Model>,
+    params: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(
-    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
-  ): Promise<Array<Device>>;
+  async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    rawParams:
-      Key | Key[] | ((RetrieveParams | FilterParams) & { schemas?: DeviceSchemas }),
+    rawParams: Key | Key[] | (RetrieveParams & { schemas?: DeviceSchemas }),
   ): Promise<Device | Array<Device>> {
     if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
@@ -410,7 +405,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(
-    params: RetrieveParams | FilterParams,
+    params: RetrieveParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const res = await this.cfg.unary.send(
@@ -423,7 +418,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(
-    req: RetrieveParams | FilterParams,
+    req: RetrieveParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const since = this.store.stamp();

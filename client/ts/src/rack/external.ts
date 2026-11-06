@@ -9,3 +9,4 @@
 
 export * from "@/rack/client";
 export * from "@/rack/types.gen";
+export { type WhereInput } from "@/rack/where.gen";

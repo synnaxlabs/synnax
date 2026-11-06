@@ -241,11 +241,8 @@ describe("Rack", () => {
         { name: `shipped-${id.create()}`, integrations: ["labjack"] },
       ]);
       const keys = [a.key, b.key];
-      expect(
-        (await client.racks.retrieve({ keys, integration: "labjack" })).map(
-          (r) => r.key,
-        ),
-      ).toEqual([b.key]);
+      const params: rack.RetrieveMultipleParams = { keys, integration: "labjack" };
+      expect((await client.racks.retrieve(params)).map((r) => r.key)).toEqual([b.key]);
       expect(
         (await client.racks.retrieve({ keys, integration: "" }))
           .map((r) => r.key)
