@@ -50,6 +50,10 @@ def compare(tmp_path: Path) -> Compare:
 
 
 class TestSurface:
+    def test_exits_non_zero_when_both_reports_fail(self, compare: Compare) -> None:
+        assert compare.run() != 0
+        assert compare.status == "error"
+
     def test_reports_same_when_the_reports_match(self, compare: Compare) -> None:
         (compare.base / "report.txt").write_text("a\n")
         (compare.head / "report.txt").write_text("a\n")
