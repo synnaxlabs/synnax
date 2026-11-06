@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -328,9 +329,6 @@ func frozenFile(
 		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
 			continue
 		}
-		if live, has := liveType(req, livePath, name); has && omit.IsType(live, "go") {
-			continue
-		}
 		switch t.Form.(type) {
 		case resolution.StructForm:
 			structs = append(structs, t)
@@ -342,6 +340,16 @@ func frozenFile(
 			typedefs = append(typedefs, t)
 		}
 	}
+	// The live @go omit drops an enum that nothing at k stores, as a current package
+	// does.
+	stored := enum.CollectReferenced(table.TypesInNamespace(ns), table)
+	enums = slices.DeleteFunc(enums, func(e resolution.Type) bool {
+		live, has := liveType(req, livePath, e.Name)
+		return has && omit.IsType(live, "go") &&
+			!slices.ContainsFunc(stored, func(s resolution.Type) bool {
+				return s.QualifiedName == e.QualifiedName
+			})
+	})
 	vkPath := versioning.VersionedPath(origPath, k)
 	// A fully hand-written frozen package (every declaration @go hand) keeps its
 	// historical files; there is nothing to generate.
