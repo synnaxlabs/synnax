@@ -524,7 +524,7 @@ All matching is case-insensitive substring.
     )
     parser.add_argument(
         "--cores",
-        type=int,
+        type=_positive,
         default=1,
         help=(
             "Run sequences on this many Cores at once. The conductor starts the Cores "
