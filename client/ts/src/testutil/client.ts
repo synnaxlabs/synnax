@@ -121,7 +121,10 @@ export const holdRequests = (
     if (args[0] === target) await released.promise;
     return await send(...args);
   });
-  onTestFinished(() => spy.mockRestore());
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
   return { release: () => released.resolve() };
 };
 
