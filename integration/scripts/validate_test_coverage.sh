@@ -17,6 +17,8 @@
 #
 # Outputs (GitHub Actions):
 #   TEST_MATRIX — JSON object consumable by strategy.matrix via fromJSON()
+#   BOT_MATRIX — the same suites for a run with no hosted runners. A hosted entry is
+#   one job there with no args, as its shards and args fit a hosted runner.
 
 set -euo pipefail
 
@@ -91,30 +93,40 @@ if [ -n "$EXEMPT" ]; then
 fi
 
 # Build Matrix Output
-json='{"include":['
-first=true
+job() {
+    printf '{"name":"%s","target":"%s","hosted":%s,"args":"%s"}' "$@"
+}
+
+test_jobs=()
+bot_jobs=()
 for entry in "${MATRIX_ENTRIES[@]}"; do
     IFS=: read -r name target hosted shards args <<< "$entry"
+    if [ "$hosted" = true ]; then
+        bot_jobs+=("$(job "$name" "$target" "$hosted" "")")
+    else
+        bot_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
+    fi
+    if [ "$shards" -eq 1 ]; then
+        test_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
+        continue
+    fi
     for shard in $(seq 1 "$shards"); do
-        job=$name
-        job_args=$args
-        if [ "$shards" -gt 1 ]; then
-            job="$name-$shard"
-            job_args="$args --shard $shard/$shards"
-        fi
-        if [ "$first" = true ]; then
-            first=false
-        else
-            json+=","
-        fi
-        json+="{\"name\":\"$job\",\"target\":\"$target\",\"hosted\":$hosted,"
-        json+="\"args\":\"$job_args\"}"
+        shard_args="$args --shard $shard/$shards"
+        test_jobs+=("$(job "$name-$shard" "$target" "$hosted" "$shard_args")")
     done
 done
-json+=']}'
 
-echo "Matrix: $json"
+matrix() {
+    local IFS=,
+    echo "{\"include\":[$*]}"
+}
+test_matrix=$(matrix "${test_jobs[@]}")
+bot_matrix=$(matrix "${bot_jobs[@]}")
+
+echo "Matrix: $test_matrix"
+echo "Bot matrix: $bot_matrix"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "TEST_MATRIX=$json" >> "$GITHUB_OUTPUT"
+    echo "TEST_MATRIX=$test_matrix" >> "$GITHUB_OUTPUT"
+    echo "BOT_MATRIX=$bot_matrix" >> "$GITHUB_OUTPUT"
 fi
