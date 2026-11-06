@@ -249,7 +249,8 @@ describe("Panel.TabMenuItems", () => {
     it("mints a panel named after the tab and opens a window showing it", async () => {
       mocks.engine = "tauri";
       const proj = await client.projects.create({ name: uniqueName("project") });
-      const sch = await client.schematics.create(proj.key, {
+      const sch = await client.schematics.create({
+        project: proj.key,
         name: uniqueName("schematic"),
       });
       const moved: panel.Tab = {

@@ -95,7 +95,7 @@ describe("Search.List", () => {
   it("shows the new name of a result renamed while the palette is open", async () => {
     const token = uniqueName("plot").replace(/_/g, "");
     const proj = await client.projects.create({ name: uniqueName("proj") });
-    const plot = await client.lineplots.create(proj.key, { name: token });
+    const plot = await client.lineplots.create({ project: proj.key, name: token });
     await renderSearch(LinePlot.SEARCH_LIST_ITEMS);
     fireEvent.change(searchInput(), { target: { value: token } });
     await screen.findByText(token);

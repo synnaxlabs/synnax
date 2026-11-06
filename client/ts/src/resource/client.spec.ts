@@ -126,7 +126,7 @@ describe("Resource", () => {
     it("should rename a resource in a subscribed search", async () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
-      const plot = await client.lineplots.create(proj.key, { name: token });
+      const plot = await client.lineplots.create({ project: proj.key, name: token });
       await awaitIndexed(token, 1);
       const read = await subscribe({ term: token, types: ["lineplot"] });
       await client.lineplots.rename(plot.key, `${token} renamed`);
@@ -139,7 +139,7 @@ describe("Resource", () => {
     it("should drop a deleted resource from a subscribed search", async () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
-      const plot = await client.lineplots.create(proj.key, { name: token });
+      const plot = await client.lineplots.create({ project: proj.key, name: token });
       await awaitIndexed(token, 1);
       const read = await subscribe({ term: token, types: ["lineplot"] });
       await client.lineplots.delete(plot.key);

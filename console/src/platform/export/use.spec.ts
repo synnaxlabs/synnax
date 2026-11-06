@@ -60,7 +60,10 @@ describe("Export.use", () => {
 describe("Export.useResource", () => {
   it("saves the export to a file named after the resource", async () => {
     const proj = await client.projects.create({ name: uniqueName("project") });
-    const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: uniqueName("plot"),
+    });
     const { result } = await renderHookWithConsole(() => Export.useResource(), {
       client,
     });
