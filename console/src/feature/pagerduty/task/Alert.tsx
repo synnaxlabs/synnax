@@ -66,11 +66,13 @@ const ROUTING_KEY_INPUT_PROPS = {
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={INITIAL_RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["pagerduty"] } },
+};
 
 interface AlertDetailsProps {
   itemKey: string;

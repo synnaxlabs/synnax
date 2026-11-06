@@ -126,6 +126,14 @@ class TestClient:
         panels = client.panels.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in panels} == {p1.key, p2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+        """Should keep the panels that match the where and the other filters."""
+        a = client.panels.create(name="A", parent=parent)
+        b = client.panels.create(name="B", parent=parent)
+        where = panel.Where(not_=panel.Where(key=sy.filter.Set[panel.Key](eq=a.key)))
+        res = client.panels.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_by_parent(
         self, client: sy.Synnax, parent: sy.ontology.ID
     ) -> None:
@@ -167,6 +175,42 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=UUID("7c3e9a52-4b1d-4f0e-9a6c-2d8b5e1f3a90"))
 
+    def test_retrieve_key_list(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.panels.create(name="A", parent=parent)
+        res = client.panels.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, parent: sy.ontology.ID
+    ) -> None:
+        """Should return one panel for a plain key beside other fields."""
+        a = client.panels.create(name="A", parent=parent)
+        assert client.panels.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+            client.panels.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+        """Should retrieve the panels that match any filter in or_."""
+        a = client.panels.create(name="A", parent=parent)
+        b = client.panels.create(name="B", parent=parent)
+        res = client.panels.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
+    def test_retrieve_one_by_parent_without_children(
+        self, client: sy.Synnax, parent: sy.ontology.ID
+    ) -> None:
+        """Should raise NotFoundError for one panel of a parent with no panels."""
+        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+            client.panels.retrieve(parent=parent, one=True)
+
+    def test_retrieve_none_field_by_parent_without_children(
+        self, client: sy.Synnax, parent: sy.ontology.ID
+    ) -> None:
+        """Should reject a field set to None beside a parent with no panels."""
+        with pytest.raises(ValidationError, match="key is None"):
+            client.panels.retrieve(parent=parent, key=None)  # type: ignore[call-overload]
+
     def test_rename(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
         """Should rename a panel."""
         p = client.panels.create(name="Before Rename", parent=parent)
@@ -185,5 +229,4 @@ class TestClient:
         p1 = client.panels.create(name="Delete 1", parent=parent)
         p2 = client.panels.create(name="Delete 2", parent=parent)
         client.panels.delete([p1.key, p2.key])
-        with pytest.raises(NotFoundError):
-            client.panels.retrieve(keys=[p1.key, p2.key])
+        assert client.panels.retrieve(keys=[p1.key, p2.key]) == []
