@@ -9,13 +9,13 @@
 
 import { type bounds } from "@synnaxlabs/x";
 
-/** DEFAULT_STROKE_WIDTH is the stroke width, in pixels, of a symbol that stores none. */
+/** DEFAULT_STROKE_WIDTH is the stroke width, in pixels, of a symbol with none. */
 export const DEFAULT_STROKE_WIDTH = 2;
 
-/** DEFAULT_BOX_BORDER_RADIUS is the corner radius, in pixels, of a box that stores none. */
+/** DEFAULT_BOX_BORDER_RADIUS is the corner radius, in pixels, of a box with none. */
 export const DEFAULT_BOX_BORDER_RADIUS = 3;
 
-/** DEFAULT_PRECISION is the number of decimal places a symbol shows when it stores none. */
+/** DEFAULT_PRECISION is the number of decimal places of a symbol with none. */
 export const DEFAULT_PRECISION = 2;
 
 /** DEFAULT_BOUNDS is the range a gauge or scale indicator maps when it stores none. */
