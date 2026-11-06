@@ -22,6 +22,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -230,6 +231,8 @@ struct Properties {
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
+    /// @brief synchronization modes the slave lists in its SII, in SII order.
+    std::vector<dc::OpMode> op_modes;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
@@ -276,6 +279,7 @@ struct Properties {
             parser.iter("startup_parameters", [&props](x::json::Parser &param) {
                 props.startup_parameters.push_back(StartupParameter::parse(param));
             });
+        props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
@@ -302,6 +306,11 @@ struct Properties {
         props["output_bits"] = this->output_bits;
         props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
         props["enabled"] = this->enabled;
+
+        nlohmann::json op_modes = nlohmann::json::array();
+        for (const auto &mode: this->op_modes)
+            op_modes.push_back(mode.to_json());
+        props["op_modes"] = op_modes;
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)

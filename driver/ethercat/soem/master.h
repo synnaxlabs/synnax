@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
@@ -128,6 +129,10 @@ private:
 
     /// @brief discovers PDOs from SII EEPROM (fallback method).
     void discover_pdos_sii(slave::DiscoveryResult &slave);
+
+    /// @brief reads the synchronization modes the slave at the given position lists in
+    /// its SII. Returns an empty list when the SII has no DC category.
+    std::vector<dc::OpMode> read_op_modes(uint16_t position);
 
     /// @brief reads PDO assignment object to get list of assigned PDOs.
     x::errors::Error read_pdo_assign(

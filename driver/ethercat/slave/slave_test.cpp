@@ -226,6 +226,37 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
     ASSERT_EQ(props.output_pdos.size(), 0);
 }
 
+/// @brief it should parse a device stored before slaves listed their OpModes as a slave
+/// with no OpModes.
+TEST(PropertiesParse, DefaultsToNoOpModes) {
+    auto j = Properties{.name = "EL2008", .enabled = true}.to_json();
+    j.erase("op_modes");
+    auto parser = x::json::Parser(j);
+    const auto props = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_TRUE(props.op_modes.empty());
+}
+
+/// @brief it should give back the OpModes of a slave in SII order after a JSON round
+/// trip.
+TEST(PropertiesParse, RoundTripsOpModes) {
+    const Properties props{
+        .name = "6xSTG",
+        .op_modes =
+            {{.name = "SM-Synchron", .sync0_factor = 1},
+             {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+             {.name = "DC-bus1",
+              .assign_activate = 0x0700,
+              .sync0_cycle = 1000,
+              .sync1_factor = -1000}},
+        .enabled = true,
+    };
+    auto parser = x::json::Parser(props.to_json());
+    const auto parsed = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(parsed.op_modes, props.op_modes);
+}
+
 TEST(PropertiesToJson, SerializesAllFields) {
     Properties props{
         .network = "eth0",
