@@ -177,8 +177,15 @@ public:
         return this->recover_return;
     }
 
+    /// @brief like ecx_statecheck, a group check (slave 0) that reaches reqstate
+    /// leaves each slave's state for the next readstate to update.
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         const uint16_t state = this->reach(slave, reqstate);
+        if (slave == 0 && state == reqstate)
+            for (auto &info: this->slave_infos) {
+                info.bus_state.reset();
+                info.requested = reqstate;
+            }
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
             info.state = state;
@@ -198,7 +205,7 @@ public:
     }
 
     int SDOread(
-        uint16_t,
+        uint16_t slave,
         uint16_t index,
         uint8_t sub_index,
         int,
@@ -206,6 +213,9 @@ public:
         void *p,
         int
     ) override {
+        // SOEM sends no mailbox request to a slave whose last read state is below
+        // PRE-OP.
+        if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto it = this->sdo_objects.find({index, sub_index});
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);

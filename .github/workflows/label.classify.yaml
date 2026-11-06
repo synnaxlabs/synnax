@@ -10,7 +10,8 @@
 # Raises a pull request to review/human when the results Check - Classify uploaded show
 # a changed interface, and keeps one comment with the evidence. Otherwise the author
 # picks the tier. A fork, or a change to the classifier itself, always gets a human:
-# either could forge the uploaded results. The workflow runs from the default branch and
+# either could forge the uploaded results. Check - Classify dispatches this, and Relay -
+# Sweep does for a fork or Dependabot. The workflow runs from the default branch and
 # never checks out or runs pull request code: the artifacts are data. The label goes on
 # with an App token, because a label set with GITHUB_TOKEN starts no other workflow, and
 # the review gate and auto-merge wait for it.
@@ -18,11 +19,6 @@
 name: Label - Classify
 
 on:
-  workflow_run:
-    workflows:
-      - Check - Classify
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       run_id:
@@ -37,42 +33,42 @@ on:
         description: Concurrency group of the pull request branch
         required: true
         type: string
+      pr:
+        description: The pull request, when the results cannot be trusted to name it
+        required: false
+        type: string
 
 permissions: {}
 
 # One run per pull request branch at a time, so an older run never writes after a newer
 # one. A newer queued run replaces an older queued one.
 concurrency:
-  group:
-    label-classify-${{ inputs.group || format('{0}-{1}',
-    github.event.workflow_run.head_repository.full_name,
-    github.event.workflow_run.head_branch) }}
+  group: label-classify-${{ inputs.group }}
   cancel-in-progress: false
 
 jobs:
   label:
     name: Label
-    if: github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
 
       - name: Download the results
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
+          run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/results
 
       - name: Create an App token
         id: token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
@@ -83,5 +79,6 @@ jobs:
       - name: Classify
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          HEAD_SHA: ${{ inputs.head_sha || github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PR: ${{ inputs.pr }}
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
