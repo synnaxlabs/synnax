@@ -138,12 +138,16 @@ func CopyDir(src, dst FS, name string) error {
 
 // ReadFile returns the contents of the file name in fsys. The error matches
 // os.ErrNotExist when there is no such file.
-func ReadFile(fsys FS, name string) (_ []byte, err error) {
+func ReadFile(fsys FS, name string) (data []byte, err error) {
 	f, err := fsys.Open(name, os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Combine(err, f.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, f.Close()); err != nil {
+			data = nil
+		}
+	}()
 	return io.ReadAll(f)
 }
 

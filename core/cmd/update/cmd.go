@@ -23,62 +23,61 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Cmd is the command group that lists the metadata backups and undoes updates.
-var Cmd = &cobra.Command{
-	Use:   "update",
-	Short: "Undo an update of the Core",
-	Long: "Before a new version first opens the data, the Core backs up its " +
-		"metadata. These commands list the backups and undo an update with one. A " +
-		"backup holds no telemetry.",
-	Args: cobra.NoArgs,
-}
-
-var undoCmd = &cobra.Command{
-	Use:   "undo [backup]",
-	Short: "Undo the last update, or go back to an older backup",
-	Long: "Puts back the metadata of the newest backup, or of the named one, and " +
-		"prints the Core version to run on the data. Stop the Core first. Telemetry " +
-		"stays, but the telemetry of channels created after the backup moves to an " +
-		"orphaned directory in the backups directory.",
-	Example: "synnax update undo --data /mnt/ssd1\n" +
-		"synnax update undo 1793000000-0.60.1 --data /mnt/ssd1",
-	Args:    cobra.MaximumNArgs(1),
-	PreRunE: bindFlags,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cmd.SilenceUsage = true
-		ins := instrumentation.Configure()
-		defer instrumentation.Cleanup(cmd.Context(), ins)
-		backups, err := storage.NewBackups(buildBackupsConfig(ins))
-		if err != nil {
-			return err
-		}
-		return undo(cmd.OutOrStdout(), backups, args)
-	},
-}
-
-var historyCmd = &cobra.Command{
-	Use:     "history",
-	Short:   "List the backups that can undo an update",
-	Long:    "Lists the metadata backups in the data directory, oldest first.",
-	Example: "synnax update history --data /mnt/ssd1",
-	Args:    cobra.NoArgs,
-	PreRunE: bindFlags,
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		cmd.SilenceUsage = true
-		ins := instrumentation.Configure()
-		defer instrumentation.Cleanup(cmd.Context(), ins)
-		backups, err := storage.NewBackups(buildBackupsConfig(ins))
-		if err != nil {
-			return err
-		}
-		return history(cmd.OutOrStdout(), backups)
-	},
-}
-
-func init() {
+// NewCmd returns the command group that lists the metadata backups and undoes
+// updates.
+func NewCmd() *cobra.Command {
+	group := &cobra.Command{
+		Use:   "update",
+		Short: "Undo an update of the Core",
+		Long: "Before a new version first opens the data, the Core backs up its " +
+			"metadata. These commands list the backups and undo an update with " +
+			"one. A backup holds no telemetry.",
+		Args: cobra.NoArgs,
+	}
+	undoCmd := &cobra.Command{
+		Use:   "undo [backup]",
+		Short: "Undo the last update, or go back to an older backup",
+		Long: "Puts back the metadata of the newest backup, or of the named one, " +
+			"and prints the Core version to run on the data. Stop the Core first. " +
+			"Telemetry stays, but the telemetry of channels created after the " +
+			"backup moves to an orphaned directory in the backups directory.",
+		Example: "synnax update undo --data /mnt/ssd1\n" +
+			"synnax update undo 1793000000-0.60.1 --data /mnt/ssd1",
+		Args:    cobra.MaximumNArgs(1),
+		PreRunE: bindFlags,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			ins := instrumentation.Configure()
+			defer instrumentation.Cleanup(cmd.Context(), ins)
+			backups, err := storage.NewBackups(buildBackupsConfig(ins))
+			if err != nil {
+				return err
+			}
+			return undo(cmd.OutOrStdout(), backups, args)
+		},
+	}
+	historyCmd := &cobra.Command{
+		Use:     "history",
+		Short:   "List the backups that can undo an update",
+		Long:    "Lists the metadata backups in the data directory, oldest first.",
+		Example: "synnax update history --data /mnt/ssd1",
+		Args:    cobra.NoArgs,
+		PreRunE: bindFlags,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cmd.SilenceUsage = true
+			ins := instrumentation.Configure()
+			defer instrumentation.Cleanup(cmd.Context(), ins)
+			backups, err := storage.NewBackups(buildBackupsConfig(ins))
+			if err != nil {
+				return err
+			}
+			return history(cmd.OutOrStdout(), backups)
+		},
+	}
 	addFlags(undoCmd)
 	addFlags(historyCmd)
-	Cmd.AddCommand(undoCmd, historyCmd)
+	group.AddCommand(undoCmd, historyCmd)
+	return group
 }
 
 func bindFlags(cmd *cobra.Command, _ []string) error {

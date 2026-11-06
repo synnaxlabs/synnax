@@ -144,7 +144,10 @@ func (b *Backups) extract(name string) (xfs.FS, error) {
 		return nil, err
 	}
 	archive := path.Join(backupsDir, name+archiveExt)
-	return dst, extractArchive(b.fs, archive, dst)
+	if err = extractArchive(b.fs, archive, dst); err != nil {
+		return nil, err
+	}
+	return dst, nil
 }
 
 // extractedDir returns the directory that extract unpacks the named backup into.
