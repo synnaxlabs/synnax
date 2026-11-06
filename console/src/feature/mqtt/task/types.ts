@@ -423,6 +423,6 @@ export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
   statusData: z
-    .union([testResultZ, browseResultZ, mqtt.sampleResultZ, browseSparkplugResultZ])
+    .union([testResultZ, mqtt.sampleResultZ, browseResultZ, browseSparkplugResultZ])
     .nullish(),
 } as const satisfies task.Schemas;

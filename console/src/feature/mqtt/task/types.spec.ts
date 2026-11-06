@@ -952,6 +952,15 @@ describe("MQTT Scan Task", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, data)).toBe(true);
   });
 
+  it("should keep the shapes of a sample reply with no topics", () => {
+    const shape = { sources: ["plant/temp"], fields: [], index: -1, count: 1 };
+    const data = { topics: [], shapes: [shape], truncated: false };
+    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual({
+      ...data,
+      shapes: [{ ...shape, index: undefined }],
+    });
+  });
+
   it("should reject a browse reply with no truncated flag", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, { topics: [] })).toBe(false);
   });
