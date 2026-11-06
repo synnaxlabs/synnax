@@ -156,6 +156,9 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
+const closedError = (): DisconnectedError =>
+  new DisconnectedError("The client is closed.");
+
 // "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
 // client deleted ahead of the change stream.
 type Removal = "evict" | "confirmed" | "local";
@@ -179,9 +182,6 @@ export interface Interceptor<Key extends record.Key, Value> {
  * optimistic writes, idempotent backfills) are silenced by the equality check rather
  * than by writer identity.
  */
-const closedError = (): DisconnectedError =>
-  new DisconnectedError("The client is closed.");
-
 export class Table<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
@@ -201,6 +201,7 @@ export class Table<
   private readonly hydrateMode: HydrateMode;
   private readonly revivable: boolean;
   private closed = false;
+  private readonly closing = Promise.withResolvers<never>();
   private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
@@ -222,6 +223,8 @@ export class Table<
     indexes = [],
     revivable = false,
   }: TableParams<Key, Value>) {
+    // Only reconcile awaits this, so a close with none running must not go unhandled.
+    this.closing.promise.catch(() => {});
     this.onError = onError;
     this.equal = equal;
     this.fetchEntries = fetch;
@@ -652,10 +655,11 @@ export class Table<
 
   /**
    * Rejects every fetch in progress and every later fetch with a
-   * {@link DisconnectedError}. The table keeps its entries.
+   * {@link DisconnectedError}, reconciles included. The table keeps its entries.
    */
   close(): void {
     this.closed = true;
+    this.closing.reject(closedError());
     this.fetchBatcher?.close(closedError());
   }
 
@@ -679,7 +683,10 @@ export class Table<
     const keys = this.keys();
     if (keys.length === 0) return;
     const since = this.stamp();
-    const values = await fetchSurvivors(fetchEntries, keys);
+    const values = await fetchSurvivors(async (keys: Key[]) => {
+      if (this.closed) throw closedError();
+      return await Promise.race([fetchEntries(keys), this.closing.promise]);
+    }, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
     const missing = keys.filter((k) => !present.has(k));
     // A missing key deleted here during the fetch gets no delete from the Core.
