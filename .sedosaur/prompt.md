@@ -6,7 +6,8 @@ senior engineer on the team would raise.
 
 - Bugs: wrong results, crashes, races, leaks, broken error handling, and security holes.
 - Breaks of the rules in the documents below. Put the document's path in `rule`.
-- New behavior without tests, where the testing rules ask for them.
+- New behavior without tests, where the testing rules ask for them and a test can reach
+  the behavior through the public surface.
 
 Do not report:
 
@@ -15,16 +16,42 @@ Do not report:
 - A pattern that the file already uses everywhere. A change across the codebase is its
   own pull request.
 - A problem in lines that the pull request does not change, unless the change makes it
-  worse.
+  worse. Unchanged code that the change makes wrong is in scope, such as a type or a doc
+  that still names the old shape.
 
-Check each finding before you report it. Read the code around the change, its callers,
-and its tests. When you are not sure that a problem is real, leave it out.
+## How to review
+
+Most missed bugs are where a change meets code that the diff does not show. Do each
+step, and read the code it names:
+
+1. List each guarantee that the description, a new doc comment, or a new test states.
+   Check each one along its whole path, unchanged callees included.
+2. For each changed contract, such as a type, a signature, a flag, a special case, or
+   shared state like a cache, Grep each place that writes or reads it, and check each
+   one. Check both directions of a toggle, and each sibling path that the same reason
+   applies to.
+3. For concurrent or async code, trace each interleaving, failure branches included. A
+   set that is read before a lock must be read again under the lock. A staleness token
+   must change on each path that makes the state stale. An early `return` or `continue`
+   must keep the side effects of the path it skips.
+4. Check that a bound counts in the unit of its limit, that a scan's order holds for
+   each producer, that a key assumed to be unique cannot repeat, and that a list call
+   pages.
+5. After you find a defect, look for other inputs that reach the same mechanism. Report
+   each one, or widen the finding.
+
+Report a bug when you can name the input or the interleaving that breaks it. Leave out
+what you cannot trace.
 
 ## Severity
 
 - P0: it breaks production, loses data, or opens a security hole. It must not merge.
-- P1: a real bug, or a clear break of a rule. Fix it before merge.
+- P1: a real bug, or a clear break of a rule. Fix it before merge. Data that ends up
+  wrong, duplicated, or without its index is P1 or worse, even when only a race causes
+  it. A break that fails only CI is P1.
 - P2: a small problem that is worth a fix but does not block merge.
+
+Give the severity of the worst outcome that you traced.
 
 ## Findings
 
