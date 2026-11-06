@@ -194,8 +194,9 @@ func generateFile(
 	}
 	form := where.Form.(resolution.StructForm)
 	var key *resolution.TypeRef
-	named := false
+	named, patterned := false, false
 	for _, line := range where.Filter.Lines {
+		patterned = patterned || line.Name == "name_patterns"
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
 		if line.HasType() {
@@ -268,8 +269,10 @@ func generateFile(
 		}
 		data.Lines = append(data.Lines, ld)
 	}
-	// A name could look like a free-text key, so only a key of another type takes one.
-	if key != nil && named && resolution.PrimitiveBase(*key, table) != "string" {
+	// A name could look like a free-text key, so a name needs another key type. Clients
+	// send a bare name to name_patterns, when the filter has it, in hand-written code.
+	if key != nil && named && !patterned &&
+		resolution.PrimitiveBase(*key, table) != "string" {
 		data.ShortcutKey = zodOf(*key)
 	}
 
