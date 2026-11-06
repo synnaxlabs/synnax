@@ -21,6 +21,7 @@ import {
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
+import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
@@ -1685,18 +1686,19 @@ describe("log/aether/Log", () => {
       expect(cleanupSpy).toHaveBeenCalled();
     });
 
-    it("should request a render, which erases what the log drew last", () => {
+    it("should erase the last drawn region, and draw no render left pending", () => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
       const { h, recorder } = setup([makeEntry(0)]);
+      const loop = new render.Loop({ handleError: vi.fn() });
+      recorder.loop.set = (req) => loop.set(req as render.Request);
+      h.setState((s) => ({ ...s }));
+      vi.advanceTimersToNextFrame();
+      h.setState((s) => ({ ...s, region: box.translate(s.region, "x", 100) }));
       recorder.clear();
       h.unmount();
-      expect(recorder.loopCalls).toHaveLength(1);
-    });
-
-    it("should not draw in a render that was pending when it was deleted", () => {
-      const { h, log, recorder } = setup([makeEntry(0)]);
-      h.unmount();
-      recorder.clear();
-      expect(log.render()).toBeUndefined();
+      vi.advanceTimersToNextFrame();
+      vi.useRealTimers();
+      expect(recorder.eraseCalls.map(({ region }) => region)).toEqual([REGION_500]);
       expect(recorder.lower2d.calls).toEqual([]);
     });
   });
