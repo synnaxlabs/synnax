@@ -50,8 +50,8 @@ func createProjectGroup(ctx SpecContext, name string) group.Group {
 
 func createLog(ctx SpecContext, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Name: name}
-	Expect(svc.Log.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+	l := log.Log{Project: &proj.Key, Name: name}
+	Expect(svc.Log.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 	return l
 }
 
@@ -109,8 +109,7 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
-				Project: proj.Key,
-				Logs:    []log.Log{{Name: "Denied", Group: &g.Key}},
+				Logs: []log.Log{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -119,8 +118,7 @@ var _ = Describe("Create in a group", func() {
 		g := createProjectGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
-			Project: proj.Key,
-			Logs:    []log.Log{{Name: "Granted", Group: &g.Key}},
+			Logs: []log.Log{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 		}))
 		Expect(retrieveLog(ctx, res.Logs[0].Key).Group).To(Equal(&g.Key))
 	})

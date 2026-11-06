@@ -307,7 +307,7 @@ func (w *bundleWalk) children(
 		if err != nil {
 			return nil, err
 		}
-		deps, err := w.svc.cfg.Project.Children(w.tx, key)
+		deps, err := w.svc.cfg.Project.Children(ctx, w.tx, key)
 		if err != nil {
 			return nil, err
 		}

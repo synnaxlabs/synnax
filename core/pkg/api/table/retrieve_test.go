@@ -22,8 +22,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should return no tables for a request with no filter", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
-			Project: proj.Key,
-			Tables:  []table.Table{{Name: "unfiltered"}},
+			Tables: []table.Table{{Project: &proj.Key, Name: "unfiltered"}},
 		}))
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitable.RetrieveRequest{})).
 			To(Equal(apitable.RetrieveResponse{Tables: []table.Table{}}))

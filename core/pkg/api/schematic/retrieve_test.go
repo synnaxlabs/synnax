@@ -22,8 +22,8 @@ var _ = Describe("Retrieve", func() {
 	It(
 		"Should return no schematics for a request with no filter",
 		func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "unfiltered"}
-			Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			s := schematic.Schematic{Project: &proj.Key, Name: "unfiltered"}
+			Expect(schematicSvc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
 				apischematic.RetrieveRequest{},

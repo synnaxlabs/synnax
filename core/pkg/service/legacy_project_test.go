@@ -55,7 +55,7 @@ var _ = Describe("Legacy project bundles", func() {
 		ctx SpecContext, l *service.Layer, key project.Key,
 	) []ontology.Resource {
 		GinkgoHelper()
-		ids := MustSucceed(l.Project.Children(nil, key))
+		ids := MustSucceed(l.Project.Children(ctx, nil, key))
 		var children []ontology.Resource
 		Expect(l.Ontology.NewRetrieve().
 			WhereIDs(ids...).

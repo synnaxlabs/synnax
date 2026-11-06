@@ -22,8 +22,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should return no logs for a request with no filter", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
-			Project: proj.Key,
-			Logs:    []log.Log{{Name: "unfiltered"}},
+			Logs: []log.Log{{Project: &proj.Key, Name: "unfiltered"}},
 		}))
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apilog.RetrieveRequest{})).
 			To(Equal(apilog.RetrieveResponse{Logs: []log.Log{}}))

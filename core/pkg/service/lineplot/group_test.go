@@ -33,10 +33,10 @@ var _ = Describe("SetGroup", func() {
 	BeforeEach(func(ctx SpecContext) {
 		g = group.Group{Name: "grouped", Scope: resource.TypeProject}
 		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
-		target = lineplot.LinePlot{Name: "target"}
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
-		other = lineplot.LinePlot{Name: "other"}
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+		target = lineplot.LinePlot{Name: "target", Project: &proj.Key}
+		Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
+		other = lineplot.LinePlot{Name: "other", Project: &proj.Key}
+		Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 	})
 	retrieveGroup := func(ctx SpecContext, key lineplot.Key) *group.Key {
 		GinkgoHelper()

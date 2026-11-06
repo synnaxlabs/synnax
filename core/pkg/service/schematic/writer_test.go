@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -27,7 +28,7 @@ import (
 )
 
 var _ = Describe("Writer", func() {
-	createRange := func(ctx SpecContext) ranger.Range {
+	createRange := func(ctx SpecContext, tx gorp.Tx) ranger.Range {
 		GinkgoHelper()
 		r := ranger.Range{
 			Name:      "run",
@@ -113,7 +114,8 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should reject moving a range's snapshot into a project",
 			func(ctx SpecContext) {
-				rng := createRange(ctx)
+				tx := DeferClose(db.OpenTx())
+				rng := createRange(ctx, tx)
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 				var snap schematic.Schematic
@@ -131,6 +133,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should move the schematics into the project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := schematic.Schematic{Project: &proj.Key, Name: "moved"}
@@ -145,6 +148,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should reject a project that does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			v := schematic.Schematic{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
@@ -578,7 +582,8 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should copy a snapshot into a range", func(ctx SpecContext) {
-			rng := createRange(ctx)
+			tx := DeferClose(db.OpenTx())
+			rng := createRange(ctx, tx)
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			var snap schematic.Schematic
@@ -596,7 +601,8 @@ var _ = Describe("Writer", func() {
 			Expect(res[0].Snapshot).To(BeTrue())
 		})
 		It("Should delete a range's snapshots with the range", func(ctx SpecContext) {
-			rng := createRange(ctx)
+			tx := DeferClose(db.OpenTx())
+			rng := createRange(ctx, tx)
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			var snap schematic.Schematic
@@ -614,6 +620,7 @@ var _ = Describe("Writer", func() {
 				Exec(ctx, tx)).To(Succeed())
 		})
 		It("Should reject a range that does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			missing := uuid.New()

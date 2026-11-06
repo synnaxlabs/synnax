@@ -110,8 +110,12 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // Children returns the ID of every record that references the project with key, as
 // seen by tx: the groups directly under it and every visualization it owns.
-func (s *Service) Children(tx gorp.Tx, key Key) ([]resource.ID, error) {
-	deps, err := s.table.Dependents(gorp.OverrideTx(s.cfg.DB, tx), key)
+func (s *Service) Children(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) ([]resource.ID, error) {
+	deps, err := s.table.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), key)
 	if err != nil {
 		return nil, err
 	}

@@ -24,8 +24,7 @@ var _ = Describe("Retrieve", func() {
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
 			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				Project:   proj.Key,
-				LinePlots: []lineplot.LinePlot{{Name: "unfiltered"}},
+				LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "unfiltered"}},
 			}))
 			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apilineplot.RetrieveRequest{})).
 				To(Equal(apilineplot.RetrieveResponse{LinePlots: []lineplot.LinePlot{}}))

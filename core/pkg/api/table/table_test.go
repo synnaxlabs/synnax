@@ -50,8 +50,8 @@ func createProjectGroup(ctx SpecContext, name string) group.Group {
 
 func createTable(ctx SpecContext, name string) table.Table {
 	GinkgoHelper()
-	t := table.Table{Name: name}
-	Expect(svc.Table.NewWriter(nil).Create(ctx, proj.Key, &t)).To(Succeed())
+	t := table.Table{Project: &proj.Key, Name: name}
+	Expect(svc.Table.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 	return t
 }
 
@@ -109,8 +109,7 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
-				Project: proj.Key,
-				Tables:  []table.Table{{Name: "Denied", Group: &g.Key}},
+				Tables: []table.Table{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -119,8 +118,7 @@ var _ = Describe("Create in a group", func() {
 		g := createProjectGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
-			Project: proj.Key,
-			Tables:  []table.Table{{Name: "Granted", Group: &g.Key}},
+			Tables: []table.Table{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 		}))
 		Expect(retrieveTable(ctx, res.Tables[0].Key).Group).To(Equal(&g.Key))
 	})

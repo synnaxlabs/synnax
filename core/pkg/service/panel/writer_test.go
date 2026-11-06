@@ -134,6 +134,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should reject a panel whose project does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			missing := uuid.New()
 			p := panel.Panel{Name: "dangling", Project: &missing}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(MatchError(
@@ -157,7 +158,7 @@ var _ = Describe("Writer", func() {
 					Project: &other.Key,
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(retrieve(ctx, first.Key).Project).To(HaveValue(Equal(proj.Key)))
+				Expect(retrieve(ctx, tx, first.Key).Project).To(HaveValue(Equal(proj.Key)))
 			},
 		)
 
@@ -228,6 +229,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should give each panel its own project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			other := project.Project{Name: "other-project"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 			ps := []panel.Panel{
@@ -235,8 +237,8 @@ var _ = Describe("Writer", func() {
 				{Name: "b", Project: &other.Key},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
-			Expect(retrieve(ctx, ps[0].Key).Project).To(HaveValue(Equal(proj.Key)))
-			Expect(retrieve(ctx, ps[1].Key).Project).To(HaveValue(Equal(other.Key)))
+			Expect(retrieve(ctx, tx, ps[0].Key).Project).To(HaveValue(Equal(proj.Key)))
+			Expect(retrieve(ctx, tx, ps[1].Key).Project).To(HaveValue(Equal(other.Key)))
 		})
 
 		It(
@@ -258,15 +260,17 @@ var _ = Describe("Writer", func() {
 
 	Describe("SetProject", func() {
 		It("Should move the panels into the project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			other := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 			p := panel.Panel{Name: "moved", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetProject(ctx, other.Key, p.Key)).To(Succeed())
-			Expect(retrieve(ctx, p.Key).Project).To(HaveValue(Equal(other.Key)))
+			Expect(retrieve(ctx, tx, p.Key).Project).To(HaveValue(Equal(other.Key)))
 		})
 
 		It("Should reject a project that does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "stuck", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), p.Key)).

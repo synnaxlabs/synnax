@@ -145,7 +145,7 @@ func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 	var ids []resource.ID
 	if id.Type == resource.TypeProject {
 		key := MustSucceed(project.KeyFromResourceID(id))
-		deps := MustSucceed(projectSvc.Children(tx, key))
+		deps := MustSucceed(projectSvc.Children(ctx, tx, key))
 		grouped := set.New[resource.ID]()
 		for _, d := range deps {
 			if d.Type == resource.TypeGroup {

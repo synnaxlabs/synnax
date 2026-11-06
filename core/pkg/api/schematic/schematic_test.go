@@ -463,8 +463,7 @@ var _ = Describe("Create in a group", func() {
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, author), db,
 				apischematic.CreateRequest{
-					Project:    proj.Key,
-					Schematics: []schematic.Schematic{{Name: "Denied", Group: &g.Key}},
+					Schematics: []schematic.Schematic{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
 				},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
@@ -473,14 +472,13 @@ var _ = Describe("Create in a group", func() {
 		"Should keep an existing schematic in its group without update on a group",
 		func(ctx SpecContext) {
 			g := createProjectGroup(ctx, "Create keeps group")
-			sc := schematic.Schematic{Name: "Kept", Group: &g.Key}
-			Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &sc)).To(Succeed())
+			sc := schematic.Schematic{Project: &proj.Key, Name: "Kept", Group: &g.Key}
+			Expect(schematicSvc.NewWriter(nil).Create(ctx, &sc)).To(Succeed())
 			ignored := createProjectGroup(ctx, "Create ignores group")
 			sc.Name, sc.Group = "Renamed", &ignored.Key
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, author), db,
 				apischematic.CreateRequest{
-					Project:    proj.Key,
 					Schematics: []schematic.Schematic{sc},
 				},
 			)).Error().ToNot(HaveOccurred())
@@ -495,8 +493,7 @@ var _ = Describe("Create in a group", func() {
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, author), db,
 			apischematic.CreateRequest{
-				Project:    proj.Key,
-				Schematics: []schematic.Schematic{{Name: "Granted", Group: &g.Key}},
+				Schematics: []schematic.Schematic{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 			},
 		))
 		Expect(retrieveSchematic(ctx, res.Schematics[0].Key).Group).To(Equal(&g.Key))

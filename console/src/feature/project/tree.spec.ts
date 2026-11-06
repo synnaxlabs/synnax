@@ -193,10 +193,10 @@ describe("project tree children", () => {
     const g = await client.groups.create({ parent: id, name: uniqueName("group") });
     const s = await client.schematics.create(p.key, { name: uniqueName("schematic") });
     const l = await client.logs.create(p.key, { name: uniqueName("log") });
-    await client.logs.setGroup(l.key, g.key);
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
     await client.lineplots.create((await createProject()).key, { name: "other" });
     assertDefined(Item.children);
-    const sources = Item.children({ client, id });
+    const sources = Item.children({ client, id, root: project.TYPE_RESOURCE_ID });
     const listed = await Promise.all(sources.map(async (src) => await src.retrieve()));
     expect(listed.flat().map(({ name }) => name)).toEqual([g.name, s.name]);
   });
@@ -213,7 +213,7 @@ describe("project tree drop", () => {
     });
     const g = await client.groups.create({ parent: srcID, name: uniqueName("group") });
     const l = await client.logs.create(src.key, { name: uniqueName("log") });
-    await client.logs.setGroup(l.key, g.key);
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
     assertDefined(Item.drop);
     await Item.drop({
       client,
@@ -239,7 +239,7 @@ describe("project tree drop", () => {
     const id = project.resourceID(p.key);
     const g = await client.groups.create({ parent: id, name: uniqueName("group") });
     const l = await client.logs.create(p.key, { name: uniqueName("log") });
-    await client.logs.setGroup(l.key, g.key);
+    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
     assertDefined(Item.drop);
     await Item.drop({
       client,

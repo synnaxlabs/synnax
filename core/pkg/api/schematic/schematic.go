@@ -172,13 +172,17 @@ type (
 	}
 )
 
-// Retrieve returns the schematics that match req. A request with no keys, groups, or
-// grouped filter matches nothing.
+// Retrieve returns the schematics that match req. A request with no keys, groups,
+// grouped, projects, or ranges filter matches nothing.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if len(req.Keys) == 0 && len(req.Groups) == 0 && req.Grouped == nil {
+	if len(req.Keys) == 0 &&
+		len(req.Groups) == 0 &&
+		req.Grouped == nil &&
+		len(req.Projects) == 0 &&
+		len(req.Ranges) == 0 {
 		return RetrieveResponse{Schematics: []schematic.Schematic{}}, nil
 	}
 	var res RetrieveResponse

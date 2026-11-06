@@ -80,6 +80,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should reject a table with neither a project nor a range",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				t := table.Table{Name: "test"}
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &t),
@@ -175,6 +176,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("SetProject", func() {
 		It("Should move the tables into the project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := table.Table{Project: &proj.Key, Name: "moved"}
@@ -189,6 +191,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should reject a project that does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			v := table.Table{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).

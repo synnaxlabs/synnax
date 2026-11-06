@@ -33,9 +33,9 @@ var _ = Describe("SetGroup", func() {
 	BeforeEach(func(ctx SpecContext) {
 		g = group.Group{Name: "grouped", Scope: resource.TypeProject}
 		Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
-		target = panel.Panel{Name: "target", Parent: &parentID}
+		target = panel.Panel{Name: "target", Project: &proj.Key}
 		Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
-		other = panel.Panel{Name: "other", Parent: &parentID}
+		other = panel.Panel{Name: "other", Project: &proj.Key}
 		Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 	})
 	retrieveGroup := func(ctx SpecContext, key panel.Key) *group.Key {

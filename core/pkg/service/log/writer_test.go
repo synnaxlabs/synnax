@@ -87,6 +87,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should reject a log whose project does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			missing := uuid.New()
 			l := log.Log{Name: "dangling", Project: &missing}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(MatchError(
@@ -169,6 +170,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("SetProject", func() {
 		It("Should move the logs into the project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := log.Log{Project: &proj.Key, Name: "moved"}
@@ -183,6 +185,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should reject a project that does not exist", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			v := log.Log{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).

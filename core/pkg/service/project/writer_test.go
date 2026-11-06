@@ -172,7 +172,7 @@ var _ = Describe("Writer", func() {
 				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 				p := panel.Panel{Name: "p", Project: &proj.Key}
 				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-				Expect(svc.Children(tx, proj.Key)).To(ConsistOf(
+				Expect(svc.Children(ctx, tx, proj.Key)).To(ConsistOf(
 					g.ResourceID(), l.ResourceID(), p.ResourceID(),
 				))
 			},

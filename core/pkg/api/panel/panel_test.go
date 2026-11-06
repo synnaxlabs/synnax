@@ -375,10 +375,10 @@ var _ = Describe("SetGroup", func() {
 var _ = Describe("Create in a group", func() {
 	newPanel := func(name string, g group.Group) panel.Panel {
 		return panel.Panel{
-			Key:    uuid.New(),
-			Name:   name,
-			Parent: &parentID,
-			Group:  &g.Key,
+			Key:     uuid.New(),
+			Name:    name,
+			Project: &proj.Key,
+			Group:   &g.Key,
 		}
 	}
 	grantCreate := func(ctx SpecContext, u resource.ID) {
@@ -388,7 +388,7 @@ var _ = Describe("Create in a group", func() {
 			u,
 			access.ActionCreate,
 			resource.ID{Type: resource.TypePanel},
-			parentID,
+			proj.ResourceID(),
 		)
 	}
 	It(

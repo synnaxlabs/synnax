@@ -54,8 +54,8 @@ func createProjectGroup(ctx SpecContext, name string) group.Group {
 
 func createLinePlot(ctx SpecContext, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Name: name}
-	Expect(svc.LinePlot.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
+	lp := lineplot.LinePlot{Project: &proj.Key, Name: name}
+	Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 	return lp
 }
 
@@ -121,8 +121,7 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				Project:   proj.Key,
-				LinePlots: []lineplot.LinePlot{{Name: "Denied", Group: &g.Key}},
+				LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -132,8 +131,7 @@ var _ = Describe("Create in a group", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(
 			apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
-				Project:   proj.Key,
-				LinePlots: []lineplot.LinePlot{{Name: "Granted", Group: &g.Key}},
+				LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 			}),
 		)
 		Expect(retrieveLinePlot(ctx, res.LinePlots[0].Key).Group).To(Equal(&g.Key))
