@@ -93,11 +93,12 @@ or generator logic and schemas disagree.
   and root references for `@go marshal omit` fields. The one exception is a live rule on
   a type the new version redeclares, because that type stops being the live one. To keep
   the rule, restate the field with its `@doc` and `@validate` in the version file that
-  defines the type. Hand-written frozen definer files are marked `@go hand` in their
-  version file; hand-ness is version-local — an aliased member whose definer is an older
-  version still generates in the current package as a backward alias. `migrate.gen.go`
-  is a pure function of the two adjacent version files; hand-written transforms live in
-  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  defines the type. The `frozen` gate enforces this. Hand-written frozen definer files
+  are marked `@go hand` in their version file; hand-ness is version-local — an aliased
+  member whose definer is an older version still generates in the current package as a
+  backward alias. `migrate.gen.go` is a pure function of the two adjacent version files;
+  hand-written transforms live in `migrate.go` (renames and cross-resource moves have no
+  generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
@@ -118,6 +119,23 @@ or generator logic and schemas disagree.
   task file: no `Export`, several types may share a package, and each gets an exported
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
   type must declare its exported `Migrate<Type>` step.
+
+## Frozen sums
+
+`oracle sync` records every version package in `schemas/<domain>/frozen/<resource>.sum`:
+one line per version, with a hash of the chain's version files up to it and a hash of
+its generated files. The blocking `frozen` gate fails when a frozen package no longer
+matches its line while those version files stand still. A hand edit, a generator change,
+and a mint that moves the demoted package all fail it.
+
+- An edit to a version file updates the sums by itself on the next sync.
+- A mint must leave the demoted package byte-identical. When the gate flags a mint, find
+  what moved. Keep a live rule by restating the field in the version file, or fix the
+  generator.
+- `oracle sync --refreeze` accepts the change. Use it only for a change that must reach
+  frozen packages, such as a generator change for every version or a live rule on a type
+  the current version aliases, and say why in the PR.
+- A merge conflict in a sum file: take either side, then run `oracle sync`.
 
 ## Field optionality
 

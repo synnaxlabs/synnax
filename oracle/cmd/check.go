@@ -46,6 +46,7 @@ Gates:
   cache        sync cache is internally consistent
   persistence  persisted shapes only reference persisted types
   versions     version files, live projections, and pins are consistent
+  frozen       frozen version packages match the sums 'oracle sync' recorded
 
 Exit codes:
   0   all gates passed
@@ -56,6 +57,7 @@ Exit codes:
   13  persistence violations
   14  cache incoherence
   15  versions drift
+  16  frozen package changed
 
 Examples:
   oracle check
@@ -188,6 +190,7 @@ func buildCheckers(
 		check.NewCacheGate(cache),
 		check.NewPersistenceGate(warningsAsErrors),
 		check.NewVersionsGate(),
+		check.NewFrozenGate(),
 	}
 }
 
