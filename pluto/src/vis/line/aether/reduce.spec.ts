@@ -564,10 +564,8 @@ describe("Reducer", () => {
     });
 
     it("should move its complete groups to a series with more room when full", () => {
-      const counted = (count: number): DrawOperation => ({
-        ...op(ramp(256), ramp(256)),
-        count,
-      });
+      const source = op(ramp(256), ramp(256));
+      const counted = (count: number): DrawOperation => ({ ...source, count });
       const reducer = new Reducer();
       const first = reducer.reduce([counted(128)], "average", 2);
       const second = reducer.reduce([counted(130)], "average", 2);
