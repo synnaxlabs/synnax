@@ -183,6 +183,78 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					},
 				)
 
+				It(
+					"Should fail after new data replaces the domain",
+					func(ctx SpecContext) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(
+							db.Delete(ctx, second, fixedOffset(0), fixedOffset(6)),
+						).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(BeZero())
+						// This writer holds the idle handle on the rollover file, so
+						// the new
+						// domain lands in the collected file.
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 100 * telem.SecondTS,
+						}))
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							second,
+							[]byte{30, 31, 32, 33, 34, 35},
+						)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						Expect(
+							i.OpenReader(ctx),
+						).Error().
+							To(MatchError(domain.ErrChanged))
+						Expect(i.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should follow a domain that grew and then moved",
+					func(ctx SpecContext) {
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							FileSize:        9 * telem.Byte,
+							GCThreshold:     math.SmallestNonzeroFloat32,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.WriteDomain(
+								ctx,
+								db,
+								first,
+								[]byte{10, 11, 12, 13},
+							),
+						).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:            second.Start,
+							EnableAutoCommit: new(false),
+						}))
+						MustSucceed(w.Write(data[:3]))
+						Expect(w.Commit(ctx, 23*telem.SecondTS)).To(Succeed())
+						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+						MustSucceed(w.Write(data[3:]))
+						Expect(w.Commit(ctx, second.End)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(
+							db.Delete(ctx, first, fixedOffset(0), fixedOffset(4)),
+						).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
+					},
+				)
+
 				It("Should ignore a collection of another file", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,

@@ -44,7 +44,7 @@ func (db *DB) newReader(
 	// The handle keeps GC off the file from here on.
 	if db.fc.rewriteCount(ptr.fileKey) != rewrites {
 		current, ok := db.idx.startingAt(ptr.Start)
-		if !ok || current.fileKey != ptr.fileKey || current.size < ptr.size {
+		if !ok || current.id != ptr.id {
 			return nil, errors.Combine(ErrChanged, internal.Close())
 		}
 		ptr.offset = current.offset

@@ -31,4 +31,8 @@ type pointer struct {
 	// size is the size of the domain within the file.
 	// 4 bytes
 	size uint32
+	// id tells domains apart for the life of the DB. Commits to a domain and GC keep
+	// it.
+	// It is not persisted: every iterator closes before a DB closes.
+	id uint64
 }

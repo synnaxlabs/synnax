@@ -183,6 +183,7 @@ func (db *DB) Delete(
 			fileKey: start.fileKey,
 			offset:  start.offset,
 			size:    uint32(startOffset), // size from start.Start to tr.Start
+			id:      db.idx.unprotectedNextID(),
 		})
 	}
 
@@ -193,6 +194,7 @@ func (db *DB) Delete(
 			fileKey: end.fileKey,
 			offset:  end.offset + end.size - uint32(endOffset),
 			size:    uint32(endOffset), // size from tr.End to end.End
+			id:      db.idx.unprotectedNextID(),
 		})
 	}
 

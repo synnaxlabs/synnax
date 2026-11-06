@@ -26,6 +26,8 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
+		// lastID is the last pointer id handed out.
+		lastID uint64
 		sync.RWMutex
 	}
 	persistHead int
@@ -64,6 +66,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		}
 	}
 
+	p.id = idx.unprotectedNextID()
 	appended := insertAt == len(idx.mu.pointers)
 	if insertAt == 0 {
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
@@ -89,6 +92,11 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		return nil
 	}
 	return write.run()
+}
+
+func (idx *index) unprotectedNextID() uint64 {
+	idx.mu.lastID++
+	return idx.mu.lastID
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -150,6 +158,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		return span.Error(err)
 	} else {
 		sizeDelta := int64(p.size) - int64(oldP.size)
+		p.id = oldP.id
 		idx.mu.pointers[updateAt] = p
 		idx.totalSize.Add(sizeDelta)
 	}
