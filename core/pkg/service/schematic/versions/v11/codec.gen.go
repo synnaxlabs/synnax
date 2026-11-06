@@ -3301,12 +3301,7 @@ func (sec SegmentedEdgeConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if sec.StrokeWidth != nil {
-		w.Bool(true)
-		w.Float64(float64(*sec.StrokeWidth))
-	} else {
-		w.Bool(false)
-	}
+	w.Float64(float64(sec.StrokeWidth))
 	w.Bool(sec.Segments != nil)
 	if sec.Segments != nil {
 		w.Uint32(uint32(len(sec.Segments)))
@@ -3321,6 +3316,7 @@ func (sec SegmentedEdgeConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -3334,18 +3330,8 @@ func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
 			sec.StrokeColor = &hv
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
-				return err
-			}
-			sec.StrokeWidth = &hv
-		}
+	if sec.StrokeWidth, err = r.Float64(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()

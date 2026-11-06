@@ -28,14 +28,14 @@ var _ = Describe("MigrateSchematic", func() {
 		return MustSucceed(v10.DecodeWithDefaults(raw))
 	}
 
-	It("Should leave the stroke width of a lifted edge absent", func(ctx SpecContext) {
+	It("Should fill the default stroke width of a lifted edge", func(ctx SpecContext) {
 		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
 			Configs: map[string]v10.ElementConfig{
 				"e1": stored(msgpack.EncodedJSON{"variant": "pipe"}),
 			},
 		}))
 		pipe := out.Configs["e1"].Variant.(v11.PipeElementConfig)
-		Expect(pipe.StrokeWidth).To(BeNil())
+		Expect(pipe.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
 	It("Should keep the values a v10 edge carries", func(ctx SpecContext) {
@@ -104,7 +104,7 @@ var _ = Describe("Migration", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Name).To(Equal("Feed system"))
 		pipe := got.Configs["e1"].Variant.(v11.PipeElementConfig)
-		Expect(pipe.StrokeWidth).To(BeNil())
+		Expect(pipe.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
 	It("Should not reuse a v10 migration key", func() {

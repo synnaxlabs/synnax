@@ -20,6 +20,7 @@ import { type Spec } from "@/schematic/edge/spec";
 const SYMBOL_INTERVAL = 40;
 
 const SYMBOL_RADIUS_RATIO = 1.5;
+const SYMBOL_INTERVAL_PER_WIDTH = 4;
 
 interface SymbolProps {
   position: xy.XY;
@@ -50,16 +51,18 @@ export const spec: Spec<"data", schematic.DataEdgeConfig> = Segmented.createSpec
         color={colorVal}
         strokeWidth={strokeWidth}
       />
-      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-        ({ position, direction }, i) => (
-          <DataSymbol
-            key={i}
-            position={position}
-            direction={direction}
-            strokeWidth={strokeWidth}
-          />
-        ),
-      )}
+      {Path.computeSymbolPositions(
+        points,
+        SYMBOL_INTERVAL +
+          SYMBOL_INTERVAL_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
+      ).map(({ position, direction }, i) => (
+        <DataSymbol
+          key={i}
+          position={position}
+          direction={direction}
+          strokeWidth={strokeWidth}
+        />
+      ))}
     </g>
   ),
 );

@@ -21,10 +21,8 @@ Segment = v9.Segment
 
 SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
     stroke_color
-    stroke_width float64? {
-        @doc value """
-            is the stroke width of the edge in pixels. Absent draws the default of 2.
-        """
+    stroke_width float64 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
     }
 }
 

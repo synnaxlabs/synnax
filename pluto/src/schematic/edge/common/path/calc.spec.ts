@@ -58,6 +58,12 @@ describe("Path.rounded", () => {
     expect(path.match(/A/g)).toHaveLength(1);
   });
 
+  it("hops over a crossing past the snap distance with a snap margin", () => {
+    const crossing = { x: 50, y: 74, radius: 5 };
+    expect(Path.rounded(HORIZONTAL, [crossing])).toEqual("M0,50L100,50");
+    expect(Path.rounded(HORIZONTAL, [crossing], 10)).toContain("A5,5");
+  });
+
   it("ignores a wide hop that does not fit on a run", () => {
     expect(Path.rounded(HORIZONTAL, [{ x: 8, y: 50, radius: 8 }])).toEqual(
       "M0,50L100,50",

@@ -17,7 +17,7 @@ import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
 import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { Base } from "@/schematic/edge/common/base";
+import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import { type Path as EdgePath } from "@/schematic/edge/common/path";
 import {
@@ -64,11 +64,7 @@ const create = (Path: FC<PathProps>): Edge => {
     sourceNode,
     targetNode,
     selected = false,
-    config: {
-      segments: middleSegments,
-      strokeColor,
-      strokeWidth = Base.DEFAULT_STROKE_WIDTH,
-    },
+    config: { segments: middleSegments, strokeColor, strokeWidth },
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();

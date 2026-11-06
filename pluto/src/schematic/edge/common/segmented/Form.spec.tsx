@@ -12,14 +12,13 @@ import { deep } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { createDefaultConfig } from "@/schematic/edge/common/segmented/config";
-import { Form } from "@/schematic/edge/common/segmented/Form";
+import { Pipe } from "@/schematic/edge/pipe";
 import { renderForm } from "@/testutil";
 
 const path = deep.path<schematic.PipeEdgeConfig>();
 
 const renderPipeForm = (config: schematic.PipeEdgeConfig) =>
-  renderForm(<Form />, config, schematic.pipeEdgeConfigZ);
+  renderForm(<Pipe.spec.Form />, config, schematic.pipeEdgeConfigZ);
 
 const input = (container: HTMLElement): HTMLInputElement => {
   const field = container.querySelector<HTMLInputElement>("input[type='text']");
@@ -28,25 +27,35 @@ const input = (container: HTMLElement): HTMLInputElement => {
 };
 
 describe("Segmented form", () => {
-  it("should show the default stroke width for an edge with none", () => {
-    const { container, value } = renderPipeForm(createDefaultConfig("pipe"));
+  it("should show the default stroke width of a new edge", () => {
+    const { container } = renderPipeForm(Pipe.spec.defaultConfig());
     expect(input(container).value).toBe("2");
-    expect(value(path.strokeWidth)).toBeUndefined();
   });
 
   it("should show the stroke width of an edge that has one", () => {
     const { container } = renderPipeForm({
-      ...createDefaultConfig("pipe"),
+      ...Pipe.spec.defaultConfig(),
       strokeWidth: 6,
     });
     expect(input(container).value).toBe("6");
   });
 
   it("should write a changed stroke width to the config", async () => {
-    const { container, value } = renderPipeForm(createDefaultConfig("pipe"));
+    const { container, value } = renderPipeForm(Pipe.spec.defaultConfig());
     const field = input(container);
     fireEvent.change(field, { target: { value: "6" } });
     fireEvent.blur(field);
     await waitFor(() => expect(value(path.strokeWidth)).toBe(6));
+  });
+
+  it.each([
+    { name: "above the maximum", typed: "21", expected: 20 },
+    { name: "below the minimum", typed: "0", expected: 1 },
+  ])("should clamp a stroke width $name", async ({ typed, expected }) => {
+    const { container, value } = renderPipeForm(Pipe.spec.defaultConfig());
+    const field = input(container);
+    fireEvent.change(field, { target: { value: typed } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.strokeWidth)).toBe(expected));
   });
 });

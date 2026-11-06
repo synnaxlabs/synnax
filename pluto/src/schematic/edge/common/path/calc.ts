@@ -67,12 +67,16 @@ const straight = (from: xy.XY, to: xy.XY, hops: Hop[]): string => {
 
 /// @brief per-run offsets at which to hop. Each jump snaps to the nearest run it projects
 /// onto, so a slightly-off jump point still lands on the right run.
-const assignHops = (runs: Run[], crossings: Crossing[]): Hop[][] => {
+const assignHops = (
+  runs: Run[],
+  crossings: Crossing[],
+  snapMargin: number,
+): Hop[][] => {
   const byRun: Hop[][] = runs.map(() => []);
   for (const c of crossings) {
     const span = c.radius + FOOT;
     let best = -1;
-    let bestPerp = MAX_SNAP;
+    let bestPerp = MAX_SNAP + snapMargin;
     let bestS = 0;
     runs.forEach(({ from, to }, i) => {
       const len = xy.distance(from, to);
@@ -94,8 +98,13 @@ const assignHops = (runs: Run[], crossings: Crossing[]): Hop[][] => {
 };
 
 /// @brief builds a rounded-corner SVG path through coords, arcing a hop wherever a jump
-/// falls on a run. No jumps reproduces the plain rounded path exactly.
-export const rounded = (coords: xy.XY[], crossings: Crossing[] = []): string => {
+/// falls on a run. No jumps reproduces the plain rounded path exactly. snapMargin widens
+/// the snap distance for a path drawn offset from the line its crossings sit on.
+export const rounded = (
+  coords: xy.XY[],
+  crossings: Crossing[] = [],
+  snapMargin: number = 0,
+): string => {
   if (coords.length === 0) return "";
   if (coords.length === 1) return `M${coords[0].x},${coords[0].y}`;
   const last = coords.length - 2;
@@ -110,7 +119,7 @@ export const rounded = (coords: xy.XY[], crossings: Crossing[] = []): string => 
       to: i === last ? b : xy.lerp(a, b, 1 - t),
     });
   }
-  const hops = assignHops(runs, crossings);
+  const hops = assignHops(runs, crossings, snapMargin);
   let path = "";
   runs.forEach(({ a, from, to }, i) => {
     if (i === 0) path += `M${a.x},${a.y}`;

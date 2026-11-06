@@ -19,6 +19,7 @@ import { type Spec } from "@/schematic/edge/spec";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 const SYMBOL_INTERVAL = 40;
+const SYMBOL_INTERVAL_PER_WIDTH = 3;
 const SYMBOL_SIZE = 10;
 
 interface SymbolProps {
@@ -61,16 +62,18 @@ const Line = ({
         color={colorVal}
         strokeWidth={strokeWidth}
       />
-      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-        ({ position, direction }, i) => (
-          <HydraulicSymbol
-            key={i}
-            position={position}
-            direction={direction}
-            strokeWidth={strokeWidth}
-          />
-        ),
-      )}
+      {Path.computeSymbolPositions(
+        points,
+        SYMBOL_INTERVAL +
+          SYMBOL_INTERVAL_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
+      ).map(({ position, direction }, i) => (
+        <HydraulicSymbol
+          key={i}
+          position={position}
+          direction={direction}
+          strokeWidth={strokeWidth}
+        />
+      ))}
     </g>
   );
 };
