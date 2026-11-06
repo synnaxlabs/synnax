@@ -449,7 +449,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustSucceed(w.Commit())
+								MustCommit(w)
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -955,7 +955,7 @@ var _ = Describe("Delete", func() {
 							},
 						),
 						))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 
 						// Before deletion:
@@ -1048,7 +1048,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
-							MustSucceed(w.Commit())
+							MustCommit(w)
 							Expect(w.Close()).To(Succeed())
 
 							// Before deletion:
@@ -1142,7 +1142,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustSucceed(w.Commit())
+								MustCommit(w)
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:

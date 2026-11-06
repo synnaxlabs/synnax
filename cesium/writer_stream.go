@@ -75,7 +75,7 @@ type WriterResponse struct {
 	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
-	// to WriterCommit, and it is zero if the commit fails.
+	// to WriterCommit, and it is zero if the commit fails or is not authorized.
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
@@ -409,15 +409,37 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
-	maxTS := telem.TimeStampMin
+	var (
+		maxTS        = telem.TimeStampMin
+		unauthorized error
+	)
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
+		if err == nil {
+			// A group with nothing to commit does not reach the control check.
+			err = idxW.authorize()
+		}
 		if err != nil {
-			return 0, err
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return 0, err
+			}
+			unauthorized = err
+			continue
 		}
 		if ts > maxTS {
 			maxTS = ts
 		}
+	}
+	for _, chW := range w.virtual.internal {
+		if err := chW.Authorize(); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return 0, err
+			}
+			unauthorized = err
+		}
+	}
+	if unauthorized != nil {
+		return 0, unauthorized
 	}
 	return maxTS, nil
 }
@@ -773,6 +795,15 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		return 0, err
 	}
 	return end.Lower, nil
+}
+
+func (w *idxWriter) authorize() error {
+	for _, chW := range w.internal {
+		if err := chW.Authorize(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *idxWriter) endDomain(

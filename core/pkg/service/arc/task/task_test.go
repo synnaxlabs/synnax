@@ -3928,7 +3928,7 @@ START => main
 					telem.NewSeries(stored),
 					telem.NewSeriesV[uint8](1, 2),
 				}))).To(BeTrue())
-				MustSucceed(ow.Commit())
+				MustCommit(ow)
 				Expect(ow.Close()).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}

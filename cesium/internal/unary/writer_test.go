@@ -141,6 +141,34 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("Authorize", func() {
+					It(
+						"Should return ErrUnauthorized once another writer takes control",
+						func(ctx SpecContext) {
+							low, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "low"},
+									Authority: 1,
+								}),
+							)
+							Expect(low.Authorize()).To(Succeed())
+							high, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "high"},
+									Authority: 2,
+								}),
+							)
+							Expect(
+								low.Authorize(),
+							).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(high.Close())
+							Expect(low.Authorize()).To(Succeed())
+							MustSucceed(low.Close())
+						},
+					)
+				})
 				Describe("EndDomain", func() {
 					open := func(
 						ctx SpecContext,

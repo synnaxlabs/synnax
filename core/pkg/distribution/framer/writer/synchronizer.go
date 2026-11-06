@@ -61,10 +61,13 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	}
 	s.cycle.counter++
 
+	// A commit that one node refuses has no end, even if another node applied it.
 	if !res.Authorized && s.cycle.res.Authorized {
 		s.cycle.res.Authorized = false
+		s.cycle.res.End = 0
 	}
-	if res.Command == CommandCommit && res.End > s.cycle.res.End {
+	if res.Command == CommandCommit && s.cycle.res.Authorized &&
+		res.End > s.cycle.res.End {
 		s.cycle.res.End = res.End
 	}
 	if s.cycle.res.Err == nil {

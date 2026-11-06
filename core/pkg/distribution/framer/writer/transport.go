@@ -70,7 +70,8 @@ type Response struct {
 	// to the Request.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. This value is only validate
-	// during calls to WriterCommit, and it is zero if the commit fails on any node.
+	// during calls to WriterCommit. It is zero if the commit fails on any node or any
+	// node refuses it.
 	End telem.TimeStamp
 	// NodeKey is the NodeKey of the node that sent the response.
 	NodeKey node.Key

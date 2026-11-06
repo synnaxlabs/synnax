@@ -129,15 +129,15 @@ var _ = Describe("Control", func() {
 					func(ctx SpecContext) {
 						live := openLive(ctx, 1)
 						Expect(live.Write(frame(10, 11))).To(BeTrue())
-						MustSucceed(live.Commit())
+						MustCommit(live)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
 						)
 						Expect(w.Write(frame(1, 2, 3))).To(BeTrue())
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 						Expect(live.Write(frame(12))).To(BeTrue())
-						MustSucceed(live.Commit())
+						MustCommit(live)
 						Expect(live.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
 						Expect(f.Get(dataCh).Series).To(HaveLen(2))
@@ -159,7 +159,7 @@ var _ = Describe("Control", func() {
 							),
 						))
 						Expect(live.Write(frame(10))).To(BeTrue())
-						MustSucceed(live.Commit())
+						MustCommit(live)
 						Expect(live.Close()).To(Succeed())
 					},
 				)
@@ -178,7 +178,7 @@ var _ = Describe("Control", func() {
 						))
 						Expect(w.Close()).To(MatchError(validate.ErrValidation))
 						Expect(live.Write(frame(10, 11))).To(BeTrue())
-						MustSucceed(live.Commit())
+						MustCommit(live)
 						Expect(live.Close()).To(Succeed())
 					},
 				)
@@ -189,7 +189,7 @@ var _ = Describe("Control", func() {
 						db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
 					)
 					Expect(w.Write(frame(1, 2))).To(BeTrue())
-					MustSucceed(w.Commit())
+					MustCommit(w)
 					Expect(db.ControlStates().Transfers).To(BeEmpty())
 					Expect(w.Close()).To(Succeed())
 					Consistently(updates).ShouldNot(Receive())
@@ -204,7 +204,7 @@ var _ = Describe("Control", func() {
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
 						)
 						Expect(w.Write(frame(1, 2))).To(BeTrue())
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 						Consistently(updates).ShouldNot(Receive())
 						u := db.ControlStates()
@@ -234,7 +234,7 @@ var _ = Describe("Control", func() {
 						}))
 						Expect(live.Write(frame(20))).To(BeFalse())
 						Expect(operator.Write(frame(21, 22))).To(BeTrue())
-						MustSucceed(operator.Commit())
+						MustCommit(operator)
 						Expect(w.Write(frame(1, 30))).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(ContainSubstring(
@@ -287,7 +287,7 @@ var _ = Describe("Control", func() {
 							telem.NewSeriesV[int16](1),
 							telem.NewSeriesV[int64](2),
 						}))).To(BeTrue())
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(live.Write(telem.UnaryFrame(
 							cmd,
 							telem.NewSeriesV[int64](3),
@@ -298,6 +298,146 @@ var _ = Describe("Control", func() {
 						Expect(f.Get(dataCh).Series).To(HaveLen(1))
 						Expect(f.Get(dataCh).Series[0]).
 							To(telem.MatchSeriesDataV[int16](1))
+					},
+				)
+			})
+
+			Describe("Commit without control", func() {
+				var (
+					db  *cesium.DB
+					idx cesium.ChannelKey
+				)
+				open := func(
+					ctx SpecContext,
+					key string,
+					authority xcontrol.Authority,
+					keys ...cesium.ChannelKey,
+				) *cesium.Writer {
+					GinkgoHelper()
+					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject:   xcontrol.Subject{Key: key},
+						Start:            10 * telem.SecondTS,
+						Channels:         keys,
+						Authorities:      []xcontrol.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				createIndex := func(ctx SpecContext) cesium.ChannelKey {
+					GinkgoHelper()
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Name:     "Index",
+						Key:      key,
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					return key
+				}
+				frame := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+					return telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(seconds...))
+				}
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+				})
+				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
+
+				It(
+					"Should report every commit until control returns",
+					func(ctx SpecContext) {
+						low := open(ctx, "low", 1, idx)
+						Expect(low.Write(frame(10, 11))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(11*telem.SecondTS + 1))
+						Expect(low.Write(frame(12, 13))).To(BeTrue())
+						high := open(ctx, "high", 2, idx)
+						for range 2 {
+							end, authorized := MustSucceed2(low.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+						}
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(frame(14))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(14*telem.SecondTS + 1))
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
+					},
+				)
+				It(
+					"Should report a commit after a rejected write",
+					func(ctx SpecContext) {
+						low := open(ctx, "low", 1, idx)
+						Expect(low.Write(frame(10))).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, idx)
+						Expect(low.Write(frame(11))).To(BeFalse())
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should report commits on a virtual channel without control",
+					func(ctx SpecContext) {
+						cmd := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
+						).To(Succeed())
+						fr := telem.UnaryFrame(cmd, telem.NewSeriesV[int64](1))
+						low := open(ctx, "low", 1, cmd)
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, cmd)
+						Expect(low.Write(fr)).To(BeFalse())
+						for range 2 {
+							end, authorized := MustSucceed2(low.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+						}
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						Expect(low.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should report a writer that never had control",
+					func(ctx SpecContext) {
+						high := open(ctx, "high", 2, idx)
+						low := open(ctx, "low", 1, idx)
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
+						Expect(low.Close()).To(Succeed())
+						Expect(high.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should still commit the indexes under control",
+					func(ctx SpecContext) {
+						// Indexes commit in map order, so this tries both orders.
+						for range 64 {
+							controlled := createIndex(ctx)
+							keys := []cesium.ChannelKey{controlled, idx}
+							low := open(ctx, "low", 1, keys...)
+							high := open(ctx, "high", 2, idx)
+							Expect(low.Write(telem.UnaryFrame(
+								controlled,
+								telem.NewSeriesSecondsTSV(10),
+							))).To(BeTrue())
+							end, authorized := MustSucceed2(low.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+							Expect(high.Close()).To(Succeed())
+							Expect(low.Close()).To(Succeed())
+							f := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, controlled),
+							)
+							Expect(f.HasData()).To(BeTrue())
+						}
 					},
 				)
 			})
@@ -398,7 +538,7 @@ var _ = Describe("Control", func() {
 							authorized = MustSucceed(w2.Write(w2Frame))
 							Expect(authorized).To(BeTrue())
 
-							end := MustSucceed(w2.Commit())
+							end := MustCommit(w2)
 							Expect(end).To(Equal(telem.SecondTS*14 + 1))
 
 							By("Shutting down the writers")
