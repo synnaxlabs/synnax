@@ -166,6 +166,13 @@ class TestRender:
             ALL_SAME, reasons=[], kept=False
         )
 
+    def test_shows_a_skipped_surface_without_raising_the_tier(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        body = render([*ALL_SAME, skipped], reasons=[], kept=False)
+        assert "## Review tier: the author picks" in body
+        assert "Not compared" in body
+        assert "<details>" not in body
+
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
 
@@ -181,6 +188,7 @@ class FakeGH:
     def __init__(self) -> None:
         self.heads = ["abc", "abc"]
         self.files = ["core/main.go"]
+        self.compared = set(classify.SURFACES)
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
@@ -192,7 +200,7 @@ class FakeGH:
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
         if any(a.startswith(f"repos/{REPO}/contents/") for a in args):
-            return "".join(f"- surface: {name}\n" for name in classify.SURFACES)
+            return "".join(f"- surface: {name}\n" for name in sorted(self.compared))
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
@@ -218,6 +226,23 @@ class TestMain:
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
         return fake
+
+    def test_keeps_the_tier_of_a_branch_older_than_a_report(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        gh.labels = [BOT]
+        gh.compared.discard("core")
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        assert not any(LABELS in args for args, _ in gh.writes)
+        assert "Not compared" in gh.writes[-1][1]
+
+    def test_raises_a_surface_the_head_compares_but_did_not_report(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        assert any(LABELS in args for args, _ in gh.writes)
 
     def test_adds_no_label_and_posts_a_comment_when_nothing_changed(
         self, gh: FakeGH
