@@ -176,7 +176,7 @@ describe("User", () => {
             await expect(client.users.delete(u.key as string)).resolves.toBeUndefined();
           await expect(
             client.users.retrieve(userArray.map((u) => u.key as string)),
-          ).resolves.toEqual([]);
+          ).rejects.toThrow(NotFoundError);
           const users = await client.users.create(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
@@ -192,6 +192,11 @@ describe("User", () => {
         const res = await client.users.retrieve({
           where: { not: { key: { eq: keys[0] } }, key: { in: keys } },
         });
+        expect(res.map((u) => u.key)).toEqual([keys[1]]);
+      });
+      test("flat not and key", async () => {
+        const keys = userArray.map((u) => u.key as string);
+        const res = await client.users.retrieve({ not: { key: keys[0] }, key: keys });
         expect(res.map((u) => u.key)).toEqual([keys[1]]);
       });
       test("search term", async () => {
@@ -274,7 +279,9 @@ describe("User", () => {
         client.users.delete(userArray.map((u) => u.key as string)),
       ).resolves.toBeUndefined();
       await expect(
-        client.users.retrieve(userArray.map((u) => u.key as string)),
+        client.users.retrieve({
+          where: { key: { in: userArray.map((u) => u.key as string) } },
+        }),
       ).resolves.toEqual([]);
     });
     test("one that doesn't exist", async () => {

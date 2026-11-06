@@ -150,7 +150,9 @@ jobs:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-          TC_ARGS: ${{ matrix.target || inputs.flags }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
         run: |
           setlocal EnableDelayedExpansion
           uv run test-conductor --name tc_win ^
@@ -165,7 +167,9 @@ jobs:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-          TC_ARGS: ${{ matrix.target || inputs.flags }}
+          TC_ARGS:
+            ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
+            inputs.flags }}
         run: |
           read -ra args <<< "$TC_ARGS"
           uv run test-conductor --name tc_unix \

@@ -108,7 +108,6 @@
       "independent": true,
       "tests": [
         { "case": "console/cluster/connection_lifecycle" },
-        { "case": "console/cluster/cluster_switch" },
         { "case": "console/cluster/login_forms" }
       ]
     },

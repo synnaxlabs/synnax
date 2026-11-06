@@ -22,7 +22,7 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/group/types.gen";
-import { matches, serverComputed } from "@/group/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/group/where.gen";
 import { ontology } from "@/ontology";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
@@ -46,15 +46,19 @@ export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 // The Core knows nothing of parents, so the client resolves parent through the ontology
 // graph.
-const retrieveMultipleParamsZ = retrieveRequestZ.extend({
+const parentRequestZ = retrieveRequestZ.extend({
   parent: ontologyIDZ.optional(),
 });
+const retrieveMultiParamsZ = z.union([
+  parentRequestZ,
+  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+]);
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = z.input<typeof retrieveMultipleParamsZ>;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-interface MultipleRequest extends z.infer<typeof retrieveMultipleParamsZ> {}
+interface MultipleRequest extends z.infer<typeof parentRequestZ> {}
 
 const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -69,11 +73,7 @@ export interface ClientConfig {
   cache: query.Cache;
 }
 
-export class Client extends query.Retriever<
-  typeof retrieveMultipleParamsZ,
-  Key,
-  Group
-> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Group> {
   /** Public so a client that deletes a group through an endpoint of its own can drop
    * the group from the cache. */
   readonly store: query.Table<Key, Group>;
@@ -93,7 +93,7 @@ export class Client extends query.Retriever<
       name: "group",
       table: store,
       request: {
-        schema: retrieveMultipleParamsZ,
+        schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (g, req) =>
           matches(g, req.where) &&

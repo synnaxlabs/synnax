@@ -113,12 +113,14 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-    def _goto_console(self, query: str = "") -> None:
+    def _goto_console(
+        self, query: str = "", host: str | None = None, port: int | None = None
+    ) -> None:
         """Navigate to the Console, falling back to the dev server when the
         Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
-        ``"?select-core"``)."""
-        host = self.synnax_connection.server_address
-        port = self.synnax_connection.port
+        ``"?select-core"``). ``host`` and ``port`` default to the Core's."""
+        host = host or self.synnax_connection.server_address
+        port = port or self.synnax_connection.port
 
         # A plain request finds the Console's port without a page load in the browser.
         with urlopen(f"http://{host}:{port}/", timeout=5) as res:
