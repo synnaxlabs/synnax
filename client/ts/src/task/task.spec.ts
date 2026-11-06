@@ -1081,7 +1081,7 @@ describe("Task", async () => {
       ).rejects.toThrow(message("value"));
     });
 
-    it("should retrieve one task by type and rack with its status", async () => {
+    it("should retrieve one task by type and rack when one is set", async () => {
       const schemas = {
         type: z.literal("modbus_scan"),
         config: z.object({ rate: z.number() }),
@@ -1096,34 +1096,33 @@ describe("Task", async () => {
         type: "modbus_scan",
         rack: r.key,
         includeStatus: true,
+        one: true,
         schemas,
       });
       expect(retrieved.key).toBe(created.key);
     });
 
-    it("should retrieve task by type with schemas", async () => {
+    it("should retrieve the tasks of a type and rack as a list", async () => {
       const customSchemas = {
         type: z.literal("modbus_scan"),
         config: z.object({ rate: z.number() }),
         statusData: z.unknown(),
       };
-
-      await testRack.createTask(
-        {
-          name: "type-filter-test",
-          type: "modbus_scan",
-          config: { rate: 42 },
-        },
+      const r = await client.racks.create({ name: "type-list" });
+      const created = await client.tasks.create(
+        [42, 43].map((rate) => ({
+          name: `type-list-${rate}`,
+          type: "modbus_scan" as const,
+          rack: r.key,
+          config: { rate },
+        })),
         customSchemas,
       );
-
-      const retrieved = await client.tasks.retrieve({
-        type: "modbus_scan",
-        rack: testRack.key,
-        schemas: customSchemas,
-      });
-      expect(retrieved.type).toBe("modbus_scan");
-      expect(retrieved.config.rate).toBe(42);
+      const params = { type: "modbus_scan", rack: r.key };
+      const typed = await client.tasks.retrieve({ ...params, schemas: customSchemas });
+      expect(typed.map((t) => t.config.rate).sort()).toEqual([42, 43]);
+      const cached = await client.tasks.retrieve(params);
+      expect(cached.map((t) => t.key).sort()).toEqual(created.map((t) => t.key).sort());
     });
   });
 
