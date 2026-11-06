@@ -53,7 +53,7 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const channelKeys = Log.useChannelKeys();
+  const otherChannels = Log.useChannelKeys().filter((key) => key !== channel);
   const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
@@ -79,8 +79,6 @@ const ChannelRow = ({
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
-  const isSelectable = ({ key }: channel.Channel) =>
-    key === channel || !channelKeys.includes(key);
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -105,12 +103,13 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
+        {/* The select reads its query once, so the key refreshes it. */}
         <Channel.SelectSingle
+          key={otherChannels.join()}
           value={channel}
           onChange={handleChannelChange}
-          filter={isSelectable}
           allowNone
-          initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+          initialQuery={selectQueryExcluding(otherChannels)}
           disabled={disabled}
           triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
@@ -130,7 +129,11 @@ const ChannelRow = ({
       <Flex.Box x align="center">
         {showNumeric && (
           <>
-            <Notation.Select value={notation} onChange={handleNotationChange} />
+            <Notation.Select
+              value={notation}
+              onChange={handleNotationChange}
+              disabled={disabled}
+            />
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
@@ -159,12 +162,14 @@ const ChannelRow = ({
             <Telem.SelectTimestampFormat
               value={timestamp.format}
               onChange={handleFormatChange}
+              disabled={disabled}
               triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={timestamp.tz}
               onChange={handleTzChange}
+              disabled={disabled}
             />
           </>
         )}
@@ -172,6 +177,7 @@ const ChannelRow = ({
           value={hasCustomColor ? config.color : undefined}
           fallback={defaultColor}
           onChange={handleColorChange}
+          disabled={disabled}
           size="small"
         />
       </Flex.Box>
@@ -182,6 +188,13 @@ const ChannelRow = ({
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
   where: { internal: IS_DEV ? undefined : { eq: false } },
 };
+
+const selectQueryExcluding = (keys: channel.Key[]): Channel.ListQuery =>
+  keys.length === 0
+    ? SELECT_CHANNEL_INITIAL_QUERY
+    : {
+        where: { ...SELECT_CHANNEL_INITIAL_QUERY.where, not: { key: { in: keys } } },
+      };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
   placeholder: "Add channel",
