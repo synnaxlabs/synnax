@@ -197,11 +197,11 @@ that converts to the data type of the channel. With no fill value, the task writ
 `NaN`, so a field on a non-float channel needs a fill value. An index channel cannot be
 optional.
 
-`NaN` fails every comparison. `NaN < 15` is false, and `NaN > 300` is also false. A
-sequence that waits on such a check can hang. When an Arc reads the channel, set a fill
-value that gives the check the result you want. For example, set `0` on a pump speed so
-that `speed < 15` passes. Keep `NaN` on a temperature so that `temp > 300` keeps
-waiting.
+`NaN` fails every comparison except `!=`. `NaN < 15` is false, and `NaN > 300` is also
+false. A sequence that waits on such a check can hang. When an Arc reads the channel,
+set a fill value that gives the check the result you want. For example, set `0` on a
+pump speed so that `speed < 15` passes. Keep `NaN` on a temperature so that `temp > 300`
+keeps waiting.
 
 A wrong pointer on an optional field also sends no warning. Other invalid values still
 warn. The task uses the fill value only when the endpoint answers and the response
