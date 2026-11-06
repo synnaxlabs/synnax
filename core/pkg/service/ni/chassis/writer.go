@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -61,33 +63,22 @@ func (w Writer) setParent(ctx context.Context, c Chassis) error {
 	)
 }
 
-func (w Writer) defineStatus(ctx context.Context, c Chassis) error {
+func (w Writer) setStatus(ctx context.Context, c Chassis) error {
 	key := c.OntologyID().String()
-	exists, err := gorp.NewRetrieve[status.Key, Status]().
-		Where(gorp.MatchKeys[status.Key, Status](key)).
-		Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return w.syncStatus(ctx, c)
-	}
-	return w.status.Set(ctx, &Status{
-		Key:     key,
-		Name:    c.Name,
-		Time:    telem.Now(),
-		Variant: status.VariantWarning,
-		Message: "Status unknown",
-		Details: StatusDetails{Rack: c.Rack, Chassis: c.Key},
-	})
-}
-
-func (w Writer) syncStatus(ctx context.Context, c Chassis) error {
 	var s Status
-	if err := gorp.NewRetrieve[status.Key, Status]().
-		Where(gorp.MatchKeys[status.Key, Status](c.OntologyID().String())).
+	err := gorp.NewRetrieve[status.Key, Status]().
+		Where(gorp.MatchKeys[status.Key, Status](key)).
 		Entry(&s).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		s = Status{
+			Key:     key,
+			Time:    telem.Now(),
+			Variant: status.VariantWarning,
+			Message: "Status unknown",
+			Details: StatusDetails{Chassis: c.Key},
+		}
+	} else if err != nil {
 		return err
 	}
 	s.Name = c.Name
@@ -115,15 +106,15 @@ func (w Writer) Create(ctx context.Context, c *Chassis) error {
 		if err := w.setParent(ctx, *c); err != nil {
 			return err
 		}
-		return w.defineStatus(ctx, *c)
+		return w.setStatus(ctx, *c)
 	})
 }
 
 // Update applies change to the chassis stored under key and stores the result. The
-// status and parent edge follow the chassis. It returns an error wrapping
-// query.ErrNotFound when no chassis is stored under key and a validation error when the
-// result is invalid. A transaction that commits between the read and the write of this
-// one is overwritten.
+// status and parent edge follow the chassis, and a missing status is written as
+// unknown. It returns an error wrapping query.ErrNotFound when no chassis is stored
+// under key and a validation error when the result is invalid. A transaction that
+// commits between the read and the write of this one is overwritten.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
@@ -150,7 +141,7 @@ func (w Writer) Update(
 			return err
 		}
 		if next.Name != prev.Name || next.Rack != prev.Rack {
-			if err := w.syncStatus(ctx, next); err != nil {
+			if err := w.setStatus(ctx, next); err != nil {
 				return err
 			}
 		}
