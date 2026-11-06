@@ -25,15 +25,19 @@ namespace driver::ethercat {
 namespace {
 /// An interface that had no slaves is probed again this many scans later.
 constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
+/// An interface with a slave whose PDO discovery failed is discovered again this many
+/// scans later.
+constexpr size_t PDO_REDISCOVERY_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
-    if (error.contains("CoE") || error.contains("mailbox"))
-        return "Check the slave's CoE mailbox and scan again. Channels can use only "
-               "the entries a scan discovers.";
     if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    return "Channels can use only the entries a scan discovers. Scan again if entries "
-           "are missing.";
+    return "Channels can use only the entries a scan discovers. The Driver tries again "
+           "while no task uses the port.";
+}
+
+bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
+    return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
 }
 
 /// @brief sets the variant, message, and description of status from the condition of an
@@ -129,7 +133,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (const auto it = this->next_probes.find(key);
             it != this->next_probes.end() && scan_ctx.count < it->second)
             continue;
-        auto [slaves, err] = this->pool->discover_slaves(key);
+        const auto due = this->next_rediscoveries.find(key);
+        const bool scheduled = due != this->next_rediscoveries.end();
+        const bool rediscover = scheduled && scan_ctx.count >= due->second;
+        auto [slaves, err] = rediscover ? this->pool->rediscover_slaves(key)
+                                        : this->pool->discover_slaves(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
@@ -142,6 +150,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             failures.insert(err.data);
             continue;
         }
+        if (std::ranges::none_of(slaves, pdo_discovery_failed))
+            this->next_rediscoveries.erase(key);
+        else if (!scheduled || rediscover)
+            this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
         const auto health = this->pool->health(key);
         for (const auto &slave: slaves)
             devices.push_back(this->create_slave_device(slave, health, key, scan_ctx));
@@ -209,7 +221,7 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
+    else if (!pdo_discovery_failed(slave)) {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
             return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
                 return !p.is_padding();

@@ -422,6 +422,36 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
 }
 
+/// @brief it should show a failed PDO discovery as a warning that says the Driver tries
+/// again.
+TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
+    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to discover PDOs");
+    EXPECT_EQ(
+        status.description,
+        "No PDO objects found in object dictionary. Channels can use only the entries "
+        "a scan discovers. The Driver tries again while no task uses the port."
+    );
+}
+
+/// @brief it should discover the slaves again every sixth scan while a slave has a
+/// failed PDO discovery.
+TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
+    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    for (size_t i = 0; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
+/// @brief it should not discover the slaves again while every slave has its PDOs.
+TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
+    for (size_t i = 0; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 0);
+}
+
 /// @brief it should show a slave in OP on a running bus as operational.
 TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));

@@ -105,9 +105,9 @@ list of modules does not change. To find new modules, stop the tasks on the port
 The Driver reads the PDOs of a module from the module itself. If the module does not
 report them, the Driver uses a built-in catalog of Beckhoff and Dewesoft modules. If it
 cannot find them, the status of the module reads "Failed to discover PDOs", and its
-description gives the reason. To scan again,
-[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A module
-that the scan cannot read is not supported yet.
+description gives the reason. While no task uses the port, the Driver tries to discover
+the PDOs again every 30 seconds. A module that the scan cannot read is not supported
+yet.
 
 <Divider.Divider x />
 

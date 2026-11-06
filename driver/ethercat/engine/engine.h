@@ -278,6 +278,9 @@ public:
     /// Thread-safe.
     [[nodiscard]] x::errors::Error ensure_initialized();
 
+    /// @brief discovers the slaves again unless the bus is running. Thread-safe.
+    [[nodiscard]] x::errors::Error rediscover();
+
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
 
