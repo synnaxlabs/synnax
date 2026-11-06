@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -128,6 +130,25 @@ var _ = Describe("MigrateSchematic", func() {
 		Expect(out.Key).To(Equal(key))
 		Expect(out.Name).To(Equal("Feed system"))
 		Expect(out.Snapshot).To(BeTrue())
+	})
+})
+
+var _ = Describe("MigrateSegmentedEdgeConfig", func() {
+	It("Should fill the default stroke width", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateSegmentedEdgeConfig(
+			ctx, v10.SegmentedEdgeConfig{},
+		))
+		Expect(out.StrokeWidth).To(BeEquivalentTo(2))
+	})
+
+	It("Should keep the stroke color and segments", func(ctx SpecContext) {
+		stroke := color.Color{R: 255, A: 1}
+		segments := []v10.Segment{{Direction: spatial.DirectionX, Length: 40}}
+		out := MustSucceed(v11.MigrateSegmentedEdgeConfig(
+			ctx, v10.SegmentedEdgeConfig{StrokeColor: &stroke, Segments: segments},
+		))
+		Expect(out.StrokeColor).To(HaveValue(Equal(stroke)))
+		Expect(out.Segments).To(Equal(segments))
 	})
 })
 
