@@ -7,12 +7,15 @@ senior engineer on the team would raise.
 - Bugs: wrong results, crashes, races, leaks, broken error handling, and security holes.
 - Breaks of the rules in the documents below. Put the document's path in `rule`.
 - New behavior without tests, where the testing rules ask for them and a test can reach
-  the behavior through the public surface.
+  the behavior through the public surface. Report missing tests once per pull request,
+  in one P2 that names each untested behavior.
 
 Do not report:
 
 - Style that a formatter or linter catches.
 - Matters of taste that no rule states.
+- The pull request process: its size, how it is split, its tier label, or its
+  description.
 - A pattern that the file already uses everywhere. A change across the codebase is its
   own pull request.
 - A problem in lines that the pull request does not change, unless the change makes it
@@ -41,7 +44,8 @@ step, and read the code it names:
    each one, or widen the finding.
 
 Report a bug when you can name the input or the interleaving that breaks it. Leave out
-what you cannot trace.
+what you cannot trace. Before you call a check redundant or suggest that it go, trace
+what it guards.
 
 ## Severity
 
