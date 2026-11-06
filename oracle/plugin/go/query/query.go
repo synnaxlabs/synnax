@@ -109,6 +109,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		addDeclared(typ, req.Resolutions, "search", searched)
 		addDeclared(typ, req.Resolutions, "ref", referenced)
+		if _, ok := typ.Form.(resolution.StructForm); ok {
+			w := newRefWalker(req.Resolutions)
+			if _, err := w.walk(typ); err != nil {
+				return nil, err
+			}
+			referenced.Add(w.declared.Slice()...)
+		}
 		e.structs = append(e.structs, typ)
 	}
 
@@ -227,7 +234,9 @@ type retrieveInfo struct {
 	Filters     []filterInfo
 	Indexes     []indexInfo
 	Refs        []refInfo
-	Search      []searchInfo
+	// NestedRefs are the references the type holds below its top-level fields.
+	NestedRefs []nestedRef
+	Search     []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -236,8 +245,12 @@ func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
 // HasIndexes reports whether the retrieve declared any @index, @ref, or @search fields.
 // Used by the template to gate the indexes struct.
 func (r retrieveInfo) HasIndexes() bool {
-	return len(r.Indexes) > 0 || len(r.Refs) > 0 || r.HasSearch()
+	return len(r.Indexes) > 0 || len(r.Refs) > 0 || len(r.NestedRefs) > 0 ||
+		r.HasSearch()
 }
+
+// HasRefs reports whether the type holds any reference.
+func (r retrieveInfo) HasRefs() bool { return len(r.Refs) > 0 || len(r.NestedRefs) > 0 }
 
 // IDGoType returns the Go type of a resource ID, as the first @ref field that holds
 // resource IDs resolves it.
@@ -261,7 +274,7 @@ func (r retrieveInfo) needsSlices() bool {
 		return f.Ref == nil && (f.IsSlice || (!f.IsScalar && f.IndexFieldName == ""))
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		return ref.IsSlice && ref.OnDelete == "Detach"
-	})
+	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
 // HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
@@ -571,6 +584,22 @@ func extractRetrieveInfo(
 		}
 	}
 
+	var nested []nestedRef
+	if _, ok := typ.Form.(resolution.StructForm); ok {
+		walked, err := newRefWalker(table).walk(typ)
+		if err != nil {
+			return nil, err
+		}
+		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
+			return strings.Contains(ref.path, ".")
+		})
+		if nested, err = renderNestedRefs(
+			typ, walked, keyType, entryType, rt, table, r, ctx,
+		); err != nil {
+			return nil, err
+		}
+	}
+
 	info := &retrieveInfo{
 		TableName:   ownTable,
 		GoName:      goName,
@@ -581,6 +610,7 @@ func extractRetrieveInfo(
 		Filters:     filters,
 		Indexes:     indexes,
 		Refs:        refs,
+		NestedRefs:  nested,
 		Search:      search,
 	}
 	if indexesOnly && !info.HasIndexes() {
@@ -751,6 +781,9 @@ type indexes struct {
 {{- range $ref := $ret.Refs}}
 	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.EntryType}}
 {{- end}}
+{{- range $ref := $ret.NestedRefs}}
+	{{$ref.StructField}} *{{$ref.GorpType $ret.KeyType $ret.EntryType}}
+{{- end}}
 {{- if $ret.HasSearch}}
 	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}]
 {{- end}}
@@ -816,6 +849,9 @@ func newIndexes() indexes {
 {{- end}}
 		}),
 {{- end}}
+{{- range $ref := $ret.NestedRefs}}
+		{{$ref.StructField}}: {{template "nestedReference" $ref}},
+{{- end}}
 {{- if $ret.HasSearch}}
 		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}](
 			"search",
@@ -841,13 +877,16 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}] {
 {{- end}}
 	}
 }
-{{- if $ret.Refs}}
+{{- if $ret.HasRefs}}
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
 func (i indexes) references() []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}] {
 	return []gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]{
 {{- range $ref := $ret.Refs}}
+		i.{{$ref.StructField}},
+{{- end}}
+{{- range $ref := $ret.NestedRefs}}
 		i.{{$ref.StructField}},
 {{- end}}
 	}
@@ -1107,24 +1146,25 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] {
 	return []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}]{
 {{- range $ref := $root.Refs}}
-		{{$ref.Constructor $root.KeyType $root.GoName}}{
-			Name:     "{{$ref.FieldName}}",
-			{{$ref.TablesField}}
-			OnDelete: gorp.{{$ref.OnDelete}},
-{{- if $ref.Unique}}
-			Unique:   true,
-{{- end}}
-			Targets: func(e *{{$root.GoName}}) []{{$ref.TargetType}} {
-				{{$ref.TargetsBody}}
-			},
-{{- if $ref.DetachBody}}
-			Detach: func(e *{{$root.GoName}}, t {{$ref.TargetType}}) {
-				{{$ref.DetachBody -}}
-			},
-{{- end}}
-		}),
+		{{template "nestedReference" $ref}},
 {{- end}}
 	}
 }
-{{end}}`),
+{{end}}
+{{- define "nestedReference"}}{{.Constructor .KeyType .EntryType}}{
+			Name:     "{{.FieldName}}",
+			{{.TablesField}}
+			OnDelete: gorp.{{.OnDelete}},
+{{- if .Unique}}
+			Unique:   true,
+{{- end}}
+			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
+				{{.TargetsBody}}
+			},
+{{- if .DetachBody}}
+			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
+				{{.DetachBody -}}
+			},
+{{- end}}
+		}){{end}}`),
 )

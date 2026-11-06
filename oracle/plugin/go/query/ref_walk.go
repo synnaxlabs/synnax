@@ -398,6 +398,10 @@ func leafModeOf(f resolution.Field, isSlice bool) leafMode {
 // of its Targets and Detach functions.
 type nestedRef struct {
 	refInfo
+	// KeyType and EntryType are the Go types of the holding entry's key and of the
+	// entry.
+	KeyType   string
+	EntryType string
 	// TargetsBody is the body of the reference's Targets function.
 	TargetsBody string
 	// DetachBody is the body of the reference's Detach function, empty when the
@@ -682,17 +686,17 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 }
 
 // extractNestedRefs returns the references a @retrieve references type holds.
-func extractNestedRefs(
+// renderNestedRefs renders the references that walked found on typ, whose entries
+// have the Go type entryType and keys of the Go type keyType.
+func renderNestedRefs(
 	typ resolution.Type,
-	table *resolution.Table,
+	walked []*walkedRef,
+	keyType, entryType string,
 	rt resourceTypes,
+	table *resolution.Table,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) ([]nestedRef, error) {
-	walked, err := newRefWalker(table).walk(typ)
-	if err != nil {
-		return nil, err
-	}
 	out := make([]nestedRef, 0, len(walked))
 	for _, ref := range walked {
 		field := ref.sites[0].field
@@ -716,20 +720,24 @@ func extractNestedRefs(
 		if err != nil {
 			return nil, err
 		}
+		var structField strings.Builder
+		for seg := range strings.SplitSeq(ref.path, ".") {
+			structField.WriteString(naming.ToPascalCase(seg))
+		}
+		info.StructField = naming.LowerFirst(structField.String())
 		rd := &renderer{r: r, ctx: ctx, info: info}
-		nr := nestedRef{refInfo: info, TargetsBody: rd.targetsBody(ref)}
+		nr := nestedRef{
+			refInfo:     info,
+			KeyType:     keyType,
+			EntryType:   entryType,
+			TargetsBody: rd.targetsBody(ref),
+		}
 		detach, err := rd.detachBody(ref)
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
 		nr.DetachBody, nr.usesSlices = detach, rd.usesSlices
 		out = append(out, nr)
-	}
-	if len(out) == 0 {
-		return nil, errors.Newf(
-			"%s: @retrieve references needs a @ref field",
-			typ.QualifiedName,
-		)
 	}
 	return out, nil
 }
@@ -781,13 +789,21 @@ func extractReferencesInfo(
 			typ.QualifiedName,
 		)
 	}
-	refs, err := extractNestedRefs(typ, table, rt, r, ctx)
+	walked, err := newRefWalker(table).walk(typ)
 	if err != nil {
 		return referencesInfo{}, err
 	}
-	return referencesInfo{
-		GoName:  naming.GetGoName(typ),
-		KeyType: r.ResolveTypeRef(keyField.Type, ctx),
-		Refs:    refs,
-	}, nil
+	if len(walked) == 0 {
+		return referencesInfo{}, errors.Newf(
+			"%s: @retrieve references needs a @ref field",
+			typ.QualifiedName,
+		)
+	}
+	goName := naming.GetGoName(typ)
+	keyType := r.ResolveTypeRef(keyField.Type, ctx)
+	refs, err := renderNestedRefs(typ, walked, keyType, goName, rt, table, r, ctx)
+	if err != nil {
+		return referencesInfo{}, err
+	}
+	return referencesInfo{GoName: goName, KeyType: keyType, Refs: refs}, nil
 }

@@ -109,16 +109,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:      cfg.DB,
 		Name:    tableName,
 		Indexes: s.indexes.all(),
-		References: append(
-			s.indexes.references(),
-			channelsReference(),
-		),
+		References: s.indexes.references(),
 		Migrations: append(
 			slices.Clone(versions.Migrations),
 			migrate.DropDangling(
 				"v61_log_dangling_channels",
 				cfg.DB,
-				[]gorp.Reference[Key, Log]{channelsReference()},
+				[]gorp.Reference[Key, Log]{s.indexes.channelsChannel},
 			),
 		),
 		Instrumentation: cfg.Instrumentation,

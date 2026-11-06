@@ -802,18 +802,22 @@ var _ = Describe("@ref", func() {
 		)
 
 		It(
-			"Should reject a nested reference under a type that generates a Retrieve",
+			"Should store a nested reference on a type that generates a Retrieve",
 			func(ctx SpecContext) {
-				req := MustGenerateRequest(ctx, device(`
-				inner Inner
+				resp := MustGenerate(ctx, device(`
+				inner Inner[]
 			`)+`
 				Inner struct {
-					rack rack.Key = 0 @ref on_delete restrict
+					rack rack.Key @ref on_delete detach
 				}
-			`, "device", loader)
-				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-					"device.Inner: @ref field rack needs a @retrieve type to store it",
-				)))
+			`, "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"innerRack *gorp.KeyReference[Key, Device, rack.Key]",
+					"innerRack: gorp.NewKeyReference(",
+					`Name:     "inner.rack",`,
+					"e.Inner = slices.DeleteFunc(",
+					"i.innerRack,",
+				)
 			},
 		)
 	})

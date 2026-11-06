@@ -37,7 +37,8 @@ TimestampConfig struct {
 
 ChannelEntry struct {
     channel   channel.Key       {
-        @doc value "is the channel this entry references."
+        @doc value     "is the channel this entry references."
+        @ref on_delete detach
     }
     color     color.Color       {
         @doc value "is the display color for the channel."
