@@ -478,23 +478,53 @@ class TestMain:
         assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
         assert json.loads(out.read_text())["review"]["score"] == 5
 
-    def test_should_show_the_commits_since_the_last_review(
-        self, tmp_path: Path, env: dict[str, str]
-    ) -> None:
-        block = (
-            "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/commit/"
-            f"{env['BASE_SHA']})\n<!-- /sedosaur_comment -->"
+    @staticmethod
+    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+        """Runs a review whose pull request body says that Sedosaur reviewed the
+        commits, newest first, and returns the section of new commits in the prompt."""
+        edits = "".join(
+            json.dumps(
+                {
+                    "editor": {"__typename": "Bot", "login": "sedosaur"},
+                    "diff": "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/"
+                    f"commit/{c})\n<!-- /sedosaur_comment -->",
+                }
+            )
+            + "\n"
+            for c in commits
         )
-        edit = {"editor": {"__typename": "Bot", "login": "sedosaur"}, "diff": block}
         executable(
             tmp_path / "bin" / "gh",
             "if 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('userContentEdits' in a for a in sys.argv):\n"
-            f"    print(json.dumps({edit!r}))\n",
+            f"    print({edits!r}, end='')\n",
         )
         main(["run", str(tmp_path / "review.json")])
         text = (tmp_path / "prompt.txt").read_text()
-        new = text.split("# Commits since your last review", 1)[1].split("# Rules")[0]
+        _, found, new = text.partition("# Commits since your last review")
+        return new.split("# Rules")[0] if found else ""
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["BASE_SHA"])
         assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
         assert "+two" in new
+
+    def test_should_show_the_commits_since_the_review_before_one_of_the_head(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_show_no_new_commits_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""
