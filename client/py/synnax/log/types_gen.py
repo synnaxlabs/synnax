@@ -15,13 +15,13 @@ from typing import TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_
 from synnax.ontology.payload import ID
 from x import color as color_
+from x import filter, telem
 from x import notation as notation_
-from x import telem
 
 Key: TypeAlias = UUID
 
@@ -36,6 +36,24 @@ class TimestampConfig(BaseModel):
 
     format: telem.TimestampFormat
     tz: telem.TimeZone
+
+
+class Where(BaseModel):
+    """Is a filter that selects logs.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
 
 
 class ChannelEntry(BaseModel):
@@ -61,6 +79,24 @@ class ChannelEntry(BaseModel):
     )
 
 
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve logs.
+
+    Attributes:
+        where: Selects the logs to retrieve. An absent where selects all of them.
+        search_term: Keeps the logs that match the term, closest match first.
+        limit: Is the most logs to return.
+        offset: Is the number of matching logs to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
 class Log(BaseModel):
     """Is a visualization that shows the samples of its channels as text, one line per
     sample, in time order.
@@ -84,6 +120,19 @@ class Log(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the logs a RetrieveRequest selects.
+
+    Attributes:
+        logs: Are the logs the request selects.
+    """
+
+    logs: list[Log] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="log")
