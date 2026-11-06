@@ -1559,8 +1559,7 @@
       {
         "name": "name_patterns matches a valid name exactly",
         "where": { "name_patterns": ["pressure_1", "pressure"] },
-        "expected": ["a"],
-        "server_computed": true
+        "expected": ["a"]
       },
       {
         "name": "name_patterns anchors an unanchored pattern",

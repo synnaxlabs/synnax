@@ -35,6 +35,7 @@ from tests.driver.ni_read import (
     NIDigitalRead,
     NIReadTemperature,
 )
+from tests.driver.ni_task import retrieve_present_device
 from tests.driver.opcua_read import OPCUAReadFloat
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
@@ -132,7 +133,7 @@ class GrandFinale(SimulatorCase):
             "USB-6289",  # USB counter
         ]
         devices = {
-            loc: self.client.devices.retrieve(location=loc) for loc in ni_locations
+            loc: retrieve_present_device(self.client, loc) for loc in ni_locations
         }
 
         self.read_tasks.extend(

@@ -426,6 +426,128 @@ describe("Latest", () => {
     }
   });
 
+  describe("a channel the Core stores nothing of", () => {
+    const write = (alignment: bigint, stamp: TimeStamp): Series =>
+      new Series({
+        data: new Float32Array([Number(alignment)]),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: stamp.spanRange(TimeSpan.NANOSECOND),
+      });
+
+    it("should start a later request from the newest streamed sample", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const stamp = START.add(TimeSpan.SECOND);
+      const first = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, START)));
+        core.stream(new framer.Frame(key, write(11n, stamp)));
+        await expect
+          .poll(() => first.value().time, POLL)
+          .toEqual(stamp.add(TimeSpan.NANOSECOND));
+        const second = open(1, undefined, key);
+        try {
+          await expect.poll(() => second.value().series.length, POLL).toBe(1);
+          expect(second.value().series.at(0)).toEqual(11);
+          expect(second.value().time).toEqual(stamp.add(TimeSpan.NANOSECOND));
+          expect(second.timeAt(11n)).toEqual(stamp);
+        } finally {
+          second.close();
+        }
+      } finally {
+        first.close();
+        await close();
+      }
+    });
+
+    it("should record a sample that streams while the channel lookup waits", async () => {
+      const core = createCore(true);
+      let release: () => void = () => {};
+      let held: Promise<void> | null = new Promise((resolve) => (release = resolve));
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        if (held != null) await held;
+      });
+      const key = core.virtual!.key;
+      const first = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(11n, START)));
+        await expect.poll(() => first.value().series.length, POLL).toBe(1);
+        held = null;
+        release();
+        await expect.poll(() => first.value().status.variant, POLL).toBe("success");
+        const second = open(1, undefined, key);
+        try {
+          await expect.poll(() => second.value().series.length, POLL).toBe(1);
+          expect(second.timeAt(11n)).toEqual(START);
+        } finally {
+          second.close();
+        }
+      } finally {
+        first.close();
+        await close();
+      }
+    });
+
+    it("should keep the newest sample when a closed request's lookup settles last", async () => {
+      const core = createCore(true);
+      // Each lookup waits on its own gate until the gates open for good.
+      const gates: (() => void)[] = [];
+      let gated = true;
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        if (gated) await new Promise<void>((resolve) => gates.push(resolve));
+      });
+      const key = core.virtual!.key;
+      const first = open(1, undefined, key);
+      const second = open(1, undefined, key);
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(11n, START)));
+        await expect.poll(() => first.value().series.length, POLL).toBe(1);
+        first.close();
+        core.stream(new framer.Frame(key, write(12n, START.add(TimeSpan.SECOND))));
+        const newest = (): unknown => {
+          const { series } = second.value();
+          return series.at(series.length - 1);
+        };
+        await expect.poll(newest, POLL).toEqual(12);
+        await expect.poll(() => gates.length, POLL).toBe(2);
+        gates[1]();
+        await expect.poll(() => second.value().status.variant, POLL).toBe("success");
+        gates[0]();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        gated = false;
+        const third = open(1, undefined, key);
+        try {
+          await expect.poll(() => third.value().series.at(0), POLL).toEqual(12);
+          expect(third.timeAt(12n)).toEqual(START.add(TimeSpan.SECOND));
+        } finally {
+          third.close();
+        }
+      } finally {
+        second.close();
+        await close();
+      }
+    });
+
+    it("should start empty when nothing streamed the channel", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const latest = open(1, undefined, core.virtual!.key);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(latest.value().series.length).toBe(0);
+        expect(latest.value().time).toBeUndefined();
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+  });
+
   describe("timeAt", () => {
     // Returns the alignment of every sample the latest holds.
     const alignmentsOf = (latest: Latest): bigint[] =>

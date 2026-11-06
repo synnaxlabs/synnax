@@ -37,9 +37,13 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
 
 ### Pull requests from forks
 
-Workflows that hold write access start only from a branch of this repository, so a fork
-gets no automation. A maintainer adds the review tier label, then starts the gate with
-`gh workflow run check.review.yaml -f pr=<number>` after each change.
+Workflows that hold write access start only from a branch of this repository, so a
+fork's pull request cannot start them. Every 15 minutes, `Relay - Sweep` starts the
+classifier, the gate, and auto-merge and adds path labels for a fork or Dependabot pull
+request that changed in the last hour, and for a fork without `review/human` that
+changed in the last day. The classifier always raises a fork to `review/human`. To
+refresh the gate on an idle pull request, run
+`gh workflow run check.review.yaml -f pr=<number>`.
 
 ## Review tiers
 
