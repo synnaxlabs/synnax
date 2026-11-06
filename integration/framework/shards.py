@@ -10,6 +10,7 @@
 """Splits a suite into shards that separate conductor runs execute."""
 
 import argparse
+import dataclasses
 import json
 import statistics
 from collections.abc import Callable, Mapping
@@ -82,36 +83,43 @@ def select(
     cores: int,
     browsers: int | None,
 ) -> list[Sequence]:
-    """Returns the sequences of the shard, in their file order.
+    """Returns the sequences of the shard, and their tests, in their file order.
 
-    Every shard gets whole sequences of about equal run time. A test without a
-    recorded duration counts the median. Shards agree only when every run gets the
-    same arguments other than shard.index.
+    Shards get whole sequences, or single tests of independent sequences, of about
+    equal run time. A test without a recorded duration counts the median. Shards
+    agree only when every run gets the same arguments other than shard.index.
 
     :raises ValueError: If the shard gets no sequences.
     """
     default = statistics.median(durations.values())
 
-    def cost(sequence: Sequence) -> float:
-        total = 0.0
-        for test in sequence.tests:
-            seconds = durations.get(str(test), default)
-            if sequence.isolated:
-                total += seconds
-            elif browsers is not None and resources.BROWSER in resources_of(test):
-                total += seconds / browsers
-            else:
-                total += seconds / cores
-        return total
+    def cost(sequence: Sequence, test: TestDefinition) -> float:
+        seconds = durations.get(str(test), default)
+        if sequence.isolated:
+            return seconds
+        if browsers is not None and resources.BROWSER in resources_of(test):
+            return seconds / browsers
+        return seconds / cores
 
-    costs = [cost(s) for s in sequences]
+    # (cost, sequence index, test indexes) of each piece that one shard runs.
+    pieces: list[tuple[float, int, list[int]]] = []
+    for i, sequence in enumerate(sequences):
+        costs = [cost(sequence, test) for test in sequence.tests]
+        if sequence.independent:
+            pieces.extend((c, i, [j]) for j, c in enumerate(costs))
+        else:
+            pieces.append((sum(costs), i, list(range(len(costs)))))
     loads = [0.0] * shard.count
-    owner = [0] * len(sequences)
-    for i in sorted(range(len(sequences)), key=lambda i: -costs[i]):
+    mine: dict[int, set[int]] = {}
+    for seconds, i, tests in sorted(pieces, key=lambda p: -p[0]):
         least = loads.index(min(loads))
-        loads[least] += costs[i]
-        owner[i] = least
-    mine = [s for i, s in enumerate(sequences) if owner[i] == shard.index - 1]
+        loads[least] += seconds
+        if least == shard.index - 1:
+            mine.setdefault(i, set()).update(tests)
     if not mine:
         raise ValueError(f"Shard {shard} has no sequences")
-    return mine
+    return [
+        dataclasses.replace(s, tests=[t for j, t in enumerate(s.tests) if j in mine[i]])
+        for i, s in enumerate(sequences)
+        if i in mine
+    ]

@@ -34,6 +34,11 @@
             "description": "Runs on the first Core after every other sequence ends, with nothing else running, as a timing test needs.",
             "default": false
           },
+          "independent": {
+            "type": "boolean",
+            "description": "No test needs another test of the sequence, so shards can split it.",
+            "default": false
+          },
           "tests": {
             "type": "array",
             "items": {
