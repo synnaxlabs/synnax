@@ -147,6 +147,17 @@ var _ = Describe("Discover", func() {
 			Expect(empty.Compacted).To(BeTrue())
 		})
 
+		It("Should describe the newest record of a topic written in transactions",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				produceInTransaction(ctx, topic, 1)
+				t := named(browse(ctx, clusterProperties()), topic)
+				Expect(t.Format).To(Equal(driver.FormatJSON))
+				Expect(t.Newest).ToNot(BeZero())
+			},
+		)
+
 		It("Should mark a topic that the user cannot read", func(ctx SpecContext) {
 			readable, hidden := uniqueTopic(), uniqueTopic()
 			aclCluster := MustSucceed(kfake.NewCluster(
@@ -293,6 +304,32 @@ var _ = Describe("Discover", func() {
 			Entry("a count that does not split evenly", 10,
 				[]int64{0, 1, 2, 3, 24, 25, 26, 47, 48, 49}),
 		)
+
+		It("Should not wait for the fetch timeout on a topic written in transactions",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				produceInTransaction(ctx, topic, 2)
+				start := time.Now()
+				samples, _ := sample(ctx, []string{topic}, 0)
+				Expect(time.Since(start)).To(BeNumerically("<", 3*time.Second))
+				Expect(samples[0].Records).To(HaveLen(2))
+			},
+		)
+
+		It("Should stop holding records at 16 MiB of values", func(ctx SpecContext) {
+			topic := uniqueTopic()
+			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+			cl := newKafkaClient()
+			pad := strings.Repeat("x", 900<<10)
+			for i := range 20 {
+				produceJSON(ctx, cl, topic, "", map[string]any{"v": i, "pad": pad})
+			}
+			samples, truncated := sample(ctx, []string{topic}, 20)
+			Expect(truncated).To(BeTrue())
+			Expect(samples[0].Shapes).To(HaveLen(1))
+			Expect(samples[0].Shapes[0].Count).To(Equal(18))
+		})
 
 		It("Should report a topic that does not exist and read the rest",
 			func(ctx SpecContext) {

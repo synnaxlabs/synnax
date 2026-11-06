@@ -274,6 +274,18 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 	Expect(cl.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
 }
 
+// produceInTransaction produces count JSON records to topic in one transaction and
+// commits it. The commit writes a control record after them.
+func produceInTransaction(ctx context.Context, topic string, count int) {
+	GinkgoHelper()
+	cl := newKafkaClient(kgo.TransactionalID(uniqueTopic()))
+	Expect(cl.BeginTransaction()).To(Succeed())
+	for i := range count {
+		produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
+	}
+	Expect(cl.EndTransaction(ctx, kgo.TryCommit)).To(Succeed())
+}
+
 // stepsOf returns the steps of the connection test that stat answers.
 func stepsOf(stat task.Status) []task.TestStep {
 	GinkgoHelper()

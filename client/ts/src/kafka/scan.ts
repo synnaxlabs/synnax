@@ -100,8 +100,9 @@ export const sampleResultZ = z.object({
   /** topics are the samples, in the order of the topics of the arguments. */
   topics: z.array(sampledTopicZ),
   /**
-   * truncated is true when the records read do not all fit in the answer. The shapes
-   * still come from every record read.
+   * truncated is true when the answer leaves out records that the sample read, or when
+   * the sample stopped at 16 MiB of record values. The shapes come from every record
+   * that the sample holds.
    */
   truncated: z.boolean(),
 });

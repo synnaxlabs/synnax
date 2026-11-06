@@ -43,6 +43,9 @@ const (
 	sampleWindows = 3
 	// samplePayloadLimit is the most bytes of a record value that a sample returns.
 	samplePayloadLimit = 16 << 10
+	// sampleByteLimit is the most record value bytes that a sample holds while it
+	// reads.
+	sampleByteLimit = 16 << 20
 )
 
 // formatSchemaRegistry is a Confluent Schema Registry payload: a zero byte, a 4-byte
@@ -138,9 +141,13 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	} else if err != nil {
 		return nil, err
 	}
-	var newest []fetchRange
+	var (
+		newest []fetchRange
+		index  = make(map[string]int, len(topics))
+	)
 	for i := range topics {
 		t := &topics[i]
+		index[t.Name] = i
 		for _, end := range ends[t.Name] {
 			start, _ := starts.Lookup(end.Topic, end.Partition)
 			after, ok := recent.Lookup(end.Topic, end.Partition)
@@ -149,11 +156,13 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 			}
 			t.Records += end.Offset - start.Offset
 			t.Rate += float64(end.Offset-after.Offset) / rateWindow.Seconds()
+			// In a topic written in transactions, the last offset holds the control
+			// record that commits the newest records.
 			if end.Offset > start.Offset && len(newest) < browsePartitionLimit {
 				newest = append(newest, fetchRange{
 					topic:     end.Topic,
 					partition: end.Partition,
-					from:      end.Offset - 1,
+					from:      max(start.Offset, end.Offset-2),
 					to:        end.Offset,
 				})
 			}
@@ -162,17 +171,13 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 			t.Compacted = compacted(rc)
 		}
 	}
-	records, _, err := fetch(ctx, props, newest)
-	if err != nil {
-		return nil, err
-	}
-	for i := range topics {
-		t := &topics[i]
-		for _, r := range records[t.Name] {
-			if ts := telem.NewTimeStamp(r.Timestamp); ts > t.Newest {
-				t.Newest, t.Format = ts, formatOf(r.Value)
-			}
+	if _, err := fetch(ctx, props, newest, func(r *kgo.Record) {
+		t := &topics[index[r.Topic]]
+		if ts := telem.NewTimeStamp(r.Timestamp); ts > t.Newest {
+			t.Newest, t.Format = ts, formatOf(r.Value)
 		}
+	}); err != nil {
+		return nil, err
 	}
 	return topics, nil
 }
@@ -310,15 +315,17 @@ type sampledTopic struct {
 type sampleResult struct {
 	// Topics are the samples, in the order of the topics of the request.
 	Topics []sampledTopic `json:"topics" msgpack:"topics"`
-	// Truncated is true when the records read do not all fit in the answer. The shapes
-	// still come from every record read.
+	// Truncated is true when the answer leaves out records that the sample read, or
+	// when the sample stopped at 16 MiB of record values. The shapes come from every
+	// record that the sample holds.
 	Truncated bool `json:"truncated" msgpack:"truncated"`
 }
 
 // sampleTopics reads up to args.Count records of each topic of args, in windows spread
 // back in time, and infers the shapes of their values. A topic that cannot be read
-// carries the reason and does not stop the others. The answer keeps the records that
-// driver.Fit keeps, and the shapes come from every record read.
+// carries the reason and does not stop the others. It holds at most sampleByteLimit
+// bytes of record values. The answer keeps the records that driver.Fit keeps, and the
+// shapes come from every record held.
 func sampleTopics(
 	ctx context.Context,
 	props Properties,
@@ -363,19 +370,28 @@ func sampleTopics(
 	var (
 		records = make(map[string][]*kgo.Record)
 		errs    = make(map[string]error)
+		held    int
+		full    bool
 	)
 	for _, ranges := range sampleRanges(readable, starts, ends, count) {
-		got, failed, err := fetch(ctx, props, ranges)
+		failed, err := fetch(ctx, props, ranges, func(r *kgo.Record) {
+			if full || held+len(r.Value) > sampleByteLimit {
+				full = true
+				return
+			}
+			held += len(r.Value)
+			records[r.Topic] = append(records[r.Topic], r)
+		})
 		if err != nil {
 			return sampleResult{}, err
-		}
-		for topic, rs := range got {
-			records[topic] = append(records[topic], rs...)
 		}
 		for topic, err := range failed {
 			if errs[topic] == nil {
 				errs[topic] = err
 			}
+		}
+		if full {
+			break
 		}
 	}
 	sampled := make([][]sampledRecord, len(res.Topics))
@@ -406,7 +422,7 @@ func sampleTopics(
 	for i := range res.Topics {
 		res.Topics[i].Records = kept[i]
 	}
-	res.Truncated = truncated
+	res.Truncated = truncated || full
 	return res, nil
 }
 
@@ -506,15 +522,16 @@ type fetchRange struct {
 }
 
 // fetch reads the records of ranges with one consumer, with no consumer group and no
-// commits. It returns the records of each topic and the first error of each topic. It
-// returns what it read when fetchTimeout passes.
+// commits, and calls visit with each record in offset order. It skips control records.
+// It returns the first error of each topic, once it has read every range or
+// fetchTimeout passes.
 func fetch(
 	ctx context.Context,
 	props Properties,
 	ranges []fetchRange,
-) (map[string][]*kgo.Record, map[string]error, error) {
+	visit func(*kgo.Record),
+) (map[string]error, error) {
 	var (
-		records = make(map[string][]*kgo.Record)
 		errs    = make(map[string]error)
 		offsets = make(map[string]map[int32]kgo.Offset)
 		ends    = make(map[string]map[int32]int64)
@@ -533,15 +550,18 @@ func fetch(
 		left++
 	}
 	if left == 0 {
-		return records, errs, nil
+		return errs, nil
 	}
+	// A range of a topic written in transactions can end on a control record, so the
+	// client keeps them to see that the range is read.
 	cl, err := openClient(
 		props,
 		kgo.ConsumePartitions(offsets),
 		kgo.FetchMaxWait(fetchMaxWait),
+		kgo.KeepControlRecords(),
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer cl.Close()
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
@@ -569,13 +589,13 @@ func fetch(
 			if !ok {
 				return
 			}
-			if r.Offset < end {
-				records[r.Topic] = append(records[r.Topic], r)
+			if r.Offset < end && !r.Attrs.IsControl() {
+				visit(r)
 			}
 			if r.Offset >= end-1 {
 				done(r.Topic, r.Partition)
 			}
 		})
 	}
-	return records, errs, nil
+	return errs, nil
 }
