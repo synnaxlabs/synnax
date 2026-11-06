@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { type ni, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -505,6 +505,67 @@ describe("AnalogRead ports", () => {
     const dev = await createDevice();
     await renderWith(channels(dev.key));
     expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it.each<[string, Partial<NI.Task.AIChannel>, string, RegExp]>([
+    [
+      "a voltage above every range",
+      { minVal: 0, maxVal: 20 },
+      "ai_voltage",
+      /no range from 0 to 20 V/,
+    ],
+    [
+      "a voltage below every range",
+      { minVal: -20, maxVal: 5 },
+      "ai_voltage",
+      /no range from -20 to 5 V/,
+    ],
+    [
+      "a current outside every range",
+      { minVal: 0, maxVal: 0.5 },
+      "ai_current",
+      /no range from 0 to 0.5 A/,
+    ],
+  ])("should mark %s", async (_, values, type, message) => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel(type as NI.Task.AIChannelType, 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
+    ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
+    [
+      "on a device that lists no ranges",
+      () => ({ ...createHardware(), aiVoltageRanges: [] }),
+      { minVal: 0, maxVal: 20 },
+    ],
+    [
+      "with a custom scale",
+      createHardware,
+      {
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      } as Partial<NI.Task.AIChannel>,
+    ],
+  ])("should not mark a channel %s", async (_, hardware, values) => {
+    const dev = await createNIDevice(client, { properties: { hardware: hardware() } });
+    await renderWith([createChannel("ai_voltage", 0, { device: dev.key, ...values })]);
+    await screen.findByText("Ports");
+    expect(screen.queryByText(/The device has no range/)).toBeNull();
   });
 
   it("should mark a channel on the negative input of a differential channel", async () => {
