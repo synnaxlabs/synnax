@@ -324,6 +324,13 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 			validate.ErrValidation, "topics: must be non-empty",
 		)
 	}
+	for i, topic := range args.Topics {
+		if slices.Index(args.Topics, topic) < i {
+			return sampleResult{}, errors.Wrapf(
+				validate.ErrValidation, "topics: must not repeat %q", topic,
+			)
+		}
+	}
 	count := min(max(cmp.Or(args.Count, defaultSampleCount), 1), maxSampleCount)
 	duration := min(
 		cmp.Or(time.Duration(args.Duration)*time.Millisecond, defaultSampleDuration),

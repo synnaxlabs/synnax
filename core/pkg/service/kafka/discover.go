@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -337,6 +338,13 @@ func sampleTopics(
 	props Properties,
 	args sampleArgs,
 ) (sampleResult, error) {
+	for i, topic := range args.Topics {
+		if slices.Index(args.Topics, topic) < i {
+			return sampleResult{}, errors.Wrapf(
+				validate.ErrValidation, "topics: must not repeat %q", topic,
+			)
+		}
+	}
 	props.ApplyDefaults()
 	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)

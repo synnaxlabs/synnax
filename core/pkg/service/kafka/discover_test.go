@@ -393,6 +393,18 @@ var _ = Describe("Discover", func() {
 			},
 		)
 
+		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {
+			topic := uniqueTopic()
+			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+			stat := command(ctx, "sample", map[string]any{
+				"device": createDevice(ctx, clusterProperties()).Key,
+				"topics": []string{topic, topic},
+			}, &struct{}{})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).
+				To(Equal(fmt.Sprintf("topics: must not repeat %q: validation error", topic)))
+		})
+
 		It("Should report a topic that does not exist and read the rest",
 			func(ctx SpecContext) {
 				topic := uniqueTopic()

@@ -904,6 +904,21 @@ var _ = Describe("Scan task", func() {
 				stat.Message,
 			).To(Equal("topics: must be non-empty: validation error"))
 		})
+
+		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {
+			configured, t := scan(ctx)
+			stat := answer(ctx, configured, t, task.Command{
+				Type: "sample", Key: "sample",
+				Args: msgpack.EncodedJSON{
+					"device": dev.Key,
+					"topics": []any{"plant/temp", "plant/temp"},
+				},
+			})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(
+				stat.Message,
+			).To(Equal(`topics: must not repeat "plant/temp": validation error`))
+		})
 	})
 
 	Describe("Exec", func() {
