@@ -211,6 +211,18 @@ def _restore_device_and_wait(
         log(f"Warning: restore failed: {e}")
 
 
+def _delete_replaced_device(client: sy.Synnax, location: str, key: str) -> None:
+    """Delete the device that a re-import of the NI MAX config replaced.
+
+    NI MAX gives a re-imported simulated device a new resource name, and the Driver
+    keys a simulated device by that name. The Driver then creates a second device at
+    the same location, and a retrieve by that location finds two.
+    """
+    devices = client.devices.retrieve(locations=[location])
+    if any(d.key != key for d in devices):
+        client.devices.delete([key])
+
+
 class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
@@ -261,9 +273,12 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
             os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
-        self.log("Test 4 - Reconfigure and assert samples resume")
-        self.client.tasks.configure(tsk)
-        self.assert_sample_count(task=tsk, strict=False)
+        try:
+            self.log("Test 4 - Reconfigure and assert samples resume")
+            self.client.tasks.configure(tsk)
+            self.assert_sample_count(task=tsk, strict=False)
+        finally:
+            _delete_replaced_device(self.client, dev, device.key)
 
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
@@ -370,17 +385,20 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
             os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
-        self.log("Test 4 - Reconfigure and send commands after re-add")
-        self.client.tasks.configure(tsk)
-        with tsk.run():
-            send_and_verify_commands(
-                self.client,
-                cmd_keys=self._channel_keys(tsk),
-                writer_name=f"{self.task_name}_post_readd",
-                task_name=tsk.name,
-                task_key=tsk.key,
-                command_values=self.command_values,
-            )
+        try:
+            self.log("Test 4 - Reconfigure and send commands after re-add")
+            self.client.tasks.configure(tsk)
+            with tsk.run():
+                send_and_verify_commands(
+                    self.client,
+                    cmd_keys=self._channel_keys(tsk),
+                    writer_name=f"{self.task_name}_post_readd",
+                    task_name=tsk.name,
+                    task_key=tsk.key,
+                    command_values=self.command_values,
+                )
+        finally:
+            _delete_replaced_device(self.client, dev, device.key)
 
 
 class NIDigitalWriteDisconnect(
