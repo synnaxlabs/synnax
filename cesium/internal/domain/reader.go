@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -27,10 +28,26 @@ type Reader struct {
 	ptr pointer
 }
 
-func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+// newReader opens a reader on ptr, read from the index when rewrites was the rewrite
+// count of its file. It follows ptr if GC moved it, and returns ErrChanged if a delete
+// also changed it. With no rewrite, ptr's bytes are in place even if a delete removed
+// them.
+func (db *DB) newReader(
+	ctx context.Context,
+	ptr pointer,
+	rewrites uint64,
+) (*Reader, error) {
 	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
+	}
+	// The handle keeps GC off the file from here on.
+	if db.fc.rewriteCount(ptr.fileKey) != rewrites {
+		current, ok := db.idx.startingAt(ptr.Start)
+		if !ok || current.id != ptr.id {
+			return nil, errors.Combine(ErrChanged, internal.Close())
+		}
+		ptr.offset = current.offset
 	}
 	r := &Reader{internal: internal, ptr: ptr}
 	r.section = *io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.size))

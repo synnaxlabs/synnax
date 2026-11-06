@@ -11,6 +11,9 @@ package domain_test
 
 import (
 	"math"
+	"os"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +25,48 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// pausedFS holds an armed read open of a domain file after the file opens, and an armed
+// rename before it runs, until resume closes.
+type pausedFS struct {
+	fs.FS
+	opened   chan struct{}
+	renaming chan struct{}
+	resume   chan struct{}
+	armed    atomic.Bool
+	// renameTo is the armed rename's new name. Set it before renameArmed.
+	renameTo    string
+	renameArmed atomic.Bool
+}
+
+func newPausedFS(base fs.FS) *pausedFS {
+	return &pausedFS{
+		FS:       base,
+		opened:   make(chan struct{}, 1),
+		renaming: make(chan struct{}, 1),
+		resume:   make(chan struct{}),
+	}
+}
+
+func (p *pausedFS) Open(name string, flag int) (fs.File, error) {
+	GinkgoHelper()
+	f, err := p.FS.Open(name, flag)
+	if err == nil && flag == os.O_RDONLY && name == "1.domain" &&
+		p.armed.CompareAndSwap(true, false) {
+		p.opened <- struct{}{}
+		Eventually(p.resume).Should(BeClosed())
+	}
+	return f, err
+}
+
+func (p *pausedFS) Rename(oldName, newName string) error {
+	GinkgoHelper()
+	if newName == p.renameTo && p.renameArmed.CompareAndSwap(true, false) {
+		p.renaming <- struct{}{}
+		Eventually(p.resume).Should(BeClosed())
+	}
+	return p.FS.Rename(oldName, newName)
+}
 
 var _ = Describe("Garbage Collection", Ordered, func() {
 	for fsName, openFS := range FileSystems {
@@ -35,6 +80,360 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
+			})
+
+			Context("An iterator seeks before the collection", func() {
+				var (
+					i      *domain.Iterator
+					first  = (10 * telem.SecondTS).Range(14 * telem.SecondTS)
+					second = (20 * telem.SecondTS).Range(26 * telem.SecondTS)
+					data   = []byte{20, 21, 22, 23, 24, 25}
+				)
+				openOn := func(ctx SpecContext, cfg domain.Config) {
+					GinkgoHelper()
+					cfg.FileSize = 9 * telem.Byte
+					cfg.GCThreshold = math.SmallestNonzeroFloat32
+					cfg.Instrumentation = PanicLogger()
+					db = MustSucceed(domain.Open(cfg))
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
+					).To(Succeed())
+					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
+					i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						first,
+						fixedOffset(0),
+						fixedOffset(4),
+					)).To(Succeed())
+				}
+				expectRead := func(r *domain.Reader, want []byte) {
+					GinkgoHelper()
+					Expect(r.Size()).To(Equal(telem.Size(len(want))))
+					read := make([]byte, len(want))
+					MustSucceed(r.ReadAt(read, 0))
+					Expect(read).To(Equal(want))
+					Expect(r.Close()).To(Succeed())
+					Expect(i.Close()).To(Succeed())
+				}
+
+				It("Should read its domain at the new offset", func(ctx SpecContext) {
+					openOn(ctx, domain.Config{FS: fs})
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					expectRead(MustSucceed(i.OpenReader(ctx)), data)
+				})
+
+				DescribeTable(
+					"Should fail after a delete changes the domain",
+					func(
+						ctx SpecContext,
+						start, end telem.TimeStamp,
+						startOffset, endOffset telem.Size,
+					) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(db.Delete(
+							ctx,
+							start.Range(end),
+							fixedOffset(startOffset),
+							fixedOffset(endOffset),
+						)).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							i.OpenReader(ctx),
+						).Error().
+							To(MatchError(domain.ErrChanged))
+						Expect(i.Close()).To(Succeed())
+					},
+					Entry(
+						"Tail",
+						23*telem.SecondTS,
+						26*telem.SecondTS,
+						telem.Size(3),
+						telem.Size(6),
+					),
+					Entry(
+						"Head",
+						20*telem.SecondTS,
+						23*telem.SecondTS,
+						telem.Size(0),
+						telem.Size(3),
+					),
+					Entry(
+						"Middle",
+						22*telem.SecondTS,
+						24*telem.SecondTS,
+						telem.Size(2),
+						telem.Size(4),
+					),
+					Entry(
+						"Whole",
+						20*telem.SecondTS,
+						26*telem.SecondTS,
+						telem.Size(0),
+						telem.Size(6),
+					),
+				)
+
+				It(
+					"Should read the old offset if no collection ran",
+					func(ctx SpecContext) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(db.Delete(
+							ctx,
+							(23 * telem.SecondTS).Range(26*telem.SecondTS),
+							fixedOffset(3),
+							fixedOffset(6),
+						)).To(Succeed())
+						expectRead(MustSucceed(i.OpenReader(ctx)), data)
+					},
+				)
+
+				It(
+					"Should fail after new data replaces the domain",
+					func(ctx SpecContext) {
+						openOn(ctx, domain.Config{FS: fs})
+						Expect(
+							db.Delete(ctx, second, fixedOffset(0), fixedOffset(6)),
+						).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(BeZero())
+						// This writer holds the idle handle on the rollover file, so
+						// the new domain lands in the collected file.
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 100 * telem.SecondTS,
+						}))
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							second,
+							[]byte{30, 31, 32, 33, 34, 35},
+						)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						Expect(
+							i.OpenReader(ctx),
+						).Error().
+							To(MatchError(domain.ErrChanged))
+						Expect(i.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should follow a domain that grew and then moved",
+					func(ctx SpecContext) {
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							FileSize:        9 * telem.Byte,
+							GCThreshold:     math.SmallestNonzeroFloat32,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.WriteDomain(
+								ctx,
+								db,
+								first,
+								[]byte{10, 11, 12, 13},
+							),
+						).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:            second.Start,
+							EnableAutoCommit: new(false),
+						}))
+						MustSucceed(w.Write(data[:3]))
+						Expect(w.Commit(ctx, 23*telem.SecondTS)).To(Succeed())
+						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+						MustSucceed(w.Write(data[3:]))
+						Expect(w.Commit(ctx, second.End)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(
+							db.Delete(ctx, first, fixedOffset(0), fixedOffset(4)),
+						).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						expectRead(MustSucceed(i.OpenReader(ctx)), data[:3])
+					},
+				)
+
+				Describe("A delete that keeps every byte of the domain", func() {
+					writeBoth := func(ctx SpecContext) {
+						GinkgoHelper()
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							FileSize:        9 * telem.Byte,
+							GCThreshold:     math.SmallestNonzeroFloat32,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.WriteDomain(
+								ctx,
+								db,
+								first,
+								[]byte{10, 11, 12, 13},
+							),
+						).To(Succeed())
+						Expect(
+							testutil.WriteDomain(ctx, db, second, data),
+						).To(Succeed())
+						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					}
+
+					It(
+						"Should read a domain the delete ends at",
+						func(ctx SpecContext) {
+							writeBoth(ctx)
+							Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+							Expect(db.Delete(
+								ctx,
+								first.Start.Range(second.Start),
+								fixedOffset(0),
+								fixedOffset(0),
+							)).To(Succeed())
+							Expect(db.GarbageCollect(ctx)).To(Succeed())
+							Expect(
+								MustSucceed(fs.Stat("1.domain")).Size(),
+							).To(Equal(int64(6)))
+							expectRead(MustSucceed(i.OpenReader(ctx)), data)
+						},
+					)
+
+					It(
+						"Should read a domain the delete starts after",
+						func(ctx SpecContext) {
+							writeBoth(ctx)
+							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+							Expect(db.Delete(
+								ctx,
+								(first.End - 1).Range(second.End),
+								fixedOffsetAndTimeStamp(4, first.End),
+								fixedOffsetAndTimeStamp(6, second.End),
+							)).To(Succeed())
+							Expect(db.GarbageCollect(ctx)).To(Succeed())
+							Expect(
+								MustSucceed(fs.Stat("1.domain")).Size(),
+							).To(Equal(int64(4)))
+							expectRead(
+								MustSucceed(i.OpenReader(ctx)),
+								[]byte{10, 11, 12, 13},
+							)
+						},
+					)
+				})
+
+				It("Should ignore a collection of another file", func(ctx SpecContext) {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        3 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
+					).To(Succeed())
+					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
+					held := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(held.SeekGE(ctx, second.Start)).To(BeTrue())
+					heldReader := MustSucceed(held.OpenReader(ctx))
+					i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(
+						db.Delete(ctx, first, fixedOffset(0), fixedOffset(4)),
+					).To(Succeed())
+					Expect(db.Delete(
+						ctx,
+						(23 * telem.SecondTS).Range(second.End),
+						fixedOffset(3),
+						fixedOffset(6),
+					)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(BeZero())
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(6)))
+					r := MustSucceed(i.OpenReader(ctx))
+					Expect(heldReader.Close()).To(Succeed())
+					Expect(held.Close()).To(Succeed())
+					expectRead(r, data)
+				})
+
+				// Windows cannot rename a file with an open handle.
+				if fsName != "memFS" {
+					return
+				}
+
+				readAsync := func(ctx SpecContext) chan *domain.Reader {
+					readers := make(chan *domain.Reader, 1)
+					go func() {
+						defer GinkgoRecover()
+						readers <- MustSucceed(i.OpenReader(ctx))
+					}()
+					return readers
+				}
+
+				It("Should not keep a handle opened before the collection", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.armed.Store(true)
+					readers := readAsync(ctx)
+					Eventually(paused.opened).Should(Receive())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					close(paused.resume)
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
+				})
+
+				It("Should wait for a collection that has moved the file away", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.renameTo = "1.domain"
+					paused.renameArmed.Store(true)
+					collected := make(chan error, 1)
+					go func() {
+						defer GinkgoRecover()
+						collected <- db.GarbageCollect(ctx)
+					}()
+					Eventually(paused.renaming).Should(Receive())
+					readers := readAsync(ctx)
+					Consistently(readers, 100*time.Millisecond).ShouldNot(Receive())
+					close(paused.resume)
+					Eventually(collected).Should(Receive(Succeed()))
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
+				})
+
+				It("Should not keep a handle opened during the collection", func(
+					ctx SpecContext,
+				) {
+					paused := newPausedFS(fs)
+					openOn(ctx, domain.Config{FS: paused})
+					paused.renameTo = "1.domain_temp"
+					paused.renameArmed.Store(true)
+					collected := make(chan error, 1)
+					go func() {
+						defer GinkgoRecover()
+						collected <- db.GarbageCollect(ctx)
+					}()
+					Eventually(paused.renaming).Should(Receive())
+					paused.armed.Store(true)
+					readers := readAsync(ctx)
+					Eventually(paused.opened).Should(Receive())
+					close(paused.resume)
+					Eventually(collected).Should(Receive(Succeed()))
+					var r *domain.Reader
+					Eventually(readers).Should(Receive(&r))
+					expectRead(r, data)
+				})
 			})
 
 			Context("Happy path - one file", func() {

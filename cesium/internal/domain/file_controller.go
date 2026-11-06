@@ -40,6 +40,11 @@ type fileReaders struct {
 }
 
 type fileController struct {
+	// rewrites counts how many times GC has replaced each file.
+	rewrites struct {
+		counts map[uint16]uint64
+		sync.RWMutex
+	}
 	counter     *xio.Int32Counter
 	counterFile io.Closer
 	// released closes when a handle goes idle or a descriptor frees, waking every
@@ -83,6 +88,7 @@ func openFileController(cfg Config) (*fileController, error) {
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.readers.files = make(map[uint16]*fileReaders)
+	fc.rewrites.counts = make(map[uint16]uint64)
 	if fc.writers.unopened, err = fc.scanUnopenedFiles(); err != nil {
 		return nil, err
 	}
@@ -342,29 +348,52 @@ func (fc *fileController) newReader(
 			fc.freeDescriptor()
 		}
 	}()
-	file, err := fc.FS.Open(
-		fileKeyToName(key),
-		os.O_RDONLY,
-	)
-	if err != nil {
-		return nil, span.Error(err)
+	for {
+		rewrites := fc.rewriteCount(key)
+		file, err := fc.FS.Open(fileKeyToName(key), os.O_RDONLY)
+		// GC holds fc.readers during a rewrite, so this waits out any rewrite that the
+		// open overlapped. The open may have missed the file or found the old one.
+		fc.readers.Lock()
+		if fc.rewriteCount(key) != rewrites {
+			fc.readers.Unlock()
+			if err == nil {
+				if err = file.Close(); err != nil {
+					return nil, span.Error(err)
+				}
+			}
+			continue
+		}
+		if err != nil {
+			fc.readers.Unlock()
+			return nil, span.Error(err)
+		}
+		r := controlledReader{
+			ReaderAtCloser:  file,
+			controllerEntry: newPoolEntry(key, fc),
+		}
+		f, ok := fc.readers.files[key]
+		if !ok {
+			fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
+		} else {
+			f.Lock()
+			fc.readers.files[key].open = append(fc.readers.files[key].open, r)
+			f.Unlock()
+		}
+		fc.readers.Unlock()
+		return &r, nil
 	}
+}
 
-	r := controlledReader{
-		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc),
-	}
-	fc.readers.Lock()
-	f, ok := fc.readers.files[key]
-	if !ok {
-		fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
-	} else {
-		f.Lock()
-		fc.readers.files[key].open = append(fc.readers.files[key].open, r)
-		f.Unlock()
-	}
-	fc.readers.Unlock()
-	return &r, err
+func (fc *fileController) rewriteCount(key uint16) uint64 {
+	fc.rewrites.RLock()
+	defer fc.rewrites.RUnlock()
+	return fc.rewrites.counts[key]
+}
+
+func (fc *fileController) countRewrite(key uint16) {
+	fc.rewrites.Lock()
+	defer fc.rewrites.Unlock()
+	fc.rewrites.counts[key]++
 }
 
 func (fc *fileController) gcReaders() (successful bool, err error) {

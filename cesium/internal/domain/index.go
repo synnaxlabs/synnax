@@ -26,6 +26,8 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
+		// lastID is the last pointer id handed out.
+		lastID uint64
 		sync.RWMutex
 	}
 	persistHead int
@@ -64,6 +66,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		}
 	}
 
+	p.id = idx.unprotectedNextID()
 	appended := insertAt == len(idx.mu.pointers)
 	if insertAt == 0 {
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
@@ -89,6 +92,22 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		return nil
 	}
 	return write.run()
+}
+
+func (idx *index) unprotectedNextID() uint64 {
+	idx.mu.lastID++
+	return idx.mu.lastID
+}
+
+// unprotectedCut gives kept, the part of from that a delete retains, its id. It stays
+// from's domain only if it holds all of from's bytes.
+func (idx *index) unprotectedCut(from, kept pointer) pointer {
+	if kept.offset == from.offset && kept.size == from.size {
+		kept.id = from.id
+	} else {
+		kept.id = idx.unprotectedNextID()
+	}
+	return kept
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -150,6 +169,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		return span.Error(err)
 	} else {
 		sizeDelta := int64(p.size) - int64(oldP.size)
+		p.id = oldP.id
 		idx.mu.pointers[updateAt] = p
 		idx.totalSize.Add(sizeDelta)
 	}
@@ -236,15 +256,15 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-func (idx *index) get(i int) (pointer, bool) {
+// startingAt returns the domain that starts at ts, reporting false if there is none.
+func (idx *index) startingAt(ts telem.TimeStamp) (pointer, bool) {
 	idx.mu.RLock()
-	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
+	defer idx.mu.RUnlock()
+	i, exact := idx.unprotectedSearch(ts.SpanRange(0))
+	if !exact || idx.mu.pointers[i].Start != ts {
 		return pointer{}, false
 	}
-	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
-	return v, true
+	return idx.mu.pointers[i], true
 }
 
 func (idx *index) read(f func()) {
