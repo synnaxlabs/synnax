@@ -188,7 +188,10 @@ func (b *Backups) restoreTS(src xfs.FS) (string, error) {
 		return "", err
 	}
 	dir := path.Join(backupsDir, fmt.Sprintf("orphaned-%d", time.Now().Unix()))
-	return dir, b.fs.Rename(staged, dir)
+	if err := b.fs.Rename(staged, dir); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 // replaceKV replaces the key-value store with the copy in the backup src. The live

@@ -65,7 +65,10 @@ func keyToDirName(ch ChannelKey) string { return strconv.FormatUint(uint64(ch), 
 
 func dirNameToKey(name string) (ChannelKey, error) {
 	key, err := strconv.ParseUint(name, 10, 32)
-	return ChannelKey(key), err
+	if err != nil {
+		return 0, err
+	}
+	return ChannelKey(key), nil
 }
 
 // DeleteChannel deletes a channel by its key.
