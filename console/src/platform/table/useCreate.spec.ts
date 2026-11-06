@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, type Synnax, UnexpectedError } from "@synnaxlabs/client";
+import { type project, type Synnax, table, UnexpectedError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -147,6 +148,44 @@ describe("useCreate", () => {
       expect(Session.Project.selectSelected(harness.store.getState())).toBe(
         beforeActive,
       );
+    });
+  });
+
+  describe("tab management", () => {
+    it("opens a resource tab for the created table", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness);
+      const key = uuid.create();
+      await act(async () => {
+        result.current({ key, name: "Opened" });
+      });
+      const tab = await resolveFocusedTab(
+        harness.store,
+        client,
+        (t) => t.variant === "resource" && t.resource.key === key,
+      );
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.type).toEqual(table.resourceID(key).type);
+    });
+
+    it("places no tab when the Core refuses the create", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderHook(
+        () => ({
+          create: Table.useCreate({ project: uuid.create() }),
+          statuses: Status.useNotifications().statuses,
+        }),
+        { wrapper: harness.wrapper },
+      );
+      await act(async () => {
+        result.current.create({ key: uuid.create(), name: "Refused" });
+      });
+      await waitFor(() =>
+        expect(result.current.statuses).toContainEqual(
+          expect.objectContaining({ variant: "error" }),
+        ),
+      );
+      expect(Session.Panel.selectSelected(harness.store.getState())).toBeUndefined();
     });
   });
 });
