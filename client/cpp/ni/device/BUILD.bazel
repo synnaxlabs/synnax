@@ -21,7 +21,7 @@ cc_library(
         "//client/cpp/channel",
         "//client/cpp/ni/chassis",
         "//client/cpp/ontology",
-        "//client/cpp/rack",
+        "//client/cpp/rack:key",
         "//client/cpp/status",
         "//x/cpp/json",
         "//x/cpp/uuid",
