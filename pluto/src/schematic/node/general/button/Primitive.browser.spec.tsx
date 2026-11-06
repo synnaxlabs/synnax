@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { describe, expect, it } from "vitest";
 
-import { Button } from "@/schematic/node/general/button/Primitive";
+import { Button } from "@/schematic/node/general/button";
 
 const LONG = "Open the main fuel valve on the upper stage";
 const UNBROKEN = "MAIN_FUEL_ISOLATION_VALVE_ON_THE_UPPER_STAGE";
@@ -21,7 +21,9 @@ const renderButton = async (
   label: Partial<schematic.LabelConfig>,
 ): Promise<HTMLElement> => {
   const { container } = await renderThemed(
-    <Button label={schematic.labelConfigZ.parse(label)} />,
+    <Button.spec.Preview
+      {...schematic.buttonNodeConfigZ.parse({ variant: "button", label })}
+    />,
   );
   const el = container.querySelector<HTMLElement>(".lyra-btn");
   if (el == null) throw new Error("expected a button element");
