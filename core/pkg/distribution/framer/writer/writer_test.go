@@ -567,6 +567,66 @@ var _ = Describe("Writer", func() {
 			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
 			Expect(live.Close()).To(Succeed())
 		})
+		DescribeTable(
+			"Should return no end when a node fails a commit that another node applies",
+			func(ctx SpecContext, failing int) {
+				gw := testutil.NewCluster(ctx, 2).Nodes[1]
+				keys := channel.KeysFromChannels(
+					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
+						{
+							Name:        "gateway_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 1,
+						},
+						{
+							Name:        "peer_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 2,
+						},
+					})),
+				)
+				live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.Keys{keys[failing]},
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				// A peer opens its writer after OpenWriter returns.
+				MustSucceed(live.Commit())
+				fill := MustSucceed(gw.Framer.NewStreamWriter(ctx, writer.Config{
+					Keys:             keys,
+					Start:            1 * telem.SecondTS,
+					Mode:             ts.WriterModePersistOnly,
+					EnableAutoCommit: new(false),
+				}))
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				requests := confluence.NewStream[writer.Request](2)
+				responses := confluence.NewStream[writer.Response](1)
+				fill.InFrom(requests)
+				fill.OutTo(responses)
+				fill.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				requests.Inlet() <- writer.Request{
+					Command: writer.CommandWrite,
+					Frame: frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(1, 30),
+						telem.NewSeriesSecondsTSV(1, 30),
+					}),
+				}
+				requests.Inlet() <- writer.Request{Command: writer.CommandCommit}
+				var res writer.Response
+				Eventually(responses.Outlet()).Should(Receive(&res))
+				Expect(res.Command).To(Equal(writer.CommandCommit))
+				Expect(res.Err).To(MatchError(validate.ErrValidation))
+				Expect(res.End).To(BeZero())
+				requests.Close()
+				Expect(sCtx.Wait()).To(MatchError(validate.ErrValidation))
+				Expect(live.Close()).To(Succeed())
+			},
+			Entry("on the gateway", 0),
+			Entry("on a peer", 1),
+		)
 		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
 			s := freeWriterScenario(ctx)
 			defer func() { Expect(s.Close()).To(Succeed()) }()

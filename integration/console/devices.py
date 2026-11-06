@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import re
 from typing import ClassVar
 
@@ -123,18 +122,16 @@ class DevicesClient(ResourceClient):
         self.layout.delete_with_confirmation(rack_item)
         self.wait_for_rack_removed(name)
 
-    def copy_rack_properties(self, name: str) -> dict[str, object]:
-        """Copy a rack's properties to the clipboard and return as a dict.
+    def copy_rack_properties(self, name: str) -> sy.Rack:
+        """Copy a rack's properties to the clipboard and return them.
 
         :param name: Name of the rack.
-        :returns: Parsed JSON properties dict.
+        :returns: The copied rack.
         """
         self.show_toolbar()
         rack_item = self._get_item(self.RACK_PREFIX, name)
         self.ctx_menu.action(rack_item, "Copy properties")
-        raw = self.layout.read_clipboard()
-        result: dict[str, object] = json.loads(raw)
-        return result
+        return sy.Rack.model_validate_json(self.layout.read_clipboard())
 
     def _ensure_device_visible(self, name: str) -> Locator | None:
         """Expand ancestor nodes so a device becomes visible in the tree.
@@ -455,18 +452,16 @@ class DevicesClient(ResourceClient):
             action=action,
         )
 
-    def copy_properties(self, name: str) -> dict[str, object]:
-        """Copy a device's properties to the clipboard and return as a dict.
+    def copy_properties(self, name: str) -> sy.Device:
+        """Copy a device's properties to the clipboard and return them.
 
         :param name: Name of the device.
-        :returns: Parsed JSON properties dict.
+        :returns: The copied device.
         """
         self.show_toolbar()
         device_item = self.get(name)
         self.ctx_menu.action(device_item, "Copy properties")
-        raw = self.layout.read_clipboard()
-        result: dict[str, object] = json.loads(raw)
-        return result
+        return sy.Device.model_validate_json(self.layout.read_clipboard())
 
     def change_identifier(self, name: str, new_identifier: str) -> None:
         """Change a configured device's identifier via context menu modal.

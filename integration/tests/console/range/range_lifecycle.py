@@ -256,7 +256,7 @@ class RangeLifecycle(ConsoleCase):
         plot_name = f"TestPlot_{self.rand_suffix}"
         plot = self.console.pages.create(Plot, plot_name)
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", "sy_node_1_metrics_cpu_percentage")
+        plot.add_channels("y1", "sy_node_1_metrics_cpu_percentage")
         self.console.layout.hide_visualization_toolbar()
         self.console.ranges.toolbar.add_to_active_plot(self.range_name)
         self.console.layout.close_tab(plot_name)

@@ -410,6 +410,7 @@ ci_scripts:
 
 scripts:
   - *py
+  - client/py/**
   - scripts/**
 
 runners:
