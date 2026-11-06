@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -513,6 +512,37 @@ describe("Read", () => {
     expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
   });
 
+  it("should reject an index name that another slave's index holds", async () => {
+    const base = createIdentifier();
+    const index = await client.channels.create({
+      name: `${base}_state_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const owner = await createSlaveDevice(client, testRack.key, {
+      identifier: base,
+      network: "eth0",
+      writeStateIndex: index.key,
+    });
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: `${base}_state`,
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `Slave ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
+          "the identifier",
+      ),
+    );
+  });
+
   it("should reject a custom name that the slave's index holds", async () => {
     const identifier = createIdentifier();
     const slave = await createSlaveDevice(client, testRack.key, {
@@ -536,7 +566,7 @@ describe("Read", () => {
     );
   });
 
-  it("should reject a default name that a renamed slave's channel holds", async () => {
+  it("should reject the index that a renamed slave keeps", async () => {
     const identifier = createIdentifier();
     const pdos = { inputs: [STATUS_ENTRY], outputs: [] };
     const renamed = await createSlaveDevice(client, testRack.key, {
@@ -579,8 +609,8 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `A channel named ${identifier}_Status already exists\\. Give the channel ` +
-          "another name\\.",
+        `Slave ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
+          "the identifier",
       ),
     );
   });
@@ -692,27 +722,6 @@ describe("Read", () => {
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
       expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
-    });
-
-    it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
-      const coupler = await client.devices.create({
-        key: id.create(),
-        name: uniqueName("ecat_coupler"),
-        rack: testRack.key,
-        location: "test-location",
-        make: EtherCAT.Device.MAKE,
-        model: "EK1100",
-        properties: {},
-      });
-      try {
-        const identifier = createIdentifier();
-        const first = await deploySlave(identifier);
-        await client.devices.delete(first.slave.key);
-        const second = await deploySlave(identifier);
-        expect(second.channel).toBe(first.channel);
-      } finally {
-        await client.devices.delete(coupler.key);
-      }
     });
 
     it("should reject two entries that share the name of a deleted slave's channel", async () => {

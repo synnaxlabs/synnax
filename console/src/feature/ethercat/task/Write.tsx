@@ -175,7 +175,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     const stateToCreate = await bindOrphanedChannels({
       client,
-      slave: slave.key,
       channels: stateMissing,
       names: stateMissing.map((ch) => writeChannelNames(slave, ch).state),
       index: () => slave.properties.writeStateIndex,

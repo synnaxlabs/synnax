@@ -154,33 +154,48 @@ export const retrieveByName = async (
   );
 };
 
-/** @throws {Error} if a device other than the slave uses the slave's identifier. */
-const checkIdentifierFree = async (
+/**
+ * @throws {Error} if a device other than the slave uses the slave's identifier, or if
+ * another slave uses the index.
+ */
+const checkIndexFree = async (
   client: Synnax,
   slave: SlaveDevice,
+  index: channel.Channel,
 ): Promise<void> => {
   const identifier = channel.escapeInvalidName(slave.properties.identifier);
-  const other = (await client.devices.retrieve({})).find(
-    ({ key, properties }) =>
-      key !== slave.key &&
+  const devices = await client.devices.retrieve({});
+  for (const { key, name, make, model, properties } of devices) {
+    if (key === slave.key) continue;
+    if (
       typeof properties?.identifier === "string" &&
-      channel.escapeInvalidName(properties.identifier) === identifier,
-  );
-  if (other != null)
-    throw new Error(
-      `Device ${other.name} has an identifier that gives the same channel names as ` +
-        `${slave.properties.identifier}. Change the identifier of one of them.`,
-    );
+      channel.escapeInvalidName(properties.identifier) === identifier
+    )
+      throw new Error(
+        `Device ${name} has an identifier that gives the same channel names as ` +
+          `${slave.properties.identifier}. Change the identifier of one of them.`,
+      );
+    if (
+      make === MAKE &&
+      model === SLAVE_MODEL &&
+      (properties?.readIndex === index.key || properties?.writeStateIndex === index.key)
+    )
+      throw new Error(
+        `Slave ${name} uses the index channel ${index.name}. Change the identifier ` +
+          `of slave ${slave.name}.`,
+      );
+  }
 };
 
 /**
  * Binds the slave to its index channel, creating the channel when the slave has none.
  * A deleted device leaves its channels, so the slave reuses an index channel that
- * holds its name when no other device uses its identifier.
+ * holds its name when no other device uses its identifier and no other slave uses the
+ * index.
  *
  * @returns true when the slave's properties changed.
- * @throws {Error} if a channel that is not an index holds the index name, or if
- * another device uses the slave's identifier.
+ * @throws {Error} if a channel that is not an index holds the index name, if another
+ * device uses the slave's identifier, or if another slave uses the index.
  */
 export const checkOrCreateIndex = async (
   client: Synnax,
@@ -208,7 +223,7 @@ export const checkOrCreateIndex = async (
           `A channel named ${name} already exists and is not an index. Change the ` +
             `identifier of slave ${slave.name}.`,
         );
-      await checkIdentifierFree(client, slave);
+      await checkIndexFree(client, slave, idx);
     } else
       idx = await client.channels.create({
         name,
@@ -266,8 +281,11 @@ const checkDataType = (existing: channel.Channel, dataType: string): void => {
 
 export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
   client: Synnax;
-  /** the key of the slave that deploys the channels. */
-  slave: string;
+  /**
+   * the key of the slave that deploys the channels. Set it when the channels do not use
+   * the slave's index, to reject a channel that another slave maps.
+   */
+  slave?: string;
   /** the channels that have no Synnax channel yet. */
   channels: C[];
   /** the name deploying gives each channel's Synnax channel. */
@@ -302,10 +320,13 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
   if (existing.size === 0) return channels;
-  const others = await client.devices.retrieve({
-    where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
-    schemas: SLAVE_SCHEMAS,
-  });
+  const others =
+    slave == null
+      ? []
+      : await client.devices.retrieve({
+          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+          schemas: SLAVE_SCHEMAS,
+        });
   const bound = new Set([
     ...Object.values(map),
     ...others
