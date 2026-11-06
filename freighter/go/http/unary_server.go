@@ -56,7 +56,7 @@ func WithRequestDecoders(decoders ...http.Decoder) UnaryServerOption {
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
-// the request's Accept header.
+// the request's Accept header. Errors are always JSON, whatever the encoders.
 func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }

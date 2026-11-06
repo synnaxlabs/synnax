@@ -687,6 +687,31 @@ var _ = Describe("Unary", func() {
 				Expect(got).To(Equal(testutil.Response(req)))
 			},
 		)
+
+		It(
+			"should return handler errors as JSON on a route with no JSON encoder",
+			func(ctx context.Context) {
+				unaryServerMsgpackOnly.BindHandler(
+					func(context.Context, testutil.Request) (testutil.Response, error) {
+						return testutil.Response{}, testutil.ErrCustom
+					},
+				)
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{
+							Encoder:  msgpack.Codec,
+							Decoders: []xhttp.Decoder{msgpack.Codec, json.Codec},
+						},
+					),
+				)
+				_, err := client.Send(
+					ctx,
+					unaryAddr+"/msgpack-only",
+					testutil.Request{ID: 4, Message: "err"},
+				)
+				Expect(err).To(MatchError(testutil.ErrCustom))
+			},
+		)
 	})
 
 	Describe("Streaming Response", func() {

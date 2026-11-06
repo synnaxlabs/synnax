@@ -36,7 +36,8 @@ type UnaryClientConfig struct {
 	Encoder xhttp.Encoder
 	// Decoders are the codecs the client can decode responses from. Drives the Accept
 	// header for content negotiation; the response is decoded with whichever Decoder
-	// matches the response Content-Type.
+	// matches the response Content-Type. Servers write errors as JSON, so a client must
+	// include a JSON decoder to read them.
 	//
 	// [REQUIRED] - At least one decoder must be supplied.
 	Decoders []xhttp.Decoder
