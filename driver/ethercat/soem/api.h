@@ -57,6 +57,11 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
+    /// @brief sets whether the caller requests each state change itself. When true,
+    /// config_init does not request PRE-OP and config_map_group does not request
+    /// SAFE-OP.
+    virtual void set_manual_state_change(bool manual) = 0;
+
     /// @brief sends the process data of a slave group.
     virtual int send_processdata(uint8_t group) = 0;
 
@@ -236,6 +241,10 @@ public:
 
     int config_map_group(void *iomap, uint8_t group) override {
         return ecx_config_map_group(&this->context, iomap, group);
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->context.manualstatechange = manual ? 1 : 0;
     }
 
     int send_processdata(uint8_t group) override {

@@ -197,10 +197,13 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
 
     if (const auto err = this->clear_dc_activation()) return err;
 
+    // The master requests SAFE-OP itself, once the bus cycles.
+    this->api->set_manual_state_change(true);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
     );
+    this->api->set_manual_state_change(false);
 
     if (iomap_size <= 0)
         return x::errors::Error(

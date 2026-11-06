@@ -50,7 +50,7 @@ struct RegisterWrite {
     uint16_t slave = 0;
     uint16_t address = 0;
     std::vector<uint8_t> data;
-    /// @brief true when the write came after config_map_group, which requests SAFE-OP.
+    /// @brief true when the write came after config_map_group.
     bool mapped = false;
 
     bool operator==(const RegisterWrite &) const = default;
@@ -96,6 +96,10 @@ public:
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     std::optional<uint8_t> mapped_group;
+    /// @brief the latest value given to set_manual_state_change.
+    bool manual_state_change = false;
+    /// @brief manual_state_change at the latest config_map_group call.
+    std::optional<bool> manual_at_map;
     /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
@@ -154,7 +158,12 @@ public:
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
+        this->manual_at_map = this->manual_state_change;
         return this->config_map_return;
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->manual_state_change = manual;
     }
 
     int send_processdata(uint8_t group) override {
