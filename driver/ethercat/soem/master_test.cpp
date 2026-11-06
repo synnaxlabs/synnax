@@ -110,14 +110,54 @@ TEST_F(SOEMMasterTest, InitializeInitFails) {
     EXPECT_TRUE(this->mock->close_called);
 }
 
-/// @brief it should return a no slaves error and close the socket when no slave
-/// answers.
+/// @brief it should return a no slaves error that asks for a cable and power check, and
+/// close the socket, when no slave answers.
 TEST_F(SOEMMasterTest, InitializeReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     const auto err = this->master->initialize();
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
-    EXPECT_EQ(err.data, "no EtherCAT slaves found on eth0");
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. Check the cable and the power of the first "
+        "device."
+    );
     EXPECT_TRUE(this->mock->close_called);
+}
+
+/// @brief it should name the DewesoftX filter and the Windows name of the adapter when
+/// the filter is bound to an interface with no slaves.
+TEST_F(SOEMMasterTest, InitializeNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
+    this->mock->config_init_return = 0;
+    this->mock->filtered_interfaces.insert("eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
+        "adapter \"Ethernet 2\". After DewesoftX starts, the filter blocks EtherCAT "
+        "replies, also after DewesoftX closes. Clear it in the properties of "
+        "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
+        "More network adapter options, then right-click the adapter > Properties)."
+    );
+    EXPECT_TRUE(this->mock->close_called);
+}
+
+/// @brief it should name the interface when the Windows name of an adapter with the
+/// DewesoftX filter cannot be read.
+TEST_F(SOEMMasterTest, InitializeNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
+    this->mock->config_init_return = 0;
+    this->mock->filtered_interfaces.insert("eth0");
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
+        "adapter \"eth0\". After DewesoftX starts, the filter blocks EtherCAT replies, "
+        "also after DewesoftX closes. Clear it in the properties of \"eth0\" (Settings "
+        "> Network & internet > Advanced network settings > More network adapter "
+        "options, then right-click the adapter > Properties)."
+    );
 }
 
 /// @brief it should return the number of slaves that answer on the bus.
@@ -172,6 +212,34 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[0].data_type, x::telem::INT16_T);
     EXPECT_EQ(inputs[1].name, "Value");
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should wait for the slaves to reach PRE-OP before it reads PDOs from the
+/// CoE object dictionary.
+TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_INIT;
+    slave.bus_state = EC_STATE_INIT;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000110},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
+
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slaves = this->master->slaves();
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_TRUE(slaves[0].status.pdo_discovery_error.empty());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].index, 0x6000);
+    EXPECT_EQ(inputs[0].sub_index, 1);
+    EXPECT_EQ(inputs[0].bit_length, 16);
 }
 
 /// @brief it should type each PDO entry from the data type in the SII of the slave.
