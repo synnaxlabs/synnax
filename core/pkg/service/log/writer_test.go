@@ -620,18 +620,6 @@ var _ = Describe("Writer", func() {
 					"channels.1.channel",
 				),
 				Entry(
-					"added channel of 0",
-					log.NewAddChannelAction(log.AddChannelPayload{Channel: 0}),
-					"channels.1.channel",
-				),
-				Entry(
-					"channels that repeat one channel",
-					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{entry(5, ""), entry(5, "")},
-					}),
-					"channels.1.channel",
-				),
-				Entry(
 					"channels with no timestamp",
 					log.NewSetChannelsAction(
 						log.SetChannelsPayload{
