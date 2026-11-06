@@ -10,9 +10,11 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <utility>
@@ -81,6 +83,10 @@ constexpr uint16_t SYNC0_ACTIVE = 0x0200;
 constexpr uint16_t SYNC1_ACTIVE = 0x0400;
 /// @brief the largest time a 32-bit DC register holds.
 const x::telem::TimeSpan REGISTER_LIMIT(std::numeric_limits<uint32_t>::max());
+/// @brief the shortest SYNC0 cycle whose events mark when a slave takes or applies
+/// process data, the period of the fastest bus rate. A faster SYNC0 clocks hardware in
+/// the slave, such as an ADC.
+const x::telem::TimeSpan MIN_EVENT_CYCLE = x::telem::MICROSECOND * 100;
 
 /// @brief values for the DC registers of a slave at one bus cycle.
 struct Registers {
@@ -95,13 +101,48 @@ struct Registers {
     int32_t sync0_shift = 0;
 
     bool operator==(const Registers &) const = default;
+
+    /// @brief true when the SYNC0 events mark when the slave takes or applies process
+    /// data: SYNC0 runs with a cycle of MIN_EVENT_CYCLE or more.
+    [[nodiscard]] bool marks_data() const {
+        return x::telem::TimeSpan(this->sync0_cycle) >= MIN_EVENT_CYCLE;
+    }
 };
+
+namespace details {
+/// @brief returns the fraction with the smallest denominator in [lo, hi], as a
+/// numerator and denominator. Requires 0 < lo <= hi.
+inline std::pair<double, double> simplest_fraction(const double lo, const double hi) {
+    if (std::ceil(lo) <= hi) return {std::ceil(lo), 1};
+    const double whole = std::floor(lo);
+    const auto [num, den] = simplest_fraction(1 / (hi - whole), 1 / (lo - whole));
+    return {(whole * num) + den, num};
+}
+}
+
+/// @brief returns the largest span in nanoseconds that divides each cycle a whole
+/// number of times and divides the period within a nanosecond. SYNC0 events with these
+/// cycles fall at the same phases in each span. Requires at least one cycle, and each
+/// cycle must be positive.
+inline double
+grid(const x::telem::TimeSpan period, const std::vector<x::telem::TimeSpan> &cycles) {
+    int64_t gcd = 0;
+    for (const auto &c: cycles)
+        gcd = std::gcd(gcd, c.nanoseconds());
+    // The period of a rate such as 300 Hz is rounded to whole nanoseconds, so it can
+    // miss a multiple of a SYNC0 cycle by a nanosecond. gcd / n divides the period
+    // within a nanosecond when period / gcd is within 1 / gcd of a fraction m / n.
+    const auto p = static_cast<double>(period.nanoseconds());
+    const auto g = static_cast<double>(gcd);
+    return g / details::simplest_fraction((p - 1) / g, (p + 1) / g).second;
+}
 
 /// @brief SYNC0 and SYNC1 cycles that replace the cycles a mode gives.
 struct Cycles {
     /// @brief the SYNC0 cycle, or zero for the cycle of the mode.
     x::telem::TimeSpan sync0{0};
-    /// @brief the time between SYNC1 events, or zero for the cycle of the mode.
+    /// @brief the time between SYNC1 events, or zero for the cycle of the mode. A
+    /// nonzero cycle turns SYNC1 on in a mode that leaves it off.
     x::telem::TimeSpan sync1{0};
 
     bool operator==(const Cycles &) const = default;
@@ -226,7 +267,8 @@ inline std::pair<Registers, x::errors::Error> resolve(
             REGISTER_LIMIT.to_string()
         );
     regs.sync0_cycle = static_cast<uint32_t>(sync0.nanoseconds());
-    if ((mode.assign_activate & SYNC1_ACTIVE) == 0) return {regs, x::errors::NIL};
+    if (cycles.sync1 != 0) regs.assign_activate |= SYNC1_ACTIVE;
+    if ((regs.assign_activate & SYNC1_ACTIVE) == 0) return {regs, x::errors::NIL};
     auto sync1 = sync0;
     if (mode.sync1_factor > 0) sync1 = sync0 * mode.sync1_factor;
     if (mode.sync1_factor < 0) sync1 = period * -mode.sync1_factor;

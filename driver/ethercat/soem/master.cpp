@@ -1102,6 +1102,8 @@ x::errors::Error Master::clear_dc_activation() {
 std::pair<std::vector<Master::DCSetup>, x::errors::Error>
 Master::resolve_dc(const x::telem::TimeSpan period) const {
     std::vector<DCSetup> setups;
+    std::vector<x::telem::TimeSpan> cycles;
+    std::string events;
     std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
@@ -1124,7 +1126,32 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
                 )
             };
         setups.push_back({.position = props.position, .registers = regs});
+        if (!regs.marks_data() || (regs.assign_activate & PDI_SYNC_UNIT) != 0) continue;
+        cycles.emplace_back(regs.sync0_cycle);
+        if (!events.empty()) events += ", ";
+        events += std::format(
+            "slave {} ({}) every {}",
+            props.position,
+            props.name,
+            cycles.back().to_string()
+        );
     }
+    if (!cycles.empty() && dc::grid(period, cycles) <
+                               static_cast<double>(dc::MIN_EVENT_CYCLE.nanoseconds()))
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "SYNC0 events do not line up with the bus cycle of {}: {}. Change "
+                    "the bus rate or the SYNC0 cycles so that a span of {} or more "
+                    "divides the bus cycle and each SYNC0 cycle.",
+                    period.to_string(),
+                    events,
+                    dc::MIN_EVENT_CYCLE.to_string()
+                )
+            )
+        };
     return {setups, x::errors::NIL};
 }
 
