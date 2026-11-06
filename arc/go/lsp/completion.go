@@ -571,7 +571,8 @@ func (s *Server) getCompletionItems(
 					importEdit = buildAutoImportEdit(doc, mod.Name)
 				}
 				for _, sym := range mod.Children() {
-					if sym.Kind != symbol.KindFunction || sym.Internal {
+					if sym.Kind != symbol.KindFunction || sym.Internal ||
+						(mod.AST != nil && !sym.Exported) {
 						continue
 					}
 					if !sym.Exec.Compatible(execFilter) {

@@ -470,8 +470,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	name := parser.IdentifierName(ctx.AST)
+	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -1064,6 +1064,14 @@ func analyzeNamedRef(
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
 	}
+	if sym.Root() != ctx.Scope.Root() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"'%s' belongs to an imported module and cannot be activated yet",
+			parser.IdentifierName(ctx.AST),
+		))
+		return transitionIntent{}, false
+	}
 	if isRootLevelScope(sym) {
 		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
 			if len(seqDecl.AllSequenceItem()) == 0 {
@@ -1437,9 +1445,31 @@ func Analyze(
 	root *symbol.Symbol,
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, false, cfgs)
+}
+
+// AnalyzeModule is Analyze under the module rules.
+func AnalyzeModule(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	cfgs ...parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, true, cfgs)
+}
+
+func analyze(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	module bool,
+	cfgs []parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root).WithConfig(parser.ConfigOf(cfgs...))
-		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
+		aCtx = acontext.NewRoot(ctx, t.AST, root).
+			WithConfig(parser.ConfigOf(cfgs...)).
+			WithModule(module)
+		i = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 
 	analyzer.AnalyzeProgram(aCtx)
