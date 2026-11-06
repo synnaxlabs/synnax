@@ -12,6 +12,7 @@
 
 #include <include/gtest/gtest.h>
 
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
@@ -314,4 +315,16 @@ TEST(TestChannel, testOntologyId) {
     ASSERT_EQ(id.key, "42");
 }
 
+/// @brief it should fall back to exclusive concurrency when the JSON omits it.
+TEST(TestChannel, testParseMissingConcurrency) {
+    x::json::Parser parser(
+        x::json::json{
+            {"name", "sensor"},
+            {"data_type", "float64"},
+        }
+    );
+    const auto ch = Channel::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(ch.concurrency, x::control::Concurrency::Exclusive);
+}
 }
