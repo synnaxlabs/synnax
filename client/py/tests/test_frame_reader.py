@@ -179,22 +179,116 @@ class TestReader:
     def test_read_one_key_list(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should return a Frame for a list with one key"""
-        _, data_ch = written_pair
+        """Should return a Frame for a list with one key, with its index after it"""
+        idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, [data_ch.key])
         assert isinstance(f, sy.Frame)
-        assert f.channels == [data_ch.key]
+        assert f.channels == [data_ch.key, idx_ch.key]
         assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
 
     def test_read_one_name_tuple(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should return a Frame for a tuple with one name"""
-        _, data_ch = written_pair
+        """Should return a Frame for a tuple with one name, with its index after it"""
+        idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, (data_ch.name,))
         assert isinstance(f, sy.Frame)
-        assert f.channels == [data_ch.name]
+        assert f.channels == [data_ch.name, idx_ch.name]
         assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
+
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_read_without_index_to_df(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        by_name: bool,
+    ) -> None:
+        """Should index the DataFrame by time when the read leaves out the index"""
+        idx_ch, data_ch = written_pair
+        if by_name:
+            fr = client.read(sy.TimeRange.MAX, [data_ch.name])
+        else:
+            fr = client.read(sy.TimeRange.MAX, [data_ch.key])
+        df = fr.to_df()
+        assert list(df.columns) == [data_ch.name]
+        assert df.index.name == idx_ch.name
+        stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
+        assert list(df.index) == list(pd.to_datetime(stamps, unit="ns", utc=True))
+
+    def test_read_partial_channel_to_df(self, client: sy.Synnax) -> None:
+        """Should leave a cell blank where a channel has no sample at an index time."""
+        idx_ch = _create_index(client)
+        full, partial = client.channels.create(
+            [
+                sy.Channel(
+                    name=f"test_{random_name()}_{i}",
+                    index=idx_ch.key,
+                    data_type=sy.DataType.FLOAT64,
+                )
+                for i in range(2)
+            ]
+        )
+        stamps = seconds_linspace(1, count=20)
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx_ch.key, full.key]
+        ) as w:
+            w.write({idx_ch.key: stamps, full.key: np.arange(20, dtype=np.float64)})
+            w.commit()
+        with client.open_writer(start=stamps[15], channels=[partial.key]) as w:
+            w.write({partial.key: np.arange(5, dtype=np.float64)})
+            w.commit()
+        df = client.read(sy.TimeRange.MAX, [partial.key]).to_df()
+        assert list(df.columns) == [partial.name]
+        assert len(df) == 20
+        assert df[partial.name].isna().sum() == 15
+        assert df[partial.name].dropna().tolist() == [0.0, 1.0, 2.0, 3.0, 4.0]
+        assert df[partial.name].dropna().index.tolist() == df.index[15:].tolist()
+
+    def test_read_limited_text_to_df(self, client: sy.Synnax) -> None:
+        """Should not index text by time, as a limit reduces only its timestamps."""
+        idx_ch = _create_index(client)
+        text = client.channels.create(
+            name=f"test_{random_name()}_text",
+            index=idx_ch.key,
+            data_type=sy.DataType.STRING,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx_ch.key, text.key]
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: seconds_linspace(1, count=10),
+                    text.key: [str(i) for i in range(10)],
+                }
+            )
+            w.commit()
+        fr = client.read(
+            sy.TimeRange.MAX,
+            [text.key],
+            reduction=sy.LimitReduction(aggregation="decimate", point_limit=5),
+        )
+        assert fr.channels == [text.key]
+        assert len(fr.to_df()) == 10
+
+    def test_read_requested_index_once(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should not read an index again when the read already holds it"""
+        idx_ch, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert f.channels == [idx_ch.key, data_ch.key]
+
+    def test_read_min_max_leaves_out_index(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should not read the index under a min_max reduction"""
+        _, data_ch = written_pair
+        f = client.read(
+            sy.TimeRange.MAX,
+            [data_ch.key],
+            reduction=sy.LimitReduction(aggregation="min_max", point_limit=4),
+        )
+        assert f.channels == [data_ch.key]
 
     def test_read_strided(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

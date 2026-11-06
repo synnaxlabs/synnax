@@ -187,13 +187,15 @@ const Trouble = (): ReactElement => {
   const activeKey = Session.Core.useSelectSelectedKey();
   const logout = Core.useLogout();
   const openConnect = Core.useConnectModal();
+  // A browser Console only talks to the Core that served it.
+  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
   return (
     <Flex.Box y gap="large" full="x">
       <Connection.Target />
       <Flex.Box y gap="small" full="x">
         <Connection.Retry variant="filled" size="large" full="x" justify="center" />
         <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>
-          {activeKey != null && (
+          {editable && (
             <Button.Button
               variant="outlined"
               grow
