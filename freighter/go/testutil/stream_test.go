@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -68,6 +69,33 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		// handler emits on return has nowhere to go until the client cancels.
 		Eventually(returned).Should(BeClosed())
 		cancel()
+	})
+
+	It("Should allow Send while Receive observes the closing error", func(
+		ctx SpecContext,
+	) {
+		ShouldNotLeakGoroutines()
+		failing, dialer := testutil.NewStreamPair[testutil.Request, testutil.Response]()
+		failing.BindHandler(func(
+			context.Context,
+			freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			return errors.New("handler failed")
+		})
+		for range 50 {
+			stream := MustSucceed(dialer.Stream(ctx, "localhost:0"))
+			sent := make(chan error, 1)
+			go func() {
+				for {
+					if err := stream.Send(testutil.Request{ID: 1}); err != nil {
+						sent <- err
+						return
+					}
+				}
+			}()
+			Expect(stream.Receive()).Error().To(MatchError("handler failed"))
+			Eventually(sent).Should(Receive(MatchError(freighter.EOF)))
+		}
 	})
 })
 

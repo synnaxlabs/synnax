@@ -103,7 +103,7 @@ jobs:
     timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Start Core
         if: runner.os == 'Linux' && inputs.core_image != ''
@@ -125,13 +125,16 @@ jobs:
       - name: Install packages
         timeout-minutes: 10
         if: runner.os == 'Linux' && inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Install Rust
         if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
@@ -140,7 +143,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           bazelisk-cache: false
           disk-cache: false
@@ -148,7 +151,7 @@ jobs:
 
       - name: Set up uv
         if: runner.os == 'Linux' && inputs.directories != ''
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -158,8 +161,11 @@ jobs:
 
       - name: Check formatting
         if: runner.os == 'Linux' && inputs.directories != ''
+        env:
+          DIRECTORIES: ${{ inputs.directories }}
         run: |
-          for directory in ${{ inputs.directories }}; do
+          read -ra directories <<< "$DIRECTORIES"
+          for directory in "${directories[@]}"; do
             scripts/check_clang_format.sh "$directory"
           done
 
@@ -183,9 +189,13 @@ jobs:
         env:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
-        run: >-
-          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
-          ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
+        run: |
+          read -ra args <<< "$TARGETS $TAG_FLAG $TEST_FLAGS"
+          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} \
+            --test_output=all "${args[@]}"
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
       # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
@@ -193,24 +203,32 @@ jobs:
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+            $TARGETS $TAG_FLAG \
+            $TEST_FLAGS
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
+        env:
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           export MSYS_NO_PATHCONV=1
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+            $TARGETS $TAG_FLAG \
+            $TEST_FLAGS
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'
@@ -232,18 +250,21 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install packages
         timeout-minutes: 10
         if: inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
+          read -ra packages <<< "$PACKAGES"
+          sudo apt-get install -y "${packages[@]}"
 
       - name: Install Rust
         if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
@@ -252,7 +273,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           bazelisk-cache: false
           disk-cache: false
@@ -260,10 +281,12 @@ jobs:
 
       # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
       - name: Lint
+        env:
+          TARGETS: ${{ inputs.targets }}
         run: |
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
-            --keep_going ${{ inputs.targets }}
+            --keep_going $TARGETS
 
       - name: Clean build caches
         if: always()

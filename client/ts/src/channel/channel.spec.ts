@@ -299,6 +299,19 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
+    test("retrieve by a flat filter", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve({
+        name: { regex: `^${prefix}` },
+        dataType: DataType.FLOAT32,
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+    });
     test("retrieve by a name pattern", async () => {
       const prefix = `qry_${id.create()}`;
       const [a, b] = await client.channels.create([
@@ -807,6 +820,27 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("should admit a renamed channel to a name query locally", async () => {
+      const ch = await createVirtual();
+      const name = `qry_wanted_${id.create()}`;
+      const params = { where: { namePatterns: [name] } };
+      const off = client.channels.onChange(params, vi.fn());
+      const send = spyOnSend(client);
+      try {
+        expect(await client.channels.retrieve(params)).toEqual([]);
+        send.mockClear();
+        await client.channels.rename(ch.key, name);
+        expect(expectLive(client.channels.getCached(params)).map((c) => c.key)).toEqual(
+          [ch.key],
+        );
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+      } finally {
+        send.mockRestore();
+        off();
+      }
+    });
   });
 
   describe("calculated channel cached without a status", () => {
@@ -1190,6 +1224,57 @@ describe("cached reads", () => {
           rangeKey: rng.key,
         }),
       ).toBeUndefined();
+    });
+
+    describe("single query on a row cached without a range", () => {
+      const createAliased = async () => {
+        const ch = await createVirtual();
+        const rng = await createRange();
+        const alias = `qry_alias_${id.create()}`;
+        await client.ranges.setAlias(rng.key, ch.key, alias);
+        const local = createTestClient();
+        await local.channels.retrieve(ch.key);
+        return { local, params: { key: ch.key, rangeKey: rng.key }, alias };
+      };
+
+      it("should not answer getCached from the row", async () => {
+        const { local, params, alias } = await createAliased();
+        expect(local.channels.getCached(params)).toBeUndefined();
+        await local.channels.retrieve(params);
+        expect(expectLive(local.channels.getCached(params)).alias).toBe(alias);
+      });
+
+      it("should fetch the alias for a subscribed query", async () => {
+        const { local, params, alias } = await createAliased();
+        const stop = local.channels.onChange(params, () => {});
+        try {
+          const res = await local.channels.retrieve(params);
+          expect(res.alias).toBe(alias);
+        } finally {
+          stop();
+        }
+      });
+
+      it("should fetch once for a channel with no alias", async () => {
+        const ch = await createVirtual();
+        const rng = await createRange();
+        const local = createTestClient();
+        await local.channels.retrieve(ch.key);
+        await waitForStreamLive(local.connection);
+        const send = spyOnSend(local);
+        const params = { key: ch.key, rangeKey: rng.key };
+        const stop = local.channels.onChange(params, () => {});
+        try {
+          expect((await local.channels.retrieve(params)).alias).toBeUndefined();
+          await local.channels.retrieve(params);
+          expect(expectLive(local.channels.getCached(params)).alias).toBeUndefined();
+          expect(
+            send.mock.calls.filter(([target]) => target === "/range/alias/retrieve"),
+          ).toHaveLength(1);
+        } finally {
+          stop();
+        }
+      });
     });
   });
 });

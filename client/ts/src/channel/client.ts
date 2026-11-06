@@ -45,8 +45,8 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
+import { LINES, serverComputed } from "@/channel/where";
+import { matches, retrieveInputZ } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -223,6 +223,11 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
+const retrieveParamsZ = z.union([
+  retrieveMultipleParamsZ,
+  retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
+]);
+
 const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
   rangeKey: rangerKeyZ.optional(),
@@ -299,7 +304,7 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
-  typeof retrieveMultipleParamsZ,
+  typeof retrieveParamsZ,
   Key,
   Channel,
   Channel,
@@ -350,7 +355,11 @@ export class Client extends query.Retriever<
           : this.composeAlias(records[0].payload, query.rangeKey),
       keyOf: (query) => query.key,
       // Status-free fetches and the stream cache calculated channels with no status.
-      covers: (ch) => !ch.isCalculated || ch.status != null,
+      // No alias entry under the range means the alias may exist but was never fetched.
+      covers: (ch, { key, rangeKey }) =>
+        (!ch.isCalculated || ch.status != null) &&
+        (rangeKey == null ||
+          aliasStore.has(createKey({ range: rangeKey, channel: key }))),
       single: true,
       watch: [
         query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
@@ -364,10 +373,10 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
-        schema: retrieveMultipleParamsZ,
+        schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(LINES, query.where),
+        serverComputed: (query) => serverComputed(query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
@@ -513,10 +522,16 @@ export class Client extends query.Retriever<
   async retrieve(params: RetrieveSingleParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
-  async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
+  async retrieve(
+    params: query.RequestInput<typeof retrieveParamsZ>,
+  ): Promise<Channel[]>;
 
   async retrieve(
-    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
+    params:
+      | PrimitiveParams
+      | Payload[]
+      | RetrieveSingleParams
+      | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
