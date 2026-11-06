@@ -823,7 +823,7 @@ func lowerAssignment(
 		}
 		return lowerExprReadReassign(ctx, sym, e, expr, kg, shell)
 	}
-	if v := statement.CastConstValue(expr, sym.Type); v != nil {
+	if v := statement.CastConstValue(ctx, expr, sym.Type); v != nil {
 		n := newConstNode(kg.generate("const", sym.Name), sym.Type, sym.Type, v)
 		ref := varFeederRef(e.register)
 		return []ir.Node{n}, []ir.Edge{{
@@ -1973,6 +1973,10 @@ func extractInputValues(
 					}
 				}
 			}
+		}
+
+		if value, ok := ctx.FloatConstant(expr); ok {
+			return types.EncodeFloat(value), paramType, true
 		}
 
 		if !parser.IsLiteral(expr) {

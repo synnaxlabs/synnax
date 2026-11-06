@@ -209,7 +209,7 @@ A variable's kind is inferred from its initializer:
 
 - **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
   into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals can be stateful.
+  entries; only literals and `math.nan` or `math.inf` can be stateful.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -307,9 +307,8 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, default to `f64`, and do not fit an integer type. Use them in expressions and in
-`func` bodies. A flow variable initializer and a function input value must be literals,
-and the constants are not literals. `==` or `!=` with `math.nan` gives warning ARC2004.
+`f64`, default to `f64`, and do not fit an integer type. `==` or `!=` with `math.nan`
+gives warning ARC2004.
 
 ```arc
 import math

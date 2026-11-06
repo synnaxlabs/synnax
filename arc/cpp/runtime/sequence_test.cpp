@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -293,6 +294,58 @@ TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
     EXPECT_FALSE(run<double>("v == y", x::telem::FLOAT64_T));
     EXPECT_TRUE(run<double>("v != y", x::telem::FLOAT64_T));
     EXPECT_TRUE(run<double>("v != v", x::telem::FLOAT64_T));
+}
+
+namespace stored_float {
+const std::vector<std::string> SOURCES = {
+    "limit T := V\nfunc f() {v T} T { return limit }\n%x% -> f() -> %out%\n",
+    "sequence main {\n    limit T := V\n    stage a {\n        limit -> %out%\n    }\n"
+    "}\n%x% => main\n",
+    "sequence main {\n    limit T $= V\n    stage a {\n        limit -> %out%\n    }\n"
+    "}\n%x% => main\n",
+    "func f(a T) {v T} T { return a }\n%x% -> f(a=V) -> %out%\n",
+};
+
+std::string replace(std::string s, const std::string &from, const std::string &to) {
+    for (auto i = s.find(from); i != std::string::npos; i = s.find(from, i + to.size()))
+        s.replace(i, from.size(), to);
+    return s;
+}
+
+/// @brief runs every source with the constant and returns each value written.
+template<typename T>
+std::vector<T> run(const std::string &constant, const x::telem::DataType &dt) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    std::vector<T> out;
+    for (const auto &source: SOURCES) {
+        Sequence h(
+            "import math\n" + replace(replace(source, "T", type), "V", constant),
+            {{"x", dt}, {"out", dt}}
+        );
+        for (int i = 0; i < 5; i++)
+            h.push("x", x::telem::Series(T(1.5)));
+        out.push_back(last<T>(h.flush(), h.key("out")));
+    }
+    return out;
+}
+
+template<typename T>
+void expect_all(const x::telem::DataType &dt) {
+    for (const auto v: run<T>("math.nan", dt))
+        EXPECT_TRUE(std::isnan(v));
+    for (const auto v: run<T>("math.inf", dt))
+        EXPECT_EQ(v, std::numeric_limits<T>::infinity());
+    for (const auto v: run<T>("-math.inf", dt))
+        EXPECT_EQ(v, -std::numeric_limits<T>::infinity());
+}
+}
+
+TEST(StoredFloatTest, KeepsNonFiniteF32Values) {
+    stored_float::expect_all<float>(x::telem::FLOAT32_T);
+}
+
+TEST(StoredFloatTest, KeepsNonFiniteF64Values) {
+    stored_float::expect_all<double>(x::telem::FLOAT64_T);
 }
 
 TEST(ReactiveReExpressionTest, JumpsToAReExpressionReachedBySkippingEarlierStages) {

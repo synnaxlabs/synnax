@@ -108,7 +108,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		// SY-4474: Enable const-expression initializers for variables
-		if expr != nil && !parser.IsLiteral(expr) {
+		if expr != nil && !parser.IsLiteral(expr) &&
+			CastConstValue(ctx, expr, sym.Type) == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"stateful variable initializer must be a literal value"))
 		}
@@ -141,7 +142,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 		return
 	}
-	if CastConstValue(expr, sym.Type) != nil {
+	if CastConstValue(ctx, expr, sym.Type) != nil {
 		return
 	}
 	// A complex initializer that reads channels is reactive: retype it as a
@@ -287,22 +288,34 @@ func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
 
 // constDefaultValue folds a literal or cast-of-literal initializer into its value,
 // returning nil when expr is absent or not a compile-time constant.
-func constDefaultValue(expr parser.IExpressionContext, varType types.Type) any {
+func constDefaultValue[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+	varType types.Type,
+) any {
 	if expr == nil {
 		return nil
 	}
 	if parsed, err := literal.ParseConst(expr, varType); err == nil {
 		return parsed.Value
 	}
-	return CastConstValue(expr, varType)
+	return CastConstValue(ctx, expr, varType)
 }
 
-// CastConstValue folds a cast-of-literal expression to its value for t,
-// returning nil when expr is not that shape. Foldable casts lower as
-// constants, so they must not register synthetic expression functions.
-func CastConstValue(expr parser.IExpressionContext, t types.Type) any {
+// CastConstValue folds a cast-of-literal or module-constant expression to its value for
+// t, returning nil when expr is not that shape. Foldable expressions lower as
+// constants,
+// so they must not register synthetic expression functions.
+func CastConstValue[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+	t types.Type,
+) any {
 	if expr == nil {
 		return nil
+	}
+	if value, ok := ctx.FloatConstant(expr); ok {
+		return types.EncodeFloat(value)
 	}
 	if p := parser.GetPrimaryExpression(expr); p != nil {
 		if cast := p.TypeCast(); cast != nil && cast.Expression() != nil {
@@ -367,7 +380,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		}
 	}
 
-	defaultValue := constDefaultValue(expr, varType)
+	defaultValue := constDefaultValue(ctx, expr, varType)
 
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name:         name,
@@ -455,7 +468,7 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	if varType.Kind == types.KindChan {
 		varType = varType.Unwrap()
 	}
-	defaultValue := constDefaultValue(expr, varType)
+	defaultValue := constDefaultValue(ctx, expr, varType)
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name:         name,
 		Kind:         symbol.KindStatefulVariable,
