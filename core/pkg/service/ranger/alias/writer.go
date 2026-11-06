@@ -45,12 +45,9 @@ func (w Writer) Set(
 			ch,
 		)
 	}
-	if err := w.table.NewCreate().
+	return w.table.NewCreate().
 		Entry(&Alias{Range: rng, Channel: ch, Alias: al}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return nil
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the alias for the given channel on the specified range.

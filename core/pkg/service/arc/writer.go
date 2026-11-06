@@ -79,9 +79,10 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
-	} else if err = w.syncTask(ctx, *a); err != nil {
-		return err
+	if exists {
+		if err = w.syncTask(ctx, *a); err != nil {
+			return err
+		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,

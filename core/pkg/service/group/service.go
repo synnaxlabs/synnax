@@ -394,7 +394,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	named := set.New(
 		lo.Map(keys, func(k Key, _ int) string { return gorp.FormatKey(k) })...,
 	)
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
 			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
@@ -413,10 +413,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			}
 			return nil
 		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return nil
+		Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.

@@ -137,14 +137,11 @@ func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 // Delete removes the users with the given keys from the key-value store.
 // Deleting a root user is rejected.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
 		Guard(func(_ gorp.Context, u User) error {
 			if u.RootUser {
 				return errors.New("cannot delete root user")
 			}
 			return nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return nil
+		}).Exec(ctx, w.tx)
 }

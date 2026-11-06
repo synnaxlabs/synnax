@@ -140,13 +140,7 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 		device.Rack == existing.Rack &&
 		lo.FromPtr(device.Parent) == lo.FromPtr(existing.Parent)
 	overwritable := !unmoved || device.Name != existing.Name
-	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	return nil
+	return w.writeStatus(ctx, device, providedStatus, overwritable)
 }
 
 // CreateMany creates or updates the given devices. If devices with the same key already
