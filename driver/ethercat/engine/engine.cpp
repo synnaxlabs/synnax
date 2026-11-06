@@ -243,7 +243,7 @@ void Engine::run() {
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
                 timer = x::loop::Timer(sched->rate.period());
-                phase.emplace(sched->rate.period(), master::DC_EPOCH);
+                // Demo: no cycle lock, frames run free as in pysoem.
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
