@@ -30,6 +30,7 @@ const retrieveScanTask = async () => {
   return await client.tasks.retrieve({
     type: SCAN_SCHEMAS.type.value,
     rack: rack.key,
+    one: true,
     schemas: SCAN_SCHEMAS,
   });
 };
