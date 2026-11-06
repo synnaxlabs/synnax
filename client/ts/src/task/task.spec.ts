@@ -186,7 +186,7 @@ describe("Task", async () => {
     it("retrieves a task by its name", async () => {
       const created = await testRack.createTask({
         name: `named-task-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await client.tasks.retrieve(created.name);
@@ -291,7 +291,7 @@ describe("Task", async () => {
     it("should return one task for a plain key beside other fields", async () => {
       const t = await testRack.createTask({
         name: "t",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved: task.Task = await client.tasks.retrieve({
@@ -1041,7 +1041,7 @@ describe("Task", async () => {
         {
           name: `${prefix}-a`,
           type: "pagerduty_alert",
-          config: { routingKey: "rk-700", autoStart: false, alerts: [] },
+          config: { routingKey: ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1050,7 +1050,7 @@ describe("Task", async () => {
         one: true,
         schemas,
       });
-      expect(retrieved.config.routingKey).toBe("rk-700");
+      expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
     });
 
     it("should return one task for a plain key beside other fields", async () => {
@@ -1058,7 +1058,7 @@ describe("Task", async () => {
         {
           name: "one-schema",
           type: "pagerduty_alert",
-          config: { routingKey: "rk-600", autoStart: false, alerts: [] },
+          config: { routingKey: OTHER_ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1067,7 +1067,7 @@ describe("Task", async () => {
         internal: false,
         schemas,
       });
-      expect(retrieved.config.routingKey).toBe("rk-600");
+      expect(retrieved.config.routingKey).toBe(OTHER_ROUTING_KEY);
       await expect(
         client.tasks.retrieve({ key: t.key, internal: true, schemas }),
       ).rejects.toThrow(NotFoundError);
