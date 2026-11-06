@@ -496,6 +496,11 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
+		if isSink && sym.Root().UserDefined {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"cannot write to '%s': it belongs to an imported module", name))
+			return flowNodeResult{}, false
+		}
 		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 			if isSink && isExprReadVar(sym) {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
@@ -566,6 +571,10 @@ func isExprReadVar(sym *symbol.Symbol) bool {
 // holds its value in its register, an alias its key, an exprRead an index.
 func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	for _, c := range s.Children() {
+		// An alias lists its module's members. Their nodes come with the module.
+		if c.Kind == symbol.KindModuleAlias {
+			continue
+		}
 		if c.Reassigned && isConstVar(c) {
 			shell.registerVar(c, varEntry{register: buildVariableNode(c, kg, "f0")})
 		}
@@ -1063,9 +1072,8 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
 //
-// An imported X is keyed by its qualified name, so no local scope binds it. Inside
-// a top-level scope the jump survives as a transition. At the top level it is
-// rejected until Phase 3 compiles module scopes into the importer.
+// An imported X is keyed by its module path, so no local scope binds it. The jump
+// or activation lands on the linked module scope.
 //
 // This rule makes sequences behave as black boxes from the outside: you can
 // jump around inside your own nesting, you can call a top-level neighbor at
@@ -1077,20 +1085,7 @@ func analyzeNamedRef(
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
 	if sym.Root() != ctx.Scope.Root() {
-		key := sym.QualifiedName()
-		if shell.jumps == nil {
-			// Phase 3 compiles module scopes into the importer. Until then a
-			// top-level activation has no scope to bind to, so it is rejected
-			// instead of dropped.
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				ctx.AST,
-				"'%s' belongs to an imported module and cannot be activated from "+
-					"the top level yet",
-				key,
-			))
-			return transitionIntent{}, false
-		}
-		return transitionIntent{activateKey: key}, true
+		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
@@ -1487,6 +1482,19 @@ func analyze(
 	module bool,
 	cfgs []parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
+	u, diag := analyzeUnit(ctx, t, root, module, cfgs)
+	return u.ir, diag
+}
+
+// analyzeUnit lowers t into a unit. An automation links the modules its root
+// loaded. A module lowers alone, so each module enters a program once.
+func analyzeUnit(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	module bool,
+	cfgs []parser.Config,
+) (unit, *diagnostics.Diagnostics) {
 	var (
 		aCtx = acontext.NewRoot(ctx, t.AST, root).
 			WithConfig(parser.ConfigOf(cfgs...)).
@@ -1497,7 +1505,7 @@ func analyze(
 	analyzer.AnalyzeProgram(aCtx)
 	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return i, aCtx.Diagnostics
+		return unit{ir: i}, aCtx.Diagnostics
 	}
 
 	for _, c := range i.Symbols.Children() {
@@ -1524,6 +1532,13 @@ func analyze(
 	kg := newKeyGenerator(&i.Functions, root.Name)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
 	collectVarNodes(aCtx.Scope.Root(), kg, shell)
+	var units []*unit
+	if l := loaderOf(root); l != nil && !module {
+		units = l.loaded()
+	}
+	for _, u := range units {
+		maps.Copy(shell.varNodes, u.varNodes)
+	}
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -1538,7 +1553,7 @@ func analyze(
 	for _, item := range t.AST.AllTopLevelItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
 			if !lowerExprReadDecl(aCtx.Child(decl), kg, shell) {
-				return i, aCtx.Diagnostics
+				return unit{ir: i}, aCtx.Diagnostics
 			}
 		} else if flow := item.FlowStatement(); flow != nil {
 			nodes, edges, inlineMembers, _, ok := analyzeFlow(
@@ -1547,7 +1562,7 @@ func analyze(
 				shell,
 			)
 			if !ok {
-				return i, aCtx.Diagnostics
+				return unit{ir: i}, aCtx.Diagnostics
 			}
 			for _, n := range nodes {
 				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
@@ -1562,7 +1577,7 @@ func analyze(
 				shell,
 			)
 			if !ok {
-				return i, aCtx.Diagnostics
+				return unit{ir: i}, aCtx.Diagnostics
 			}
 			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
 			i.Nodes = append(i.Nodes, nodes...)
@@ -1574,7 +1589,7 @@ func analyze(
 				shell,
 			)
 			if !ok {
-				return i, aCtx.Diagnostics
+				return unit{ir: i}, aCtx.Diagnostics
 			}
 			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
 			i.Nodes = append(i.Nodes, nodes...)
@@ -1647,6 +1662,7 @@ func analyze(
 	if len(shell.activations) > 0 {
 		bindActivations(&i.Root)
 	}
+	link(&i, units, shell, bound)
 	// Safety net: analyzeNamedRef should reject any `=> X` whose X is
 	// neither an enclosing-sequence member nor a top-level scope, so every
 	// registered activation should bind. If one does not, something upstream
@@ -1669,13 +1685,13 @@ func analyze(
 			aCtx.Constraints,
 			aCtx.Diagnostics,
 		) {
-			return i, aCtx.Diagnostics
+			return unit{ir: i}, aCtx.Diagnostics
 		}
 		if d := stratifier.Stratify(ctx, &i, aCtx.Diagnostics); d != nil && !d.Ok() {
-			return i, d
+			return unit{ir: i}, d
 		}
 	}
-	return i, aCtx.Diagnostics
+	return unit{ir: i, varNodes: shell.varNodes}, aCtx.Diagnostics
 }
 
 type flowChainProcessor struct {

@@ -278,6 +278,9 @@ func WithModules(r Resolver) RootOption {
 // ErrModuleNotFound is returned by a module resolver when no module has the path.
 var ErrModuleNotFound = errors.New("module not found")
 
+// ModuleResolver returns the resolver installed by WithModules, nil if none.
+func (s *Symbol) ModuleResolver() Resolver { return s.Root().moduleResolver }
+
 // ResolveModule returns the module at path, or ErrModuleNotFound.
 func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error) {
 	r := s.Root().moduleResolver

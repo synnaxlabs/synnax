@@ -11,6 +11,7 @@ package text_test
 
 import (
 	"context"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -212,12 +213,12 @@ var _ = Describe("Loader", func() {
 				sources["m"] = `export sequence s { stage a { trig -> out8 } }`
 			})
 
-			It("Should reject a top-level activation", func(ctx SpecContext) {
-				diag := analyze(ctx, "import m\n\ntrig > 0 => m.s")
-				Expect(diag.String()).To(ContainSubstring(
-					"'m.s' belongs to an imported module and cannot be activated " +
-						"from the top level yet",
-				))
+			It("Should bind a top-level activation to the module scope", func(
+				ctx SpecContext,
+			) {
+				i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.s")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(findTopLevelScope(i, "m.s").Activations).To(HaveLen(1))
 			})
 
 			It(
@@ -353,6 +354,207 @@ sequence t { stage b { trig -> out8 } }
 				)
 			},
 		)
+	})
+
+	Describe("Link", func() {
+		functionKeys := func(i ir.IR) []string {
+			keys := make([]string, 0, len(i.Functions))
+			for _, f := range i.Functions {
+				keys = append(keys, f.Key)
+			}
+			return keys
+		}
+		nodeTypes := func(i ir.IR) []string {
+			nodeTypes := make([]string, 0, len(i.Nodes))
+			for _, n := range i.Nodes {
+				nodeTypes = append(nodeTypes, n.Type)
+			}
+			return nodeTypes
+		}
+
+		It("Should link an exported function behind a call node", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `export func f() i64 { return 1 }`
+			i, diag := analyzeIR(ctx, "import m\n\ntrig -> m.f() -> out")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(functionKeys(i)).To(ConsistOf("m.f"))
+			Expect(nodeTypes(i)).To(ContainElement("m.f"))
+			f, found := i.Functions.Find("m.f")
+			Expect(found).To(BeTrue())
+			Expect(f.Symbol.Root()).ToNot(Equal(i.Symbols))
+		})
+
+		It("Should link a function called from a body", func(ctx SpecContext) {
+			sources["m"] = `export func f() i64 { return 1 }`
+			i, diag := analyzeIR(
+				ctx,
+				"import m\n\nfunc g() i64 { return m.f() }\n\ntrig -> g() -> out",
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(functionKeys(i)).To(ConsistOf("g", "m.f"))
+		})
+
+		It("Should link each module once across importers", func(ctx SpecContext) {
+			sources["d"] = `export func h() i64 { return 1 }`
+			sources["a"] = "import d\n\nexport func f() i64 { return d.h() }"
+			sources["b"] = "import d\n\nexport func g() i64 { return d.h() }"
+			i, diag := analyzeIR(
+				ctx,
+				"import (a b)\n\ntrig -> a.f() -> out\ntrig -> b.g() -> out",
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(functionKeys(i)).To(ConsistOf("a.f", "b.g", "d.h"))
+		})
+
+		It("Should link two modules of one name under aliases", func(ctx SpecContext) {
+			sources["a.m"] = `export func f() i64 { return 1 }`
+			sources["b.m"] = `export func f() i64 { return 2 }`
+			i, diag := analyzeIR(
+				ctx,
+				"import (a.m b.m as bm)\n\ntrig -> m.f() -> out\ntrig -> bm.f() -> out",
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(functionKeys(i)).To(ConsistOf("a.m.f", "b.m.f"))
+			Expect(nodeTypes(i)).To(ContainElements("a.m.f", "b.m.f"))
+		})
+
+		It("Should link an exported sequence and its nodes", func(ctx SpecContext) {
+			sources["m"] = `export sequence s { stage a { trig -> out8 } }`
+			i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			s := findTopLevelScope(i, "m.s")
+			Expect(s.Steps[0].Key()).To(Equal("a"))
+			Expect(s.Activations).To(HaveLen(1))
+			var keys []string
+			for _, n := range i.Nodes {
+				keys = append(keys, n.Key)
+			}
+			Expect(keys).To(ContainElement(HavePrefix("m.")))
+		})
+
+		It("Should give linked members a root stratum of their own", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `
+export func f() i64 { return 1 }
+export sequence s { stage a { trig -> out8 } }
+`
+			i, diag := analyzeIR(ctx, "import m\n\nfunc g() i64 { return m.f() }")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(findTopLevelScope(i, "m.s").Key).To(Equal("m.s"))
+		})
+
+		It("Should link an exported stage and its nodes", func(ctx SpecContext) {
+			sources["m"] = `export stage t { trig -> out8 }`
+			i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.t")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			t := findTopLevelScope(i, "m.t")
+			Expect(t.Activations).To(HaveLen(1))
+			var keys []string
+			for _, stratum := range t.Strata {
+				for _, member := range stratum {
+					keys = append(keys, *member.NodeKey)
+				}
+			}
+			Expect(keys).To(ConsistOf("m.on_trig_0", "m.write_out8_0"))
+		})
+
+		It("Should keep a nested jump to a module scope", func(ctx SpecContext) {
+			sources["m"] = `export sequence s { stage a { trig -> out8 } }`
+			i, diag := analyzeIR(ctx, `
+import m
+
+sequence main {
+    stage b { trig > 0 => m.s }
+}
+`)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(findTopLevelScope(i, "main").Transitions[0].Target.Variant).To(
+				Equal(ir.ScopeTarget{Key: "m.s"}),
+			)
+			Expect(findTopLevelScope(i, "m.s").Key).To(Equal("m.s"))
+		})
+
+		It("Should keep an importer's inline activation beside a module's", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `
+export sequence s { stage a { trig -> sequence { stage b { trig -> out8 } } } }
+`
+			i, diag := analyzeIR(ctx, `
+import m
+
+trig -> sequence { stage c { trig -> out8 } }
+trig > 0 => m.s
+`)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			var inline []ir.Scope
+			var walk func(s ir.Scope)
+			walk = func(s ir.Scope) {
+				for _, stratum := range s.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil {
+							walk(*m.Scope)
+						}
+					}
+				}
+				for _, m := range s.Steps {
+					if m.Scope != nil {
+						walk(*m.Scope)
+					}
+				}
+				if strings.HasPrefix(s.Key, ir.InlinePrefix) {
+					inline = append(inline, s)
+				}
+			}
+			walk(i.Root)
+			Expect(inline).To(HaveLen(2))
+			for _, s := range inline {
+				Expect(s.Activations).To(HaveLen(1), s.Key)
+			}
+			Expect(inline[0].Activations[0].On).ToNot(
+				Equal(inline[1].Activations[0].On),
+			)
+		})
+
+		It("Should read an exported channel alias as its channel", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `export b := trig`
+			i, diag := analyzeIR(ctx, "import m\n\nm.b -> out8")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(i.Nodes).To(HaveLen(2))
+			Expect(i.Nodes[0].Type).To(Equal("on"))
+			Expect(i.Nodes[0].Inputs[0].Value).To(Equal(uint32(100)))
+		})
+
+		It("Should read an exported expression variable from its node", func(
+			ctx SpecContext,
+		) {
+			sources["m"] = `export c := trig + 1`
+			i, diag := analyzeIR(ctx, "import m\n\nm.c -> out8")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			var sources []string
+			for _, e := range i.Edges {
+				if e.Target.Node == "write_out8_0" {
+					sources = append(sources, e.Source.Node)
+				}
+			}
+			Expect(sources).To(ConsistOf(HavePrefix("m.var_c")))
+		})
+
+		It("Should reject a write to an imported variable", func(ctx SpecContext) {
+			sources["m"] = "export b := trig\nexport k := 1"
+			diag := analyze(ctx, "import m\n\ntrig -> m.b")
+			Expect(diag.String()).To(ContainSubstring(
+				"cannot write to 'm.b': it belongs to an imported module",
+			))
+			diag = analyze(ctx, "import m\n\ntrig -> m.k")
+			Expect(diag.String()).To(ContainSubstring(
+				"cannot write to top-level variable 'm.k'",
+			))
+		})
 	})
 
 	Describe("Module rules", func() {

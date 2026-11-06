@@ -34,7 +34,9 @@ import (
 	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
@@ -62,14 +64,40 @@ func newRuntimeHarness(
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
 	GinkgoHelper()
-	stlSyms := stl.NewSymbols()
-	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
-	ambient = append(ambient, stlSyms...)
-	for i := range channelSyms {
-		s := channelSyms[i]
-		ambient = append(ambient, &s)
+	return newModuleRuntimeHarness(ctx, source, nil, channelSyms, channelDigests...)
+}
+
+// newModuleRuntimeHarness compiles source with the user modules in modules, keyed
+// by import path, and runs the program.
+func newModuleRuntimeHarness(
+	ctx context.Context,
+	source string,
+	modules map[string]string,
+	channelSyms []symbol.Symbol,
+	channelDigests ...channels.Digest,
+) *runtimeHarness {
+	GinkgoHelper()
+	ambient := func() []*symbol.Symbol {
+		stlSyms := stl.NewSymbols()
+		syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
+		syms = append(syms, stlSyms...)
+		for i := range channelSyms {
+			s := channelSyms[i]
+			syms = append(syms, &s)
+		}
+		return syms
 	}
-	root := symbol.NewRoot(nil, ambient)
+	loader := text.NewLoader(text.LoaderConfig{
+		Source: func(_ context.Context, path string) (text.Text, error) {
+			src, ok := modules[path]
+			if !ok {
+				return text.Text{}, errors.Wrapf(symbol.ErrModuleNotFound, "%q", path)
+			}
+			return text.Text{Raw: src}, nil
+		},
+		Ambient: ambient,
+	})
+	root := symbol.NewRoot(nil, ambient(), symbol.WithModules(loader))
 	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 
 	nodeState := node.New(prog.IR)

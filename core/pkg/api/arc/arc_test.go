@@ -93,6 +93,56 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
+			"Should return an automation's program with its module code",
+			func(ctx SpecContext) {
+				module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+					Name: "um_api_m",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "export func f() i64 { return 1 }"},
+					}},
+				}}}
+				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "um_api_a",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{
+							Raw: "import um_api_m\n\nfunc g() i64 { return um_api_m.f() }",
+						},
+					}},
+				}}}
+				w := arcSvc.NewWriter(nil)
+				Expect(w.Create(ctx, &module)).To(Succeed())
+				Expect(w.Create(ctx, &automation)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(w.Delete(
+						ctx, automation.Base().Key, module.Base().Key,
+					)).To(Succeed())
+				})
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionRetrieve,
+					automation.OntologyID(),
+				)
+				res := MustSucceed(
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where: &arc.Where{
+							Key: &filter.Set[arc.Key]{
+								In: []arc.Key{automation.Base().Key},
+							},
+						},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				a, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				_, found := a.Program.Functions.Find("um_api_m.f")
+				Expect(found).To(BeTrue())
+				Expect(a.Program.WASM).ToNot(BeEmpty())
+			},
+		)
+
+		It(
 			"Should compile automations and leave modules uncompiled",
 			func(ctx SpecContext) {
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
