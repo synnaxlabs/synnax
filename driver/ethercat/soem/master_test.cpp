@@ -287,6 +287,35 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
     EXPECT_EQ(this->mock->statecheck_count, 2);
 }
 
+/// @brief it should add the DC sync advice once when slaves refuse SAFE-OP with
+/// "Invalid DC SYNC configuration".
+TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
+    MockSlaveInfo first;
+    first.state = EC_STATE_PRE_OP;
+    first.name = "FirstSlave";
+    first.ALstatuscode = 0x0030;
+    this->add_slave(first);
+    MockSlaveInfo second = first;
+    second.name = "SecondSlave";
+    this->add_slave(second);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach SAFE-OP: slave 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
+        "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
+        "configuration. A slave that reports \"Invalid DC SYNC configuration\" needs "
+        "DC sync, which the Driver does not support yet. If the slave has an SM sync "
+        "mode, set it (in DewesoftX for Dewesoft modules). If not, disable the slave "
+        "so the rest of the bus can run."
+    );
+}
+
 /// @brief it should return a refusal as soon as a slave refuses OP.
 TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
     this->initialize_with_slave();
