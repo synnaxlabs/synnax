@@ -556,7 +556,7 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->add_slave(plain);
     this->add_slave(dc);
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(3, false);
+    this->master->set_slave_config(3, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());

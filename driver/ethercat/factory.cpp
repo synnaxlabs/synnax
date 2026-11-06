@@ -83,9 +83,11 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     auto [eng, err] = pool.acquire(network);
     if (err) return {nullptr, err};
     synnax::device::RetrieveRequest req;
-    req.makes = {DEVICE_MAKE};
-    req.models = {SLAVE_DEVICE_MODEL};
-    req.racks = {rack};
+    req.where = synnax::device::Where{
+        .make = x::filter::String{.eq = DEVICE_MAKE},
+        .model = x::filter::String{.eq = SLAVE_DEVICE_MODEL},
+        .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
+    };
     auto [devices, dev_err] = client->devices.retrieve(req);
     if (dev_err) return {nullptr, dev_err};
     std::map<uint16_t, slave::Config> configs;
