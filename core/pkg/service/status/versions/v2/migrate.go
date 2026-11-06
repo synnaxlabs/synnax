@@ -185,8 +185,8 @@ func migrateOwners(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) 
 
 // ownParents gives each status in kept that has no owner the parent that its parent
 // edge names, when that parent can own a status and taken does not hold it. It logs
-// each parent edge of such a status that it cannot map. A built-in root group is the
-// default parent of a status, so its edge is not mapped or logged.
+// each parent edge of such a status that it cannot map. A group parent is the folder
+// the status sits in, not an owner, so its edge is not mapped or logged.
 func ownParents(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -195,16 +195,12 @@ func ownParents(
 	rels []ontology.Relationship,
 	taken set.Set[resource.ID],
 ) error {
-	roots := make(set.Set[resource.ID])
 	parents := make(map[Key][]ontology.Relationship)
 	for _, rel := range rels {
-		if rel.Type != ontology.RelationshipTypeParentOf {
-			continue
-		}
-		if rel.From == ontology.RootID {
-			roots.Add(rel.To)
-		}
-		if rel.To.Type == resource.TypeStatus {
+		if rel.Type == ontology.RelationshipTypeParentOf &&
+			rel.To.Type == resource.TypeStatus &&
+			rel.From != ontology.RootID &&
+			rel.From.Type != resource.TypeGroup {
 			parents[rel.To.Key] = append(parents[rel.To.Key], rel)
 		}
 	}
@@ -214,9 +210,6 @@ func ownParents(
 			continue
 		}
 		for _, rel := range parents[k.old.Key] {
-			if rel.From == ontology.RootID || roots.Contains(rel.From) {
-				continue
-			}
 			reason, err := ownerProblem(ctx, tx, rel.From, k.parent != nil, taken)
 			if err != nil {
 				return err

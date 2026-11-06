@@ -308,27 +308,30 @@ var _ = Describe("Migration", func() {
 			Expect(dropLogs()).To(BeEmpty())
 		})
 
-		It(
-			"Should keep a status under a built-in group free of an owner",
-			func(ctx SpecContext) {
-				statuses := resource.ID{
+		DescribeTable(
+			"Should keep a status in a group free of an owner",
+			func(ctx SpecContext, builtin bool) {
+				folder := resource.ID{
 					Type: resource.TypeGroup,
 					Key:  uuid.New().String(),
 				}
-				root := ontology.Relationship{
-					From: ontology.RootID,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   statuses,
-				}
 				write(ctx, stored("Alarm", "alarm", `null`))
-				relate(ctx, root, parentOf(statuses, "alarm"))
+				rels := []ontology.Relationship{parentOf(folder, "alarm")}
+				if builtin {
+					rels = append(rels, ontology.Relationship{
+						From: ontology.RootID,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   folder,
+					})
+				}
+				relate(ctx, rels...)
 				migrate(ctx)
 				Expect(get(ctx, "alarm").Owner).To(BeNil())
-				Expect(
-					relationships(ctx),
-				).To(ConsistOf(root, parentOf(statuses, "alarm")))
+				Expect(relationships(ctx)).To(ConsistOf(rels))
 				Expect(dropLogs()).To(BeEmpty())
 			},
+			Entry("a built-in root group", true),
+			Entry("a group whose root edge an earlier migration deleted", false),
 		)
 
 		DescribeTable(
