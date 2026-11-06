@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::telem {
 /// @brief - it should initialize a timestamp from a long.
@@ -503,6 +504,31 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 11);
     ASSERT_TRUE(tr != tr2);
+}
+
+/// @brief it should round-trip a time range through JSON.
+TEST(TimeRangeTests, testJSON) {
+    const auto tr = TimeRange(5, 10);
+    const auto j = tr.to_json();
+    EXPECT_EQ(j["start"], 5);
+    EXPECT_EQ(j["end"], 10);
+    x::json::Parser parser(j);
+    EXPECT_EQ(TimeRange::parse(parser), tr);
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should parse a time range whose bounds are strings.
+TEST(TimeRangeTests, testParseStrings) {
+    x::json::Parser parser(x::json::json{{"start", "5"}, {"end", "10"}});
+    EXPECT_EQ(TimeRange::parse(parser), TimeRange(5, 10));
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should report a missing bound.
+TEST(TimeRangeTests, testParseMissing) {
+    x::json::Parser parser(x::json::json{{"start", 5}});
+    TimeRange::parse(parser);
+    ASSERT_FALSE(parser.ok());
 }
 
 /// @brief it should calculate the period from a rate.
