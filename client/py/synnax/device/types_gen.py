@@ -32,11 +32,14 @@ class StatusDetails(BaseModel):
     Attributes:
         rack: Is the key of the rack this device belongs to.
         device: Is the device identifier.
+        connected: Is true while the Driver confirms that it can reach the device. A
+            device whose state is unknown is not connected.
         data: Contains device-specific status data.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
     device: Key
+    connected: bool = False
     data: dict[str, JsonValue] | None = None
 
 
