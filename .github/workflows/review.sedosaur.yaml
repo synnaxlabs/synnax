@@ -12,8 +12,8 @@
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
 # The App token reaches only the steps that write to GitHub. A replay reviews any commit
-# against any base, posts nothing, and keeps only the record. It can take the prompt and
-# rules of another ref, so a new policy can be tried on old commits before it merges.
+# against any base, posts nothing, and keeps only the record. It can take the policy of
+# another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -42,7 +42,7 @@ on:
         type: boolean
         default: false
       policy:
-        description: "Ref whose prompt and rules a replay uses instead"
+        description: "Ref whose policy a replay uses instead, except its tools"
         type: string
         required: false
 
@@ -216,10 +216,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # Only the text of another policy is taken: the tools, the model, the documents,
-      # and the scripts stay those of this commit. The runner group runs only this
-      # workflow from the default branch, so a replay cannot start from the ref itself.
-      - name: Take the prompt and rules of the policy ref
+      # A policy ref can change the prompt, the rules, and the config, but not the
+      # tools: those and the scripts stay those of this commit. The runner group runs
+      # only this workflow from the default branch, so a replay cannot start from the
+      # ref itself.
+      - name: Take the policy of the policy ref
         id: policy
         env:
           POLICY: ${{ inputs.policy }}
@@ -230,7 +231,17 @@ jobs:
           fi
           git fetch --no-tags origin "$POLICY"
           rm -r .sedosaur/rules
-          git checkout FETCH_HEAD -- .sedosaur/prompt.md .sedosaur/rules
+          git checkout FETCH_HEAD -- .sedosaur/prompt.md .sedosaur/rules \
+            .sedosaur/config.toml
+          python3 - <<'EOF'
+          import subprocess, sys, tomllib
+          def tools(ref):
+              show = ["git", "show", f"{ref}:.sedosaur/config.toml"]
+              return tomllib.loads(subprocess.check_output(show, text=True))["tools"]
+          if tools("HEAD") != tools("FETCH_HEAD"):
+              print("::error::A policy ref cannot change the tools.")
+              sys.exit(1)
+          EOF
           echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
 
       # The diff needs the base commit. The runner empties its temporary directory after
