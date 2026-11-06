@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
@@ -40,14 +39,20 @@ func (v *Validator) Exec(fn func() error) {
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.New(msg), path), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.New(msg), path)
 	})
 	return len(v.errs) > 0
 }
 
 func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.Newf(format, args...), field), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.Newf(format, args...), field)
 	})
 	return len(v.errs) > 0
 }

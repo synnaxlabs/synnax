@@ -11,9 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypedDict, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from x.filter import shorthand
 
 T = TypeVar("T")
 
@@ -39,6 +41,29 @@ class String(BaseModel):
     regex: str | None = None
     case_insensitive: bool = False
 
+    @model_validator(mode="before")
+    @classmethod
+    def _read_shorthand(cls, value: Any) -> Any:
+        return shorthand.read_set(value, cls)
+
+
+# StringDict is the dict form of String.
+StringDict = TypedDict(
+    "StringDict",
+    {
+        "eq": str,
+        "in": list[str],
+        "contains": str,
+        "starts_with": str,
+        "regex": str,
+        "case_insensitive": bool,
+    },
+    total=False,
+)
+
+# StringInput is String, StringDict, or a plain value or list in its place.
+type StringInput = str | list[str] | StringDict | String
+
 
 class Bool(BaseModel):
     """Selects boolean values.
@@ -50,6 +75,20 @@ class Bool(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     eq: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_shorthand(cls, value: Any) -> Any:
+        return shorthand.read_bool(value, cls)
+
+
+# BoolDict is the dict form of Bool.
+class BoolDict(TypedDict, total=False):
+    eq: bool
+
+
+# BoolInput is Bool, BoolDict, or a plain value in its place.
+type BoolInput = bool | BoolDict | Bool
 
 
 class Set(BaseModel, Generic[T]):
@@ -65,6 +104,22 @@ class Set(BaseModel, Generic[T]):
 
     eq: T | None = None
     in_: list[T] | None = Field(default=None, alias="in")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_shorthand(cls, value: Any) -> Any:
+        return shorthand.read_set(value, cls)
+
+
+# SetDict is the dict form of Set.
+SetDict = TypedDict(
+    "SetDict",
+    {"eq": T, "in": list[T]},  # type: ignore[valid-type]
+    total=False,
+)
+
+# SetInput is Set, SetDict, or a plain value or list in its place.
+type SetInput[T] = T | list[T] | SetDict[T] | Set[T]
 
 
 class Ordered(BaseModel, Generic[T]):
@@ -88,6 +143,22 @@ class Ordered(BaseModel, Generic[T]):
     lt: T | None = None
     lte: T | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _read_shorthand(cls, value: Any) -> Any:
+        return shorthand.read_set(value, cls)
+
+
+# OrderedDict is the dict form of Ordered.
+OrderedDict = TypedDict(
+    "OrderedDict",
+    {"eq": T, "in": list[T], "gt": T, "gte": T, "lt": T, "lte": T},  # type: ignore[valid-type]
+    total=False,
+)
+
+# OrderedInput is Ordered, OrderedDict, or a plain value or list in its place.
+type OrderedInput[T] = T | list[T] | OrderedDict[T] | Ordered[T]
+
 
 class Contains(BaseModel, Generic[T]):
     """Selects arrays by the elements they hold.
@@ -99,3 +170,17 @@ class Contains(BaseModel, Generic[T]):
     model_config = ConfigDict(extra="forbid")
 
     any: list[T] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_shorthand(cls, value: Any) -> Any:
+        return shorthand.read_contains(value, cls)
+
+
+# ContainsDict is the dict form of Contains.
+class ContainsDict(TypedDict, Generic[T], total=False):
+    any: list[T]
+
+
+# ContainsInput is Contains, ContainsDict, or a plain value or list in its place.
+type ContainsInput[T] = T | list[T] | ContainsDict[T] | Contains[T]

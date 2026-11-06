@@ -61,6 +61,12 @@ def config(**kw: Any) -> Config:
     return Config(**(fields | kw))
 
 
+NEW_COMMITS = (
+    "commit " + "c" * 40 + "\n\nFix the reader\n\n"
+    "diff --git a/core/a.go b/core/a.go\n@@ -1 +1 @@\n-broken\n+fixed\n"
+)
+
+
 def pull(**kw: Any) -> PullRequest:
     fields: dict[str, Any] = {
         "number": 7,
@@ -248,6 +254,20 @@ class TestPrompt:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
 
+    def test_should_show_the_commits_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS)).stdin
+        assert "# Commits since your last review\n\nReview these" in stdin
+        assert NEW_COMMITS in stdin
+        assert stdin.index("+fixed") < stdin.index("# Rules")
+
+    def test_should_put_new_commits_too_long_to_show_in_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).stdin
+        assert "+fixed" not in stdin
+        assert "Read all of `new.diff` first." in stdin
+        assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
+
 
 class TestCommand:
     """Tests the command that runs Claude Code."""
@@ -426,7 +446,7 @@ class TestMain:
     ) -> None:
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        assert "graphql" in (tmp_path / "gh.log").read_text()
+        assert "reviewThreads" in (tmp_path / "gh.log").read_text()
         text = (tmp_path / "prompt.txt").read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
@@ -455,5 +475,56 @@ class TestMain:
         monkeypatch.delenv("CHECK_RUN")
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        assert "graphql" not in (tmp_path / "gh.log").read_text()
+        assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
         assert json.loads(out.read_text())["review"]["score"] == 5
+
+    @staticmethod
+    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+        """Runs a review whose pull request body says that Sedosaur reviewed the
+        commits, newest first, and returns the section of new commits in the prompt."""
+        edits = "".join(
+            json.dumps(
+                {
+                    "editor": {"__typename": "Bot", "login": "sedosaur"},
+                    "diff": "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/"
+                    f"commit/{c})\n<!-- /sedosaur_comment -->",
+                }
+            )
+            + "\n"
+            for c in commits
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('userContentEdits' in a for a in sys.argv):\n"
+            f"    print({edits!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        _, found, new = text.partition("# Commits since your last review")
+        return new.split("# Rules")[0] if found else ""
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        assert "+two" in new
+
+    def test_should_show_the_commits_since_the_review_before_one_of_the_head(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_show_no_new_commits_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""

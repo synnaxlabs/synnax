@@ -13,7 +13,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError, ValidationError } from "@/index";
+import { NotFoundError } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -734,26 +734,70 @@ describe("Status", () => {
       expect(results.map((s) => s.key)).toEqual([keys[1]]);
     });
 
-    it("should reject a plain key beside other fields", async () => {
-      await expect(
-        // @ts-expect-error - a plain key addresses one status, so it takes no filter.
-        client.statuses.retrieve({ key: "status", variant: "error" }),
-      ).rejects.toThrow(
-        new ValidationError(
-          "status params address a single key but do not match the single-query " +
-            "schema.\nFailed to parse status single query params (1 issue)\n\n  {\n" +
-            '    "key": "status",\n  ✗ "variant": "error"  × unexpected key\n  }',
+    it("should return one status for a plain key beside other fields", async () => {
+      const key = `one-status-${id.create()}`;
+      await client.statuses.set({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+      });
+      const retrieved: status.Status = await client.statuses.retrieve({
+        key,
+        variant: "error",
+      });
+      expect(retrieved.key).toEqual(key);
+      await expect(client.statuses.retrieve({ key, variant: "info" })).rejects.toThrow(
+        new NotFoundError(
+          `status not found matching {"where":{"key":{"eq":"${key}"},"variant":{"eq":"info"}}}`,
         ),
       );
     });
 
-    it("should reject a plain key beside other fields with a details schema", async () => {
-      const params = { key: "status", variant: "error", detailsSchema: z.object({}) };
-      await expect(client.statuses.retrieve(params)).rejects.toThrow(
-        new ValidationError(
-          "status params address a single key but hold other fields.",
+    it("should return one status for a plain key and a details schema", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-details-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 3 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key,
+        variant: "error",
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(3);
+      await expect(
+        client.statuses.retrieve({ key, variant: "info", detailsSchema }),
+      ).rejects.toThrow(
+        new NotFoundError(
+          `Status not found matching {"key":"${key}","variant":"info"}`,
         ),
       );
+    });
+
+    it("should return one status for a key list that sets one", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-option-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 4 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key: [key],
+        one: true,
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(4);
     });
 
     it("should filter statuses by a tree of filters", async () => {
