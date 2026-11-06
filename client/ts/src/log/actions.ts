@@ -28,6 +28,7 @@ import {
   setChannelTimestampTz,
   setTimestampPrecision,
   setTimestampsHidden,
+  setTz,
   swapChannel,
 } from "@/log/actions.gen";
 import { channelEntryZ } from "@/log/types.gen";
@@ -200,6 +201,12 @@ const handlers: Handlers = {
       inverse: [setTimestampsHidden({ timestampsHidden: oldValue })],
       targets: [state.key],
     };
+  },
+
+  setTz: (state, payload) => {
+    const oldTz = state.tz;
+    state.tz = payload.tz;
+    return { inverse: [setTz({ tz: oldTz })], targets: [state.key] };
   },
 };
 

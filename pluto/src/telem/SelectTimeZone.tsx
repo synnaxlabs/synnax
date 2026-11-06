@@ -11,14 +11,19 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type TimeZone } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-export interface SelectTimeZoneProps extends Select.ButtonsProps<TimeZone> {}
+export interface SelectTimeZoneProps extends Select.ButtonsProps<TimeZone> {
+  disabled?: boolean;
+}
 
-export const SelectTimeZone = (props: SelectTimeZoneProps): ReactElement => (
-  <Select.Buttons {...props}>
-    <Select.Item itemKey="UTC" tooltip="UTC">
+export const SelectTimeZone = ({
+  disabled,
+  ...rest
+}: SelectTimeZoneProps): ReactElement => (
+  <Select.Buttons {...rest}>
+    <Select.Item itemKey="UTC" tooltip="UTC" disabled={disabled}>
       UTC
     </Select.Item>
-    <Select.Item itemKey="local" tooltip="Local time zone">
+    <Select.Item itemKey="local" tooltip="Local time zone" disabled={disabled}>
       Local
     </Select.Item>
   </Select.Buttons>

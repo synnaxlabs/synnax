@@ -356,6 +356,20 @@ describe("log reducer", () => {
     });
   });
 
+  describe("setTz", () => {
+    it("should set the time zone and round-trip it", () => {
+      const state = createEmpty({ tz: "local" });
+      expect(apply(state, log.setTz({ tz: "UTC" })).tz).toEqual("UTC");
+      expect(roundTrip(state, log.setTz({ tz: "UTC" })).tz).toEqual("local");
+    });
+    it("should target the log key", () => {
+      const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
+      expect(log.reduceAll(state, [log.setTz({ tz: "UTC" })]).targets).toEqual([
+        state.key,
+      ]);
+    });
+  });
+
   describe("log.reduceAll", () => {
     it("should apply actions sequentially", () => {
       const out = apply(

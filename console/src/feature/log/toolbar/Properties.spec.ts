@@ -30,6 +30,9 @@ const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) =
   };
 };
 
+const isUTCDisabled = () =>
+  screen.getByText("UTC").closest("button")?.getAttribute("aria-disabled") === "true";
+
 describe("log/toolbar/Properties", () => {
   it("renders the property controls", async () => {
     await renderProperties();
@@ -84,6 +87,24 @@ describe("log/toolbar/Properties", () => {
   });
 });
 
+describe("log/toolbar/Properties time zone", () => {
+  it("sets the log's time zone through the server", async () => {
+    const { key, showTimestamps } = await renderProperties();
+    await waitFor(() => expect(showTimestamps().disabled).toBe(false));
+    await waitFor(() => expect(isUTCDisabled()).toBe(false));
+    fireEvent.click(screen.getByText("UTC"));
+    await waitFor(async () => expect((await client.logs.retrieve(key)).tz).toBe("UTC"));
+  });
+
+  it("disables the time zone while timestamps are hidden", async () => {
+    const { showTimestamps } = await renderProperties({ timestampsHidden: true });
+    await waitFor(() => expect(showTimestamps().disabled).toBe(false));
+    expect(isUTCDisabled()).toBe(true);
+    fireEvent.click(showTimestamps());
+    await waitFor(() => expect(isUTCDisabled()).toBe(false));
+  });
+});
+
 describe("log/toolbar/Properties permissions", () => {
   it("should freeze every control for a viewer", async () => {
     const { showChannelNames, showTimestamps } = await renderProperties(
@@ -93,5 +114,6 @@ describe("log/toolbar/Properties permissions", () => {
     await screen.findByText("Show channel names");
     await waitFor(() => expect(showChannelNames().disabled).toBe(true));
     expect(showTimestamps().disabled).toBe(true);
+    expect(isUTCDisabled()).toBe(true);
   });
 });
