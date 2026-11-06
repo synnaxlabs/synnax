@@ -53,6 +53,9 @@ report() {
         driver)
             uv run --project scripts scripts/surface_driver.py .
             ;;
+        client-cpp)
+            uv run --project scripts scripts/surface_cpp.py .
+            ;;
         *)
             echo "unknown surface: $surface" >&2
             return 2

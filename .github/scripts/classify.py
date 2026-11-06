@@ -46,6 +46,7 @@ CLASSIFIER_PATHS = (
     "core/cmd/surface/",
     "oracle/cmd/surface.go",
     "oracle/surface/",
+    "scripts/surface_cpp.py",
     "scripts/surface_driver.py",
     "scripts/surface_py.py",
     "scripts/surface_py_cli.py",
@@ -61,6 +62,7 @@ SURFACES = {
     "core": "Core flags and config keys",
     "core-windows": "Core commands and flags on Windows",
     "driver": "Driver commands and config keys",
+    "client-cpp": "C++ client API",
 }
 STATUS_TEXT = {
     "same": "No change",
