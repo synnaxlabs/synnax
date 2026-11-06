@@ -20,7 +20,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,11 +39,12 @@ func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error)
 var _ = Describe("Analyze", func() {
 	It("Should return an error of the resolver", func(ctx SpecContext) {
 		a := channel.NewCalculationAnalyzer(failingResolver{})
-		_, err := a.Analyze(ctx, channel.Channel{
+		res, err := a.Analyze(ctx, channel.Channel{
 			Name:       "calc",
 			Expression: "return sensor + 1",
 		})
-		Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(res.Unresolved).To(BeEmpty())
 	})
 
 	Describe("Type Inference", func() {
