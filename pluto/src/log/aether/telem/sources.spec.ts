@@ -18,7 +18,7 @@ import {
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
   StreamMultiChannelLog,
@@ -1089,6 +1089,24 @@ describe("StreamMultiChannelLog", () => {
       core.advance(TimeSpan.seconds(1));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
       expect(reads).toBe(1);
+    });
+
+    it("should be exhausted when no channel stores samples", async () => {
+      const core = createCore({ derived: true });
+      const { virtual } = core;
+      assert(virtual != null);
+      const log = open(core, connect(core), { channels: [virtual.key] });
+      log.value();
+      await expect.poll(() => core.streams(virtual.key), POLL).toBe(true);
+      expect(log.exhausted).toBe(true);
+    });
+
+    it("should not be exhausted while older samples are stored", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, PAGE);
+      expect(log.exhausted).toBe(false);
     });
 
     it("should have no time range for virtual channels", async () => {

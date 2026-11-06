@@ -823,7 +823,6 @@ describe("log/aether/Log", () => {
         position: positionOf(entries[100]),
       });
       source.setEntries(entries.slice(150));
-      source.timeRange = new TimeRange(entries[0].timestamp, entries[199].timestamp);
       source.notify();
       expect(source.loadOlderCalls).toBeGreaterThan(0);
       source.setEntries([...entries]);
@@ -836,7 +835,7 @@ describe("log/aether/Log", () => {
         scrolling: true,
         position: positionOf(entries[100]),
       });
-      source.timeRange = new TimeRange(entries[150].timestamp, entries[199].timestamp);
+      source.exhausted = true;
       source.notify();
       log.render();
       const bottom = log.state.rowEntries.at(-1) ?? -1;

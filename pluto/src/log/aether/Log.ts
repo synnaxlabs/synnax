@@ -800,8 +800,7 @@ export class Log
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
-    const stored = telem.wrapped.timeRange?.start.valueOf();
-    if (!reached && (stored == null || stored <= time)) return;
+    if (!reached && telem.wrapped.exhausted === false) return;
     if (reached) {
       let [lo, hi] = [0, this.entries.length];
       while (lo < hi) {
