@@ -22,7 +22,7 @@ from synnax.status.types_gen import (
     Variant,
     Where,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 from x.lists import normalize
 from x.params import require_named_params
@@ -244,7 +244,7 @@ class Client:
         ).statuses
 
         if single:
-            return one("Status", key, res)
+            return sole("Status", key, res)
         return res
 
     def rename(self, key: Key, name: str) -> None:
