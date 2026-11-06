@@ -446,9 +446,8 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->stop_count, 2);
 }
 
-/// @brief it should parse a device key from the config.
-/// @brief a sink with no outputs should run from start to stop with no streamer or
-/// writer, and should release its hardware exactly once.
+/// @brief it should run a sink with no outputs from start to stop with no streamer or
+/// writer, and release its hardware exactly once.
 TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
     auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     auto streamer_factory = pipeline::testutil::simple_streamer_factory(
@@ -494,6 +493,7 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
     EXPECT_EQ(writer_factory->writer_opens.load(), 0);
 }
 
+/// @brief it should parse a device key from the config.
 TEST(BaseWriteTaskConfigTest, testParse) {
     const x::json::json j{{"device", "abc123"}, {"auto_start", true}};
 

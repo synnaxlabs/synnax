@@ -321,8 +321,6 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
     wt->stop("stop_cmd", true);
 }
 
-/// @brief Test that an invalid channel type in the configuration is properly detected
-/// and reported
 /// @brief creates a function generator channel with no Synnax channels.
 x::json::json func_gen_channel(const int port) {
     return {
@@ -337,8 +335,8 @@ x::json::json func_gen_channel(const int port) {
     };
 }
 
-/// @brief a task with only function generators should need no Synnax channels, and
-/// each generator should reach DAQmx.
+/// @brief it should configure a task of only function generators with no Synnax
+/// channels, and apply each generator to DAQmx.
 TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -372,8 +370,8 @@ TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
     EXPECT_EQ(calls[1]["args"]["physicalChannel"], "dev1/ao1");
 }
 
-/// @brief a function generator beside a commanded output should get no command or
-/// state channel, and its write slot should stay unused after the commanded value.
+/// @brief it should give a function generator beside a commanded output no command or
+/// state channel, and leave its write slot unused after the commanded value.
 TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
     client = std::make_shared<synnax::Synnax>(new_test_client());
     ASSERT_NIL(client->channels.create(state_idx_ch));
@@ -434,6 +432,8 @@ TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
     EXPECT_EQ(written_data->at(0), (std::vector<double>{3, 0}));
 }
 
+/// @brief Test that an invalid channel type in the configuration is properly detected
+/// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
