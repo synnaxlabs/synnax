@@ -422,6 +422,16 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
     EXPECT_EQ(this->mock->readstate_count, 3);
 }
 
+/// @brief it should wait longer than 2 s for a slow slave to reach SAFE-OP.
+TEST_F(SOEMMasterTest, ActivateWaitsForASlowSlave) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    // The master reads the state every 1 ms, so 3000 reads take at least 3 s.
+    this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3000;
+    ASSERT_NIL(this->master->activate());
+}
+
 /// @brief it should recover a slave that refused OP to SAFE-OP without forcing INIT,
 /// although its error flag stays set.
 TEST_F(SOEMMasterTest, ActivateOpRefusalRecoversToSafeOp) {

@@ -519,7 +519,7 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
     std::thread recover([this] {
-        while (this->master->call_count("activate") < 2)
+        while (this->master->call_count("activate") < 1)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         this->master->clear_injected_errors();
     });
