@@ -39,8 +39,9 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
-	// statusTime is the time on the last status seen since the Core started. A write
-	// that keeps it, such as a rename, is not a report from the rack.
+	// statusTime is the time on the last status seen since the Core started, or on the
+	// outage being written. A write that keeps it, such as a rename, is not a report
+	// from the rack.
 	statusTime telem.TimeStamp
 	// outage is set from the write of an outage until the Driver reports again, so each
 	// outage is written once.
@@ -119,6 +120,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	var (
 		statuses    []Status
 		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
+		statusTimes = make(map[Key]telem.TimeStamp, len(racks))
 	)
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
@@ -126,6 +128,12 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 			continue
 		}
 		lastUpdated[r.Key] = state.lastUpdated
+		statusTimes[r.Key] = state.statusTime
+		// A rename can commit after the outage and notify first. Its older status time
+		// must already differ, so it counts as a report and the outage is written
+		// again.
+		state.statusTime = state.lastUpdated
+		m.mu.racks[r.Key] = state
 		statuses = append(statuses, Status{
 			Key:     r.OntologyID().String(),
 			Name:    r.Name,
@@ -150,13 +158,20 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		return err
-	}
+	})
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err != nil {
+		for k, statusTime := range statusTimes {
+			if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
+				state.statusTime = statusTime
+				m.mu.racks[k] = state
+			}
+		}
+		return err
+	}
 	for i := range statuses {
 		k := statuses[i].Details.Rack
 		// A Driver report that landed during the write starts a new period.

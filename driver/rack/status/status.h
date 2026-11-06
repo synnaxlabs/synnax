@@ -113,7 +113,7 @@ public:
             const auto now = x::telem::TimeStamp::now();
             if (now - last_beat > LATE_GAP) resend_pending = true;
             last_beat = now;
-            if (!resend_pending) continue;
+            if (!resend_pending && !this->ctx->statuses_stale()) continue;
             if (const auto resend_err = this->ctx->resend_statuses()) {
                 LOG(ERROR) << "[rack_status] failed to send task statuses again: "
                            << resend_err;

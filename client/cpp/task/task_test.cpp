@@ -95,6 +95,25 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_EQ(t.rack, r.key);
 }
 
+/// @brief it should reject a type that more than one task on the rack has.
+TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto *name: {"first", "second"}) {
+        auto t = Task{
+            .name = name,
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    ASSERT_OCCURRED_AS_P(
+        r.tasks.retrieve_by_type("pagerduty_alert"),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
 /// @brief it should correctly list the tasks on a rack.
 TEST(TaskTests, testListTasks) {
     const auto client = new_test_client();
@@ -193,7 +212,11 @@ TEST(TaskTests, testCreateTaskWithStatus) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
-            .details = task::StatusDetails{.running = true, .cmd = "start"}
+            .details = task::StatusDetails{
+                .running = true,
+                .cmd = "start",
+                .config_hash = "abc123",
+            }
         }
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -204,6 +227,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     ASSERT_EQ(t2.status.value().message, "Task is running");
     ASSERT_EQ(t2.status.value().details.running, true);
     ASSERT_EQ(t2.status.value().details.cmd, "start");
+    ASSERT_EQ(t2.status.value().details.config_hash, "abc123");
 }
 
 /// @brief it should correctly retrieve a task with status by name.

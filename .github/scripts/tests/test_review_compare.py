@@ -116,13 +116,19 @@ def thread(
     up: int = 0,
     down: int = 0,
     replied: str | None = None,
+    reply: str = "Thanks.",
 ) -> dict[str, Any]:
     badge = '<img alt="P1" src="p1.svg">'
-    last = [{"author": {"login": login}, "createdAt": "2026-11-05T09:00:00Z"}]
+    opened = "2026-11-05T09:00:00Z"
+    last = [{"author": {"login": login}, "body": "", "createdAt": opened}]
     if replied is not None:
         last += [
-            {"author": {"login": "pat"}, "createdAt": replied},
-            {"author": {"login": "greptile-apps"}, "createdAt": "2026-11-05T23:00:00Z"},
+            {"author": {"login": "pat"}, "body": reply, "createdAt": replied},
+            {
+                "author": {"login": "greptile-apps"},
+                "body": "Fixed.",
+                "createdAt": "2026-11-05T23:00:00Z",
+            },
         ]
     return {
         "isResolved": resolved,
@@ -193,7 +199,7 @@ class FakeGH:
             thread(101, "greptile-apps", "Leaks a handle", 10, head, resolved=True),
             thread(201, "sedosaur", "Leaks a handle too", 12, head),
         ]
-        self.artifacts: list[tuple[str, str]] = []
+        self.artifacts: list[dict[str, Any]] = []
         self.records: dict[str, dict[str, Any]] = {}
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -207,13 +213,33 @@ class FakeGH:
             "--paginate",
             f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100",
         ):
-            return "".join(f"{created} {run}\n" for created, run in self.artifacts)
+            return "".join(f"{json.dumps(a)}\n" for a in self.artifacts)
         if args[:2] == ("run", "download"):
             into = Path(args[args.index("--dir") + 1])
             into.mkdir(parents=True)
             (into / "review.json").write_text(json.dumps(self.records[args[2]]))
             return ""
         raise AssertionError(f"unexpected gh call: {args}")
+
+
+def artifact(
+    created: str,
+    run: int,
+    *,
+    branch: str = "main",
+    repository: int = 5,
+    expired: bool = False,
+) -> dict[str, Any]:
+    return {
+        "created_at": created,
+        "expired": expired,
+        "workflow_run": {
+            "id": run,
+            "head_branch": branch,
+            "repository_id": 5,
+            "head_repository_id": repository,
+        },
+    }
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -228,6 +254,7 @@ def t(**kw: Any) -> compare.Thread:
         "up": 0,
         "down": 0,
         "last_reply": None,
+        "fixed": False,
     }
     return compare.Thread(**(fields | kw))
 
@@ -266,6 +293,32 @@ class TestThreads:
         node["first"]["nodes"] = []
         assert compare.threads([node]) == []
 
+    def test_should_keep_a_thread_whose_commit_is_gone(self) -> None:
+        node = thread(101, "greptile-apps", "Leaks a handle", 10, HEAD)
+        node["first"]["nodes"][0]["originalCommit"] = None
+        assert compare.threads([node])[0].commit is None
+
+    def test_should_read_a_fix_from_a_reply_of_a_person(self) -> None:
+        reply = (
+            "*Emiliano + Claude: generated reply.*\n\nFixed in 1a2b3c, in a_test.go."
+        )
+        node = thread(
+            101,
+            "sedosaur",
+            "Leaks a handle",
+            10,
+            HEAD,
+            replied="2026-11-05T11:00:00Z",
+            reply=reply,
+        )
+        assert compare.threads([node])[0].fixed
+
+    def test_should_not_read_a_fix_from_a_reply_of_a_reviewer(self) -> None:
+        node = thread(
+            101, "sedosaur", "Leaks a handle", 10, HEAD, replied="2026-11-05T11:00:00Z"
+        )
+        assert not compare.threads([node])[0].fixed
+
 
 class TestVerdict:
     """Tests deciding whether a finding was real."""
@@ -283,6 +336,9 @@ class TestVerdict:
 
     def test_should_take_a_fix_as_real(self) -> None:
         assert compare.verdict(t(resolved=True), {"a.go"}) == compare.REAL
+
+    def test_should_take_a_reply_that_says_fixed_as_real(self) -> None:
+        assert compare.verdict(t(fixed=True), None) == compare.REAL
 
     def test_should_take_a_resolve_without_a_fix_as_noise(self) -> None:
         assert compare.verdict(t(resolved=True), {"b.go"}) == compare.NOISE
@@ -311,15 +367,26 @@ class TestRecords:
     def test_should_read_the_records_since_a_time_oldest_first(self) -> None:
         gh = FakeGH()
         gh.artifacts = [
-            ("2026-11-06T10:00:00Z", "3"),
-            ("2026-11-04T10:00:00Z", "1"),
-            ("2026-11-05T12:00:00Z", "2"),
+            artifact("2026-11-06T10:00:00Z", 3),
+            artifact("2026-11-04T10:00:00Z", 1),
+            artifact("2026-11-05T12:00:00Z", 2),
         ]
         gh.records = {run: record(run * 40) for run in ("1", "2", "3")}
         assert [r["head"] for r in compare.records(gh, REPO, SINCE)] == [
             "2" * 40,
             "3" * 40,
         ]
+
+    def test_should_skip_a_record_from_a_fork_another_branch_or_expired(
+        self,
+    ) -> None:
+        gh = FakeGH()
+        gh.artifacts = [
+            artifact("2026-11-06T10:00:00Z", 1, repository=99),
+            artifact("2026-11-06T10:00:00Z", 2, branch="pat/main"),
+            artifact("2026-11-06T10:00:00Z", 3, expired=True),
+        ]
+        assert compare.records(gh, REPO, SINCE) == []
 
 
 class TestPairs:

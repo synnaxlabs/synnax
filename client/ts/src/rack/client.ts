@@ -28,7 +28,7 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, serverComputed } from "@/rack/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -36,7 +36,11 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([

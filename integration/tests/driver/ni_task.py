@@ -16,6 +16,7 @@ from abc import abstractmethod
 from collections.abc import Callable, Sequence
 
 import synnax as sy
+from framework import resources
 from tests.driver.task import (
     ReadTaskCase,
     ReadTaskT,
@@ -97,6 +98,10 @@ class _NITaskMixin(TaskCase[TaskT]):
 
     device_locations: list[str] = []
     devices: dict[str, sy.Device]
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
 
     @property
     def _device_key(self) -> str:

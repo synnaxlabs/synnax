@@ -19,7 +19,7 @@ import {
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import {
@@ -246,6 +246,17 @@ describe("Channel", () => {
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
+    test("reject a condition whose operator is undefined", async () => {
+      const name: string | undefined = undefined;
+      await expect(
+        client.channels.retrieve({ where: { name: { eq: name } } }),
+      ).rejects.toThrow(
+        new PathError(
+          ["where", "name"],
+          new ValidationError("no operator set: validation error"),
+        ),
+      );
+    });
     test("retrieve by name", async () => {
       const name = id.create();
       await client.channels.create({
@@ -285,6 +296,19 @@ describe("Channel", () => {
       ]);
       const res = await client.channels.retrieve({
         where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+    });
+    test("retrieve by a flat filter", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve({
+        name: { regex: `^${prefix}` },
+        dataType: DataType.FLOAT32,
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });

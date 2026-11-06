@@ -13,6 +13,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 
@@ -91,6 +92,15 @@ public:
     /// @brief returns the reference clock system time from the latest process data
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
+
+    /// @brief writes data to a register of a slave with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave took the write.
+    virtual int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int timeout
+    ) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -179,6 +189,9 @@ public:
     /// @brief returns the AL status code for a slave.
     [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
+    /// @brief returns true when the slave has a distributed clock.
+    [[nodiscard]] virtual bool slave_hasdc(uint16_t pos) const = 0;
+
     /// @brief returns whether a slave is marked as no longer responding.
     [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
 
@@ -258,6 +271,22 @@ public:
     bool configdc() override { return ecx_configdc(&this->context); }
 
     [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
+
+    int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPWR(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
 
     int reconfig_slave(uint16_t slave, int timeout) override {
         return ecx_reconfig_slave(&this->context, slave, timeout);
@@ -379,6 +408,10 @@ public:
 
     [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         return this->context.slavelist[pos].ALstatuscode;
+    }
+
+    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
+        return this->context.slavelist[pos].hasdc;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {
