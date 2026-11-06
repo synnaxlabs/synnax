@@ -22,12 +22,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// legacyWorkspaceType is the type projects had before the rename. The project table
+// converts workspace edges only after this migration runs, so it reads them as project
+// edges.
+const legacyWorkspaceType = resource.Type("workspace")
+
 // builtinScopes maps the name of each built-in root group to the scope of the groups
 // directly under it.
 var builtinScopes = map[string]resource.Type{
 	"Channels":          resource.TypeChannel,
 	"Devices":           resource.TypeDevice,
 	"Projects":          resource.TypeProject,
+	"Workspaces":        resource.TypeProject,
 	"Schematic Symbols": resource.TypeSchematicSymbol,
 }
 
@@ -38,6 +44,7 @@ var memberScopes = map[resource.Type]resource.Type{
 	resource.TypeRack:            resource.TypeDevice,
 	resource.TypeDevice:          resource.TypeDevice,
 	resource.TypeProject:         resource.TypeProject,
+	legacyWorkspaceType:          resource.TypeProject,
 	resource.TypeSchematic:       resource.TypeProject,
 	resource.TypeLineplot:        resource.TypeProject,
 	resource.TypeLog:             resource.TypeProject,
@@ -102,7 +109,11 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 		}
 		into = append(into, e)
 		if _, ok := parents[e.To.Key]; !ok {
-			parents[e.To.Key] = e.From
+			parent := e.From
+			if parent.Type == legacyWorkspaceType {
+				parent.Type = resource.TypeProject
+			}
+			parents[e.To.Key] = parent
 		}
 	}
 	implied := func(key string) placement {

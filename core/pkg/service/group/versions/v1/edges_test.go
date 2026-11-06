@@ -74,6 +74,11 @@ var _ = Describe("ParentMigration", func() {
 		mixed    = uuid.New()
 		unknown  = uuid.New()
 		inUnkn   = uuid.New()
+		inWs     = uuid.New()
+		wsRoot   = uuid.New()
+		inWsRoot = uuid.New()
+		ofWs     = uuid.New()
+		ws       = uuid.New().String()
 		channel  = resource.ID{Type: resource.TypeChannel, Key: "1"}
 		schem    = resource.ID{Type: resource.TypeSchematic, Key: uuid.New().String()}
 		members  = []ontology.Relationship{
@@ -81,6 +86,7 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(groupID(mixed), channel),
 			parentOf(groupID(mixed), schem),
 			parentOf(groupID(inUnkn), schem),
+			parentOf(groupID(ofWs), resource.ID{Type: "workspace", Key: ws}),
 		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -97,7 +103,8 @@ var _ = Describe("ParentMigration", func() {
 			inProj: "In Project", inRack: "In Rack", nested: "Nested", orphan: "Orphan",
 			ranges: "Ranges", inRanges: "In Ranges", implied: "Implied",
 			inImpl: "In Implied", mixed: "Mixed", unknown: "Unknown",
-			inUnkn: "In Unknown",
+			inUnkn: "In Unknown", inWs: "In Workspace", wsRoot: "Workspaces",
+			inWsRoot: "In Workspaces", ofWs: "Of Workspaces",
 		}
 		for k, name := range names {
 			g := v0.Group{Key: k, Name: name}
@@ -116,6 +123,9 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(groupID(implied), groupID(inImpl)),
 			parentOf(rootID, groupID(unknown)),
 			parentOf(groupID(unknown), groupID(inUnkn)),
+			parentOf(resource.ID{Type: "workspace", Key: ws}, groupID(inWs)),
+			parentOf(rootID, groupID(wsRoot)),
+			parentOf(groupID(wsRoot), groupID(inWsRoot)),
 			toProj,
 			toRanges,
 			inRange,
@@ -169,6 +179,14 @@ var _ = Describe("ParentMigration", func() {
 		Entry("a group under an unknown root", &inUnkn, resource.TypeProject,
 			func() *resource.ID { return nil }),
 		Entry("a group under the legacy range root", &inRanges, resource.TypeBuiltin,
+			func() *resource.ID { return nil }),
+		Entry("a group under a workspace", &inWs, resource.TypeProject,
+			func() *resource.ID {
+				return &resource.ID{Type: resource.TypeProject, Key: ws}
+			}),
+		Entry("a group under the legacy workspace root", &inWsRoot,
+			resource.TypeProject, func() *resource.ID { return nil }),
+		Entry("a group whose members are workspaces", &ofWs, resource.TypeProject,
 			func() *resource.ID { return nil }),
 	)
 
