@@ -11,6 +11,7 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -19,7 +20,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"uuid"
 )
 
 // compositionNamespace is the namespace of the service layer's composition pass, which
