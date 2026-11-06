@@ -198,7 +198,7 @@ class TestMain:
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
         (tmp_path / "pr").mkdir()
         (tmp_path / "pr" / "number").write_text("5\n")
-        for name in ("oracle", "client-ts", "client-py", "core", "driver"):
+        for name in classify.SURFACES:
             d = tmp_path / f"surface-{name}"
             d.mkdir()
             (d / "status").write_text("same\n")

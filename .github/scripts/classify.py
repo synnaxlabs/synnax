@@ -42,6 +42,7 @@ CLASSIFIER_PATHS = (
     ".github/workflows/label.classify.yaml",
     ".github/actions/",
     "client/ts/scripts/surface.sh",
+    "console/scripts/surface",
     "core/cmd/surface/",
     "oracle/cmd/surface.go",
     "oracle/surface/",
@@ -52,6 +53,7 @@ MARKER = "<!-- review-classifier -->"
 SURFACES = {
     "oracle": "Oracle schemas",
     "client-ts": "TypeScript client API",
+    "console-state": "Console saved state",
     "client-py": "Python client API",
     "core": "Core flags and config keys",
     "driver": "Driver commands and config keys",

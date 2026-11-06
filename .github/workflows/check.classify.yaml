@@ -61,6 +61,11 @@ jobs:
           - surface: client-ts
             paths: client/ts x/ts freighter/ts alamos/ts configs pnpm-lock.yaml
             node: true
+          - surface: console-state
+            paths: >-
+              console/src console/scripts alamos/ts arc/ts client/ts configs drift
+              freighter/ts lyra pluto x/ts pnpm-lock.yaml
+            node: true
           - surface: client-py
             paths: client/py scripts/surface_py.py scripts/pyproject.toml uv.lock
             uv: true
