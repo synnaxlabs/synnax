@@ -38,8 +38,9 @@ type Loader struct {
 	modules map[string]*symbol.Symbol
 	// stack holds the paths under analysis, outermost first.
 	stack []string
-	// cycle is the first import cycle found, reported by every module on its chain.
-	cycle error
+	// cycle holds the chain of the first import cycle found. Every module on it
+	// reports the cycle instead of its own failure.
+	cycle []string
 }
 
 var _ symbol.Resolver = (*Loader)(nil)
@@ -56,9 +57,8 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 		return mod, nil
 	}
 	if slices.Contains(l.stack, path) {
-		chain := strings.Join(append(slices.Clone(l.stack), path), " -> ")
-		l.cycle = errors.Newf("import cycle: %s", chain)
-		return nil, l.cycle
+		l.cycle = append(slices.Clone(l.stack), path)
+		return nil, l.cycleError()
 	}
 	t, err := l.cfg.Source(ctx, path)
 	if err != nil {
@@ -77,8 +77,8 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 	root := symbol.NewRoot(l.cfg.Channels, ambient, symbol.WithModules(l))
 	i, diag := AnalyzeModule(ctx, parsed, root, l.cfg.Config)
 	if diag != nil && !diag.Ok() {
-		if l.cycle != nil {
-			return nil, l.cycle
+		if slices.Contains(l.cycle, path) {
+			return nil, l.cycleError()
 		}
 		return nil, errors.Newf("module %q does not compile", path)
 	}
@@ -86,6 +86,10 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 	mod.Kind, mod.Name, mod.AST = symbol.KindModule, path, parsed.AST
 	l.modules[path] = mod
 	return mod, nil
+}
+
+func (l *Loader) cycleError() error {
+	return errors.Newf("import cycle: %s", strings.Join(l.cycle, " -> "))
 }
 
 // Search implements symbol.Resolver. Import paths are not searched.

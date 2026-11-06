@@ -165,6 +165,23 @@ var _ = Describe("Loader", func() {
 			Expect(diag.String()).To(ContainSubstring("import cycle: a -> b -> a"))
 		})
 
+		It(
+			"Should report a failure beside a cycle as its own",
+			func(ctx SpecContext) {
+				sources["a"] = "import c\n\nexport func f() i64 { return c.h() }"
+				sources["c"] = "import a\n\nexport func h() i64 { return a.f() }"
+				sources["b"] = `export func g() i64 { return nope }`
+				diag := analyze(
+					ctx,
+					"import (a b)\n\ntrig -> a.f() -> out\ntrig -> b.g() -> out",
+				)
+				Expect(diag.String()).To(ContainSubstring("import cycle: a -> c -> a"))
+				Expect(
+					diag.String(),
+				).To(ContainSubstring(`module "b" does not compile`))
+			},
+		)
+
 		It("Should report a module that does not compile", func(ctx SpecContext) {
 			sources["m"] = `export func f() i64 { return nope }`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
