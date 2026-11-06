@@ -82,6 +82,18 @@ class WriterResponse(BaseModel):
     command: WriterCommand
     end: TimeStamp | None
     err: ExceptionPayload
+    authorized: bool
+
+
+class CommitResult(BaseModel):
+    """The result of a commit."""
+
+    end: TimeStamp
+    """The end of the committed time range. Only valid when authorized is True."""
+    authorized: bool
+    """Whether the writer had control of every channel it writes at the commit. When
+    False, other channels may have committed. The writer stays open so that it can
+    regain control."""
 
 
 class _WSWriterCodec(WSCodec):
@@ -390,6 +402,14 @@ class Writer:
             methods have thrown an exception. Once commit fails, the writer must be
             closed and re-opened to continue use.
         """
+        return self.commit_result().end
+
+    def commit_result(self) -> CommitResult:
+        """Commits like commit, and also reports whether the writer had control.
+
+        :returns: The result of the commit.
+        :raises: In the same cases as commit.
+        """
         if self._close_exc is not None:
             raise self._close_exc
         res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
@@ -397,7 +417,7 @@ class Writer:
             raise UnexpectedError("commit did not receive a response")
         if res.end is None:
             raise UnexpectedError("commit response missing end timestamp")
-        return res.end
+        return CommitResult(end=res.end, authorized=res.authorized)
 
     def close(self) -> None:
         """Closes the writer, raising any accumulated error encountered during

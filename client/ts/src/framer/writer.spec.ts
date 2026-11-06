@@ -330,6 +330,40 @@ describe("Writer", () => {
       await w1.close();
     });
 
+    test("commitResult reports a commit without control", async () => {
+      const channels = await newIndexedPair(client);
+      const [index, data] = channels;
+      const start = TimeStamp.seconds(5);
+      const frame = (second: number) => ({
+        [index.key]: secondsLinspace(second, 1),
+        [data.key]: randomSeries(1, data.dataType),
+      });
+      const low = await client.openWriter({
+        start,
+        channels,
+        authorities: 10,
+        enableAutoCommit: false,
+      });
+      try {
+        await low.write(frame(5));
+        // The acknowledged command orders the write before the next writer opens.
+        await low.setAuthority(10);
+        const high = await client.openWriter({ start, channels, authorities: 20 });
+        try {
+          const denied = await low.commitResult();
+          expect(denied.authorized).toBe(false);
+        } finally {
+          await high.close();
+        }
+        await low.write(frame(6));
+        const granted = await low.commitResult();
+        expect(granted.authorized).toBe(true);
+        expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+      } finally {
+        await low.close();
+      }
+    });
+
     test("setAuthority", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);
