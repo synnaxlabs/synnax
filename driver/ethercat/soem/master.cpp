@@ -975,7 +975,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
     bool refused = false;
-    bool dc_sync = false;
+    bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
@@ -986,10 +986,10 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         if (!this->al_error(pos)) continue;
         refused = true;
         const auto code = this->api->slave_ALstatuscode(pos);
-        dc_sync |= code == AL_INVALID_DC_SYNC;
+        dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
-    if (dc_sync) msg.append(". ").append(DC_SYNC_ADVICE);
+    if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
     return x::errors::Error(
         refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
         "failed to reach " + target + ": " + msg
