@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -211,6 +212,135 @@ Sequence new_h() {
 void push_src(Sequence &h, const float v) {
     h.push("rx_src", x::telem::Series(v));
 }
+}
+
+namespace float_guard {
+const std::string SRC = R"(
+import math
+
+sequence main {
+    stage wait {
+        not math.is_finite(%speed%) or %speed% < 15 => done
+    }
+    stage done {
+        1 -> %passed%
+    }
+}
+%start_cmd% => main
+)";
+
+Sequence new_h() {
+    return Sequence(
+        SRC,
+        {{"start_cmd", x::telem::UINT8_T},
+         {"speed", x::telem::FLOAT64_T},
+         {"passed", x::telem::UINT8_T}}
+    );
+}
+
+std::vector<std::uint8_t> run(const double speed) {
+    auto h = new_h();
+    h.trigger("start_cmd");
+    h.push("speed", x::telem::Series(speed));
+    return collect<std::uint8_t>(h.flush(), h.key("passed"));
+}
+}
+
+namespace float_check {
+/// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
+/// for each value on x, and returns the codes in order.
+template<typename T>
+std::vector<std::uint8_t>
+run(const x::telem::DataType &dt, const std::vector<T> &values) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "import math\nfunc check() {v " + type +
+            "} u8 {\n    return u8(math.is_nan(v)) + 2 * u8(math.is_infinite(v)) + "
+            "4 * u8(math.is_finite(v))\n}\n%x% -> check() -> %out%\n",
+        {{"x", dt}, {"out", x::telem::UINT8_T}}
+    );
+    std::vector<std::uint8_t> out;
+    for (const auto v: values) {
+        h.push("x", x::telem::Series(v));
+        const auto written = collect<std::uint8_t>(h.flush(), h.key("out"));
+        out.insert(out.end(), written.begin(), written.end());
+    }
+    return out;
+}
+
+template<typename T>
+void expect_codes(const x::telem::DataType &dt) {
+    const auto nan = std::numeric_limits<T>::quiet_NaN();
+    const auto inf = std::numeric_limits<T>::infinity();
+    EXPECT_EQ(
+        run<T>(dt, {nan, inf, -inf, T(1.5)}),
+        (std::vector<std::uint8_t>{1, 2, 2, 4})
+    );
+}
+}
+
+/// @brief it should classify NaN, infinity, and numbers in compiled f32 checks.
+TEST(FloatCheckTest, ClassifiesF32Values) {
+    float_check::expect_codes<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should classify NaN, infinity, and numbers in compiled f64 checks.
+TEST(FloatCheckTest, ClassifiesF64Values) {
+    float_check::expect_codes<double>(x::telem::FLOAT64_T);
+}
+
+/// @brief it should pass the guarded transition when the value is NaN.
+TEST(FloatGuardTest, PassesATransitionOnNaN) {
+    EXPECT_EQ(
+        float_guard::run(std::numeric_limits<double>::quiet_NaN()),
+        std::vector<std::uint8_t>{1}
+    );
+}
+
+/// @brief it should pass the guarded transition when the value is infinite.
+TEST(FloatGuardTest, PassesATransitionOnInfinity) {
+    EXPECT_EQ(
+        float_guard::run(std::numeric_limits<double>::infinity()),
+        std::vector<std::uint8_t>{1}
+    );
+}
+
+/// @brief it should hold the guarded transition for a finite value over the limit.
+TEST(FloatGuardTest, HoldsATransitionOverTheLimit) {
+    EXPECT_TRUE(float_guard::run(20).empty());
+}
+
+namespace nan_equality {
+/// @brief runs expr on two channels that both carry NaN and returns the result.
+template<typename T>
+bool run(const std::string &expr, const x::telem::DataType &dt) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "func check() {v " + type + "} u8 {\n    y := %right%\n    return u8(" + expr +
+            ")\n}\n%left% -> check() -> %out%\n",
+        {{"left", dt}, {"right", dt}, {"out", x::telem::UINT8_T}}
+    );
+    const auto nan = std::numeric_limits<T>::quiet_NaN();
+    h.ingest("right", x::telem::Series(nan));
+    h.push("left", x::telem::Series(nan));
+    return collect<std::uint8_t>(h.flush(), h.key("out")).at(0) != 0;
+}
+}
+
+/// @brief it should compare two f32 NaN channel values as IEEE 754 requires.
+TEST(NaNEqualityTest, FollowsIEEE754ForF32) {
+    using namespace nan_equality;
+    EXPECT_FALSE(run<float>("v == y", x::telem::FLOAT32_T));
+    EXPECT_TRUE(run<float>("v != y", x::telem::FLOAT32_T));
+    EXPECT_TRUE(run<float>("v != v", x::telem::FLOAT32_T));
+}
+
+/// @brief it should compare two f64 NaN channel values as IEEE 754 requires.
+TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
+    using namespace nan_equality;
+    EXPECT_FALSE(run<double>("v == y", x::telem::FLOAT64_T));
+    EXPECT_TRUE(run<double>("v != y", x::telem::FLOAT64_T));
+    EXPECT_TRUE(run<double>("v != v", x::telem::FLOAT64_T));
 }
 
 TEST(ReactiveReExpressionTest, JumpsToAReExpressionReachedBySkippingEarlierStages) {

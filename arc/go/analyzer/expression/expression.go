@@ -454,7 +454,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		ctx,
 		scope,
 		funcName,
-		scope.Type,
+		basetypes.Freshen(scope.Type, ctx.ScopedKey("call", funcCalls[0])),
 		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)

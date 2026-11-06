@@ -42,6 +42,25 @@ var _ = Describe("Context", func() {
 		})
 	})
 
+	Describe("ScopedKey", func() {
+		It("Should name the enclosing function", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("func f() {\n    x := 1\n}"))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			fn := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindFunction,
+			}))
+			block := MustSucceed(fn.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
+			Expect(ctx.WithScope(block).ScopedKey("call", ast)).To(Equal("call_f_1_0"))
+		})
+
+		It("Should leave the function empty outside one", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("x -> y"))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			Expect(ctx.ScopedKey("call", ast)).To(Equal("call__1_0"))
+		})
+	})
+
 	Describe("Child", func() {
 		It("Should share all pointers except AST", func(specCtx SpecContext) {
 			var (

@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "`math`"
 description:
-  "Look up math.avg, math.min, math.max, and math.derivative, the running statistics of
-  the Arc math module."
+  "Look up math.avg, math.min, math.max, math.derivative, and the float checks of the
+  Arc math module."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -11,9 +11,9 @@ import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The `math` module gives running statistics and rates of change of a numeric value.
-Import it with `import math`. All `math` functions are flow functions: a function body
-cannot call them.
+The `math` module gives running statistics and rates of change of a numeric value, and
+checks for NaN and infinity. Import it with `import math`. `avg`, `min`, `max`, and
+`derivative` are flow functions: a function body cannot call them.
 
 `avg`, `min`, and `max` share these parameters:
 
@@ -114,4 +114,29 @@ Gives the smallest trigger value since the window started.
 import math
 
 tank_pt -> math.min(count=1000) -> tank_pt_min
+```
+
+<Divider.Divider x />
+
+## Float checks
+
+- `is_nan(x)` -> `true` if `x` is NaN.
+- `is_infinite(x)` -> `true` if `x` is positive or negative infinity.
+- `is_finite(x)` -> `true` if `x` is not NaN and not infinite.
+
+Each check takes one `f32` or `f64` value and gives a `bool`. An integer variable fails
+to compile. An integer literal is read as a float. Use a check in an expression, a stage
+condition, or a function body.
+
+```arc channels="pump_speed, pump_stopped"
+import math
+
+sequence main {
+    stage spin_down {
+        not math.is_finite(pump_speed) or pump_speed < 15 => next
+    }
+    stage stopped {
+        1 -> pump_stopped
+    }
+}
 ```

@@ -151,6 +151,15 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
 		}
+		if fnSym.Kind != symbol.KindFunction || fnSym.Exec == symbol.ExecWASM {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' type '%s' is not a flow function",
+				n.Key,
+				nodeType,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
 		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
 		freshType := freshFuncTypes[n.Key]
 		node := ir.Node{

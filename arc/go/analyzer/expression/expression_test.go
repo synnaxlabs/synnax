@@ -1916,6 +1916,44 @@ var _ = Describe("Expressions", func() {
 		)
 	})
 
+	Describe("NaN and infinity", func() {
+		extras := []symbol.Symbol{
+			{Name: "nan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			{Name: "inf", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+		}
+		body := func(statement string) string {
+			return "import math\nfunc f() {v f64, w f32, n i32} {\n" +
+				"used := math.is_nan(v)\n" + statement + "\n}"
+		}
+
+		DescribeTable("Should accept",
+			func(ctx SpecContext, statement string) {
+				expectSuccess(ctx, body(statement), extras)
+			},
+			Entry("is_nan f64", "a := math.is_nan(v)"),
+			Entry("is_infinite f32", "a := math.is_infinite(w)"),
+			Entry("is_finite of a channel", "a := math.is_finite(nan)"),
+			Entry("is_nan in a boolean", "a := not math.is_nan(v) and v > 1.0"),
+			Entry("integer literal", "a := math.is_nan(3)"),
+			Entry("negated integer literal", "a := math.is_finite(-3)"),
+			Entry("integer arithmetic", "a := math.is_infinite(1 + 2)"),
+			Entry("f32 and f64 checks", "a := math.is_nan(w) and math.is_nan(v)"),
+			Entry("channels named nan and inf", "a := nan > 1.0 and inf < 2.0"),
+		)
+
+		DescribeTable("Should reject",
+			func(ctx SpecContext, statement, message string) {
+				expectFailure(ctx, body(statement), extras, message)
+			},
+			Entry("i32 argument", "a := math.is_nan(n)", "is not compatible"),
+			Entry("bool argument", "a := math.is_infinite(true)", "is not compatible"),
+			Entry("series argument",
+				"a := math.is_finite([1.5, 2.5])", "is not compatible"),
+			Entry("two arguments", "a := math.is_nan(v, v)", "too many arguments"),
+			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
+		)
+	})
+
 	Describe("Qualified Identifier Analysis", func() {
 		DescribeTable("valid qualified function calls",
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
