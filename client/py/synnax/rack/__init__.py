@@ -15,6 +15,7 @@ from synnax.rack.types_gen import (
     Status,
     StatusDetails,
     Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "Status",
     "StatusDetails",
     "Where",
+    "WhereInput",
     "ontology_id",
 ]

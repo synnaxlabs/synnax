@@ -120,12 +120,12 @@ class ModbusTask(TaskPage):
 class ModbusRead(ModbusTask):
     """Modbus read task page."""
 
-    page_type: PageType = "Modbus read task"
+    page_type: PageType = "modbus_read"
     pluto_label: str = ".console-task-configure--modbus_read"
 
 
 class ModbusWrite(ModbusTask):
     """Modbus write task page."""
 
-    page_type: PageType = "Modbus write task"
+    page_type: PageType = "modbus_write"
     pluto_label: str = ".console-task-configure--modbus_write"

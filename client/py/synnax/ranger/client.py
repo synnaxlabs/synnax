@@ -48,7 +48,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from synnax.util import one
+from synnax.util import sole
 from x import color as color_
 from x import filter, lists
 from x.interop import ArrayOperators
@@ -452,7 +452,7 @@ class Range(Payload):
         for ch, alias in channel.items():
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
-                corrected[one("Channel", ch, res).key] = alias
+                corrected[sole("Channel", ch, res).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -788,7 +788,7 @@ class Client:
         sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:
             return sug
-        return one("Range", key or name, sug)
+        return sole("Range", key or name, sug)
 
     def delete(
         self,
