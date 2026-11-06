@@ -209,8 +209,28 @@ export const digest = ({ day, active, accounts, firstLogins }: Summary): Note =>
   links: [{ label: "Open the users", href: "/admin/users" }],
 });
 
-/** clock reads a time as hours and minutes in UTC. */
-const clock = (t: Date): string => t.toISOString().slice(11, 16);
+/** ZONE is the staff's time zone. Notes read times in it. */
+const ZONE = "America/Denver";
+
+const CLOCK = new Intl.DateTimeFormat("en-US", {
+  timeZone: ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZoneName: "short",
+});
+
+const partsOf = (t: Date): Record<string, string> =>
+  Object.fromEntries(CLOCK.formatToParts(t).map(({ type, value }) => [type, value]));
+
+/** clock reads a time as hours and minutes in {@link ZONE}. */
+const clock = (t: Date): string => {
+  const { hour, minute } = partsOf(t);
+  return `${hour}:${minute}`;
+};
+
+/** zoneName names {@link ZONE} at `t`: MST, or MDT in summer. */
+const zoneName = (t: Date): string => partsOf(t).timeZoneName;
 
 /** ago says how many UTC days before `now` the day of `then` was. */
 const ago = (then: Date, now: Date): string => {
@@ -224,7 +244,7 @@ export const active = ({ account, machine, at, previous, days }: Arrival): Note 
   facts: [
     { label: "Email", value: account.email },
     { label: "Machine", value: machine },
-    { label: "Time", value: `${clock(at)} UTC` },
+    { label: "Time", value: `${clock(at)} ${zoneName(at)}` },
     { label: "Last active", value: previous == null ? "Never" : ago(previous, at) },
     { label: "Active days", value: `${days} of the last ${MONTH}` },
   ],
@@ -277,7 +297,7 @@ export const recap = (visit: Visit, account: Account | null): Note => {
   if (email != null && email !== who) facts.push({ label: "Email", value: email });
   facts.push({
     label: "Time",
-    value: `${clock(visit.start)} to ${clock(visit.end)} UTC`,
+    value: `${clock(visit.start)} to ${clock(visit.end)} ${zoneName(visit.end)}`,
   });
   if (visit.version != null)
     facts.push({
