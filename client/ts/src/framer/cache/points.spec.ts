@@ -387,6 +387,72 @@ describe("Points", () => {
     });
   });
 
+  describe("high rate", () => {
+    const LIVE_SAMPLES = 2 ** 14;
+
+    // Returns the raw samples the store holds of the channel near the clock.
+    const heldSamples = (store: Store, key: channel.Key, now: TimeStamp): number => {
+      let sum = 0;
+      for (let i = rawIndex(now) - 2; i <= rawIndex(now); i++)
+        store
+          .findRaw(key, i)
+          ?.seriesIn(TimeRange.MAX)
+          .forEach((s) => (sum += s.length));
+      return sum;
+    };
+
+    it("should keep the held and drawn samples bounded", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      const { store, joins, subscribe, close } = createPoints(core, undefined, {
+        liveSamples: LIVE_SAMPLES,
+      });
+      const span = TimeSpan.seconds(30);
+      const window = dynamicWindow(span);
+      const keys = [core.index.key, core.data[0].key];
+      const points = keys.map((key) => subscribe(key, window, TILED));
+      try {
+        await expect.poll(() => keys.every((k) => joins.joined(k)), POLL).toBe(true);
+        for (let i = 0; i < 200; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        await expect
+          .poll(() => points.every((p) => p.value().status.variant === "success"), POLL)
+          .toBe(true);
+        for (const key of keys)
+          expect(heldSamples(store, key, core.now())).toBeLessThanOrEqual(LIVE_SAMPLES);
+        const floor = store.floor(core.index.key);
+        expect(floor).toBeDefined();
+        points.forEach((p) => {
+          const { series } = p.value();
+          expect(series.length).toBeLessThanOrEqual(LIVE_SAMPLES);
+          expect(series.series[0].timeRange.start.valueOf()).toBeLessThanOrEqual(
+            core.now().sub(span).add(TimeSpan.seconds(1)).valueOf(),
+          );
+          const raw = series.series.filter((s) =>
+            s.timeRange.start.equals(floor!.start),
+          );
+          expect(raw).toHaveLength(1);
+        });
+        // A pair reads its tiles together, so their spans match.
+        const [x, y] = points.map((p) =>
+          p
+            .value()
+            .series.series.filter((s) => !s.timeRange.end.after(floor!.start))
+            .map((s) => s.timeRange.toString()),
+        );
+        expect(x.length).toBeGreaterThan(0);
+        expect(y).toEqual(x);
+      } finally {
+        await close();
+      }
+    });
+  });
+
   it("should read raw samples again after a failed read", async () => {
     const core = createCore();
     let failures = 1;

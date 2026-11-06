@@ -494,6 +494,90 @@ describe("Store", () => {
     });
   });
 
+  describe("live samples", () => {
+    const index = new channel.Channel({
+      key: 1,
+      name: "time",
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    }).payload;
+    const data = new channel.Channel({
+      key: 2,
+      name: "data",
+      dataType: DataType.FLOAT32,
+      index: 1,
+    }).payload;
+
+    // Streams the count samples into raw block 100 of the index and data channels, in
+    // pieces of four samples one millisecond apart.
+    const stream = (store: Store, count: number): void => {
+      for (let offset = 0; offset < count; offset += 4) {
+        const start = BLOCK.start.add(TimeSpan.milliseconds(offset));
+        const piece = new Series({
+          data: new Float32Array(4),
+          alignment: alignmentOf(100, offset),
+          timeRange: start.range(start.add(TimeSpan.milliseconds(4))),
+        });
+        store.append(store.raw(index.key, 100), piece);
+        store.append(store.raw(data.key, 100), piece);
+      }
+    };
+
+    const held = (store: Store, key: channel.Key): number =>
+      store
+        .raw(key, 100)
+        .seriesIn(TimeRange.MAX)
+        .reduce((sum, s) => sum + s.length, 0);
+
+    const createStore = (now: TimeStamp): Store => {
+      const store = new Store({
+        liveSamples: 64,
+        dynamicBufferSize: 8,
+        now: () => now,
+      });
+      store.setChannel(index);
+      store.setChannel(data);
+      return store;
+    };
+
+    it("should keep the held samples of a streamed index and its data bounded", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      expect(held(store, index.key)).toBeLessThanOrEqual(64);
+      expect(held(store, data.key)).toBeLessThanOrEqual(64);
+      expect(store.raw(index.key, 100).coveredCount).toBe(10_000);
+    });
+
+    it("should start the samples of the index and its data at one floor", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const floor = store.floor(index.key);
+      expect(floor?.kept).toBeDefined();
+      for (const key of [index.key, data.key]) {
+        const block = store.raw(key, 100);
+        expect(block.coveredStart).toEqual(floor?.kept);
+        const starts = block.seriesIn(TimeRange.MAX).map((s) => s.timeRange.start);
+        expect(starts[0]).toEqual(floor?.kept);
+        expect(starts).toContainEqual(floor?.start);
+      }
+    });
+
+    it("should not cover a span before the samples it keeps", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const block = store.raw(data.key, 100);
+      expect(block.covers(new TimeRange(block.coveredStart, TimeStamp.MAX))).toBe(true);
+      expect(block.covers(BLOCK)).toBe(false);
+    });
+
+    it("should keep every sample after the commit point", () => {
+      const store = createStore(BLOCK.start.add(TimeSpan.milliseconds(1000)));
+      stream(store, 1000);
+      expect(store.floor(index.key)?.start ?? BLOCK.start).toEqual(BLOCK.start);
+      expect(held(store, data.key)).toBe(1000);
+    });
+  });
+
   it("should drop every block and buffer when it closes", () => {
     const store = new Store({ dynamicBufferSize: 100 });
     store.set("a", createBlock({ held: true }));

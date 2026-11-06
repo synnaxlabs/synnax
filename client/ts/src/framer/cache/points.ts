@@ -43,7 +43,7 @@ import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Store } from "@/framer/cache/store";
+import { calculated, type Floor, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -235,6 +235,7 @@ export class Points {
     }
     this.stream(this.index);
     const home = this.home();
+    this.cutoff(home);
     const view = this.view(home);
     const next = this.advance(view, home);
     const extremesKept = this.limit.extremesKept === true;
@@ -400,22 +401,35 @@ export class Points {
   // rawFrom is where raw samples start. A dynamic window no wider than two raw blocks
   // draws only raw samples, from the edge of its level's tile before its start. Other
   // windows draw them from the raw block edge before the commit point, or from the end
-  // of a static window once the end commits.
+  // of a static window once the end commits. Raw samples never start before the floor
+  // of the store.
   private rawFrom(home: TimeRange): TimeStamp {
-    const level = tileLevel(home);
-    if (this.dynamic && level <= RAW_LEVEL)
-      return tileRange({ level, index: tileIndex(home.start, level) }).start;
     const committed = this.props.now().sub(COMMIT_MARGIN);
     if (!this.dynamic && !home.end.after(committed)) return home.end;
+    const floor = this.floor()?.start ?? TimeStamp.MIN;
+    const level = tileLevel(home);
+    if (this.dynamic && level <= RAW_LEVEL)
+      return TimeStamp.max(
+        tileRange({ level, index: tileIndex(home.start, level) }).start,
+        floor,
+      );
     const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
-    return TimeStamp.max(home.start, edge);
+    return TimeStamp.max(home.start, edge, floor);
   }
 
-  // Moves the boundary to at most one raw block behind rawFrom, so a window that never
-  // draws stops growing.
+  private floor(): Floor | undefined {
+    return this.index == null ? undefined : this.props.store.floor(this.index);
+  }
+
+  // Moves the boundary to at most one raw block behind rawFrom, and to the samples the
+  // store keeps, so a window that never draws stops growing.
   private cutoff(home: TimeRange): void {
-    const floor = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
-    this.boundary = TimeStamp.max(this.boundary, floor);
+    const trailing = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
+    this.boundary = TimeStamp.max(
+      this.boundary,
+      trailing,
+      this.floor()?.kept ?? TimeStamp.MIN,
+    );
   }
 
   // Returns the span raw samples serve: from the boundary to the end of a static
@@ -637,7 +651,6 @@ export class Points {
     filling: boolean;
   } {
     if (this.parked != null) return { raw: [], tail: [], filling: false };
-    this.cutoff(home);
     const tr = this.rawRange(home);
     if (!tr.start.before(tr.end)) {
       this.raw = [];
