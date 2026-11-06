@@ -1678,13 +1678,26 @@ describe("log/aether/Log", () => {
   });
 
   describe("afterDelete", () => {
-    it("should clean up telem and erase render region", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { h, source, recorder } = setup(entries);
+    it("should clean up telem", () => {
+      const { h, source } = setup([makeEntry(0)]);
       const cleanupSpy = vi.spyOn(source, "cleanup");
       h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
-      expect(recorder.eraseCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should request a render, which erases what the log drew last", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      recorder.clear();
+      h.unmount();
+      expect(recorder.loopCalls).toHaveLength(1);
+    });
+
+    it("should not draw in a render that was pending when it was deleted", () => {
+      const { h, log, recorder } = setup([makeEntry(0)]);
+      h.unmount();
+      recorder.clear();
+      expect(log.render()).toBeUndefined();
+      expect(recorder.lower2d.calls).toEqual([]);
     });
   });
 });
