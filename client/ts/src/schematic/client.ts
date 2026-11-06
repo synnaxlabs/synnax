@@ -57,7 +57,7 @@ const retrieveMultiParamsZ = z.union([
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type CopyParams = z.input<typeof copyReqZ>;
 
 const createReqZ = z.object({

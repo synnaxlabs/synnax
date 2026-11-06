@@ -41,11 +41,11 @@ const inputs = {
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
-export interface WhereInput extends filter.Input<typeof inputs> {
+export type WhereInput = filter.Input<typeof inputs> & {
   and?: WhereInput[];
   or?: WhereInput[];
   not?: WhereInput;
-}
+};
 
 const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({
   get and() {

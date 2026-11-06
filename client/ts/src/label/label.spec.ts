@@ -70,10 +70,11 @@ describe("Label", () => {
         { name: `${prefix}-attached`, color: "#E774D0" },
       ]);
       await client.labels.label(label.ontologyID(item.key), [attached.key]);
-      const labels = await client.labels.retrieve({
+      const params: label.RetrieveMultipleParams = {
         name: { regex: `^${prefix}` },
         not: { for: label.ontologyID(item.key) },
-      });
+      };
+      const labels = await client.labels.retrieve(params);
       expect(labels.map((l) => l.key)).toEqual([item.key]);
     });
     it("should drop the keys that do not exist from a flat key list", async () => {

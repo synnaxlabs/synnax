@@ -42,7 +42,7 @@ const retrieveMultiParamsZ = z.union([
 ]);
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface ClientConfig {
   unary: UnaryClient;
