@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -308,11 +309,15 @@ var _ = Describe("RetrieveRequest", func() {
 	})
 })
 
+// createRunningTask creates a task on a new rack, because the rack monitor marks the
+// tasks of a rack that is silent for a health check interval as not running.
 func createRunningTask(ctx SpecContext, running bool) task.Task {
 	GinkgoHelper()
+	r := rack.Rack{Name: "Driver"}
+	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	t := task.Task{
 		Type: pagerduty.AlertTaskType,
-		Rack: svc.Rack.EmbeddedKey,
+		Rack: r.Key,
 		Name: "Running",
 		Status: &task.Status{
 			Variant: status.VariantSuccess,
