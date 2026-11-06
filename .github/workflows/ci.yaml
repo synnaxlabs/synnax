@@ -92,7 +92,8 @@ permissions:
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths. The ci output is a JSON list of the jobs that an
-  # edit to this file or the change map selects.
+  # edit to this file or the change map selects. spec_only is true when the change
+  # touches only unit tests.
   changes:
     # paths-filter lists the changed files of a pull request through the API.
     permissions:
@@ -149,6 +150,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
@@ -158,14 +160,14 @@ jobs:
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: .github/filters.yaml
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -180,6 +182,17 @@ jobs:
             python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Find whether the change touches only unit tests
+        id: spec
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          spec_only=$(uv run --locked --project .github/scripts \
+            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+          echo "$spec_only"
+          echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 
   actionlint:
     needs: changes
@@ -458,17 +471,17 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
         with:
           tool: cargo-llvm-cov
 
@@ -481,7 +494,7 @@ jobs:
         run: cargo llvm-cov --features desktop --lcov --output-path lcov.info
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
@@ -571,7 +584,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: //client/cpp/framer:framer_test //driver/ethercat/...
-      test_flags: --config=tsan --run_under="setarch -R"
+      test_flags: --config=tsan-no-aslr
       test_tags: -hardware
     secrets:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -602,19 +615,15 @@ jobs:
       GOPROXY: https://proxy.golang.org|direct
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # Type checking every module for three GOOS values fills the default disk.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-
+      # The check compiles nothing, and the modules download faster than a cache
+      # restores.
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: x/go/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
 
       - name: Download the Go modules
         run: |
@@ -640,10 +649,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -803,10 +812,12 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # A merge group that changes only unit tests skips integration.
   integration:
     needs: changes
     if:
-      inputs.full || (github.event_name == 'merge_group' || inputs.integration) &&
+      inputs.full || (github.event_name == 'merge_group' &&
+      needs.changes.outputs.spec_only != 'true' || inputs.integration) &&
       (needs.changes.outputs.integration == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'integration'))
     permissions:
@@ -844,7 +855,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1060,7 +1071,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1328,3 +1339,23 @@ jobs:
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
           jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
             <<< "$RESULTS" > /dev/null
+
+  # GitHub sends no event to the default branch for a failed run of a pull request.
+  shepherd:
+    name: Wake the shepherd
+    needs: ok
+    if:
+      ${{ failure() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Agent - Shepherd
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"

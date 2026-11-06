@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   NotFoundError,
   ontology,
   query,
@@ -27,6 +28,7 @@ import { array, type destructor, type observe, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -34,13 +36,17 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
-import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
+import {
+  DefaultContextMenu,
+  type DefaultContextMenuProps,
+} from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
@@ -66,11 +72,13 @@ import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
 /** The resource types the tree sorts first and every search finds. */
-const FOLDER_TYPES = new Set<ontology.ResourceType>(["group"]);
+const FOLDER_TYPES = new Set<ontology.ResourceType>(["group", "arc_directory"]);
 
-interface InternalProps {
+interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   root: ontology.ID;
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
   results?: ResultNodes;
   className?: string;
 }
@@ -251,8 +259,11 @@ const toNodes = (
 const Internal = ({
   root,
   emptyContent,
+  rootContextMenu: RootContextMenu = DefaultContextMenu,
   results,
   className,
+  ref,
+  onKeyDown,
 }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
@@ -556,13 +567,15 @@ const Internal = ({
       bySource.set(sourceKey, ids);
     });
     contract(...moved.map(({ key }) => key));
-    bySource.forEach((ids, sourceKey) =>
-      moveChildren({
-        source: ontology.parseID(sourceKey),
-        destination,
-        ids,
-      }),
-    );
+    bySource.forEach((ids, sourceKey) => {
+      const params = { source: ontology.parseID(sourceKey), destination, ids };
+      const { move } = svc;
+      if (move == null) return moveChildren(params);
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await move(client, params);
+      }, "Failed to move resources");
+    });
     return moved;
   };
 
@@ -586,7 +599,7 @@ const Internal = ({
 
   const renderContextMenu = ({ keys: clicked }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (clicked.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
     const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise
     // the selection state gives the keys, since the virtual tree can lack the DOM
@@ -597,9 +610,10 @@ const Internal = ({
     const ids = keys.map((key) => ontology.parseID(key));
 
     // A selected node's own children do not count, since an action on the node carries
-    // them along.
+    // them along. Flat search results show both at the same depth.
+    const contained = findContainedKeys(nodes, keys, results?.ancestors);
     const top = Base.getAllNodesOfMinDepth(
-      Base.filterShape(shape, (key) => keys.includes(key)),
+      Base.filterShape(shape, (key) => keys.includes(key) && !contained.has(key)),
     );
     const parents = unique.by(
       top.map((key) => parentOf(nodes, key)),
@@ -614,6 +628,7 @@ const Internal = ({
         rootID: root,
         parentID,
         ids,
+        top: top.map((key) => ontology.parseID(key)),
       },
       state,
       ...getBaseProps(client),
@@ -658,6 +673,8 @@ const Internal = ({
         className={className}
         pinned={pinned}
         onContextMenu={menuProps.open}
+        ref={ref}
+        onKeyDown={onKeyDown}
       >
         {itemRenderProp}
       </Base.Tree>
@@ -795,6 +812,9 @@ export const createSearch = ({
     const [open, setOpen] = useState(false);
     const [term, setTerm] = useState("");
     const [layout, setLayout] = useState<SearchLayout>("flat");
+    const fieldRef = useRef<HTMLInputElement>(null);
+    const resultsRef = useRef<HTMLDivElement>(null);
+    const treeRef = useRef<HTMLDivElement>(null);
     const searching = open && term.trim() !== "";
     const trimmed = useDebounced(term).trim();
     const sources = useMatches(
@@ -875,11 +895,18 @@ export const createSearch = ({
       answer,
       start: () => setOpen(true),
       close: () => {
-        setOpen(false);
-        setTerm("");
+        // A hidden tree cannot take the focus, so the close renders first.
+        flushSync(() => {
+          setOpen(false);
+          setTerm("");
+        });
+        treeRef.current?.focus({ preventScroll: true });
       },
       setTerm,
       setLayout,
+      fieldRef,
+      resultsRef,
+      treeRef,
     };
   };
   return useSearch;
@@ -896,14 +923,28 @@ const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   </Text.Text>
 );
 
-interface ResultsProps {
+interface ResultsProps extends Pick<
+  Search,
+  "noun" | "layout" | "fieldRef" | "resultsRef"
+> {
   root: ontology.ID;
-  noun: string;
-  layout: SearchLayout;
   answer: SearchAnswer;
 }
 
-const Results = ({ root, noun, layout, answer }: ResultsProps): ReactElement => {
+const Results = ({
+  root,
+  noun,
+  layout,
+  answer,
+  fieldRef,
+  resultsRef,
+}: ResultsProps): ReactElement => {
+  // A second Escape, in the field, closes the search.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Escape" || e.target !== e.currentTarget) return;
+    e.stopPropagation();
+    fieldRef.current?.focus();
+  };
   if (answer.variant === "error")
     return (
       <Status.Summary
@@ -919,6 +960,8 @@ const Results = ({ root, noun, layout, answer }: ResultsProps): ReactElement => 
         key={layout}
         root={root}
         results={answer.results}
+        ref={resultsRef}
+        onKeyDown={handleKeyDown}
         emptyContent={<NoMatches noun={noun} term={answer.match.term} />}
       />
       {answer.more && (
@@ -933,6 +976,8 @@ const Results = ({ root, noun, layout, answer }: ResultsProps): ReactElement => 
 export interface TreeProps {
   root?: ontology.ID | null;
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
   /** Shows the search answer in place of the tree while the search has one. */
   search?: Search;
 }
@@ -940,6 +985,7 @@ export interface TreeProps {
 export const Tree = ({
   root,
   emptyContent,
+  rootContextMenu,
   search,
 }: TreeProps): ReactElement | null => {
   if (root == null) return null;
@@ -953,11 +999,15 @@ export const Tree = ({
           noun={search.noun}
           layout={search.layout}
           answer={search.answer}
+          fieldRef={search.fieldRef}
+          resultsRef={search.resultsRef}
         />
       )}
       <Internal
         root={root}
+        ref={search?.treeRef}
         emptyContent={emptyContent}
+        rootContextMenu={rootContextMenu}
         className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
       />
     </>

@@ -12,9 +12,9 @@ package storage
 import (
 	"archive/tar"
 	"io"
-	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -94,7 +94,7 @@ func extractArchive(fsys xfs.FS, name string, dst xfs.FS) (err error) {
 			return err
 		}
 		entry := strings.TrimSuffix(hdr.Name, "/")
-		if !fs.ValidPath(entry) {
+		if !filepath.IsLocal(entry) {
 			return errors.Newf("archive entry %q is not a local path", hdr.Name)
 		}
 		switch hdr.Typeflag {

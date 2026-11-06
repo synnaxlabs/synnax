@@ -60,8 +60,11 @@ type ScopeMode uint8
 //go:generate stringer -type=ScopeMode
 
 const (
+	// ScopeModeUnspecified has no mode set.
 	ScopeModeUnspecified ScopeMode = iota
+	// ScopeModeParallel runs every member of the scope in strata.
 	ScopeModeParallel
+	// ScopeModeSequential runs one step of the scope at a time.
 	ScopeModeSequential
 )
 
@@ -71,8 +74,11 @@ type Liveness uint8
 //go:generate stringer -type=Liveness
 
 const (
+	// LivenessUnspecified has no liveness set.
 	LivenessUnspecified Liveness = iota
+	// LivenessAlways activates the scope with its parent.
 	LivenessAlways
+	// LivenessGated activates the scope when one of its activations fires.
 	LivenessGated
 )
 
@@ -200,6 +206,19 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit

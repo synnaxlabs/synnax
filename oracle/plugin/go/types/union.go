@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -63,6 +64,9 @@ type unionData struct {
 	Base string
 	// BaseField is the selector of Base's embedded field in each variant.
 	BaseField string
+	// TagMethod is the method that returns the tag of the active variant, or empty
+	// when the union has none.
+	TagMethod string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -130,7 +134,7 @@ func constDoc(variantDoc, variantType string) string {
 	return fmt.Sprintf("selects the %s variant.", variantType)
 }
 
-func processUnion(entry resolution.Type, data *templateData) unionData {
+func processUnion(entry resolution.Type, data *templateData) (unionData, error) {
 	form := entry.Form.(resolution.UnionForm)
 	// Use the raw schema name (with @go name override) so the wrapper matches
 	// resolver.GetTypeName, which union-typed fields resolve through.
@@ -199,6 +203,26 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		}
 		ud.Base = resolveExtendsType(base, parent, data)
 		ud.BaseField = embedFieldName(ud.Base)
+	}
+	if method, ok := naming.UnionTagMethod(form); ok {
+		ud.TagMethod = method
+	}
+	// The tag getter shares a method set with the methods that every union declares.
+	methods := set.New(
+		"MarshalJSONTo",
+		"UnmarshalJSONFrom",
+		"ApplyDefaults",
+		"Validate",
+	)
+	if ud.Base != "" {
+		methods.Add("Base", "SetBase")
+	}
+	if methods.Contains(ud.TagMethod) {
+		return unionData{}, errors.Newf(
+			"%s: the getter for the discriminator %s has the name of another union "+
+				"method; rename the discriminator",
+			entry.QualifiedName, form.Discriminator,
+		)
 	}
 
 	for _, v := range form.Variants {
@@ -290,7 +314,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if ud.NeedsValidate {
 		data.AddExternal(validateImportPath)
 	}
-	return ud
+	return ud, nil
 }
 
 // embeddedType pairs an embedded type reference with its rendered Go type, so the

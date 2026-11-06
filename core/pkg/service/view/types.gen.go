@@ -11,27 +11,28 @@
 
 package view
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a saved view configuration.
 type Key = versions.Key
 
+// Type names the resource that a view lists.
+type Type = versions.Type
+
+const (
+	TypeRange  Type = versions.TypeRange
+	TypeStatus Type = versions.TypeStatus
+)
+
 // View is a saved, named filter over a list of resources. The type selects the resource
-// the view lists and the shape of its query.
+// the view lists and the shape of its where.
 type View = versions.View
 
 // ViewVariant is implemented by every View variant.
 type ViewVariant = versions.ViewVariant
-
-// ViewType is the "type" value that selects a variant of View.
-type ViewType = versions.ViewType
-
-const (
-	// RangeViewType is a saved view of ranges.
-	RangeViewType ViewType = versions.RangeViewType
-	// StatusViewType is a saved view of statuses.
-	StatusViewType ViewType = versions.StatusViewType
-)
 
 // RangeView is a saved view of ranges.
 type RangeView = versions.RangeView
@@ -42,8 +43,18 @@ type StatusView = versions.StatusView
 // Base carries the fields shared by every view variant.
 type Base = versions.Base
 
-// RangeQuery filters the ranges shown by a range view.
-type RangeQuery = versions.RangeQuery
-
-// StatusQuery filters the statuses shown by a status view.
-type StatusQuery = versions.StatusQuery
+// Where is a filter that selects views.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Type selects by type.
+	Type *filter.Set[Type] `json:"type,omitzero" msgpack:"type,omitempty"`
+}

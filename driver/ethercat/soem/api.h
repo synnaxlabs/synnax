@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 
 #include "x/cpp/errors/errors.h"
@@ -32,6 +33,16 @@ public:
     /// @returns errors::PERMISSION_DENIED when the process lacks permission, or
     /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
     virtual x::errors::Error check_socket(const char *ifname) = 0;
+
+    /// @brief returns true when the DewesoftX "EthercatDAQ Filter" is bound to the
+    /// adapter of ifname. The filter drops EtherCAT replies. Always false outside
+    /// Windows.
+    virtual bool dewesoft_filter_bound(const char *ifname) = 0;
+
+    /// @brief returns the name Windows shows for the adapter of ifname, such as
+    /// "Ethernet 2", or std::nullopt when the name cannot be read. Always std::nullopt
+    /// outside Windows.
+    virtual std::optional<std::string> adapter_name(const char *ifname) = 0;
 
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
@@ -100,6 +111,10 @@ public:
 
     /// @brief reads string from slave EEPROM.
     virtual void siistring(char *str, uint16_t slave, uint16_t sn) = 0;
+
+    /// @brief gives control of the slave EEPROM back to the slave. siigetbyte takes
+    /// control and keeps it.
+    virtual void eeprom2pdi(uint16_t slave) = 0;
 
     /// @brief reads object dictionary list from slave.
     virtual int readODlist(uint16_t slave, ec_ODlistt *od_list) = 0;
@@ -196,6 +211,10 @@ public:
 
     x::errors::Error check_socket(const char *ifname) override;
 
+    bool dewesoft_filter_bound(const char *ifname) override;
+
+    std::optional<std::string> adapter_name(const char *ifname) override;
+
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
     void close() override { ecx_close(&this->context); }
@@ -280,6 +299,8 @@ public:
     void siistring(char *str, uint16_t slave, uint16_t sn) override {
         ecx_siistring(&this->context, str, slave, sn);
     }
+
+    void eeprom2pdi(uint16_t slave) override { ecx_eeprom2pdi(&this->context, slave); }
 
     int readODlist(uint16_t slave, ec_ODlistt *od_list) override {
         return ecx_readODlist(&this->context, slave, od_list);

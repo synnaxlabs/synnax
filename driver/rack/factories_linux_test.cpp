@@ -37,7 +37,7 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
     const auto ctx = std::make_shared<task::MockContext>(client);
     auto tasks = factory->configure_initial_tasks(ctx, rack);
     for (const auto &[_, tsk]: tasks)
-        tsk->stop(false);
+        if (tsk != nullptr) tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
 }
 

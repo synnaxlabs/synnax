@@ -610,7 +610,10 @@ func renderGoFile(
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
 		case declUnion:
-			u := processUnion(d.typ, procData)
+			u, err := processUnion(d.typ, procData)
+			if err != nil {
+				return nil, nil, err
+			}
 			data.Decls = append(data.Decls, declData{Union: &u})
 		}
 	}
@@ -1288,12 +1291,19 @@ type {{$enum.Name}} uint8
 {{- if eq (len $enum.Values) 1}}
 {{- with index $enum.Values 0}}
 
+{{- if .Doc}}
+
+{{formatDoc (printf "%s%s" $enum.Name .Name) .Doc}}
+{{- end}}
 const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{if $enum.StartsAtOne}}1{{else}}0{{end}}
 {{- end}}
 {{- else}}
 
 const (
 {{- range $i, $v := $enum.Values}}
+{{- if $v.Doc}}
+	{{formatFieldDoc (printf "%s%s" $enum.Name $v.Name) $v.Doc | printf "%s"}}
+{{- end}}
 {{- if eq $i 0}}
 	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota{{if $enum.StartsAtOne}} + 1{{end}}
 {{- else}}
@@ -1691,6 +1701,19 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	return nil
 }
+{{- if .TagMethod}}
+
+{{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}
+func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return {{.ConstName}}
+{{- end}}
+	}
+	return ""
+}
+{{- end}}
 {{- if .NeedsApplyDefaults}}
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

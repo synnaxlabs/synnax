@@ -32,7 +32,10 @@ class ConnectionLifecycle(ConsoleCase):
         self, query: str = "", host: str | None = None, port: int | None = None
     ) -> None:
         # A browser Console only talks to the Core that served it, so the page loads
-        # through the proxy.
+        # through the proxy. The dev server fallback reads the Core port from storage.
+        self.page.add_init_script(
+            f"localStorage.setItem('synnax-dev-connection-port', '{self.proxy.port}')"
+        )
         super()._goto_console(query, host="127.0.0.1", port=self.proxy.port)
 
     def teardown(self) -> None:

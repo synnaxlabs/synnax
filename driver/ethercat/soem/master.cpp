@@ -21,10 +21,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for EtherCAT state transitions (INIT->PRE_OP->SAFE_OP->OP) in microseconds.
+/// Timeout for the SAFE-OP, OP, and INIT transitions in microseconds.
 const int STATE_CHANGE_TIMEOUT = static_cast<int>(
     (x::telem::SECOND * 2).microseconds()
 );
+/// Timeout for the slaves to reach PRE-OP after discovery in microseconds. It stays
+/// at the PreopTimeout of the ESI files.
+const int PRE_OP_TIMEOUT = static_cast<int>((x::telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time between state reads while slaves move to OP.
@@ -60,6 +63,23 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
+namespace {
+std::string no_slaves_message(API &api, const std::string &iface) {
+    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+    if (!api.dewesoft_filter_bound(iface.c_str()))
+        return found + "Check the cable and the power of the first device.";
+    return found + std::format(
+                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
+                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
+                       "also after DewesoftX closes. Clear it in the properties of "
+                       "\"{0}\" (Settings > Network & internet > Advanced network "
+                       "settings > More network adapter options, then right-click the "
+                       "adapter > Properties).",
+                       api.adapter_name(iface.c_str()).value_or(iface)
+                   );
+}
+}
+
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
@@ -94,10 +114,14 @@ x::errors::Error Master::initialize() {
         this->api->close();
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            "no EtherCAT slaves found on " + this->iface_name
+            no_slaves_message(*this->api, this->iface_name)
         );
     }
 
+    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+    // request to a slave whose last read state is below PRE-OP.
+    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;
@@ -609,6 +633,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             c++;
         }
     }
+    this->api->eeprom2pdi(props.position);
 
     if (props.input_pdos.empty() && props.output_pdos.empty()) {
         if (this->api->slave_Ibits(props.position) > 0 ||

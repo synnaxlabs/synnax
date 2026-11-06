@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
+import { device, query as clientQuery, type query } from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -196,7 +196,8 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   retrieveByKey: async ({ client, key }) =>
     await client.devices.retrieve({ ...BASE_QUERY, key }),
   onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.devices.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) =>
+    client.devices.onChange({ ...BASE_QUERY, key }, handler),
   getCached: ({ client, query }) => client.devices.getCached(query),
 });
 
@@ -236,19 +237,6 @@ export const createCreate = <
   });
 
 export const { useUpdate: useCreate } = createCreate();
-
-export type UseRetrieveGroupParams = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupParams,
-  ontology.ID | undefined
->({
-  name: "device group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Devices")?.id;
-  },
-});
 
 export interface RenameParams extends Pick<device.Device, "key" | "name"> {}
 

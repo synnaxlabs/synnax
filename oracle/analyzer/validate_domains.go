@@ -201,12 +201,29 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
+// validateKeyTypes errors on a type-level @key outside a distinct type. Filters read
+// the mark through aliases to the distinct type, so it means nothing elsewhere.
+func validateKeyTypes(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		if _, ok := t.Domains["key"]; !ok {
+			continue
+		}
+		if _, ok := t.Form.(resolution.DistinctForm); ok {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has @key, which marks only a distinct type such as Key uint32",
+			t.QualifiedName,
+		))
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that nothing uses:
 // every type omits the language and none is hand-written.
 func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
 	var hasActions bool
 	for _, t := range types {
-		if sf, ok := t.Form.(resolution.StructForm); ok && len(sf.Actions) > 0 {
+		if len(t.Actions()) > 0 {
 			hasActions = true
 		}
 	}

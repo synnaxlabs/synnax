@@ -10,9 +10,18 @@
 import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -27,6 +36,7 @@ import {
   findTreeRow,
   getTreeRow,
   itemName,
+  openTreeRootContextMenu,
   renderOntologyTree,
   searchTree,
 } from "@/platform/tree/testutil";
@@ -412,12 +422,10 @@ describe("Tree.Tree", () => {
     });
 
     it("should start the rename of a new group outside the window", async () => {
-      const { container } = await renderTree(parentID);
+      await renderTree(parentID);
       await findTreeRow(names[CHILD_COUNT - 1]);
       expect(screen.queryByText(names[0])).toBeNull();
-      const tree = container.querySelector(".lyra-tree");
-      if (tree == null) throw new Error("tree not found");
-      fireEvent.contextMenu(tree);
+      await openTreeRootContextMenu();
       fireEvent.click(await screen.findByText("New group"));
       const editable = await awaitTextEditingElement();
       await act(async () => {
@@ -435,13 +443,36 @@ describe("Tree.Tree", () => {
       });
       const name = uniqueName("grp");
       await client.groups.create({ parent: group.ontologyID(root.key), name });
-      const { container } = await renderTree(group.ontologyID(root.key));
+      await renderTree(group.ontologyID(root.key));
       await screen.findByText(name);
-      const tree = container.querySelector(".lyra-tree");
-      expect(tree).not.toBeNull();
-      fireEvent.contextMenu(tree as Element);
+      await openTreeRootContextMenu();
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       await waitFor(() => expect(screen.getByText("New group")).toBeTruthy());
+    });
+
+    it("should render the given root context menu in place of the default", async () => {
+      const root = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("root"),
+      });
+      const name = uniqueName("grp");
+      await client.groups.create({ parent: group.ontologyID(root.key), name });
+      const RootContextMenu = (): ReactElement => (
+        <Menu.Menu>
+          <Menu.Item itemKey="extra">Extra item</Menu.Item>
+        </Menu.Menu>
+      );
+      render(
+        <Tree.Tree
+          root={group.ontologyID(root.key)}
+          rootContextMenu={RootContextMenu}
+        />,
+        { wrapper: await createWrapper() },
+      );
+      await screen.findByText(name);
+      await openTreeRootContextMenu();
+      await waitFor(() => expect(screen.getByText("Extra item")).toBeTruthy());
+      expect(screen.queryByText("New group")).toBeNull();
     });
 
     it("should route a right-click on an item to its service's context menu with the selection", async () => {
@@ -682,6 +713,39 @@ describe("Tree.Tree", () => {
       });
       expect(children.map((c) => c.id.key)).not.toContain(moved.key);
     });
+  });
+
+  it("should use the destination type's move in place of the generic move", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const destination = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("dest"),
+    });
+    const moved = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("moved"),
+    });
+    const move = vi.fn<Tree.Move>(async () => {});
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", canDrop: () => true, move }),
+    };
+    await renderTree(containerID, items);
+    await screen.findByText(destination.name);
+    fireEvent.dragStart(getTreeRow(moved.name));
+    fireEvent.drop(getTreeRow(destination.name));
+    await waitFor(() =>
+      expect(move).toHaveBeenCalledWith(expect.anything(), {
+        source: containerID,
+        destination: group.ontologyID(destination.key),
+        ids: [group.ontologyID(moved.key)],
+      }),
+    );
+    const children = await client.ontology.children.retrieve({ ids: containerID });
+    expect(children.map((c) => c.id.key)).toContain(moved.key);
   });
 
   describe("dragging a multiple selection", () => {
@@ -1170,6 +1234,127 @@ describe("Tree.Tree search", () => {
     await waitFor(() => expect(hiddenTrees()).toBe(0));
     expect(getTreeRow(names.bravo)).toBeTruthy();
     expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
+  });
+
+  describe("keys", () => {
+    const results = (): HTMLElement => {
+      const tree = document.querySelector<HTMLElement>(
+        ".lyra-tree:not(.console-tree--hidden)",
+      );
+      if (tree == null) throw new Error("no results tree");
+      return tree;
+    };
+    const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+    const field = (): HTMLElement => screen.getByPlaceholderText("Search groups");
+
+    it.each(["ArrowDown", "Enter"])(
+      "should move into the results on %s and back on Escape",
+      async (key) => {
+        const { root, tok, names } = await createSearchTree();
+        await renderSearchable(root);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        const field = screen.getByPlaceholderText("Search groups");
+        fireEvent.keyDown(field, { key, code: key });
+        fireEvent.keyUp(results(), { key, code: key });
+        expect(document.activeElement).toBe(results());
+        const selected = results().querySelectorAll('[aria-selected="true"]');
+        expect(selected).toHaveLength(1);
+        expect(selected[0]).toBe(results().querySelector(".lyra-tree__item"));
+        fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+        expect(document.activeElement).toBe(field);
+        expect(hiddenTrees()).toBe(1);
+      },
+    );
+
+    it("should leave no key held after Enter moves into the results", async () => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const { result } = renderHook(
+        () => Triggers.useHeldRef({ triggers: [["ArrowDown"]], loose: true }),
+        { wrapper: Triggers.Provider },
+      );
+      fireEvent.keyDown(field(), { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(results(), { key: "Enter", code: "Enter" });
+      expect(result.current.current.held).toBe(false);
+    });
+
+    it.each([
+      ["an Enter", { key: "Enter", isComposing: true }],
+      ["a Down", { key: "ArrowDown", isComposing: true }],
+      ["a Safari Enter", { key: "Enter", keyCode: 229 }],
+    ])("should leave %s that is part of an IME word to the IME", async (_, key) => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      field().focus();
+      fireEvent.keyDown(field(), key);
+      expect(document.activeElement).toBe(field());
+      expect(results().querySelector('[aria-selected="true"]')).toBeNull();
+    });
+
+    it("should come back to the selected match on ArrowDown", async () => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const field = screen.getByPlaceholderText("Search groups");
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      fireEvent.keyDown(results(), arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      const selected = (): Array<string | null> =>
+        Array.from(results().querySelectorAll('[aria-selected="true"]')).map(
+          (e) => e.textContent,
+        );
+      const second = selected();
+      expect(second).toHaveLength(1);
+      fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      expect(document.activeElement).toBe(results());
+      expect(selected()).toEqual(second);
+    });
+
+    it.each([
+      ["Escape", () => fireEvent.keyDown(field(), { key: "Escape", code: "Escape" })],
+      [
+        "the close button",
+        () => fireEvent.click(getIconButton(document.body, "close")),
+      ],
+    ])(
+      "should give the focus to the tree when %s closes the search",
+      async (_, close) => {
+        const { root, tok, names } = await createSearchTree();
+        await renderSearchable(root);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        field().focus();
+        close();
+        const tree = results();
+        expect(hiddenTrees()).toBe(0);
+        expect(document.activeElement).toBe(tree);
+        fireEvent.keyDown(tree, arrowDown);
+        fireEvent.keyUp(tree, arrowDown);
+        const [first] = tree.querySelectorAll(".lyra-tree__item");
+        expect(first.getAttribute("aria-selected")).toBe("true");
+      },
+    );
+
+    it("should keep the focus in the field when nothing matches", async () => {
+      const { root } = await createSearchTree();
+      await renderSearchable(root);
+      const term = uniqueToken();
+      searchTree(term);
+      await screen.findByText(`No groups match “${term}”`);
+      const field = screen.getByPlaceholderText("Search groups");
+      field.focus();
+      fireEvent.keyDown(field, arrowDown);
+      expect(document.activeElement).toBe(field);
+    });
   });
 
   it("should show a message when nothing matches", async () => {

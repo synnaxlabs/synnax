@@ -13,6 +13,7 @@
 #include <cstring>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,10 @@ class MockAPI final : public API {
 public:
     std::vector<MockSlaveInfo> slave_infos;
     x::errors::Error check_socket_err = x::errors::NIL;
+    /// @brief the interfaces whose adapters the DewesoftX filter is bound to.
+    std::set<std::string> filtered_interfaces;
+    /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
+    std::map<std::string, std::string> adapter_names;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -67,6 +72,9 @@ public:
     std::map<uint16_t, uint8_t> sii_bytes;
     /// @brief SII strings returned by siistring, keyed by string index.
     std::map<uint16_t, std::string> sii_strings;
+    /// @brief the slaves whose EEPROM the master controls: siigetbyte adds the slave,
+    /// eeprom2pdi removes it.
+    std::set<uint16_t> eeprom_held;
     int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
@@ -105,6 +113,16 @@ private:
 public:
     x::errors::Error check_socket(const char *) override {
         return this->check_socket_err;
+    }
+
+    bool dewesoft_filter_bound(const char *ifname) override {
+        return this->filtered_interfaces.contains(ifname);
+    }
+
+    std::optional<std::string> adapter_name(const char *ifname) override {
+        const auto it = this->adapter_names.find(ifname);
+        if (it == this->adapter_names.end()) return std::nullopt;
+        return it->second;
     }
 
     int init(const char *) override {
@@ -177,8 +195,15 @@ public:
         return this->recover_return;
     }
 
+    /// @brief like ecx_statecheck, a group check (slave 0) that reaches reqstate
+    /// leaves each slave's state for the next readstate to update.
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         const uint16_t state = this->reach(slave, reqstate);
+        if (slave == 0 && state == reqstate)
+            for (auto &info: this->slave_infos) {
+                info.bus_state.reset();
+                info.requested = reqstate;
+            }
         if (slave > 0 && slave <= this->slave_infos.size()) {
             auto &info = this->slave_infos[slave - 1];
             info.state = state;
@@ -198,7 +223,7 @@ public:
     }
 
     int SDOread(
-        uint16_t,
+        uint16_t slave,
         uint16_t index,
         uint8_t sub_index,
         int,
@@ -206,6 +231,9 @@ public:
         void *p,
         int
     ) override {
+        // SOEM sends no mailbox request to a slave whose last read state is below
+        // PRE-OP.
+        if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto it = this->sdo_objects.find({index, sub_index});
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
@@ -217,7 +245,8 @@ public:
         return it == this->sii_categories.end() ? 0 : it->second;
     }
 
-    uint8_t siigetbyte(uint16_t, uint16_t address) override {
+    uint8_t siigetbyte(uint16_t slave, uint16_t address) override {
+        this->eeprom_held.insert(slave);
         const auto it = this->sii_bytes.find(address);
         return it == this->sii_bytes.end() ? 0 : it->second;
     }
@@ -228,6 +257,8 @@ public:
         std::strncpy(str, value.c_str(), EC_MAXNAME);
         str[EC_MAXNAME] = '\0';
     }
+
+    void eeprom2pdi(uint16_t slave) override { this->eeprom_held.erase(slave); }
 
     int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 

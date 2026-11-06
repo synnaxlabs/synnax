@@ -205,6 +205,9 @@ type importUse struct {
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
 	qualifiers := usedQualifiers(runs)
+	if declaresFilter(c.ast) {
+		qualifiers.Add(resolution.FilterNamespace)
+	}
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -278,6 +281,9 @@ func analyze(c *analysisCtx) {
 		if u := def.UnionDef(); u != nil {
 			collectUnion(c, u)
 		}
+		if f := def.FilterDef(); f != nil {
+			collectFilter(c, f)
+		}
 	}
 
 	var imports []importUse
@@ -326,21 +332,18 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateKeyTypes(c, types)
 	validateFieldOmits(c, types)
 	validateImportPlacement(c)
 	validateNoVersionFileActions(c)
 	for _, typ := range types {
-		for i, t := range c.table.Types {
-			if t.QualifiedName == typ.QualifiedName {
-				c.table.Types[i] = typ
-				break
-			}
-		}
+		replaceType(c.table, typ)
 	}
 	if reportCircularInheritance(c) {
 		return
 	}
 	omitRemovedFields(c)
+	expandFilters(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -361,6 +364,7 @@ func analyze(c *analysisCtx) {
 	checkUnionDefaultConstructible(c)
 	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
+	synthesizeRetrieveTypes(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete
@@ -1320,6 +1324,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		return
 	}
 	form.Extends = decl.extends
+	form.Actions = decl.actions
 	domains := mergeDomains(c.fileDomains, decl.domains)
 	for _, v := range decl.variants {
 		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
@@ -1341,6 +1346,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 type unionDecl struct {
 	extends  []resolution.TypeRef
 	variants []variantDecl
+	actions  []resolution.Action
 	domains  map[string]resolution.Domain
 }
 
@@ -1371,6 +1377,9 @@ func collectUnionDecl(
 		}
 		for _, v := range body.AllUnionVariant() {
 			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
+		}
+		for _, a := range body.AllActionDef() {
+			decl.actions = append(decl.actions, collectAction(c, a, nil))
 		}
 	}
 	return copyUnion(c, def, decl, below)
@@ -1432,7 +1441,7 @@ func collectInlineVariantDecl(
 		for _, a := range body.AllActionDef() {
 			d := diagnostics.Errorf(
 				a,
-				"union %s variant %q: actions are not supported in inline variant bodies",
+				"union %s variant %q: declare actions in the union body",
 				unionName,
 				variantName,
 			)
@@ -1655,20 +1664,28 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	}))
 }
 
+func resolveActionRefs(
+	c *analysisCtx,
+	typ *resolution.Type,
+	actions []resolution.Action,
+) {
+	for i := range actions {
+		for j := range actions[i].Fields {
+			resolveTypeRef(c, typ, &actions[i].Fields[j].Type)
+		}
+		for j := range actions[i].Extends {
+			resolveTypeRef(c, typ, &actions[i].Extends[j])
+		}
+	}
+}
+
 func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
 		for i := range form.Fields {
 			resolveTypeRef(c, typ, &form.Fields[i].Type)
 		}
-		for i := range form.Actions {
-			for j := range form.Actions[i].Fields {
-				resolveTypeRef(c, typ, &form.Actions[i].Fields[j].Type)
-			}
-			for j := range form.Actions[i].Extends {
-				resolveTypeRef(c, typ, &form.Actions[i].Extends[j])
-			}
-		}
+		resolveActionRefs(c, typ, form.Actions)
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Constraint)
@@ -1705,6 +1722,7 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		for i := range form.Variants {
 			resolveTypeRef(c, typ, &form.Variants[i].Type)
 		}
+		resolveActionRefs(c, typ, form.Actions)
 		typ.Form = form
 	case resolution.EnumForm:
 		if len(form.Extends) > 0 {
@@ -1953,11 +1971,7 @@ func reportInheritedFieldConflicts(
 // mirroring validateExtends. A generic parent must be supplied with enough type
 // arguments to bind its required parameters.
 func validateActionExtends(c *analysisCtx, typ resolution.Type) {
-	form, ok := typ.Form.(resolution.StructForm)
-	if !ok {
-		return
-	}
-	for _, action := range form.Actions {
+	for _, action := range typ.Actions() {
 		for i, declared := range action.Extends {
 			parent, ext, ok := resolution.Dealias(declared, c.table)
 			if !ok {
@@ -2001,26 +2015,16 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 // struct fields to the action's own fields. After this pass Action.Fields holds the
 // unified list, so code generators consume it unchanged.
 func finalizeActionExtends(c *analysisCtx) {
-	for i := range c.table.Types {
-		typ := c.table.Types[i]
+	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
 			continue
 		}
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		var changed bool
-		for ai := range form.Actions {
-			if len(form.Actions[ai].Extends) == 0 {
-				continue
+		// The slice shares its array with the table, so each update lands in place.
+		actions := typ.Actions()
+		for ai := range actions {
+			if len(actions[ai].Extends) > 0 {
+				actions[ai].Fields = unifyActionFields(c, actions[ai])
 			}
-			form.Actions[ai].Fields = unifyActionFields(c, form.Actions[ai])
-			changed = true
-		}
-		if changed {
-			typ.Form = form
-			c.table.Types[i] = typ
 		}
 	}
 }

@@ -28,8 +28,6 @@ const renderGuard = async (): Promise<void> => {
   );
 };
 
-const MISMATCH_TITLE = "Console 0.61.0 cannot work with Core 0.60.1";
-
 const renderCoreGuard = async (status: connection.Status): Promise<void> => {
   const core = createCore("Local");
   const { wrapper } = await createStatusConsoleWrapper({
@@ -61,7 +59,9 @@ describe("app/window/Guard", () => {
 
   it("should show the mismatch screen before the activation screen", async () => {
     await renderCoreGuard(INCOMPATIBLE_UNLICENSED_STATUS);
-    expect(screen.getByText(MISMATCH_TITLE)).toBeTruthy();
+    expect(
+      screen.getByText("Console 0.61.0 cannot work with Core 0.60.1"),
+    ).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "License key" })).toBeNull();
   });
 });

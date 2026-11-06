@@ -429,11 +429,17 @@ func (t TemperatureUnits) IsValid() bool {
 type RTDType string
 
 const (
+	// RTDTypePt3750 is a low-cost platinum RTD with a coefficient of 0.00375.
 	RTDTypePt3750 RTDType = "Pt3750"
+	// RTDTypePt3851 is an IEC 60751 platinum RTD with a coefficient of 0.003851.
 	RTDTypePt3851 RTDType = "Pt3851"
+	// RTDTypePt3911 is a platinum RTD with a coefficient of 0.003911.
 	RTDTypePt3911 RTDType = "Pt3911"
+	// RTDTypePt3916 is a JISC 1604 platinum RTD with a coefficient of 0.003916.
 	RTDTypePt3916 RTDType = "Pt3916"
+	// RTDTypePt3920 is a D-100 platinum RTD with a coefficient of 0.00392.
 	RTDTypePt3920 RTDType = "Pt3920"
+	// RTDTypePt3928 is an ITS-90 platinum RTD with a coefficient of 0.003928.
 	RTDTypePt3928 RTDType = "Pt3928"
 )
 
@@ -452,12 +458,22 @@ func (r RTDType) IsValid() bool {
 type StrainConfig string
 
 const (
-	StrainConfigFullBridgeI     StrainConfig = "FullBridgeI"
-	StrainConfigFullBridgeIi    StrainConfig = "FullBridgeII"
-	StrainConfigFullBridgeIii   StrainConfig = "FullBridgeIII"
-	StrainConfigHalfBridgeI     StrainConfig = "HalfBridgeI"
-	StrainConfigHalfBridgeIi    StrainConfig = "HalfBridgeII"
-	StrainConfigQuarterBridgeI  StrainConfig = "QuarterBridgeI"
+	// StrainConfigFullBridgeI measures bending strain with four active gauges.
+	StrainConfigFullBridgeI StrainConfig = "FullBridgeI"
+	// StrainConfigFullBridgeIi measures bending strain with two Poisson gauges of four.
+	StrainConfigFullBridgeIi StrainConfig = "FullBridgeII"
+	// StrainConfigFullBridgeIii measures axial strain with two Poisson gauges of four.
+	StrainConfigFullBridgeIii StrainConfig = "FullBridgeIII"
+	// StrainConfigHalfBridgeI measures axial or bending strain with one Poisson gauge.
+	StrainConfigHalfBridgeI StrainConfig = "HalfBridgeI"
+	// StrainConfigHalfBridgeIi measures bending strain with tension and compression
+	// gauges.
+	StrainConfigHalfBridgeIi StrainConfig = "HalfBridgeII"
+	// StrainConfigQuarterBridgeI measures axial or bending strain with one active
+	// gauge.
+	StrainConfigQuarterBridgeI StrainConfig = "QuarterBridgeI"
+	// StrainConfigQuarterBridgeIi pairs one active gauge with a dummy gauge for
+	// temperature.
 	StrainConfigQuarterBridgeIi StrainConfig = "QuarterBridgeII"
 )
 
@@ -476,13 +492,21 @@ func (s StrainConfig) IsValid() bool {
 type ThermocoupleType string
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = "J"
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = "K"
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = "N"
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = "R"
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = "S"
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = "T"
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = "B"
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = "E"
 )
 
@@ -622,6 +646,20 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u CJC) Source() CJCType {
+	switch u.Variant.(type) {
+	case BuiltInCJC:
+		return BuiltInCJCType
+	case ConstValCJC:
+		return ConstValCJCType
+	case ChanCJC:
+		return ChanCJCType
+	}
+	return ""
 }
 
 // VelocityUnits are the engineering units for a velocity measurement.
@@ -970,6 +1008,23 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case TableScale:
+		return TableScaleType
+	case PolynomialScale:
+		return PolynomialScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -2972,6 +3027,73 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AIChannel) Type() AIChannelType {
+	switch u.Variant.(type) {
+	case AIVoltageChannel:
+		return AIVoltageChannelType
+	case AIAccelChannel:
+		return AIAccelChannelType
+	case AIBridgeChannel:
+		return AIBridgeChannelType
+	case AICurrentChannel:
+		return AICurrentChannelType
+	case AIForceBridgeTableChannel:
+		return AIForceBridgeTableChannelType
+	case AIForceBridgeTwoPointLinChannel:
+		return AIForceBridgeTwoPointLinChannelType
+	case AIForceIEPEChannel:
+		return AIForceIEPEChannelType
+	case AIMicrophoneChannel:
+		return AIMicrophoneChannelType
+	case AIPressureBridgeTableChannel:
+		return AIPressureBridgeTableChannelType
+	case AIPressureBridgeTwoPointLinChannel:
+		return AIPressureBridgeTwoPointLinChannelType
+	case AIResistanceChannel:
+		return AIResistanceChannelType
+	case AIRTDChannel:
+		return AIRTDChannelType
+	case AIStrainGaugeChannel:
+		return AIStrainGaugeChannelType
+	case AITempBuiltinChannel:
+		return AITempBuiltinChannelType
+	case AIThermocoupleChannel:
+		return AIThermocoupleChannelType
+	case AITorqueBridgeTableChannel:
+		return AITorqueBridgeTableChannelType
+	case AITorqueBridgeTwoPointLinChannel:
+		return AITorqueBridgeTwoPointLinChannelType
+	case AIVelocityIEPEChannel:
+		return AIVelocityIEPEChannelType
+	case AIAccel4WireDCVoltageChannel:
+		return AIAccel4WireDCVoltageChannelType
+	case AIAccelChargeChannel:
+		return AIAccelChargeChannelType
+	case AIChargeChannel:
+		return AIChargeChannelType
+	case AICurrentRMSChannel:
+		return AICurrentRMSChannelType
+	case AIForceBridgePolynomialChannel:
+		return AIForceBridgePolynomialChannelType
+	case AIFreqVoltageChannel:
+		return AIFreqVoltageChannelType
+	case AIPressureBridgePolynomialChannel:
+		return AIPressureBridgePolynomialChannelType
+	case AIThermistorIexChannel:
+		return AIThermistorIexChannelType
+	case AIThermistorVexChannel:
+		return AIThermistorVexChannelType
+	case AITorqueBridgePolynomialChannel:
+		return AITorqueBridgePolynomialChannelType
+	case AIVoltageRMSChannel:
+		return AIVoltageRMSChannelType
+	case AIVoltageWithExcitChannel:
+		return AIVoltageWithExcitChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *AIChannel) ApplyDefaults() {
@@ -4162,6 +4284,35 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u CIChannel) Type() CIChannelType {
+	switch u.Variant.(type) {
+	case CIFrequencyChannel:
+		return CIFrequencyChannelType
+	case CIEdgeCountChannel:
+		return CIEdgeCountChannelType
+	case CIPeriodChannel:
+		return CIPeriodChannelType
+	case CIPulseWidthChannel:
+		return CIPulseWidthChannelType
+	case CISemiPeriodChannel:
+		return CISemiPeriodChannelType
+	case CITwoEdgeSepChannel:
+		return CITwoEdgeSepChannelType
+	case CIVelocityLinearChannel:
+		return CIVelocityLinearChannelType
+	case CIVelocityAngularChannel:
+		return CIVelocityAngularChannelType
+	case CIPositionLinearChannel:
+		return CIPositionLinearChannelType
+	case CIPositionAngularChannel:
+		return CIPositionAngularChannelType
+	case CIDutyCycleChannel:
+		return CIDutyCycleChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *CIChannel) ApplyDefaults() {
@@ -4524,6 +4675,19 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannel) Type() AOChannelType {
+	switch u.Variant.(type) {
+	case AOCurrentChannel:
+		return AOCurrentChannelType
+	case AOFuncGenChannel:
+		return AOFuncGenChannelType
+	case AOVoltageChannel:
+		return AOVoltageChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

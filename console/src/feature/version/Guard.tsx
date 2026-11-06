@@ -104,15 +104,15 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
 /**
  * Renders the mismatch screen instead of its children while the last check of the Core
  * reports a different minor version than the Console. The screen lifts once a check
- * reports a matching version. A browser reloads the page instead, because the Core
- * serves the Console that matches it.
+ * reports a matching version. A page that the selected Core served reloads instead,
+ * because the Core serves the Console that matches it.
  */
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const { clientVersion, nodeVersion, clientServerCompatible } =
     Synnax.useConnectionStatus().details;
+  const selected = Session.Core.useSelectSelected();
   const mismatched = nodeVersion != null && !clientServerCompatible;
-  // The dev server does not come from the Core, so a reload cannot fix it.
-  const reloads = Session.Runtime.ENGINE === "web" && !IS_DEV;
+  const reloads = selected != null && Core.servesPage(selected);
   useEffect(() => {
     if (mismatched && reloads) window.location.reload();
   }, [mismatched, reloads]);
