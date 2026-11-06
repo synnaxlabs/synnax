@@ -332,6 +332,45 @@ class TestTaskClient:
         assert status.message == "Command executed."
         t.join()
 
+    def test_execute_command_sync_waits_past_the_timeout_after_a_loading_reply(
+        self, client: sy.Synnax
+    ) -> None:
+        """A loading reply acknowledges the command, so the wait goes on until the
+        final status even after the timeout."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                replies: list[tuple[sy.status.Variant, str]] = [
+                    (sy.status.VARIANT_LOADING, "Starting task"),
+                    (sy.status.VARIANT_SUCCESS, "Started task"),
+                ]
+                for variant, message in replies:
+                    client.statuses.set(
+                        sy.task.Status(
+                            key=str(sy.task.ontology_id(cmd.task)),
+                            variant=variant,
+                            message=message,
+                            details=sy.task.StatusDetails(
+                                task=cmd.task, running=False, cmd=cmd.key
+                            ),
+                        )
+                    )
+                    sy.sleep(2)
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        status = tsk.execute_command_sync("start", timeout=1)
+        assert status.variant == sy.status.VARIANT_SUCCESS
+        assert status.message == "Started task"
+        t.join()
+
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
     ) -> None:
