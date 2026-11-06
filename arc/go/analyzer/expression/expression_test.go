@@ -1965,7 +1965,8 @@ var _ = Describe("Expressions", func() {
 			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
 		)
 
-		DescribeTable("Should warn on equality with math.nan",
+		DescribeTable(
+			"Should warn on equality with math.nan",
 			func(ctx SpecContext, expr, message string) {
 				ast := MustSucceed(parser.Parse(body("a := " + expr)))
 				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
@@ -1997,6 +1998,12 @@ var _ = Describe("Expressions", func() {
 			Entry("negated", "v == -math.nan", "always false"),
 			Entry("negated in parentheses", "(-(math.nan)) == v", "always false"),
 			Entry("not on is_nan", "math.is_nan(v)", ""),
+			Entry(
+				"the operator the compiler runs",
+				"v != math.nan == v",
+				"always false",
+			),
+			Entry("not on an operand the compiler skips", "v == 1.0 == math.nan", ""),
 			Entry("not on math.inf", "v == math.inf", ""),
 			Entry("not on -math.inf", "(v) == -(math.inf)", ""),
 			Entry("not on a channel named nan", "v == nan", ""),

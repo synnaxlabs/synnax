@@ -18,6 +18,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -42,6 +43,42 @@ func parseTypeFromDecl(decl string) parser.ITypeContext {
 	stmt := MustSucceed(parser.ParseStatement(decl))
 	return stmt.VariableDeclaration().LocalVariable().Type_()
 }
+
+var _ = Describe("Module constants", func() {
+	infer := func(bCtx context.Context, expr string) acontext.Context[parser.IExpressionContext] {
+		GinkgoHelper()
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		ctx := acontext.NewRoot(bCtx, MustSucceed(parser.ParseExpression(expr)), root)
+		atypes.InferFromExpression(ctx)
+		return ctx
+	}
+
+	It("Should infer a float type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf")
+		t := atypes.InferFromExpression(ctx)
+		Expect(t.Kind).To(Equal(types.KindVariable))
+		Expect(t.Constraint.Kind).To(Equal(types.KindFloatConstant))
+	})
+
+	It("Should give each reference its own type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf + math.nan")
+		names := make(map[string]bool)
+		for _, t := range ctx.TypeMap {
+			if t.Kind == types.KindVariable {
+				names[t.Name] = true
+			}
+		}
+		Expect(len(names)).To(BeNumerically(">=", 2))
+	})
+
+	It("Should default to f64", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.nan")
+		t := atypes.InferFromExpression(ctx)
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		Expect(ctx.Constraints.ApplySubstitutions(t)).To(Equal(types.F64()))
+	})
+})
 
 var _ = Describe("Binary minus spacing", func() {
 	hasSpacingErr := func(expr string, cfg parser.Config) bool {

@@ -371,11 +371,7 @@ func inferConstantType(
 	ctx context.Context[parser.IPrimaryExpressionContext],
 	sym *symbol.Symbol,
 ) types.Type {
-	start := ctx.AST.GetStart()
-	tv := types.Freshen(
-		sym.Type,
-		fmt.Sprintf("const_%d_%d", start.GetLine(), start.GetColumn()),
-	)
+	tv := types.Freshen(sym.Type, ctx.ScopedKey("const", ctx.AST))
 	if err := ctx.Constraints.AddEquality(
 		tv,
 		tv,
