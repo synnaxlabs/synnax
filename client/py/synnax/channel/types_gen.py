@@ -76,9 +76,6 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
-        name_patterns: Matches channels whose name matches any of the given patterns. A
-            valid channel name matches exactly, and any other pattern is a regular
-            expression, anchored when unanchored.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -93,7 +90,6 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
-    name_patterns: list[str] | None = None
 
 
 class Payload(BaseModel):

@@ -45,8 +45,8 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES, serverComputed } from "@/channel/where";
-import { matches } from "@/channel/where.gen";
+import { LINES } from "@/channel/where";
+import { matches, serverComputed } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -371,7 +371,7 @@ export class Client extends query.Retriever<
         schema: retrieveMultipleParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
