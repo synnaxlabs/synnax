@@ -12,8 +12,6 @@
 package expression
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
@@ -452,15 +450,11 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		))
 		return
 	}
-	site := funcCalls[0].GetStart()
 	AnalyzeCallSite(
 		ctx,
 		scope,
 		funcName,
-		basetypes.Freshen(
-			scope.Type,
-			fmt.Sprintf("call_%d_%d", site.GetLine(), site.GetColumn()),
-		),
+		basetypes.Freshen(scope.Type, ctx.ScopedKey("call", funcCalls[0])),
 		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)

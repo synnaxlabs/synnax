@@ -358,6 +358,7 @@ struct FloatFixture {
     }
 };
 
+/// @brief it should classify NaN, infinity, and numbers at both float widths.
 TEST(MathFloatTest, ChecksClassifyNaNInfinityAndNumbers) {
     FloatFixture f;
     constexpr auto nan = std::numeric_limits<double>::quiet_NaN();

@@ -42,6 +42,7 @@ package context
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -197,6 +198,24 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 		name,
 		sym.Deprecated.QualifiedName(),
 	).WithCode(codes.DeprecatedSymbol))
+}
+
+// ScopedKey returns a name for node that is unique across a program. A graph parses
+// each
+// function body on its own, so a source position alone repeats between bodies.
+func (c Context[AST]) ScopedKey(prefix string, node antlr.ParserRuleContext) string {
+	var function string
+	if fn, err := c.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
+		function = fn.Name
+	}
+	start := node.GetStart()
+	return fmt.Sprintf(
+		"%s_%s_%d_%d",
+		prefix,
+		function,
+		start.GetLine(),
+		start.GetColumn(),
+	)
 }
 
 // NewRoot creates a new root context for program analysis. NewRoot
