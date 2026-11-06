@@ -515,7 +515,9 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
+  async retrieve(
+    params: RetrieveSingleParams | query.OneInput<typeof retrieveParamsZ>,
+  ): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
   async retrieve(
@@ -527,6 +529,7 @@ export class Client extends query.Retriever<
       | PrimitiveParams
       | Payload[]
       | RetrieveSingleParams
+      | query.OneInput<typeof retrieveParamsZ>
       | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {

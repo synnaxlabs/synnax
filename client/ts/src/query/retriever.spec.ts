@@ -13,7 +13,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import { MultipleFoundError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 interface Thing extends record.Keyed<string> {
@@ -45,8 +45,14 @@ const paramsZ = z.union([
   requestZ,
   query.keyListZ(z.string()),
   z
-    .strictObject({ key: z.string().array() })
-    .transform(({ key }): Request => ({ where: { key: { in: key } } })),
+    .strictObject({
+      key: z.union([z.string(), z.string().array()]),
+      minSize: z.number().optional(),
+    })
+    .transform(({ key, minSize }): Request => ({
+      where: { key: Array.isArray(key) ? { in: key } : { eq: key } },
+      minSize,
+    })),
 ]);
 
 // A live but silent stream: subscribed answers stay maintained, so reads
@@ -227,13 +233,28 @@ describe("Retriever", () => {
       expect(fetchRequest).not.toHaveBeenCalled();
     });
 
-    it("rejects a plain key beside other fields", async () => {
-      const fetchRequest = vi.fn(async () => []);
+    it("returns one record for a plain key beside other fields", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a", 3)]);
       const client = new Client(newCache(), async () => [], fetchRequest);
-      await expect(client.retrieve({ key: "a", minSize: 2 } as never)).rejects.toThrow(
-        new ValidationError("thing params address a single key but hold other fields."),
+      const result: Thing = await client.retrieve({ key: "a", minSize: 2 });
+      expect(result).toEqual(thing("a", 3));
+      expect(fetchRequest).toHaveBeenCalledWith({
+        where: { key: { eq: "a" } },
+        minSize: 2,
+      });
+    });
+
+    it("throws a NotFoundError when a plain key beside other fields matches nothing", async () => {
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [],
       );
-      expect(fetchRequest).not.toHaveBeenCalled();
+      await expect(client.retrieve({ key: "a", minSize: 2 })).rejects.toThrow(
+        new NotFoundError(
+          'thing not found matching {"where":{"key":{"eq":"a"}},"minSize":2}',
+        ),
+      );
     });
 
     it("delivers deletion through onChange and flips retrieve to not-found", async () => {
@@ -675,7 +696,7 @@ describe("Retriever", () => {
         }
       }
 
-      it("rejects key-bearing params that fail the single schema", async () => {
+      it("rejects key-bearing params that no schema accepts", async () => {
         const fetchRequest = vi.fn(async () => []);
         const client = new StrictSingleClient(
           newCache(),
@@ -686,10 +707,12 @@ describe("Retriever", () => {
           .retrieve({ key: "a", detailsSchema: undefined } as never)
           .then(() => null)
           .catch((exc: unknown) => exc);
-        assert(err instanceof ValidationError);
-        expect(ValidationError.matches(err)).toBe(true);
-        expect(err.message).toContain("Failed to parse");
-        expect(err.cause).toBeInstanceOf(zod.ParseError);
+        assert(err instanceof zod.ParseError);
+        expect(err.message).toBe(
+          "Failed to parse thing query (2 issues)\n\n  {\n" +
+            '  ✗ "key": "a",                     × unexpected key\n' +
+            '  ✗ "detailsSchema": "[undefined]"  × unexpected key\n  }',
+        );
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 
@@ -768,7 +791,14 @@ describe("Retriever", () => {
           async (keys) => keys.map((k) => thing(k)),
           fetchRequest,
         );
-        await expect(client.retrieve("a")).rejects.toThrow(ValidationError);
+        const err: unknown = await client
+          .retrieve("a")
+          .then(() => null)
+          .catch((exc: unknown) => exc);
+        assert(err instanceof zod.ParseError);
+        expect(err.message).toBe(
+          'Failed to parse thing query (1 issue)\n\n  × expected object, received "a"',
+        );
         expect(fetchRequest).not.toHaveBeenCalled();
       });
     });

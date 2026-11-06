@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import { MultipleFoundError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -283,18 +283,20 @@ describe("Task", async () => {
       );
     });
 
-    it("should reject a plain key beside other fields", async () => {
-      const key = uuid.create();
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask({
+        name: "t",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved: task.Task = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+      });
+      expect(retrieved.key).toBe(t.key);
       await expect(
-        // @ts-expect-error - a plain key addresses one task, so it takes no filter.
-        client.tasks.retrieve({ key, internal: false }),
-      ).rejects.toThrow(
-        new ValidationError(
-          "task params address a single key but do not match the single-query " +
-            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
-            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
-        ),
-      );
+        client.tasks.retrieve({ key: t.key, internal: true }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should retrieve a task by its name", async () => {
@@ -1024,21 +1026,24 @@ describe("Task", async () => {
       expect(retrieved.config.routingKey).toBe("rk-500");
     });
 
-    it("should reject a plain key beside other fields with schemas", async () => {
-      const schemas = {
-        type: z.literal("ni"),
-        config: z.object({}),
-        statusData: z.unknown(),
-      };
-      const key = uuid.create();
-      const params = { key, internal: false, schemas };
-      await expect(client.tasks.retrieve(params)).rejects.toThrow(
-        new ValidationError(
-          "task params address a single key but do not match the single-query " +
-            "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
-            `    "key": "${key}",\n  ✗ "internal": false  × unexpected key\n  }`,
-        ),
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask(
+        {
+          name: "one-schema",
+          type: "pagerduty_alert",
+          config: { routingKey: "rk-600", autoStart: false, alerts: [] },
+        },
+        schemas,
       );
+      const retrieved = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe("rk-600");
+      await expect(
+        client.tasks.retrieve({ key: t.key, internal: true, schemas }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should reject a malformed key with or without schemas", async () => {
@@ -1047,15 +1052,15 @@ describe("Task", async () => {
         config: z.object({}),
         statusData: z.unknown(),
       };
-      const err = new ValidationError(
-        "task params address a single key but do not match the single-query " +
-          "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
-          '  ✗ "key": "not-a-uuid"  × expected uuid format\n  }',
+      const message = (label: string) =>
+        `Failed to parse ${label} (1 issue)\n\n  {\n` +
+        '  ✗ "key": "not-a-uuid"  × unexpected key\n  }';
+      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(
+        message("task query"),
       );
-      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(err);
       await expect(
         client.tasks.retrieve({ key: "not-a-uuid", schemas }),
-      ).rejects.toThrow(err);
+      ).rejects.toThrow(message("value"));
     });
 
     it("should retrieve one task by type and rack with its status", async () => {

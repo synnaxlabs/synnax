@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type primitive, zod } from "@synnaxlabs/x";
-import type z from "zod";
+import { array, type primitive } from "@synnaxlabs/x";
 
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 
 export type SingleParamAnalysisResult<
   T extends primitive.Value,
@@ -91,26 +90,4 @@ export const checkForMultipleOrNoResults = <T, R>(
     throw new MultipleFoundError(
       `Expected one ${name} matching ${JSON.stringify(params)}, but found ${results.length}`,
     );
-};
-
-/**
- * @returns the error for params that address one record by a plain key but fail the
- * single-query schema of the named record type.
- */
-export const singleQueryError = (
-  name: string,
-  input: unknown,
-  error: z.ZodError,
-): ValidationError => {
-  const cause = new zod.ParseError({
-    issues: error.issues,
-    input,
-    label: `${name} single query params`,
-    cause: error,
-  });
-  return new ValidationError(
-    `${name} params address a single key but do not match the single-query ` +
-      `schema.\n${cause.message}`,
-    { cause },
-  );
 };

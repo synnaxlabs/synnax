@@ -28,9 +28,11 @@ export {
   watch,
 } from "@/query/query";
 export {
+  addressesOne,
   keyListZ,
   keysRequest,
   keysRequestZ,
+  type OneInput,
   type RequestInput,
   Retriever,
   type RetrieverParams,
