@@ -23,7 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/service/task/pb/task.pb.h"
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax::task {
@@ -41,7 +41,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a task.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::task::RetrieveRequest, grpc::task::RetrieveResponse>;
+    UnaryClient<grpc::task::RetrieveRequest, ::api::task::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::
@@ -176,6 +176,12 @@ public:
         const RetrieveOptions &options
     ) const;
 
+    /// @brief Retrieves the tasks that req selects, on this client's rack when it has
+    /// one.
+    [[nodiscard]]
+    std::pair<std::vector<Task>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
+
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
@@ -201,6 +207,10 @@ public:
     }
 
 private:
+    [[nodiscard]]
+    std::pair<Task, x::errors::Error>
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+
     /// @brief Key of rack that this client belongs to.
     rack::Key rack{};
     /// @brief Task creation transport.

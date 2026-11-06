@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -83,8 +84,11 @@ var _ = Describe("Service", func() {
 					apiSvc.Retrieve(
 						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
-							Keys:                []schematic.Key{s.Key, missing},
-							IgnoreNotFoundError: true,
+							Where: &schematic.Where{
+								Key: &filter.Set[schematic.Key]{
+									In: []schematic.Key{s.Key, missing},
+								},
+							},
 						},
 					),
 				)
@@ -100,8 +104,11 @@ var _ = Describe("Service", func() {
 					apiSvc.Retrieve(
 						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
-							Keys:                []schematic.Key{uuid.New()},
-							IgnoreNotFoundError: true,
+							Where: &schematic.Where{
+								Key: &filter.Set[schematic.Key]{
+									In: []schematic.Key{uuid.New()},
+								},
+							},
 						},
 					),
 				)

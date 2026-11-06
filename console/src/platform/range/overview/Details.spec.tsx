@@ -86,7 +86,7 @@ describe("Range.Details", () => {
     fireEvent.click(getIconButton(screen.getByLabelText("Labels"), "add"));
     await searchAndClickLabelOption(added.name);
     await waitFor(async () => {
-      const labels = await client.labels.retrieve({ for: range.resourceID });
+      const labels = await client.labels.retrieve({ where: { for: range.resourceID } });
       expect(labels.map(({ key }) => key).sort()).toEqual(
         [added.key, remote.key].sort(),
       );
@@ -104,7 +104,7 @@ describe("Range.Details", () => {
     await screen.findByText(removed.name);
     fireEvent.click(findTagCloseButton(removed.name));
     await waitFor(async () => {
-      const labels = await client.labels.retrieve({ for: range.resourceID });
+      const labels = await client.labels.retrieve({ where: { for: range.resourceID } });
       expect(labels.map(({ key }) => key)).toEqual([kept.key]);
     });
   });

@@ -36,6 +36,15 @@ export const TYPES = [
   "task",
   "user",
   "view",
+  "ethercat_master",
+  "ethercat_slave",
+  "http_server",
+  "labjack_device",
+  "modbus_server",
+  "ni_chassis",
+  "ni_device",
+  "opcua_server",
+  "arc_directory",
 ] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;

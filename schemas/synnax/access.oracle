@@ -12,10 +12,18 @@
 @ts output "client/ts/src/access/action"
 
 Action enum {
-    create   = "create"
-    delete   = "delete"
-    retrieve = "retrieve"
-    update   = "update"
+    create   = "create" {
+        @doc value "creates a resource."
+    }
+    delete   = "delete" {
+        @doc value "deletes a resource."
+    }
+    retrieve = "retrieve" {
+        @doc value "reads a resource."
+    }
+    update   = "update" {
+        @doc value "changes a resource."
+    }
 
     @doc value """
         is a fundamental operation controlled by the permission system. Actions define

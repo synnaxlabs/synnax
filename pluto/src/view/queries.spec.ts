@@ -35,12 +35,11 @@ describe("View queries", () => {
       const view1 = await client.views.create({
         name: "View 1",
         type: "range",
-        query: {},
       });
       const view2 = await client.views.create({
         name: "View 2",
         type: "status",
-        query: { variants: ["error"] },
+        where: { variant: { in: ["error"] } },
       });
 
       const { result } = renderHook(() => View.useList(), { wrapper });
@@ -55,13 +54,15 @@ describe("View queries", () => {
 
     it("should retrieve a list of views by type", async () => {
       const views = await client.views.create([
-        { name: "View 1", type: "range", query: {} },
-        { name: "View 2", type: "status", query: {} },
+        { name: "View 1", type: "range" },
+        { name: "View 2", type: "status" },
       ]);
       const keys = views.map((v) => v.key);
       const { result } = renderHook(() => View.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ keys, types: ["status"] });
+        result.current.retrieve({
+          where: { key: { in: keys }, type: { eq: "status" } },
+        });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toEqual([views[1].key]);
@@ -69,16 +70,17 @@ describe("View queries", () => {
 
     it("should retrieve views that already exist before the hook is mounted", async () => {
       const views = await client.views.create([
-        { name: "View 1", type: "range", query: {} },
-        { name: "View 2", type: "range", query: {} },
-        { name: "Solo View", type: "status", query: {} },
+        { name: "View 1", type: "range" },
+        { name: "View 2", type: "range" },
+        { name: "Solo View", type: "status" },
       ]);
       const keys = views.map((v) => v.key);
-      const { result } = renderHook(() => View.useList({ initialQuery: { keys } }), {
+      const where = { key: { in: keys } };
+      const { result } = renderHook(() => View.useList({ initialQuery: { where } }), {
         wrapper,
       });
       await act(async () => {
-        await result.current.retrieveAsync({ keys });
+        await result.current.retrieveAsync({ where });
       });
       expect(result.current.data.length).toBe(3);
       keys.forEach((key) => expect(result.current.data).toContain(key));
@@ -87,13 +89,12 @@ describe("View queries", () => {
     it("should update the list when a view is created", async () => {
       const { result } = renderHook(() => View.useList({}), { wrapper });
       act(() => {
-        result.current.retrieve({ types: ["status"] });
+        result.current.retrieve({ where: { type: { eq: "status" } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const newView = await client.views.create({
         name: "New View",
         type: "status",
-        query: {},
       });
       await waitFor(() => expect(result.current.data).toContain(newView.key));
     });
@@ -103,7 +104,6 @@ describe("View queries", () => {
       const view = await client.views.create({
         name: "delete-single",
         type: "range",
-        query: {},
       });
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
@@ -114,8 +114,8 @@ describe("View queries", () => {
     });
     it("should delete multiple views", async () => {
       const [view1, view2] = await client.views.create([
-        { name: "delete-multi-1", type: "range", query: {} },
-        { name: "delete-multi-2", type: "status", query: {} },
+        { name: "delete-multi-1", type: "range" },
+        { name: "delete-multi-2", type: "status" },
       ]);
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
@@ -131,14 +131,14 @@ describe("View queries", () => {
       const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
       act(() => {
         result.current.form.set(path.name, "new-view");
-        result.current.form.set(path.query.hasLabels, [label]);
+        result.current.form.set(path.where, { labels: [label] });
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.form.value()).toMatchObject({
           name: "new-view",
           type: "range",
-          query: { hasLabels: [label] },
+          where: { labels: [label] },
         });
         expect(result.current.form.value().key).toBeDefined();
         expect(result.current.form.value().key).not.toEqual("");
@@ -148,7 +148,7 @@ describe("View queries", () => {
       const view = await client.views.create({
         name: "existing-view",
         type: "status",
-        query: { variants: ["error"] },
+        where: { variant: { in: ["error"] } },
       });
       const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
         wrapper,
@@ -157,15 +157,18 @@ describe("View queries", () => {
       expect(result.current.form.value()).toEqual(view);
       act(() => {
         result.current.form.set(path.name, "edited-view");
-        result.current.form.set(deep.variant(path, "type", "status").query.variants, [
-          "warning",
-        ]);
+        result.current.form.set(
+          deep.present(deep.variant(path, "type", "status").where).variant,
+          {
+            in: ["warning"],
+          },
+        );
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.form.value()).toMatchObject({
           name: "edited-view",
-          query: { variants: ["warning"] },
+          where: { variant: { in: ["warning"] } },
         });
       });
     });
@@ -173,7 +176,6 @@ describe("View queries", () => {
       const view = await client.views.create({
         name: "existing-view",
         type: "range",
-        query: {},
       });
       const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
         wrapper,
@@ -184,12 +186,12 @@ describe("View queries", () => {
         key: view.key,
         name: "edited-view",
         type: "range",
-        query: { hasLabels: [label] },
+        where: { labels: [label] },
       });
       await waitFor(() => {
         expect(result.current.form.value()).toMatchObject({
           name: "edited-view",
-          query: { hasLabels: [label] },
+          where: { labels: [label] },
         });
       });
     });
@@ -199,7 +201,6 @@ describe("View queries", () => {
       const view = await client.views.create({
         name: "existing-view",
         type: "range",
-        query: {},
       });
       const { result } = renderHook(() => View.useRename(), { wrapper });
       await act(async () => {

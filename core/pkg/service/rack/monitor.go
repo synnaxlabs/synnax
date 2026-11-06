@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -40,6 +39,10 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
+	// statusTime is the time on the last status seen since the Core started, or on the
+	// outage being written. A write that keeps it, such as a rename, is not a report
+	// from the rack.
+	statusTime telem.TimeStamp
 	// outage is set from the write of an outage until the rack reports healthy again,
 	// so each outage is written once.
 	outage *Status
@@ -117,6 +120,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	var (
 		statuses    []Status
 		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
+		statusTimes = make(map[Key]telem.TimeStamp, len(racks))
 	)
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
@@ -124,6 +128,12 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 			continue
 		}
 		lastUpdated[r.Key] = state.lastUpdated
+		statusTimes[r.Key] = state.statusTime
+		// A rename can commit after the outage and notify first. Its older status time
+		// must already differ, so it counts as a report and the outage is written
+		// again.
+		state.statusTime = state.lastUpdated
+		m.mu.racks[r.Key] = state
 		statuses = append(statuses, Status{
 			Key:     r.ResourceID().String(),
 			Name:    r.Name,
@@ -148,13 +158,20 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		return err
-	}
+	})
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err != nil {
+		for k, statusTime := range statusTimes {
+			if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
+				state.statusTime = statusTime
+				m.mu.racks[k] = state
+			}
+		}
+		return err
+	}
 	for i := range statuses {
 		k := statuses[i].Details.Rack
 		// A healthy report that landed during the write starts a new period.
@@ -243,9 +260,12 @@ func (m *monitor) handleChange(
 		}
 		isHealthy := ch.Value.Variant == status.VariantSuccess ||
 			ch.Value.Variant == status.VariantInfo
-		if isHealthy || !lo.HasKey(m.mu.racks, key) {
-			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
+		state, known := m.mu.racks[key]
+		if !known || (isHealthy && ch.Value.Time != state.statusTime) {
+			state = rackState{lastUpdated: m.svc.Now()}
 		}
+		state.statusTime = ch.Value.Time
+		m.mu.racks[key] = state
 	}
 }
 

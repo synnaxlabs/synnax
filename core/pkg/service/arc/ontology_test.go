@@ -18,12 +18,30 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("RetrieveResource", func() {
+	DescribeTable("Should carry the Arc type in the resource data",
+		func(ctx SpecContext, t arc.Type) {
+			a := newArc(
+				t,
+				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, a.Base().Key.String(), tx))
+			Expect(res.Data).To(HaveKeyWithValue("type", string(t)))
+		},
+		Entry("automation", arc.TypeAutomation),
+		Entry("module", arc.TypeModule),
+	)
+})
+
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		a := arc.Arc{Name: name, Mode: arc.ModeText}
+		a := newAutomation(
+			arc.Base{Name: name, Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-		return arc.ResourceID(a.Key)
+		return arc.ResourceID(a.Base().Key)
 	}
 
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {

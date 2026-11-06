@@ -41,6 +41,15 @@ enum Type {
   TYPE_TASK = 21;
   TYPE_USER = 22;
   TYPE_VIEW = 23;
+  TYPE_ETHERCAT_MASTER = 24;
+  TYPE_ETHERCAT_SLAVE = 25;
+  TYPE_HTTP_SERVER = 26;
+  TYPE_LABJACK_DEVICE = 27;
+  TYPE_MODBUS_SERVER = 28;
+  TYPE_NI_CHASSIS = 29;
+  TYPE_NI_DEVICE = 30;
+  TYPE_OPCUA_SERVER = 31;
+  TYPE_ARC_DIRECTORY = 32;
 }
 
 // ID is a unique identifier for a Resource. An example:

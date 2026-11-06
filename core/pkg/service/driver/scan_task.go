@@ -168,9 +168,10 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 }
 
 // Exec implements Task. A command other than start and stop goes to the Scanner in the
-// background, and Exec returns at once. The result of the Scanner answers the command,
-// within the time limit of ctx, which starts when the command gets its turn. A command
-// that the Scanner does not support gets no answer.
+// background, and Exec returns at once. Commands take turns in no fixed order. The
+// result of the Scanner answers the command, within the time limit of ctx, which starts
+// when the command gets its turn. A command that the Scanner does not support gets no
+// answer.
 func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
 		return t.Runner.Exec(ctx, cmd)

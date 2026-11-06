@@ -165,6 +165,17 @@ var _ = Describe("Service", func() {
 				).To(MatchError(access.ErrDenied))
 			})
 
+			It("Should deny a subject that does not exist", func(ctx SpecContext) {
+				req := access.Request{
+					Subject: resource.ID{Type: "user", Key: uuid.New().String()},
+					Objects: []resource.ID{obj1},
+					Action:  access.ActionRetrieve,
+				}
+				Expect(
+					rbacSvc.NewEnforcer(tx).Enforce(ctx, req),
+				).To(MatchError(access.ErrDenied))
+			})
+
 			It("Should name the subject, action, and denied object", func(
 				ctx SpecContext,
 			) {

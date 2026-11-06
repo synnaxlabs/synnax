@@ -21,6 +21,7 @@ import { type ReactElement } from "react";
 import { Arc } from "@/feature/arc";
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
@@ -87,12 +88,34 @@ const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => 
   );
 };
 
+interface OPCUADriverCertificateItemProps {
+  rackKey: rack.Key;
+}
+
+const OPCUADriverCertificateItem = ({
+  rackKey,
+}: OPCUADriverCertificateItemProps): ReactElement | null => {
+  Rack.useEnsure({ key: rackKey });
+  const integrations = Rack.useIntegrations({ key: rackKey });
+  const openCertificate = OPCUA.Device.useDriverCertificateModal();
+  if (!integrations.includes(OPCUA.Device.INTEGRATION)) return null;
+  return (
+    <Menu.Item
+      itemKey="showOPCUADriverCertificate"
+      onClick={() => void openCertificate({ rackKey })}
+    >
+      <Icon.Logo.OPCUA />
+      Show OPC UA Driver certificate
+    </Menu.Item>
+  );
+};
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
     state: { shape, getResource },
   } = props;
-  const { ids, rootID } = selection;
+  const { ids, rootID, parentID } = selection;
   const resourceIDs = ids.map((id) => rack.resourceID(Number(id.key)));
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
@@ -115,6 +138,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <Group.ContextMenuItem
           ids={ids}
           rootID={rootID}
+          parentID={parentID}
           shape={shape}
           onClick={() => group(props)}
         />
@@ -138,6 +162,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             </Menu.Item>
           )}
           {hasTaskCreatePermission && <NIScannerItem rackKey={rackKey} />}
+          <OPCUADriverCertificateItem rackKey={rackKey} />
           <Menu.Item
             itemKey="credentials"
             onClick={() =>

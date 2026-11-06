@@ -7,12 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id } from "@synnaxlabs/x";
+import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { NotFoundError, ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createProxiedTestClient,
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  FAST_RETRY,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -47,6 +57,62 @@ describe("Label", () => {
         })
         .toEqual(names);
     });
+    it("should retrieve labels by where", async () => {
+      const prefix = `where-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.resourceID(item.key), [attached.key]);
+      const labels = await client.labels.retrieve({
+        where: {
+          name: { regex: `^${prefix}` },
+          not: { for: label.resourceID(item.key) },
+        },
+      });
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should retrieve labels by a flat filter", async () => {
+      const prefix = `flat-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.resourceID(item.key), [attached.key]);
+      const params: label.RetrieveMultipleParams = {
+        name: { regex: `^${prefix}` },
+        not: { for: label.resourceID(item.key) },
+      };
+      const labels = await client.labels.retrieve(params);
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should drop the keys that do not exist from a flat key list", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
+    });
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one record, so it takes no filter.
+        client.labels.retrieve({ key: uuid.create(), name: "Label" }),
+      ).rejects.toThrow(
+        new ValidationError("label params address a single key but hold other fields."),
+      );
+    });
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const missing = uuid.create();
+      await expect(client.labels.retrieve([lbl.key, missing])).rejects.toThrow(
+        new NotFoundError(`label with key ${missing} not found`),
+      );
+    });
+    it("should drop the keys that do not exist from a filter on keys", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({
+        where: { key: { in: [lbl.key, uuid.create()] } },
+      });
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
+    });
   });
 
   describe("delete", () => {
@@ -65,7 +131,9 @@ describe("Label", () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
       await client.labels.label(label.resourceID(l1.key), [l2.key]);
-      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
+      const labels = await client.labels.retrieve({
+        where: { for: label.resourceID(l1.key) },
+      });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
     });
@@ -74,7 +142,9 @@ describe("Label", () => {
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
       await client.labels.label(label.resourceID(l1.key), [l2.key]);
       await client.labels.label(label.resourceID(l1.key), [l1.key], { replace: true });
-      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
+      const labels = await client.labels.retrieve({
+        where: { for: label.resourceID(l1.key) },
+      });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l1.key);
     });
@@ -120,7 +190,7 @@ describe("cached reads", () => {
     }
   });
 
-  it("tracks remote label attachment and removal on a subscribed for: query", async () => {
+  it("tracks remote label attachment and removal on a subscribed for query", async () => {
     const item = await client.labels.create({
       name: `qry-item-${id.create()}`,
       color: "#E774D0",
@@ -129,7 +199,7 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { for: label.resourceID(item.key) };
+    const params = { where: { for: label.resourceID(item.key) } };
     const off = client.labels.onChange(params, vi.fn());
     try {
       await client.labels.retrieve(params);
@@ -150,6 +220,218 @@ describe("cached reads", () => {
     } finally {
       off();
     }
+  });
+
+  it("tracks remote attachment and removal on a subscribed not for query", async () => {
+    const item = await client.labels.create({
+      name: `qry-item-${id.create()}`,
+      color: "#E774D0",
+    });
+    const lbl = await remote.labels.create({
+      name: `qry-attached-${id.create()}`,
+      color: "#E774D0",
+    });
+    const params = { where: { not: { for: label.resourceID(item.key) } } };
+    const has = () => {
+      const cached = client.labels.getCached(params);
+      return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
+    };
+    const off = client.labels.onChange(params, vi.fn());
+    try {
+      await client.labels.retrieve(params);
+      await expect.poll(has).toBe(true);
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
+      await expect.poll(has).toBe(false);
+      await remote.labels.remove(label.resourceID(item.key), [lbl.key]);
+      await expect.poll(has).toBe(true);
+    } finally {
+      off();
+    }
+  });
+
+  it("should update a for query from its own writes without a retrieve", async () => {
+    const fresh = createTestClient();
+    await fresh.connect();
+    const item = await fresh.labels.create({
+      name: `qry-item-${id.create()}`,
+      color: "#E774D0",
+    });
+    const lbl = await fresh.labels.create({
+      name: `qry-attached-${id.create()}`,
+      color: "#E774D0",
+    });
+    const itemID = label.resourceID(item.key);
+    const params = { where: { for: itemID } };
+    const off = fresh.labels.onChange(params, vi.fn());
+    const send = spyOnSend(fresh);
+    try {
+      await fresh.labels.retrieve(params);
+      send.mockClear();
+      await fresh.labels.label(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params)).map((l) => l.key)).toEqual([
+        lbl.key,
+      ]);
+      await fresh.labels.remove(itemID, [lbl.key]);
+      expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
+      await sleep.sleep(TimeSpan.milliseconds(250));
+      expect(send.mock.calls.map(([target]) => target)).toEqual([
+        "/label/set",
+        "/label/remove",
+      ]);
+    } finally {
+      off();
+    }
+  });
+
+  describe("a label attached before the client connected", () => {
+    const attach = async (): Promise<{ item: label.Label; lbl: label.Label }> => {
+      const item = await remote.labels.create({
+        name: `qry-item-${id.create()}`,
+        color: "#E774D0",
+      });
+      const lbl = await remote.labels.create({
+        name: `qry-attached-${id.create()}`,
+        color: "#E774D0",
+      });
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
+      return { item, lbl };
+    };
+
+    it("should stay in a for query when it changes", async () => {
+      const { item, lbl } = await attach();
+      const fresh = createTestClient();
+      await fresh.connect();
+      const params = { where: { for: label.resourceID(item.key) } };
+      const off = fresh.labels.onChange(params, vi.fn());
+      try {
+        await fresh.labels.retrieve(params);
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...lbl, name });
+        await expect
+          .poll(() => {
+            const cached = fresh.labels.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.find((l) => l.key === lbl.key)?.name;
+          })
+          .toEqual(name);
+      } finally {
+        off();
+      }
+    });
+
+    it("should stay out of a not for query when it changes", async () => {
+      const { item, lbl } = await attach();
+      const fresh = createTestClient();
+      await fresh.connect();
+      const params = { where: { not: { for: label.resourceID(item.key) } } };
+      const off = fresh.labels.onChange(params, vi.fn());
+      try {
+        await fresh.labels.retrieve(params);
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...lbl, name });
+        await expect
+          .poll(() => {
+            const cached = fresh.labels.getCached(lbl.key);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toEqual(name);
+        const cached = expectLive(fresh.labels.getCached(params));
+        expect(cached.map((l) => l.key)).not.toContain(lbl.key);
+      } finally {
+        off();
+      }
+    });
+  });
+
+  // The remote change lands while the proxy is severed, so only the refetch on
+  // reconnect tells the client about it. A later rename makes the client check the
+  // label against its cached relationships.
+  describe("a label attached or removed during a change stream gap", () => {
+    const setup = async () => {
+      const { proxy, client: local } = await createProxiedTestClient({
+        retry: FAST_RETRY,
+        onRetry: () => {},
+      });
+      await local.connect();
+      const [item, kept, changed] = await local.labels.create(
+        [0, 1, 2].map(() => ({ name: `qry-gap-${id.create()}`, color: "#E774D0" })),
+      );
+      const itemID = label.resourceID(item.key);
+      const params = { where: { for: itemID } };
+      const keys = () => {
+        const cached = local.labels.getCached(params);
+        return query.isLive(cached) ? cached.map((l) => l.key).sort() : undefined;
+      };
+      const duringGap = async (change: () => Promise<void>) => {
+        await proxy.sever();
+        await change();
+        await proxy.restore();
+        await waitForStreamLive(local.connection);
+      };
+      const rename = async () => {
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...changed, name });
+        await expect
+          .poll(() => {
+            const cached = local.labels.getCached(changed.key);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toEqual(name);
+      };
+      return { local, itemID, params, kept, changed, keys, duringGap, rename };
+    };
+
+    it("should keep a label removed during the gap out of a for query", async () => {
+      const { local, itemID, params, kept, changed, keys, duringGap, rename } =
+        await setup();
+      await local.labels.label(itemID, [kept.key, changed.key]);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await local.labels.retrieve(params);
+        await duringGap(async () => await remote.labels.remove(itemID, [changed.key]));
+        await expect.poll(keys).toEqual([kept.key]);
+        await rename();
+        expect(keys()).toEqual([kept.key]);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should keep a label attached again during the gap in a for query", async () => {
+      const { local, itemID, params, kept, changed, keys, duringGap, rename } =
+        await setup();
+      await local.labels.label(itemID, [kept.key, changed.key]);
+      await local.labels.remove(itemID, [changed.key]);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await local.labels.retrieve(params);
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        const both = [kept.key, changed.key].sort();
+        await expect.poll(keys).toEqual(both);
+        await rename();
+        expect(keys()).toEqual(both);
+      } finally {
+        off();
+      }
+    }, 30000);
+
+    it("should keep a label attached during the gap when an older fetch lands late", async () => {
+      const { local, itemID, params, changed, keys, duringGap } = await setup();
+      const { responded, release } = holdResponses(local, "/label/retrieve");
+      const stale = local.labels.retrieve(params);
+      const off = local.labels.onChange(params, vi.fn());
+      try {
+        await responded;
+        spyOnSend(local).mockRestore();
+        await duringGap(async () => await remote.labels.label(itemID, [changed.key]));
+        await expect.poll(keys).toEqual([changed.key]);
+        release();
+        await stale;
+        expect(keys()).toEqual([changed.key]);
+      } finally {
+        off();
+      }
+    }, 30000);
   });
 });
 

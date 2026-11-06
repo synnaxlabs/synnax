@@ -24,14 +24,28 @@ interface Thing extends record.Keyed<string> {
 
 const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, size });
 
-const requestZ = z.object({
+const requestZ = z.strictObject({
   keys: z.string().array().optional(),
+  where: z
+    .object({
+      key: z
+        .object({ eq: z.string().optional(), in: z.string().array().optional() })
+        .optional(),
+      name: z.object({ eq: z.string().optional() }).optional(),
+    })
+    .optional(),
   minSize: z.number().optional(),
   searchTerm: z.string().optional(),
 });
 interface Request extends z.infer<typeof requestZ> {}
 
-const paramsZ = requestZ.or(query.keyListZ(z.string()));
+const paramsZ = z.union([
+  requestZ,
+  query.keyListZ(z.string()),
+  z
+    .strictObject({ key: z.string().array() })
+    .transform(({ key }): Request => ({ where: { key: { in: key } } })),
+]);
 
 // A live but silent stream: subscribed answers stay maintained, so reads
 // serve from the cache without a network fetch.
@@ -124,6 +138,15 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
     });
 
+    it("omits a missing key from a bare key array read as { keys }", async () => {
+      const client = new Client(
+        newCache(),
+        async () => [thing("a")],
+        async () => [],
+      );
+      expect(await client.retrieve(["a", "b"])).toEqual([thing("a")]);
+    });
+
     it("gives a bare array the meaning the schema assigns it", async () => {
       const namesZ = z.preprocess(
         (p) => (Array.isArray(p) ? { names: p } : p),
@@ -192,6 +215,25 @@ describe("Retriever", () => {
       await expect(client.retrieve({ key: "missing" })).rejects.toThrow(NotFoundError);
     });
 
+    it("routes a list on key to the request space", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      const result = await client.retrieve({ key: ["a", "b"] });
+      expect(result).toEqual([thing("a"), thing("b")]);
+      expect(fetchKeys).toHaveBeenCalledWith(["a", "b"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("rejects a plain key beside other fields", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await expect(client.retrieve({ key: "a", minSize: 2 } as never)).rejects.toThrow(
+        new ValidationError("thing params address a single key but hold other fields."),
+      );
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
     it("delivers deletion through onChange and flips retrieve to not-found", async () => {
       const client = new Client(
         newCache(),
@@ -252,6 +294,112 @@ describe("Retriever", () => {
       release([thing("a")]);
       await pending;
       expect(client.store.get("a")?.name).toEqual("renamed");
+    });
+
+    it("routes a where that only matches a key list through the table fetch", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      client.store.set([thing("a")]);
+      const results = await client.retrieve({ where: { key: { in: ["a", "b"] } } });
+      expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+      expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("answers a where with an empty key list from the table", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      expect(client.getCached({ where: { key: { in: [] } } })).toEqual([]);
+      expect(await client.retrieve({ where: { key: { in: [] } } })).toEqual([]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    describe("keysRequestZ", () => {
+      const keysZ = z.union([query.keysRequestZ(z.string()), requestZ]);
+      class KeysClient extends query.Retriever<typeof keysZ, string, Thing> {
+        constructor(
+          cache: query.Cache,
+          fetchKeys: (keys: string[]) => Promise<Thing[]>,
+          fetchRequest: () => Promise<Thing[]>,
+        ) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: fetchKeys,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: keysZ, fetch: fetchRequest },
+          });
+          this.store = store;
+        }
+
+        readonly store: query.Table<string, Thing>;
+      }
+
+      it("routes a bare key list through the table fetch", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        client.store.set([thing("a")]);
+        const results = await client.retrieve(["a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+        expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("answers an empty key list with no fetch", async () => {
+        const fetchKeys = vi.fn(async () => []);
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        expect(await client.retrieve([])).toEqual([]);
+        expect(fetchKeys).not.toHaveBeenCalled();
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("returns each record of a bare key list once, in key order", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const client = new KeysClient(newCache(), fetchKeys, async () => []);
+        const results = await client.retrieve(["b", "a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["b", "a"]);
+        expect(client.getCached(["b", "a", "b"])).toEqual(results);
+      });
+
+      it("names a repeated missing key of a bare key list once", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["b", "a", "b"])).rejects.toThrow(
+          new NotFoundError("thing with key b not found"),
+        );
+      });
+
+      it("throws a NotFoundError naming the missing key of a bare key list", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["a", "b"])).rejects.toThrow(
+          new NotFoundError("thing with key b not found"),
+        );
+      });
+
+      it("throws a NotFoundError naming every missing key of a bare key list", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        await expect(client.retrieve(["b", "a", "c"])).rejects.toThrow(
+          new NotFoundError("thing with keys b, c not found"),
+        );
+      });
+
+      it("returns the records that exist for a filter on keys", async () => {
+        const client = new KeysClient(newCache(), async () => [thing("a")], vi.fn());
+        const results = await client.retrieve({ where: { key: { in: ["a", "b"] } } });
+        expect(results.map((t) => t.key)).toEqual(["a"]);
+      });
+    });
+
+    it("routes a where with another line through the request fetch", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a")]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await client.retrieve({ where: { key: { in: ["a"] }, name: { eq: "a-name" } } });
+      await client.retrieve({ where: { key: { eq: "a", in: ["a"] } } });
+      expect(fetchRequest).toHaveBeenCalledTimes(2);
     });
 
     it("treats a request with keys plus another set field as non-keys-only", async () => {
@@ -479,7 +627,7 @@ describe("Retriever", () => {
 
     describe("malformed single params", () => {
       class StrictSingleClient extends query.Retriever<
-        typeof requestZ,
+        typeof paramsZ,
         string,
         Thing,
         Thing,
@@ -509,7 +657,7 @@ describe("Retriever", () => {
             name: "thing",
             table: store,
             request: {
-              schema: requestZ,
+              schema: paramsZ,
               fetch: async (req) => await fetchRequest(req),
             },
             single: {
@@ -540,6 +688,15 @@ describe("Retriever", () => {
         expect(ValidationError.matches(err)).toBe(true);
         expect(err.message).toContain("Failed to parse");
         expect(err.cause).toBeInstanceOf(zod.ParseError);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("routes a list on key past the single schema", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const fetchRequest = vi.fn(async () => []);
+        const client = new StrictSingleClient(newCache(), fetchKeys, fetchRequest);
+        const result = await client.retrieve({ key: ["a"] });
+        expect(result).toEqual([thing("a")]);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 

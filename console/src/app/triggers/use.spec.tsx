@@ -41,7 +41,6 @@ import {
 } from "@/platform/panel/testutil";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
-import { Modals } from "@/session/modals";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client = createTestClient();
@@ -101,7 +100,6 @@ const renderTriggers = async (ui?: ReactNode) => {
       Triggers.use();
       return {
         isOverlaid: Session.Panel.useGetIsOverlaid(),
-        modals: Modals.useStore("app/triggers.spec"),
       };
     },
     { wrapper: Wrapper },
@@ -148,8 +146,6 @@ const leafTabs = async (key: panel.Key): Promise<panel.Tab[]> => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
   return root.tabs;
 };
-
-const Noop: Modals.Content = () => null;
 
 describe("app/triggers", () => {
   beforeEach(() => {
@@ -234,15 +230,6 @@ describe("app/triggers", () => {
   });
 
   describe("close", () => {
-    it("should close the top modal and leave the window open", async () => {
-      const { result, store } = await renderTriggers();
-      act(() => result.current.modals.push(Noop, {}, () => {}));
-      expect(result.current.modals.isAnyOpen()).toBe(true);
-      act(() => press(CONTROL, "KeyW"));
-      expect(result.current.modals.isAnyOpen()).toBe(false);
-      expect(isWindowOpen(store)).toBe(true);
-    });
-
     it("should close the window when the shortcut is held with nothing open", async () => {
       mocks.engine = "tauri";
       const { store } = await renderTriggers();

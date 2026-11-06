@@ -53,6 +53,7 @@ describe("Group.ContextMenuItem", () => {
         <Group.ContextMenuItem
           ids={[childID]}
           rootID={ontology.ROOT_ID}
+          parentID={parentID}
           shape={shape}
         />
       </PMenu.Menu>,
@@ -64,7 +65,12 @@ describe("Group.ContextMenuItem", () => {
 
   it("should show the group item for a top-level selection when the root is not the ontology root", async () => {
     await renderItems(
-      <Group.ContextMenuItem ids={[parentID]} rootID={nestedRootID} shape={shape} />,
+      <Group.ContextMenuItem
+        ids={[parentID]}
+        rootID={nestedRootID}
+        parentID={nestedRootID}
+        shape={shape}
+      />,
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
@@ -75,11 +81,13 @@ describe("Group.ContextMenuItem", () => {
         <Group.ContextMenuItem
           ids={[childID]}
           rootID={ontology.ROOT_ID}
+          parentID={parentID}
           shape={shape}
         />
         <Group.ContextMenuItem
           ids={[parentID]}
           rootID={ontology.ROOT_ID}
+          parentID={ontology.ROOT_ID}
           shape={shape}
         />
       </>,
@@ -94,11 +102,33 @@ describe("Group.ContextMenuItem", () => {
         <Group.ContextMenuItem
           ids={[childID]}
           rootID={ontology.ROOT_ID}
+          parentID={parentID}
           shape={shape}
         />
         <Group.ContextMenuItem
           ids={[absentID]}
           rootID={ontology.ROOT_ID}
+          parentID={ontology.ROOT_ID}
+          shape={shape}
+        />
+      </>,
+    );
+    await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
+  });
+
+  it("should hide the group item when the selection has more than one parent", async () => {
+    await renderItems(
+      <>
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={ontology.ROOT_ID}
+          parentID={parentID}
+          shape={shape}
+        />
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={ontology.ROOT_ID}
+          parentID={null}
           shape={shape}
         />
       </>,
@@ -117,6 +147,7 @@ describe("Group.ContextMenuItem", () => {
       <Group.ContextMenuItem
         ids={[childID, siblingID]}
         rootID={ontology.ROOT_ID}
+        parentID={parentID}
         shape={multiShape}
       />,
     );
@@ -128,7 +159,12 @@ describe("Group.ContextMenuItem permissions", () => {
   const renderAs = async (as: Client) => {
     const { wrapper } = await createConsoleWrapper({ client: as });
     return render(
-      <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
+      <Group.ContextMenuItem
+        ids={[childID]}
+        rootID={ontology.ROOT_ID}
+        parentID={parentID}
+        shape={shape}
+      />,
       { wrapper },
     );
   };

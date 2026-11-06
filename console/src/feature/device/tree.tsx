@@ -39,7 +39,7 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
   const resourceIDs = ids.map((id) => device.resourceID(id.key));
@@ -65,6 +65,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={state.shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => group(props)}
         />
       )}

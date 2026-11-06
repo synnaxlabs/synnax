@@ -30,14 +30,17 @@ import (
 type StatusHandler struct {
 	db  *gorp.DB
 	svc *status.Service
-	mu  sync.Mutex
+	// mu guards stat and prior. Every write holds it, so writes land in the order of
+	// the transitions they carry. A write must not call back into the handler.
+	mu sync.Mutex
 	// stat is the last status sent, seeded at construction before any send.
 	stat task.Status
-	// prior is the status text that the active warning replaced.
+	// prior is the status text and data that the active warning replaced.
 	prior struct {
 		variant     status.Variant
 		message     string
 		description string
+		data        msgpack.EncodedJSON
 	}
 }
 
@@ -54,7 +57,8 @@ func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHand
 }
 
 // Send records a status transition and writes it, answering cmdKey (NoCommand for
-// unsolicited updates). It replaces the prior description, so an empty one clears it.
+// unsolicited updates). It replaces the prior description, so an empty one clears it,
+// and clears the data of a prior warning.
 func (h *StatusHandler) Send(
 	ctx context.Context,
 	cmdKey string,
@@ -64,31 +68,32 @@ func (h *StatusHandler) Send(
 	description string,
 ) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.stat.Variant = variant
 	h.stat.Message = message
 	h.stat.Description = description
+	h.stat.Details.Data = nil
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	return h.write(ctx, h.stamp())
 }
 
-// Warn records an unsolicited warning with a supporting description, leaving the
-// running state as it was. A warning equal to the active one writes nothing, so a
-// retry loop can call Warn on every attempt. A failed write leaves the active status as
-// it was, so the next call writes the warning again.
-func (h *StatusHandler) Warn(ctx context.Context, message, description string) error {
+// Warn records an unsolicited warning, leaving the running state as it was. A warning
+// with the message and description of the active one writes nothing, so a retry loop
+// can call Warn on every attempt. A failed write leaves the active status as it was, so
+// the next call writes the warning again.
+func (h *StatusHandler) Warn(ctx context.Context, w Warning) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	active := h.stat.Variant == status.VariantWarning
-	if active && h.stat.Message == message && h.stat.Description == description {
+	if active && h.stat.Message == w.Message && h.stat.Description == w.Description {
 		return nil
 	}
 	next := h.stat
 	next.Variant = status.VariantWarning
-	next.Message = message
-	next.Description = description
+	next.Message = w.Message
+	next.Description = w.Description
+	next.Details.Data = w.Data
 	next.Details.Cmd = NoCommand
 	next.Time = telem.Now()
 	if err := h.write(ctx, next); err != nil {
@@ -98,6 +103,7 @@ func (h *StatusHandler) Warn(ctx context.Context, message, description string) e
 		h.prior.variant = h.stat.Variant
 		h.prior.message = h.stat.Message
 		h.prior.description = h.stat.Description
+		h.prior.data = h.stat.Details.Data
 	}
 	h.stat = next
 	return nil
@@ -116,6 +122,7 @@ func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 	next.Variant = h.prior.variant
 	next.Message = h.prior.message
 	next.Description = h.prior.description
+	next.Details.Data = h.prior.data
 	next.Details.Cmd = NoCommand
 	next.Time = telem.Now()
 	if err := h.write(ctx, next); err != nil {
@@ -129,11 +136,10 @@ func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 // state, for a command that needs no work.
 func (h *StatusHandler) Ack(ctx context.Context, cmdKey string, running bool) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	return h.write(ctx, h.stamp())
 }
 
 // Reply answers cmdKey with the result of a command that leaves the task state as it
@@ -147,8 +153,8 @@ func (h *StatusHandler) Reply(
 	data msgpack.EncodedJSON,
 ) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	stat := h.stamp()
-	h.mu.Unlock()
 	stat.Variant = variant
 	stat.Message = message
 	stat.Description = ""
@@ -157,7 +163,7 @@ func (h *StatusHandler) Reply(
 	return h.write(ctx, stat)
 }
 
-// stamp refreshes the status time and returns a copy to write outside the lock.
+// stamp refreshes the status time and returns a copy.
 func (h *StatusHandler) stamp() task.Status {
 	h.stat.Time = telem.Now()
 	return h.stat

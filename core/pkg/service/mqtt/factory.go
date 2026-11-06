@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -76,6 +77,10 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 8s.
 	BirthGrace time.Duration
+	// NewClient builds the client of each connection of a read, write, or edge task.
+	//
+	// [OPTIONAL] - Defaults to paho.NewClient.
+	NewClient func(*paho.ClientOptions) paho.Client
 }
 
 var (
@@ -85,6 +90,7 @@ var (
 		QueueSize:       4096,
 		RebirthInterval: sparkplug.DefaultRebirthInterval,
 		BirthGrace:      sparkplug.DefaultRebirthInterval + 3*time.Second,
+		NewClient:       paho.NewClient,
 	}
 )
 
@@ -99,6 +105,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.QueueSize = override.Numeric(c.QueueSize, other.QueueSize)
 	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
 	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
+	c.NewClient = override.Nil(c.NewClient, other.NewClient)
 	return c
 }
 
@@ -149,8 +156,10 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg:  cfg,
-		pool: newPool(cfg.Instrumentation, cfg.Device, cfg.RebirthInterval),
+		cfg: cfg,
+		pool: newPool(
+			cfg.Instrumentation, cfg.Device, cfg.RebirthInterval, cfg.NewClient,
+		),
 		reporter: driver.ConfigReporter{
 			DB:              cfg.DB,
 			Status:          cfg.Status,
@@ -372,7 +381,7 @@ func (f *Factory) configureRead(
 		broker:     dev.Key,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
-		topics:     make(map[string]readTopic),
+		topics:     make(map[string]*readTopic),
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
@@ -591,6 +600,7 @@ func (f *Factory) configureEdge(
 		ins:       f.cfg.Child(t.Key.String()),
 		broker:    dev.Key,
 		devices:   f.cfg.Device,
+		newClient: f.cfg.NewClient,
 		command:   sparkplug.CommandTopic(node, "").String(),
 		tags:      make(map[channel.Key][]publishedTag),
 		byName:    make(map[string]publishedTag),
