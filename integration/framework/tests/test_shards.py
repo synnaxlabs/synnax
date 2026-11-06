@@ -195,5 +195,5 @@ class TestDurations:
         assert shards.load_durations(path) == {"t/a": 1.5}
 
     def test_recorded(self) -> None:
-        """Should hold a recorded time for each test of the checked-in suites."""
+        """Should load the checked-in times."""
         assert len(shards.load_durations()) > 0
