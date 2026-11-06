@@ -58,20 +58,23 @@ private:
 }
 """
 
-EXPECTED = """\
-client/cpp/thing/thing.h synnax::thing:: const std::string URL = "http://localhost"
-client/cpp/thing/thing.h synnax::thing:: enum class Mode : uint8_t {}
-client/cpp/thing/thing.h synnax::thing:: struct Thing {}
-client/cpp/thing/thing.h synnax::thing:: class Client {}
-client/cpp/thing/thing.h synnax::thing::Client:: Client(int a, int b)
-client/cpp/thing/thing.h synnax::thing::Client:: [[nodiscard]] std::pair<Thing, \
-x::errors::Error> retrieve(const std::string &name, int limit = {}) const
-client/cpp/thing/thing.h synnax::thing::Mode:: First
-client/cpp/thing/thing.h synnax::thing::Mode:: Second = 2
-client/cpp/thing/thing.h synnax::thing::Thing:: [[nodiscard]] int doubled() const
-client/cpp/thing/thing.h synnax::thing::Thing:: int count = 1
-client/cpp/thing/thing.h synnax::thing::Thing:: std::string name{"thing"}
-"""
+PREFIX = "client/cpp/thing/thing.h synnax::thing"
+EXPECTED = [
+    f'{PREFIX}:: const std::string URL = "http://localhost"',
+    f"{PREFIX}:: enum class Mode : uint8_t {{}}",
+    f"{PREFIX}::Mode:: First",
+    f"{PREFIX}::Mode:: Second = 2",
+    f"{PREFIX}:: struct Thing {{}}",
+    f"{PREFIX}::Thing:: int count = 1",
+    f'{PREFIX}::Thing:: std::string name{{"thing"}}',
+    f"{PREFIX}::Thing:: [[nodiscard]] int doubled() const",
+    f"{PREFIX}:: class Client {{}}",
+    f"{PREFIX}::Client:: Client(int a, int b)",
+    f"{PREFIX}::Client:: [[nodiscard]] std::pair<Thing, x::errors::Error> "
+    "retrieve(const std::string &name, int limit = {}) const",
+    f"{PREFIX}::Client:: friend std::ostream &operator<<(std::ostream &os, "
+    "const Client &c)",
+]
 
 
 def run(tmp_path: Path, header: str, *, name: str = "thing/thing.h") -> str:
@@ -83,8 +86,7 @@ def run(tmp_path: Path, header: str, *, name: str = "thing/thing.h") -> str:
 
 class TestReport:
     def test_lists_public_declarations_with_their_scope(self, tmp_path: Path) -> None:
-        lines = run(tmp_path, HEADER).splitlines()
-        assert sorted(lines) == sorted(EXPECTED.splitlines())
+        assert run(tmp_path, HEADER).splitlines() == EXPECTED
 
     def test_ignores_bodies_comments_private_members_and_wrapping(
         self, tmp_path: Path
@@ -99,6 +101,43 @@ class TestReport:
             .replace("    retrieve(const", "    retrieve(\n        const")
         )
         assert run(tmp_path, edited) == run(tmp_path, HEADER)
+
+    def test_ignores_wrapping_inside_templates_and_braces(self, tmp_path: Path) -> None:
+        wrapped = "const std::vector<\n    int\n> VALUES = {\n    1,\n    2\n};"
+        one_line = "const std::vector<int> VALUES = {1, 2};"
+        assert run(tmp_path, wrapped) == run(tmp_path, one_line)
+
+    def test_reports_reordered_enum_entries(self, tmp_path: Path) -> None:
+        edited = HEADER.replace(
+            "First,\n    Second = 2,", "Second = 2,\n    First,"
+        ).replace("/// @brief the first mode.\n", "")
+        assert run(tmp_path, edited) != run(tmp_path, HEADER)
+
+    def test_reports_reordered_members(self, tmp_path: Path) -> None:
+        edited = HEADER.replace(
+            'int count = 1;\n    std::string name{"thing"};',
+            'std::string name{"thing"};\n    int count = 1;',
+        )
+        assert run(tmp_path, edited) != run(tmp_path, HEADER)
+
+    def test_reports_changed_spacing_inside_a_string(self, tmp_path: Path) -> None:
+        one = run(tmp_path, 'const std::string PREFIX = "Bearer ";')
+        two = run(tmp_path, 'const std::string PREFIX = "Bearer  ";')
+        assert one != two
+
+    def test_reports_a_friend_function_in_a_private_section(
+        self, tmp_path: Path
+    ) -> None:
+        text = run(
+            tmp_path,
+            "class A {\n    friend bool operator==(A a, A b) { return true; }\n};",
+        )
+        assert "A:: friend bool operator==(A a, A b)" in text
+
+    def test_skips_a_friend_type(self, tmp_path: Path) -> None:
+        assert "Other" not in run(
+            tmp_path, "class A {\npublic:\n    friend class Other;\n};"
+        )
 
     def test_reports_a_changed_signature(self, tmp_path: Path) -> None:
         edited = HEADER.replace("int limit = {}", "int limit = 5")

@@ -7,12 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Prints the public API of the C++ client, one sorted line per declaration.
+"""Prints the public API of the C++ client, one line per declaration.
 
 Compare the output of two revisions to see if a pull request changes the API. The script
 reads the headers as text, so it needs no build. It reports each public declaration
-with its enclosing scope, and leaves out function bodies, constructor initializers, and
-private members. The protobuf and JSON codecs that Oracle generates are left out.
+with its enclosing scope, in source order, because the order of members and enum entries
+is part of the API. It leaves out function bodies, constructor initializers, private
+members, and the protobuf and JSON codecs that Oracle generates.
 
     uv run --project scripts scripts/surface_cpp.py .
 """
@@ -37,8 +38,11 @@ TYPE = re.compile(r"(?:template\s*<.*>\s*)?(class|struct|union|enum)\b(?:\s+clas
 TYPE_NAME = re.compile(r"(\w+)\s*(?:final\s*)?(?::(?!:).*)?$")
 FORWARD = re.compile(r"(?:class|struct) \w+$")
 # Space that only a line wrap puts there, so that a reformat changes no line.
-WRAP = re.compile(r"(?:(?<=\()|(?<=::)) | (?=\))")
-SKIPPED = ("friend ", "using namespace ", "static_assert")
+WRAP = re.compile(r"(?:(?<=[(<{])|(?<=::)) | (?=[)>}])")
+STRING = re.compile(r'("(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\')')
+SPACE = re.compile(r"\s+")
+SKIPPED = ("using namespace ", "static_assert")
+FRIEND_TYPE = re.compile(r"friend (?:class|struct) ")
 
 
 def strip(src: str) -> str:
@@ -65,7 +69,10 @@ def closing(src: str, *, start: int) -> int:
 
 
 def normalize(text: str) -> str:
-    return WRAP.sub("", " ".join(text.split()))
+    # re.split puts the literals at the odd indices.
+    parts = STRING.split(text)
+    parts[::2] = [WRAP.sub("", SPACE.sub(" ", part)) for part in parts[::2]]
+    return "".join(parts).strip()
 
 
 def after_text(src: str, *, start: int) -> int:
@@ -185,7 +192,12 @@ def enter(
 
 def declare(text: str, *, scope: str, public: bool, out: list[str]) -> None:
     line = normalize(text)
-    if public and line and not FORWARD.fullmatch(line) and not line.startswith(SKIPPED):
+    # A friend function is callable from anywhere, whichever section declares it.
+    if not (public or line.startswith("friend ")):
+        return
+    if FORWARD.fullmatch(line) or FRIEND_TYPE.match(line) or line.startswith(SKIPPED):
+        return
+    if line:
         out.append(f"{scope} {line}" if scope else line)
 
 
@@ -198,13 +210,13 @@ def files(root: Path) -> list[Path]:
 
 
 def report(root: Path) -> str:
-    lines: set[str] = set()
+    lines: list[str] = []
     for path in files(root):
         out: list[str] = []
         scan(strip(path.read_text()), scope="", public=True, out=out)
         rel = path.relative_to(root).as_posix()
-        lines.update(f"{rel} {line}" for line in out)
-    return "".join(f"{line}\n" for line in sorted(lines))
+        lines += [f"{rel} {line}" for line in out]
+    return "".join(f"{line}\n" for line in lines)
 
 
 def main() -> None:
