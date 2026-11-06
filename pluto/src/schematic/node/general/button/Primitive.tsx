@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/button/button.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color } from "@synnaxlabs/x";
@@ -18,6 +18,9 @@ import { type CSSProperties, type MouseEventHandler, type ReactElement } from "r
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+
+// Every button stores this default until a user picks a width, so it means no wrapping.
+const NO_WRAP_WIDTH = schematic.labelConfigZ.parse({}).maxInlineSize;
 
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
@@ -56,7 +59,12 @@ export const Button = ({
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
-  const style: CSSProperties = { [Primitive.SYMBOL_COLOR]: symbolColor };
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    textAlign: label?.align as CSSProperties["textAlign"],
+    maxInlineSize:
+      label?.maxInlineSize === NO_WRAP_WIDTH ? undefined : label?.maxInlineSize,
+  };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed
   // pulse keeps its raw press edge. Momentary always acts on raw press/release:

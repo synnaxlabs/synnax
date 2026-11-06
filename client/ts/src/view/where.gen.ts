@@ -85,3 +85,17 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
     .transform((input) =>
       filter.split(input, ["and", "or", "not", "key", "name", "type"]),
     );
+
+/**
+ * shortcutZ reads a key, a name, or a list of either into a request whose where holds
+ * it. A list reads as keys only when every member is a key.
+ */
+export const shortcutZ = z.union([
+  keyZ.transform((key) => ({ where: { key: { eq: key } } })),
+  z.string().transform((name) => ({ where: { name: { eq: name } } })),
+  keyZ.array().transform((keys) => ({ where: { key: { in: keys } } })),
+  z
+    .string()
+    .array()
+    .transform((names) => ({ where: { name: { in: names } } })),
+]);

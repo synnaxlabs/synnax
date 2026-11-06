@@ -105,6 +105,12 @@ class TestSecret:
         where = secret.Where(key=filter.Set[secret.Key](in_=[s.key, uuid4()]))
         assert client.secrets.retrieve(where=where) == [s]
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, leaving out a key that no secret
+        has."""
+        s = client.secrets.create(secret.NewStored(name="Listed", value="a"))
+        assert client.secrets.retrieve(key=[s.key, uuid4()]) == [s]
+
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for secrets by name."""
         name = f"searchable-secret-{uuid4()}"
@@ -118,8 +124,8 @@ class TestSecret:
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has the key."""
         key = uuid4()
-        with pytest.raises(sy.NotFoundError, match=rf"Secret matching {key} not found"):
-            client.secrets.retrieve(key=key)
+        with pytest.raises(sy.NotFoundError, match=rf"Secret matching .*{key}"):
+            client.secrets.retrieve(key)
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a secret."""
@@ -144,5 +150,5 @@ class TestSecret:
         )
         client.secrets.delete([s.key for s in secrets])
         key = secrets[0].key
-        with pytest.raises(sy.NotFoundError, match=rf"Secret matching {key} not found"):
-            client.secrets.retrieve(key=key)
+        with pytest.raises(sy.NotFoundError, match=rf"Secret matching .*{key}"):
+            client.secrets.retrieve(key)

@@ -22,7 +22,7 @@ _P = ParamSpec("_P")
 class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
-    page_type: PageType = "NI analog write task"
+    page_type: PageType = "ni_analog_write"
     pluto_label: str = ".console-task-configure--ni_analog_write"
 
     def add_channel(

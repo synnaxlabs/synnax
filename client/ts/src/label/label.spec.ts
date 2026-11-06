@@ -10,7 +10,7 @@
 import { color, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/errors";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import {
@@ -45,6 +45,33 @@ describe("Label", () => {
       });
       const retrieved = await client.labels.retrieve(v.key);
       expect(retrieved).toEqual(v);
+    });
+    it("should retrieve a label by its name", async () => {
+      const v = await client.labels.create({
+        name: `named-label-${id.create()}`,
+        color: "#E774D0",
+      });
+      expect(await client.labels.retrieve(v.name)).toEqual(v);
+    });
+    it("should retrieve labels by a list of names", async () => {
+      const prefix = `named-labels-${id.create()}`;
+      const created = await client.labels.create([
+        { name: `${prefix}-1`, color: "#E774D0" },
+        { name: `${prefix}-2`, color: "#E774D0" },
+      ]);
+      const retrieved = await client.labels.retrieve(created.map((l) => l.name));
+      expect(retrieved.map((l) => l.name).sort()).toEqual([
+        `${prefix}-1`,
+        `${prefix}-2`,
+      ]);
+    });
+    it("should throw a NotFoundError for a name that no label has", async () => {
+      const name = `missing-label-${id.create()}`;
+      await expect(client.labels.retrieve(name)).rejects.toThrow(
+        new NotFoundError(
+          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
+        ),
+      );
     });
     it("should retrieve labels by search term", async () => {
       const prefix = `searchable-label-${id.create()}`;
@@ -91,12 +118,64 @@ describe("Label", () => {
       const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
       expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
-    it("should reject a plain key beside other fields", async () => {
+    it("should return one label for a plain name beside other fields", async () => {
+      const prefix = `one-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      const retrieved: label.Label = await client.labels.retrieve({
+        name: attached.name,
+        for: label.ontologyID(item.key),
+      });
+      expect(retrieved.key).toEqual(attached.key);
+    });
+    it("should return one label for a filter that sets one", async () => {
+      const prefix = `one-option-${id.create()}`;
+      const lbl = await client.labels.create({ name: `${prefix}-a`, color: "#E774D0" });
+      const retrieved: label.Label = await client.labels.retrieve({
+        name: { startsWith: prefix },
+        one: true,
+      });
+      expect(retrieved.key).toEqual(lbl.key);
+    });
+    it("should throw a MultipleFoundError when a filter that sets one matches two labels", async () => {
+      const prefix = `one-option-${id.create()}`;
+      await client.labels.create([
+        { name: `${prefix}-a`, color: "#E774D0" },
+        { name: `${prefix}-b`, color: "#E774D0" },
+      ]);
       await expect(
-        // @ts-expect-error - a plain key addresses one record, so it takes no filter.
-        client.labels.retrieve({ key: uuid.create(), name: "Label" }),
+        client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
+      ).rejects.toThrow(MultipleFoundError);
+    });
+    it("should reject a filter that sets one beside a limit", async () => {
+      await expect(
+        // @ts-expect-error - a page could hide a second match.
+        client.labels.retrieve({ name: { startsWith: "x" }, one: true, limit: 1 }),
       ).rejects.toThrow(
-        new ValidationError("label params address a single key but hold other fields."),
+        new ValidationError(
+          "a query for one record takes no limit or offset, since a page could " +
+            "hide a second match",
+        ),
+      );
+    });
+    it("should not take a one that widens to a boolean", async () => {
+      const params = {
+        name: { startsWith: `missing-${id.create()}` },
+        one: true as boolean,
+      };
+      // @ts-expect-error - a widened one could return one label or a list.
+      await expect(client.labels.retrieve(params)).rejects.toThrow(NotFoundError);
+    });
+    it("should throw a NotFoundError when a plain key and name match nothing", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const name = `other-${id.create()}`;
+      await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
+        new NotFoundError(
+          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+        ),
       );
     });
     it("should throw a NotFoundError for a missing key in a key list", async () => {
