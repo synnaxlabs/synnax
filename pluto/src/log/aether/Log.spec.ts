@@ -21,6 +21,7 @@ import {
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
+import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
@@ -1806,13 +1807,27 @@ describe("log/aether/Log", () => {
   });
 
   describe("afterDelete", () => {
-    it("should clean up telem and erase render region", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { h, source, recorder } = setup(entries);
+    it("should clean up telem", () => {
+      const { h, source } = setup([makeEntry(0)]);
       const cleanupSpy = vi.spyOn(source, "cleanup");
       h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
-      expect(recorder.eraseCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should erase the last drawn region, and draw no render left pending", () => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+      const { h, recorder } = setup([makeEntry(0)]);
+      const loop = new render.Loop({ handleError: vi.fn() });
+      recorder.loop.set = (req) => loop.set(req);
+      h.setState((s) => ({ ...s }));
+      vi.advanceTimersToNextFrame();
+      h.setState((s) => ({ ...s, region: box.translate(s.region, "x", 100) }));
+      recorder.clear();
+      h.unmount();
+      vi.advanceTimersToNextFrame();
+      vi.useRealTimers();
+      expect(recorder.eraseCalls.map(({ region }) => region)).toEqual([REGION_500]);
+      expect(recorder.lower2d.calls).toEqual([]);
     });
   });
 });
