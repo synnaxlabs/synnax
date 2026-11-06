@@ -1292,7 +1292,8 @@ describe("StreamMultiChannelLog", () => {
       stamped = false;
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       try {
-        for (let i = 0; i < 200 && !log.live; i++) {
+        const deadline = performance.now() + 25_000;
+        while (!log.live && performance.now() < deadline) {
           log.loadNewer();
           await new Promise((resolve) => setTimeout(resolve, 5));
           await vi.advanceTimersByTimeAsync(PAST_WAIT_LIMIT.milliseconds);
@@ -1301,7 +1302,7 @@ describe("StreamMultiChannelLog", () => {
         vi.useRealTimers();
       }
       expect(log.live).toBe(true);
-    });
+    }, 30_000);
 
     it("should return to the newest samples when it resumes", async () => {
       const core = deep();

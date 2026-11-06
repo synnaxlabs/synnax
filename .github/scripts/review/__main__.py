@@ -14,8 +14,9 @@
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
-`run` also takes BASE_DIR, a checkout of the base branch; HEAD_DIR, a checkout of the
-head; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches Claude Code.
+`run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`; HEAD_DIR, a
+checkout of the head; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches Claude
+Code.
 """
 
 import dataclasses
@@ -49,7 +50,7 @@ def claude(args: list[str], stdin: str, cwd: Path) -> str:
 
 
 def review(target: Target, path: Path) -> None:
-    config = load(Path(os.environ["BASE_DIR"]))
+    config = load(Path(os.environ["POLICY_DIR"]))
     head = Path(os.environ["HEAD_DIR"]).resolve()
     excluded = [f":(glob,exclude){g}" for g in config.excluded]
     diff = subprocess.run(

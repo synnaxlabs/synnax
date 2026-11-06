@@ -20,5 +20,5 @@ runs:
       shell: powershell
       run: |
         if (Get-Command zstd -ErrorAction SilentlyContinue) { exit 0 }
-        choco install zstandard --version=1.5.7 -y --no-progress
+        choco install zstandard --version=1.5.7.20250308 -y --no-progress
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

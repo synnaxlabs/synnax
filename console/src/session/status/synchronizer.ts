@@ -15,7 +15,7 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
     name: "remove deleted status favorites",
     domain: (client) => ({
       onDelete: (handler) => client.statuses.onDelete(handler),
-      retrieve: async ({ keys }) => await client.statuses.retrieve(keys),
+      retrieve: async (keys) => await client.statuses.retrieve(keys),
     }),
     selectKeys: (state: StoreState) => state.status.favorites,
     remove: (keys) => removeFavorites(keys),

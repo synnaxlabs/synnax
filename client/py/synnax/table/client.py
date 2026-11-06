@@ -9,11 +9,13 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
-from synnax.table.types_gen import Key, Table
+from synnax.exceptions import NotFoundError
+from synnax.table.types_gen import Key, RetrieveRequest, RetrieveResponse, Table, Where
+from x import filter
 from x.lists import normalize
 
 
@@ -28,14 +30,6 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key]
-
-
-class _RetrieveResponse(BaseModel):
-    tables: list[Table] = Field(default_factory=list)
 
 
 class _RenamePayload(BaseModel):
@@ -97,25 +91,40 @@ class Client:
     def retrieve(self, *, key: Key) -> Table: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[Table]: ...
+    def retrieve(
+        self, *, keys: list[Key] | None = None, where: Where | None = None
+    ) -> list[Table]: ...
 
     def retrieve(
         self,
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
     ) -> Table | list[Table]:
-        """Retrieve one or more tables by key.
+        """Retrieves tables. With no arguments, it retrieves all of them.
 
         :param key: The key of a single table to retrieve.
         :param keys: The keys of the tables to retrieve.
-        :returns: The table when ``key`` is provided, otherwise a list of tables.
-        :raises NotFoundError: If any of the requested tables does not exist.
+        :param where: A filter that the tables must also match.
+        :returns: The table when ``key`` is provided, otherwise a list.
+            The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no table has it.
         """
         is_single = key is not None
-        req = _RetrieveRequest(keys=normalize(key, keys))
-        res = self._client.send("/table/retrieve", req, _RetrieveResponse)
-        return res.tables[0] if is_single else res.tables
+        if key is not None:
+            keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        res = self._client.send(
+            "/table/retrieve",
+            RetrieveRequest(where=filter.merge(where, flat)),
+            RetrieveResponse,
+        )
+        if not is_single:
+            return res.tables
+        if len(res.tables) == 0:
+            raise NotFoundError(f"Table {key} not found")
+        return res.tables[0]
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.

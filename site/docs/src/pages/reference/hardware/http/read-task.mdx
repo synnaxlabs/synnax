@@ -104,7 +104,9 @@ TypeScript does not create channels. Create one index channel for each endpoint 
 ```typescript
 import { http } from "@synnaxlabs/client";
 
-const [server] = await client.devices.retrieve({ names: ["Weather station"] });
+const [server] = await client.devices.retrieve({
+  where: { name: { eq: "Weather station" } },
+});
 const time = await client.channels.create({
   name: "weather_time",
   isIndex: true,

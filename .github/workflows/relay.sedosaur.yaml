@@ -7,10 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Asks Sedosaur for a review when a pull request into the default branch opens or is
-# ready, and when a member comments `@sedosaur review` or `@greptileai review`. The
-# review holds secrets, so it runs from the default branch through a dispatch. A fork's
-# token cannot dispatch, and the review skips a fork.
+# Asks Sedosaur for a review when a pull request opens or is ready, and when a member
+# comments `@sedosaur review` or `@greptileai review`. The review holds secrets, so it
+# runs from the default branch through a dispatch. A fork's token cannot dispatch, and
+# the review skips a fork.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}
@@ -32,8 +32,7 @@ jobs:
     if: >-
       (github.event_name == 'pull_request'
         && !github.event.pull_request.draft
-        && github.event.pull_request.head.repo.full_name == github.repository
-        && github.event.pull_request.base.ref == github.event.repository.default_branch)
+        && github.event.pull_request.head.repo.full_name == github.repository)
       || (github.event_name == 'issue_comment'
         && github.event.issue.pull_request
         && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
@@ -48,6 +47,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number || github.event.issue.number }}
       REF: ${{ github.event.repository.default_branch }}
+      COMMENT: ${{ github.event.comment.id }}
     steps:
       - name: Start Review - Sedosaur
-        run: gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
+        run: |
+          gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
+            -f comment="$COMMENT"
