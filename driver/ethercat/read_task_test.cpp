@@ -33,6 +33,23 @@ protected:
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
 
+    /// @brief returns a slave on the network with the given enabled value, ready to
+    /// save.
+    [[nodiscard]] synnax::device::Device create_configured_slave(
+        const std::string &network,
+        const uint16_t position,
+        const x::json::json &enabled
+    ) const {
+        auto dev = this->slave_device;
+        dev.key += "_" + network + "_" + std::to_string(position);
+        dev.make = DEVICE_MAKE;
+        dev.model = SLAVE_DEVICE_MODEL;
+        dev.properties["network"] = network;
+        dev.properties["position"] = position;
+        dev.properties["enabled"] = enabled;
+        return dev;
+    }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -740,6 +757,133 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
         warning->description,
         "every bus cycle failed: expected 3, got 1 Next retry 1/∞ in 1.0 s."
     );
+}
+
+/// @brief it should pass the settings saved for each slave on the task's network to the
+/// master, including a slave the task does not read, and ignore an invalid slave on
+/// another network.
+TEST_F(EtherCATReadTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaster) {
+    auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    ASSERT_NIL(this->client->devices.create(on_network));
+    auto off_network = this->create_configured_slave("eth1", 2, nullptr);
+    ASSERT_NIL(this->client->devices.create(off_network));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    auto [read_task, ok] = factory.configure_task(
+        this->ctx,
+        {.rack = this->rack.key, .name = "read", .type = READ_TASK_TYPE, .config = cfg},
+        ""
+    );
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    EXPECT_FALSE(this->mock_master->slave_enabled(1));
+    EXPECT_TRUE(this->mock_master->slave_enabled(2));
+}
+
+/// @brief it should clear the settings of a deleted device from the cached engine, so
+/// the next bus start does not apply them to the slave at that position.
+TEST_F(EtherCATReadTest, ConfigureClearsSettingsOfDeletedDevices) {
+    auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    ASSERT_TRUE(factory.configure_task(this->ctx, task, "").second);
+    ASSERT_FALSE(this->mock_master->slave_enabled(1));
+    ASSERT_NIL(this->client->devices.del(saved.key));
+    ASSERT_TRUE(factory.configure_task(this->ctx, task, "").second);
+    EXPECT_TRUE(this->mock_master->slave_enabled(1));
+}
+
+/// @brief it should fail to configure, naming the slave, when a slave the task does
+/// not read has invalid properties on the task's network.
+TEST_F(EtherCATReadTest, ConfigureFailsWhenASlaveOnTheNetworkIsInvalid) {
+    auto invalid = this->create_configured_slave(NETWORK_INTERFACE, 1, nullptr);
+    invalid.name = "EL3102";
+    ASSERT_NIL(this->client->devices.create(invalid));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    auto [read_task, ok] = factory.configure_task(
+        this->ctx,
+        {.rack = this->rack.key, .name = "read", .type = READ_TASK_TYPE, .config = cfg},
+        "start"
+    );
+    ASSERT_TRUE(ok);
+    EXPECT_EQ(read_task, nullptr);
+    ASSERT_EQ(this->ctx->statuses.size(), 1);
+    const auto &status = this->ctx->statuses[0];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_EQ(
+        status.description,
+        "EL3102 has invalid properties. Every slave on eth0 starts with the bus, so "
+        "fix them before you start the task.\nenabled: type must be boolean, but is "
+        "null"
+    );
+}
+
+/// @brief it should fail to configure, naming both devices, when two devices at one
+/// position have different settings, and configure once their settings match.
+TEST_F(EtherCATReadTest, ConfigureFailsWhenDevicesAtAPositionDisagree) {
+    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    removed.name = "EL3102";
+    ASSERT_NIL(this->client->devices.create(removed));
+    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    replacement.key += "_replacement";
+    replacement.name = "EL3102";
+    replacement.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "start");
+    ASSERT_TRUE(ok);
+    EXPECT_EQ(read_task, nullptr);
+    ASSERT_EQ(this->ctx->statuses.size(), 1);
+    EXPECT_EQ(
+        this->ctx->statuses[0].description,
+        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 1 "
+        "on eth0 with different settings. Give them the same settings, or delete the "
+        "device that is no longer on the bus."
+    );
+    replacement.properties["enabled"] = false;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    ASSERT_NE(factory.configure_task(this->ctx, task, "").first, nullptr);
+    EXPECT_FALSE(this->mock_master->slave_enabled(1));
 }
 
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {

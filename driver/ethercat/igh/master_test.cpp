@@ -167,7 +167,19 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_enabled(1, false);
+    this->master_instance->set_slave_config(1, {.enabled = false});
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
+/// @brief it should disable a slave the replacement configs disable and enable one they
+/// leave out.
+TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->set_slave_config(0, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
@@ -408,7 +420,7 @@ TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_enabled(1, false);
+    this->master_instance->set_slave_config(1, {.enabled = false});
     this->activate_with_domains();
     const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
@@ -452,8 +464,8 @@ TEST_F(IGHMasterTest, DeactivateCallsMasterDeactivate) {
 TEST_F(IGHMasterTest, SetSlaveEnabledReEnable) {
     this->add_default_slave();
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_enabled(0, false);
-    this->master_instance->set_slave_enabled(0, true);
+    this->master_instance->set_slave_config(0, {.enabled = false});
+    this->master_instance->set_slave_config(0, {});
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
