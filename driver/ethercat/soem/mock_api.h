@@ -16,6 +16,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,7 +54,7 @@ struct RegisterWrite {
     uint16_t slave = 0;
     uint16_t address = 0;
     std::vector<uint8_t> data;
-    /// @brief true when the write came after config_map_group, which requests SAFE-OP.
+    /// @brief true when the write came after config_map_group.
     bool mapped = false;
 
     bool operator==(const RegisterWrite &) const = default;
@@ -136,12 +137,25 @@ public:
     std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
+    /// @brief the groups whose process data frames read the reference clock time,
+    /// keyed by group, with the position of the reference slave.
+    std::map<uint8_t, uint16_t> dc_groups;
+    /// @brief the position of the reference slave that configdc found, or 0.
+    uint16_t dc_reference = 0;
     /// @brief writes through write_register, in call order.
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
-    /// @brief whether the mapped group carries the reference clock time.
-    bool hasdc = false;
+    /// @brief the number of state change requests before each register write, in the
+    /// order of register_writes.
+    std::vector<size_t> requests_before_write;
+    /// @brief the bytes read_register gives, keyed by slave and address. A register
+    /// missing from the map reads as zeros.
+    std::map<std::pair<uint16_t, uint16_t>, std::vector<uint8_t>> register_values;
+    /// @brief whether the master requests each state change itself.
+    bool manual_state_change = false;
+    /// @brief manual_state_change at the latest config_map_group call.
+    std::optional<bool> manual_at_map;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -182,6 +196,7 @@ public:
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
+        this->manual_at_map = this->manual_state_change;
         for (size_t i = 0; i < this->slave_infos.size(); ++i)
             if (this->slave_infos[i].group == group)
                 this->run_PO2SOconfig(static_cast<uint16_t>(i + 1));
@@ -228,7 +243,14 @@ public:
 
     bool configdc() override {
         this->configdc_count++;
-        return this->hasdc;
+        this->dc_reference = 0;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].hasdc) {
+                this->dc_reference = static_cast<uint16_t>(i + 1);
+                this->dc_groups[this->slave_infos[i].group] = this->dc_reference;
+                return true;
+            }
+        return false;
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
@@ -242,7 +264,29 @@ public:
         this->register_writes.push_back(
             {slave, address, std::move(data), this->mapped_group.has_value()}
         );
+        this->requests_before_write.push_back(this->state_change_requests.size());
         return this->write_register_return;
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int
+    ) override {
+        std::ranges::fill(data, 0);
+        const auto it = this->register_values.find({slave, address});
+        if (it != this->register_values.end())
+            std::copy_n(
+                it->second.begin(),
+                std::min(it->second.size(), data.size()),
+                data.begin()
+            );
+        return 1;
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->manual_state_change = manual;
     }
 
     int reconfig_slave(uint16_t slave, int) override {
@@ -510,7 +554,14 @@ public:
     }
 
     [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        return group == this->mapped_group && this->hasdc;
+        return this->dc_groups.contains(group);
+    }
+
+    void set_group_dc(uint8_t group) override {
+        if (this->dc_reference == 0)
+            this->dc_groups.erase(group);
+        else
+            this->dc_groups[group] = this->dc_reference;
     }
 };
 

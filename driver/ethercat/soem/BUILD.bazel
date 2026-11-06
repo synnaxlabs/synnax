@@ -98,6 +98,7 @@ cc_library(
     deps = [
         ":soem_api",
         ":util",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/master",

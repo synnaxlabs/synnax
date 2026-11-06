@@ -114,6 +114,21 @@ protected:
         EXPECT_FALSE(err) << err.message();
         return times;
     }
+
+    /// @brief samples, every 20 ms for 3 s, how far the latest frame passed the
+    /// reference clock from half a period after a SYNC0 event. Returns the share of
+    /// samples within a quarter period.
+    [[nodiscard]] double share_in_phase(const x::telem::TimeSpan period) const {
+        constexpr int SAMPLES = 150;
+        int in_phase = 0;
+        for (int i = 0; i < SAMPLES; ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            const auto dc = this->master->dc_time().value_or(master::DC_EPOCH);
+            if (((dc - master::DC_EPOCH) % period - period / 2).abs() < period / 4)
+                ++in_phase;
+        }
+        return static_cast<double>(in_phase) / SAMPLES;
+    }
 };
 
 /// @brief it should decode 16-bit, 32-bit, 24-bit, and 4-bit input entries into samples
@@ -191,6 +206,29 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
         EXPECT_GT(spacing, x::telem::MICROSECOND * 9'900);
         EXPECT_LT(spacing, x::telem::MICROSECOND * 10'100);
     }
+}
+
+/// @brief it should hold each frame half a period after a SYNC0 event while the
+/// distributed clock runs 0.5% faster than the host clock.
+TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+}
+
+/// @brief it should keep the cycle locked to the distributed clock while the working
+/// counter falls short, as while the slaves move to OP.
+TEST_F(EngineTest, LocksTheCycleWhileTheWorkingCounterFallsShort) {
+    this->master->set_host_dc(1.005);
+    this->master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
@@ -521,6 +559,49 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_EQ(res.second.data, "inconsistent settings");
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should cycle the bus while the slaves move to OP.
+TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto log = this->master->call_log();
+    const auto op = std::ranges::find(log, "op");
+    ASSERT_NE(op, log.end());
+    EXPECT_LT(std::ranges::find(log, "send"), op);
+}
+
+/// @brief it should run no slave recovery while the slaves move to OP, and stop the
+/// cycle before it deactivates the master when a slave refuses a state.
+TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    const auto log = this->master->call_log();
+    EXPECT_GE(std::ranges::count(log, "send"), 1);
+    EXPECT_EQ(std::ranges::count(log, "check"), 0);
+    EXPECT_EQ(std::ranges::count(log, "deactivate"), 1);
+    EXPECT_EQ(log.back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(0));
+}
+
+/// @brief it should stop the cycle and retry when the slaves do not reach OP in time.
+TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+    EXPECT_EQ(this->master->call_log().back(), "deactivate");
     EXPECT_FALSE(this->engine->running());
 }
 

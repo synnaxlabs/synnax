@@ -13,6 +13,7 @@
 #include <cstring>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -103,6 +104,19 @@ public:
         std::vector<uint8_t> data,
         int timeout
     ) = 0;
+
+    /// @brief reads a register of a slave into data with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave answered.
+    virtual int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) = 0;
+
+    /// @brief sets whether the master requests each state change itself. When it is
+    /// false, config_init requests PRE-OP and config_map_group requests SAFE-OP.
+    virtual void set_manual_state_change(bool manual) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -236,6 +250,11 @@ public:
     /// @brief returns true when the group's process data frames carry the reference
     /// clock time.
     [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
+
+    /// @brief makes the process data frames of a group read the reference clock time.
+    /// configdc does this only for the group of the reference slave. Call it after
+    /// configdc.
+    virtual void set_group_dc(uint8_t grp) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -315,6 +334,26 @@ public:
             data.data(),
             timeout
         );
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPRD(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->context.manualstatechange = manual ? 1 : 0;
     }
 
     int reconfig_slave(uint16_t slave, int timeout) override {
@@ -506,6 +545,11 @@ public:
 
     [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
         return this->context.grouplist[grp].hasdc;
+    }
+
+    void set_group_dc(uint8_t grp) override {
+        this->context.grouplist[grp].hasdc = this->context.slavelist[0].hasdc;
+        this->context.grouplist[grp].DCnext = this->context.slavelist[0].DCnext;
     }
 };
 

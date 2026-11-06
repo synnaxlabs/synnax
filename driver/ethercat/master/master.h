@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -25,6 +26,8 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::master {
+/// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
+inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -55,9 +58,15 @@ public:
     /// back to the defaults of slave::Config. Takes effect at the next activate().
     virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
 
-    /// @brief maps the process data of every enabled slave and transitions the enabled
-    /// slaves to OP.
-    [[nodiscard]] virtual x::errors::Error activate() = 0;
+    /// @brief maps the process data of every enabled slave, calls start_cycle once
+    /// send() and receive() work, sets up the distributed clock sync of each slave in
+    /// DC mode for a bus cycle of period, then moves the enabled slaves to OP while the
+    /// caller cycles the bus. After an error, the caller stops the cycle it started
+    /// before it calls deactivate().
+    /// @returns errors::SLAVE_CONFIG_ERROR when a slave's DC mode is missing or gives
+    /// values its registers cannot hold at the period.
+    [[nodiscard]] virtual x::errors::Error
+    activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;
@@ -71,7 +80,8 @@ public:
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
-    /// clock is not aligned to the host clock. Valid after a successful receive().
+    /// clock is not aligned to the host clock. Valid after a receive() that returns NIL
+    /// or errors::WORKING_COUNTER_ERROR.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).

@@ -21,6 +21,13 @@
 #include "driver/ethercat/igh/mock_api.h"
 
 namespace driver::ethercat::igh {
+namespace {
+/// @brief a bus cycle that sends nothing. The mock API needs no process data.
+void no_cycle() {}
+
+/// @brief the bus cycle period the specs activate the master with.
+const x::telem::TimeSpan PERIOD = x::telem::MILLISECOND;
+}
 
 class IGHMasterTest : public ::testing::Test {
 protected:
@@ -52,7 +59,7 @@ protected:
     void activate_with_domains(size_t output_sz = 16, size_t input_sz = 16) {
         this->mock_api->set_output_domain_size(output_sz);
         this->mock_api->set_input_domain_size(input_sz);
-        ASSERT_NIL(this->master_instance->activate());
+        ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     }
 };
 
@@ -182,7 +189,7 @@ TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
 TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {
     this->initialize_with_slave();
     this->mock_api->set_slave_config_fails(true);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "failed to configure slave 0 (TestSlave)");
 }
@@ -222,7 +229,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0x06090031);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -238,7 +245,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveDoesNotAnswerStartupParameter) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -252,7 +259,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenStartupParameterCannotBeConfigured) {
     this->initialize_with_slave();
     this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
     this->mock_api->set_config_sdo_fails(true);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
@@ -275,44 +282,63 @@ TEST_F(IGHMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);
     this->mock_api->set_input_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
+}
+
+/// @brief it should start the bus cycle once send() works.
+TEST_F(IGHMasterTest, ActivateStartsTheCycleOnceSendWorks) {
+    this->initialize_with_slave();
+    this->mock_api->set_output_domain_size(8);
+    this->mock_api->set_input_domain_size(8);
+    bool started = false;
+    ASSERT_NIL(this->master_instance->activate(PERIOD, [&] {
+        ASSERT_NIL(this->master_instance->send());
+        started = true;
+    }));
+    EXPECT_TRUE(started);
 }
 
 TEST_F(IGHMasterTest, ActivateNotInitializedFails) {
-    ASSERT_OCCURRED_AS(this->master_instance->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master_instance->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(IGHMasterTest, ActivateIdempotent) {
     this->initialize_with_slave();
     this->activate_with_domains();
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateMasterActivateFails) {
     this->initialize_with_slave();
     this->mock_api->set_activate_result(-1);
-    ASSERT_OCCURRED_AS(this->master_instance->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master_instance->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(IGHMasterTest, ActivateOutputDomainDataNullWithNonzeroSize) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(0);
     this->mock_api->set_input_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateInputDomainDataNullWithNonzeroSize) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);
     this->mock_api->set_input_domain_size(0);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateZeroDomainSizesSucceeds) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(0);
     this->mock_api->set_input_domain_size(0);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ReceiveNotActivatedFails) {
@@ -418,7 +444,7 @@ TEST_F(IGHMasterTest, InputDataAfterActivation) {
     this->initialize_with_slave();
     this->mock_api->set_input_domain_size(8);
     this->mock_api->set_output_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     auto data = this->master_instance->input_data();
     EXPECT_EQ(data.size(), 8u);
 }
@@ -427,7 +453,7 @@ TEST_F(IGHMasterTest, OutputDataAfterActivation) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(4);
     this->mock_api->set_input_domain_size(4);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     auto data = this->master_instance->output_data();
     EXPECT_EQ(data.size(), 4u);
 }

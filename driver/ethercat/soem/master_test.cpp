@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -19,6 +21,39 @@
 #include "driver/ethercat/soem/mock_api.h"
 
 namespace driver::ethercat::soem {
+namespace {
+/// @brief a bus cycle that sends nothing. The mock API needs no process data to reach
+/// OP.
+void no_cycle() {}
+
+/// @brief the bus cycle period the specs activate the master with.
+const x::telem::TimeSpan PERIOD = x::telem::MILLISECOND;
+
+/// @brief the little-endian bytes of value.
+template<typename T>
+std::vector<uint8_t> bytes(const T value) {
+    std::vector<uint8_t> out(sizeof(T));
+    for (size_t i = 0; i < sizeof(T); ++i)
+        out[i] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * i));
+    return out;
+}
+
+/// @brief the only mode of a module that runs in DC mode alone: SYNC0 of 1 us and
+/// SYNC1 of 1000 bus cycles.
+const dc::OpMode DC_ONLY{
+    .name = "DC",
+    .assign_activate = 0x0700,
+    .sync0_cycle = 1000,
+    .sync1_factor = -1000,
+};
+const dc::OpMode SM{.name = "SM-Synchron", .sync0_factor = 1};
+/// @brief a DC mode with a SYNC0 of 1 s and a SYNC1 at each SYNC0 event.
+const dc::OpMode DC_SECOND{
+    .name = "DC",
+    .assign_activate = 0x0700,
+    .sync0_cycle = 1000000000,
+};
+}
 
 class SOEMMasterTest : public ::testing::Test {
 protected:
@@ -57,13 +92,59 @@ protected:
         ASSERT_NIL(this->master->initialize());
     }
 
+    /// @brief writes modes to the SII DC category that every slave reads.
+    void set_op_modes(const std::vector<dc::OpMode> &modes) {
+        constexpr uint16_t start = 0x200;
+        this->mock->sii_categories = {{60, start}};
+        const auto put = [this](const size_t addr, const uint64_t value, const int n) {
+            for (int i = 0; i < n; ++i)
+                this->mock
+                    ->sii_bytes[static_cast<uint16_t>(addr + i)] = static_cast<uint8_t>(
+                    value >> (8 * i)
+                );
+        };
+        put(start, modes.size() * 12, 2);
+        for (size_t i = 0; i < modes.size(); ++i) {
+            const auto &m = modes[i];
+            const size_t a = start + 2 + i * 24;
+            put(a, m.sync0_cycle, 4);
+            put(a + 4, static_cast<uint32_t>(m.sync0_shift), 4);
+            put(a + 8, static_cast<uint32_t>(m.sync1_shift), 4);
+            put(a + 12, static_cast<uint16_t>(m.sync1_factor), 2);
+            put(a + 14, m.assign_activate, 2);
+            put(a + 16, static_cast<uint16_t>(m.sync0_factor), 2);
+            if (m.name.empty()) continue;
+            put(a + 18, i + 1, 1);
+            this->mock->sii_strings[static_cast<uint16_t>(i + 1)] = m.name;
+        }
+    }
+
+    /// @brief initializes the master with one DC slave named name that lists modes,
+    /// and gives it a DC system time of 5 s.
+    void initialize_with_dc_slave(
+        const std::vector<dc::OpMode> &modes,
+        const std::string &name = "16xAO"
+    ) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.hasdc = true;
+        slave.name = name;
+        this->add_slave(slave);
+        this->set_op_modes(modes);
+        this->mock->register_values[{1, 0x0910}] = bytes<uint64_t>(5'000'000'000);
+        ASSERT_NIL(this->master->initialize());
+        this->mock->obytes = 2;
+        this->mock->ibytes = 4;
+        this->mock->state_change_requests.clear();
+    }
+
     void activate_master() {
         this->mock->obytes = 2;
         this->mock->ibytes = 4;
         this->mock->outputs_wkc = 1;
         this->mock->inputs_wkc = 1;
         this->mock->receive_return = 3;
-        ASSERT_NIL(this->master->activate());
+        ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
         this->mock->state_change_requests.clear();
         this->mock->written_slaves.clear();
     }
@@ -289,6 +370,94 @@ TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     EXPECT_TRUE(this->mock->eeprom_held.empty());
 }
 
+/// @brief it should read the synchronization modes a slave lists in its SII DC
+/// category, in SII order.
+TEST_F(SOEMMasterTest, InitializeReadsOpModesFromSII) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // The DC category of a slave on the test bench: SM, DC with a 1 s SYNC0, and DC
+    // with a 1 us SYNC0 and a SYNC1 of 1000 bus cycles.
+    const std::vector<uint8_t> category = {
+        36, 0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0,    1,    0, 3,    0,    0, 0, 0, 0, 0,    0xCA, 0x9A, 0x3B,
+        0,  0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0x07, 0,    0,    4,
+        0,  0, 0,    0,    0, 0xE8, 0x03, 0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0x18, 0xFC, 0, 0x07, 0,    0, 5, 0, 0, 0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+    this->mock->sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {
+        {.name = "SM-Synchron", .sync0_factor = 1},
+        {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+        {.name = "DC-bus1",
+         .assign_activate = 0x0700,
+         .sync0_cycle = 1000,
+         .sync1_factor = -1000},
+    };
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should give the EEPROM back to the slave after it reads the OpModes.
+TEST_F(SOEMMasterTest, InitializeGivesTheEEPROMBackAfterReadingOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One SM mode with every field 0.
+    std::vector<uint8_t> category(26, 0);
+    category[0] = 12;
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    ASSERT_EQ(this->master->slaves()[0].properties.op_modes.size(), 1);
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
+/// @brief it should read negative shift times and leave the name of a mode empty when
+/// the SII gives none.
+TEST_F(SOEMMasterTest, InitializeReadsSignedShiftsAndUnnamedOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One DC mode: SYNC0 = bus cycle, SYNC0 shift -100 us, SYNC1 shift 25 us, no name.
+    const std::vector<uint8_t> category = {
+        12, 0,    0,    0,    0,    0,    0x60, 0x79, 0xFE, 0xFF, 0xA8, 0x61, 0,
+        0,  0x01, 0x00, 0x00, 0x03, 0x01, 0x00, 0,    0,    0,    0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {{
+        .assign_activate = 0x0300,
+        .sync0_factor = 1,
+        .sync0_shift = -100000,
+        .sync1_factor = 1,
+        .sync1_shift = 25000,
+    }};
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should give a slave no synchronization modes when its SII has no DC
+/// category.
+TEST_F(SOEMMasterTest, InitializeGivesNoOpModesWithoutDCCategory) {
+    this->initialize_with_slave();
+    EXPECT_TRUE(this->master->slaves()[0].properties.op_modes.empty());
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
@@ -297,19 +466,28 @@ TEST_F(SOEMMasterTest, ActivateHappyPath) {
 }
 
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(SOEMMasterTest, ActivateAlreadyActivated) {
     this->initialize_with_slave();
     this->activate_master();
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(SOEMMasterTest, ActivateConfigMapFails) {
     this->initialize_with_slave();
     this->mock->config_map_return = 0;
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 /// @brief it should return a refusal with the AL status as soon as a slave refuses
@@ -322,7 +500,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
                                                          EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     this->mock->readstate_count = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
@@ -340,7 +518,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP;
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
     EXPECT_EQ(err.data, "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP");
@@ -364,7 +542,7 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
     this->mock->readstate_count = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
@@ -390,7 +568,7 @@ TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
@@ -412,37 +590,14 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
                                                              EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x0025;
     this->mock->readstate_count = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         err.data,
         "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Invalid output mapping"
     );
-    // One read each for SAFE-OP, OP, and the recovery to SAFE-OP.
-    EXPECT_EQ(this->mock->readstate_count, 3);
-}
-
-/// @brief it should recover a slave that refused OP to SAFE-OP without forcing INIT,
-/// although its error flag stays set.
-TEST_F(SOEMMasterTest, ActivateOpRefusalRecoversToSafeOp) {
-    this->initialize_with_slave();
-    this->mock->obytes = 2;
-    this->mock->ibytes = 4;
-    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_SAFE_OP +
-                                                         EC_STATE_ERROR;
-    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
-                                                             EC_STATE_ERROR;
-    this->mock->slave_infos[0].ALstatuscode = 0x0025;
-    this->mock->state_change_requests.clear();
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_REFUSED);
-    EXPECT_EQ(
-        this->mock->state_change_requests,
-        (std::vector<std::pair<uint16_t, uint16_t>>{
-            {1, EC_STATE_SAFE_OP},
-            {1, EC_STATE_OPERATIONAL},
-            {1, EC_STATE_SAFE_OP},
-        })
-    );
+    // One read each for SAFE-OP and OP.
+    EXPECT_EQ(this->mock->readstate_count, 2);
 }
 
 /// @brief it should return a timing fault at once, with its AL status, as an error that
@@ -455,14 +610,14 @@ TEST_F(SOEMMasterTest, ActivateOpTimingFaultIsNotARefusal) {
                                                              EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x001B;
     this->mock->readstate_count = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
     EXPECT_EQ(
         err.data,
         "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
     );
-    EXPECT_EQ(this->mock->readstate_count, 3);
+    EXPECT_EQ(this->mock->readstate_count, 2);
 }
 
 /// @brief it should not count a slave that asks to go back to PRE-OP as a refusal,
@@ -474,7 +629,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRestartRequestIsNotARefusal) {
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x0022;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
     EXPECT_EQ(
@@ -488,18 +643,29 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master->activate(PERIOD, no_cycle),
+        errors::STATE_CHANGE_ERROR
+    );
 }
 
-/// @brief it should exchange process data while it waits for the slaves to reach OP.
-TEST_F(SOEMMasterTest, ActivateExchangesProcessDataUntilOperational) {
+/// @brief it should start the bus cycle once send() works and before it requests
+/// SAFE-OP, and leave every frame to the cycle.
+TEST_F(SOEMMasterTest, ActivateStartsTheCycleBeforeSAFEOP) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_pending_polls[EC_STATE_OPERATIONAL] = 3;
-    ASSERT_NIL(this->master->activate());
-    EXPECT_EQ(this->mock->send_count, 5);
-    EXPECT_EQ(this->mock->receive_count, 5);
+    bool started = false;
+    std::vector<std::pair<uint16_t, uint16_t>> requests;
+    ASSERT_NIL(this->master->activate(PERIOD, [&] {
+        ASSERT_NIL(this->master->send());
+        requests = this->mock->state_change_requests;
+        started = true;
+    }));
+    EXPECT_TRUE(started);
+    EXPECT_TRUE(requests.empty());
+    EXPECT_EQ(this->mock->send_count, 1);
 }
 
 TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
@@ -517,7 +683,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
     EXPECT_EQ(this->mock->slave_infos[1].group, 2);
     EXPECT_EQ(this->mock->mapped_group, 1);
@@ -536,7 +702,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
     const std::vector<std::pair<uint16_t, uint16_t>> expected = {
         {1, EC_STATE_SAFE_OP},
         {1, EC_STATE_OPERATIONAL},
@@ -559,7 +725,7 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->master->set_slave_config(3, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
     const std::vector<RegisterWrite> expected = {
         {.slave = 1, .address = 0x0980, .data = {0}},
         {.slave = 1, .address = 0x0981, .data = {0}},
@@ -577,10 +743,131 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     this->add_slave(dc);
     ASSERT_NIL(this->master->initialize());
     this->mock->write_register_return = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
+}
+
+/// @brief it should map the slaves without a request for SAFE-OP, so the master sets up
+/// DC sync first, and then let the next config_init request PRE-OP again.
+TEST_F(SOEMMasterTest, ActivateMapsSlavesWithManualStateChange) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_EQ(this->mock->manual_at_map, true);
+    EXPECT_FALSE(this->mock->manual_state_change);
+}
+
+/// @brief it should start SYNC0 and SYNC1 on a slave that lists only a DC mode, before
+/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC0 cycle at least
+/// 100 ms after the system time of the slave.
+TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}},
+        {.slave = 1, .address = 0x0981, .data = {0}},
+        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
+        {.slave = 1, .address = 0x09A0, .data = bytes<uint32_t>(1000), .mapped = true},
+        {.slave = 1,
+         .address = 0x09A4,
+         .data = bytes<uint32_t>(999'999'000),
+         .mapped = true},
+        {.slave = 1,
+         .address = 0x0990,
+         .data = bytes<uint64_t>(5'100'001'000),
+         .mapped = true},
+        {.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+    EXPECT_EQ(this->mock->requests_before_write, std::vector<size_t>(7, 0));
+}
+
+/// @brief it should leave DC sync off on a slave that lists an SM mode.
+TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}},
+        {.slave = 1, .address = 0x0981, .data = {0}},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should run a slave in the synchronization mode set in its config.
+TEST_F(SOEMMasterTest, ActivateUsesTheSetDCMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    this->master->set_slave_config(1, {.enabled = true, .dc_mode = 1});
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].data, bytes<uint32_t>(1'000'000'000));
+    EXPECT_EQ(this->mock->register_writes[4].data, bytes<uint32_t>(0));
+    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(6'000'000'000));
+}
+
+/// @brief it should leave DC sync off on a slave set to run in an SM mode.
+TEST_F(SOEMMasterTest, ActivateLeavesSyncOffInTheSetSMMode) {
+    this->initialize_with_dc_slave({DC_SECOND, SM});
+    this->master->set_slave_config(1, {.enabled = true, .dc_mode = 1});
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    EXPECT_EQ(this->mock->register_writes.size(), 2);
+}
+
+/// @brief it should fail activation and list the modes of a slave when its config sets
+/// a mode the slave does not have.
+TEST_F(SOEMMasterTest, ActivateFailsWhenTheSetDCModeIsMissing) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    this->master->set_slave_config(1, {.enabled = true, .dc_mode = 2});
+    const auto err = this->master->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (16xAO) has no synchronization mode 2. Its modes are 0 (SM-Synchron, "
+        "AssignActivate 0x0000), 1 (DC, AssignActivate 0x0700)."
+    );
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should fail activation before it requests SAFE-OP when the mode of a slave
+/// gives values its DC registers cannot hold at the bus cycle.
+TEST_F(SOEMMasterTest, ActivateFailsWhenTheDCModeCannotRunAtThePeriod) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    const auto period = x::telem::MILLISECOND * 10;
+    const auto err = this->master->activate(period, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (16xAO) cannot run mode DC at a bus cycle of " + period.to_string() +
+            ": " + dc::resolve(DC_ONLY, period).second.data
+    );
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should write only 0x0980 on a slave whose mode gives the sync unit to the
+/// PDI.
+TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
+    );
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    ASSERT_EQ(this->mock->register_writes.size(), 3);
+    EXPECT_EQ(
+        this->mock->register_writes[2],
+        (RegisterWrite{.slave = 1, .address = 0x0980, .data = {0x01}, .mapped = true})
+    );
+}
+
+/// @brief it should turn DC sync off when it stops the bus.
+TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
+    this->mock->register_writes.clear();
+    this->master->deactivate();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
+        {.slave = 1, .address = 0x0981, .data = {0}, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.
@@ -677,9 +964,31 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
+/// @brief it should read the reference clock time in the frames of the enabled slaves
+/// when the reference slave, the first slave with a distributed clock, is disabled.
+TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
+    MockSlaveInfo reference;
+    reference.state = EC_STATE_PRE_OP;
+    reference.hasdc = true;
+    this->add_slave(reference);
+    MockSlaveInfo enabled;
+    enabled.state = EC_STATE_PRE_OP;
+    enabled.hasdc = true;
+    this->add_slave(enabled);
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_config(1, {.enabled = false});
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
@@ -872,7 +1181,7 @@ TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     this->master->set_slave_config(1, {});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
 }
 
@@ -886,7 +1195,7 @@ TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
     EXPECT_EQ(this->mock->slave_infos[1].group, 2);
 }
@@ -1062,7 +1371,7 @@ TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     serve_padded_txpdo(*this->mock);
     ASSERT_NIL(this->master->initialize());
     this->mock->ibytes = 3;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
 
     const auto offset = ASSERT_NIL_P(
         this->master->pdo_offset(pdo::Entry(1, 0x6000, 17, 16, true, x::telem::INT16_T))
@@ -1078,7 +1387,7 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     serve_padded_txpdo(*this->mock);
     ASSERT_NIL(this->master->initialize());
     this->mock->ibytes = 2;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
 
     const auto err = this->master
                          ->pdo_offset(
@@ -1130,7 +1439,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
     this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1146,7 +1455,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1161,7 +1470,7 @@ TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
     this->mock->push_sdo_abort(1, 0x1C12, 0, 0x06020000);
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
-    const auto err = this->master->activate();
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -1227,7 +1536,7 @@ TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
     this->master->set_slave_config(1, {.startup_parameters = {assign_1a01}});
     this->mock->slave_infos[0].Ibits = 16;
     this->mock->ibytes = 2;
-    ASSERT_NIL(this->master->activate());
+    ASSERT_NIL(this->master->activate(PERIOD, no_cycle));
 
     const auto offset = ASSERT_NIL_P(
         this->master->pdo_offset(pdo::Entry(1, 0x6010, 1, 16, true, x::telem::INT16_T))

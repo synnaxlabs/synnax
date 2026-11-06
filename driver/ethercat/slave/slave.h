@@ -22,6 +22,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -204,6 +205,9 @@ struct Config {
     bool enabled = true;
     /// @brief CoE objects written to the slave before each move to SAFE-OP.
     std::vector<StartupParameter> startup_parameters;
+    /// @brief the index in the slave's op_modes of the synchronization mode the master
+    /// sets up. When unset, dc::select picks it.
+    std::optional<uint16_t> dc_mode;
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
@@ -230,6 +234,8 @@ struct Properties {
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
+    /// @brief synchronization modes the slave lists in its SII, in SII order.
+    std::vector<dc::OpMode> op_modes;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
@@ -237,12 +243,16 @@ struct Properties {
     /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
     /// user, so to_json leaves them out and a scan keeps them.
     std::vector<StartupParameter> startup_parameters;
+    /// @brief the index in op_modes of the synchronization mode the master sets up, or
+    /// unset to let dc::select pick it. Set by the user, so to_json leaves it out.
+    std::optional<uint16_t> dc_mode;
 
     /// @brief returns the settings the master applies to the slave when the bus starts.
     [[nodiscard]] Config config() const {
         return {
             .enabled = this->enabled,
-            .startup_parameters = this->startup_parameters
+            .startup_parameters = this->startup_parameters,
+            .dc_mode = this->dc_mode,
         };
     }
 
@@ -276,6 +286,8 @@ struct Properties {
             parser.iter("startup_parameters", [&props](x::json::Parser &param) {
                 props.startup_parameters.push_back(StartupParameter::parse(param));
             });
+        props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
+        if (parser.has("dc_mode")) props.dc_mode = parser.field<uint16_t>("dc_mode");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
@@ -302,6 +314,11 @@ struct Properties {
         props["output_bits"] = this->output_bits;
         props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
         props["enabled"] = this->enabled;
+
+        nlohmann::json op_modes = nlohmann::json::array();
+        for (const auto &mode: this->op_modes)
+            op_modes.push_back(mode.to_json());
+        props["op_modes"] = op_modes;
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)

@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
@@ -49,6 +50,15 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
     std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
+    /// @brief the index of the synchronization mode set for each slave, keyed by
+    /// position. A slave missing from the map gets the mode dc::select picks.
+    std::map<uint16_t, uint16_t> dc_modes;
+
+    /// @brief the DC registers of one slave that runs in a DC mode.
+    struct DCSetup {
+        uint16_t position = 0;
+        dc::Registers registers;
+    };
     /// @brief why each slave rejected a startup parameter at its latest move to
     /// SAFE-OP, keyed by position.
     std::map<uint16_t, std::string> startup_failures;
@@ -80,7 +90,10 @@ public:
 
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate() override;
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
 
     void deactivate() override;
 
@@ -129,6 +142,10 @@ private:
     /// @brief discovers PDOs from SII EEPROM (fallback method).
     void discover_pdos_sii(slave::DiscoveryResult &slave);
 
+    /// @brief reads the synchronization modes the slave at the given position lists in
+    /// its SII. Returns an empty list when the SII has no DC category.
+    std::vector<dc::OpMode> read_op_modes(uint16_t position);
+
     /// @brief reads PDO assignment object to get list of assigned PDOs.
     x::errors::Error read_pdo_assign(
         uint16_t slave_pos,
@@ -157,18 +174,34 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
+    /// @brief writes data to a DC register of a slave.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take the write.
+    x::errors::Error
+    write_dc_register(uint16_t pos, uint16_t address, std::vector<uint8_t> data);
+
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock.
     x::errors::Error clear_dc_activation();
 
+    /// @brief returns the DC registers of each enabled slave whose synchronization
+    /// mode uses a distributed clock, at a bus cycle of period.
+    /// @returns errors::SLAVE_CONFIG_ERROR when a slave has no mode at its set index,
+    /// or when its mode gives values the registers cannot hold.
+    std::pair<std::vector<DCSetup>, x::errors::Error>
+    resolve_dc(x::telem::TimeSpan period);
+
+    /// @brief waits until the system time difference of each slave in setups is under
+    /// DC_SETTLED_DIFF. Logs a warning and returns after DC_SETTLE_TIMEOUT.
+    void wait_for_dc_settle(const std::vector<DCSetup> &setups);
+
+    /// @brief writes the DC registers of each slave in setups, with its first SYNC0
+    /// event DC_START_DELAY after its system time. Call it while the bus cycles and
+    /// before SAFE-OP.
+    x::errors::Error start_dc(const std::vector<DCSetup> &setups);
+
     /// @brief requests the state from all enabled slaves, then waits until they reach
-    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
-    /// before_read, if set, before each read of the slave states.
-    x::errors::Error request_state(
-        uint16_t state,
-        int timeout,
-        const std::function<void()> &before_read = nullptr
-    );
+    /// it, one of them refuses it, or the timeout in microseconds passes.
+    x::errors::Error request_state(uint16_t state, int timeout);
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -177,10 +210,6 @@ private:
     /// error. A slave above the state can still show an error from before a request to
     /// go down.
     [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
-
-    /// @brief transitions all enabled slaves to OP while exchanging process data, so
-    /// slaves with a sync manager watchdog see valid outputs.
-    x::errors::Error request_operational();
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
