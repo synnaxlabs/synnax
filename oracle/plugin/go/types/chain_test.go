@@ -1027,6 +1027,65 @@ var _ = Describe("Stored references through the importing version file", func() 
 	})
 })
 
+var _ = Describe("Frozen enum that the live file omits", func() {
+	It("Should keep the enum while a frozen declaration stores it", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/doc/v1.oracle", `
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/doc.oracle", `
+@go output "core/pkg/service/doc"
+
+Side enum {
+	left = "left"
+
+	@go omit
+}
+
+Doc struct {
+	key uuid @key
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+		Expect(frozen).To(ContainSubstring("type Side string"))
+	})
+})
+
 var _ = Describe("Minting on top of a version", func() {
 	generate := func(files map[string]string, live []string) *plugin.Response {
 		GinkgoHelper()
@@ -1134,6 +1193,39 @@ Side enum {
 
 Doc struct {
 	key uuid @key
+}
+`,
+			}, "schemas/synnax/doc"),
+		Entry("when the new version drops a stored enum",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+	side Side
 }
 `,
 			}, "schemas/synnax/doc"),
