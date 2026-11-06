@@ -11,3 +11,4 @@ export * from "@/task/actions";
 export * from "@/task/actions.gen";
 export * from "@/task/client";
 export * from "@/task/types.gen";
+export { type WhereInput } from "@/task/where.gen";

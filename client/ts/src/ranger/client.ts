@@ -286,7 +286,22 @@ const retrieveMultiParamsZ = z.union([
     where: { overlaps },
   })),
   callerRequestZ,
-  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(callerRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated Use `overlaps`. */
+    overlapsWith: {
+      hint: "Use overlaps.",
+      read: (range: CrudeTimeRange) =>
+        new TimeRange(range).isZero ? {} : { overlaps: range },
+    },
+    /** @deprecated Use `labels`. */
+    hasLabels: "labels",
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  }),
 ]);
 
 /**

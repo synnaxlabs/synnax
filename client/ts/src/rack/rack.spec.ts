@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, sleep, TimeStamp, zod } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -231,6 +231,26 @@ describe("Rack", () => {
           return results.map((r) => r.name).sort();
         })
         .toEqual(names);
+    });
+  });
+  describe("shipped fields", () => {
+    it("should read integration as integrations, and an empty one as unset", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const [a, b] = await client.racks.create([
+        { name: `shipped-${id.create()}` },
+        { name: `shipped-${id.create()}`, integrations: ["labjack"] },
+      ]);
+      const keys = [a.key, b.key];
+      const params: rack.RetrieveMultipleParams = { keys, integration: "labjack" };
+      expect((await client.racks.retrieve(params)).map((r) => r.key)).toEqual([b.key]);
+      expect(
+        (await client.racks.retrieve({ keys, integration: "" }))
+          .map((r) => r.key)
+          .sort(),
+      ).toEqual(keys.sort());
+      expect(warn).toHaveBeenCalledWith(
+        "integration is deprecated and will be removed in v0.62. Use integrations.",
+      );
     });
   });
   describe("integrations", () => {

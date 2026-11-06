@@ -44,7 +44,12 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: { hint: "Use key.", read: (keys: Key[]) => ({ key: keys }) },
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  }),
 ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;

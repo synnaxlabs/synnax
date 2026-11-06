@@ -51,7 +51,19 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const callerRequestZ = retrieveRequestZ.omit({ includeLabels: true });
 export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
-const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
+const filterParamsZ = query.shippedZ(
+  retrieveInputZ(callerRequestZ.omit({ where: true }).shape),
+  {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `variant`. */
+    variants: "variant",
+    /** @deprecated Use `labels`. */
+    hasLabels: "labels",
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  },
+);
 type FilterParams = z.input<typeof filterParamsZ>;
 
 const retrieveMultiParamsZ = z.union([

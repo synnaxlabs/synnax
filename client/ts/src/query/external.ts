@@ -35,6 +35,7 @@ export {
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";
+export { ignoreNotFoundError, type Shipped, shippedZ } from "@/query/shipped";
 export { type Listener } from "@/query/streamer";
 export {
   createDeleteListener,

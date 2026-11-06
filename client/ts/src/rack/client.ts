@@ -39,7 +39,18 @@ export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated Use `integrations`. */
+    integration: {
+      hint: "Use integrations.",
+      read: (integration: string) =>
+        integration === "" ? {} : { integrations: integration },
+    },
+  }),
 ]);
 export const rackZ = payloadZ;
 
@@ -59,7 +70,7 @@ const singleRetrieveParamsZ = z.union([
 ]);
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 

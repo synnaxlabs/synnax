@@ -46,7 +46,12 @@ type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): Request => query.keysRequest(keys)),
   parentRequestZ,
-  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(parentRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  }),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });

@@ -84,7 +84,7 @@ export interface KeyParams {
 
 export const useName = createSelector(({ name }) => name);
 
-export type ListQuery = task.RetrieveMultipleParams;
+export type ListQuery = task.RetrieveRequest;
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,

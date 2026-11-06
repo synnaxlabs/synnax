@@ -55,7 +55,14 @@ export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
   cachedRequestZ,
-  retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(cachedRequestZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated A list retrieve drops missing keys. */
+    ignoreNotFoundError: query.ignoreNotFoundError,
+  }),
 ]);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

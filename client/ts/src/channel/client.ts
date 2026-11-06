@@ -225,7 +225,28 @@ export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key }
 
 const retrieveParamsZ = z.union([
   retrieveMultipleParamsZ,
-  retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
+  query.shippedZ(retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape), {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `namePatterns`. */
+    names: "namePatterns",
+    /** @deprecated Use `leaseholder`. */
+    nodeKey: {
+      hint: "Use leaseholder.",
+      read: (nodeKey: number) => (nodeKey === 0 ? {} : { leaseholder: nodeKey }),
+    },
+    /** @deprecated Use `dataType`. */
+    dataTypes: "dataType",
+    /** @deprecated Use `not: { dataType }`. */
+    notDataTypes: {
+      hint: "Use `not: { dataType }`.",
+      read: (dataTypes: z.input<typeof DataType.z>[]) => ({
+        not: { dataType: dataTypes },
+      }),
+    },
+    /** @deprecated It has no effect. */
+    legacyCalculated: { hint: "It has no effect.", read: () => ({}) },
+  }),
 ]);
 
 const aliasedRetrieveRequestZ = z.object({

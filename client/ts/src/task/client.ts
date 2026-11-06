@@ -338,10 +338,19 @@ const singleRetrieveParamsZ = z.union([
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 /** Everything a multi-task retrieval can filter on. */
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
-type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const filterParamsZ = query.shippedZ(
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  {
+    /** @deprecated Use `key`. */
+    keys: "key",
+    /** @deprecated Use `name`. */
+    names: "name",
+    /** @deprecated Use `type`. */
+    types: "type",
+  },
+);
 
 const retrieveParamsZ = z.union([
   singleRetrieveParamsZ,
@@ -648,13 +657,11 @@ export class Client extends query.Retriever<
   ): Promise<Task<S>>;
   async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
-    params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
+    params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(
-    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
-  ): Promise<Task[]>;
+  async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | Key[] | ((RetrieveParams | FilterParams) & RetrieveSchemas<S>),
+    rawParams: Key | Key[] | (RetrieveParams & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as unknown as Task<S>[];
@@ -704,7 +711,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams | FilterParams,
+    params: RetrieveParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
