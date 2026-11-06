@@ -39,7 +39,7 @@ runs:
     - name: Restore the browser cache
       id: cache
       if: runner.os == 'Linux'
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: |
           ~/.cache/ms-playwright
@@ -88,7 +88,7 @@ runs:
         runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && (github.ref
         == 'refs/heads/main' || (github.event_name != 'merge_group' &&
         steps.cache.outputs.cache-matched-key == ''))
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: |
           ~/.cache/ms-playwright

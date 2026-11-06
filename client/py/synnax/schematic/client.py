@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project
-from synnax.exceptions import NotFoundError
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import (
     Key,
@@ -22,6 +21,7 @@ from synnax.schematic.types_gen import (
     Schematic,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -151,9 +151,7 @@ class Client:
         )
         if not is_single:
             return res.schematics
-        if len(res.schematics) == 0:
-            raise NotFoundError(f"Schematic {key} not found")
-        return res.schematics[0]
+        return one("Schematic", key, res.schematics)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.

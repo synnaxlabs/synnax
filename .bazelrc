@@ -86,54 +86,23 @@ build:windows --copt=/W3  # warning level 3; -Wall on MSVC is /W4 plus extras
 # emits for every cl flag it does not recognise, failing on assembly with no diagnostic.
 build:windows --cxxopt=/WX
 build:windows --conlyopt=/WX
-build:windows --copt=/wd4514  # 'function': unreferenced inline function has been removed (common in headers)
-build:windows --copt=/wd5039  # pointer/reference to potentially throwing function passed to extern C (Windows SDK headers)
-build:windows --copt=/wd4710  # 'function': function not inlined (informational)
-build:windows --copt=/wd4711  # function 'function' selected for automatic inline expansion (informational)
-build:windows --copt=/wd4946  # reinterpret_cast used between related classes (abseil-cpp)
-build:windows --copt=/wd5243  # using incomplete type with member function pointer (protobuf)
-build:windows --copt=/wd5045  # Compiler will insert Spectre mitigation (informational)
+# Level 4 warnings raised to level 3 so /W3 reports them.
+build:windows --copt=/w34388  # signed/unsigned mismatch in a comparison
+build:windows --copt=/w34389  # signed/unsigned mismatch in == and !=
 build:windows --copt=/wd4267  # 'var' : conversion from 'size_t' to 'type', possible loss of data (protobuf headers)
 build:windows --copt=/wd4244  # conversion from 'type1' to 'type2', possible loss of data (protobuf headers)
-build:windows --copt=/wd4371  # layout of class may have changed from a previous version (protobuf/STL)
-build:windows --copt=/wd4868  # compiler may not enforce left-to-right evaluation order in braced initializer list
-build:windows --copt=/wd4866  # compiler may not enforce left-to-right evaluation order for function calls
-build:windows --copt=/wd4702  # unreachable code (common with if constexpr in templates)
-build:windows --copt=/wd4355  # 'this': used in base member initializer list (gRPC headers)
-build:windows --copt=/wd4365  # conversion from one type to another, signed/unsigned mismatch (STL/gRPC interaction)
-build:windows --copt=/wd4820  # padding added after data member (GoogleTest)
-build:windows --copt=/wd4625  # copy constructor implicitly deleted (GoogleTest)
-build:windows --copt=/wd4626  # assignment operator implicitly deleted (GoogleTest)
-build:windows --copt=/wd5026  # move constructor implicitly deleted (GoogleTest)
-build:windows --copt=/wd5027  # move assignment operator implicitly deleted (GoogleTest)
-build:windows --copt=/wd4458  # declaration hides class member
-build:windows --copt=/wd4388  # signed/unsigned mismatch
-build:windows --copt=/wd4389  # signed/unsigned mismatch
-build:windows --copt=/wd4582  # constructor not implicitly called
-build:windows --copt=/wd4583  # destructor not implicitly called (abseil StatusOr<grpc TLS options>)
-build:windows --copt=/wd4623  # default constructor implicitly deleted
-build:windows --copt=/wd4100  # unreferenced formal parameter
-build:windows --copt=/wd4800  # implicit conversion to bool
-build:windows --copt=/wd4127  # conditional expression is constant
-build:windows --copt=/wd4018  # signed/unsigned mismatch
-build:windows --copt=/wd5267  # definition of implicit copy constructor is deprecated
-build:windows --copt=/wd5219  # implicit conversion, possible loss of data
 build:windows --copt=/wd4305  # truncation from double to float
-build:windows --copt=/wd4242  # conversion with possible loss of data
-build:windows --copt=/wd4668  # 'macro' not defined as preprocessor macro (Windows SDK headers)
-build:windows --copt=/wd5220  # volatile qualified type no longer implies trivial constructors (open62541)
 build:windows --copt=/wd4146  # unary minus operator applied to unsigned type (telem templates)
-build:windows --copt=/wd4061  # enumerator not explicitly handled by case label (mbedtls headers)
-build:windows --copt=/wd4435  # object layout under /vd2 will change due to virtual base (NI channel hierarchy)
 build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
-build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
-build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
 # MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level (A1013), so
 # assembly gets neither of these flags, nor the /WX above. It still receives the /wd
 # flags, but only warns about the ones it does not know.
 build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+# External headers warn at level 0, as -isystem does on the other platforms.
+build:windows --features=external_include_paths
+build:windows --copt=/external:W0
 
 # Bazel hands the full cl.exe flag set to ml64 for OpenSSL's generated assembly, and
 # MASM mangles the ones it does not know until it writes no object at all. /bigobj,
@@ -259,6 +228,8 @@ build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:tsan --linkopt=-fsanitize=thread
 build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
 build:tsan --test_timeout=120,600,1800,3600  # TSan adds ~5-15x overhead
+test:tsan-no-aslr --config=tsan
+test:tsan-no-aslr --run_under="setarch -R"
 
 # Combined sanitizers (recommended for local development)
 build:sanitize --config=asan
