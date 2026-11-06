@@ -832,6 +832,20 @@ TEST_F(SOEMMasterTest, ActivateShiftsTheFirstSYNC0Event) {
     EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(6'000'250'000));
 }
 
+/// @brief it should put the first SYNC0 event at least 100 ms after the system time of
+/// the slave when the shift of the mode is negative.
+TEST_F(SOEMMasterTest, ActivateKeepsTheFirstSYNC0EventAheadWithANegativeShift) {
+    this->initialize_with_dc_slave({{
+        .name = "DC",
+        .assign_activate = 0x0300,
+        .sync0_cycle = 1'000'000,
+        .sync0_shift = -200'000'000,
+    }});
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(5'101'000'000));
+}
+
 /// @brief it should leave DC sync off on a slave that lists an SM mode.
 TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
     this->initialize_with_dc_slave({SM, DC_SECOND});
@@ -926,6 +940,29 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
     const std::vector<RegisterWrite> expected = {
         {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
         {.slave = 1, .address = 0x0981, .data = {0}, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should turn DC sync off on every slave when it stops the bus, also after
+/// a slave fails a write.
+TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->activate());
+    this->mock->register_writes.clear();
+    this->mock->unwritable_slaves = {1};
+    this->master->deactivate();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
+        {.slave = 2, .address = 0x0980, .data = {0}, .mapped = true},
+        {.slave = 2, .address = 0x0981, .data = {0}, .mapped = true},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }

@@ -123,6 +123,8 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief slaves whose register writes return a working counter of 0.
+    std::set<uint16_t> unwritable_slaves;
     /// @brief the number of state change requests before each register write, in the
     /// order of register_writes.
     std::vector<size_t> requests_before_write;
@@ -230,6 +232,7 @@ public:
             {slave, address, std::move(data), this->mapped_group.has_value()}
         );
         this->requests_before_write.push_back(this->state_change_requests.size());
+        if (this->unwritable_slaves.contains(slave)) return 0;
         return this->write_register_return;
     }
 

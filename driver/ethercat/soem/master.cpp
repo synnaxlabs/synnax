@@ -1067,6 +1067,7 @@ x::errors::Error Master::read_dc_register(
 }
 
 x::errors::Error Master::clear_dc_activation() {
+    std::string failed;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
             continue;
@@ -1074,9 +1075,14 @@ x::errors::Error Master::clear_dc_activation() {
         // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
         // writes to 0x0981.
         for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
-            if (auto err = this->write_dc_register(pos, address, {0})) return err;
+            if (const auto err = this->write_dc_register(pos, address, {0})) {
+                if (!failed.empty()) failed += "; ";
+                failed += err.data;
+                break;
+            }
     }
-    return x::errors::NIL;
+    if (failed.empty()) return x::errors::NIL;
+    return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
 std::pair<std::vector<Master::DCSetup>, x::errors::Error>
@@ -1158,19 +1164,33 @@ x::errors::Error Master::start_dc() {
         std::array<uint8_t, 8> raw{};
         if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSTIME, raw)) return err;
         const int64_t cycle = regs.sync0_cycle;
+        const int64_t shift = regs.sync0_shift;
         const int64_t ahead = from_little_endian<int64_t>(raw) +
                               DC_START_DELAY.nanoseconds();
-        // SYNC0 events fall on whole cycles of DC time, the grid the cycle lock uses.
-        const int64_t start = (cycle > 0 ? (ahead / cycle + 1) * cycle : ahead) +
-                              regs.sync0_shift;
-        const std::array<std::pair<uint16_t, std::vector<uint8_t>>, 4> writes = {{
-            {ECT_REG_DCCYCLE0, little_endian(regs.sync0_cycle)},
-            {ECT_REG_DCCYCLE1, little_endian(regs.sync1_cycle)},
-            {ECT_REG_DCSTART0, little_endian(start)},
-            {ECT_REG_DCSYNCACT, {act}},
-        }};
-        for (const auto &[address, data]: writes)
-            if (auto err = this->write_dc_register(pos, address, data)) return err;
+        // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the
+        // cycle lock uses. The first one is at least DC_START_DELAY away.
+        int64_t start = ahead;
+        if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
+        if (auto err = this->write_dc_register(
+                pos,
+                ECT_REG_DCCYCLE0,
+                little_endian(regs.sync0_cycle)
+            ))
+            return err;
+        if (auto err = this->write_dc_register(
+                pos,
+                ECT_REG_DCCYCLE1,
+                little_endian(regs.sync1_cycle)
+            ))
+            return err;
+        if (auto err = this->write_dc_register(
+                pos,
+                ECT_REG_DCSTART0,
+                little_endian(start)
+            ))
+            return err;
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, {act}))
+            return err;
         LOG(INFO) << std::format(
             "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
             "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
