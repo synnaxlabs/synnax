@@ -511,6 +511,42 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
+    def test_commit_result_reports_commit_without_control(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+
+        def frame(second: int) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    idx_ch.key: [sy.TimeStamp(sy.TimeSpan.SECOND * second)],
+                    data_ch.key: np.random.rand(1).astype(np.float64),
+                }
+            )
+
+        low = client.open_writer(
+            start=start,
+            channels=indexed_pair,
+            authorities=100,
+            enable_auto_commit=False,
+        )
+        try:
+            low.write(frame(1))
+            # The acknowledged command orders the write before the next writer opens.
+            low.set_authority(100)
+            high = client.open_writer(
+                start=start, channels=indexed_pair, authorities=200
+            )
+            assert not low.commit_result().authorized
+            high.close()
+            low.write(frame(2))
+            granted = low.commit_result()
+            assert granted.authorized
+            assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
+        finally:
+            low.close()
+
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
