@@ -59,7 +59,7 @@ report() {
     esac
 }
 
-for side in base head; do
+for side in head base; do
     dir=$base
     [ "$side" = head ] && dir=$head
     if ! (cd "$dir" && report "$dir") > "$out/$side.txt" 2> "$out/$side.log"; then

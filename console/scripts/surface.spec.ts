@@ -50,6 +50,13 @@ describe("report", () => {
     expect(after).not.toEqual(before);
   });
 
+  it("should report a field whose schema has no JSON form", () => {
+    const before = report<State>(scopes(z.object({})));
+    const after = report<State>(scopes(z.object({ extra: z.unknown() })));
+    expect(after).toContain("global.stored.properties.extra {}");
+    expect(after).not.toEqual(before);
+  });
+
   it("should not change when fields change order", () => {
     const before = report<State>(scopes(z.object({ a: z.number(), b: z.number() })));
     const after = report<State>(scopes(z.object({ b: z.number(), a: z.number() })));

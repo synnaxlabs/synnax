@@ -14,7 +14,7 @@ import { type Persist } from "@/session/persist";
 const flatten = (value: unknown, path: string): string[] => {
   if (Array.isArray(value) && value.every((v) => typeof v !== "object"))
     return [`${path} ${JSON.stringify(value.toSorted())}`];
-  if (typeof value !== "object" || value == null)
+  if (typeof value !== "object" || value == null || Object.keys(value).length === 0)
     return [`${path} ${JSON.stringify(value)}`];
   return Object.entries(value).flatMap(([k, v]) => flatten(v, `${path}.${k}`));
 };
