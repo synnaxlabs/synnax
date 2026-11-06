@@ -335,6 +335,16 @@ class ExecutionClient:
         if waited > _WAIT_LOGGED:
             self._log(f"{test_def} waited {waited:.1f}s for {', '.join(sorted(held))}")
         try:
+            if self.should_stop:
+                future.set_result(
+                    Test(
+                        test_name=test_def.case,
+                        name=test_def.display_name,
+                        status=STATUS.KILLED,
+                        error_message="The run stopped before the test started",
+                    )
+                )
+                return
             future.set_result(self._execute_single_test(test_def))
         finally:
             self._resources.free(threading.current_thread())

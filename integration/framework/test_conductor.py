@@ -404,6 +404,16 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
         sy.sleep(1)
 
 
+def _positive(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not at least 1")
+    return number
+
+
 def main() -> None:
     """Main entry point for the test conductor."""
 
@@ -490,7 +500,7 @@ All matching is case-insensitive substring.
     )
     parser.add_argument(
         "--browsers",
-        type=int,
+        type=_positive,
         help="Most Console tests that run at once (default: no limit)",
     )
 
