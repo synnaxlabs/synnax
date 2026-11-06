@@ -64,8 +64,15 @@ describe("Path.rounded", () => {
     expect(Path.rounded(HORIZONTAL, [crossing], 10)).toContain("A5,5");
   });
 
-  it("ignores a wide hop that does not fit on a run", () => {
-    expect(Path.rounded(HORIZONTAL, [{ x: 8, y: 50, radius: 8 }])).toEqual(
+  it.each([
+    { name: "start", x: 12 },
+    { name: "end", x: 88 },
+  ])("shrinks a wide hop to fit near the run's $name", ({ x }) => {
+    expect(Path.rounded(HORIZONTAL, [{ x, y: 50, radius: 12 }])).toContain("A10,10");
+  });
+
+  it("ignores a wide hop with less room than a default hop", () => {
+    expect(Path.rounded(HORIZONTAL, [{ x: 6, y: 50, radius: 12 }])).toEqual(
       "M0,50L100,50",
     );
   });

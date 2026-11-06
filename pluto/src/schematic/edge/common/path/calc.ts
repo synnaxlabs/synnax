@@ -13,6 +13,8 @@ const RADIUS = 6;
 /// @brief fillet radius rounding each foot of a hop into the run; arc plus fillets rise
 /// radius + FOOT, matching a plain semicircle's footprint.
 const FOOT = 2;
+/// @brief smallest radius a wide hop shrinks to near the end of a run.
+const MIN_HOP_RADIUS = 5;
 /// @brief largest perpendicular gap allowed when snapping a jump onto a run; generous
 /// since reconstructed jump points can sit a few pixels off the drawn line.
 const MAX_SNAP = 16;
@@ -74,25 +76,28 @@ const assignHops = (
 ): Hop[][] => {
   const byRun: Hop[][] = runs.map(() => []);
   for (const c of crossings) {
-    const span = c.radius + FOOT;
+    const minSpan = Math.min(c.radius, MIN_HOP_RADIUS) + FOOT;
     let best = -1;
     let bestPerp = MAX_SNAP + snapMargin;
     let bestS = 0;
+    let bestRadius = c.radius;
     runs.forEach(({ from, to }, i) => {
       const len = xy.distance(from, to);
       if (len === 0) return;
       const u = xy.scale(xy.sub(to, from), 1 / len);
       const d = xy.sub(c, from);
       const s = xy.dot(d, u);
-      if (s <= span || s >= len - span) return;
+      const room = Math.min(s, len - s);
+      if (room <= minSpan) return;
       const perp = Math.abs(xy.dot(d, xy.normal(u)));
       if (perp < bestPerp) {
         bestPerp = perp;
         best = i;
         bestS = s;
+        bestRadius = Math.min(c.radius, room - FOOT);
       }
     });
-    if (best >= 0) byRun[best].push({ offset: bestS, radius: c.radius });
+    if (best >= 0) byRun[best].push({ offset: bestS, radius: bestRadius });
   }
   return byRun;
 };
