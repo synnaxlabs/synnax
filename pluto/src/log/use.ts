@@ -9,13 +9,16 @@
 
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { box, type optional } from "@synnaxlabs/x";
+import { box, type optional, TimeSpan } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Channel } from "@/channel";
 import { log } from "@/log/aether";
+
+// Formatting the entry cap takes seconds on a slow machine.
+const COPY_TIMEOUT = TimeSpan.seconds(30);
 
 export interface UseProps
   extends
@@ -33,11 +36,10 @@ export interface UseProps
         | "selectionEnd"
         | "visibleStart"
         | "rowEntries"
-        | "selectedText"
-        | "selectedLines"
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
+        | "position"
       >,
       "visible"
     >,
@@ -48,6 +50,11 @@ export interface UseProps
    * trigger pauses it, scrolling back to the bottom resumes it. Controlled callers
    * must reflect the value back through hold. */
   onHold?: (hold: boolean) => void;
+  /** Where a log that mounts paused opens, as reported to onLeave. */
+  position?: string;
+  /** Called when the log unmounts, with the position of a paused view. A live log
+   * reports an empty position. */
+  onLeave?: (position: string) => void;
 }
 
 export type LogState = z.output<typeof log.logStateZ>;
@@ -55,6 +62,7 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
+  methods: { selectedLines: () => Promise<log.Line[]> };
 }
 
 export const use = ({
@@ -64,11 +72,14 @@ export const use = ({
   channelNamesHidden = false,
   timestampsHidden = false,
   timestampPrecision = 0,
+  timeZone = "local",
   channels: rawChannels,
   color,
   telem,
   hold,
   onHold,
+  position,
+  onLeave,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
   const numericChannels = channels
@@ -94,6 +105,7 @@ export const use = ({
     channelNamesHidden,
     timestampsHidden,
     timestampPrecision,
+    timeZone,
     channelNames,
     channelDataTypes,
     channels,
@@ -110,15 +122,18 @@ export const use = ({
     if (holdRef.current != null) onHold?.(false);
   };
 
-  const [, state, setState] = Aether.use({
+  const [, state, setState, methods] = Aether.use({
     aetherKey,
     type: log.Log.TYPE,
     schema: log.logStateZ,
+    methods: log.methodsZ,
+    invokeTimeout: COPY_TIMEOUT,
     initialState: {
       empty: true,
       region: box.ZERO,
       scrolling: false,
       wheelPos: 0,
+      position,
       ...memoProps,
     },
     onAetherChange: handleAetherChange,
@@ -128,5 +143,12 @@ export const use = ({
     setState((s) => ({ ...s, ...memoProps }));
   }, [memoProps, setState]);
 
-  return { state, setState };
+  const stateRef = useSyncedRef(state);
+  const onLeaveRef = useSyncedRef(onLeave);
+  useEffect(
+    () => () => onLeaveRef.current?.(stateRef.current.position),
+    [onLeaveRef, stateRef],
+  );
+
+  return { state, setState, methods };
 };

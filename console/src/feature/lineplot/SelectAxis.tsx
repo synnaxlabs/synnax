@@ -46,7 +46,7 @@ export const YAxisChannelSelect = ({
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
         onChange={handleChange}
         full="x"
         location="top"
@@ -104,7 +104,7 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
         variant="floating"
         location="top"
         icon={<Icon.Time />}
