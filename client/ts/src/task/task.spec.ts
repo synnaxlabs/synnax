@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -255,6 +255,17 @@ describe("Task", async () => {
       });
       const retrieved = await client.tasks.retrieve({ name });
       expect(retrieved.key).toBe(m.key);
+    });
+
+    it("should reject a name that two tasks share", async () => {
+      const name = `test-${id.create()}`;
+      for (let i = 0; i < 2; i++)
+        await testRack.createTask({
+          name,
+          config: { routingKey: "dog" },
+          type: "pagerduty_alert",
+        });
+      await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
     it("should retrieve tasks by search term", async () => {
@@ -1023,6 +1034,134 @@ describe("Task", async () => {
       .poll(() => client.statuses.store.get(stat.key)?.message)
       .toBe(stat.message);
   };
+
+  describe("executeCommandSync", () => {
+    // The wait opens its streamer before it sends the command, so once the command
+    // lands, the wait sees every status written after it.
+    const readCommand = async (
+      streamer: framer.Streamer,
+      key: task.Key,
+    ): Promise<task.Command> => {
+      while (true) {
+        const fr = await streamer.read();
+        const commands = fr.get(task.COMMAND_CHANNEL_NAME).parseJSON(task.commandZ);
+        const cmd = commands.find((c) => c.task === key);
+        if (cmd != null) return cmd;
+      }
+    };
+
+    const setDriverNotRunning = async (key: rack.Key) =>
+      await writer.statuses.set({
+        key: rack.statusKey(key),
+        name: "Rack Status",
+        variant: "warning",
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+        time: TimeStamp.now(),
+        details: { rack: key },
+      });
+
+    it("should end the wait when the Driver of the task goes down", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      // Handled before the outage, which can reject the wait before its write returns.
+      const ended = expect(wait).rejects.toMatchObject({
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+      });
+      await readCommand(streamer, t.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should end the wait of a command sent through the client", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = client.tasks.executeCommandSync({
+        commands: [{ task: t.key, type: "scan" }],
+        timeout: TimeSpan.minutes(1),
+        statusDataZ: z.unknown(),
+      });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
+      await readCommand(streamer, t.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should end the wait of a batch that holds a deleted task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const live = await dying.createTask({
+        name: `live-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const gone = await testRack.createTask({
+        name: `gone-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(gone.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = client.tasks.executeCommandSync({
+        commands: [
+          { task: gone.key, type: "scan" },
+          { task: live.key, type: "scan" },
+        ],
+        timeout: TimeSpan.minutes(1),
+        statusDataZ: z.unknown(),
+      });
+      const ended = expect(wait).rejects.toThrow("Driver not running");
+      await readCommand(streamer, live.key);
+      await setDriverNotRunning(dying.key);
+      await ended;
+    });
+
+    it("should keep waiting through a healthy status of the rack", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `alive-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const cmd = await readCommand(streamer, t.key);
+      await setRackStatus(alive.key, "success", "Driver is running");
+      const reply: task.Status = {
+        key: task.statusKey(t.key),
+        name: t.name,
+        variant: "success",
+        message: "Scan complete",
+        description: "",
+        time: TimeStamp.now(),
+        details: {
+          task: t.key,
+          running: true,
+          cmd: cmd.key,
+          configHash: "",
+          rack: alive.key,
+          data: {},
+        },
+      };
+      await writer.statuses.set(reply);
+      expect(await wait).toMatchObject({ message: "Scan complete" });
+    });
+  });
 
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {

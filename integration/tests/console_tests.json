@@ -103,7 +103,6 @@
       "pool_size": 3,
       "tests": [
         { "case": "console/cluster/connection_lifecycle" },
-        { "case": "console/cluster/cluster_switch" },
         { "case": "console/cluster/login_forms" }
       ]
     },

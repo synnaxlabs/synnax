@@ -19,7 +19,7 @@ import {
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import {
@@ -245,6 +245,17 @@ describe("Channel", () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
+    });
+    test("reject a condition whose operator is undefined", async () => {
+      const name: string | undefined = undefined;
+      await expect(
+        client.channels.retrieve({ where: { name: { eq: name } } }),
+      ).rejects.toThrow(
+        new PathError(
+          ["where", "name"],
+          new ValidationError("no operator set: validation error"),
+        ),
+      );
     });
     test("retrieve by name", async () => {
       const name = id.create();
@@ -793,6 +804,27 @@ describe("cached reads", () => {
         expect(last.corpse.name).toEqual(ch.name);
         await expect(client.channels.retrieve(ch.key)).rejects.toThrow("deleted");
       } finally {
+        off();
+      }
+    });
+
+    it("should admit a renamed channel to a name query locally", async () => {
+      const ch = await createVirtual();
+      const name = `qry_wanted_${id.create()}`;
+      const params = { where: { namePatterns: [name] } };
+      const off = client.channels.onChange(params, vi.fn());
+      const send = spyOnSend(client);
+      try {
+        expect(await client.channels.retrieve(params)).toEqual([]);
+        send.mockClear();
+        await client.channels.rename(ch.key, name);
+        expect(expectLive(client.channels.getCached(params)).map((c) => c.key)).toEqual(
+          [ch.key],
+        );
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+      } finally {
+        send.mockRestore();
         off();
       }
     });
