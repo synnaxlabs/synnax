@@ -191,8 +191,8 @@ describe("local server", () => {
     const message = "x".repeat(256);
     for (let id = 0; id < 10; id++) sendData(ws, { id, message });
     await closed;
-    await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
     await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+    await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
   });
 
   test("should wait to send while the socket buffer is full", async () => {

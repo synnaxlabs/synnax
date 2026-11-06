@@ -186,10 +186,10 @@ class WebSocketStream<
     this.ws.close();
     this.receiveDataQueue.length = 0;
     this.receiveQueueBytes = 0;
-    const err = new ReceiveOverflow(
+    this.serverClosed = new ReceiveOverflow(
       `stream holds more than ${limit} bytes of unread messages`,
     );
-    this.addMessage({ type: "close", error: errors.encode(err) });
+    this.addMessage({ type: "close", error: errors.encode(this.serverClosed) });
   }
 
   private listenForMessages(): void {

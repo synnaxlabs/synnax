@@ -267,17 +267,26 @@ class BaseStreamer implements Streamer {
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.adapter.advance();
-    await this.stream.send({
-      keys: Array.from(this.adapter.keys),
-      downsampleFactor: this.downsampleFactor,
-      throttleRate: this.throttleRate,
-      excludeGroups: this.excludeGroups,
-      ackRequested: waitForAck,
-    });
-    if (!waitForAck) return;
-    const ack = Promise.withResolvers<void>();
-    this.pendingAcks.push(ack);
-    await ack.promise;
+    // Registered before send can wait, so a read that fails meanwhile rejects it.
+    const ack = waitForAck ? Promise.withResolvers<void>() : null;
+    if (ack != null) this.pendingAcks.push(ack);
+    try {
+      await this.stream.send({
+        keys: Array.from(this.adapter.keys),
+        downsampleFactor: this.downsampleFactor,
+        throttleRate: this.throttleRate,
+        excludeGroups: this.excludeGroups,
+        ackRequested: waitForAck,
+      });
+    } catch (err) {
+      if (ack == null) throw errors.fromUnknown(err);
+      const i = this.pendingAcks.indexOf(ack);
+      // A failed read already rejected the ack with the cause.
+      if (i === -1) return await ack.promise;
+      this.pendingAcks.splice(i, 1);
+      throw errors.fromUnknown(err);
+    }
+    await ack?.promise;
   }
 
   close(): void {
