@@ -46,8 +46,7 @@ type refStep struct {
 	optional bool
 	// elem is the type of an array step's elements.
 	elem resolution.TypeRef
-	// union and variant name the union type and the variant a variant step switches
-	// to.
+	// union and variant name the union type and the variant a variant step switches to.
 	union   resolution.Type
 	variant string
 }
@@ -394,12 +393,11 @@ func leafModeOf(f resolution.Field, isSlice bool) leafMode {
 	}
 }
 
-// nestedRef is a reference that a @retrieve references type holds, with the Go code
-// of its Targets and Detach functions.
+// nestedRef is a reference that the walk found, with the Go code of its Targets and
+// Detach functions.
 type nestedRef struct {
 	refInfo
-	// KeyType and EntryType are the Go types of the holding entry's key and of the
-	// entry.
+	// KeyType and EntryType are the Go types of the key and of the holding entry.
 	KeyType   string
 	EntryType string
 	// TargetsBody is the body of the reference's Targets function.
@@ -481,8 +479,8 @@ func (rd *renderer) variantGoType(s refStep) string {
 	return prefix + casing.VariantTypeName(name, s.variant)
 }
 
-// walk writes code that reaches every leaf under nodes from expr. When mutable is
-// true, the code can assign to each leaf it reaches.
+// walk writes code that reaches every leaf under nodes from expr. When mutable is true,
+// the code can assign to each leaf it reaches.
 func (rd *renderer) walk(
 	b *strings.Builder,
 	nodes []*stepNode,
@@ -685,9 +683,8 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	return b.String(), nil
 }
 
-// extractNestedRefs returns the references a @retrieve references type holds.
-// renderNestedRefs renders the references that walked found on typ, whose entries
-// have the Go type entryType and keys of the Go type keyType.
+// renderNestedRefs renders the references that walked found on typ, whose entries have
+// the Go type entryType and keys of the Go type keyType.
 func renderNestedRefs(
 	typ resolution.Type,
 	walked []*walkedRef,

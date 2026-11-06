@@ -164,8 +164,8 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("ConfigTask", func() {
 		It("Should return the task whose config record a target names", func() {
 			key := uuid.New()
-			Expect(MustBeOk(svc.ConfigTask(gorp.NewTarget("labjack_read_config", key)))).
-				To(Equal(task.ResourceID(key)))
+			id := MustBeOk(svc.ConfigTask(gorp.NewTarget("labjack_read_config", key)))
+			Expect(id).To(Equal(task.ResourceID(key)))
 		})
 
 		It("Should return false for a table that holds no config records", func() {

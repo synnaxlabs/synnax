@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// DropDangling removes from e each target of the table's references that does not
-// exist in tx, through the Detach of the reference that holds it. It keeps a missing
-// target whose reference has no Detach, which the write check of e then rejects. A
-// target whose key is not in the text form of its table's keys does not exist.
-// DropDangling reports whether it removed a target.
+// DropDangling removes from e each target of the table's references that does not exist
+// in tx, through the Detach of the reference that holds it. It keeps a missing target
+// whose reference has no Detach, which the write check of e then rejects. A target
+// whose key is not in the text form of its table's keys does not exist. DropDangling
+// reports whether it removed a target.
 func (t *Table[K, E]) DropDangling(ctx context.Context, tx Tx, e *E) (bool, error) {
 	return t.dropDangling(ctx, tx, e, func(Reference[K, E], Target) {})
 }

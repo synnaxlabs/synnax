@@ -1388,12 +1388,15 @@ var _ = Describe("DropDangling", func() {
 	})
 
 	Describe("Table", func() {
-		It("Should drop each missing target and keep the others", func(ctx SpecContext) {
-			devices := open(ctx, refs(rackTarget, clearRack))
-			d := refDevice{Key: "d", Rack: 2, Labels: []string{"a", "b"}}
-			Expect(devices.DropDangling(ctx, db, &d)).To(BeTrue())
-			Expect(d).To(Equal(refDevice{Key: "d", Labels: []string{"a"}}))
-		})
+		It(
+			"Should drop each missing target and keep the others",
+			func(ctx SpecContext) {
+				devices := open(ctx, refs(rackTarget, clearRack))
+				d := refDevice{Key: "d", Rack: 2, Labels: []string{"a", "b"}}
+				Expect(devices.DropDangling(ctx, db, &d)).To(BeTrue())
+				Expect(d).To(Equal(refDevice{Key: "d", Labels: []string{"a"}}))
+			},
+		)
 
 		It("Should report false when every target exists", func(ctx SpecContext) {
 			devices := open(ctx, refs(rackTarget, clearRack))
@@ -1438,10 +1441,10 @@ var _ = Describe("DropDangling", func() {
 			"Should drop the missing targets of every entry when the table opens",
 			func(ctx SpecContext) {
 				w := gorp.WrapWriter[string, refDevice](db)
-				Expect(w.Set(ctx, refDevice{Key: "d1", Rack: 2, Labels: []string{"a"}})).
-					To(Succeed())
-				Expect(w.Set(ctx, refDevice{Key: "d2", Rack: 1, Labels: []string{"b"}})).
-					To(Succeed())
+				d1 := refDevice{Key: "d1", Rack: 2, Labels: []string{"a"}}
+				d2 := refDevice{Key: "d2", Rack: 1, Labels: []string{"b"}}
+				Expect(w.Set(ctx, d1)).To(Succeed())
+				Expect(w.Set(ctx, d2)).To(Succeed())
 				devices := open(
 					ctx,
 					refs(rackTarget, clearRack),
@@ -1463,13 +1466,17 @@ var _ = Describe("DropDangling", func() {
 				Expect(gorp.WrapWriter[string, refDevice](db).
 					Set(ctx, refDevice{Key: "d", Rack: 2})).To(Succeed())
 				ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
-				devices := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
-					DB:              db,
-					Name:            "device",
-					References:      refs(rackTarget, nil),
-					Migrations:      []gorp.Migration{gorp.DanglingMigration("drop")},
-					Instrumentation: ins,
-				}))
+				devices := MustOpen(
+					gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+						DB:         db,
+						Name:       "device",
+						References: refs(rackTarget, nil),
+						Migrations: []gorp.Migration{
+							gorp.DanglingMigration("drop"),
+						},
+						Instrumentation: ins,
+					}),
+				)
 				var d refDevice
 				Expect(devices.NewRetrieve().
 					Where(gorp.MatchKeys[string, refDevice]("d")).

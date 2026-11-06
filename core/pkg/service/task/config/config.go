@@ -55,9 +55,9 @@ type Store interface {
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
-	// Copy duplicates the record stored under from into a new record stored under
-	// to, which must be the key of a task. It returns an error wrapping
-	// query.ErrNotFound when from does not exist.
+	// Copy duplicates the record stored under from into a new record stored under to,
+	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
+	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
 	// shape with defaults applied, and drops each target of the blob's references that
@@ -101,8 +101,8 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// SetEntryKey stamps key onto an entry before it is stored.
 	// [REQUIRED]
 	SetEntryKey func(e *E, key uuid.UUID)
-	// Migrations is the stored-shape migration chain for the record type. Empty for
-	// a type whose stored shape has never changed.
+	// Migrations is the stored-shape migration chain for the record type. Empty for a
+	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
 	// References are the references the records hold, besides the one to their task.
 	// Opening the service drops each target that does not exist from stored entries.
@@ -352,7 +352,11 @@ func (s *Service[E]) Normalize(
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
 	}
-	if _, err := s.table.DropDangling(ctx, gorp.OverrideTx(s.cfg.DB, tx), &e); err != nil {
+	if _, err := s.table.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		&e,
+	); err != nil {
 		return nil, err
 	}
 	return encode(e)

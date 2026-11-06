@@ -206,8 +206,8 @@ func stripTabs(n Node, dropped func(resource.ID) bool) Node {
 }
 
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
-// target to its path from refs. stripTabs runs first, so a tab whose target
-// refs does not name is an invariant violation and errors.
+// target to its path from refs. stripTabs runs first, so a tab whose target refs does
+// not name is an invariant violation and errors.
 func bundleNode(n Node, refs map[resource.ID]string) (any, error) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
