@@ -597,6 +597,9 @@ func (s *Server) getUserSymbolHover(
 		if members := formatModuleMembersList(sym); len(members) > 0 {
 			d.Add(doc.Paragraph("Members: " + strings.Join(members, ", ")))
 		}
+	case symbol.KindConstant:
+		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
 		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))

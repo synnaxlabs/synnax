@@ -107,7 +107,8 @@ const (
 	KindSequence
 	// KindStage represents a stage within a sequence.
 	KindStage
-	// KindConstant represents a pure literal value in a flow statement.
+	// KindConstant represents a pure literal value in a flow statement, or a module
+	// member whose DefaultValue is a fixed value, such as math.nan.
 	KindConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop

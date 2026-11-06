@@ -15,7 +15,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // floatCheck tests |x| against +Inf with op. Each op is false for NaN, so a check that
@@ -51,4 +53,30 @@ func emitFloatCheck[T antlr.ParserRuleContext](
 		ctx.Writer.WriteI32Eqz()
 	}
 	return types.Bool(), nil
+}
+
+// compileFloatConstant emits sym as the float type inferred for this reference. Its
+// value stays out of IR nodes because NaN and infinity have no JSON form.
+func compileFloatConstant[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	sym *symbol.Symbol,
+) (types.Type, error) {
+	value, ok := sym.DefaultValue.(float64)
+	if !ok {
+		return types.Type{}, errors.Newf("constant %s has no float value", sym.Name)
+	}
+	t := ctx.Hint.UnwrapChan()
+	if !t.IsFloat() {
+		t = ctx.TypeMap[ctx.AST]
+	}
+	if !t.IsFloat() {
+		t = types.F64()
+	}
+	t.Unit = nil
+	if t.Kind == types.KindF32 {
+		ctx.Writer.WriteF32Const(float32(value))
+	} else {
+		ctx.Writer.WriteF64Const(value)
+	}
+	return t, nil
 }

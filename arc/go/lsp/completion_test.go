@@ -1121,6 +1121,11 @@ var _ = Describe("Completion", func() {
 				check, found := FindCompletion(completions.Items, "is_nan")
 				Expect(found).To(BeTrue())
 				Expect(ItemTextEdit(check).NewText).To(Equal("math.is_nan($0)"))
+				constant, found := FindCompletion(completions.Items, "nan")
+				Expect(found).To(BeTrue())
+				Expect(constant.Kind).To(Equal(protocol.CompletionItemKindConstant))
+				Expect(ItemTextEdit(constant).NewText).To(Equal("math.nan"))
+				Expect(HasCompletion(completions.Items, "inf")).To(BeTrue())
 			},
 			Entry("in a flow", "math.", 0, 5),
 			Entry("in a func body", "func f() {\n    x := math.\n}", 1, 14),

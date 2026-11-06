@@ -64,6 +64,10 @@ func scale() {x i32} i32 {
 }
 ```
 
+A float can also hold NaN or infinity. `math.nan` and `math.inf` act like a float
+literal: they fit `f32` or `f64`, and they default to `f64`. `x i32 := math.inf` fails
+to compile. See [`math`](/reference/control/arc/standard-library/math#float-constants).
+
 <Divider.Divider x />
 
 ## Casts

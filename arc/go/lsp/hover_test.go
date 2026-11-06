@@ -208,6 +208,21 @@ var _ = Describe("Hover", func() {
 			).To(ContainSubstring("true if a float value is NaN"))
 		})
 
+		It("should provide hover for the 'math.inf' constant", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return x < math.inf\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 22},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.inf"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Constant"))
+			Expect(HoverContents(hover)).To(ContainSubstring("positive infinity"))
+		})
+
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
 			content := "import math\n\nsensor -> math.avg() -> output"
 			OpenArcDocument(server, ctx, uri, content)

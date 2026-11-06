@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -22,10 +23,10 @@ func firstOperandHint[N, T antlr.ParserRuleContext](
 	ctx context.Context[N],
 	operands []T,
 ) types.Type {
-	if !literalOnly(operands[0]) {
+	if !literalOnly(ctx, operands[0]) {
 		return ctx.Hint
 	}
-	if lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(op) }) {
+	if lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(ctx, op) }) {
 		return ctx.Hint
 	}
 	resolved, ok := ctx.TypeMap[ctx.AST]
@@ -35,22 +36,35 @@ func firstOperandHint[N, T antlr.ParserRuleContext](
 	return resolved
 }
 
-// literalOnly reports whether every leaf of node is a numeric literal.
-func literalOnly(node antlr.Tree) bool {
+// literalOnly reports whether every leaf of node is a numeric literal or a module
+// constant.
+func literalOnly[N antlr.ParserRuleContext](
+	ctx context.Context[N],
+	node antlr.Tree,
+) bool {
 	if prim, ok := node.(parser.IPrimaryExpressionContext); ok {
 		if lit := prim.Literal(); lit != nil {
 			return lit.NumericLiteral() != nil
 		}
+		if qid := prim.QualifiedIdentifier(); qid != nil {
+			head, tail := parser.QualifiedNameParts(qid)
+			scope, err := ctx.Scope.Resolve(ctx, head)
+			if err != nil {
+				return false
+			}
+			sym, err := scope.Resolve(ctx, tail)
+			return err == nil && sym.Kind == symbol.KindConstant
+		}
 		if prim.LPAREN() == nil || prim.Expression() == nil {
 			return false
 		}
-		return literalOnly(prim.Expression())
+		return literalOnly(ctx, prim.Expression())
 	}
 	for _, child := range node.GetChildren() {
 		if _, ok := child.(antlr.TerminalNode); ok {
 			continue
 		}
-		if !literalOnly(child) {
+		if !literalOnly(ctx, child) {
 			return false
 		}
 	}

@@ -568,8 +568,8 @@ func (s *Server) getCompletionItems(
 					importEdit = buildAutoImportEdit(doc, mod.Name)
 				}
 				for _, sym := range mod.Children() {
-					if sym.Kind != symbol.KindFunction || sym.Internal ||
-						(mod.UserDefined && !sym.Exported) {
+					if sym.Internal || (mod.UserDefined && !sym.Exported) ||
+						(sym.Kind != symbol.KindFunction && sym.Kind != symbol.KindConstant) {
 						continue
 					}
 					if !sym.Exec.Compatible(execFilter) {
@@ -671,6 +671,9 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 		detail = typeStr
 	} else {
 		kind = protocol.CompletionItemKindVariable
+	}
+	if sym.Kind == symbol.KindConstant {
+		kind = protocol.CompletionItemKindConstant
 	}
 	return protocol.CompletionItem{
 		Label:  sym.Name,

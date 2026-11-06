@@ -27,7 +27,7 @@ import (
 // the float members of the math module.
 func hoverExamples() []TableEntry {
 	// The math.avg reset example does not compile on this branch.
-	floatMembers := set.New("is_nan", "is_infinite", "is_finite")
+	floatMembers := set.New("is_nan", "is_infinite", "is_finite", "nan", "inf")
 	var entries []TableEntry
 	add := func(name string, d doc.Doc) {
 		for i, block := range d.Blocks() {

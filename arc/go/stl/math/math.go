@@ -31,11 +31,13 @@ const (
 	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
 	durationInputParam   = "duration"
+	infSymbolName        = "inf"
 	isFiniteSymbolName   = "is_finite"
 	isInfiniteSymbolName = "is_infinite"
 	isNaNSymbolName      = "is_nan"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
+	nanSymbolName        = "nan"
 	powSymbolName        = "pow"
 	resetInputParam      = "reset"
 )
@@ -163,6 +165,26 @@ var (
 			"sequence main {\n    stage spin_down {\n        not math.is_finite(pump_speed) or pump_speed < 15 => next\n    }\n    stage stopped {\n        1 -> pump_stopped\n    }\n}",
 		),
 	)
+	nanDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func invalid() {x f64} f64 {\n    if x < 0.0 {\n        return math.nan\n    }\n    return x\n}",
+		),
+	)
+	infDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func lowest() {x f64} f64 {\n    low f64 $= math.inf\n    if x < low {\n        low = x\n    }\n    return low\n}",
+		),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
 			"Numerical primitives: running averages, running min/max, derivatives, float checks, and arithmetic helpers.",
@@ -183,6 +205,17 @@ func newFloatCheckSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		}),
 		Trigger: symbol.TriggerOnly,
 		Doc:     doc,
+	}
+}
+
+func newFloatConstant(name string, value float64, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name:         name,
+		Kind:         symbol.KindConstant,
+		Exec:         symbol.ExecBoth,
+		Type:         types.Variable("T", &floatConstraint),
+		DefaultValue: value,
+		Doc:          doc,
 	}
 }
 
@@ -248,6 +281,8 @@ func NewSymbols() []*symbol.Symbol {
 		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
 		newFloatCheckSymbol(isInfiniteSymbolName, isInfiniteDoc),
 		newFloatCheckSymbol(isFiniteSymbolName, isFiniteDoc),
+		newFloatConstant(nanSymbolName, math.NaN(), nanDoc),
+		newFloatConstant(infSymbolName, math.Inf(1), infDoc),
 	)
 	avgBare := *avg
 	avgBare.Deprecated = avg

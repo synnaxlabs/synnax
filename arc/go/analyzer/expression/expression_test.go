@@ -1937,6 +1937,10 @@ var _ = Describe("Expressions", func() {
 			Entry("integer literal", "a := math.is_nan(3)"),
 			Entry("negated integer literal", "a := math.is_finite(-3)"),
 			Entry("integer arithmetic", "a := math.is_infinite(1 + 2)"),
+			Entry("f32 constant", "a f32 := math.inf"),
+			Entry("f64 constant", "a f64 := -math.inf"),
+			Entry("default f64", "a := math.nan\nb f64 := a"),
+			Entry("f32 and f64 uses", "a := w < math.inf and v < math.inf"),
 			Entry("f32 and f64 checks", "a := math.is_nan(w) and math.is_nan(v)"),
 			Entry("channels named nan and inf", "a := nan > 1.0 and inf < 2.0"),
 		)
@@ -1950,6 +1954,10 @@ var _ = Describe("Expressions", func() {
 			Entry("series argument",
 				"a := math.is_finite([1.5, 2.5])", "is not compatible"),
 			Entry("two arguments", "a := math.is_nan(v, v)", "too many arguments"),
+			Entry("i32 constant", "a i32 := math.inf", "not compatible with i32"),
+			Entry("i64 constant", "a i64 := -math.nan", "not compatible with i64"),
+			Entry("i32 comparison", "a := n < math.inf", "not compatible with i32"),
+			Entry("a call", "a := math.inf()", "cannot call non-function"),
 			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
 		)
 	})

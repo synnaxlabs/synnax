@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
@@ -334,6 +335,9 @@ func inferPrimaryType(
 		if err != nil {
 			return types.Type{}
 		}
+		if resolved.Kind == symbol.KindConstant {
+			return inferConstantType(ctx, resolved)
+		}
 		return resolved.Type
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -366,6 +370,26 @@ func inferPrimaryType(
 		}
 	}
 	return types.Type{}
+}
+
+// inferConstantType gives each reference to a module constant its own type variable,
+// so one program can use the same constant as both f32 and f64.
+func inferConstantType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	sym *symbol.Symbol,
+) types.Type {
+	tv := types.Freshen(sym.Type, ctx.ScopedKey("const", ctx.AST))
+	if err := ctx.Constraints.AddEquality(
+		tv,
+		tv,
+		ctx.AST,
+		"constant type variable",
+	); err != nil {
+		zap.S().
+			DPanicf("unexpected error registering type variable with itself: %v", err)
+	}
+	ctx.TypeMap[ctx.AST] = tv
+	return tv
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
@@ -420,11 +444,11 @@ func inferSeriesLiteralType(
 
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
-	allLiterals := parser.IsNumericLiteral(firstExpr)
+	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
-		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
+		thisIsLiteral := parser.IsNumericLiteral(exprs[i]) || isUntypedNumber(nextType)
 		// Literals can unify across int/float (like Go), but variables cannot
 		if allLiterals && thisIsLiteral {
 			if !literalsCompatible(elemType, nextType) {
@@ -455,6 +479,13 @@ func inferSeriesLiteralType(
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+// isUntypedNumber reports whether t is the type of an untyped numeric value, such as
+// a literal or a module constant, which mixes with other literals like a literal.
+func isUntypedNumber(t types.Type) bool {
+	return t.Kind == types.KindVariable && t.Constraint != nil &&
+		isNumericConstraint(t.Constraint.Kind)
 }
 
 // seriesElementCompatible checks if two types are compatible for use in the same series

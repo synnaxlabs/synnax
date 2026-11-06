@@ -296,14 +296,20 @@ current := now() // current timestamp (i64 ns)
 ## NaN and infinity
 
 A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x != x` is
-true only for NaN. The `math` module has these checks.
+true only for NaN. The `math` module has these members. They are not keywords, so a
+channel or a variable can use the name `nan` or `inf`.
 
 - `math.is_nan(x)` - Returns `true` if `x` is NaN
 - `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
 - `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
+- `math.nan` - The NaN value
+- `math.inf` - The positive infinity value. `-math.inf` is negative infinity
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
-literal is read as a float.
+literal is read as a float. The constants act like a float literal: they fit `f32` or
+`f64`, default to `f64`, and do not fit an integer type. Use them in expressions and in
+`func` bodies. A flow variable initializer and a function input value must be literals,
+and the constants are not literals.
 
 ```arc
 import math

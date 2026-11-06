@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "`math`"
 description:
-  "Look up math.avg, math.min, math.max, math.derivative, and the float checks of the
-  Arc math module."
+  "Look up math.avg, math.min, math.max, math.derivative, the float checks, and the
+  float constants of the Arc math module."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -12,8 +12,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The `math` module gives running statistics and rates of change of a numeric value, and
-checks for NaN and infinity. Import it with `import math`. `avg`, `min`, `max`, and
-`derivative` are flow functions: a function body cannot call them.
+checks and constants for NaN and infinity. Import it with `import math`. `avg`, `min`,
+`max`, and `derivative` are flow functions: a function body cannot call them.
 
 `avg`, `min`, and `max` share these parameters:
 
@@ -140,3 +140,28 @@ sequence main {
     }
 }
 ```
+
+<Divider.Divider x />
+
+## Float constants
+
+- `nan` -> the NaN value.
+- `inf` -> the positive infinity value. `-math.inf` is negative infinity.
+
+A constant fits `f32` or `f64`, and it defaults to `f64`. It does not fit an integer
+type. Use a constant in an expression or a function body. A flow variable initializer
+and a function input value must be literals, so they cannot use a constant.
+
+```arc bodies="lowest"
+import math
+
+func lowest() {x f64} f64 {
+    low f64 $= math.inf
+    if x < low {
+        low = x
+    }
+    return low
+}
+```
+
+To test for NaN, use `is_nan`. `x == math.nan` is always `false`.
