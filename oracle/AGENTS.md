@@ -136,8 +136,8 @@ not, whether the schema itself can tell.
 Never fake absence with a value that can also be valid. No `none` enum member, no empty
 string meaning "not applicable" where an empty string is a real value. Such a sentinel
 claims the question was answered when it was not, and it makes the "did you forget"
-check impossible to write. A default that no valid value can equal may mean absence:
-a sample rate of `0`, or a port that is never `0`. Its doc comment says what it means.
+check impossible to write. A default that no valid value can equal may mean absence: a
+sample rate of `0`, or a port that is never `0`. Its doc comment says what it means.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
