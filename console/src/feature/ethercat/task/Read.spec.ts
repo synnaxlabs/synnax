@@ -574,16 +574,16 @@ describe("Read", () => {
       expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
     });
 
-    it("should reject the identifier while another slave uses it", async () => {
-      const identifier = createIdentifier();
-      const owner = await deploySlave(identifier);
-      const { slave, container, statuses } = await renderSlave(identifier);
+    it("should reject an identifier that gives the channel names of a live slave", async () => {
+      const base = createIdentifier();
+      const owner = await deploySlave(`${base}-a`);
+      const { slave, container, statuses } = await renderSlave(`${base}_a`);
       await clickDeploy(container);
       await awaitStatus(
         statuses,
         new RegExp(
-          `Device ${owner.slave.name} also uses the identifier ${identifier}\\. ` +
-            "Change the identifier of one of them\\.",
+          `Device ${owner.slave.name} has an identifier that gives the same channel ` +
+            `names as ${base}_a\\. Change the identifier of one of them\\.`,
         ),
       );
       const updated = await client.devices.retrieve({

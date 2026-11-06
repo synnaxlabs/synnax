@@ -154,14 +154,17 @@ const checkIdentifierFree = async (
   client: Synnax,
   slave: SlaveDevice,
 ): Promise<void> => {
-  const { identifier } = slave.properties;
+  const identifier = channel.escapeInvalidName(slave.properties.identifier);
   const other = (await client.devices.retrieve({})).find(
-    ({ key, properties }) => key !== slave.key && properties?.identifier === identifier,
+    ({ key, properties }) =>
+      key !== slave.key &&
+      typeof properties?.identifier === "string" &&
+      channel.escapeInvalidName(properties.identifier) === identifier,
   );
   if (other != null)
     throw new Error(
-      `Device ${other.name} also uses the identifier ${identifier}. Change the ` +
-        "identifier of one of them.",
+      `Device ${other.name} has an identifier that gives the same channel names as ` +
+        `${slave.properties.identifier}. Change the identifier of one of them.`,
     );
 };
 
@@ -262,8 +265,11 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
   channels: C[];
   /** the name deploying gives each channel's Synnax channel. */
   names: string[];
-  /** @returns the index the Synnax channel of the channel at i must have. */
-  index: (i: number) => number;
+  /**
+   * @returns the index the Synnax channel of the channel at i must have, or undefined
+   * when the channel must not reuse a Synnax channel.
+   */
+  index: (i: number) => number | undefined;
   /** the device's map of channel keys, which receives each bound channel. */
   map: Record<string, number>;
   mapKey?: (ch: C) => string;
@@ -290,7 +296,8 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   return channels.filter((ch, i) => {
     const orphan = existing.get(names[i]);
     if (orphan == null) return true;
-    if (orphan.index !== index(i))
+    const expected = index(i);
+    if (expected == null || orphan.index !== expected)
       throw new Error(
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );

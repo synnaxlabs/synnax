@@ -164,7 +164,12 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       client,
       channels: cmdMissing,
       names: cmdMissing.map((ch) => writeChannelNames(slave, ch).cmd),
-      index: (i) => orphanCmdIndexes.get(cmdIndexNames[i])?.key ?? 0,
+      // A custom name can be a live channel of another device. A default name holds
+      // the slave identifier, so only it is safe to reuse.
+      index: (i) =>
+        primitive.isZero(cmdMissing[i].cmdChannelName)
+          ? orphanCmdIndexes.get(cmdIndexNames[i])?.key
+          : undefined,
       map: existingChannels,
     });
     const stateToCreate = await bindOrphanedChannels({

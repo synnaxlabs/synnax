@@ -373,6 +373,40 @@ describe("Write", () => {
     );
   });
 
+  it("should reject a custom command name that a live slave's channel holds", async () => {
+    const cmdChannelName = uniqueName("ecat_cmd");
+    const renderSlave = async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      return await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [
+          createEntryWriteChannel(slave.key, CONTROL_ENTRY, { cmdChannelName }),
+        ],
+      });
+    };
+    const owner = await renderSlave();
+    await deployAndAwaitTask(
+      client,
+      owner.container,
+      owner.draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    owner.unmount();
+    const { container, statuses } = await renderSlave();
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${cmdChannelName} already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
   it("should surface an error when slaves are on different networks", async () => {
     const slaveA = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
