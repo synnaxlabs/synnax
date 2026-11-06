@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -125,7 +126,7 @@ public:
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
-    std::optional<dc::Registers> dc_sync() const override;
+    std::vector<dc::Registers> dc_sync() const override;
 
     std::string interface_name() const override;
 
@@ -199,10 +200,10 @@ private:
     std::pair<std::vector<DCSetup>, x::errors::Error>
     resolve_dc(x::telem::TimeSpan period) const;
 
-    /// @brief waits until the clock of each slave in dc_setups is within 10 µs of the
-    /// reference clock.
-    /// @returns errors::ACTIVATION_ERROR when a slave does not answer, or when a clock
-    /// does not settle within Config::dc_settle_timeout.
+    /// @brief waits until a frame carries the reference clock to the slaves, then until
+    /// the clock of each slave in dc_setups is within 10 µs of the reference clock.
+    /// @returns errors::ACTIVATION_ERROR when no frame comes back, a slave does not
+    /// answer, or a clock does not settle within Config::dc_settle_timeout.
     x::errors::Error wait_for_dc_settle();
 
     /// @brief starts SYNC0 on each slave in dc_setups, with its first SYNC0 event on a
@@ -215,10 +216,10 @@ private:
     /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
 
-    /// @brief waits until a frame that the cycle sent after the call comes back, or the
-    /// timeout in microseconds passes.
-    /// @returns errors::STATE_CHANGE_ERROR when the timeout passes.
-    x::errors::Error wait_for_frame(int timeout);
+    /// @brief waits until a frame that the cycle sent after the call comes back.
+    /// @returns false when the deadline passes first.
+    [[nodiscard]] bool
+    wait_for_frame(std::chrono::steady_clock::time_point deadline) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
