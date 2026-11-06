@@ -72,10 +72,38 @@ type DB struct {
 	// unlocked, because the open can block on the file system.
 	opening struct {
 		channels map[ChannelKey]int
-		// finished signals that an open ended.
-		finished sync.Cond
+		// deleting counts the time range deletes that wait for or hold each channel.
+		// New opens on those channels wait for them.
+		deleting map[ChannelKey]int
+		// changed closes and is replaced when channels or deleting changes.
+		changed chan struct{}
 		sync.Mutex
 	}
+}
+
+// awaitOpening returns once done is true, or ctx's error if ctx ends first. done runs
+// with db.opening locked.
+func (db *DB) awaitOpening(ctx context.Context, done func() bool) error {
+	db.opening.Lock()
+	defer db.opening.Unlock()
+	for !done() {
+		changed := db.opening.changed
+		db.opening.Unlock()
+		select {
+		case <-changed:
+			db.opening.Lock()
+		case <-ctx.Done():
+			db.opening.Lock()
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+// unsafeNotifyOpening wakes every awaitOpening. The caller must hold db.opening.
+func (db *DB) unsafeNotifyOpening() {
+	close(db.opening.changed)
+	db.opening.changed = make(chan struct{})
 }
 
 // Write writes the frame to database at the specified start time.
@@ -168,11 +196,9 @@ func (db *DB) Close() error {
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.
 	err := db.shutdown.Close()
-	db.opening.Lock()
-	for len(db.opening.channels) > 0 {
-		db.opening.finished.Wait()
-	}
-	db.opening.Unlock()
+	err = errors.Join(err, db.awaitOpening(context.Background(), func() bool {
+		return len(db.opening.channels) == 0
+	}))
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {

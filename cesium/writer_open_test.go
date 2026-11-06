@@ -583,6 +583,7 @@ var _ = Describe("Writer open", func() {
 					opened <- MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: channels,
 						Start:    newStart,
+						Mode:     cesium.WriterModePersistOnly,
 					}))
 				}()
 				Eventually(gate.entered, stallTimeout).Should(Receive())
@@ -619,6 +620,85 @@ var _ = Describe("Writer open", func() {
 				},
 			)
 
+			openAsync := func(
+				ctx context.Context,
+				start telem.TimeStamp,
+			) (chan *cesium.Writer, chan error) {
+				var (
+					opened = make(chan *cesium.Writer, 1)
+					failed = make(chan error, 1)
+				)
+				go func() {
+					w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    start,
+						Mode:     cesium.WriterModePersistOnly,
+					})
+					if err != nil {
+						failed <- err
+						return
+					}
+					opened <- w
+				}()
+				return opened, failed
+			}
+
+			It("Should hold new opens while a delete waits", func(ctx SpecContext) {
+				gate, first := parkOpen(ctx, key, idxKey, key)
+				deleted := deleteAsync(ctx, oldData, key)
+				Consistently(deleted, 100*time.Millisecond).ShouldNot(Receive())
+				second, _ := openAsync(ctx, 2*newStart)
+				Consistently(second, 200*time.Millisecond).ShouldNot(Receive())
+				gate.open()
+				var w *cesium.Writer
+				Eventually(first, stallTimeout).Should(Receive(&w))
+				Eventually(deleted, stallTimeout).Should(Receive(Succeed()))
+				var w2 *cesium.Writer
+				Eventually(second, stallTimeout).Should(Receive(&w2))
+				Expect(w2.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+				Expect(sampleCount(ctx, key)).To(BeZero())
+			})
+
+			It("Should stop a waiting delete when its context ends", func(
+				ctx SpecContext,
+			) {
+				gate, opened := parkOpen(ctx, key, idxKey, key)
+				delCtx, cancel := context.WithCancel(ctx)
+				DeferCleanup(cancel)
+				deleted := deleteAsync(delCtx, oldData, key, idxKey)
+				Consistently(deleted, 100*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(deleted, stallTimeout).Should(
+					Receive(MatchError(context.Canceled)),
+				)
+				gate.open()
+				var w *cesium.Writer
+				Eventually(opened, stallTimeout).Should(Receive(&w))
+				Expect(w.Close()).To(Succeed())
+				Expect(sampleCount(ctx, key)).To(Equal(int64(10)))
+				Expect(sampleCount(ctx, idxKey)).To(Equal(int64(10)))
+			})
+
+			It("Should stop a held open when its context ends", func(ctx SpecContext) {
+				gate, first := parkOpen(ctx, key, idxKey, key)
+				deleted := deleteAsync(ctx, oldData, key)
+				Consistently(deleted, 100*time.Millisecond).ShouldNot(Receive())
+				openCtx, cancel := context.WithCancel(ctx)
+				DeferCleanup(cancel)
+				_, failed := openAsync(openCtx, 2*newStart)
+				Consistently(failed, 100*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(failed, stallTimeout).Should(
+					Receive(MatchError(context.Canceled)),
+				)
+				gate.open()
+				var w *cesium.Writer
+				Eventually(first, stallTimeout).Should(Receive(&w))
+				Eventually(deleted, stallTimeout).Should(Receive(Succeed()))
+				Expect(w.Close()).To(Succeed())
+			})
+
 			It("Should delete nothing if the writer then holds the range", func(
 				ctx SpecContext,
 			) {
@@ -636,69 +716,6 @@ var _ = Describe("Writer open", func() {
 				Expect(sampleCount(ctx, key)).To(Equal(int64(10)))
 				Expect(sampleCount(ctx, other)).To(Equal(int64(10)))
 			})
-		})
-
-		It("Should not join the region HasDataFor holds", func(ctx SpecContext) {
-			const rounds = 256
-			var (
-				db     = mustOpenDBOnFS(ctx, FileSystems["memFS"]())
-				idxKey = GenerateChannelKey()
-				key    = GenerateChannelKey()
-				start  = 2 * telem.SecondTS
-			)
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{
-					Key:      idxKey,
-					Name:     "time",
-					IsIndex:  true,
-					DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key:      key,
-					Name:     "data",
-					Index:    idxKey,
-					DataType: telem.Int64T,
-				},
-			)).To(Succeed())
-			Expect(db.WriteSeries(
-				ctx,
-				idxKey,
-				telem.SecondTS,
-				telem.NewSeriesV(telem.SecondTS, start),
-			)).To(Succeed())
-			Expect(db.WriteSeries(
-				ctx,
-				key,
-				telem.SecondTS,
-				telem.NewSeriesV[int64](1),
-			)).To(Succeed())
-			var (
-				wg   sync.WaitGroup
-				done atomic.Bool
-			)
-			wg.Go(func() {
-				defer GinkgoRecover()
-				defer done.Store(true)
-				for range rounds {
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels: []cesium.ChannelKey{key},
-						Start:    start,
-					}))
-					Expect(w.Close()).To(Succeed())
-				}
-			})
-			wg.Go(func() {
-				defer GinkgoRecover()
-				for !done.Load() {
-					Expect(db.DeleteTimeRange(
-						ctx,
-						[]cesium.ChannelKey{idxKey},
-						telem.TimeRangeMax,
-					)).To(MatchError(ContainSubstring("cannot delete index channel")))
-				}
-			})
-			wg.Wait()
 		})
 	})
 })

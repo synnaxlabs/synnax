@@ -200,7 +200,7 @@ func (db *DB) newStreamWriter(
 	if err != nil {
 		return nil, err
 	}
-	cfg, dbs, finishOpen, err := db.startOpen(cfg)
+	cfg, dbs, finishOpen, err := db.startOpen(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -360,10 +360,34 @@ func (db *DB) notifyControlUpdate(ctx context.Context, update ControlUpdate) {
 
 // startOpen returns the DBs of the channels in cfg and of their indexes, so that a
 // writer can open on them with db.mu unlocked. Deleting one of the channels in cfg
-// fails with resource.ErrOpen, and DB.Close waits, until the caller runs the returned
-// function. cfg comes back with AutoIndex applied. startOpen returns ErrDBClosed once
-// DB.Close has started.
-func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), error) {
+// fails with resource.ErrOpen, and DB.Close and DB.DeleteTimeRange wait, until the
+// caller runs the returned function. cfg comes back with AutoIndex applied. startOpen
+// waits for a time range delete on the channels with db.mu unlocked, and returns ctx's
+// error if ctx ends first. It returns ErrDBClosed once DB.Close has started.
+func (db *DB) startOpen(
+	ctx context.Context,
+	cfg WriterConfig,
+) (WriterConfig, channelDBs, func(), error) {
+	for {
+		expanded, dbs, finish, err := db.tryStartOpen(cfg)
+		if finish != nil || err != nil {
+			return expanded, dbs, finish, err
+		}
+		if err = db.awaitOpening(ctx, func() bool {
+			return !lo.SomeBy(expanded.Channels, func(key ChannelKey) bool {
+				return db.opening.deleting[key] > 0
+			})
+		}); err != nil {
+			return WriterConfig{}, channelDBs{}, nil, err
+		}
+	}
+}
+
+// tryStartOpen does the work of startOpen. It returns a nil function and a nil error
+// if a delete holds one of the channels.
+func (db *DB) tryStartOpen(
+	cfg WriterConfig,
+) (WriterConfig, channelDBs, func(), error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	db.opening.Lock()
@@ -394,6 +418,11 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 		}
 	}
 	for _, key := range cfg.Channels {
+		if db.opening.deleting[key] > 0 {
+			return cfg, channelDBs{}, nil, nil
+		}
+	}
+	for _, key := range cfg.Channels {
 		db.opening.channels[key]++
 	}
 	return cfg, dbs, func() {
@@ -404,7 +433,7 @@ func (db *DB) startOpen(cfg WriterConfig) (WriterConfig, channelDBs, func(), err
 				delete(db.opening.channels, key)
 			}
 		}
-		db.opening.finished.Broadcast()
+		db.unsafeNotifyOpening()
 	}, nil
 }
 

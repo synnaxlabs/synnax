@@ -56,7 +56,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	db.opening.channels = make(map[channel.Key]int)
-	db.opening.finished.L = &db.opening.Mutex
+	db.opening.deleting = make(map[channel.Key]int)
+	db.opening.changed = make(chan struct{})
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
