@@ -39,7 +39,7 @@ const retrieveMultiParamsZ = z.union([
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

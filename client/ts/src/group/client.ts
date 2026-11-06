@@ -55,7 +55,7 @@ const retrieveMultiParamsZ = z.union([
 ]);
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = z.input<typeof parentRequestZ>;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface MultipleRequest extends z.infer<typeof parentRequestZ> {}

@@ -185,7 +185,7 @@ export class Client extends query.Retriever<
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
   async retrieve(
-    params: query.RequestInput<typeof retrieveMultiParamsZ>,
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
     rawParams:
