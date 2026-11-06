@@ -1028,15 +1028,111 @@ var _ = Describe("Stored references through the importing version file", func() 
 })
 
 var _ = Describe("Frozen enum that the live file omits", func() {
-	It("Should keep an enum that a frozen declaration uses or defines alone", func() {
+	frozenV0 := func(v0, v1, live string) string {
+		GinkgoHelper()
 		root := GinkgoT().TempDir()
-		write := func(rel, content string) {
-			GinkgoHelper()
+		for rel, content := range map[string]string{
+			"schemas/synnax/versions/doc/v0.oracle": v0,
+			"schemas/synnax/versions/doc/v1.oracle": v1,
+			"schemas/synnax/doc.oracle":             live,
+		} {
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
-		write("schemas/synnax/versions/doc/v0.oracle", `
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		return generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+	}
+	const (
+		sharedSide = `
+Side = v0.Side
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`
+		liveSide = `
+@go output "core/pkg/service/doc"
+
+Side enum {
+	left = "left"
+
+	@go omit
+}
+
+Doc struct {
+	key uuid @key
+}
+`
+	)
+	DescribeTable("Should keep a shared enum that a frozen declaration uses",
+		func(v0 string) {
+			frozen := frozenV0(v0, sharedSide, liveSide)
+			Expect(frozen).To(ContainSubstring("type Side string"))
+		},
+		Entry("through a field", `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`),
+		Entry("as a union's discriminator", `
+Side enum {
+	left = "left"
+}
+
+Shape union on side Side {
+	left {
+		width int32
+	}
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`),
+	)
+	It("Should drop a shared enum that no frozen declaration uses", func() {
+		frozen := frozenV0(`
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`, sharedSide, liveSide)
+		Expect(frozen).ToNot(ContainSubstring("type Side string"))
+	})
+	It("Should keep an enum that a frozen declaration uses or defines alone", func() {
+		frozen := frozenV0(`
 Side enum {
 	left = "left"
 }
@@ -1051,8 +1147,7 @@ Doc struct {
 
 	@go marshal
 }
-`)
-		write("schemas/synnax/versions/doc/v1.oracle", `
+`, `
 Mode enum {
 	fast = "fast"
 }
@@ -1062,8 +1157,7 @@ Doc struct {
 
 	@go marshal
 }
-`)
-		write("schemas/synnax/doc.oracle", `
+`, `
 @go output "core/pkg/service/doc"
 
 Side enum {
@@ -1082,20 +1176,6 @@ Doc struct {
 	key uuid @key
 }
 `)
-		chains := MustSucceed(versions.Discover(root))
-		loader := analyzer.NewStandardFileLoader(root)
-		table, diag := analyzer.Analyze(
-			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
-		)
-		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
-			&plugin.Request{
-				Resolutions: table,
-				RepoRoot:    root,
-				Versions:    versions.NewResolver(chains, loader),
-			},
-		))
-		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
 		Expect(frozen).To(ContainSubstring("type Side string"))
 		Expect(frozen).To(ContainSubstring("type Mode string"))
 	})
