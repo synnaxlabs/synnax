@@ -21,7 +21,12 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  isConnectionError,
+  NotFoundError,
+} from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
@@ -638,6 +643,14 @@ export class Table<
       );
       if (removal !== "evict") this.refetch(restored);
     };
+  }
+
+  /**
+   * Rejects every fetch in progress with a {@link DisconnectedError}. The table keeps
+   * its entries, and a later retrieve fetches again.
+   */
+  close(): void {
+    this.fetchBatcher?.close(new DisconnectedError("The client is closed."));
   }
 
   private refetch(keys: Key[]): void {

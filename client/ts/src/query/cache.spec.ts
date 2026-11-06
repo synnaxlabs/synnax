@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, type record, Series, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, type record, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -230,6 +230,55 @@ describe("Cache", () => {
       table.set("k1", { key: "k1", name: "A" });
       table.set("k1", { key: "k1", name: "a" });
       expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("close", () => {
+    const setup = (fetch: (keys: string[]) => Promise<Doc[]>) => {
+      const onError = vi.fn();
+      const cache = new query.Cache({ openStreamer: null, onError });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      return { cache, onError, table };
+    };
+
+    it("should reject a table fetch that is running", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      const retrieved = table.retrieve(["k1"]);
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      await expect(retrieved).rejects.toThrow(DisconnectedError);
+    });
+
+    it("should not send a table fetch that is still queued", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, table } = setup(fetch);
+      const retrieved = table.retrieve(["k1"]);
+      await cache.close();
+      await expect(retrieved).rejects.toThrow(DisconnectedError);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should not report a restore fetch that fails after the close", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, onError, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1")();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      held.reject(new Error("no credentials"));
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it("should keep the entries of a closed table", async () => {
+      const { cache, table } = setup(async () => []);
+      table.set("k1", { key: "k1", name: "a" });
+      await cache.close();
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
     });
   });
 
