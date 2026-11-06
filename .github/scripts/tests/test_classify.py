@@ -229,12 +229,12 @@ class TestMain:
 
     @pytest.fixture
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
-        jobs = "".join(f"Compare {name}\n" for name in classify.SURFACES)
-        (tmp_path / "jobs").write_text(jobs)
         for name in classify.SURFACES:
             d = tmp_path / f"surface-{name}"
             d.mkdir()
             (d / "status").write_text("same\n")
+        jobs = "".join(f"Compare {name}\n" for name in classify.SURFACES)
+        (tmp_path / "jobs").write_text(jobs)
         fake = FakeGH()
         monkeypatch.setattr(classify, "gh", fake)
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
