@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  AccessDeniedError,
   type channel,
   DataType,
   framer,
@@ -15,6 +16,7 @@ import {
   UnsupportedError,
 } from "@synnaxlabs/client";
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -913,6 +915,186 @@ describe("StreamMultiChannelLog", () => {
       );
       expectRun(core, a, log);
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+    });
+
+    it("should know the oldest stored time", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, PAGE);
+      await expect
+        .poll(() => log.timeRange?.start.valueOf(), POLL)
+        .toBe(START.valueOf());
+      const newest = entriesOf(log).at(-1)!.timestamp.valueOf();
+      expect(log.timeRange?.end.valueOf()).toBe(newest);
+    });
+
+    it("should retry the oldest stored time after a connectivity failure", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let failed = true;
+      const client = connect(core, {
+        readFirst: async (keys) => {
+          if (failed) {
+            failed = false;
+            throw new Unreachable();
+          }
+          return core.readFirst(keys);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect
+        .poll(() => log.timeRange?.start.valueOf(), POLL)
+        .toBe(START.valueOf());
+    });
+
+    it("should read the oldest stored time again once samples arrive", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let empty = true;
+      const client = connect(core, {
+        readFirst: async (keys) => (empty ? new framer.Frame() : core.readFirst(keys)),
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      expect(log.timeRange).toBeNull();
+      empty = false;
+      core.advance(TimeSpan.seconds(31));
+      await expect
+        .poll(() => log.timeRange?.start.valueOf(), POLL)
+        .toBe(START.valueOf());
+    });
+
+    it("should have no time range before a channel holds samples", async () => {
+      const core = createCore({ now: START });
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      log.value();
+      await expect.poll(() => core.streams(a), POLL).toBe(true);
+      expect(log.timeRange).toBeNull();
+    });
+
+    it("should extend the time range to older samples than it read", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const client = connect(core, {
+        readFirst: async (keys) => core.readLatest(keys, 1),
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => log.timeRange, POLL).not.toBeNull();
+      expect(log.timeRange?.start.valueOf()).toBe(
+        entriesOf(log)[0].timestamp.valueOf(),
+      );
+    });
+
+    it("should notify when samples outside the entries move the time range", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const end = log.timeRange?.end.valueOf();
+      const onChange = vi.fn();
+      closers.push(log.onChange(onChange));
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => onChange.mock.calls.length, POLL).toBeGreaterThan(0);
+      expect(log.timeRange?.end.valueOf()).toBeGreaterThan(end!);
+    });
+
+    it("should not read the oldest time again for samples it did not store", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async () => {
+          reads++;
+          return new framer.Frame();
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const opened = reads;
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE + 10);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(reads).toBe(opened);
+    });
+
+    it("should drop a read of the oldest time from before the channels changed", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async (keys) => {
+          if (++reads === 1) {
+            await released;
+            return core.readFirst(keys);
+          }
+          throw new AccessDeniedError("no access");
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => reads, POLL).toBe(1);
+      log.setChannels([b]);
+      release();
+      await expect.poll(() => reads, POLL).toBe(2);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(log.timeRange).toBeNull();
+    });
+
+    it("should forget the oldest stored time when the channels change", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      let denied = false;
+      const client = connect(core, {
+        readFirst: async (keys) => {
+          if (denied) throw new AccessDeniedError("no access");
+          return core.readFirst(keys);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => log.timeRange, POLL).not.toBeNull();
+      denied = true;
+      log.setChannels([b]);
+      expect(log.timeRange).toBeNull();
+    });
+
+    it("should not repeat a read of the oldest time that the Core refused", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let reads = 0;
+      const client = connect(core, {
+        readFirst: async () => {
+          reads++;
+          throw new AccessDeniedError("no access");
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await expect.poll(() => reads, POLL).toBe(1);
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
+      expect(reads).toBe(1);
+    });
+
+    it("should have no time range for virtual channels", async () => {
+      const core = createCore({ derived: true });
+      const log = open(core, connect(core), { channels: [core.virtual!.key] });
+      log.value();
+      await expect.poll(() => core.streams(core.virtual!.key), POLL).toBe(true);
+      expect(log.timeRange).toBeNull();
     });
 
     it("should keep virtual lines that stream past a log that is not live", async () => {

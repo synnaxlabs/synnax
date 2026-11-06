@@ -45,6 +45,8 @@ const PAGE_SIZE = 10_000;
 const RECHECK_INTERVAL = TimeSpan.seconds(5);
 // How long a sample waits for its time before the log drops it.
 const WAIT_LIMIT = TimeSpan.seconds(20);
+// How long a log waits to read its oldest time again while the Core has none.
+const START_RECHECK_INTERVAL = TimeSpan.seconds(30);
 // The stored samples of each channel that one older page reads.
 const OLDER_PAGE_SIZE = 1_000;
 
@@ -155,11 +157,18 @@ export class StreamMultiChannelLog
   // unread holds the spans newer than the entries, oldest first. The log is live while
   // it is empty. Otherwise the last span counts the samples that stream past the log.
   private unread: Unread[] = [];
+  // start is the oldest time the channels store, once known.
+  private start: TimeStamp | null = null;
+  // startRead counts the reads of start, and the newest one sets it.
+  private startRead = 0;
+  private startPending = false;
+  private startReadAt = TimeStamp.ZERO;
   // skipped holds the streamed lines of channels that store nothing, which no read can
   // find again, while the log is not live.
   private skipped: LogEntry[][] = [];
   private skippedLines = 0;
   private readonly pageBreaker: breaker.Breaker;
+  private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
 
@@ -178,6 +187,7 @@ export class StreamMultiChannelLog
     this.failures = new telem.FailureReporter(this.onStatusChange);
     this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
     this.pageBreaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
+    this.startBreaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
     this.now = now;
     this.maxEntries = maxEntries;
     this.recheckInterval = recheckInterval;
@@ -202,6 +212,9 @@ export class StreamMultiChannelLog
   setChannels(channels: channel.Key[]): void {
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
+    this.start = null;
+    this.startRead++;
+    this.startPending = false;
     this.endPaging();
     const kept = new Set(channels);
     this.entries = this.entries.filter((e) => kept.has(e.channelKey));
@@ -216,6 +229,15 @@ export class StreamMultiChannelLog
       if (this.valid) void this.resolve();
     }
     this.notify();
+  }
+
+  /** The times the channels store, or null until the oldest is known. */
+  get timeRange(): TimeRange | null {
+    const end = this.unread.at(-1)?.end ?? this.entries.at(-1)?.timestamp.valueOf();
+    if (this.start == null || end == null) return null;
+    // Samples written after the read of start can be older than it.
+    const start = TimeStamp.min(this.start, this.entries[0]?.timestamp ?? this.start);
+    return new TimeRange(start, new TimeStamp(end));
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
@@ -541,9 +563,35 @@ export class StreamMultiChannelLog
         if (!definitive) retried = true;
       });
       this.subscribe(client);
+      void this.readStart(client);
       if (!retried) return this.breaker.reset();
       if (!(await this.breaker.wait())) return;
     }
+  }
+
+  // Never rejects. A newer read replaces this one. A connectivity failure retries under
+  // the breaker. Any other failure leaves start unknown and startPending set, so only a
+  // change of channels reads again.
+  private async readStart(client: telem.Client): Promise<void> {
+    const read = ++this.startRead;
+    this.startReadAt = this.now();
+    const keys = [...this.metas].filter(([, { stored }]) => stored).map(([key]) => key);
+    this.startBreaker.reset();
+    this.startPending = true;
+    while (read === this.startRead)
+      try {
+        const start = keys.length === 0 ? null : await client.feed.firstTime(keys);
+        if (read !== this.startRead) return;
+        this.start = start;
+        this.startPending = false;
+        return this.notify();
+      } catch (e) {
+        if (framer.retry.isDefinitive(e)) return;
+        if (!(await this.startBreaker.wait())) {
+          if (read === this.startRead) this.startPending = false;
+          return;
+        }
+      }
   }
 
   private subscribe(client: telem.Client): void {
@@ -590,11 +638,21 @@ export class StreamMultiChannelLog
     this.status = worst;
     this.failures.observe(worst);
     if (groups.length === 0) return statusChanged;
+    // A channel that was empty when the log read start can have one now. Samples that
+    // stream without being stored find none, so the reads stay far apart.
+    if (
+      this.start == null &&
+      !this.startPending &&
+      this.client != null &&
+      receivedAt.span(this.startReadAt).greaterThan(START_RECHECK_INTERVAL)
+    )
+      void this.readStart(this.client);
     if (!this.live) {
       const [{ start }] = this.unread;
       const held = groups.filter(([{ timestamp }]) => timestamp.valueOf() <= start);
       this.skip(groups.filter(([{ timestamp }]) => timestamp.valueOf() > start));
-      if (held.length === 0) return statusChanged;
+      // The skipped samples move the end of the time range.
+      if (held.length === 0) return true;
       this.insert(held);
       this.evictNewest();
       return true;
@@ -819,6 +877,9 @@ export class StreamMultiChannelLog
     this.skipped = [];
     this.skippedLines = 0;
     this.entries = [];
+    this.start = null;
+    this.startRead++;
+    this.startPending = false;
     this.status = telem.SUCCESS_STATUS;
     this.valid = false;
   }
