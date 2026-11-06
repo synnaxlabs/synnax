@@ -149,8 +149,9 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   timing settings. A row is a `Flex.Box x` of two or three fields in a stacked
   `Form.Sections`. Its first label stays in the label column, and its later fields line
   up with the later fields of every other row.
-- A row never starts with a checkbox. In a row of three, the later two fields are short:
-  a number or a duration. Wide later fields squeeze the first control.
+- A row never starts with a checkbox, except a checkbox that reveals the field beside
+  it, such as Optional with Fill value. In a row of three, the later two fields are
+  short: a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
 - A row of three fits the dialog with no overflow into its padding, so its labels are
