@@ -33,11 +33,34 @@ const selectSize = Component.renderProp(Component.SelectSize);
 export const ScaledSizeField = (
   props: Partial<Form.FieldProps<Component.Size>>,
 ): ReactElement => (
-  <SizeField
+  <Form.Field
+    path={path.size}
+    label="Size"
+    padHelpText={false}
     onChange={(size, { set }) => set(path.level, SIZE_LEVELS[size])}
     {...props}
+  >
+    {selectScaledSize}
+  </Form.Field>
+);
+
+// A click on the selected size reports null. It must still apply the level, because a
+// saved symbol has none.
+const SelectScaledSize = ({
+  value,
+  onChange,
+}: {
+  value: Component.Size;
+  onChange: (size: Component.Size) => void;
+}): ReactElement => (
+  <Component.SelectSize
+    allowNone
+    value={value}
+    onChange={(size: Component.Size | null) => onChange(size ?? value)}
   />
 );
+
+const selectScaledSize = Component.renderProp(SelectScaledSize);
 
 /** A size field for symbols that store a text level instead of a size. */
 export const LevelSizeField = (

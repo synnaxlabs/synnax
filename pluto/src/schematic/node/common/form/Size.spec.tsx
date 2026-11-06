@@ -32,6 +32,19 @@ describe("ScaledSizeField", () => {
     expect(value(path.level)).toBeUndefined();
   });
 
+  it("should apply the standard level when the selected size is clicked", async () => {
+    const { getByText, value } = renderForm(
+      <ScaledSizeField />,
+      SAVED,
+      schematic.setpointNodeConfigZ,
+    );
+    fireEvent.click(getByText("L"));
+    await waitFor(() => {
+      expect(value(path.size)).toBe("large");
+      expect(value(path.level)).toBe("h3");
+    });
+  });
+
   it("should set the standard level with the size", async () => {
     const { getByText, value } = renderForm(
       <ScaledSizeField />,

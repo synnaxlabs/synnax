@@ -20,7 +20,8 @@ const HEIGHT_RATIO = 0.72;
 export const readoutHeight = (size: Component.Size): number =>
   Math.round(Component.HEIGHTS[size] * HEIGHT_RATIO);
 
-// The largest level whose line height fits a readout on each rung of the standard scale.
+// The largest level whose line height fits a readout on each rung of the standard
+// scale.
 const READOUT_LEVELS: Record<Component.Size, text.Level> = {
   tiny: "tiny",
   small: "small",
