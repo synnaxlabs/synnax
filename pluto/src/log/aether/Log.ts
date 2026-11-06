@@ -303,7 +303,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    const { data, status } = i.telem.value();
+    const { data } = i.telem.value();
     this.entries = data;
 
     // Compute display names (alias takes priority over server name) and padding.
@@ -365,7 +365,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
 
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.syncStatus(status);
+    this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
