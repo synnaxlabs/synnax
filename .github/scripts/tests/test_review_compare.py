@@ -355,6 +355,9 @@ class TestMatch:
         b = [item("a.go", 19), item("a.go", 11)]
         assert sorted(compare.match(a, b)) == [(0, 1), (1, 0)]
 
+    def test_should_pair_findings_up_to_20_lines_apart(self) -> None:
+        assert compare.match([item("a.go", 10)], [item("a.go", 30)]) == [(0, 0)]
+
     def test_should_not_pair_other_files_or_far_lines(self) -> None:
         a = [item("a.go", 10), item("a.go", 30), item(None, None)]
         b = [item("b.go", 10), item("a.go", 51), item(None, None)]
@@ -457,7 +460,19 @@ class TestPairs:
         gh.edits = [edit(greptile_block(4, later)), edit(greptile_block(4, first))]
         one, two = compare.pairs(gh, repo.git, REPO, [record(first), record(later)])
         assert [i.title for i in one.greptile] == ["Leaks a handle", "Reads a secret"]
+        assert [i.title for i in one.sedosaur] == ["Leaks a handle too", "Odd name"]
         assert [i.title for i in two.greptile] == ["Reads a secret"]
+        assert [i.title for i in two.sedosaur] == ["Odd name"]
+
+    def test_should_count_a_finding_on_the_first_paired_commit_that_lists_it(
+        self, repo: Repo
+    ) -> None:
+        later = repo.commit({"c.go": "2\n"})
+        gh = FakeGH("e" * 40)
+        gh.edits = [edit(greptile_block(4, later))]
+        [p] = compare.pairs(gh, repo.git, REPO, [record(later)])
+        assert [i.title for i in p.greptile] == ["Leaks a handle", "Reads a secret"]
+        assert [i.title for i in p.sedosaur] == ["Leaks a handle too", "Odd name"]
 
     def test_should_judge_each_review_by_its_own_thread(self, repo: Repo) -> None:
         later = repo.commit({"c.go": "2\n"})

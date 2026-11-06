@@ -370,6 +370,18 @@ def _pull(
     # each review's finding belongs to the newest thread for it as of that review.
     mine = sorted((t for t in ts if t.bot == SEDOSAUR), key=lambda t: t.id)
     ours = {(t.path, t.title): t for t in mine if t.commit not in heads}
+    # Both reviewers list a finding again on each commit while its thread is open, so
+    # each thread counts once, on the first paired commit that lists it.
+    counted: set[int] = set()
+
+    def first(t: Thread | None) -> bool:
+        if t is None:
+            return True
+        if t.id in counted:
+            return False
+        counted.add(t.id)
+        return True
+
     out: list[Pair] = []
     for head, rec in heads.items():
         ours |= {(t.path, t.title): t for t in mine if t.commit == head}
@@ -379,9 +391,7 @@ def _pull(
         g: list[Item] = []
         for severity, title, d in found:
             t = by_id.get(d) if d is not None else None
-            # Greptile lists the open threads of earlier commits again, so each finding
-            # counts only on the commit it was found on.
-            if t is not None and t.commit is not None and t.commit != head:
+            if not first(t):
                 continue
             g.append(
                 Item(
@@ -392,16 +402,20 @@ def _pull(
                     verdict=judge(t),
                 )
             )
-        s = [
-            Item(
-                severity=f["severity"],
-                title=f["title"],
-                path=f["path"],
-                line=f["line"],
-                verdict=judge(ours.get((f["path"], f["title"]))),
+        s: list[Item] = []
+        for f in rec["review"]["findings"]:
+            t = ours.get((f["path"], f["title"]))
+            if not first(t):
+                continue
+            s.append(
+                Item(
+                    severity=f["severity"],
+                    title=f["title"],
+                    path=f["path"],
+                    line=f["line"],
+                    verdict=judge(t),
+                )
             )
-            for f in rec["review"]["findings"]
-        ]
         matches = match(g, s)
         for i, j in matches:
             if g[i].verdict == OPEN:
