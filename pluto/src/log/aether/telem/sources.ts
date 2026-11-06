@@ -51,7 +51,7 @@ const START_RECHECK_INTERVAL = TimeSpan.seconds(30);
 const OLDER_PAGE_SIZE = 1_000;
 
 const streamMultiChannelLogPropsZ = z.object({
-  channels: z.array(channel.keyZ.or(z.string())),
+  channels: z.array(channel.keyZ),
 });
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
@@ -192,9 +192,7 @@ export class StreamMultiChannelLog
     this.now = now;
     this.maxEntries = maxEntries;
     this.recheckInterval = recheckInterval;
-    this._channels = this.props.channels.filter(
-      (ch): ch is number => typeof ch === "number",
-    );
+    this._channels = this.props.channels;
   }
 
   /** @returns the entries, with the worst status of the channels. */

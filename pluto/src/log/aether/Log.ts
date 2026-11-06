@@ -319,9 +319,7 @@ export class Log
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
-    const channelKeys = channelEntries
-      .map((e) => e.channel)
-      .filter((ch): ch is number => typeof ch === "number");
+    const channelKeys = channelEntries.map((e) => e.channel);
     const configs: Record<string, log.ChannelEntry> = {};
     for (const entry of channelEntries) configs[entry.channel] = entry;
 

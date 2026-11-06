@@ -527,14 +527,11 @@ describe("log/Base", () => {
 
   describe("channel name resolution", () => {
     it("should pass channels to aether state", () => {
-      renderLog({
-        channels: [{ channel: 1 }, { channel: 2 }, { channel: "virtual" }],
-      });
+      renderLog({ channels: [{ channel: 1 }, { channel: 2 }] });
       expect(mockAetherUse).toHaveBeenCalled();
       expect(getAetherInitialState().channels).toEqual([
         { channel: 1 },
         { channel: 2 },
-        { channel: "virtual" },
       ]);
     });
   });

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type log as clientLog } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { box, type optional, TimeSpan } from "@synnaxlabs/x";
@@ -25,6 +26,7 @@ export interface UseProps
     optional.Optional<
       Omit<
         z.input<typeof log.logStateZ>,
+        | "channels"
         | "region"
         | "scrollPosition"
         | "scrollback"
@@ -44,6 +46,7 @@ export interface UseProps
       "visible"
     >,
     Aether.ComponentProps {
+  channels?: clientLog.ChannelEntry[];
   /** Controlled pause state. When set, the log pauses scrolling while true. */
   hold?: boolean;
   /** Called when the pause state changes from inside the log: a scroll up or the H
@@ -82,11 +85,8 @@ export const use = ({
   onLeave,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
-  const numericChannels = channels
-    .map((e) => e.channel)
-    .filter((ch): ch is number => typeof ch === "number");
   const { data: retrievedChannels } = Channel.useResultMultiple({
-    where: { key: { in: numericChannels } },
+    where: { key: { in: channels.map((e) => e.channel) } },
   });
   const names: Record<string, string> = {};
   if (retrievedChannels != null)
