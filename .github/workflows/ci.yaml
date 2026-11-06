@@ -1324,3 +1324,23 @@ jobs:
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
           jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
             <<< "$RESULTS" > /dev/null
+
+  # GitHub sends no event to the default branch for a failed run of a pull request.
+  shepherd:
+    name: Wake the shepherd
+    needs: ok
+    if:
+      ${{ failure() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Agent - Shepherd
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"

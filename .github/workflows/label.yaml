@@ -10,7 +10,7 @@
 name: Label - Pull request
 
 on:
-  pull_request_target:
+  pull_request:
 
 permissions:
   contents: read
@@ -19,6 +19,9 @@ permissions:
 jobs:
   label:
     name: Label
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Label from changed paths
