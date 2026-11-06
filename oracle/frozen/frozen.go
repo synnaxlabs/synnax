@@ -43,6 +43,8 @@ var ErrMalformed = errors.New("malformed sum file")
 type Sum struct {
 	// Schema hashes the chain's version files up to and including the version.
 	Schema string
+	// Live hashes the live-file inputs the package takes while frozen.
+	Live string
 	// Output hashes the package's generated files as they stand on disk.
 	Output string
 }
@@ -86,9 +88,8 @@ func (c Chain) Versions(recorded map[int]Sum) []int {
 func Compute(
 	ctx context.Context, res *pipeline.Result, repoRoot string,
 ) ([]Chain, error) {
-	roots, err := gotypes.ChainPaths(ctx, &plugin.Request{
-		Resolutions: res.Resolutions, Versions: res.Versions,
-	})
+	req := &plugin.Request{Resolutions: res.Resolutions, Versions: res.Versions}
+	roots, err := gotypes.ChainPaths(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -124,14 +125,61 @@ func Compute(
 			if err != nil {
 				return nil, err
 			}
+			live, err := gotypes.LiveHash(ctx, req, cp.LivePath, n)
+			if err != nil {
+				return nil, err
+			}
 			c.Sums[n] = Sum{
 				Schema: hex.EncodeToString(schema.Sum(nil)),
+				Live:   live,
 				Output: output,
 			}
 		}
 		chains = append(chains, c)
 	}
 	return chains, nil
+}
+
+// Pin replaces the generated content of each frozen package with the bytes on disk, so
+// a generator change does not reach the package. It skips a package whose version files
+// or live inputs no longer match its recorded sum. A package with no recorded sum takes
+// its disk bytes as the record, and a file that is not on disk keeps its generated
+// content. Run `oracle sync --refreeze` to skip Pin and accept a generator change.
+func Pin(ctx context.Context, res *pipeline.Result, repoRoot string) error {
+	chains, err := Compute(ctx, res, repoRoot)
+	if err != nil {
+		return err
+	}
+	pinned := make(set.Set[string])
+	for _, c := range chains {
+		recorded, err := Read(c.Path, repoRoot)
+		if err != nil {
+			return err
+		}
+		for n, sum := range c.Sums {
+			old, has := recorded[n]
+			if n < c.Current &&
+				(!has || (sum.Schema == old.Schema && sum.Live == old.Live)) {
+				pinned.Add(c.Package(n))
+			}
+		}
+	}
+	for _, files := range res.Outputs {
+		for i, f := range files {
+			if !pinned.Contains(path.Dir(f.Path)) {
+				continue
+			}
+			b, err := os.ReadFile(paths.Resolve(f.Path, repoRoot))
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			files[i].Content = b
+		}
+	}
+	return nil
 }
 
 // sumPath maps a live path ("schemas/x/telem") to its sum file.
@@ -174,14 +222,14 @@ func Read(sumFile, repoRoot string) (map[int]Sum, error) {
 			continue
 		}
 		fields := strings.Fields(line)
-		if len(fields) != 3 {
+		if len(fields) != 4 {
 			return nil, errors.Wrapf(ErrMalformed, "%s: line %q", sumFile, line)
 		}
 		n, err := strconv.Atoi(strings.TrimPrefix(fields[0], "v"))
 		if err != nil {
 			return nil, errors.Wrapf(ErrMalformed, "%s: version %q", sumFile, fields[0])
 		}
-		sums[n] = Sum{Schema: fields[1], Output: fields[2]}
+		sums[n] = Sum{Schema: fields[1], Live: fields[2], Output: fields[3]}
 	}
 	return sums, nil
 }
@@ -233,7 +281,7 @@ func Update(chains []Chain, repoRoot string, refreeze bool) error {
 				sum, current = old, true
 			}
 			if current {
-				fmt.Fprintf(&b, "v%d %s %s\n", n, sum.Schema, sum.Output)
+				fmt.Fprintf(&b, "v%d %s %s %s\n", n, sum.Schema, sum.Live, sum.Output)
 			}
 		}
 		abs := paths.Resolve(c.Path, repoRoot)

@@ -78,6 +78,15 @@ func runSync(cmd *cobra.Command) error {
 		printDiagnostics(result.Diagnostics.String())
 		return errors.New("generation failed")
 	}
+	refreeze, err := cmd.Flags().GetBool(syncRefreezeFlag)
+	if err != nil {
+		return err
+	}
+	if !refreeze {
+		if err := frozen.Pin(ctx, result, repoRoot); err != nil {
+			return errors.Wrap(err, "pin frozen packages")
+		}
+	}
 
 	formattedSchemas, err := writeSchemaSources(result, repoRoot)
 	if err != nil {
@@ -130,10 +139,6 @@ func runSync(cmd *cobra.Command) error {
 	chains, err := frozen.Compute(ctx, result, repoRoot)
 	if err != nil {
 		return errors.Wrap(err, "compute frozen sums")
-	}
-	refreeze, err := cmd.Flags().GetBool(syncRefreezeFlag)
-	if err != nil {
-		return err
 	}
 	if err := frozen.Update(chains, repoRoot, refreeze); err != nil {
 		return errors.Wrap(err, "update frozen sums")

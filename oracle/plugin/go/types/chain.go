@@ -11,6 +11,9 @@ package types
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -405,6 +408,59 @@ func sharedMembers(
 		}
 	}
 	return shared, nil
+}
+
+// LiveHash hashes the live-file inputs that version k's frozen package takes: the
+// members it shares with the chain's current version, and their live @go omit,
+// to_any, fields, and imports, and field @validate and @default rules.
+func LiveHash(
+	ctx context.Context, req *plugin.Request, livePath string, k int,
+) (string, error) {
+	chain := req.Versions.Chains()[livePath]
+	shared, err := sharedMembers(ctx, req, livePath, chain, k)
+	if err != nil {
+		return "", err
+	}
+	var b []byte
+	writeExprs := func(exprs resolution.Expressions) {
+		for _, e := range exprs {
+			b = fmt.Appendf(b, "%s=%v\x00", e.Name, e.Values)
+		}
+	}
+	writeFields := func(t resolution.Type) {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			return
+		}
+		for _, f := range form.Fields {
+			b = fmt.Appendf(b, "%s\x00", f.Name)
+			writeExprs(f.Domains["validate"].Expressions)
+			writeExprs(f.Domains["default"].Expressions)
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(shared)) {
+		b = fmt.Appendf(b, "%s\x00", name)
+		live, ok := liveType(req, livePath, name)
+		if !ok {
+			continue
+		}
+		b = fmt.Appendf(b, "%t\x00", omit.IsType(live, "go"))
+		for _, expr := range []string{"to_any", "fields", "imports"} {
+			if e, has := live.Domains["go"].Expressions.Find(expr); has {
+				writeExprs(resolution.Expressions{e})
+			}
+		}
+		writeFields(live)
+		if u, isUnion := live.Form.(resolution.UnionForm); isUnion {
+			for _, v := range u.Variants {
+				if payload, ok := v.Type.Resolve(req.Resolutions); ok && v.Inline {
+					writeFields(payload)
+				}
+			}
+		}
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // referencedAt returns the qualified names that the declarations in ns reference. An

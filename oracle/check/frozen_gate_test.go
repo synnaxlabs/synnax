@@ -140,9 +140,24 @@ Doc struct {
 		Expect(r.Findings[0].Path).To(Equal(sumFile))
 	})
 
+	It("Should pass after a sync with a template-only change", func(ctx SpecContext) {
+		res := result(ctx, v0File, v1File)
+		for i := range res.Outputs["stub"] {
+			res.Outputs["stub"][i].Content = []byte("new template")
+		}
+		Expect(frozen.Pin(ctx, res, root)).To(Succeed())
+		for _, f := range res.Outputs["stub"] {
+			write(f.Path, string(f.Content))
+		}
+		chains := MustSucceed(frozen.Compute(ctx, res, root))
+		Expect(frozen.Update(chains, root, false)).To(Succeed())
+		Expect(run(ctx, res).Status).To(Equal(check.StatusPass))
+		Expect(os.ReadFile(filepath.Join(root, v0File))).To(Equal([]byte("v0")))
+	})
+
 	It("Should fail on a sum file that no chain owns", func(ctx SpecContext) {
 		const orphan = "schemas/synnax/frozen/gone.sum"
-		write(orphan, "v0 s o\n")
+		write(orphan, "v0 s l o\n")
 		r := run(ctx, result(ctx, v0File, v1File))
 		Expect(r.Status).To(Equal(check.StatusFail))
 		Expect(r.Findings).To(HaveLen(1))

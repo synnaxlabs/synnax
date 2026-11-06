@@ -13,6 +13,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1179,6 +1180,96 @@ Doc struct {
 		Expect(frozen).To(ContainSubstring("type Side string"))
 		Expect(frozen).To(ContainSubstring("type Mode string"))
 	})
+})
+
+var _ = Describe("LiveHash", func() {
+	const (
+		v0 = `
+Note struct {
+	name string
+}
+
+Doc struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`
+		v1 = `
+Note = v0.Note
+
+Doc struct {
+	key uuid @key
+	note Note
+	title string
+
+	@go marshal
+}
+`
+		live = `
+@go output "core/pkg/service/doc"
+
+Note struct {
+	name string
+}
+
+Doc struct {
+	key uuid @key
+	note Note
+	title string
+}
+`
+	)
+	hash := func(live string) string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/synnax/versions/doc/v0.oracle": v0,
+			"schemas/synnax/versions/doc/v1.oracle": v1,
+			"schemas/synnax/doc.oracle":             live,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		return MustSucceed(gotypes.LiveHash(
+			GinkgoT().Context(),
+			&plugin.Request{
+				Resolutions: table,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+			"schemas/synnax/doc",
+			0,
+		))
+	}
+	DescribeTable("Should change only with a live input that version 0 takes",
+		func(edited string, changes bool) {
+			if changes {
+				Expect(hash(edited)).ToNot(Equal(hash(live)))
+			} else {
+				Expect(hash(edited)).To(Equal(hash(live)))
+			}
+		},
+		Entry("a live rule on a shared type", strings.Replace(
+			live, "name string", "name string {\n\t\t@validate required\n\t}", 1,
+		), true),
+		Entry("live Go fields on a shared type", strings.Replace(
+			live, "name string\n", "name string\n\n\t@go fields \"Extra int\"\n", 1,
+		), true),
+		Entry("a live rule on a type the current version redeclares", strings.Replace(
+			live, "title string", "title string {\n\t\t@validate required\n\t}", 1,
+		), false),
+		Entry("a live doc on a shared type", strings.Replace(
+			live, "name string", "name string {\n\t\t@doc value \"is a name.\"\n\t}", 1,
+		), false),
+	)
 })
 
 var _ = Describe("Frozen omitted field with a default", func() {

@@ -39,21 +39,25 @@ var _ = Describe("Frozen", func() {
 		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 	}
-	compute := func(ctx context.Context, outputs ...string) frozen.Chain {
+	result := func(ctx context.Context, files ...plugin.File) *pipeline.Result {
 		GinkgoHelper()
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(ctx, []string{"schemas/synnax/doc"}, loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		return &pipeline.Result{
+			Resolutions: table,
+			Versions:    versions.NewResolver(chains, loader),
+			Outputs:     map[string][]plugin.File{"stub": files},
+		}
+	}
+	compute := func(ctx context.Context, outputs ...string) frozen.Chain {
+		GinkgoHelper()
 		files := make([]plugin.File, 0, len(outputs))
 		for _, path := range outputs {
 			files = append(files, plugin.File{Path: path})
 		}
-		computed := MustSucceed(frozen.Compute(ctx, &pipeline.Result{
-			Resolutions: table,
-			Versions:    versions.NewResolver(chains, loader),
-			Outputs:     map[string][]plugin.File{"stub": files},
-		}, root))
+		computed := MustSucceed(frozen.Compute(ctx, result(ctx, files...), root))
 		Expect(computed).To(HaveLen(1))
 		return computed[0]
 	}
@@ -114,7 +118,104 @@ Doc struct {
 		})
 	})
 
+	Describe("Pin", func() {
+		const liveFields = `
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+
+	@go fields "Extra int"
+	@go marshal
+}
+`
+		record := func(ctx context.Context) {
+			GinkgoHelper()
+			c := compute(ctx, v0File, v1File)
+			Expect(frozen.Update([]frozen.Chain{c}, root, false)).To(Succeed())
+		}
+		pin := func(ctx context.Context) map[string]string {
+			GinkgoHelper()
+			res := result(ctx,
+				plugin.File{Path: v0File, Content: []byte("new v0")},
+				plugin.File{Path: v1File, Content: []byte("new v1")},
+			)
+			Expect(frozen.Pin(ctx, res, root)).To(Succeed())
+			contents := make(map[string]string)
+			for _, f := range res.Outputs["stub"] {
+				contents[f.Path] = string(f.Content)
+			}
+			return contents
+		}
+
+		It("Should keep a frozen package's disk bytes on a generator change",
+			func(ctx SpecContext) {
+				record(ctx)
+				Expect(pin(ctx)).To(Equal(map[string]string{
+					v0File: "v0",
+					v1File: "new v1",
+				}))
+			},
+		)
+
+		It("Should regenerate a frozen package whose live inputs changed",
+			func(ctx SpecContext) {
+				record(ctx)
+				write("schemas/synnax/doc.oracle", liveFields)
+				Expect(pin(ctx)[v0File]).To(Equal("new v0"))
+			},
+		)
+
+		It("Should regenerate a frozen package whose version files changed",
+			func(ctx SpecContext) {
+				record(ctx)
+				write("schemas/synnax/versions/doc/v0.oracle", `
+// Edited.
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`)
+				Expect(pin(ctx)[v0File]).To(Equal("new v0"))
+			},
+		)
+
+		It("Should keep the disk bytes of a frozen package with no recorded sum",
+			func(ctx SpecContext) {
+				Expect(pin(ctx)[v0File]).To(Equal("v0"))
+			},
+		)
+
+		It("Should keep generated content for a file missing on disk",
+			func(ctx SpecContext) {
+				record(ctx)
+				Expect(os.Remove(filepath.Join(root, v0File))).To(Succeed())
+				Expect(pin(ctx)[v0File]).To(Equal("new v0"))
+			},
+		)
+	})
+
 	Describe("Compute", func() {
+		It("Should change the live sum on a live input of a shared type",
+			func(ctx SpecContext) {
+				before := compute(ctx, v0File, v1File).Sums[0]
+				write("schemas/synnax/doc.oracle", `
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+
+	@go fields "Extra int"
+	@go marshal
+}
+`)
+				after := compute(ctx, v0File, v1File).Sums[0]
+				Expect(after.Schema).To(Equal(before.Schema))
+				Expect(after.Live).ToNot(Equal(before.Live))
+			},
+		)
+
 		It("Should locate the chain and its current version", func(ctx SpecContext) {
 			c := compute(ctx, v0File, v1File)
 			Expect(c.Path).To(Equal(sumFile))
@@ -184,9 +285,9 @@ Doc struct {
 		})
 
 		It("Should parse versions and skip comments", func() {
-			write(sumFile, "# header\nv4 s o\n")
+			write(sumFile, "# header\nv4 s l o\n")
 			Expect(MustSucceed(frozen.Read(sumFile, root))).To(Equal(
-				map[int]frozen.Sum{4: {Schema: "s", Output: "o"}},
+				map[int]frozen.Sum{4: {Schema: "s", Live: "l", Output: "o"}},
 			))
 		})
 
@@ -198,7 +299,7 @@ Doc struct {
 			},
 			Entry("a short line", "v0 s\n"),
 			Entry("a conflict marker", "<<<<<<< HEAD\n"),
-			Entry("a bad version", "vx s o\n"),
+			Entry("a bad version", "vx s l o\n"),
 		)
 	})
 
@@ -207,8 +308,8 @@ Doc struct {
 			return frozen.Chain{Path: sumFile, Current: 1, Sums: sums}
 		}
 		recorded := map[int]frozen.Sum{
-			0: {Schema: "s0", Output: "o0"},
-			1: {Schema: "s1", Output: "o1"},
+			0: {Schema: "s0", Live: "l", Output: "o0"},
+			1: {Schema: "s1", Live: "l", Output: "o1"},
 		}
 		BeforeEach(func() {
 			Expect(frozen.Update(
@@ -226,27 +327,29 @@ Doc struct {
 
 		It("Should keep a frozen sum whose schema did not change", func() {
 			moved := map[int]frozen.Sum{
-				0: {Schema: "s0", Output: "x"},
-				1: {Schema: "s1", Output: "x"},
+				0: {Schema: "s0", Live: "l", Output: "x"},
+				1: {Schema: "s1", Live: "l", Output: "x"},
 			}
 			Expect(
 				frozen.Update([]frozen.Chain{chain(moved)}, root, false),
 			).To(Succeed())
 			Expect(read()).To(Equal(map[int]frozen.Sum{
-				0: {Schema: "s0", Output: "o0"},
-				1: {Schema: "s1", Output: "x"},
+				0: {Schema: "s0", Live: "l", Output: "o0"},
+				1: {Schema: "s1", Live: "l", Output: "x"},
 			}))
 		})
 
 		It("Should take a frozen sum whose schema changed", func() {
 			moved := map[int]frozen.Sum{
-				0: {Schema: "t0", Output: "x"},
+				0: {Schema: "t0", Live: "l", Output: "x"},
 				1: recorded[1],
 			}
 			Expect(
 				frozen.Update([]frozen.Chain{chain(moved)}, root, false),
 			).To(Succeed())
-			Expect(read()[0]).To(Equal(frozen.Sum{Schema: "t0", Output: "x"}))
+			Expect(
+				read()[0],
+			).To(Equal(frozen.Sum{Schema: "t0", Live: "l", Output: "x"}))
 		})
 
 		It("Should keep the sum of a frozen package that stopped generating", func() {
@@ -257,7 +360,7 @@ Doc struct {
 		})
 
 		It("Should accept every change with refreeze", func() {
-			moved := map[int]frozen.Sum{1: {Schema: "s1", Output: "x"}}
+			moved := map[int]frozen.Sum{1: {Schema: "s1", Live: "l", Output: "x"}}
 			Expect(
 				frozen.Update([]frozen.Chain{chain(moved)}, root, true),
 			).To(Succeed())
@@ -273,7 +376,7 @@ Doc struct {
 
 		It("Should remove a sum file that no chain owns", func() {
 			const orphan = "schemas/synnax/frozen/gone.sum"
-			write(orphan, "v0 s o\n")
+			write(orphan, "v0 s l o\n")
 			Expect(frozen.Update(
 				[]frozen.Chain{chain(recorded)}, root, false,
 			)).To(Succeed())
