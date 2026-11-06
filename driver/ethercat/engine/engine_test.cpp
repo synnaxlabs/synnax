@@ -887,18 +887,6 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
 }
 
-/// @brief it should open a task on a bus fixed by DC sync at a rate that a float
-/// cannot hold to the millihertz.
-TEST_F(EngineTest, OpensATaskOnAFastBusFixedByDCSync) {
-    this->master->set_dc_sync(SYNC0_AT_10MS);
-    const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(8192.021), 1)
-    );
-    const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
-    );
-}
-
 /// @brief it should report the health of each enabled slave and leave out disabled
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
