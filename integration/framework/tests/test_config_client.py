@@ -186,6 +186,23 @@ class TestConfigClient:
         sequences, _ = load(cases_dir, sequence=sequence)
         assert [s.isolated for s in sequences] == [expected]
 
+    @pytest.mark.parametrize(("independent", "expected"), [(True, True), (None, False)])
+    def test_independent(
+        self, cases_dir: Path, independent: bool | None, expected: bool
+    ) -> None:
+        """Should read whether a sequence is independent, and default to not."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        sequence: dict[str, object] = {
+            "sequence_name": "pages",
+            "tests": [{"case": "config_client_spec/plain"}],
+        }
+        if independent is not None:
+            sequence["independent"] = independent
+        sequences, _ = load(cases_dir, sequence=sequence)
+        assert [s.independent for s in sequences] == [expected]
+
     @pytest.mark.parametrize("timeout", [None, 0, -1, "10", True, float("inf")])
     def test_invalid_timeout(self, cases_dir: Path, timeout: JsonValue) -> None:
         """Should reject a timeout that is not a finite, positive number."""
