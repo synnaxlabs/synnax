@@ -11,7 +11,6 @@ import { id, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { task } from "@/task";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -36,7 +35,7 @@ const retrieveScanTask = async () => {
 };
 
 describe("mqtt scan task", () => {
-  it("should answer a connection test with the step that failed", async () => {
+  it("should answer a failed connection test with an error", async () => {
     const scanTask = await retrieveScanTask();
     const state = await scanTask.executeCommandSync({
       type: "test_connection",
@@ -45,9 +44,7 @@ describe("mqtt scan task", () => {
     });
     expect(state.variant).toBe("error");
     expect(state.message).toBe("Failed to reach broker");
-    const { steps } = task.testResultZ.parse(state.details.data);
-    expect(steps).toHaveLength(1);
-    expect(steps[0]).toMatchObject({ stage: "dial", variant: "error" });
+    expect(state.description).toMatch(/^Could not reach 127\.0\.0\.1:1: /);
   });
 
   it.each(["browse", "sample"])(

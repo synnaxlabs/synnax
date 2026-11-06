@@ -17,58 +17,36 @@ import (
 	"encoding/json/jsontext"
 	"fmt"
 	"net"
-	"slices"
 	"unicode/utf8"
 
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// StageTLS is the stage of a connection test that runs the TLS handshake.
-const StageTLS = "tls"
-
-// failure is an error that answers a command with a status message and description.
-type failure struct{ message, description string }
-
-// Error implements error.
-func (f failure) Error() string { return f.message + ": " + f.description }
-
-// AnswerTest returns the data that answers a connection test that ran steps. When a
-// step failed, the error gives the answer the message and the description of the first
-// step that failed.
-func AnswerTest(steps []task.TestStep) (msgpack.EncodedJSON, error) {
-	data, err := msgpack.NewEncodedJSON(task.TestResult{Steps: steps})
-	if err != nil {
-		return nil, err
-	}
-	i := slices.IndexFunc(steps, func(s task.TestStep) bool {
-		return s.Variant == status.VariantError
-	})
-	if i < 0 {
-		return data, nil
-	}
-	return data, failure{message: steps[i].Message, description: steps[i].Description}
+// Failure is an error that answers a command with a status message and description.
+type Failure struct {
+	// Message says what happened in one short line.
+	Message string
+	// Description says why, and what to do now, in full sentences.
+	Description string
 }
 
-// Handshake runs a TLS handshake with cfg on conn, a connection to addr, and returns
-// the outcome as the StageTLS stage of a connection test. A cfg with no server name
-// takes the host of addr. Handshake does not close conn.
-func Handshake(
-	ctx context.Context,
-	conn net.Conn,
-	addr string,
-	cfg *tls.Config,
-) task.TestStep {
+// Error implements error.
+func (f Failure) Error() string { return f.Message + ": " + f.Description }
+
+// Handshake runs a TLS handshake with cfg on conn, a connection to addr. It returns a
+// Failure that says why the handshake failed. A cfg with no server name takes the host
+// of addr. Handshake does not close conn.
+func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config) error {
 	if cfg = cfg.Clone(); cfg == nil {
 		cfg = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil && cfg.ServerName == "" {
 		cfg.ServerName = host
 	}
-	step := task.TestStep{Stage: StageTLS, Address: addr, Variant: status.VariantError}
 	err := tls.Client(conn, cfg).HandshakeContext(ctx)
+	if err == nil {
+		return nil
+	}
 	var (
 		authority x509.UnknownAuthorityError
 		hostname  x509.HostnameError
@@ -76,35 +54,43 @@ func Handshake(
 		header    tls.RecordHeaderError
 	)
 	switch {
-	case err == nil:
-		step.Variant, step.Message = status.VariantSuccess, "Secured connection"
 	case errors.As(err, &authority):
-		step.Message = "Certificate not trusted"
-		step.Description = fmt.Sprintf(
-			"%s. Set the CA certificate that signed the certificate of the server.",
-			err,
-		)
+		return Failure{
+			Message: "Certificate not trusted",
+			Description: fmt.Sprintf(
+				"%s. Set the CA certificate that signed the certificate of the server.",
+				err,
+			),
+		}
 	case errors.As(err, &hostname):
-		step.Message = "Certificate does not match the address"
-		step.Description = fmt.Sprintf(
-			"%s. Connect with a host name that the certificate names.", err,
-		)
+		return Failure{
+			Message: "Certificate does not match the address",
+			Description: fmt.Sprintf(
+				"%s. Connect with a host name that the certificate names.", err,
+			),
+		}
 	case errors.As(err, &invalid):
-		step.Message = "Certificate not valid"
-		step.Description = fmt.Sprintf(
-			"%s. Check the dates and the usage of the certificate of the server.", err,
-		)
+		return Failure{
+			Message: "Certificate not valid",
+			Description: fmt.Sprintf(
+				"%s. Check the dates and the usage of the certificate of the server.",
+				err,
+			),
+		}
 	case errors.As(err, &header):
-		step.Message = "Server does not use TLS"
-		step.Description = "The server answered without TLS. Turn off TLS, or connect " +
-			"to the TLS port of the server."
+		return Failure{
+			Message: "Server does not use TLS",
+			Description: "The server answered without TLS. Turn off TLS, or connect " +
+				"to the TLS port of the server.",
+		}
 	default:
-		step.Message = "TLS handshake failed"
-		step.Description = fmt.Sprintf(
-			"%s. Check that this port of the server uses TLS.", err,
-		)
+		return Failure{
+			Message: "TLS handshake failed",
+			Description: fmt.Sprintf(
+				"%s. Check that this port of the server uses TLS.", err,
+			),
+		}
 	}
-	return step
 }
 
 // Format is the encoding of a message payload.

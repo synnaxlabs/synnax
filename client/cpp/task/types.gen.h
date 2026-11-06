@@ -34,11 +34,9 @@
 
 namespace synnax::task {
 
-struct TestStep;
 struct KeyedConfig;
 struct Where;
 struct Command;
-struct TestResult;
 struct StartConfig;
 struct ScanConfig;
 struct RetrieveRequest;
@@ -48,25 +46,6 @@ struct WriteConfig;
 struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
-
-/// @brief TestStep is the outcome of one stage of a connection test that a scan task
-/// runs.
-struct TestStep {
-    /// @brief stage names the stage, such as 'dial' or 'tls'.
-    std::string stage;
-    /// @brief address is the network address that the stage reached. Empty when the
-    /// stage is not about one address.
-    std::string address = "";
-    /// @brief variant is success, warning, or error.
-    std::string variant;
-    /// @brief message says what happened in one short line.
-    std::string message;
-    /// @brief description says why, and what to do now, in full sentences.
-    std::string description = "";
-
-    static TestStep parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 /// @brief KeyedConfig is the base for every stored task configuration record.
 struct KeyedConfig {
@@ -161,15 +140,6 @@ struct Command {
     to_proto() const;
     static std::pair<Command, x::errors::Error>
     from_proto(const ::service::task::pb::Command &pb);
-};
-
-/// @brief TestResult is the status data that answers the test command of a scan task.
-struct TestResult {
-    /// @brief steps are the stages that ran, in order.
-    std::vector<TestStep> steps;
-
-    static TestResult parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief StartConfig carries the configuration fields shared by every task.

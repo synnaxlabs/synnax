@@ -131,11 +131,7 @@ func (s *scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		steps, err := s.test(ctx, args)
-		if err != nil {
-			return nil, err
-		}
-		return driver.AnswerTest(steps)
+		return nil, s.test(ctx, args)
 	case browseCommand:
 		var args browseArgs
 		if err := unmarshalArgs(cmd, &args); err != nil {

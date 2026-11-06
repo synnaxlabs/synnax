@@ -26,8 +26,6 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
@@ -48,12 +46,6 @@ const (
 	sampleByteLimit = 16 << 20
 )
 
-// The stages of a connection test.
-const (
-	stageDial    = "dial"
-	stageConnect = "connect"
-)
-
 // testConnectionArgs describe a broker that need not be a stored device yet, so that
 // the Console can test a connection before it saves the device.
 type testConnectionArgs struct {
@@ -67,16 +59,13 @@ type testConnectionArgs struct {
 }
 
 // test tests a connection to the broker of args one stage at a time: dial, TLS, and
-// connect, where the broker checks the credentials. It stops after the first stage that
-// fails. A broker whose tasks hold a connection with the same settings reports that
-// connection instead. A test does not connect with the client ID of a connection that
-// tasks hold, because the broker would drop that connection. It returns a validation
-// error when the properties of args are not valid, and an error when a certificate file
-// fails to load.
-func (s *scanner) test(
-	ctx context.Context,
-	args testConnectionArgs,
-) ([]task.TestStep, error) {
+// connect, where the broker checks the credentials. It returns a driver.Failure for the
+// first stage that fails. A broker whose tasks hold a connection with the same settings
+// reports that connection instead. A test does not connect with the client ID of a
+// connection that tasks hold, because the broker would drop that connection. It
+// returns a validation error when the properties of args are not valid, and an error
+// when a certificate file fails to load.
+func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	dev := device.Device{
 		Key:        args.Device,
 		Location:   args.Location,
@@ -84,27 +73,27 @@ func (s *scanner) test(
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cfg, err := newClientConfigOf(dev, props)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	u, err := url.Parse(cfg.url)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	addr := u.Host
 	held, connected, inUse := s.pool.running(args.Device)
 	if inUse && held.equal(cfg) {
 		if !connected {
-			return []task.TestStep{failure(
-				stageConnect, addr, "Connection down",
-				"The tasks of this broker hold a connection with these settings. It "+
-					"is down and tries again on its own.",
-			)}, nil
+			return driver.Failure{
+				Message: "Connection down",
+				Description: "The tasks of this broker hold a connection with these " +
+					"settings. It is down and tries again on its own.",
+			}
 		}
-		return []task.TestStep{success(stageConnect, addr, "Connected")}, nil
+		return nil
 	}
 	// A broker drops the older of two sessions with one client ID, so each test derives
 	// an ID of its own. A set ID is kept, because a broker can allow only it.
@@ -115,78 +104,68 @@ func (s *scanner) test(
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
 	if err != nil {
-		return []task.TestStep{failure(
-			stageDial, addr, "Failed to reach broker", fmt.Sprintf(
+		return driver.Failure{
+			Message: "Failed to reach broker",
+			Description: fmt.Sprintf(
 				"Could not reach %s: %s. Check the host and the port, and that the "+
 					"network of the Core can reach the broker.",
 				addr, err,
 			),
-		)}, nil
+		}
 	}
-	steps := []task.TestStep{success(stageDial, addr, "Reached broker")}
 	if cfg.tls != nil {
-		steps = append(steps, driver.Handshake(dialCtx, conn, addr, cfg.tls))
+		err = driver.Handshake(dialCtx, conn, addr, cfg.tls)
 	}
-	if err = conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-		return nil, err
+	if cErr := conn.Close(); cErr != nil && !errors.Is(cErr, net.ErrClosed) {
+		return cErr
 	}
-	if steps[len(steps)-1].Variant == status.VariantError {
-		return steps, nil
+	if err != nil {
+		return err
 	}
 	if inUse && held.clientID == cfg.clientID {
-		return append(steps, failure(
-			stageConnect, addr, "Client ID in use", fmt.Sprintf(
+		return driver.Failure{
+			Message: "Client ID in use",
+			Description: fmt.Sprintf(
 				"A running task of this broker connects with client ID %q. The broker "+
 					"would drop that task to let the test log in with the same ID. "+
 					"Stop the tasks of this broker to test these settings.",
 				cfg.clientID,
 			),
-		)), nil
+		}
 	}
 	if err = probe(ctx, s.ins, cfg); err != nil {
-		return append(steps, connectFailure(addr, err)), nil
+		return connectFailure(err)
 	}
-	return append(steps, success(stageConnect, addr, "Connected")), nil
+	return nil
 }
 
-func success(stage, address, message string) task.TestStep {
-	return task.TestStep{
-		Stage:   stage,
-		Address: address,
-		Variant: status.VariantSuccess,
-		Message: message,
-	}
-}
-
-func failure(stage, address, message, description string) task.TestStep {
-	return task.TestStep{
-		Stage:       stage,
-		Address:     address,
-		Variant:     status.VariantError,
-		Message:     message,
-		Description: description,
-	}
-}
-
-func connectFailure(addr string, err error) task.TestStep {
+func connectFailure(err error) error {
 	switch {
 	case errors.Is(err, packets.ErrorRefusedNotAuthorised),
 		errors.Is(err, packets.ErrorRefusedBadUsernameOrPassword):
-		return failure(stageConnect, addr, "Authentication failed", fmt.Sprintf(
-			"%s. Check the username and the password.", err,
-		))
+		return driver.Failure{
+			Message:     "Authentication failed",
+			Description: fmt.Sprintf("%s. Check the username and the password.", err),
+		}
 	case errors.Is(err, packets.ErrorRefusedIDRejected):
-		return failure(stageConnect, addr, "Client ID rejected", fmt.Sprintf(
-			"%s. Set a client ID that the broker accepts.", err,
-		))
+		return driver.Failure{
+			Message: "Client ID rejected",
+			Description: fmt.Sprintf(
+				"%s. Set a client ID that the broker accepts.", err,
+			),
+		}
 	case errors.Is(err, packets.ErrorRefusedServerUnavailable):
-		return failure(stageConnect, addr, "Broker not available", fmt.Sprintf(
-			"%s. Try again later.", err,
-		))
+		return driver.Failure{
+			Message:     "Broker not available",
+			Description: fmt.Sprintf("%s. Try again later.", err),
+		}
 	default:
-		return failure(stageConnect, addr, "Failed to connect", fmt.Sprintf(
-			"%s. Check that the TLS setting matches the port of the broker.", err,
-		))
+		return driver.Failure{
+			Message: "Failed to connect",
+			Description: fmt.Sprintf(
+				"%s. Check that the TLS setting matches the port of the broker.", err,
+			),
+		}
 	}
 }
 

@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -36,63 +34,34 @@ const stageTimeout = 5 * time.Second
 // defaultPort is the port of a seed broker whose address names none.
 const defaultPort = "9092"
 
-// The stages of a connection test.
-const (
-	stageDial     = "dial"
-	stageSASL     = "sasl"
-	stageMetadata = "metadata"
-	stageBroker   = "broker"
-)
-
 // testConnection tests a connection to the cluster of props one stage at a time: dial,
-// TLS, SASL, metadata, and each broker that the cluster advertises. It stops after the
-// first stage that fails. It returns a validation error when props cannot open a
-// client.
-func testConnection(ctx context.Context, props Properties) ([]task.TestStep, error) {
+// TLS, SASL, metadata, and each broker that the cluster advertises. It returns a
+// driver.Failure for the first stage that fails, and a validation error when props
+// cannot open a client.
+func testConnection(ctx context.Context, props Properties) error {
 	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
-		return nil, err
+		return err
 	}
-	conn, step := dialSeed(ctx, props.Brokers)
-	steps := []task.TestStep{step}
-	if conn == nil {
-		return steps, nil
+	conn, addr, err := dialSeed(ctx, props.Brokers)
+	if err != nil {
+		return err
 	}
 	if props.TLS {
-		step = handshake(ctx, conn, step.Address, props)
-		steps = append(steps, step)
+		err = handshake(ctx, conn, addr, props)
 	}
-	if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-		return nil, err
+	if cErr := conn.Close(); cErr != nil && !errors.Is(cErr, net.ErrClosed) {
+		return cErr
 	}
-	if step.Variant == status.VariantError {
-		return steps, nil
+	if err != nil {
+		return err
 	}
-	return append(steps, testCluster(ctx, props)...), nil
+	return testCluster(ctx, props)
 }
 
-func success(stage, address, message string) task.TestStep {
-	return task.TestStep{
-		Stage:   stage,
-		Address: address,
-		Variant: status.VariantSuccess,
-		Message: message,
-	}
-}
-
-func failure(stage, address, message, description string) task.TestStep {
-	return task.TestStep{
-		Stage:       stage,
-		Address:     address,
-		Variant:     status.VariantError,
-		Message:     message,
-		Description: description,
-	}
-}
-
-// dialSeed opens a TCP connection to the first seed broker that answers. It returns a
-// nil connection when none answers.
-func dialSeed(ctx context.Context, brokers []string) (net.Conn, task.TestStep) {
+// dialSeed opens a TCP connection to the first seed broker that answers, and returns
+// its address.
+func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
 	var (
 		dialer   net.Dialer
 		failures []string
@@ -102,28 +71,16 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, task.TestStep) {
 		dialCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 		conn, err := dialer.DialContext(dialCtx, "tcp", addr)
 		cancel()
-		if err != nil {
-			failures = append(
-				failures,
-				fmt.Sprintf("Could not reach %s: %s.", addr, err),
-			)
-			continue
+		if err == nil {
+			return conn, addr, nil
 		}
-		step := success(stageDial, addr, "Reached broker")
-		if len(failures) > 0 {
-			step.Variant = status.VariantWarning
-			step.Message = "Some seed brokers not reachable"
-			step.Description = strings.Join(failures, " ")
-		}
-		return conn, step
+		failures = append(failures, fmt.Sprintf("Could not reach %s: %s.", addr, err))
 	}
-	return nil, failure(
-		stageDial,
-		"",
-		"Failed to reach broker",
-		strings.Join(failures, " ")+" Check the address and port of each broker, and "+
-			"that the network of the Core can reach them.",
-	)
+	return nil, "", driver.Failure{
+		Message: "Failed to reach broker",
+		Description: strings.Join(failures, " ") + " Check the address and port of " +
+			"each broker, and that the network of the Core can reach them.",
+	}
 }
 
 // withPort returns addr with defaultPort when it names no port, as the Kafka client
@@ -141,7 +98,7 @@ func handshake(
 	conn net.Conn,
 	addr string,
 	props Properties,
-) task.TestStep {
+) error {
 	ctx, cancel := context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 	return driver.Handshake(ctx, conn, addr, tlsConfig(props))
@@ -149,7 +106,7 @@ func handshake(
 
 // testCluster authenticates, reads the cluster metadata, and reaches each broker that
 // the metadata advertises.
-func testCluster(ctx context.Context, props Properties) []task.TestStep {
+func testCluster(ctx context.Context, props Properties) error {
 	var auth authHook
 	cl, err := openClient(
 		props,
@@ -158,32 +115,28 @@ func testCluster(ctx context.Context, props Properties) []task.TestStep {
 		kgo.WithHooks(&auth),
 	)
 	if err != nil {
-		return []task.TestStep{
-			failure(stageMetadata, "", "Failed to open client", err.Error()+"."),
+		return driver.Failure{
+			Message:     "Failed to open client",
+			Description: err.Error() + ".",
 		}
 	}
 	defer cl.Close()
 	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 	md, err := kadm.NewClient(cl).BrokerMetadata(mdCtx)
 	cancel()
-	sasl := props.Sasl.Mechanism() != NoneSASLType
-	if err != nil {
-		if sasl && (saslFailure(err) || auth.dropped.Load()) {
-			return []task.TestStep{failure(
-				stageSASL, "", "Authentication failed", fmt.Sprintf(
-					"%s. Check the username, the password, and the SASL mechanism.",
-					err,
-				),
-			)}
+	if err == nil {
+		return testBrokers(ctx, cl, md.Brokers)
+	}
+	if props.Sasl.Mechanism() != NoneSASLType &&
+		(saslFailure(err) || auth.dropped.Load()) {
+		return driver.Failure{
+			Message: "Authentication failed",
+			Description: fmt.Sprintf(
+				"%s. Check the username, the password, and the SASL mechanism.", err,
+			),
 		}
-		return []task.TestStep{metadataFailure(err)}
 	}
-	var steps []task.TestStep
-	if sasl {
-		steps = append(steps, success(stageSASL, "", "Authenticated"))
-	}
-	steps = append(steps, success(stageMetadata, "", "Read cluster metadata"))
-	return append(steps, testBrokers(ctx, cl, md.Brokers)...)
+	return metadataFailure(err)
 }
 
 // authHook records whether a broker closed a connection while it authenticated the
@@ -206,47 +159,45 @@ func saslFailure(err error) bool {
 		errors.Is(err, kerr.IllegalSaslState)
 }
 
-func metadataFailure(err error) task.TestStep {
+func metadataFailure(err error) error {
 	const hint = "Check that the TLS and SASL settings match the listener of the broker."
 	switch {
 	case errors.Is(err, kerr.ClusterAuthorizationFailed),
 		errors.Is(err, kerr.TopicAuthorizationFailed):
-		return failure(
-			stageMetadata,
-			"",
-			"Not authorized to read metadata",
-			fmt.Sprintf(
+		return driver.Failure{
+			Message: "Not authorized to read metadata",
+			Description: fmt.Sprintf(
 				"%s. Grant the user the Describe operation on the cluster.", err,
 			),
-		)
+		}
 	case errors.Is(err, context.DeadlineExceeded):
-		return failure(stageMetadata, "", "Broker did not answer", fmt.Sprintf(
-			"The broker did not answer within %s. %s", stageTimeout, hint,
-		))
-	default:
-		return failure(
-			stageMetadata,
-			"",
-			"Failed to read cluster metadata",
-			fmt.Sprintf(
-				"%s. %s", err, hint,
+		return driver.Failure{
+			Message: "Broker did not answer",
+			Description: fmt.Sprintf(
+				"The broker did not answer within %s. %s", stageTimeout, hint,
 			),
-		)
+		}
+	default:
+		return driver.Failure{
+			Message:     "Failed to read cluster metadata",
+			Description: fmt.Sprintf("%s. %s", err, hint),
+		}
 	}
 }
 
 // testBrokers reaches each broker of brokers through cl, which dials the address that
-// the cluster advertises for it.
+// the cluster advertises for it. It returns a driver.Failure for the broker with the
+// lowest node ID that it cannot reach.
 func testBrokers(
 	ctx context.Context,
 	cl *kgo.Client,
 	brokers kadm.BrokerDetails,
-) []task.TestStep {
+) error {
 	brokers = slices.Clone(brokers)
 	slices.SortFunc(brokers, func(a, b kadm.BrokerDetail) int {
 		return int(a.NodeID - b.NodeID)
 	})
-	steps := make([]task.TestStep, len(brokers))
+	failures := make([]error, len(brokers))
 	var wg sync.WaitGroup
 	for i, b := range brokers {
 		wg.Go(func() {
@@ -255,11 +206,9 @@ func testBrokers(
 			defer cancel()
 			req := kmsg.NewPtrApiVersionsRequest()
 			if _, err := cl.Broker(int(b.NodeID)).Request(ctx, req); err != nil {
-				steps[i] = failure(
-					stageBroker,
-					addr,
-					"Failed to reach broker",
-					fmt.Sprintf(
+				failures[i] = driver.Failure{
+					Message: "Failed to reach broker",
+					Description: fmt.Sprintf(
 						"The cluster advertises broker %d at %s, which the Core cannot "+
 							"reach: %s. Set the advertised listeners of the broker to an "+
 							"address that the Core can reach.",
@@ -267,12 +216,15 @@ func testBrokers(
 						addr,
 						err,
 					),
-				)
-				return
+				}
 			}
-			steps[i] = success(stageBroker, addr, "Reached broker")
 		})
 	}
 	wg.Wait()
-	return steps
+	for _, err := range failures {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -339,25 +339,18 @@ var _ = Describe("Scan task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(message)
 		}
-		// expectFailedStep expects stat to answer a test that ran stages and failed
-		// the last with message.
-		expectFailedStep := func(stat task.Status, message string, want ...string) {
+		expectFailure := func(stat task.Status, message string) {
 			GinkgoHelper()
 			expectError(stat, Equal(message))
 			Expect(stat.Description).ToNot(BeEmpty())
-			Expect(stages(stepsOf(stat))).To(Equal(want))
 		}
 
 		It("Should connect to a broker that is not a device yet",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
-				stat := testConnection(ctx, msgpack.EncodedJSON{"port": broker.port})
-				expectSuccess(stat)
-				steps := stepsOf(stat)
-				Expect(stages(steps)).
-					To(Equal([]string{"dial:success", "connect:success"}))
-				Expect(steps[0].Address).
-					To(Equal(fmt.Sprintf("127.0.0.1:%d", broker.port)))
+				expectSuccess(
+					testConnection(ctx, msgpack.EncodedJSON{"port": broker.port}),
+				)
 				Eventually(broker.clientCount).Should(BeZero())
 			},
 		)
@@ -393,9 +386,7 @@ var _ = Describe("Scan task", func() {
 						"port": broker.port, "client_id": "line-9", "username": "ops",
 					},
 				})
-				expectFailedStep(
-					stat, "Client ID in use", "dial:success", "connect:error",
-				)
+				expectFailure(stat, "Client ID in use")
 				Expect(stat.Description).To(ContainSubstring(`"line-9"`))
 				Expect(broker.connectedIDs()).To(Equal([]string{"line-9"}))
 			},
@@ -406,7 +397,7 @@ var _ = Describe("Scan task", func() {
 			port := broker.port
 			broker.stop()
 			stat := testConnection(ctx, msgpack.EncodedJSON{"port": port})
-			expectFailedStep(stat, "Failed to reach broker", "dial:error")
+			expectFailure(stat, "Failed to reach broker")
 			Expect(stat.Description).To(ContainSubstring("refused"))
 		})
 
@@ -420,9 +411,7 @@ var _ = Describe("Scan task", func() {
 			stat := testConnection(ctx, msgpack.EncodedJSON{
 				"port": broker.port, "username": "operator", "password": "wrong",
 			})
-			expectFailedStep(
-				stat, "Authentication failed", "dial:success", "connect:error",
-			)
+			expectFailure(stat, "Authentication failed")
 			Expect(stat.Description).To(Equal(
 				"the broker rejected the username or password: not Authorized. " +
 					"Check the username and the password.",
@@ -433,8 +422,10 @@ var _ = Describe("Scan task", func() {
 			DescribeTable("Should connect to the default port of a broker",
 				func(ctx SpecContext, properties msgpack.EncodedJSON, address string) {
 					stat := testConnection(ctx, properties)
-					expectFailedStep(stat, "Failed to reach broker", "dial:error")
-					Expect(stepsOf(stat)[0].Address).To(Equal(address))
+					expectFailure(stat, "Failed to reach broker")
+					Expect(
+						stat.Description,
+					).To(HavePrefix("Could not reach " + address + ":"))
 				},
 				Entry("a plain broker", msgpack.EncodedJSON{}, "127.0.0.1:1883"),
 				Entry("a secure broker",
@@ -467,9 +458,6 @@ var _ = Describe("Scan task", func() {
 					"port": broker.port, "secure": true, "ca_file": caFile,
 				})
 				expectSuccess(stat)
-				Expect(stages(stepsOf(stat))).To(Equal([]string{
-					"dial:success", "tls:success", "connect:success",
-				}))
 			})
 
 			It("Should reject a broker that its roots do not verify",
@@ -479,9 +467,7 @@ var _ = Describe("Scan task", func() {
 					stat := testConnection(ctx, msgpack.EncodedJSON{
 						"port": broker.port, "secure": true,
 					})
-					expectFailedStep(
-						stat, "Certificate not trusted", "dial:success", "tls:error",
-					)
+					expectFailure(stat, "Certificate not trusted")
 					Expect(stat.Description).
 						To(ContainSubstring("failed to verify certificate"))
 				},

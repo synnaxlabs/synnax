@@ -274,11 +274,11 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 		variant     = status.VariantSuccess
 		message     = "Command executed successfully"
 		description string
-		f           failure
+		f           Failure
 	)
 	switch {
 	case errors.As(err, &f):
-		variant, message, description = status.VariantError, f.message, f.description
+		variant, message, description = status.VariantError, f.Message, f.Description
 	case err != nil:
 		variant, message = status.VariantError, err.Error()
 	}
@@ -289,15 +289,15 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	}
 }
 
-// checkSize returns a failure when data holds more than replyLimit bytes of JSON.
+// checkSize returns a Failure when data holds more than replyLimit bytes of JSON.
 func checkSize(data msgpack.EncodedJSON) error {
 	encoded, err := json.Marshal(data)
 	if err != nil || len(encoded) <= replyLimit {
 		return err
 	}
-	return failure{
-		message: "Answer too large",
-		description: fmt.Sprintf(
+	return Failure{
+		Message: "Answer too large",
+		Description: fmt.Sprintf(
 			"The answer holds %.1f MiB of JSON, and a command answers with at most "+
 				"1 MiB. Ask for less data, such as fewer topics.",
 			float64(len(encoded))/replyLimit,

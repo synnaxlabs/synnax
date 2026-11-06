@@ -87,15 +87,10 @@ func (s *mapScanner) Exec(
 	case "browse":
 		return nil, errors.New("broker refused the subscription")
 	case "test":
-		return driver.AnswerTest([]task.TestStep{
-			{Stage: "dial", Variant: status.VariantSuccess, Message: "Reached broker"},
-			{
-				Stage:       "connect",
-				Variant:     status.VariantError,
-				Message:     "Authentication failed",
-				Description: "Check the username and the password.",
-			},
-		})
+		return nil, driver.Failure{
+			Message:     "Authentication failed",
+			Description: "Check the username and the password.",
+		}
 	case "huge":
 		return msgpack.EncodedJSON{"payload": strings.Repeat("x", 2<<20)}, nil
 	case "wait":
@@ -467,7 +462,7 @@ var _ = Describe("ScanTask", func() {
 			},
 		)
 
-		It("Should answer a failed connection test with its failed step",
+		It("Should answer a failure with its message and description",
 			func(ctx SpecContext) {
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "test", Key: "cmd-test"})).
@@ -479,10 +474,6 @@ var _ = Describe("ScanTask", func() {
 					g.Expect(stat.Message).To(Equal("Authentication failed"))
 					g.Expect(stat.Description).
 						To(Equal("Check the username and the password."))
-					var res task.TestResult
-					g.Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
-					g.Expect(res.Steps).To(HaveLen(2))
-					g.Expect(res.Steps[1].Stage).To(Equal("connect"))
 				}).Should(Succeed())
 			},
 		)

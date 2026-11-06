@@ -294,23 +294,6 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 	return stat
 }
 
-// stepsOf returns the steps of the connection test that stat answers.
-func stepsOf(stat task.Status) []task.TestStep {
-	GinkgoHelper()
-	var res task.TestResult
-	Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
-	return res.Steps
-}
-
-// stages returns the stage and variant of each step.
-func stages(steps []task.TestStep) []string {
-	out := make([]string, len(steps))
-	for i, s := range steps {
-		out[i] = s.Stage + ":" + string(s.Variant)
-	}
-	return out
-}
-
 // publishUntilDone publishes payload to topic every 10 ms until the spec ends.
 func publishUntilDone(b *testBroker, topic, payload string) {
 	GinkgoHelper()

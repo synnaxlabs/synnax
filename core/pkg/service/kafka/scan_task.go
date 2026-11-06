@@ -73,11 +73,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		steps, err := testConnection(ctx, args.Connection)
-		if err != nil {
-			return nil, err
-		}
-		return driver.AnswerTest(steps)
+		return nil, testConnection(ctx, args.Connection)
 	case browseCommand:
 		var args browseArgs
 		if err := unmarshalArgs(cmd, &args); err != nil {

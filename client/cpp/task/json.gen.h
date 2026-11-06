@@ -129,38 +129,6 @@ inline x::json::json Command::to_json() const {
     return j;
 }
 
-inline TestStep TestStep::parse(x::json::Parser parser) {
-    return TestStep{
-        .stage = parser.field<std::string>("stage"),
-        .address = parser.field<std::string>("address", ""),
-        .variant = parser.field<std::string>("variant"),
-        .message = parser.field<std::string>("message"),
-        .description = parser.field<std::string>("description", ""),
-    };
-}
-
-inline x::json::json TestStep::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["stage"] = this->stage;
-    j["address"] = this->address;
-    j["variant"] = this->variant;
-    j["message"] = this->message;
-    j["description"] = this->description;
-    return j;
-}
-
-inline TestResult TestResult::parse(x::json::Parser parser) {
-    return TestResult{
-        .steps = parser.field<std::vector<TestStep>>("steps", std::vector<TestStep>{}),
-    };
-}
-
-inline x::json::json TestResult::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["steps"] = x::json::to_array(this->steps);
-    return j;
-}
-
 inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
     return KeyedConfig{
         .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),

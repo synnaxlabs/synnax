@@ -26,25 +26,6 @@ from x import filter, telem
 Key: TypeAlias = UUID
 
 
-class TestStep(BaseModel):
-    """Is the outcome of one stage of a connection test that a scan task runs.
-
-    Attributes:
-        stage: Names the stage, such as 'dial' or 'tls'.
-        address: Is the network address that the stage reached. Empty when the stage is
-            not about one address.
-        variant: Is success, warning, or error.
-        message: Says what happened in one short line.
-        description: Says why, and what to do now, in full sentences.
-    """
-
-    stage: str
-    address: str = ""
-    variant: status_.Variant
-    message: str
-    description: str = ""
-
-
 class KeyedConfig(BaseModel):
     """Is the base for every stored task configuration record.
 
@@ -129,16 +110,6 @@ class Command(BaseModel):
     config_hash: str = ""
     args: dict[str, JsonValue] = Field(default_factory=dict)
     pinned: bool = False
-
-
-class TestResult(BaseModel):
-    """Is the status data that answers the test command of a scan task.
-
-    Attributes:
-        steps: Are the stages that ran, in order.
-    """
-
-    steps: list[TestStep] = Field(default_factory=list)
 
 
 class StartConfig(KeyedConfig):
