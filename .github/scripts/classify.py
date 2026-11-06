@@ -9,14 +9,15 @@
 
 """Labels a pull request review/human or review/bot and explains why in one comment.
 
-    python3 classify.py <artifacts-dir>
+    python3 classify.py <results-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head, or a trust check fails. Otherwise the author picks the tier, so the script adds no
-label. The script only raises: it never removes review/human. It reads the pull request
-number from PR, or else <artifacts-dir>/pr/number, and refuses it unless the pull
-request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and
-optionally PR.
+head, a report is missing, or a trust check fails. A surface the head predates reports
+skipped, which does not raise the tier. Otherwise the author picks the tier, so the
+script adds no label. The script only raises: it never removes review/human. It reads
+the pull request number from PR, or else <results-dir>/pr/number, and refuses it
+unless the pull request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY,
+HEAD_SHA, and optionally PR.
 """
 
 import json
@@ -54,9 +55,16 @@ SURFACES = {
     "client-ts": "TypeScript client API",
     "client-py": "Python client API",
     "core": "Core flags and config keys",
+    "core-windows": "Core commands and flags on Windows",
     "driver": "Driver commands and config keys",
 }
-STATUS_TEXT = {"same": "No change", "changed": "Changed", "error": "Report failed"}
+STATUS_TEXT = {
+    "same": "No change",
+    "changed": "Changed",
+    "error": "Report failed",
+    "skipped": "Not compared: the branch predates this report",
+}
+FLAGGED = {"changed", "error"}
 MAX_DIFF_CHARS = 12_000
 
 
@@ -68,12 +76,19 @@ class Surface:
 
 
 def read_surfaces(root: Path) -> list[Surface]:
+    """Reads the uploaded results and the run's job names from <root>/jobs. A run older
+    than a surface has no job for it, which is not a failure. A run with no surface job
+    at all never compared anything, so each of its reports is an error."""
+    jobs = (root / "jobs").read_text().splitlines()
+    compared = {name for name in SURFACES if f"Compare {name}" in jobs}
     out = []
     for name in SURFACES:
         d = root / f"surface-{name}"
         status = (d / "status").read_text().strip() if (d / "status").exists() else ""
         diff = (d / "diff").read_text() if (d / "diff").exists() else ""
-        if status not in STATUS_TEXT:
+        if status not in STATUS_TEXT and compared and name not in compared:
+            status, diff = "skipped", ""
+        elif status not in STATUS_TEXT:
             status, diff = "error", "No report: the job did not finish.\n"
         out.append(Surface(name=name, status=status, diff=diff))
     return out
@@ -94,7 +109,7 @@ def trust_reasons(pull: dict[str, Any], *, files: list[dict[str, Any]]) -> list[
 
 
 def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
-    return any(s.status != "same" for s in surfaces) or bool(reasons)
+    return any(s.status in FLAGGED for s in surfaces) or bool(reasons)
 
 
 def plan_labels(current: set[str], *, human: bool) -> tuple[list[str], list[str]]:
@@ -121,7 +136,7 @@ def render(
     reasons: list[str],
     kept: bool,
 ) -> str:
-    changed = any(s.status != "same" for s in surfaces)
+    changed = any(s.status in FLAGGED for s in surfaces)
     tier = f"`{HUMAN}`" if changed or reasons or kept else "the author picks"
     if changed:
         summary = "This pull request changes a user-facing interface."
@@ -145,7 +160,7 @@ def render(
         *rows,
     ]
     for s in surfaces:
-        if s.status == "same":
+        if s.status not in FLAGGED:
             continue
         lines += [
             "",

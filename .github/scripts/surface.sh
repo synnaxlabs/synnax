@@ -40,7 +40,7 @@ report() {
         client-py)
             uv run --project scripts scripts/surface_py.py client/py synnax
             ;;
-        core)
+        core | core-windows)
             cd core && go run -buildvcs=false ./cmd/surface/dump
             ;;
         driver)

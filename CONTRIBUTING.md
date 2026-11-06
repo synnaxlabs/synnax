@@ -48,8 +48,8 @@ refresh the gate on an idle pull request, run
 ## Review tiers
 
 The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
-report of a schema, client API, or Core or Driver config changes. A reviewer can raise
-it by swapping the label.
+report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
+label.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                               |
 | -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
