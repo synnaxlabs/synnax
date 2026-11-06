@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import { type ethercat, type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -400,6 +400,44 @@ describe("Write", () => {
       statuses,
       new RegExp(
         `A channel named ${cmdChannelName} already exists\\. Give the channel ` +
+          "another name\\.",
+      ),
+    );
+  });
+
+  it("should reject a default command name that a live slave's channel holds", async () => {
+    const base = createIdentifier();
+    const deploy = async (
+      identifier: string,
+      entry: ethercat.PDOEntry,
+      overrides: Partial<ethercat.EntryWriteChannel> = {},
+    ) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier,
+        network: "eth0",
+        pdos: { inputs: [], outputs: [entry] },
+      });
+      return await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createEntryWriteChannel(slave.key, entry, overrides)],
+      });
+    };
+    const owner = await deploy(base, { ...CONTROL_ENTRY, name: "x Control" });
+    await deployAndAwaitTask(
+      client,
+      owner.container,
+      owner.draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    owner.unmount();
+    const { container, statuses } = await deploy(`${base}_x`, CONTROL_ENTRY, {
+      stateChannelName: uniqueName("ecat_state"),
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `A channel named ${base}_x_Control_cmd already exists\\. Give the channel ` +
           "another name\\.",
       ),
     );

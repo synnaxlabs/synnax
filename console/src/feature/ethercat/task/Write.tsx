@@ -159,6 +159,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     const orphanCmdIndexes = await retrieveByName(client, cmdIndexNames);
     const cmdToCreate = await bindOrphanedChannels({
       client,
+      slave: slave.key,
       channels: cmdMissing,
       names: cmdMissing.map(cmdName),
       // A custom name can be a live channel of another device. A default name holds
@@ -171,6 +172,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     const stateToCreate = await bindOrphanedChannels({
       client,
+      slave: slave.key,
       channels: stateMissing,
       names: stateMissing.map(stateName),
       index: () => slave.properties.writeStateIndex,

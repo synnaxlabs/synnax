@@ -126,6 +126,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         : getEntryChannelName(identifier, pdos.inputs, ch);
     const toCreate = await bindOrphanedChannels({
       client,
+      slave: slave.key,
       channels: missing,
       names: missing.map(channelName),
       index: () => slave.properties.readIndex,
