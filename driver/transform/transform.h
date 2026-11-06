@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <memory>
@@ -181,10 +183,124 @@ public:
     }
 };
 
+class UnaryPolynomialScale {
+    std::vector<double> coeffs;
+    x::telem::DataType dt;
+
+public:
+    UnaryPolynomialScale(std::vector<double> coeffs, x::telem::DataType dt):
+        coeffs(std::move(coeffs)), dt(std::move(dt)) {}
+
+    [[nodiscard]] x::errors::Error
+    transform_inplace(const x::telem::Series &series) const {
+        if (this->dt != series.data_type())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "series data type " + series.data_type().name() +
+                    " does not match scale data type " + this->dt.name()
+            );
+        series.map_inplace([this](const double v) {
+            double result = 0;
+            for (auto c = this->coeffs.rbegin(); c != this->coeffs.rend(); ++c)
+                result = result * v + *c;
+            return result;
+        });
+        return x::errors::NIL;
+    }
+};
+
+/// @brief interpolates between table points in a straight line. Values outside the
+/// table clip to its first or last scaled value, and NaN stays NaN. pre_scaled must
+/// hold at least two values in increasing order, and scaled the same count.
+class UnaryTableScale {
+    std::vector<double> pre_scaled;
+    std::vector<double> scaled;
+    x::telem::DataType dt;
+
+public:
+    UnaryTableScale(
+        std::vector<double> pre_scaled,
+        std::vector<double> scaled,
+        x::telem::DataType dt
+    ):
+        pre_scaled(std::move(pre_scaled)),
+        scaled(std::move(scaled)),
+        dt(std::move(dt)) {}
+
+    [[nodiscard]] x::errors::Error
+    transform_inplace(const x::telem::Series &series) const {
+        if (this->dt != series.data_type())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "series data type " + series.data_type().name() +
+                    " does not match scale data type " + this->dt.name()
+            );
+        series.map_inplace([this](const double v) { return this->interpolate(v); });
+        return x::errors::NIL;
+    }
+
+private:
+    [[nodiscard]] double interpolate(const double v) const {
+        if (std::isnan(v)) return v;
+        if (v <= this->pre_scaled.front()) return this->scaled.front();
+        if (v >= this->pre_scaled.back()) return this->scaled.back();
+        const auto hi = static_cast<size_t>(
+            std::upper_bound(this->pre_scaled.begin(), this->pre_scaled.end(), v) -
+            this->pre_scaled.begin()
+        );
+        const auto lo = hi - 1;
+        const double t = (v - this->pre_scaled[lo]) /
+                         (this->pre_scaled[hi] - this->pre_scaled[lo]);
+        return this->scaled[lo] + t * (this->scaled[hi] - this->scaled[lo]);
+    }
+};
+
+/// @brief binds an error to each invalid field of the scale configured at path.
+inline void validate_scale(
+    const x::json::Parser &parser,
+    const std::string &path,
+    const ::synnax::task::Scale &scale
+) {
+    if (const auto *m = std::get_if<::synnax::task::MapScale>(&scale)) {
+        if (m->pre_scaled_min == m->pre_scaled_max)
+            parser.field_err(
+                path + ".pre_scaled_max",
+                "Pre-scaled min and pre-scaled max must differ"
+            );
+        return;
+    }
+    if (const auto *p = std::get_if<::synnax::task::PolynomialScale>(&scale)) {
+        if (p->coeffs.empty())
+            parser.field_err(path + ".coeffs", "At least one coefficient is required");
+        return;
+    }
+    const auto *t = std::get_if<::synnax::task::TableScale>(&scale);
+    if (t == nullptr) return;
+    const auto pre_path = path + ".pre_scaled_vals";
+    if (t->pre_scaled_vals.size() != t->scaled_vals.size()) {
+        const std::string
+            msg = "Pre-scaled and scaled values must have the same length";
+        parser.field_err(pre_path, msg);
+        parser.field_err(path + ".scaled_vals", msg);
+        return;
+    }
+    if (t->pre_scaled_vals.size() < 2) {
+        parser.field_err(pre_path, "At least two points are required");
+        return;
+    }
+    if (std::adjacent_find(
+            t->pre_scaled_vals.begin(),
+            t->pre_scaled_vals.end(),
+            std::greater_equal<>()
+        ) != t->pre_scaled_vals.end())
+        parser.field_err(pre_path, "Pre-scaled values must be in increasing order");
+}
+
 class Scale final : public Transform {
 public:
     /// @brief a single-channel scale operation.
-    using Unary = std::variant<UnaryLinearScale, UnaryMapScale>;
+    using Unary = std::
+        variant<UnaryLinearScale, UnaryMapScale, UnaryPolynomialScale, UnaryTableScale>;
 
     /// @brief registers the scale to apply to the given channel's series.
     void add(const synnax::channel::Key key, Unary scale) {
@@ -192,7 +308,7 @@ public:
     }
 
     /// @brief registers the configured scale for the channel's samples of type dt.
-    /// Registers nothing for an unscaled channel.
+    /// Registers nothing for an unscaled channel. The scale must pass validate_scale.
     void
     add(const synnax::channel::Key key,
         const x::telem::DataType &dt,
@@ -210,6 +326,10 @@ public:
                     dt
                 )
             );
+        else if (const auto *p = std::get_if<::synnax::task::PolynomialScale>(&scale))
+            this->add(key, UnaryPolynomialScale(p->coeffs, dt));
+        else if (const auto *t = std::get_if<::synnax::task::TableScale>(&scale))
+            this->add(key, UnaryTableScale(t->pre_scaled_vals, t->scaled_vals, dt));
     }
 
     x::errors::Error transform(x::telem::Frame &frame) override {

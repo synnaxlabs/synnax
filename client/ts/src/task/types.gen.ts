@@ -51,13 +51,47 @@ export const mapScaleZ = z.object({
 });
 export interface MapScale extends z.infer<typeof mapScaleZ> {}
 
+/** PolynomialScale maps raw values to engineering units with a polynomial. */
+export const polynomialScaleZ = z.object({
+  type: z.literal("polynomial"),
+  /**
+   * coeffs are the coefficients from the constant term up, so that index i holds the
+   * coefficient of x^i.
+   */
+  coeffs: z
+    .number()
+    .array()
+    .default(() => []),
+});
+export interface PolynomialScale extends z.infer<typeof polynomialScaleZ> {}
+
+/**
+ * TableScale maps raw values to engineering units by linear interpolation between the
+ * breakpoints, and clips raw values outside the table to its first or last scaled
+ * value.
+ */
+export const tableScaleZ = z.object({
+  type: z.literal("table"),
+  /** preScaledVals are the raw breakpoints, in increasing order. */
+  preScaledVals: z
+    .number()
+    .array()
+    .default(() => []),
+  /** scaledVals are the engineering-unit values at each breakpoint. */
+  scaledVals: z
+    .number()
+    .array()
+    .default(() => []),
+});
+export interface TableScale extends z.infer<typeof tableScaleZ> {}
+
 /** NoneScale applies no scaling; the raw value is used directly. */
 export const noneScaleZ = z.object({
   type: z.literal("none"),
 });
 export interface NoneScale extends z.infer<typeof noneScaleZ> {}
 
-export const SCALE_TYPES = ["linear", "map", "none"] as const;
+export const SCALE_TYPES = ["linear", "map", "polynomial", "table", "none"] as const;
 export const scaleTypeZ = z.enum(SCALE_TYPES);
 export type ScaleType = z.infer<typeof scaleTypeZ>;
 
@@ -65,15 +99,19 @@ export type ScaleType = z.infer<typeof scaleTypeZ>;
 export const scaleZ = z.discriminatedUnion("type", [
   linearScaleZ,
   mapScaleZ,
+  polynomialScaleZ,
+  tableScaleZ,
   noneScaleZ,
 ]);
-export type Scale = LinearScale | MapScale | NoneScale;
+export type Scale = LinearScale | MapScale | PolynomialScale | TableScale | NoneScale;
 
 export const SCALE_SCHEMAS: {
   [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
 } = {
   linear: linearScaleZ,
   map: mapScaleZ,
+  polynomial: polynomialScaleZ,
+  table: tableScaleZ,
   none: noneScaleZ,
 };
 

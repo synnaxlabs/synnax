@@ -43,6 +43,8 @@ var _ = Describe("Codec", func() {
 				ScaledMin:    3.5,
 				ScaledMax:    4.5,
 			}}),
+			Entry("polynomial variant", v2.Scale{Variant: v2.PolynomialScale{Coeffs: []float64{1.5}}}),
+			Entry("table variant", v2.Scale{Variant: v2.TableScale{PreScaledVals: []float64{1.5}, ScaledVals: []float64{2.5}}}),
 			Entry("none variant", v2.Scale{Variant: v2.NoneScale{}}),
 		)
 	})
@@ -140,6 +142,22 @@ func FuzzDecodeScale(f *testing.F) {
 			ScaledMin:    3.5,
 			ScaledMax:    4.5,
 		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Scale{Variant: v2.PolynomialScale{Coeffs: []float64{1.5}}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Scale{Variant: v2.TableScale{PreScaledVals: []float64{1.5}, ScaledVals: []float64{2.5}}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

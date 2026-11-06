@@ -58,6 +58,24 @@ class MapScale(BaseModel):
     scaled_max: float = 1
 
 
+class PolynomialScale(BaseModel):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Literal["polynomial"] = "polynomial"
+    coeffs: list[float] = Field(default_factory=list)
+
+
+class TableScale(BaseModel):
+    """Maps raw values to engineering units by linear interpolation between the
+    breakpoints, and clips raw values outside the table to its first or last scaled
+    value.
+    """
+
+    type: Literal["table"] = "table"
+    pre_scaled_vals: list[float] = Field(default_factory=list)
+    scaled_vals: list[float] = Field(default_factory=list)
+
+
 class NoneScale(BaseModel):
     """Applies no scaling; the raw value is used directly."""
 
@@ -66,7 +84,7 @@ class NoneScale(BaseModel):
 
 # Determines how raw values are transformed to engineering units.
 Scale = Annotated[
-    LinearScale | MapScale | NoneScale,
+    LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
     Field(discriminator="type"),
 ]
 

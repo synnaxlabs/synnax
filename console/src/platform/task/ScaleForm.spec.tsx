@@ -25,6 +25,12 @@ const renderScale = (scale: task.Scale) =>
 const valueOf = (name: string): string =>
   screen.getByRole<HTMLInputElement>("textbox", { name }).value;
 
+const commit = (name: string, value: string): void => {
+  const input = screen.getByLabelText<HTMLInputElement>(name);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
+
 describe("ScaleForm", () => {
   it("should show the slope and offset of a linear scale", async () => {
     await renderScale({ type: "linear", slope: 2, offset: 1 });
@@ -44,6 +50,29 @@ describe("ScaleForm", () => {
     expect(valueOf("Pre-scaled max")).toBe("20");
     expect(valueOf("Scaled min")).toBe("1");
     expect(valueOf("Scaled max")).toBe("100");
+  });
+
+  it("should store an edited polynomial coefficient", async () => {
+    const { form } = await renderScale({ type: "polynomial", coeffs: [1, 2] });
+    commit("c1", "3");
+    expect(form.current?.get(SCALE).value).toEqual({
+      type: "polynomial",
+      coeffs: [1, 3],
+    });
+  });
+
+  it("should store an edited table point", async () => {
+    const { form } = await renderScale({
+      type: "table",
+      preScaledVals: [0, 10],
+      scaledVals: [0, 100],
+    });
+    commit("Scaled 2", "50");
+    expect(form.current?.get(SCALE).value).toEqual({
+      type: "table",
+      preScaledVals: [0, 10],
+      scaledVals: [0, 50],
+    });
   });
 
   it("should show no parameters when the channel is not scaled", async () => {

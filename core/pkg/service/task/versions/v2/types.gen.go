@@ -157,6 +157,12 @@ const (
 	LinearScaleType ScaleType = "linear"
 	// MapScaleType maps a raw range linearly onto a scaled range.
 	MapScaleType ScaleType = "map"
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = "polynomial"
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = "table"
 	// NoneScaleType applies no scaling; the raw value is used directly.
 	NoneScaleType ScaleType = "none"
 )
@@ -207,6 +213,27 @@ func (m *MapScale) ApplyDefaults() {
 	}
 }
 
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale struct {
+	// Coeffs are the coefficients from the constant term up, so that index i holds the
+	// coefficient of x^i.
+	Coeffs []float64 `json:"coeffs" msgpack:"coeffs"`
+}
+
+func (PolynomialScale) isScaleVariant() {}
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale struct {
+	// PreScaledVals are the raw breakpoints, in increasing order.
+	PreScaledVals []float64 `json:"pre_scaled_vals" msgpack:"pre_scaled_vals"`
+	// ScaledVals are the engineering-unit values at each breakpoint.
+	ScaledVals []float64 `json:"scaled_vals" msgpack:"scaled_vals"`
+}
+
+func (TableScale) isScaleVariant() {}
+
 // NoneScale applies no scaling; the raw value is used directly.
 type NoneScale struct {
 }
@@ -233,6 +260,16 @@ func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}{Type: MapScaleType, MapScale: v})
+	case PolynomialScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			PolynomialScale
+		}{Type: PolynomialScaleType, PolynomialScale: v})
+	case TableScale:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleType `json:"type"`
+			TableScale
+		}{Type: TableScaleType, TableScale: v})
 	case NoneScale:
 		return json.MarshalEncode(enc, struct {
 			Type ScaleType `json:"type"`
@@ -281,6 +318,24 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.MapScale
+	case PolynomialScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			PolynomialScale
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PolynomialScale
+	case TableScaleType:
+		var v struct {
+			Type ScaleType `json:"type"`
+			TableScale
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TableScale
 	case NoneScaleType:
 		var v struct {
 			Type ScaleType `json:"type"`
@@ -307,6 +362,10 @@ func (u Scale) Type() ScaleType {
 		return LinearScaleType
 	case MapScale:
 		return MapScaleType
+	case PolynomialScale:
+		return PolynomialScaleType
+	case TableScale:
+		return TableScaleType
 	case NoneScale:
 		return NoneScaleType
 	}

@@ -65,6 +65,12 @@ const (
 	LinearScaleType ScaleType = versions.LinearScaleType
 	// MapScaleType maps a raw range linearly onto a scaled range.
 	MapScaleType ScaleType = versions.MapScaleType
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = versions.PolynomialScaleType
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = versions.TableScaleType
 	// NoneScaleType applies no scaling; the raw value is used directly.
 	NoneScaleType ScaleType = versions.NoneScaleType
 )
@@ -74,6 +80,14 @@ type LinearScale = versions.LinearScale
 
 // MapScale maps a raw range linearly onto a scaled range.
 type MapScale = versions.MapScale
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale = versions.PolynomialScale
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale = versions.TableScale
 
 // NoneScale applies no scaling; the raw value is used directly.
 type NoneScale = versions.NoneScale

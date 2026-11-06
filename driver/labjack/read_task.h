@@ -199,7 +199,9 @@ struct ThermocoupleChan final : InputChan {
                                       "thermocouple type. Check for an open "
                                       "thermocouple or a loose wire. The Driver writes "
                                       "NaN until the voltage is in range.",
-        } {}
+        } {
+        transform::validate_scale(parser, "scale", this->scale_cfg);
+    }
 
     [[nodiscard]] const ::synnax::task::Scale *scale() const override {
         return &this->scale_cfg;
@@ -295,6 +297,7 @@ struct AIChan final : InputChan {
         InputChan(cfg), range(cfg.range), neg_chan(cfg.neg_chan), scale_cfg(cfg.scale) {
         if (this->range <= 0)
             parser.field_err("range", "Max voltage must be greater than 0");
+        transform::validate_scale(parser, "scale", this->scale_cfg);
     }
 
     [[nodiscard]] const ::synnax::task::Scale *scale() const override {

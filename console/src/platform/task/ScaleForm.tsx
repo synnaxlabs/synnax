@@ -14,6 +14,9 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { CoefficientsField } from "@/platform/task/CoefficientsField";
+import { TableScaleForm } from "@/platform/task/TableScaleForm";
+
 const SelectType = Form.buildSelectField<task.ScaleType>({
   fieldProps: { label: "Scale" },
   inputProps: {
@@ -31,6 +34,14 @@ const SelectType = Form.buildSelectField<task.ScaleType>({
         <Select.Item itemKey="map">
           <Icon.Map />
           Map
+        </Select.Item>
+        <Select.Item itemKey="polynomial">
+          <Icon.Function />
+          Polynomial
+        </Select.Item>
+        <Select.Item itemKey="table">
+          <Icon.Table />
+          Table
         </Select.Item>
       </>
     ),
@@ -62,6 +73,13 @@ const PARAMS: Record<task.ScaleType, FC<ParamsProps>> = {
       </>
     );
   },
+  polynomial: ({ path }) => (
+    <CoefficientsField
+      path={deep.variant(path, "type", "polynomial").coeffs}
+      label="Coefficients"
+    />
+  ),
+  table: ({ path }) => <TableScaleForm path={deep.variant(path, "type", "table")} />,
   none: () => null,
 };
 
@@ -71,8 +89,8 @@ export interface ScaleFormProps {
 }
 
 /**
- * Edits a scale that is none, linear (slope and offset), or map (one range onto
- * another).
+ * Edits a scale that is none, linear (slope and offset), map (one range onto another),
+ * polynomial (coefficients), or table (pairs of raw and scaled values).
  */
 export const ScaleForm = ({ path }: ScaleFormProps) => {
   const scale = deep.widen(path);

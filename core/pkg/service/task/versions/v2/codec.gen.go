@@ -32,6 +32,31 @@ func (s Scale) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.PreScaledMax))
 		w.Float64(float64(v.ScaledMin))
 		w.Float64(float64(v.ScaledMax))
+	case PolynomialScale:
+		w.String("polynomial")
+		w.Bool(v.Coeffs != nil)
+		if v.Coeffs != nil {
+			w.Uint32(uint32(len(v.Coeffs)))
+			for i := range v.Coeffs {
+				w.Float64(float64(v.Coeffs[i]))
+			}
+		}
+	case TableScale:
+		w.String("table")
+		w.Bool(v.PreScaledVals != nil)
+		if v.PreScaledVals != nil {
+			w.Uint32(uint32(len(v.PreScaledVals)))
+			for i := range v.PreScaledVals {
+				w.Float64(float64(v.PreScaledVals[i]))
+			}
+		}
+		w.Bool(v.ScaledVals != nil)
+		if v.ScaledVals != nil {
+			w.Uint32(uint32(len(v.ScaledVals)))
+			for i := range v.ScaledVals {
+				w.Float64(float64(v.ScaledVals[i]))
+			}
+		}
 	case NoneScale:
 		w.String("none")
 	default:
@@ -69,6 +94,66 @@ func (s *Scale) DecodeOrc(r *orc.Reader) error {
 		}
 		if v.ScaledMax, err = r.Float64(); err != nil {
 			return err
+		}
+		s.Variant = v
+	case "polynomial":
+		var v PolynomialScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Coeffs = make([]float64, n)
+				for i := range v.Coeffs {
+					if v.Coeffs[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		s.Variant = v
+	case "table":
+		var v TableScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.PreScaledVals = make([]float64, n)
+				for i := range v.PreScaledVals {
+					if v.PreScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.ScaledVals = make([]float64, n)
+				for i := range v.ScaledVals {
+					if v.ScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		s.Variant = v
 	case "none":

@@ -85,6 +85,31 @@ struct MapScale {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief PolynomialScale maps raw values to engineering units with a polynomial.
+struct PolynomialScale {
+    std::string type = "polynomial";
+    /// @brief coeffs are the coefficients from the constant term up, so that index i
+    /// holds the coefficient of x^i.
+    std::vector<double> coeffs = {};
+
+    static PolynomialScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TableScale maps raw values to engineering units by linear interpolation
+/// between the breakpoints, and clips raw values outside the table to its first or last
+/// scaled value.
+struct TableScale {
+    std::string type = "table";
+    /// @brief pre_scaled_vals are the raw breakpoints, in increasing order.
+    std::vector<double> pre_scaled_vals = {};
+    /// @brief scaled_vals are the engineering-unit values at each breakpoint.
+    std::vector<double> scaled_vals = {};
+
+    static TableScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief NoneScale applies no scaling; the raw value is used directly.
 struct NoneScale {
     std::string type = "none";
@@ -94,7 +119,8 @@ struct NoneScale {
 };
 
 /// @brief Scale determines how raw values are transformed to engineering units.
-using Scale = std::variant<LinearScale, MapScale, NoneScale>;
+using Scale = std::
+    variant<LinearScale, MapScale, PolynomialScale, TableScale, NoneScale>;
 
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);

@@ -290,6 +290,30 @@ Scale union on type {
 
         @doc value "maps a raw range linearly onto a scaled range."
     }
+    polynomial {
+        coeffs float64[] = [] {
+            @doc value """
+                are the coefficients from the constant term up, so that index i holds
+                the coefficient of x^i.
+            """
+        }
+
+        @doc value "maps raw values to engineering units with a polynomial."
+    }
+    table {
+        pre_scaled_vals float64[] = [] {
+            @doc value "are the raw breakpoints, in increasing order."
+        }
+        scaled_vals     float64[] = [] {
+            @doc value "are the engineering-unit values at each breakpoint."
+        }
+
+        @doc value """
+            maps raw values to engineering units by linear interpolation between the
+            breakpoints, and clips raw values outside the table to its first or last
+            scaled value.
+        """
+    }
     none {
         @doc value "applies no scaling; the raw value is used directly."
     }
