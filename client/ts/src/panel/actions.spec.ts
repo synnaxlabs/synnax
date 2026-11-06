@@ -630,6 +630,11 @@ describe("setGroup", () => {
     const doc = { ...state(leaf()), group: G1 };
     expect(panel.reduceAll(doc, [panel.setGroup({})]).next.group).toBeUndefined();
   });
+  it("should restore the previous group through its inverse", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    const { next, inverse } = panel.reduceAll(doc, [panel.setGroup({})]);
+    expect(panel.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
   it("should target nothing, so it never enters the undo stack", () => {
     const doc = state(leaf());
     expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).targets).toEqual([]);
@@ -638,12 +643,17 @@ describe("setGroup", () => {
 
 describe("setProject", () => {
   const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
   it("should move the panel into the project without an undo entry", () => {
-    const { next, inverse, targets } = panel.reduceAll(state(leaf("a")), [
+    const { next, targets } = panel.reduceAll(state(leaf("a")), [
       panel.setProject({ project: P1 }),
     ]);
     expect(next.project).toEqual(P1);
-    expect(inverse).toEqual([]);
     expect(targets).toEqual([]);
+  });
+  it("should restore the previous project through its inverse", () => {
+    const doc = { ...state(leaf("a")), project: P1 };
+    const { next, inverse } = panel.reduceAll(doc, [panel.setProject({ project: P2 })]);
+    expect(panel.reduceAll(next, inverse).next.project).toEqual(P1);
   });
 });

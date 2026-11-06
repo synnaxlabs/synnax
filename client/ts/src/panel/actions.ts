@@ -16,6 +16,8 @@ import {
   type HandlerResult,
   type Handlers,
   type InsertTabsPayload,
+  setGroup,
+  setProject,
 } from "@/panel/actions.gen";
 import {
   findNode,
@@ -180,13 +182,16 @@ const handlers: Handlers = {
   },
 
   setGroup: (state, payload) => {
+    const oldGroup = state.group;
     state.group = payload.group;
-    return { inverse: [], targets: [] };
+    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
   },
 
   setProject: (state, payload) => {
+    const oldProject = state.project;
     state.project = payload.project;
-    return { inverse: [], targets: [] };
+    const inverse = oldProject == null ? [] : [setProject({ project: oldProject })];
+    return { inverse, targets: [] };
   },
 
   setIcon: (state, payload) => {
