@@ -129,7 +129,7 @@ var _ = Describe("Writer open", func() {
 			go func() {
 				w, err := db.OpenWriter(context.Background(), cesium.WriterConfig{
 					Channels:       []cesium.ChannelKey{idxKey},
-					Start:          telem.SecondTS,
+					Start:          30 * telem.SecondTS,
 					Mode:           cesium.WriterModePersistOnly,
 					ControlSubject: control.Subject{Key: "blocked"},
 				})
