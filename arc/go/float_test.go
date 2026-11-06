@@ -232,22 +232,22 @@ var _ = Describe("NaN and infinity", func() {
 	})
 
 	Describe("Compile errors", func() {
-		compile := func(ctx SpecContext, source string) error {
+		compile := func(ctx SpecContext, source string) (arc.Program, error) {
 			GinkgoHelper()
 			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
 				Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
 			}))
-			_, err := arc.CompileText(
+			return arc.CompileText(
 				ctx,
 				arc.Text{Raw: "import math\n" + source},
 				root,
 			)
-			return err
 		}
 
 		DescribeTable("Should keep constants out of IR values",
 			func(ctx SpecContext, source, message string) {
-				Expect(compile(ctx, source)).To(MatchError(ContainSubstring(message)))
+				Expect(compile(ctx, source)).Error().
+					To(MatchError(ContainSubstring(message)))
 			},
 			Entry(
 				"flow variable read in a func",
