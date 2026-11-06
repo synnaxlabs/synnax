@@ -317,6 +317,17 @@ x::errors::Error Master::activate(
     if (this->activated)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
 
+    // Demo: some slaves stop updating inputs after the SDO information reads of
+    // discovery. A fresh config_init clears it.
+    if (this->api->config_init() <= 0)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "config_init found no slaves"
+        );
+    this->api->statecheck(0, EC_STATE_PRE_OP, PRE_OP_TIMEOUT);
+    this->api->readstate();
+    LOG(INFO) << "[ethercat] ran config_init again before mapping";
+
     std::vector<uint16_t> parameterized;
     {
         std::lock_guard lock(this->mu);
@@ -337,12 +348,6 @@ x::errors::Error Master::activate(
         }
     }
 
-    // Demo: some slaves stop updating inputs after the SDO information reads of
-    // discovery until they pass through INIT.
-    if (auto err = this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT)) return err;
-    if (auto err = this->request_state(EC_STATE_PRE_OP, STATE_CHANGE_TIMEOUT))
-        return err;
-    LOG(INFO) << "[ethercat] took the enabled slaves through INIT before mapping";
     if (const auto err = this->clear_dc_activation()) return err;
 
     // The master requests SAFE-OP itself, after it sets up the DC sync of the slaves.
