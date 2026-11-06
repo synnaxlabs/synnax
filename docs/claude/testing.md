@@ -87,6 +87,7 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 - Options: `--headed` (Playwright headed mode), `--slow-mo <ms>` (delay per Playwright
   action), `-d <rack>` (driver rack name), `--logs` (stream case logs as they happen
   instead of only after a failure), `--port <port>` (the Core to test, default 9090)
+- `--browsers <n>` limits how many Console tests run at once.
 
 ### Organization
 
