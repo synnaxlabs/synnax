@@ -67,6 +67,14 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
+/// @brief returns the host steady clock time in nanoseconds.
+int64_t steady_now() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               std::chrono::steady_clock::now().time_since_epoch()
+    )
+        .count();
+}
+
 /// @brief returns the little-endian bytes of value.
 template<typename T>
 std::vector<uint8_t> little_endian(const T value) {
@@ -289,6 +297,7 @@ void Master::deactivate() {
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;
         this->dc_setups.clear();
+        this->host_dc_offset.store(NO_DC_FRAME, std::memory_order_relaxed);
         {
             std::lock_guard lock(this->mu);
             this->dc_restore_errors.clear();
@@ -326,6 +335,11 @@ x::errors::Error Master::receive() {
                 ", got " + std::to_string(wkc)
         );
 
+    if (this->has_dc)
+        this->host_dc_offset.store(
+            this->api->dc_time() - steady_now(),
+            std::memory_order_relaxed
+        );
     return x::errors::NIL;
 }
 
@@ -1254,6 +1268,7 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
             errors::ACTIVATION_ERROR,
             "no slave latched its receive time"
         );
+    const int64_t latched_at = steady_now();
     std::array<uint8_t, 8> local{};
     if (auto err = this->read_dc_register(pos, ECT_REG_DCSOF, local)) return err;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
@@ -1279,9 +1294,16 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
             little_endian(system - from_little_endian<int64_t>(local))
         );
     }
-    return x::errors::Error(
-        errors::ACTIVATION_ERROR,
-        "no other slave clock kept running to set the clock from. Restart the task."
+    const int64_t offset = this->host_dc_offset.load(std::memory_order_relaxed);
+    if (offset == NO_DC_FRAME)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no frame has carried the DC time to set the clock from"
+        );
+    return this->write_dc_register(
+        pos,
+        ECT_REG_DCSYSOFFSET,
+        little_endian(latched_at + offset - from_little_endian<int64_t>(local))
     );
 }
 

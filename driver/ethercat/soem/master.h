@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -78,6 +79,12 @@ class Master final : public master::Master {
     bool has_dc = false;
     /// @brief the process data frames that came back to the master.
     std::atomic<uint64_t> frames{0};
+    /// @brief host_dc_offset before a frame with a matching working counter carries the
+    /// DC time.
+    static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
+    /// @brief the DC time minus the host steady clock time, in nanoseconds, at the
+    /// latest frame with a matching working counter.
+    std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
@@ -222,9 +229,10 @@ private:
     x::errors::Error start_dc();
 
     /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
-    /// matches the clock of another enabled DC slave in SAFE-OP or OP.
-    /// @returns errors::ACTIVATION_ERROR when no such slave answers, or the slave does
-    /// not take the write.
+    /// matches the clock of another enabled DC slave in SAFE-OP or OP. Without one, the
+    /// clock continues the DC time of the latest frame with a matching working counter.
+    /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, or the
+    /// slave does not answer or take the write.
     x::errors::Error align_clock(uint16_t pos);
 
     /// @brief sets up the distributed clock of a slave that came back to PRE-OP while

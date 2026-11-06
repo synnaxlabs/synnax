@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <optional>
 #include <thread>
@@ -198,8 +200,25 @@ protected:
         this->add_slave(slave);
         this->set_op_modes(modes);
         ASSERT_NIL(this->master->initialize());
+        this->mock->hasdc = true;
         this->activate_master();
         this->mock->register_writes.clear();
+    }
+
+    /// @brief returns the offset (0x0920) that the master wrote to a slave.
+    int64_t written_offset(const uint16_t slave) const {
+        const auto it = std::ranges::find_if(
+            this->mock->register_writes,
+            [slave](const RegisterWrite &w) {
+                return w.slave == slave && w.address == 0x0920;
+            }
+        );
+        EXPECT_NE(it, this->mock->register_writes.end());
+        if (it == this->mock->register_writes.end()) return 0;
+        int64_t value = 0;
+        for (size_t i = 0; i < it->data.size(); ++i)
+            value |= static_cast<int64_t>(it->data[i]) << (8 * i);
+        return value;
     }
 
     void activate_master() {
@@ -1306,12 +1325,50 @@ TEST_F(SOEMMasterTest, CheckRestoresTheReferenceClockFromTheNextDCSlave) {
     EXPECT_EQ(this->mock->register_writes, expected);
 }
 
+/// @brief it should set the clock of the only DC slave, when it comes back from a power
+/// loss, to the DC time of the latest good frame plus the host time since.
+TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->hasdc = true;
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_master();
+    this->mock->register_writes.clear();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = bytes<int64_t>(2'000);
+    this->check_while_cycling();
+    // The mock DC time stands still, and a frame can come back after the latch.
+    const auto error = this->written_offset(1) - (7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    EXPECT_EQ(
+        this->mock->register_writes.back(),
+        (RegisterWrite{.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true})
+    );
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should set the clock of every DC slave when the whole bus comes back from
+/// a power loss, and hold none of them in PRE-OP.
+TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->check_while_cycling();
+    EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
+    for (const uint16_t slave: {1, 2}) {
+        const auto error = this->written_offset(slave) - 7'000'000'000;
+        EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    }
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
 /// @brief it should hold a DC slave that comes back from a power loss in PRE-OP, and
-/// report why, when no other slave clock kept running to set its clock from.
-TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenNoOtherClockKeptRunning) {
+/// report why, when the master cannot restore its clock.
+TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
     this->master->check(this->brk);
     EXPECT_EQ(
         this->mock->state_change_requests,
@@ -1323,8 +1380,7 @@ TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenNoOtherClockKeptRunning) {
     EXPECT_TRUE(health[0].faulted);
     EXPECT_EQ(
         health[0].al_status,
-        "Failed to restore the distributed clock: no other slave clock kept running "
-        "to set the clock from. Restart the task."
+        "Failed to restore the distributed clock: no slave latched its receive time"
     );
 }
 
