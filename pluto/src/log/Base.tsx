@@ -39,6 +39,20 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
+const toTextBlob = (lines: log.Line[]): Blob =>
+  new Blob([lines.map((l) => l.text).join("\n")], { type: "text/plain" });
+
+const toHTMLBlob = (lines: log.Line[]): Blob => {
+  const body = lines.map((l) => {
+    const escaped = strings.escapeHTML(l.text);
+    if (l.color.length === 0) return escaped;
+    // Preserve color and font when pasting into rich text editors.
+    return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
+  });
+  const html = `<pre style="font-family: monospace">${body.join("\n")}</pre>`;
+  return new Blob([html], { type: "text/html" });
+};
+
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
     No log entries
@@ -73,7 +87,7 @@ export const Base = ({
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
-  const { state, setState } = use({
+  const { state, setState, methods } = use({
     aetherKey,
     font,
     visible,
@@ -92,8 +106,8 @@ export const Base = ({
     empty,
     loading,
     blank,
-    selectedText,
-    selectedLines,
+    selectionStart,
+    selectionEnd,
     region,
     visibleStart,
     computedLineHeight,
@@ -142,34 +156,24 @@ export const Base = ({
     draggingRef.current = false;
   };
 
-  const buildCopyHTML = (): string => {
-    const lines = selectedLines.map((l) => {
-      const escaped = strings.escapeHTML(l.text);
-      if (l.color.length === 0) return escaped;
-      // Preserve color and font when pasting into rich text editors.
-      return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
-    });
-    return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
-  };
-
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const notifyCopied = (count: number) =>
-    addStatus({
-      variant: "success",
-      message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
-    });
 
+  // The worker formats the lines only now, so a large selection costs nothing until a
+  // copy. The write must start inside the user gesture, so the item holds promises.
   const copyToClipboard = () => {
-    if (selectedText.length === 0) return;
+    const lines = methods.selectedLines();
     const item = new ClipboardItem({
-      "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
-      "text/plain": new Blob([selectedText], { type: "text/plain" }),
+      "text/html": lines.then(toHTMLBlob),
+      "text/plain": lines.then(toTextBlob),
     });
-    const count = selectedLines.length;
     handleError(async () => {
       await navigator.clipboard.write([item]);
-      notifyCopied(count);
+      const { length } = await lines;
+      addStatus({
+        variant: "success",
+        message: `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`,
+      });
     }, "Failed to copy to clipboard");
   };
 
@@ -186,18 +190,14 @@ export const Base = ({
           selectionEnd: log.SELECT_ALL_END,
         }));
       else if (mode === "clearSelection")
-        setState((s) => ({
-          ...s,
-          selectionStart: -1,
-          selectionEnd: -1,
-          selectedText: "",
-        }));
+        setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));
       else if (mode === "togglePause") setHold(!scrolling);
     },
   });
 
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const hasSelection = selectedText.length > 0;
+  const hasSelection =
+    selectionStart >= 0 && selectionEnd >= 0 && rowEntries.length > 0;
 
   const handleMenuSelect = (key: string) => {
     if (key === "copy") copyToClipboard();
@@ -243,11 +243,9 @@ export const Base = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onCopy={(e) => {
-          if (selectedText.length === 0) return;
+          if (!hasSelection) return;
           e.preventDefault();
-          e.clipboardData.setData("text/plain", selectedText);
-          e.clipboardData.setData("text/html", buildCopyHTML());
-          notifyCopied(selectedLines.length);
+          copyToClipboard();
         }}
         onContextMenu={menuProps.open}
         {...rest}
