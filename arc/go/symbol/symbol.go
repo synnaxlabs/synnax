@@ -193,8 +193,11 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
-	// Exported marks a declaration of a source module that importers can see.
+	// Exported marks a declaration of a user-defined module that importers can see.
 	Exported bool
+	// UserDefined marks a module built from Arc source. Importers see only its
+	// Exported members.
+	UserDefined bool
 	// Reassigned marks a flow-level value variable written after declaration
 	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
 	Reassigned bool
@@ -642,7 +645,7 @@ func (s *Symbol) resolveMember(
 ) (*Symbol, error) {
 	child := s.FindChild(name)
 	if child == nil || (!opts.includeInternal &&
-		(child.Internal || (s.AST != nil && !child.Exported))) {
+		(child.Internal || (s.UserDefined && !child.Exported))) {
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 	}
 	return child, nil

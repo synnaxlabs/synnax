@@ -84,6 +84,7 @@ func (l *Loader) Resolve(ctx context.Context, path string) (*symbol.Symbol, erro
 	}
 	mod := i.Symbols
 	mod.Kind, mod.Name, mod.AST = symbol.KindModule, path, parsed.AST
+	mod.UserDefined = true
 	l.modules[path] = mod
 	return mod, nil
 }

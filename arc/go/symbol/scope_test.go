@@ -614,7 +614,7 @@ var _ = Describe("Scope", func() {
 				g := &symbol.Symbol{Name: "g", Kind: symbol.KindFunction}
 				mod := symbol.NewRoot(nil, []*symbol.Symbol{g})
 				mod.Kind, mod.Name = symbol.KindModule, "m"
-				mod.AST = MustSucceed(parser.Parse("func f() {}"))
+				mod.UserDefined = true
 				mod.AddChild(
 					&symbol.Symbol{
 						Name:     "f",

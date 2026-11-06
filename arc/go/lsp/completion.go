@@ -572,7 +572,7 @@ func (s *Server) getCompletionItems(
 				}
 				for _, sym := range mod.Children() {
 					if sym.Kind != symbol.KindFunction || sym.Internal ||
-						(mod.AST != nil && !sym.Exported) {
+						(mod.UserDefined && !sym.Exported) {
 						continue
 					}
 					if !sym.Exec.Compatible(execFilter) {

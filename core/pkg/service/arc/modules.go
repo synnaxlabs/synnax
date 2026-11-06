@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // moduleSource returns a loader source that reads the text of the module at an
@@ -72,14 +71,14 @@ func (s *Service) retrieveModuleText(
 		return arctext.Text{}, err
 	}
 	if a.Type() != TypeModule {
-		return arctext.Text{}, errors.Wrapf(
-			validate.ErrValidation, "%q is an automation and cannot be imported", path,
+		return arctext.Text{}, errors.Newf(
+			"%q is an automation and cannot be imported", path,
 		)
 	}
 	src, ok := a.Base().Source.Variant.(TextSource)
 	if !ok {
-		return arctext.Text{}, errors.Wrapf(
-			validate.ErrValidation, "module %q is a graph and cannot be imported", path,
+		return arctext.Text{}, errors.Newf(
+			"module %q is a graph and cannot be imported", path,
 		)
 	}
 	return src.Text.Materialize(), nil
