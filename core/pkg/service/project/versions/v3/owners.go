@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -39,7 +40,8 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 // type cfg.Type from the parent edge that points at it from a stored project or range.
 // A project edge wins over a range edge, and an edge from an owner that is not stored
 // counts as no edge. The migration deletes the converted edges, then deletes each
-// visualization with no owner along with its ontology resource and edges.
+// visualization with no owner along with its ontology resource and edges. It reads the
+// project and range tables, so they must open and migrate first.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],
 ) gorp.Migration {
@@ -81,20 +83,34 @@ func setOwner[K gorp.Key, E gorp.Entry[K]](
 	if rel.From.Type == resource.TypeRange && cfg.Owned(*e) {
 		return false, nil
 	}
-	found, err := ontology.ResourceExists(ctx, tx, rel.From)
-	if !found || err != nil {
-		return false, err
-	}
 	owner, err := uuid.Parse(rel.From.Key)
 	if err != nil {
 		return false, errors.Wrapf(err, "owner of %s", rel.To)
 	}
-	if rel.From.Type == resource.TypeProject {
+	isProject := rel.From.Type == resource.TypeProject
+	var found bool
+	if isProject {
+		found, err = stored[Key, Project](ctx, tx, owner)
+	} else {
+		found, err = stored[ranger.Key, ranger.Range](ctx, tx, owner)
+	}
+	if !found || err != nil {
+		return false, err
+	}
+	if isProject {
 		cfg.SetOwner(e, &owner, nil)
 	} else {
 		cfg.SetOwner(e, nil, &owner)
 	}
 	return true, nil
+}
+
+func stored[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	tx gorp.Tx,
+	key K,
+) (bool, error) {
+	return gorp.NewRetrieve[K, E]().Where(gorp.MatchKeys[K, E](key)).Exists(ctx, tx)
 }
 
 func deleteOrphans[K gorp.Key, E gorp.Entry[K]](

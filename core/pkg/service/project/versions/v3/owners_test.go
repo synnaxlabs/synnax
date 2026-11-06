@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -63,11 +64,13 @@ var _ = Describe("OwnersMigration", func() {
 		projID   = resource.ID{Type: resource.TypeProject, Key: proj.String()}
 		rngID    = resource.ID{Type: resource.TypeRange, Key: rng.String()}
 		missing  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
+		gone     = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
 		owned    = uuid.New()
 		snapshot = uuid.New()
 		both     = uuid.New()
 		dangling = uuid.New()
 		fallback = uuid.New()
+		lost     = uuid.New()
 		orphan   = uuid.New()
 		logID    = resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
 	)
@@ -80,6 +83,7 @@ var _ = Describe("OwnersMigration", func() {
 			{Key: both},
 			{Key: dangling},
 			{Key: fallback},
+			{Key: lost},
 			{Key: orphan},
 		}
 		Expect(gorp.NewCreate[uuid.UUID, vis]().Entries(&entries).Exec(ctx, db)).
@@ -92,20 +96,22 @@ var _ = Describe("OwnersMigration", func() {
 			parentOf(missing, visID(dangling)),
 			parentOf(missing, visID(fallback)),
 			parentOf(rngID, visID(fallback)),
+			parentOf(gone, visID(lost)),
 			parentOf(visID(orphan), logID),
 			parentOf(projID, logID),
 		}
 		Expect(gorp.NewCreate[string, ontology.Relationship]().
 			Entries(&rels).
 			Exec(ctx, db)).To(Succeed())
-		resources := []ontology.Resource{
-			{ID: projID},
-			{ID: rngID},
-			{ID: visID(owned)},
-			{ID: visID(orphan)},
-		}
+		resources := []ontology.Resource{{ID: visID(owned)}, {ID: visID(orphan)}}
 		Expect(gorp.NewCreate[string, ontology.Resource]().
 			Entries(&resources).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[v3.Key, v3.Project]().
+			Entry(&v3.Project{Key: proj, Name: "Project"}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
+			Entry(&ranger.Range{Key: rng, Name: "Range"}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
@@ -154,14 +160,13 @@ var _ = Describe("OwnersMigration", func() {
 	It("Should delete a visualization with no stored owner", func(ctx SpecContext) {
 		Expect(byKey(ctx)).ToNot(HaveKey(orphan))
 		Expect(byKey(ctx)).ToNot(HaveKey(dangling))
+		Expect(byKey(ctx)).ToNot(HaveKey(lost))
 	})
 
 	It("Should delete the ontology resource of a deleted visualization", func(
 		ctx SpecContext,
 	) {
 		Expect(retrieveAll[string, ontology.Resource](ctx, db)).To(ConsistOf(
-			ontology.Resource{ID: projID},
-			ontology.Resource{ID: rngID},
 			ontology.Resource{ID: visID(owned)},
 		))
 	})

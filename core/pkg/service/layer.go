@@ -559,6 +559,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
+	// The visualization migrations read the projects converted from workspaces, so the
+	// project table opens first.
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Signals:         l.Signals,
+	}); !ok(err, l.Project) {
+		return nil, err
+	}
 	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
@@ -594,14 +604,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 	}); !ok(err, l.Panel) {
-		return nil, err
-	}
-	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
-		Instrumentation: cfg.Child("project"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Signals:         l.Signals,
-	}); !ok(err, l.Project) {
 		return nil, err
 	}
 	if l.Bundle, err = bundle.NewService(bundle.Config{

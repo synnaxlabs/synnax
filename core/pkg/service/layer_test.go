@@ -24,9 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -37,7 +40,9 @@ import (
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -299,6 +304,95 @@ var _ = Describe("Layer", func() {
 			w := layer.Group.NewWriter(nil)
 			Expect(w.Create(ctx, &g)).To(Succeed())
 			Expect(w.Delete(ctx, g.Key)).To(Succeed())
+		},
+	)
+})
+
+var _ = Describe("Workspace-era upgrade", func() {
+	It(
+		"Should keep every visualization in the project its workspace becomes",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			ws := projectv0.Workspace{Key: uuid.New(), Name: "Workspace"}
+			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](legacyDB).
+				Set(ctx, ws)).To(Succeed())
+			g := groupv0.Group{Key: uuid.New(), Name: "Group"}
+			Expect(gorp.WrapWriter[groupv0.Key, groupv0.Group](legacyDB).Set(ctx, g)).
+				To(Succeed())
+			loose := schematicv0.Schematic{Key: uuid.New(), Name: "Loose"}
+			grouped := schematicv0.Schematic{Key: uuid.New(), Name: "Grouped"}
+			Expect(gorp.WrapWriter[schematicv0.Key, schematicv0.Schematic](legacyDB).
+				Set(ctx, loose, grouped)).To(Succeed())
+			lp := lineplotv0.LinePlot{Key: uuid.New(), Name: "Line Plot"}
+			Expect(gorp.WrapWriter[lineplotv0.Key, lineplotv0.LinePlot](legacyDB).
+				Set(ctx, lp)).To(Succeed())
+			lg := logv0.Log{Key: uuid.New(), Name: "Log"}
+			Expect(gorp.WrapWriter[logv0.Key, logv0.Log](legacyDB).Set(ctx, lg)).
+				To(Succeed())
+			tbl := tablev0.Table{Key: uuid.New(), Name: "Table"}
+			Expect(gorp.WrapWriter[tablev0.Key, tablev0.Table](legacyDB).Set(ctx, tbl)).
+				To(Succeed())
+			var (
+				wsID      = resource.ID{Type: "workspace", Key: ws.Key.String()}
+				groupID   = resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}
+				groupedID = schematic.ResourceID(grouped.Key)
+				owned     = []resource.ID{
+					groupID,
+					schematic.ResourceID(loose.Key),
+					lineplot.ResourceID(lp.Key),
+					log.ResourceID(lg.Key),
+					table.ResourceID(tbl.Key),
+				}
+				resources = []ontology.Resource{{ID: wsID}, {ID: groupedID}}
+				edges     = []ontology.Relationship{{
+					From: groupID,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   groupedID,
+				}}
+			)
+			for _, id := range owned {
+				resources = append(resources, ontology.Resource{ID: id})
+				edges = append(edges, ontology.Relationship{
+					From: wsID,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   id,
+				})
+			}
+			Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
+				Set(ctx, resources...)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Relationship](node.DB).
+				Set(ctx, edges...)).To(Succeed())
+
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+
+			var schematics []schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(loose.Key, grouped.Key)).
+				Entries(&schematics).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(schematics).To(HaveLen(2))
+			for _, s := range schematics {
+				Expect(s.Project).To(HaveValue(Equal(ws.Key)))
+			}
+			var plot lineplot.LinePlot
+			Expect(layer.LinePlot.NewRetrieve().
+				Where(lineplot.MatchKeys(lp.Key)).
+				Entry(&plot).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(plot.Project).To(HaveValue(Equal(ws.Key)))
+			var l log.Log
+			Expect(layer.Log.NewRetrieve().
+				Where(log.MatchKeys(lg.Key)).
+				Entry(&l).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(l.Project).To(HaveValue(Equal(ws.Key)))
+			var t table.Table
+			Expect(layer.Table.NewRetrieve().
+				Where(table.MatchKeys(tbl.Key)).
+				Entry(&t).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(t.Project).To(HaveValue(Equal(ws.Key)))
 		},
 	)
 })
