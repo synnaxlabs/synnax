@@ -32,6 +32,7 @@ import {
   type Key as RackKey,
   keyZ as rackKeyZ,
   ontologyID as rackOntologyID,
+  statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
@@ -143,12 +144,12 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandsSyncInternalParams<StatusData>,
-  "frameClient" | "name"
+  "frameClient" | "name" | "racks"
 > {}
 
 export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandSyncInternalParams<StatusData>,
-  "frameClient" | "name"
+  "frameClient" | "name" | "racks"
 > {}
 
 /**
@@ -256,6 +257,11 @@ export class Task<S extends Schemas = Schemas> {
     });
   }
 
+  /**
+   * Sends a command and waits for the reply of the task.
+   * @throws once the timeout passes, or with the status of the rack once the Driver
+   * that runs the task goes down.
+   */
   async executeCommandSync(
     params: TaskExecuteCommandSyncParams,
   ): Promise<Status<S["statusData"]>> {
@@ -265,6 +271,7 @@ export class Task<S extends Schemas = Schemas> {
       task: this.key,
       configHash: this.configHash,
       name: this.name,
+      racks: [this.rack],
       statusDataZ: this.schemas.statusData,
     });
   }
@@ -939,10 +946,20 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Sends commands and waits for the reply of each task.
+   * @throws once the timeout passes, or with the status of a rack once the Driver
+   * that runs one of the tasks goes down.
+   */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
+  /**
+   * Sends a command and waits for the reply of the task.
+   * @throws once the timeout passes, or with the status of the rack once the Driver
+   * that runs the task goes down.
+   */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData>>;
@@ -962,6 +979,7 @@ export class Client extends query.Retriever<
         commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
         name: retrieveNames,
+        racks: this.racksOf(params.commands.map((c) => c.task)),
       });
     }
     const retrieveName = async () => {
@@ -973,8 +991,14 @@ export class Client extends query.Retriever<
       frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
+      racks: this.racksOf([params.task]),
       configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
+  }
+
+  // Reads only cached tasks: a fetch would make a command need read access to its task.
+  private racksOf(tasks: Key[]): RackKey[] {
+    return tasks.flatMap((t) => this.store.get(t)?.rack ?? []);
   }
 }
 
@@ -1077,11 +1101,13 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   args,
   configHash,
   pinned,
+  racks,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
       commands: [{ args, task, type, configHash, pinned }],
+      racks,
       timeout,
       statusDataZ,
       name: taskName,
@@ -1091,6 +1117,8 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
 interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodNever> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
+  /** The racks of the commanded tasks. The wait fails when one of them goes down. */
+  racks: RackKey[];
   timeout?: CrudeTimeSpan;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
@@ -1099,11 +1127,17 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
+  racks,
   timeout = COMMAND_DEADLINE,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw new Error("Task not created");
+  const rackStatusKeys = new Set(
+    racks
+      .filter((r) => primitive.isNonZero(r))
+      .map((r) => ontology.idToString(rackOntologyID(r))),
+  );
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
@@ -1114,8 +1148,19 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
       // A frame can hold statuses for other tasks and racks, which have a different
       // shape and fail to parse.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
-        const res = statusZ(statusDataZ).safeParse(binary.JSON_CODEC.decodeString(str));
-        if (!res.success) continue;
+        const decoded = binary.JSON_CODEC.decodeString(str);
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) {
+          // A down Driver never replies, so its rack's problem ends the wait.
+          const rackRes = rackStatusZ.safeParse(decoded);
+          if (
+            rackRes.success &&
+            rackStatusKeys.has(rackRes.data.key) &&
+            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
+          )
+            throw status.toError(rackRes.data);
+          continue;
+        }
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         states = [...states.filter((s) => s.key !== state.key), state];

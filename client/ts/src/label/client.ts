@@ -66,15 +66,19 @@ const retrieveMultiParamsZ = z.union([
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
 
-// The client does not cache every attachment, so only the Core can check for.
-const LINES: Lines = { for: null };
-
 /** @returns the resources that the for lines of where name. */
 const forIDs = (where: Where): ontology.ID[] => [
   ...(where.for != null ? [where.for] : []),
   ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
   ...(where.not != null ? forIDs(where.not) : []),
 ];
+
+/** @returns the resource whose labels a request selects, and nothing else, or null. */
+const labelsOf = ({ where, ...rest }: RetrieveRequest): ontology.ID | null => {
+  if (where?.for == null || Object.values(rest).some((v) => v != null)) return null;
+  const { for: id, ...others } = where;
+  return Object.values(others).every((v) => v == null) ? id : null;
+};
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
@@ -104,6 +108,21 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
     const { relationships } = ontologyClient.cache;
+    // Resources whose every label the relationship table holds. A change stream gap
+    // can hide a removal, so a new epoch forgets them.
+    const labelSets = new Set<string>();
+    cache.onEpoch(() => labelSets.clear());
+    // Null when the client neither saw the relationship nor holds every label of id.
+    const labeledBy = (id: ontology.ID, key: Key): boolean | null => {
+      const status = relationships.status(
+        ontology.relationshipToString(labeledByRel(id, key)),
+      );
+      if (status === "present") return true;
+      if (status === "tombstoned" || labelSets.has(ontology.idToString(id)))
+        return false;
+      return null;
+    };
+    const lines: Lines = { for: (l, id) => labeledBy(id, l.key) === true };
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
@@ -126,9 +145,41 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (l, req) => matches(LINES, l, req.where),
-        serverComputed: (req) => serverComputed(LINES, req.where),
+        fetch: async (req) => {
+          const id = labelsOf(req);
+          const { epoch } = cache;
+          const since = relationships.stamp();
+          const labels = await this.execRetrieve(req);
+          // A response from before a reconnect can miss a change that the gap hid.
+          if (id == null || cache.epoch !== epoch) return labels;
+          // The response holds every label of id, so it replaces the cached set.
+          const fetched = new Map(
+            labels.map((l) => {
+              const rel = labeledByRel(id, l.key);
+              return [ontology.relationshipToString(rel), rel];
+            }),
+          );
+          const vanished = ontologyClient.cache
+            .relationshipsFrom(id)
+            .filter((r) => matchLabeledBy(r, id))
+            .map(ontology.relationshipToString)
+            .filter((key) => !fetched.has(key));
+          relationships.batch(() => {
+            relationships.ingestDeletes(vanished, since);
+            fetched.forEach((rel, key) => relationships.ingest(key, rel, { since }));
+          });
+          labelSets.add(ontology.idToString(id));
+          return labels;
+        },
+        matches: (l, req) => {
+          if (
+            req.where != null &&
+            forIDs(req.where).some((id) => labeledBy(id, l.key) == null)
+          )
+            return null;
+          return matches(lines, l, req.where);
+        },
+        serverComputed: (req) => serverComputed(lines, req.where),
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
             if (req.where == null) return null;

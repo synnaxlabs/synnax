@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"context"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,17 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// failingResolver fails every lookup with context.Canceled.
+type failingResolver struct{}
+
+func (failingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
+func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
 
 var _ = Describe("Scope", func() {
 	Describe("Root", func() {
@@ -57,6 +70,14 @@ var _ = Describe("Scope", func() {
 	})
 
 	Describe("Add", func() {
+		It("Should return an error of the global resolver", func(ctx SpecContext) {
+			root := symbol.NewRoot(failingResolver{}, nil)
+			Expect(root.Add(ctx, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+			})).Error().To(MatchError(context.Canceled))
+		})
+
 		It("Should add a new variable scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
 			varScope := MustSucceed(rootScope.Add(
@@ -438,6 +459,25 @@ var _ = Describe("Scope", func() {
 	})
 
 	Describe("Resolve", func() {
+		It("Should return an error of the global resolver", func(ctx SpecContext) {
+			root := symbol.NewRoot(failingResolver{}, nil)
+			Expect(root.Resolve(ctx, "ch")).Error().To(MatchError(context.Canceled))
+		})
+
+		It(
+			"Should return an error of a parent's global resolver",
+			func(ctx SpecContext) {
+				root := symbol.NewRoot(failingResolver{}, nil)
+				child := MustSucceed(
+					root.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}),
+				)
+				Expect(
+					child.Resolve(ctx, "ch"),
+				).Error().
+					To(MatchError(context.Canceled))
+			},
+		)
+
 		It("Should resolve symbol in current scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
 			child := MustSucceed(

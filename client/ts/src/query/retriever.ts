@@ -221,8 +221,11 @@ export type RetrieverParams<
      * declared mode.
      */
     fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
-    /** Rule 2: whether a record satisfies the query. Pure; no network. */
-    matches?: (record: V, query: z.output<Z>) => boolean;
+    /**
+     * Rule 2: whether a record satisfies the query. Pure; no network. Null when the
+     * client cannot decide the record, which refetches the query.
+     */
+    matches?: (record: V, query: z.output<Z>) => boolean | null;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
     serverFields?: readonly string[];
     /** Rule 3: whether only the server can evaluate the query, such as a regex. */
@@ -432,6 +435,7 @@ export abstract class Retriever<
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
    * @throws {ValidationError} if params set `one` beside a limit or an offset.
+   * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
   retrieve(
     params: Shortcut | SingleInput | OneInput<Z>,

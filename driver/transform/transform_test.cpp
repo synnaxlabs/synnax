@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -229,6 +231,219 @@ TEST(ScaleTests, MapScale) {
     ASSERT_NEAR(frame.at<double>(1, 0), 0.0, 0.001);
     ASSERT_NEAR(frame.at<double>(1, 1), 0.5, 0.001);
     ASSERT_NEAR(frame.at<double>(1, 2), 1.0, 0.001);
+}
+
+/// @brief it should apply a linear scale from a task scale configuration.
+TEST(ScaleTests, LinearScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::LinearScale{.slope = 2.0, .offset = 5.0}
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(10.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 25.0);
+}
+
+/// @brief it should apply a map scale from a task scale configuration.
+TEST(ScaleTests, MapScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::MapScale{
+            .pre_scaled_min = 0.0,
+            .pre_scaled_max = 100.0,
+            .scaled_min = 0.0,
+            .scaled_max = 1.0,
+        }
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(50.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_NEAR(frame.at<double>(1, 0), 0.5, 0.001);
+}
+
+/// @brief it should leave the samples of a channel with no scale unchanged.
+TEST(ScaleTests, NoneScaleConfig) {
+    Scale scale;
+    scale.add(1, x::telem::FLOAT64_T, ::synnax::task::NoneScale{});
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
+    series.write(10.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 10.0);
+}
+
+/// @brief it should evaluate the polynomial with the constant coefficient first.
+TEST(ScaleTests, PolynomialScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::PolynomialScale{.coeffs = {1.0, 2.0, 3.0}}
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 2);
+    series.write(2.0);
+    series.write(-1.0);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 17.0);
+    ASSERT_EQ(frame.at<double>(1, 1), 2.0);
+}
+
+/// @brief it should interpolate between table points, clip outside the table, and keep
+/// NaN as NaN.
+TEST(ScaleTests, TableScaleConfig) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::FLOAT64_T,
+        ::synnax::task::TableScale{
+            .pre_scaled_vals = {0.0, 10.0, 20.0},
+            .scaled_vals = {0.0, 100.0, 400.0},
+        }
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 6);
+    for (const double v: {5.0, 10.0, 15.0, -5.0, 25.0, std::nan("")})
+        series.write(v);
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), 50.0);
+    ASSERT_EQ(frame.at<double>(1, 1), 100.0);
+    ASSERT_EQ(frame.at<double>(1, 2), 250.0);
+    ASSERT_EQ(frame.at<double>(1, 3), 0.0);
+    ASSERT_EQ(frame.at<double>(1, 4), 400.0);
+    ASSERT_TRUE(std::isnan(frame.at<double>(1, 5)));
+}
+
+/// @brief it should cast the table result back to the integer type of the series.
+TEST(ScaleTests, TableScaleIntegerSeries) {
+    Scale scale;
+    scale.add(
+        1,
+        x::telem::INT32_T,
+        ::synnax::task::TableScale{
+            .pre_scaled_vals = {0.0, 10.0},
+            .scaled_vals = {0.0, 5.0},
+        }
+    );
+
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::INT32_T, 1);
+    series.write(static_cast<int32_t>(4));
+    frame.emplace(1, std::move(series));
+
+    ASSERT_NIL(scale.transform(frame));
+    ASSERT_EQ(frame.at<int32_t>(1, 0), 2);
+}
+
+/// @brief validates the scale and returns the errors it bound.
+x::json::json validate(const ::synnax::task::Scale &scale) {
+    x::json::Parser parser(x::json::json::object());
+    validate_scale(parser, "scale", scale);
+    return parser.error_json()["errors"];
+}
+
+/// @brief it should accept each scale type with a valid configuration.
+TEST(ValidateScaleTests, Valid) {
+    EXPECT_TRUE(validate(::synnax::task::NoneScale{}).empty());
+    EXPECT_TRUE(validate(::synnax::task::LinearScale{.slope = 0}).empty());
+    EXPECT_TRUE(validate(
+                    ::synnax::task::MapScale{
+                        .pre_scaled_min = 10,
+                        .pre_scaled_max = 0,
+                        .scaled_min = 0,
+                        .scaled_max = 1,
+                    }
+    )
+                    .empty());
+    EXPECT_TRUE(validate(::synnax::task::PolynomialScale{.coeffs = {0}}).empty());
+    EXPECT_TRUE(validate(
+                    ::synnax::task::TableScale{
+                        .pre_scaled_vals = {0, 1},
+                        .scaled_vals = {5, 5},
+                    }
+    )
+                    .empty());
+}
+
+/// @brief it should reject a map scale with equal pre-scaled bounds.
+TEST(ValidateScaleTests, MapEqualPreScaledBounds) {
+    const auto errs = validate(
+        ::synnax::task::MapScale{
+            .pre_scaled_min = 1,
+            .pre_scaled_max = 1,
+            .scaled_min = 0,
+            .scaled_max = 1,
+        }
+    );
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "scale.pre_scaled_max");
+    EXPECT_EQ(errs[0]["message"], "Pre-scaled min and pre-scaled max must differ");
+}
+
+/// @brief it should reject a polynomial scale with no coefficients.
+TEST(ValidateScaleTests, PolynomialNoCoefficients) {
+    const auto errs = validate(::synnax::task::PolynomialScale{});
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "scale.coeffs");
+    EXPECT_EQ(errs[0]["message"], "At least one coefficient is required");
+}
+
+/// @brief it should reject a table scale whose columns differ in length.
+TEST(ValidateScaleTests, TableLengthMismatch) {
+    const auto errs = validate(
+        ::synnax::task::TableScale{.pre_scaled_vals = {0, 1, 2}, .scaled_vals = {0, 1}}
+    );
+    const std::string msg = "Pre-scaled and scaled values must have the same length";
+    ASSERT_EQ(errs.size(), 2);
+    EXPECT_EQ(errs[0]["path"], "scale.pre_scaled_vals");
+    EXPECT_EQ(errs[0]["message"], msg);
+    EXPECT_EQ(errs[1]["path"], "scale.scaled_vals");
+    EXPECT_EQ(errs[1]["message"], msg);
+}
+
+/// @brief it should reject a table scale with fewer than two points.
+TEST(ValidateScaleTests, TableTooFewPoints) {
+    const auto errs = validate(
+        ::synnax::task::TableScale{.pre_scaled_vals = {0}, .scaled_vals = {1}}
+    );
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "scale.pre_scaled_vals");
+    EXPECT_EQ(errs[0]["message"], "At least two points are required");
+}
+
+/// @brief it should reject a table scale whose pre-scaled values do not increase.
+TEST(ValidateScaleTests, TableNotIncreasing) {
+    const auto errs = validate(
+        ::synnax::task::TableScale{
+            .pre_scaled_vals = {0, 2, 2},
+            .scaled_vals = {0, 1, 2},
+        }
+    );
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "scale.pre_scaled_vals");
+    EXPECT_EQ(errs[0]["message"], "Pre-scaled values must be in increasing order");
 }
 
 /// @brief it should correctly apply a scale to multiple channels.
