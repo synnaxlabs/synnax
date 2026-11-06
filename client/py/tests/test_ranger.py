@@ -369,26 +369,6 @@ class TestRangeClient:
             """Should access a channel by name"""
             assert rng[two_channels[0].name].name == two_channels[0].name
 
-        def test_access_by_regex(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should access a channel by regex"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            channels = rng[f"test_{prefix}_.*"]
-            found = 0
-            for _ in channels:
-                found += 1
-            assert found == 2
-
-        def test_single_channel_operation_on_regex_matches(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should raise a MultipleFoundError when a single channel operation runs
-            on a query that matches more than one channel"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            with pytest.raises(sy.MultipleFoundError):
-                rng[f"test_{prefix}_.*"].to_numpy()
-
         def test_repeated_access_retrieves_once(
             self,
             counted_client: tuple[sy.Synnax, RetrieveCounter],

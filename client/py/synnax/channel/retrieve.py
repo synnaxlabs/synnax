@@ -39,7 +39,7 @@ def params_where(channels: Params) -> Where:
     """
     normal = normalize_params(channels)
     if isinstance(normal, NormalizedNameResult):
-        return Where(name_patterns=normal.channels)
+        return Where(name=filter.String(in_=normal.channels))
     return Where(key=filter.Set[Key](in_=normal.channels))
 
 

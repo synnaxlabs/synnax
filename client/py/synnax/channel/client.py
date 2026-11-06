@@ -413,8 +413,7 @@ class Client:
 
         :param channel: The key or name of one channel, or a list of keys or names. A
             single key or name returns one channel. A list, or None, returns a list. A
-            name that is not a valid channel name is a regular expression, anchored
-            when unanchored.
+            name matches exactly. To match a pattern, use where with a name regex.
         :param where: Keeps channels that match this filter tree.
         :param search_term: Fuzzy matches channel names. With range_key, the channels
             whose alias in the range matches come first.
@@ -444,7 +443,7 @@ class Client:
             selected = params_where(channel)
         flat = Where(
             key=selected.key,
-            name_patterns=selected.name_patterns,
+            name=selected.name,
             leaseholder=(
                 None if node_key is None else filter.Set[node.Key](eq=node_key)
             ),

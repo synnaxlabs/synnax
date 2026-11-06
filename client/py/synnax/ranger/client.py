@@ -151,8 +151,7 @@ class ScopedChannel(ArrayOperators):
     It's very important to note that if the property accessor matches multiple channels,
     this class will contain all of them, and, as a result, single channel operations
     will fail. However, you can use the __iter__ method to iterate over the channels
-    in the returned values. This is particularly relevant when using regex to match
-    multiple channels.
+    in the returned values.
     """
 
     _internal: list[_InternalScopedChannel]
