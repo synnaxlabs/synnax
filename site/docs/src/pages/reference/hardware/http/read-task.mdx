@@ -153,7 +153,9 @@ await task.start();
 Turn on **NaN fill** (`nan_fill_enabled=True` in Python, `nanFillEnabled: true` in
 TypeScript) to write `NaN` when a float field is missing or cannot be converted. It is
 off by default. With it off, an invalid field skips every field that shares its endpoint
-and index channel. Invalid non-float fields still skip that group.
+and index channel. Invalid non-float fields still skip that group. NaN fill still sends
+a warning for each invalid field. To stop the warning for a value that is expected to be
+missing, turn on **Optional** for that field.
 
 The HTTP read task has no stream rate. Each response is sent to the Core at once. See
 [read tasks](/reference/hardware/tasks#read-tasks).
@@ -181,6 +183,13 @@ A field has these settings:
 | Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel. |
 | Channel <small>`channel`</small>          |           | The channel that records the value.             |
 | Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
+| Optional <small>`optional`</small>        | Off       | See below.                                      |
+
+Turn on **Optional** for a field whose value can be missing, `null`, or an empty string
+as a normal state of the device, such as a sensor that is off. The task then writes
+`NaN` and sends no warning, so the other fields that share its index channel keep
+writing. A wrong pointer on an optional field also sends no warning. Optional fields
+need a float channel. Other invalid values still warn.
 
 <Divider.Divider x />
 

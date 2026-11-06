@@ -119,6 +119,9 @@ struct ReadField {
     std::string name = "";
     /// @brief disabled is true when the field is excluded from polling.
     bool disabled = false;
+    /// @brief optional is true when a missing or empty value is normal for this field.
+    /// The task writes NaN and sends no warning. Requires a float channel.
+    bool optional = false;
     /// @brief channel is the Synnax channel the extracted value is written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief pointer is the JSON Pointer to the value within the response body.

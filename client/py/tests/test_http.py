@@ -265,6 +265,12 @@ class TestHTTPReadTask:
         assert config.auto_start is False
         assert config.nan_fill_enabled is False
 
+    def test_read_field_optional_defaults_false(self) -> None:
+        """Test that a ReadField is not optional unless set."""
+        field = sy.http.ReadField(pointer="/value", channel=1)
+        assert field.optional is False
+        assert sy.http.ReadField(pointer="/value", channel=1, optional=True).optional
+
     def test_read_task_nan_fill_enabled(self) -> None:
         """Test that the ReadTask carries nan_fill_enabled into its config."""
         task = sy.http.ReadTask(device="dev-key", nan_fill_enabled=True)

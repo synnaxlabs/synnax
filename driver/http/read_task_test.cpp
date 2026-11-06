@@ -172,6 +172,39 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
+/// @brief it should reject an optional field on a channel that cannot hold NaN.
+TEST(HTTPReadTask, ParseConfigOptionalIntegerErrors) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::INT32_T,
+        idx.key,
+        false
+    ));
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", ch.key},
+                  {"optional", true},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(client);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should fail when an enum_values entry is missing the label field.
 TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
     synnax::task::Task task;
@@ -3611,11 +3644,13 @@ namespace {
 /// @param body the JSON body the endpoint returns.
 /// @param p2_type the data type of the p2 channel.
 /// @param filled whether NaN fill is enabled.
+/// @param optional whether the p2 field is optional.
 /// @returns the frame and the read result.
 std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     const std::string &body,
     const x::telem::DataType &p2_type,
-    const bool filled
+    const bool filled,
+    const bool optional = false
 ) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -3641,6 +3676,7 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     ReadField p2;
     p2.pointer = "/p2";
     p2.channel = 2;
+    p2.optional = optional;
     ReadField p3;
     p3.pointer = "/p3";
     p3.channel = 3;
@@ -3714,6 +3750,52 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     ASSERT_EQ(fr.size(), 3);
     EXPECT_TRUE(std::isnan(fr.at<double>(2, 0)));
     EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+}
+
+/// @brief it should write NaN with no warning for an optional field whose value is
+/// missing, null, or an empty string, and keep the rest of the group.
+TEST(HTTPReadTask, AbsentOptionalFieldFilledWithoutWarning) {
+    for (const auto *body:
+         {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
+        auto [fr, res] = read_shared_index_group(
+            body,
+            x::telem::FLOAT32_T,
+            false,
+            true
+        );
+        ASSERT_NIL(res.error);
+        EXPECT_TRUE(res.warning.empty());
+        ASSERT_EQ(fr.size(), 3);
+        EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
+        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+    }
+}
+
+/// @brief it should write the value of an optional field that is present.
+TEST(HTTPReadTask, PresentOptionalFieldWritesValue) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": 2.5, "p3": 1.5})",
+        x::telem::FLOAT32_T,
+        false,
+        true
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.at<float>(2, 0), 2.5F);
+}
+
+/// @brief it should still warn and skip the group when an optional field holds a value
+/// that does not convert.
+TEST(HTTPReadTask, InvalidOptionalFieldWarns) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": "INVALID", "p3": 1.5})",
+        x::telem::FLOAT32_T,
+        false,
+        true
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
+    EXPECT_EQ(fr.size(), 0);
 }
 
 /// @brief it should skip the whole group when a non-float field is invalid, even when

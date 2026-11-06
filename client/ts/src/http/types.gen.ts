@@ -98,6 +98,11 @@ export const readFieldZ = z.object({
   name: z.string().default(""),
   /** disabled is true when the field is excluded from polling. */
   disabled: z.boolean().default(false),
+  /**
+   * optional is true when a missing or empty value is normal for this field. The task
+   * writes NaN and sends no warning. Requires a float channel.
+   */
+  optional: z.boolean().default(false),
   /** channel is the Synnax channel the extracted value is written to. */
   channel: channel.keyZ.default(0),
   /** pointer is the JSON Pointer to the value within the response body. */

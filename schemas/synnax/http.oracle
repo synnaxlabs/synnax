@@ -119,6 +119,12 @@ ReadField struct {
     disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
+    optional    bool = false {
+        @doc value """
+            is true when a missing or empty value is normal for this field. The task
+            writes NaN and sends no warning. Requires a float channel.
+        """
+    }
     channel     channel.Key = 0 {
         @doc value "is the Synnax channel the extracted value is written to."
     }

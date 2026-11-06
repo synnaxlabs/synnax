@@ -71,6 +71,10 @@ const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: strin
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+const OPTIONAL_INPUT_PROPS = {
+  tooltip: "Write NaN with no warning when the value is missing or empty",
+} as const;
+
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
   const handleChange = (method: http.Method) => {
@@ -220,6 +224,11 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             namePath={path.name}
             defaultName={defaultName}
             skipped={disabled}
+          />
+          <PForm.CheckboxField
+            path={path.optional}
+            label="Optional"
+            inputProps={OPTIONAL_INPUT_PROPS}
           />
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />

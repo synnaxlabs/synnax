@@ -143,6 +143,8 @@ class ReadField(BaseModel):
         key: Uniquely identifies the field within the endpoint.
         name: Is the human-readable field name.
         disabled: Is true when the field is excluded from polling.
+        optional: Is true when a missing or empty value is normal for this field. The
+            task writes NaN and sends no warning. Requires a float channel.
         channel: Is the Synnax channel the extracted value is written to.
         pointer: Is the JSON Pointer to the value within the response body.
         data_type: Is the data type of the extracted value.
@@ -154,6 +156,7 @@ class ReadField(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
+    optional: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")

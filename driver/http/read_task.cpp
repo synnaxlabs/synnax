@@ -19,6 +19,15 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
+namespace {
+bool is_absent(const x::json::json &body, const x::json::json::json_pointer &pointer) {
+    if (!body.contains(pointer)) return true;
+    const auto &value = body.at(pointer);
+    return value.is_null() ||
+           (value.is_string() && value.get_ref<const std::string &>().empty());
+}
+}
+
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
@@ -127,6 +136,16 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
+            if (field.optional && dt != x::telem::FLOAT32_T &&
+                dt != x::telem::FLOAT64_T) {
+                parser.field_err(
+                    "endpoints",
+                    "channel " + ch.name + " has data type " + dt.name() +
+                        ", but an optional field needs a float channel"
+                );
+                continue;
+            }
+
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
             if (enabled_field_keys.contains(idx_key)) continue;
@@ -172,6 +191,7 @@ ReadTaskSource::ReadTaskSource(
             GroupField gf;
             gf.channel = field.channel;
             gf.pointer = x::json::json::json_pointer(field.pointer);
+            gf.optional = field.optional;
             if (field.time_format.has_value())
                 if (auto [fmt, fmt_err] = x::json::parse_time_format(
                         *field.time_format
@@ -331,6 +351,15 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         for (const auto &field: group.fields) {
             const auto &ch = this->cfg.channels.at(field.channel);
+            if (field.optional && is_absent(body, field.pointer)) {
+                group_data.emplace_back(
+                    field.channel,
+                    x::telem::Series(
+                        ch.data_type.cast(std::numeric_limits<double>::quiet_NaN())
+                    )
+                );
+                continue;
+            }
             x::telem::SampleValue sample_val;
             std::string warning;
             if (!body.contains(field.pointer))

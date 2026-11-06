@@ -44,6 +44,8 @@ struct GroupField {
     /// @brief mapping of string values to numbers for enum-style parsing
     /// (e.g., "ON" -> 1, "OFF" -> 0).
     x::json::EnumMap enum_values;
+    /// @brief true when a missing or empty value is written as NaN with no warning.
+    bool optional = false;
 };
 
 /// @brief a group of fields that share the same index channel and must be
