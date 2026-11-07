@@ -108,8 +108,8 @@ func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadField
 	if reflect.ValueOf(*r).IsZero() {
@@ -153,8 +153,8 @@ func (r *ReadEndpoint) SetDefaults() {
 	r.Method = MethodGet
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadEndpoint
 	if reflect.ValueOf(*r).IsZero() {
@@ -201,8 +201,8 @@ func (r *ReadConfig) SetDefaults() {
 	r.Rate = 1
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {

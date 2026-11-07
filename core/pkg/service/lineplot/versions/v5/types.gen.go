@@ -157,8 +157,8 @@ func (t *Title) SetDefaults() {
 	t.Level = text.LevelH4
 }
 
-// UnmarshalJSONFrom decodes the input over t. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (t *Title) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Title
 	if reflect.ValueOf(*t).IsZero() {
@@ -204,8 +204,8 @@ func (l *Legend) SetDefaults() {
 	l.Position.Units.Y = spatial.StickyUnitPx
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (l *Legend) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Legend
 	if reflect.ValueOf(*l).IsZero() {
@@ -300,8 +300,8 @@ func (a *Axis) SetDefaults() {
 	a.TickSpacing = 75
 }
 
-// UnmarshalJSONFrom decodes the input over a. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (a *Axis) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Axis
 	if reflect.ValueOf(*a).IsZero() {
@@ -365,8 +365,8 @@ func (a *Axes) SetDefaults() {
 	a.Y4.LabelDirection = spatial.DirectionY
 }
 
-// UnmarshalJSONFrom decodes the input over a. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (a *Axes) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Axes
 	if reflect.ValueOf(*a).IsZero() {
@@ -425,8 +425,8 @@ func (l *Line) SetDefaults() {
 	l.DownsampleMode = DownsampleModeDecimate
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Line
 	if reflect.ValueOf(*l).IsZero() {
@@ -478,8 +478,8 @@ func (r *Rule) SetDefaults() {
 	r.LineWidth = 1
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *Rule) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Rule
 	if reflect.ValueOf(*r).IsZero() {
@@ -538,8 +538,8 @@ func (l *LinePlot) SetDefaults() {
 	l.Axes.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LinePlot
 	if reflect.ValueOf(*l).IsZero() {

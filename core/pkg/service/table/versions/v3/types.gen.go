@@ -78,8 +78,8 @@ func (r *Row) SetDefaults() {
 	r.Size = 36
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Row
 	if reflect.ValueOf(*r).IsZero() {
@@ -119,8 +119,8 @@ func (c *Column) SetDefaults() {
 	c.Size = 72
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Column
 	if reflect.ValueOf(*c).IsZero() {

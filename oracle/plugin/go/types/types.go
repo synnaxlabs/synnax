@@ -1428,8 +1428,8 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
 
-// UnmarshalJSONFrom decodes the input over {{$s.Receiver}}. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {

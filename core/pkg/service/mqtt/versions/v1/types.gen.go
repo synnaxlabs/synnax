@@ -156,8 +156,8 @@ func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadField
 	if reflect.ValueOf(*r).IsZero() {
@@ -470,8 +470,8 @@ func (c *ChannelField) SetDefaults() {
 	c.DataType = "float64"
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ChannelField
 	if reflect.ValueOf(*c).IsZero() {
@@ -939,8 +939,8 @@ func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {
@@ -983,8 +983,8 @@ func (e *EdgeTag) SetDefaults() {
 	e.TagType = SparkplugDataTypeDouble
 }
 
-// UnmarshalJSONFrom decodes the input over e. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (e *EdgeTag) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain EdgeTag
 	if reflect.ValueOf(*e).IsZero() {

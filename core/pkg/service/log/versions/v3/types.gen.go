@@ -56,8 +56,8 @@ func (c *ChannelEntry) SetDefaults() {
 	c.Timestamp.Tz = "local"
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ChannelEntry
 	if reflect.ValueOf(*c).IsZero() {
@@ -113,8 +113,8 @@ func (l *Log) SetDefaults() {
 	l.TimeZone = "local"
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (l *Log) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Log
 	if reflect.ValueOf(*l).IsZero() {
