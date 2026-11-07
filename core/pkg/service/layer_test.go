@@ -407,10 +407,10 @@ var _ = Describe("Resource search", Ordered, func() {
 	DescribeTable(
 		"Should search every type that names records",
 		func(ctx SpecContext, t resource.Type) {
-			Expect(layer.Resource.Search(ctx, nil, resource.SearchQuery{
+			MustSucceed(layer.Resource.Search(ctx, nil, resource.SearchQuery{
 				Term:  "pump",
 				Types: []resource.Type{t},
-			})).Error().ToNot(HaveOccurred())
+			}))
 		},
 		Entry("Arc", resource.TypeArc),
 		Entry("Channel", resource.TypeChannel),
