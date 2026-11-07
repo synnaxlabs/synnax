@@ -273,7 +273,8 @@ func literalAssignments(
 		return lines, true
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
-			return nil, true
+			// The literal may override a default list that SetDefaults set.
+			return []string{selector + " = nil"}, true
 		}
 		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
 		if !ok {

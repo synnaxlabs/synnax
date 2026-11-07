@@ -1488,6 +1488,27 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should clear a variant's default list that a union literal sets empty",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct { values int32[] = [1] }
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = { variant = "leaf", values = [] } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0.SetDefaults()\n\t\tv0.Values = nil\n",
+			)
+		},
+	)
+
+	It(
 		"Should give no decode hooks to a parent that another package embeds",
 		func(ctx SpecContext) {
 			loader.Add("schemas/task", `
