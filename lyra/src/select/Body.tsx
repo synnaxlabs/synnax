@@ -55,6 +55,37 @@ export const EmptyContent = ({
   );
 };
 
+/** Props for {@link BorderedList}. */
+export interface BorderedListProps {
+  /** Pinned below the list, inside its border. */
+  footer?: ReactNode;
+  children: ReactNode;
+}
+
+/** The option list of a select, with the footer pinned under it. */
+export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement =>
+  footer == null || footer === false ? (
+    <SelectList bordered borderColor={6} grow rounded full="x">
+      {children}
+    </SelectList>
+  ) : (
+    <Flex.Box
+      y
+      empty
+      grow
+      className={CSS.BE("select", "body")}
+      bordered
+      borderColor={6}
+      rounded
+      full="x"
+    >
+      <SelectList grow full="x">
+        {children}
+      </SelectList>
+      {footer}
+    </Flex.Box>
+  );
+
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
  * it inside `Select.Dialog` when a select needs its own trigger.
@@ -90,29 +121,10 @@ export const Body = <K extends record.Key>({
           loading={loading}
         />
       )}
-      {footer == null || footer === false ? (
-        <SelectList bordered borderColor={6} grow rounded full="x">
-          {fixedItems}
-          <Items<K> emptyContent={empty}>{children}</Items>
-        </SelectList>
-      ) : (
-        <Flex.Box
-          y
-          empty
-          grow
-          className={CSS.BE("select", "body")}
-          bordered
-          borderColor={6}
-          rounded
-          full="x"
-        >
-          <SelectList grow full="x">
-            {fixedItems}
-            <Items<K> emptyContent={empty}>{children}</Items>
-          </SelectList>
-          {footer}
-        </Flex.Box>
-      )}
+      <BorderedList footer={footer}>
+        {fixedItems}
+        <Items<K> emptyContent={empty}>{children}</Items>
+      </BorderedList>
     </>
   );
 };

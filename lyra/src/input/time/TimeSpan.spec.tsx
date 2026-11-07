@@ -125,6 +125,45 @@ describe("Input.TimeSpan", () => {
       expect(screen.getByText("1h")).toBeTruthy();
     });
 
+    it("should name the field by its aria-label", () => {
+      render(
+        <Input.TimeSpan
+          inline
+          value={HOUR}
+          onChange={vi.fn()}
+          aria-label="SYNC0 cycle"
+        />,
+      );
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
+    });
+
+    it("should show the end content inside the field", () => {
+      const { container } = render(
+        <Input.TimeSpan
+          inline
+          value={undefined}
+          onChange={vi.fn()}
+          endContent={<Input.AutoBadge />}
+        />,
+      );
+      const field = container.querySelector(".lyra-time-editor__field");
+      expect(field?.contains(screen.getByText("Auto"))).toBe(true);
+    });
+
+    it("should show a button after the field that a click reaches", () => {
+      const onClick = vi.fn();
+      render(
+        <Input.TimeSpan
+          inline
+          value={HOUR}
+          onChange={vi.fn()}
+          after={<Input.AutoButton onClick={onClick} />}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button"));
+      expect(onClick).toHaveBeenCalledOnce();
+    });
+
     it("should show why a span fails its check and not commit it", () => {
       const onChange = vi.fn();
       const check = (span: TimeSpan) =>
