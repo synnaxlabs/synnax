@@ -100,9 +100,32 @@ const parseIndex = (text: string): number | null => parseHex(text, INDEX_DIGITS)
 
 const parseSubIndex = (text: string): number | null => parseHex(text, SUB_INDEX_DIGITS);
 
-const parseDataType = (text: string): string | null =>
-  DATA_TYPES.find((dt) => dt.toString() === text.trim().toLowerCase())?.toString() ??
-  null;
+// The IEC 61131-3 names that TwinCAT and ESI files give CoE objects.
+const IEC_DATA_TYPES: Record<string, DataType> = {
+  SINT: DataType.INT8,
+  INT: DataType.INT16,
+  DINT: DataType.INT32,
+  LINT: DataType.INT64,
+  USINT: DataType.UINT8,
+  UINT: DataType.UINT16,
+  UDINT: DataType.UINT32,
+  ULINT: DataType.UINT64,
+  BYTE: DataType.UINT8,
+  WORD: DataType.UINT16,
+  DWORD: DataType.UINT32,
+  LWORD: DataType.UINT64,
+  REAL: DataType.FLOAT32,
+  LREAL: DataType.FLOAT64,
+};
+
+/** @returns the data type that text names, in Synnax or IEC 61131-3 terms, or null. */
+const parseDataType = (text: string): string | null => {
+  const name = text.trim();
+  const dataType =
+    IEC_DATA_TYPES[name.toUpperCase()] ??
+    DATA_TYPES.find((dt) => dt.toString() === name.toLowerCase());
+  return dataType?.toString() ?? null;
+};
 
 interface HexCellProps extends Input.TableCellProps<number> {
   digits: number;

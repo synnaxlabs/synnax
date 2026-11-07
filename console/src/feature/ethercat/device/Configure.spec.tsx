@@ -256,10 +256,35 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       );
     });
 
+    it("should read a TwinCAT data type name", async () => {
+      const slave = await setup();
+      fireEvent.click(findButton("Add parameter"));
+      paste("Index 1", "8000\t15\tUINT\t3\tFilter");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          FILTER,
+        ]),
+      );
+    });
+
+    it("should give a parameter that a paste adds the default data type", async () => {
+      const slave = await setup();
+      fireEvent.click(findButton("Add parameter"));
+      paste("Index 1", "8000\t15\n8001\t16");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { index: 0x8000, subIndex: 0x15, dataType: "uint8", value: 0, name: "" },
+          { index: 0x8001, subIndex: 0x16, dataType: "uint8", value: 0, name: "" },
+        ]),
+      );
+    });
+
     it("should keep the data type when the pasted one is unknown", async () => {
       const slave = await setup();
       fireEvent.click(findButton("Add parameter"));
-      paste("Index 1", "8000\t15\tUINT\t3");
+      paste("Index 1", "8000\t15\tSTRING\t3");
       await save();
       await waitFor(async () =>
         expect((await retrieve(slave.key)).properties.startupParameters).toEqual([

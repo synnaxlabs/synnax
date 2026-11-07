@@ -396,6 +396,15 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should build the rows that a paste adds with createRow", () => {
+      const onChange = renderTable({ createRow: () => [7, 70] });
+      paste(cell("Raw", "1"), "1\t10\n2");
+      expect(onChange).toHaveBeenCalledWith([
+        [1, 10],
+        [2, 70],
+      ]);
+    });
+
     it("should anchor the paste on the focused cell", () => {
       const onChange = renderTable();
       paste(cell("Scaled", "1"), "11\n21");
