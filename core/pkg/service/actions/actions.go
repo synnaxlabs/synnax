@@ -21,8 +21,10 @@ package actions
 import (
 	"context"
 	"slices"
+	"sync"
 	"sync/atomic"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/observe"
 	xsync "github.com/synnaxlabs/x/sync"
@@ -93,6 +95,9 @@ type State[K comparable, A any] struct {
 	seq      atomic.Uint64
 	db       *gorp.DB
 	locks    xsync.KeyedMutex[K]
+	// acquiring lets one Exec at a time take its locks, so two calls that share keys
+	// cannot each hold a key that the other waits for.
+	acquiring sync.Mutex
 }
 
 // NewState constructs a State with a fresh observer and a zero sequence counter.
@@ -130,11 +135,28 @@ func (s *State[K, A]) Dispatch(
 	})
 }
 
-// Exec runs fn in its own transaction, serialized with every Dispatch and Exec on the
-// same key. Exec notifies nothing itself. Actions that fn notifies on commit reach
-// subscribers before the next call on the key starts.
-func (s *State[K, A]) Exec(ctx context.Context, key K, fn func(gorp.Tx) error) error {
-	return s.locks.Do(key, func() error { return s.db.WithTx(ctx, fn) })
+// Exec runs fn in its own transaction while it holds the lock of each key, so it is
+// serialized with every Dispatch and Exec on any of them. Exec notifies nothing itself.
+// Actions that fn notifies on commit reach subscribers before the next call on the
+// keys starts.
+func (s *State[K, A]) Exec(
+	ctx context.Context,
+	keys []K,
+	fn func(gorp.Tx) error,
+) error {
+	s.acquiring.Lock()
+	return s.lock(lo.Uniq(keys), func() error {
+		s.acquiring.Unlock()
+		return s.db.WithTx(ctx, fn)
+	})
+}
+
+// lock runs fn while it holds the lock of each key.
+func (s *State[K, A]) lock(keys []K, fn func() error) error {
+	if len(keys) == 0 {
+		return fn()
+	}
+	return s.locks.Do(keys[0], func() error { return s.lock(keys[1:], fn) })
 }
 
 // OnChange subscribes the given handler to the action stream emitted by every

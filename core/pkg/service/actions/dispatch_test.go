@@ -12,6 +12,7 @@ package actions_test
 import (
 	"context"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -174,30 +175,30 @@ var _ = Describe("Exec", func() {
 		DeferCleanup(st.OnChange(rec.Record))
 		Expect(
 			gorp.NewCreate[string, counter]().
-				Entry(&counter{Key: "c"}).
+				Entries(&[]counter{{Key: "a"}, {Key: "b"}}).
 				Exec(ctx, db),
 		).To(Succeed())
 	})
 
-	increment := func(ctx SpecContext, tx gorp.Tx) error {
+	increment := func(ctx SpecContext, tx gorp.Tx, keys ...string) error {
 		return gorp.NewUpdate[string, counter]().
-			Where(gorp.MatchKeys[string, counter]("c")).
+			Where(gorp.MatchKeys[string, counter](keys...)).
 			Change(func(_ gorp.Context, c counter) counter {
 				c.Value++
 				return c
 			}).Exec(ctx, tx)
 	}
 
-	fetch := func(ctx SpecContext) counter {
+	fetch := func(ctx SpecContext, key string) int {
 		GinkgoHelper()
 		var res counter
 		Expect(
 			gorp.NewRetrieve[string, counter]().
-				Where(gorp.MatchKeys[string, counter]("c")).
+				Where(gorp.MatchKeys[string, counter](key)).
 				Entry(&res).
 				Exec(ctx, db),
 		).To(Succeed())
-		return res
+		return res.Value
 	}
 
 	It(
@@ -208,36 +209,76 @@ var _ = Describe("Exec", func() {
 			for range n {
 				wg.Go(func() {
 					defer GinkgoRecover()
-					Expect(st.Exec(ctx, "c", func(tx gorp.Tx) error {
-						return increment(ctx, tx)
+					Expect(st.Exec(ctx, []string{"a"}, func(tx gorp.Tx) error {
+						return increment(ctx, tx, "a")
 					})).To(Succeed())
 				})
 				wg.Go(func() {
 					defer GinkgoRecover()
 					Expect(st.Dispatch(
 						ctx,
-						"c",
+						"a",
 						"dk",
 						[]testAction{{Type: "inc"}},
 						func(tx gorp.Tx) ([]testAction, error) {
-							return nil, increment(ctx, tx)
+							return nil, increment(ctx, tx, "a")
 						},
 					)).To(Succeed())
 				})
 			}
 			wg.Wait()
-			Expect(fetch(ctx).Value).To(Equal(2 * n))
+			Expect(fetch(ctx, "a")).To(Equal(2 * n))
 			Expect(rec.Snapshot()).To(HaveLen(n))
+		},
+	)
+
+	It(
+		"Should serialize calls whose keys overlap in any order without a deadlock",
+		func(ctx SpecContext) {
+			const n = 32
+			var wg sync.WaitGroup
+			for i := range n {
+				keys := []string{"a", "b", "a"}
+				if i%2 == 0 {
+					keys = []string{"b", "a"}
+				}
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(st.Exec(ctx, keys, func(tx gorp.Tx) error {
+						return increment(ctx, tx, "a", "b")
+					})).To(Succeed())
+				})
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(st.Dispatch(
+						ctx,
+						"b",
+						"dk",
+						[]testAction{{Type: "inc"}},
+						func(tx gorp.Tx) ([]testAction, error) {
+							return nil, increment(ctx, tx, "b")
+						},
+					)).To(Succeed())
+				})
+			}
+			done := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+			Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+			Expect(fetch(ctx, "a")).To(Equal(n))
+			Expect(fetch(ctx, "b")).To(Equal(2 * n))
 		},
 	)
 
 	It("Should keep nothing when fn fails", func(ctx SpecContext) {
 		fnErr := errors.New("fn failed")
-		Expect(st.Exec(ctx, "c", func(tx gorp.Tx) error {
-			Expect(increment(ctx, tx)).To(Succeed())
+		Expect(st.Exec(ctx, []string{"a"}, func(tx gorp.Tx) error {
+			Expect(increment(ctx, tx, "a")).To(Succeed())
 			return fnErr
 		})).To(MatchError(fnErr))
-		Expect(fetch(ctx).Value).To(Equal(0))
+		Expect(fetch(ctx, "a")).To(Equal(0))
 	})
 })
 

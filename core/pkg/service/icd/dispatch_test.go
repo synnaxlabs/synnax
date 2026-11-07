@@ -225,6 +225,55 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.Actions).To(Equal(acts))
 	})
 
+	// build applies the broadcasts in Seq order to bus, as a client does. A client
+	// applies a create as a whole replace, which Reduce rejects.
+	build := func(frames []frame) icd.ICD {
+		GinkgoHelper()
+		slices.SortFunc(
+			frames,
+			func(a, b frame) int { return cmp.Compare(a.Seq, b.Seq) },
+		)
+		built := bus
+		for _, f := range frames {
+			if c := f.Actions[0].Create; c != nil {
+				built = c.ICD
+			} else {
+				built = MustSucceed(icd.Reduce(built, f.Actions...))
+			}
+		}
+		return built
+	}
+
+	Describe("Create", func() {
+		It("Should store what the broadcasts build when dispatches run alongside", func(
+			ctx SpecContext,
+		) {
+			rec := record()
+			const n = 16
+			var wg sync.WaitGroup
+			for i := range n {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					ic := bus
+					ic.Name = fmt.Sprintf("Replaced %d", i)
+					ics := []icd.ICD{ic}
+					Expect(editSvc.Create(ctx, "dk", &ics)).To(Succeed())
+				})
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(dispatch(
+						ctx,
+						set(messagePath(0, "name"), fmt.Sprintf("Engine %d", i)),
+					)).To(Succeed())
+				})
+			}
+			wg.Wait()
+			built, stored := build(rec.Snapshot()), retrieve(ctx)
+			Expect(built.Name).To(Equal(stored.Name))
+			Expect(built.Messages[0].Name).To(Equal(stored.Messages[0].Name))
+		})
+	})
+
 	Describe("ImportFile", func() {
 		dbcFile := func(i int) []byte {
 			return fmt.Appendf(nil, "VERSION \"\"\n\nBU_: Ecu\n\n"+
@@ -279,21 +328,7 @@ var _ = Describe("Dispatch", func() {
 				})
 			}
 			wg.Wait()
-			frames := rec.Snapshot()
-			slices.SortFunc(
-				frames,
-				func(a, b frame) int { return cmp.Compare(a.Seq, b.Seq) },
-			)
-			built := bus
-			// A client applies a create as a whole replace, which Reduce rejects.
-			for _, f := range frames {
-				if c := f.Actions[0].Create; c != nil {
-					built = c.ICD
-				} else {
-					built = MustSucceed(icd.Reduce(built, f.Actions...))
-				}
-			}
-			stored := retrieve(ctx)
+			built, stored := build(rec.Snapshot()), retrieve(ctx)
 			Expect(built.Name).To(Equal(stored.Name))
 			Expect(messageKeys(built.Messages)).To(Equal(messageKeys(stored.Messages)))
 		})

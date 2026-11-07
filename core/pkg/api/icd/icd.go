@@ -100,9 +100,7 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, &req.ICDs); err != nil {
+	if err := s.internal.Create(ctx, req.DispatchKey, &req.ICDs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{ICDs: req.ICDs}, nil

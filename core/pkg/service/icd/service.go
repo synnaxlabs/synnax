@@ -12,6 +12,7 @@ package icd
 import (
 	"context"
 	"io"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -162,6 +163,21 @@ func (s *Service) Dispatch(
 	)
 }
 
+// Create creates or replaces the ICDs as Writer.Create does, all in one transaction.
+// Creates, imports, and dispatches for the same ICD run one at a time. dispatchKey is
+// carried onto the broadcasts so the sender recognizes its echo.
+func (s *Service) Create(ctx context.Context, dispatchKey string, ics *[]ICD) error {
+	keys := make([]Key, 0, len(*ics))
+	for _, ic := range *ics {
+		if ic.Key != uuid.Nil() {
+			keys = append(keys, ic.Key)
+		}
+	}
+	return s.state.Exec(ctx, keys, func(tx gorp.Tx) error {
+		return s.NewWriter(tx).WithDispatchKey(dispatchKey).CreateMany(ctx, ics)
+	})
+}
+
 // ImportFile imports data into the ICD with the given key as Writer.Import does, in its
 // own transaction. Imports and dispatches for the same ICD run one at a time.
 // dispatchKey is carried onto the broadcast so the sender recognizes its echo.
@@ -173,7 +189,7 @@ func (s *Service) ImportFile(
 	data []byte,
 ) (ICD, error) {
 	var ic ICD
-	if err := s.state.Exec(ctx, key, func(tx gorp.Tx) (err error) {
+	if err := s.state.Exec(ctx, []Key{key}, func(tx gorp.Tx) (err error) {
 		ic, err = s.NewWriter(tx).
 			WithDispatchKey(dispatchKey).
 			Import(ctx, key, format, data)

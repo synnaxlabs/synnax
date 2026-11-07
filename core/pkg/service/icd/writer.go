@@ -37,7 +37,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // assigns keys to the ICD, its messages, and their fields where absent. It returns a
 // path-scoped validation error when the ICD breaks a rule of its schema. Problems that
 // Check finds do not stop the save. After the transaction commits, Create broadcasts a
-// create action that carries the stored ICD.
+// create action that carries the stored ICD. Create does not wait for dispatches to the
+// ICD: Service.Create does.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	var (
 		exists bool
