@@ -188,6 +188,9 @@ type edgeSession struct {
 	*edgeNode
 	// commands carries the commands that the message handler received to writeCommands.
 	commands chan sparkplug.Command
+	// clock stamps commands in rising order, since two writes at one timestamp
+	// conflict. Only writeCommands uses it.
+	clock telem.MonoClock
 	// rebirths wakes the serve loop to publish the birth again.
 	rebirths chan struct{}
 	// edited wakes followBroker after an edit of the broker device.
@@ -595,7 +598,7 @@ func (e *edgeSession) writeCommand(ctx context.Context, cmd sparkplug.Command) e
 	var (
 		fr   framer.Frame
 		keys channel.Keys
-		now  = telem.Now()
+		now  = e.clock.Now()
 	)
 	for _, m := range cmd.Metrics {
 		t, ok := e.byName[m.Name]
