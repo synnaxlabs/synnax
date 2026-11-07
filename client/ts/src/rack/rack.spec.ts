@@ -328,6 +328,20 @@ describe("Rack", () => {
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });
+  describe("version", () => {
+    it("should keep the Driver version of a rack", async () => {
+      const r = await client.racks.create({
+        name: "rack-with-version",
+        version: "0.61.3",
+      });
+      expect(r.version).toBe("0.61.3");
+      const retrieved = await client.racks.retrieve({
+        key: r.key,
+        includeStatus: true,
+      });
+      expect(retrieved.version).toBe("0.61.3");
+    });
+  });
   describe("tasks", () => {
     it("should list the tasks on a rack", async () => {
       const r = await client.racks.create({ name: "test" });

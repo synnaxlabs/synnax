@@ -421,5 +421,5 @@ class Client:
         if not single:
             return res.devices
         if ignore_not_found:
-            return sole_or_none("Device", fields, res.devices)
-        return sole("Device", fields, res.devices)
+            return sole_or_none("device", req, res.devices)
+        return sole("device", req, res.devices)

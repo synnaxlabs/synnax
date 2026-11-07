@@ -31,7 +31,7 @@ variable "seats" {
   }))
   default = {
     claude-1 = { agent = "claude" }
-    review-1 = { agent = "claude", runners = 6, pool = "review" }
+    review-1 = { agent = "claude", runners = 12, pool = "review" }
   }
   validation {
     condition = alltrue([

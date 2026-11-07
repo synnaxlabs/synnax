@@ -60,9 +60,7 @@ describe("Label", () => {
     it("should throw a NotFoundError for a name that no label has", async () => {
       const name = `missing-label-${id.create()}`;
       await expect(client.labels.retrieve(name)).rejects.toThrow(
-        new NotFoundError(
-          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
-        ),
+        new NotFoundError(`Found no label where name = "${name}"`),
       );
     });
     it("should retrieve labels by search term", async () => {
@@ -139,6 +137,12 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
       ).rejects.toThrow(MultipleFoundError);
     });
+    it("should name the search term when a search that sets one matches nothing", async () => {
+      const term = id.create();
+      await expect(
+        client.labels.retrieve({ searchTerm: term, one: true }),
+      ).rejects.toThrow(new NotFoundError(`Found no label matching "${term}"`));
+    });
     it("should name the operator at fault in a where tree", async () => {
       await expect(
         // @ts-expect-error - a name operator takes a string.
@@ -169,7 +173,7 @@ describe("Label", () => {
       const name = `other-${id.create()}`;
       await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
         new NotFoundError(
-          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+          `Found no label where key = "${lbl.key}" and name = "${name}"`,
         ),
       );
     });

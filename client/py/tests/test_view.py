@@ -160,7 +160,7 @@ class TestView:
         """Should return one view for a plain key beside other fields."""
         v = client.views.create(RangeView(name=str(uuid4())))
         assert client.views.retrieve(key=v.key, type="range") == v
-        with pytest.raises(sy.NotFoundError, match=r"View matching .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Found no view where .+"):
             client.views.retrieve(key=v.key, type="status")
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:

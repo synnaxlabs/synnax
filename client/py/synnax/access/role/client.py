@@ -187,7 +187,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
-        return sole("Role", fields, res.roles) if single else res.roles
+        return sole("role", req, res.roles) if single else res.roles
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

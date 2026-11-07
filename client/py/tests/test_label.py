@@ -157,6 +157,14 @@ class TestLabelClient:
         assert client.labels.retrieve(name={"starts_with": lbl.name}, one=True) == lbl
         assert client.labels.retrieve(keys=[lbl.key], one=True) == lbl
 
+    def test_retrieve_one_search_term_not_found(self, client: sy.Synnax) -> None:
+        """Should name the search term when a search with one set matches nothing."""
+        term = uuid4().hex
+        with pytest.raises(
+            sy.NotFoundError, match=rf'^Found no label matching "{term}"$'
+        ):
+            client.labels.retrieve(search_term=term, one=True)
+
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
         with pytest.raises(sy.ValidationError, match="limit or offset"):

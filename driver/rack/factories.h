@@ -22,8 +22,18 @@
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
-/// @brief adds the factory that factory_creator returns when the integration is
-/// enabled, or an UnavailableFactory that names the configuration when it is not.
+/// @brief adds a stand-in that refuses each task of the integration because the Core
+/// runs core_version, another minor. A Driver on another minor can misread what its
+/// Core sends.
+void configure_mismatch(
+    const std::string &core_version,
+    const std::string &integration_name,
+    FactoryList &factories
+);
+
+/// @brief adds the factory that factory_creator returns, or an UnavailableFactory with
+/// the reason when the Core runs another minor or the configuration turns the
+/// integration off.
 template<typename F>
 void configure_integration(
     const Config &config,
@@ -31,6 +41,14 @@ void configure_integration(
     const std::string &integration_name,
     F factory_creator
 ) {
+    if (config.incompatible_core_version) {
+        configure_mismatch(
+            *config.incompatible_core_version,
+            integration_name,
+            factories
+        );
+        return;
+    }
     if (!config.integration_enabled(integration_name)) {
         VLOG(1) << "[" << integration_name << "] integration disabled";
         factories.push_back(

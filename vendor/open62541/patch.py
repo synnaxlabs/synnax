@@ -54,7 +54,44 @@ KEEP_NAMESPACE_INDEXES = (
 """,
 )
 
+# A delayed callback can close the connection that a client waits on. Without this, the
+# poll after it sleeps until the next timer, which is up to 1 s for a client.
+WAKE_AFTER_DELAYED = [
+    (
+        """static void
+processDelayed(UA_EventLoopPOSIX *el) {
+""",
+        """static UA_Boolean
+processDelayed(UA_EventLoopPOSIX *el) {
+    UA_Boolean ran = false;
+""",
+    ),
+    (
+        """        dc->callback(dc->application, dc->context);
+    }
+}
+""",
+        """        dc->callback(dc->application, dc->context);
+        ran = true;
+    }
+    return ran;
+}
+""",
+    ),
+    (
+        """    processDelayed(el);
+
+    /* A delayed callback could create another delayed callback (or re-add""",
+        """    const UA_Boolean ran = processDelayed(el);
+    if(ran)
+        timeout = 0;
+
+    /* A delayed callback could create another delayed callback (or re-add""",
+    ),
+]
+
 PATCHES = {
+    "eventloop_posix.c": WAKE_AFTER_DELAYED,
     "ua_client_connect.c": [CLOSE_REJECTED_SESSION, KEEP_NAMESPACE_INDEXES],
 }
 
