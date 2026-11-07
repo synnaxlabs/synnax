@@ -54,8 +54,13 @@ var _ = Describe("Frozen", func() {
 			Versions:    versions.NewResolver(chains, loader),
 			Outputs:     map[string][]plugin.File{"stub": files},
 		}, root))
-		Expect(computed).To(HaveLen(1))
-		return computed[0]
+		for _, c := range computed {
+			if c.Path == sumFile {
+				return c
+			}
+		}
+		Fail("no chain for " + sumFile)
+		return frozen.Chain{}
 	}
 
 	BeforeEach(func() {
@@ -156,6 +161,52 @@ Doc struct {
 				Expect(compute(ctx, v0File, v1File).Sums[1].Schema).
 					ToNot(Equal(before.Schema))
 			},
+		)
+
+		DescribeTable("Should follow a pinned dependency the version reaches",
+			func(ctx SpecContext, edited string, changes bool) {
+				doc := `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+
+	@go marshal
+}
+`
+				write("schemas/synnax/versions/doc/v0.oracle", doc)
+				write("schemas/synnax/doc.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+
+	@go marshal
+}
+`)
+				colorV0 := "Color struct {\n\tr uint8\n\n\t@go marshal\n}\n\n" +
+					"Stop struct {\n\tx uint8\n}\n"
+				write("schemas/x/versions/color/v0.oracle", colorV0)
+				write("schemas/x/color.oracle", "@go output \"x/go/color\"\n\n"+colorV0)
+				before := compute(ctx, v0File, v1File).Sums[0].Schema
+				write("schemas/x/versions/color/v0.oracle", edited)
+				after := compute(ctx, v0File, v1File).Sums[0].Schema
+				if changes {
+					Expect(after).ToNot(Equal(before))
+				} else {
+					Expect(after).To(Equal(before))
+				}
+			},
+			Entry("when a reached declaration changes",
+				"Color struct {\n\tr uint8\n\tg uint8\n\n\t@go marshal\n}\n\n"+
+					"Stop struct {\n\tx uint8\n}\n", true),
+			Entry("when only an unreached declaration changes",
+				"Color struct {\n\tr uint8\n\n\t@go marshal\n}\n\n"+
+					"Stop struct {\n\tx uint8\n\ty uint8\n}\n", false),
 		)
 
 		It("Should change the schema sum when declarations reorder",

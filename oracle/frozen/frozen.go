@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -153,9 +154,61 @@ func hashSchema(
 			decls = append(decls, versions.Decl{Type: t})
 		}
 	}
+	decls = append(decls, pinnedDependencies(table, ns)...)
 	rendered := versions.Render(decls, versions.RenderOptions{Resolve: table.Get})
 	sum := sha256.Sum256([]byte(rendered))
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// pinnedDependencies returns, sorted by name, the pinned dependency declarations that
+// the declarations in ns reach. Their version files fix them, so an in-place edit of an
+// unshipped dependency version moves the hash with the package it moves.
+func pinnedDependencies(table *resolution.Table, ns string) []versions.Decl {
+	reached := make(set.Set[string])
+	var queue []resolution.TypeRef
+	for _, t := range table.TypesInNamespace(ns) {
+		queue = append(queue, formRefs(t.Form)...)
+	}
+	for len(queue) > 0 {
+		ref := queue[len(queue)-1]
+		queue = append(queue[:len(queue)-1], ref.TypeArgs...)
+		t, ok := table.Get(ref.Name)
+		if !ok || t.Namespace == ns || reached.Contains(t.QualifiedName) {
+			continue
+		}
+		reached.Add(t.QualifiedName)
+		queue = append(queue, formRefs(t.Form)...)
+	}
+	decls := make([]versions.Decl, 0, len(reached))
+	for _, name := range slices.Sorted(maps.Keys(reached)) {
+		decls = append(decls, versions.Decl{Type: table.MustGet(name)})
+	}
+	return decls
+}
+
+// formRefs returns the type references a declaration's form names directly.
+func formRefs(form resolution.TypeForm) []resolution.TypeRef {
+	var refs []resolution.TypeRef
+	switch f := form.(type) {
+	case resolution.StructForm:
+		refs = append(refs, f.Extends...)
+		for _, field := range f.Fields {
+			refs = append(refs, field.Type)
+		}
+	case resolution.UnionForm:
+		refs = append(refs, f.Extends...)
+		if f.BorrowsEnum() {
+			refs = append(refs, f.Enum)
+		}
+		for _, v := range f.Variants {
+			refs = append(refs, v.Type)
+		}
+	case resolution.AliasForm:
+		refs = append(refs, f.Target)
+	case resolution.DistinctForm:
+		refs = append(refs, f.Base)
+	}
+	return refs
 }
 
 // sumPath maps a live path ("schemas/x/telem") to its sum file.

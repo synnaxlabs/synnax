@@ -128,10 +128,11 @@ or generator logic and schemas disagree.
 
 `oracle sync` records every version package in `schemas/<domain>/frozen/<resource>.sum`:
 one line per version, with a hash of what the version resolves to (its surface after
-`extends`, aliases, and imports resolve, without comments or formatting) and a hash of
-its generated files. The blocking `frozen` gate fails when a frozen package no longer
-matches its line while what it resolves to stands still. A hand edit, a generator
-change, and a mint that moves the demoted package all fail it.
+`extends`, aliases, and imports resolve, plus the pinned dependency declarations it
+reaches, without comments or formatting) and a hash of its generated files. The blocking
+`frozen` gate fails when a frozen package no longer matches its line while what it
+resolves to stands still. A hand edit, a generator change, and a mint that moves the
+demoted package all fail it.
 
 - An edit that changes what a version resolves to updates the sums by itself on the next
   sync. A comment or format edit leaves them as they are.
