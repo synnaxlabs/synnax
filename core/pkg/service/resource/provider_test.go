@@ -250,7 +250,10 @@ var _ = Describe("TableProvider", func() {
 			cfg := channels.config(resource.TypeChannel)
 			cfg.Key = func(id resource.ID) (string, error) {
 				n, err := strconv.Atoi(id.Key)
-				return strconv.Itoa(n), err
+				if err != nil {
+					return "", err
+				}
+				return strconv.Itoa(n), nil
 			}
 			Expect(resource.NewTableProvider(cfg).Retrieve(
 				ctx,
