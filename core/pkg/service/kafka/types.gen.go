@@ -266,7 +266,7 @@ func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(p))
 }
 
-// DecodeMsgpack decodes the input over p, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Properties
 	if reflect.ValueOf(*p).IsZero() {

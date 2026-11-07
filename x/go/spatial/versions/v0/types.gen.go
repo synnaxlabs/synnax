@@ -205,7 +205,7 @@ func (s *StickyXY) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (s *StickyXY) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain StickyXY
 	if reflect.ValueOf(*s).IsZero() {
@@ -254,7 +254,7 @@ func (vi *Viewport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(vi))
 }
 
-// DecodeMsgpack decodes the input over vi, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (vi *Viewport) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Viewport
 	if reflect.ValueOf(*vi).IsZero() {

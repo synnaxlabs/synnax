@@ -105,7 +105,7 @@ func (s *Spec) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (s *Spec) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Spec
 	if reflect.ValueOf(*s).IsZero() {
@@ -152,7 +152,7 @@ func (s *Symbol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (s *Symbol) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Symbol
 	if reflect.ValueOf(*s).IsZero() {

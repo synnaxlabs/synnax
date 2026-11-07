@@ -1332,6 +1332,10 @@ var _ = Describe("Decode-time default generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
+					"// UnmarshalJSONFrom decodes the input over the value. A zero value "+
+						"first takes its\n// defaults outside its default groups.",
+					"// DecodeMsgpack decodes the input over the value, as "+
+						"UnmarshalJSONFrom does.",
 					"\tfresh := reflect.ValueOf(*c).IsZero()\n\tif fresh {\n"+
 						"\t\tc.SetUngroupedDefaults()\n\t}\n"+
 						"\tif err := json.UnmarshalDecode(dec, (*plain)(c)); err != nil {"+

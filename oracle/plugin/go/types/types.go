@@ -1457,9 +1457,18 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- $s := .}}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
+{{- if .SetDefaultsView.HasGroups}}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes its
+// defaults outside its default groups. After the decode, each group whose members are
+// all zero takes its defaults, so an explicit all-zero group takes them too and a group
+// the input sets in part keeps its zero members. A value that held data keeps its
+// groups as decoded. An explicit zero outside a group stays.
+{{- else}}
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
 // schema defaults, so an omitted member takes its default and a zero stays.
+{{- end}}
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
 {{- if .SetDefaultsView.HasGroups}}
@@ -1482,7 +1491,7 @@ func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 {{- end}}
 }
 
-// DecodeMsgpack decodes the input over {{$s.Receiver}}, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain {{$s.Name}}
 {{- if .SetDefaultsView.HasGroups}}

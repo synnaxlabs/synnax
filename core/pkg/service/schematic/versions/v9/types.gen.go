@@ -478,7 +478,7 @@ func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (l *LabelConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain LabelConfig
 	if reflect.ValueOf(*l).IsZero() {
@@ -605,7 +605,7 @@ func (c *ControlStateConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (c *ControlStateConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ControlStateConfig
 	if reflect.ValueOf(*c).IsZero() {
