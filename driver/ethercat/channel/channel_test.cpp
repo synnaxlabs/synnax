@@ -563,19 +563,32 @@ TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
     );
 }
 
-/// @brief it should reject a float32 output channel on a 24-bit entry.
-TEST(Output, ReportsAFloatTypeOnANarrowerEntry) {
-    const auto j = write_entry(0x7000, 3, "float32");
+/// @brief it should accept the largest stop value that a 24-bit entry holds for a
+/// float32 output channel.
+TEST(Output, AcceptsAFloatTypeOnANarrowerEntry) {
+    auto j = write_entry(0x7000, 3, "float32");
+    j["stop_value"] = 16777215;
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_EQ(ch->index, 0x7000);
+    ASSERT_EQ(ch->stop_value, 16777215.0);
+}
+
+/// @brief it should reject a stop value that a 24-bit entry cannot hold for a float32
+/// output channel.
+TEST(Output, ReportsAStopValueThatANarrowerEntryCannotHoldForAFloatType) {
+    auto j = write_entry(0x7000, 3, "float32");
+    j["stop_value"] = 16777216;
     auto parser = x::json::Parser(j);
     const auto ch = output(wide_output_slave(), parser);
     const auto [path, message] = only_error(parser);
-    ASSERT_EQ(path, "data_type");
+    ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "data type float32 needs a 32 bit entry, but entry 0x7000:03 on slave EL2252 "
-        "holds 24 bits. Pick an integer type."
+        "stop value 16777216 does not fit entry 0x7000:03 on slave EL2252. Pick a "
+        "whole number from 0 to 16777215."
     );
-    ASSERT_EQ(ch->index, 0);
 }
 
 /// @brief it should list each matching address when an unresolved name matches more

@@ -105,19 +105,6 @@ protected:
             );
             return;
         }
-        // An output entry narrower than its float type holds an integer.
-        const auto bits = data_type.density() * 8;
-        if (!this->is_input &&
-            data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T}) &&
-            pdo->bit_length < bits) {
-            parser.field_err(
-                path + "data_type",
-                "data type " + data_type.name() + " needs a " + std::to_string(bits) +
-                    " bit entry, but " + entry + " holds " +
-                    std::to_string(pdo->bit_length) + " bits. Pick an integer type."
-            );
-            return;
-        }
         this->index = index;
         this->sub_index = sub_index;
         this->bit_length = pdo->bit_length;
@@ -261,7 +248,13 @@ private:
                 )
             );
         };
-        if (this->data_type == x::telem::FLOAT32_T) {
+        const bool is_float = this->data_type.matches(
+            {x::telem::FLOAT32_T, x::telem::FLOAT64_T}
+        );
+        // A float type on a narrower entry holds an unsigned integer.
+        const bool narrow_float = is_float &&
+                                  this->bit_length < this->data_type.density() * 8;
+        if (!narrow_float && this->data_type == x::telem::FLOAT32_T) {
             constexpr float MAX = std::numeric_limits<float>::max();
             if (std::abs(v) > MAX)
                 reject(std::format("a value from {} to {}", -MAX, MAX));
@@ -279,7 +272,7 @@ private:
             x::telem::UINT16_T,
             x::telem::UINT8_T,
         };
-        if (!this->data_type.matches(SIGNED_TYPES) &&
+        if (!narrow_float && !this->data_type.matches(SIGNED_TYPES) &&
             !this->data_type.matches(UNSIGNED_TYPES))
             return;
         // An entry under 8 bits reads back unsigned, whatever its data type.
