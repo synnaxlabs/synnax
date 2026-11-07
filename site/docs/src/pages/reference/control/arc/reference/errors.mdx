@@ -176,6 +176,15 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
   <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
 </Problem.Item>
+<Problem.Item message={"'<name>' cannot be initialized from <expr> outside a function"}>
+  <Problem.Cause>
+    A top-level or sequence variable reads a module constant such as `math.inf`, and no
+    channel.
+  </Problem.Cause>
+  <Problem.Fix>
+    Use the constant in a function, or in an expression that reads a channel.
+  </Problem.Fix>
+</Problem.Item>
 <Problem.Item message={"stateful variables cannot be declared at the top level"}>
   <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>
   <Problem.Fix>Declare it in a sequence, a stage, or a function.</Problem.Fix>
