@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -121,16 +121,16 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 			})
 
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Key:     channel.OntologyID(ch.Key()).String(),
+					Key:     channel.ResourceID(ch.Key()).String(),
 					Name:    ch.Name,
 					Variant: status.VariantSuccess,
 					Message: "ok",
@@ -190,10 +190,10 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
-					ontology.ID{Type: ontology.ResourceTypeRangeAlias},
+					resource.ID{Type: resource.TypeChannel},
+					resource.ID{Type: resource.TypeRangeAlias},
 				)
 				rng = ranger.Range{
 					Name: "range",
@@ -309,9 +309,9 @@ var _ = Describe("Service", func() {
 				))
 				grantOn(
 					ctx,
-					reader.OntologyID(),
+					reader.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 				Expect(apiSvc.Retrieve(
 					AuthedCtx(ctx, reader),
@@ -326,9 +326,9 @@ var _ = Describe("Service", func() {
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
-				ontology.ID{Type: ontology.ResourceTypeChannel},
+				resource.ID{Type: resource.TypeChannel},
 			)
 			ch := createChannel(ctx, telem.Float32T)
 			res := MustSucceed(apiSvc.Retrieve(

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -39,7 +40,7 @@ var _ = Describe("Manifest", func() {
 var _ = Describe("SortResources", func() {
 	resource := func(name, key string) ontology.Resource {
 		return ontology.Resource{
-			ID:   ontology.ID{Type: "log", Key: key},
+			ID:   resource.ID{Type: "log", Key: key},
 			Name: name,
 		}
 	}

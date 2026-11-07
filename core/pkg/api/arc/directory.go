@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 type (
@@ -41,7 +41,7 @@ func (s *Service) CreateDirectory(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeArcDirectory}},
+		Objects: []resource.ID{{Type: resource.TypeArcDirectory}},
 	}); err != nil {
 		return CreateDirectoryResponse{}, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) RenameDirectory(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{directory.OntologyID(req.Key)},
+		Objects: []resource.ID{directory.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -86,9 +86,9 @@ func (s *Service) DeleteDirectory(
 	tx gorp.Tx,
 	req DeleteDirectoryRequest,
 ) (struct{}, error) {
-	ids := make([]ontology.ID, len(req.Keys))
+	ids := make([]resource.ID, len(req.Keys))
 	for i, k := range req.Keys {
-		ids[i] = directory.OntologyID(k)
+		ids[i] = directory.ResourceID(k)
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -105,7 +105,7 @@ func (s *Service) DeleteDirectory(
 type MoveRequest struct {
 	From directory.Key `json:"from" msgpack:"from"`
 	To   directory.Key `json:"to"   msgpack:"to"`
-	IDs  []ontology.ID `json:"ids"  msgpack:"ids"`
+	IDs  []resource.ID `json:"ids"  msgpack:"ids"`
 }
 
 // Move moves Arcs and directories between directories. The caller must hold update
@@ -120,8 +120,8 @@ func (s *Service) Move(
 		Action:  access.ActionUpdate,
 		Objects: append(
 			req.IDs,
-			directory.OntologyID(req.From),
-			directory.OntologyID(req.To),
+			directory.ResourceID(req.From),
+			directory.ResourceID(req.To),
 		),
 	}); err != nil {
 		return struct{}{}, err

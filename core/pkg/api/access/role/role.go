@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -84,7 +84,7 @@ func (s *Service) Create(
 ) (CreateResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
+		Objects: []resource.ID{{Type: resource.TypeRole}},
 		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreateResponse{}, err
@@ -112,7 +112,7 @@ func (s *Service) Retrieve(
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rbacrole.OntologyIDsFromRoles(res.Roles),
+		Objects: rbacrole.ResourceIDsFromRoles(res.Roles),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -130,9 +130,9 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	roleIDs := make([]ontology.ID, len(req.Keys))
+	roleIDs := make([]resource.ID, len(req.Keys))
 	for i, key := range req.Keys {
-		roleIDs[i] = rbacrole.OntologyID(key)
+		roleIDs[i] = rbacrole.ResourceID(key)
 	}
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -162,10 +162,10 @@ func (s *Service) Assign(
 	tx gorp.Tx,
 	req AssignRequest,
 ) (struct{}, error) {
-	userID := user.OntologyID(req.User)
+	userID := user.ResourceID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
+		Objects: []resource.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
 		return struct{}{}, err
@@ -186,10 +186,10 @@ func (s *Service) Unassign(
 	tx gorp.Tx,
 	req UnassignRequest,
 ) (struct{}, error) {
-	userID := user.OntologyID(req.User)
+	userID := user.ResourceID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
+		Objects: []resource.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
 		return struct{}{}, err

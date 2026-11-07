@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,14 +33,14 @@ var _ ontology.Service = (*benchService)(nil)
 
 type BenchResource struct{ Key string }
 
-func newBenchID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
+func newBenchID(key string) resource.ID {
+	return resource.ID{Key: key, Type: resource.TypeChannel}
 }
 
 var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (*benchService) Type() ontology.ResourceType {
-	return ontology.ResourceTypeChannel
+func (*benchService) Type() resource.Type {
+	return resource.TypeChannel
 }
 
 func (*benchService) RetrieveResource(
@@ -55,9 +56,9 @@ func (*benchService) RetrieveResource(
 func (*benchService) Search(
 	context.Context,
 	gorp.Tx,
-	search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return search.Result[ontology.ID]{}, nil
+	search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return search.Result[resource.ID]{}, nil
 }
 
 type benchEnv struct {
@@ -90,11 +91,11 @@ func (e *benchEnv) close(b *testing.B) {
 	}
 }
 
-func (e *benchEnv) populate(b *testing.B, count int) []ontology.ID {
+func (e *benchEnv) populate(b *testing.B, count int) []resource.ID {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
-	ids := make([]ontology.ID, count)
+	ids := make([]resource.ID, count)
 	for i := range count {
 		ids[i] = newBenchID(strconv.Itoa(i))
 		if err := w.DefineResources(e.ctx, ids[i]); err != nil {
@@ -110,17 +111,17 @@ func (e *benchEnv) populate(b *testing.B, count int) []ontology.ID {
 func (e *benchEnv) populateTree(
 	b *testing.B,
 	depth, width int,
-) (root ontology.ID, leaves []ontology.ID) {
+) (root resource.ID, leaves []resource.ID) {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
 	counter := 0
-	var build func(d int, parent ontology.ID) []ontology.ID
-	build = func(d int, parent ontology.ID) []ontology.ID {
+	var build func(d int, parent resource.ID) []resource.ID
+	build = func(d int, parent resource.ID) []resource.ID {
 		if d == 0 {
-			return []ontology.ID{parent}
+			return []resource.ID{parent}
 		}
-		var result []ontology.ID
+		var result []resource.ID
 		for range width {
 			child := newBenchID(strconv.Itoa(counter))
 			counter++
@@ -265,7 +266,7 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
 				err = env.otg.NewRetrieve().
-					WhereTypes(ontology.ResourceTypeChannel).
+					WhereTypes(resource.TypeChannel).
 					Entries(&res).
 					Exec(env.ctx, nil)
 			}
@@ -334,11 +335,11 @@ func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 func (e *benchEnv) populateParentsWithChildren(
 	b *testing.B,
 	numParents, childrenPerParent int,
-) []ontology.ID {
+) []resource.ID {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
-	parents := make([]ontology.ID, numParents)
+	parents := make([]resource.ID, numParents)
 	counter := 0
 	for i := range numParents {
 		parents[i] = newBenchID(fmt.Sprintf("parent-%d", i))
@@ -419,7 +420,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 						err = env.otg.NewRetrieve().
 							WhereIDs(parents...).
 							TraverseTo(ontology.ChildrenTraverser).
-							WhereTypes(ontology.ResourceTypeChannel).
+							WhereTypes(resource.TypeChannel).
 							Entries(&res).
 							Exec(env.ctx, nil)
 					}
@@ -441,12 +442,12 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 func (e *benchEnv) populateLinkedPairs(
 	b *testing.B,
 	count int,
-) (parents, children []ontology.ID) {
+) (parents, children []resource.ID) {
 	tx := e.db.OpenTx()
 	defer func() { _ = tx.Close() }()
 	w := e.otg.NewWriter(tx)
-	parents = make([]ontology.ID, count)
-	children = make([]ontology.ID, count)
+	parents = make([]resource.ID, count)
+	children = make([]resource.ID, count)
 	for i := range count {
 		parents[i] = newBenchID(fmt.Sprintf("parent-%d", i))
 		children[i] = newBenchID(fmt.Sprintf("child-%d", i))

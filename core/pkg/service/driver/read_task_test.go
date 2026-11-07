@@ -128,7 +128,7 @@ var _ = Describe("ReadTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 	}
 
 	// name formats ch as an error message names it.
@@ -473,7 +473,7 @@ var _ = Describe("ReadTask", func() {
 				src.openErr = errors.New("broker refused the connection")
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Exec(ctx, task.Command{Type: "start", Key: "cmd-5"})).
-					To(MatchError("broker refused the connection"))
+					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))

@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import ontology
+from synnax import resource
 from x import telem
 
 METHOD_PASSWORD: Literal["password"] = "password"
@@ -65,7 +65,7 @@ class Session(BaseModel):
     """
 
     key: SessionKey = Field(default_factory=uuid4)
-    subject: ontology.ID
+    subject: resource.ID
     credential: UUID
     last_active: telem.TimeStamp = Field(
         ge=-9223372036854775808, le=9223372036854775807

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, ontology } from "@synnaxlabs/client";
+import { arc, NotFoundError, ontology, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
@@ -21,7 +21,7 @@ const client = createTestClient();
 
 const uniqueName = (): string => `d_${id.create().replace(/-/g, "_")}`;
 
-const retrieveRoot = async (): Promise<ontology.ID> => {
+const retrieveRoot = async (): Promise<resource.ID> => {
   const [root] = await client.ontology.children.retrieve({
     ids: ontology.ROOT_ID,
     types: ["arc_directory"],
@@ -31,7 +31,7 @@ const retrieveRoot = async (): Promise<ontology.ID> => {
 
 describe("Arc.Directory", () => {
   let wrapper: FC<PropsWithChildren>;
-  let root: ontology.ID;
+  let root: resource.ID;
 
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
@@ -45,7 +45,7 @@ describe("Arc.Directory", () => {
     await act(async () => {
       await result.current.updateAsync({ parent: root.key, key, name });
     });
-    const res = await client.ontology.retrieve(arc.directory.ontologyID(key));
+    const res = await client.ontology.retrieve(arc.directory.resourceID(key));
     expect(res.name).toBe(name);
   });
 
@@ -59,7 +59,7 @@ describe("Arc.Directory", () => {
     await act(async () => {
       await result.current.updateAsync({ key: d.key, name });
     });
-    const res = await client.ontology.retrieve(arc.directory.ontologyID(d.key));
+    const res = await client.ontology.retrieve(arc.directory.resourceID(d.key));
     expect(res.name).toBe(name);
   });
 
@@ -73,7 +73,7 @@ describe("Arc.Directory", () => {
       await result.current.updateAsync(d.key);
     });
     await expect(
-      client.ontology.retrieve(arc.directory.ontologyID(d.key)),
+      client.ontology.retrieve(arc.directory.resourceID(d.key)),
     ).rejects.toSatisfy(NotFoundError.matches);
   });
 
@@ -87,17 +87,17 @@ describe("Arc.Directory", () => {
       type: "automation",
       source: { mode: "text" },
     });
-    const destination = arc.directory.ontologyID(d.key);
+    const destination = arc.directory.resourceID(d.key);
     const { result } = renderHook(() => Arc.Directory.useMove(), { wrapper });
     await act(async () => {
       await result.current.updateAsync({
         source: root,
         destination,
-        ids: [arc.ontologyID(a.key)],
+        ids: [arc.resourceID(a.key)],
       });
     });
     const parents = await client.ontology.parents.retrieve({
-      ids: arc.ontologyID(a.key),
+      ids: arc.resourceID(a.key),
     });
     expect(parents.map((p) => p.id)).toEqual([destination]);
   });

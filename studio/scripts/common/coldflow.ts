@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, TimeRange, TimeSpan } from "@synnaxlabs/client";
+import { panel, type resource, TimeRange, TimeSpan } from "@synnaxlabs/client";
 import { type Locator } from "playwright";
 
 import { capture, type fixtures } from "@/index";
@@ -109,7 +109,7 @@ export const operationsLayout = async (
   const resources = await client.ontology.retrieve({
     types: ["panel", "lineplot", "schematic", "table", "log"],
   });
-  const id = (name: string): ontology.ID => {
+  const id = (name: string): resource.ID => {
     const resource = resources.find((r) => r.name === name);
     if (resource == null) throw new Error(`the TPC world has no "${name}"`);
     return resource.id;

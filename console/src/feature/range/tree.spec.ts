@@ -40,10 +40,10 @@ const createRangeInGroup = async () => {
     name: uniqueName("rnggrp"),
   });
   await client.ontology.addChildren(
-    group.ontologyID(grp.key),
-    ranger.ontologyID(rng.key),
+    group.resourceID(grp.key),
+    ranger.resourceID(rng.key),
   );
-  return { rng, root: group.ontologyID(grp.key) };
+  return { rng, root: group.resourceID(grp.key) };
 };
 
 describe("range/ontology", () => {
@@ -119,7 +119,7 @@ describe("range/ontology", () => {
   describe("haulItems", () => {
     it("returns a range haul item carrying the resource payload", async () => {
       const rng = await createTestRange(client);
-      const resource = createResource(ranger.ontologyID(rng.key), rng.name, {
+      const resource = createResource(ranger.resourceID(rng.key), rng.name, {
         key: rng.key,
         name: rng.name,
         timeRange: rng.timeRange,
@@ -130,7 +130,7 @@ describe("range/ontology", () => {
     });
 
     it("returns nothing when the resource has no data payload", () => {
-      const resource = createResource(ranger.ontologyID("some-key"), "no-data");
+      const resource = createResource(ranger.resourceID("some-key"), "no-data");
       expect(Item.haulItems(resource)).toHaveLength(0);
     });
   });

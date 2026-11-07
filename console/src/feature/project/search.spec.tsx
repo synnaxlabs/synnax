@@ -27,7 +27,7 @@ describe("project/search", () => {
     const p = await client.projects.create({
       name: uniqueName("project"),
     });
-    const resource = createResource(project.ontologyID(p.key), p.name);
+    const resource = createResource(project.resourceID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;
     if (SearchListItem == null)
       throw new Error("project SearchListItem is not defined");

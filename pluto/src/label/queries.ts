@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { label, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -19,13 +19,13 @@ const PLURAL_RESOURCE_NAME = "labels";
 export type RetrieveQuery = label.RetrieveSingleParams;
 
 export type LabelsOfQuery = {
-  id: ontology.ID;
+  id: resource.ID;
 };
 
 interface SetLabelsForParams {
   client: Client;
   data: {
-    id: ontology.ID;
+    id: resource.ID;
     labels: label.Key[];
   };
 }
@@ -52,7 +52,7 @@ export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
 });
 
 export interface EditForParams {
-  id: ontology.ID;
+  id: resource.ID;
   added: label.Key[];
   removed: label.Key[];
 }

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Policy", func() {
@@ -31,11 +31,11 @@ var _ = Describe("Policy", func() {
 			Expect(v1.Policy{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the policy ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the policy resource identifier", func() {
 			k := uuid.New()
-			Expect(v1.Policy{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypePolicy, Key: k.String(),
+			Expect(v1.Policy{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypePolicy, Key: k.String(),
 			}))
 		})
 	})

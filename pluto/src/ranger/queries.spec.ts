@@ -157,7 +157,7 @@ describe("queries", () => {
         name: "labeledRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(testRange.key), [rangeLabel.key]);
+      await client.labels.label(ranger.resourceID(testRange.key), [rangeLabel.key]);
 
       const { result } = renderHook(() => Ranger.useList(), {
         wrapper,
@@ -305,7 +305,7 @@ describe("queries", () => {
         name: "Filter Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(r.key), [label.key]);
+      await client.labels.label(ranger.resourceID(r.key), [label.key]);
       const { result } = renderHook(
         () => Ranger.useList({ query: { where: { labels: [label.key] } } }),
         { wrapper },
@@ -336,7 +336,7 @@ describe("queries", () => {
         name: "Labeled Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
+      await client.labels.label(ranger.resourceID(r3.key), [label.key]);
       act(() => {
         result.current.retrieve(
           { where: { labels: [label.key] } },
@@ -379,7 +379,7 @@ describe("queries", () => {
         name: "rangeWithLabels",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(testRange.key), [
+      await client.labels.label(ranger.resourceID(testRange.key), [
         label1.key,
         label2.key,
       ]);
@@ -396,7 +396,7 @@ describe("queries", () => {
       expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label1.key);
       expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label2.key);
 
-      await client.labels.remove(testRange.ontologyID, [label1.key]);
+      await client.labels.remove(testRange.resourceID, [label1.key]);
 
       await waitFor(() => {
         const rangeAfterDelete = result.current.getItem(testRange.key);

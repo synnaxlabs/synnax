@@ -142,7 +142,7 @@ export const ensureRange = async (
         ...(spec.parent != null && { parent: { key: spec.parent } }),
       }));
     if (spec.labels != null && spec.labels.length > 0)
-      await client.labels.label(range.ontologyID, spec.labels);
+      await client.labels.label(range.resourceID, spec.labels);
     return range.key;
   } finally {
     await client.close();

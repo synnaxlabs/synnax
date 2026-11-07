@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, type ontology } from "@synnaxlabs/client";
+import { arc as clientArc, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -41,7 +41,7 @@ const createModule = async () =>
     source: { mode: "text" },
   });
 
-const createDirectory = async (parent: ontology.ID) =>
+const createDirectory = async (parent: resource.ID) =>
   await client.arcs.directories.create({ parent: parent.key, name: uniqueName("dir") });
 
 const renderExplorer = async (): Promise<void> => {
@@ -81,12 +81,12 @@ describe("arc/Explorer", () => {
   it("shows an Arc inside nested directories once each parent is expanded", async () => {
     const arcsID = await retrieveRootDirectoryID(client);
     const dir = await createDirectory(arcsID);
-    const sub = await createDirectory(clientArc.directory.ontologyID(dir.key));
+    const sub = await createDirectory(clientArc.directory.resourceID(dir.key));
     const module = await createModule();
     await client.arcs.directories.move(
       arcsID,
-      clientArc.directory.ontologyID(sub.key),
-      clientArc.ontologyID(module.key),
+      clientArc.directory.resourceID(sub.key),
+      clientArc.resourceID(module.key),
     );
     await renderExplorer();
     await findTreeRow(dir.name);
@@ -105,7 +105,7 @@ describe("arc/Explorer", () => {
     commitTextEdit(await awaitTextEditingElement(), name);
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: clientArc.directory.ontologyID(dir.key),
+        ids: clientArc.directory.resourceID(dir.key),
       });
       expect(children.some((r) => r.name === name)).toBe(true);
     });

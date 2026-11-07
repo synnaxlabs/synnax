@@ -13,13 +13,14 @@ import { describe, expect, it } from "vitest";
 import { arc } from "@/arc";
 import { NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
+import { type resource } from "@/resource";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
 const uniqueName = (): string => `d_${id.create().replace(/-/g, "_")}`;
 
-const retrieveRoot = async (): Promise<ontology.ID> => {
+const retrieveRoot = async (): Promise<resource.ID> => {
   const children = await client.ontology.children.retrieve({
     ids: ontology.ROOT_ID,
     types: ["arc_directory"],
@@ -47,7 +48,7 @@ describe("arc.directory", () => {
     });
     const name = uniqueName();
     await client.arcs.directories.rename(d.key, name);
-    const res = await client.ontology.retrieve(arc.directory.ontologyID(d.key));
+    const res = await client.ontology.retrieve(arc.directory.resourceID(d.key));
     expect(res.name).toBe(name);
   });
 
@@ -59,7 +60,7 @@ describe("arc.directory", () => {
     });
     await client.arcs.directories.delete(d.key);
     await expect(
-      client.ontology.retrieve(arc.directory.ontologyID(d.key)),
+      client.ontology.retrieve(arc.directory.resourceID(d.key)),
     ).rejects.toSatisfy(NotFoundError.matches);
   });
 
@@ -74,10 +75,10 @@ describe("arc.directory", () => {
       type: "automation",
       source: { mode: "text" },
     });
-    const dirID = arc.directory.ontologyID(d.key);
-    await client.arcs.directories.move(root, dirID, arc.ontologyID(a.key));
+    const dirID = arc.directory.resourceID(d.key);
+    await client.arcs.directories.move(root, dirID, arc.resourceID(a.key));
     const parents = await client.ontology.parents.retrieve({
-      ids: arc.ontologyID(a.key),
+      ids: arc.resourceID(a.key),
     });
     expect(parents.map((p) => p.id)).toEqual([dirID]);
   });
@@ -99,13 +100,13 @@ describe("arc.directory", () => {
     });
     await expect(
       client.arcs.directories.move(
-        arc.directory.ontologyID(named.key),
-        arc.directory.ontologyID(dest.key),
-        arc.ontologyID(a.key),
+        arc.directory.resourceID(named.key),
+        arc.directory.resourceID(dest.key),
+        arc.resourceID(a.key),
       ),
     ).rejects.toSatisfy(ValidationError.matches);
     const parents = await client.ontology.parents.retrieve({
-      ids: arc.ontologyID(a.key),
+      ids: arc.resourceID(a.key),
     });
     expect(parents.map((p) => p.id)).toEqual([root]);
   });

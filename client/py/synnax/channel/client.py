@@ -29,11 +29,11 @@ from synnax.channel.types_gen import (
     Status,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, ValidationError
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeSeries,
@@ -175,8 +175,8 @@ class Channel(Payload):
         self._client.rename(self.key, name)
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     @property
     def _frame_client(self) -> framer.Client:

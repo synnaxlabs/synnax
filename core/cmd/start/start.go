@@ -311,7 +311,9 @@ func BootupCore(
 	}
 
 	var embeddedConsole *console.Console
-	if embeddedConsole, err = console.New(); !ok(err, nil) {
+	if embeddedConsole, err = console.New(
+		console.Config{Insecure: cfg.insecure},
+	); !ok(err, nil) {
 		return err
 	}
 

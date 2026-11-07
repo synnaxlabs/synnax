@@ -35,7 +35,7 @@ Group struct {
     """
     @go marshal
     @go migrate
-    @ontology type "group"
+    @resource type "group"
     @retrieve
 }
 

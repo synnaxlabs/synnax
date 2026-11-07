@@ -257,7 +257,7 @@ class StlRanges(ArcCase):
         self.wait_for_eq(FLOW_PARENT_KEY_OUT, str(found["RangeFlow_Parent"].key))
         for parent_name, child_names in CHILDREN_BY_PARENT.items():
             parent = found[parent_name]
-            children = self.client.ontology.retrieve_children(parent.ontology_id)
+            children = self.client.ontology.retrieve_children(parent.resource_id)
             keys = {res.key for res in children}
             for name in child_names:
                 if str(found[name].key) not in keys:

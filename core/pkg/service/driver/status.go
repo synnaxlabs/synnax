@@ -48,7 +48,7 @@ type StatusHandler struct {
 // running, "Task configured" message.
 func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHandler {
 	return &StatusHandler{db: db, svc: svc, stat: task.Status{
-		Key:     t.OntologyID().String(),
+		Key:     t.ResourceID().String(),
 		Name:    t.Name,
 		Variant: status.VariantSuccess,
 		Message: "Task configured",

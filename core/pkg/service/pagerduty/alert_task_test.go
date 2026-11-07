@@ -125,7 +125,7 @@ var _ = Describe("AlertTask", func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
@@ -432,7 +432,7 @@ var _ = Describe("AlertTask", func() {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							t.OntologyID().String(),
+							t.ResourceID().String(),
 						)).
 						Entry(&stat).
 						Exec(ctx, nil)).To(Succeed())

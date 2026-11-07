@@ -120,7 +120,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
+				env := MustSucceed(svc.Export(ctx, t.ResourceID()))
 				Expect(env.Version).To(Equal(pdversions.Latest))
 				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
@@ -141,7 +141,7 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := task.OntologyID(uuid.New())
+			id := task.ResourceID(uuid.New())
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -180,7 +180,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
+				env := MustSucceed(svc.Export(ctx, t.ResourceID()))
 				imported := reimport(ctx, MustSucceed(json.Marshal(env)))
 
 				Expect(imported.Key).ToNot(Equal(t.Key))
@@ -307,7 +307,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 			}
 			Expect(excluded.task.NewWriter(nil).Create(ctx, t)).To(Succeed())
-			Expect(excluded.task.Export(ctx, t.OntologyID())).Error().To(SatisfyAll(
+			Expect(excluded.task.Export(ctx, t.ResourceID())).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("have no file form")),
 			))

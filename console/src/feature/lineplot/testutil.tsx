@@ -93,7 +93,7 @@ export const renderLinePlot = async (
   await loadLinePlot(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    lineplot.ontologyID(created.key),
+    lineplot.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // React counts a `use` read as a suspend even when it is cached. A sync act leaves
