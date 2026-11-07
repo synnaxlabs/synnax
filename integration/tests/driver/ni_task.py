@@ -83,7 +83,7 @@ def retrieve_present_device(client: sy.Synnax, location: str) -> sy.Device:
                 f"Expected one present device at {location}, but found "
                 f"{len(present)} of {len(devices)}"
             )
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 poll interval
 
 
 class _NITaskMixin(TaskCase[TaskT]):

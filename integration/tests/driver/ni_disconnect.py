@@ -283,7 +283,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 hold: checks that no sample arrives
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
         for key in self._channel_keys(tsk):

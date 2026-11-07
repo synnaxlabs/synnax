@@ -126,7 +126,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         for task in all_tasks:
             task._internal.execute_command("start")
 
-        sy.sleep(DEADLOCK_DURATION)
+        sy.sleep(DEADLOCK_DURATION)  # noqa: TID251 keeps the simulator frozen
 
         # Step 5: Health probe — can the driver still run a Modbus task?
         self._check_driver_responsive()
@@ -158,7 +158,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             psutil.Process(pid).suspend()
         else:
             os.kill(pid, signal.SIGSTOP)
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 settle, no condition to poll
 
     def _check_driver_responsive(self) -> None:
         """Start a Modbus read task and verify it streams data.

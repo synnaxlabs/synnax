@@ -64,7 +64,7 @@ class StatusRateLimit(OPCUAReadArray):
                 # Wait for the task to start producing data before beginning
                 # the timed window. On slow CI machines, setup overhead can
                 # consume most of a fixed window if the timer starts earlier.
-                sy.sleep(2)
+                sy.sleep(2)  # noqa: TID251 settle, no condition to poll
                 timer = sy.Timer()
                 while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
                     frame = streamer.read(timeout=1)

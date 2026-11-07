@@ -105,7 +105,7 @@ class SelectStateIndicator(ConsoleCase):
             actual = indicator.get_label()
             if actual == expected:
                 return
-            sy.sleep(poll)
+            sy.sleep(poll)  # noqa: TID251 poll interval
             elapsed += poll
         actual = indicator.get_label()
         assert actual == expected, (

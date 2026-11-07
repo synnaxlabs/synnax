@@ -142,7 +142,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             actual = None if disabled is None else not disabled
             if actual == expected:
                 return
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
         assert actual == expected, (
             f"Task '{name}' data saving should be {expected}, got {actual}"
         )

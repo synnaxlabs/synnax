@@ -79,7 +79,7 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
         self.log("Test 2 - Reconnect Device")
         reconnected_device = client.devices.create(device)
         self.assert_device_exists(device_key=reconnected_device.key)
-        sy.sleep(3)  # Give the driver time to reconnect
+        sy.sleep(3)  # noqa: TID251 gives the Driver time to reconnect
 
         self.log("Test 3 - Run Task After Device Reconnection")
         client.tasks.configure(tsk)

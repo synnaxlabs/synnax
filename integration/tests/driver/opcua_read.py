@@ -205,7 +205,7 @@ class OPCUATLSDriverCertificateReadFloat(OPCUASecuredReadTaskCase):
                 break
             if timer.elapsed() > PIN_TIMEOUT:
                 self.fail("The Driver did not pin the server certificate")
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
         expected = ssl.PEM_cert_to_DER_cert(read_server_certificate())
         assert pinned == expected, "The Driver pinned another server certificate"
 

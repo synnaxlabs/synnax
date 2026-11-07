@@ -161,7 +161,7 @@ class CalcTypeCascade(ConsoleCase):
             dt = self._get_data_type("scaled")
             if dt == sy.DataType.FLOAT64:
                 break
-            sy.sleep(0.25)
+            sy.sleep(0.25)  # noqa: TID251 poll interval
 
         assert self._get_data_type("scaled") == sy.DataType.FLOAT64, (
             f"scaled should be f64 after edit, got {self._get_data_type('scaled')}"
@@ -190,7 +190,7 @@ class CalcTypeCascade(ConsoleCase):
                                 f"monitor: expected 3000, got {val}"
                             )
                             break
-                    sy.sleep(0.5)
+                    sy.sleep(0.5)  # noqa: TID251 poll interval
 
         self.log("Phase 3: Compatible cascade verified")
 
@@ -220,7 +220,7 @@ class CalcTypeCascade(ConsoleCase):
             f"return f32({self.calcs['scaled']}) + {self.raw['reference']}"
         )
         self.client.channels.create(combined_ch)
-        sy.sleep(2)
+        sy.sleep(2)  # noqa: TID251 hold: checks that no error shows
 
         notifs = self.console.notifications.check()
         error_notifs = [

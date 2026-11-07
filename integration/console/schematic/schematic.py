@@ -9,7 +9,7 @@
 
 from typing import Literal, TypeVar
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -511,6 +511,15 @@ class Schematic(ConsolePage):
     def get_symbol_count(self) -> int:
         """Get the number of symbol nodes on the schematic pane."""
         return self.page.locator(".react-flow__node").count()
+
+    def wait_for_symbol_count(self, count: int) -> None:
+        """Wait until the schematic pane holds count symbol nodes.
+
+        :raises AssertionError: If the count differs after 5 seconds.
+        """
+        expect(self.page.locator(".react-flow__node")).to_have_count(
+            count, timeout=5000
+        )
 
     def control_legend_visible(self) -> bool:
         """Check if the control state legend is visible."""

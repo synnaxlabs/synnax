@@ -91,7 +91,7 @@ class BackwardJump(ArcCase):
             "bj_press_cmd would flip back to 1."
         )
         self.writer.write("bj_start_cmd", 1)
-        sy.sleep(2.0)
+        sy.sleep(2.0)  # noqa: TID251 hold: nothing may change
         held_value = self.read_tlm("bj_press_cmd")
         if held_value is None:
             self.fail(

@@ -98,7 +98,7 @@ class ChannelCollector:
         while timer.elapsed() < timeout * sy.TimeSpan.SECOND:
             if len(self.data.get(channel, [])) >= count:
                 return
-            sy.sleep(0.05)
+            sy.sleep(0.05)  # noqa: TID251 poll interval
         raise TimeoutError(
             f"Timed out after {timeout}s waiting for {count} entries on '{channel}'; "
             f"got {len(self.data.get(channel, []))}"
@@ -190,7 +190,7 @@ class ShortCircuit(ArcCase):
                 self.writer.write("ss_start_cmd", 1)
 
                 self._verify_on_pause_loop(collector)
-                self._verify_off_transition()
+                self._verify_off_transition(collector)
 
             collector.wait_for_count("ss_stage_str", 6)
 
@@ -212,11 +212,11 @@ class ShortCircuit(ArcCase):
         collector.wait_for_count("ss_pause_tick_time", 3, timeout=10.0)
         self.log("Phase 1 complete")
 
-    def _verify_off_transition(self) -> None:
+    def _verify_off_transition(self, collector: ChannelCollector) -> None:
         self.log("Phase 2: Setting ss_temp_a=400")
         # Wait for the sequence to loop back into the on stage after the 3rd
         # pause before writing the trigger sensors.
-        sy.sleep(1)
+        collector.wait_for_count("ss_on_tick_time", 4, timeout=5.0)
         self._ss_temp_a = 400.0
         self._write_sensors()
         self.wait_for_eq("ss_stage_str", "off", timeout=10.0)

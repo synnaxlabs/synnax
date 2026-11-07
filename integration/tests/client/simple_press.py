@@ -92,7 +92,7 @@ class SimplePress(SimDaqCase):
                         timeout=3 * sy.TimeSpan.SECOND,
                     )
                     target_pressure += 30
-                    sy.sleep(1)  # Give "Bad Actor" time to run
+                    sy.sleep(1)  # noqa: TID251 gives "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
 

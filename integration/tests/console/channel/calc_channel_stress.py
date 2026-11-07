@@ -206,7 +206,7 @@ class CalcChannelStress(ConsoleCase):
         for ch in CALC_CHANNELS:
             assert ch in plot.data["y1"], f"Channel {ch} should be on Y1"
 
-        sy.sleep(1)
+        sy.sleep(1)  # noqa: TID251 settle, no condition to poll
 
         csv_content = plot.download_csv()
 

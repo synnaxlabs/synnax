@@ -78,9 +78,9 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
                 frame = streamer.read(timeout=30)
                 if frame is None:
                     raise AssertionError("Task did not start — no data received")
-            sy.sleep(1)
+            sy.sleep(1)  # noqa: TID251 settle, no condition to poll
             start = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
+            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
             return start
 
         with task.run():

@@ -90,7 +90,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
                 break
             if timer.elapsed() > STATUS_TIMEOUT:
                 self.fail(f"Legacy device never connected, last status {statuses}")
-            sy.sleep(1)
+            sy.sleep(1)  # noqa: TID251 poll interval
 
     def test_read_task_reads(self) -> None:
         """A read task on the legacy device delivers data with the default cap."""

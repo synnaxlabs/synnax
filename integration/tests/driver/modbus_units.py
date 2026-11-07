@@ -138,7 +138,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                sy.sleep(0.2)
+                sy.sleep(0.2)  # noqa: TID251 hold: nothing may change
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")
@@ -183,7 +183,7 @@ class ModbusUnits(SimulatorCase):
                 stats = Stats.model_validate(data["stats"])
                 if done(stats):
                     return stats
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
         raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
 
     @staticmethod

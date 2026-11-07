@@ -292,7 +292,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(9):
             if sy.TimeStamp(rng.time_range.end).datetime(UTC).day == 2:
                 break
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
             rng = self.client.ranges.retrieve(name=self.labeled_range_name)
         start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
         end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
@@ -332,7 +332,7 @@ class RangeLifecycle(ConsoleCase):
             try:
                 return self.client.ranges.retrieve(name=name)
             except sy.NotFoundError:
-                sy.sleep(0.5)
+                sy.sleep(0.5)  # noqa: TID251 poll interval
         return self.client.ranges.retrieve(name=name)
 
     def assert_range_spans_now(self, name: str) -> None:
@@ -345,7 +345,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(9):
             if rng.time_range.start < now < rng.time_range.end:
                 break
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
             rng = self.client.ranges.retrieve(name=name)
             now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
@@ -371,7 +371,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(10):
             if done(rng):
                 break
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 poll interval
             rng = self.client.ranges.retrieve(name=name)
         return rng
 
