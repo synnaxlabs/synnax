@@ -52,6 +52,7 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	rangerSvc  *ranger.Service
+	labelSvc   *label.Service
 )
 
 func TestSift(t *testing.T) {
@@ -68,7 +69,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -133,14 +134,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // factoryConfig returns the configuration of a factory on the services of the suite.
 func factoryConfig() sift.FactoryConfig {
 	return sift.FactoryConfig{
-		DB:      db,
-		Device:  deviceSvc,
-		Status:  statusSvc,
-		Secret:  secretSvc,
-		Ranger:  rangerSvc,
-		Channel: channelSvc,
-		Framer:  framerSvc,
-		Timeout: 2 * telem.Second,
+		DB:                 db,
+		Device:             deviceSvc,
+		Status:             statusSvc,
+		Secret:             secretSvc,
+		Ranger:             rangerSvc,
+		Channel:            channelSvc,
+		Framer:             framerSvc,
+		Label:              labelSvc,
+		Timeout:            2 * telem.Second,
+		CheckpointInterval: 20 * telem.Millisecond,
 	}
 }
 

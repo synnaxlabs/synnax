@@ -15,3 +15,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/sift/versions/v0"
 
 // ScanConfig configures a Sift scan task.
 type ScanConfig = v0.ScanConfig
+
+// StreamConfig configures a task that streams live data to Sift.
+type StreamConfig = v0.StreamConfig

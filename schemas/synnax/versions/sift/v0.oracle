@@ -7,10 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v1"
+import "schemas/synnax/versions/label/v0"
 import "schemas/synnax/versions/task/v2"
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures a Sift scan task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+StreamConfig struct extends task.StartConfig {
+    device   device.Key = "" {
+        @doc value "is the key of the Sift device the task sends to."
+    }
+    asset    string = "" {
+        @doc value "is the name of the Sift asset that receives the data."
+    }
+    channels channel.Key[] {
+        @doc value "are the channels the task sends."
+    }
+    labels   label.Key[]   {
+        @doc value """
+            are the labels that make a range a Sift run. A range with any of them
+            becomes a run once Sift has its data. Empty makes no runs.
+        """
+    }
+
+    @doc value  "configures a task that streams live data to Sift."
     @go imex    body
     @go marshal
     @go migrate

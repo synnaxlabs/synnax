@@ -23,6 +23,9 @@ import (
 // ScanConfig configures a Sift scan task.
 type ScanConfig = versions.ScanConfig
 
+// StreamConfig configures a task that streams live data to Sift.
+type StreamConfig = versions.StreamConfig
+
 // Properties configures the connection to a Sift device.
 type Properties struct {
 	// URI is the address of the Sift gRPC API, as host:port. A local host connects
@@ -57,4 +60,12 @@ type UploadDetails struct {
 	Positions []Position `json:"positions" msgpack:"positions"`
 	// Samples is the number of values Sift has confirmed.
 	Samples int64 `json:"samples" msgpack:"samples"`
+}
+
+// StreamDetails is the progress of a stream to Sift, held in the details of its status.
+type StreamDetails struct {
+	// Positions holds, for each index, how far Sift has confirmed the stream.
+	Positions []Position `json:"positions" msgpack:"positions"`
+	// RunsThrough is the time before which every labeled range that ended has a run.
+	RunsThrough telem.TimeStamp `json:"runs_through" msgpack:"runs_through"`
 }

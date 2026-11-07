@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -55,28 +56,40 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
-	// Ranger retrieves the ranges that uploads send.
+	// Ranger retrieves the ranges that uploads send and that streams make runs of.
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
-	// Channel retrieves the channels that uploads send.
+	// Channel retrieves the channels that uploads and streams send.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Framer reads the samples that uploads send.
+	// Framer reads the samples that uploads and streams send.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Label reads the labels of ranges, which become the tags of Sift runs.
+	//
+	// [REQUIRED]
+	Label *label.Service
 	// Timeout bounds one call to Sift from a check or a command.
 	//
 	// [OPTIONAL] - Defaults to 10 s.
 	Timeout telem.TimeSpan
+	// CheckpointInterval is how long uploads and streams send before they wait for
+	// Sift to confirm what they sent and save their progress.
+	//
+	// [OPTIONAL] - Defaults to 60 s.
+	CheckpointInterval telem.TimeSpan
 }
 
 var _ config.Config[FactoryConfig] = FactoryConfig{}
 
 // DefaultFactoryConfig is the default configuration for the Sift driver factory.
-var DefaultFactoryConfig = FactoryConfig{Timeout: 10 * telem.Second}
+var DefaultFactoryConfig = FactoryConfig{
+	Timeout:            10 * telem.Second,
+	CheckpointInterval: 60 * telem.Second,
+}
 
 // Override implements config.Config.
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
@@ -88,7 +101,12 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Label = override.Nil(c.Label, other.Label)
 	c.Timeout = override.Numeric(c.Timeout, other.Timeout)
+	c.CheckpointInterval = override.Numeric(
+		c.CheckpointInterval,
+		other.CheckpointInterval,
+	)
 	return c
 }
 
@@ -102,7 +120,9 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("ranger", c.Ranger)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
+	v.NotNil("label", c.Label)
 	v.Positive("timeout", c.Timeout)
+	v.Positive("checkpoint_interval", c.CheckpointInterval)
 	return v.Error()
 }
 
@@ -137,16 +157,58 @@ func (f *factory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
-	if t.Type != ScanTaskType {
+	switch t.Type {
+	case ScanTaskType:
+		return f.configureScanTask(ctx, t, cmdKey)
+	case StreamTaskType:
+		return f.configureStreamTask(ctx, t, cmdKey)
+	default:
 		return nil, driver.ErrTaskNotHandled
 	}
+}
+
+func (f *factory) reporter() driver.ConfigReporter {
+	return driver.ConfigReporter{
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Instrumentation: f.cfg.Instrumentation,
+	}
+}
+
+func (f *factory) configureStreamTask(
+	ctx context.Context,
+	t task.Task,
+	cmdKey string,
+) (driver.Task, error) {
+	var cfg StreamConfig
+	if err := t.Config.Unmarshal(&cfg); err != nil {
+		f.reporter().Report(ctx, t, cmdKey, false, err)
+		return nil, err
+	}
+	if err := validateStreamConfig(cfg); err != nil {
+		f.reporter().Report(ctx, t, cmdKey, cfg.AutoStart, err)
+		return nil, err
+	}
+	st, err := newStreamTask(f.cfg, t, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.AutoStart {
+		if err = st.Start(ctx, driver.NoCommand); err != nil {
+			return nil, err
+		}
+	}
+	return st, nil
+}
+
+func (f *factory) configureScanTask(
+	ctx context.Context,
+	t task.Task,
+	cmdKey string,
+) (driver.Task, error) {
 	st, autoStart, err := f.configureScan(t)
 	if err != nil {
-		driver.ConfigReporter{
-			DB:              f.cfg.DB,
-			Status:          f.cfg.Status,
-			Instrumentation: f.cfg.Instrumentation,
-		}.Report(ctx, t, cmdKey, false, err)
+		f.reporter().Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
 	if autoStart {
