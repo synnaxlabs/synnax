@@ -238,17 +238,6 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
-		It("Should take no shortcut beside name patterns", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
-				Where filter Thing {
-					key
-					name
-					name_patterns string[]
-				}
-			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
-		})
-
 		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
 				import "schemas/x/filter"

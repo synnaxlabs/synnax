@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -154,6 +155,16 @@ var _ = Describe("Driver", func() {
 				Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
 			},
 		)
+
+		It("should set the Core version on the rack", func(ctx SpecContext) {
+			openDriverWithInterval(ctx, time.Second)
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				Where(rack.MatchKeys(embeddedRackKey(ctx))).
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Version).To(HaveValue(Equal(version.Get())))
+		})
 
 		It(
 			"should update integrations on existing rack when reopened with different factories",

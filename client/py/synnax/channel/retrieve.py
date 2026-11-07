@@ -36,11 +36,15 @@ class _AliasedRetrieveRequest(BaseModel):
 
 def params_where(channels: Params) -> Where:
     """Returns a filter that selects the channels that channels names by key or
-    name.
+    name. One key or name selects with eq, and a list with in.
     """
     normal = normalize_params(channels)
     if isinstance(normal, NormalizedNameResult):
-        return Where(name_patterns=normal.channels)
+        if normal.single:
+            return Where(name=filter.String(eq=normal.channels[0]))
+        return Where(name=filter.String(in_=normal.channels))
+    if normal.single:
+        return Where(key=filter.Set[Key](eq=normal.channels[0]))
     return Where(key=filter.Set[Key](in_=normal.channels))
 
 
@@ -72,7 +76,8 @@ class Retriever:
         :raises NotFoundError: If no channel matches param.
         :raises MultipleFoundError: If more than one channel matches param.
         """
-        return sole("Channel", param, self.retrieve(param))
+        req = RetrieveRequest(where=params_where(param))
+        return sole("channel", req, self.filter(req))
 
     @trace("debug")
     def filter(

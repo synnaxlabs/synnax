@@ -27,7 +27,7 @@ std::shared_ptr<daqmx::SugaredAPI> mock_dmx(std::shared_ptr<daqmx::MockAPI> &moc
 TEST(ChannelsTest, ParseAIAccelChan) {
     x::json::json j = {
         {"type", "ai_accel"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -45,7 +45,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
@@ -66,7 +66,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
 TEST(ChannelsTest, ParseAIAccelChargeChan) {
     x::json::json j = {
         {"type", "ai_accel_charge"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -82,7 +82,7 @@ TEST(ChannelsTest, ParseAIAccelChargeChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -99,7 +99,7 @@ TEST(ChannelsTest, ParseAIAccelChargeChan) {
 TEST(ChannelsTest, ParseAIBridgeChan) {
     x::json::json j = {
         {"type", "ai_bridge"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -116,7 +116,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -133,7 +133,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
 TEST(ChannelsTest, ParseAICurrentChan) {
     x::json::json j = {
         {"type", "ai_current"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -148,7 +148,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -168,7 +168,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
 TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     x::json::json j = {
         {"type", "ai_force_bridge_table"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -189,7 +189,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -206,7 +206,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
 TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     x::json::json j = {
         {"type", "ai_force_bridge_two_point_lin"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -229,7 +229,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -246,7 +246,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
 TEST(ChannelsTest, ParseAIForceIEPEChan) {
     x::json::json j = {
         {"type", "ai_force_iepe"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -264,7 +264,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -283,7 +283,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
 TEST(ChannelsTest, ParseAIMicrophoneChan) {
     x::json::json j = {
         {"type", "ai_microphone"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -298,7 +298,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -316,7 +316,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
 TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
     x::json::json j = {
         {"type", "ai_pressure_bridge_table"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -337,7 +337,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -354,7 +354,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
 TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     x::json::json j = {
         {"type", "ai_pressure_bridge_two_point_lin"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -377,7 +377,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -394,7 +394,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
 TEST(ChannelsTest, ParseAIRTDChan) {
     x::json::json j = {
         {"type", "ai_rtd"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -411,7 +411,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -431,7 +431,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
 TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     x::json::json j = {
         {"type", "ai_strain_gauge"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -451,7 +451,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -473,7 +473,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
 TEST(ChannelsTest, ParseAITempBuiltInChan) {
     x::json::json j = {
         {"type", "ai_temp_builtin"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -483,7 +483,7 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -500,7 +500,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     x::json::json j = {
         {"channels.0",
          {{"type", "ai_thermocouple"},
-          {"key", "ks1VnWdrSVA"},
+          {"key", "channel_a"},
           {"port", 0},
           {"disabled", false},
           {"name", ""},
@@ -515,7 +515,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     x::json::Parser p(j);
     auto child = p.child("channels.0");
     const auto chan = channel::parse_input(child, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -534,7 +534,7 @@ TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
     x::json::json j = {
         {"channels.0",
          {{"type", "ai_thermocouple"},
-          {"key", "ks1VnWdrSVA"},
+          {"key", "channel_a"},
           {"port", 0},
           {"disabled", false},
           {"name", ""},
@@ -549,7 +549,7 @@ TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
     x::json::Parser p(j);
     auto child = p.child("channels.0");
     const auto chan = channel::parse_input(child, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -566,7 +566,7 @@ TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
     x::json::json j = {
         {"channels.0",
          {{"type", "ai_thermocouple"},
-          {"key", "ks1VnWdrSVA"},
+          {"key", "channel_a"},
           {"port", 0},
           {"disabled", false},
           {"name", ""},
@@ -581,7 +581,7 @@ TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
     x::json::Parser p(j);
     auto child = p.child("channels.0");
     const auto chan = channel::parse_input(child, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -596,7 +596,7 @@ TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
 TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
     x::json::json j = {
         {"type", "ai_torque_bridge_table"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -617,7 +617,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -634,7 +634,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
 TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     x::json::json j = {
         {"type", "ai_torque_bridge_two_point_lin"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -657,7 +657,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -674,7 +674,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
 TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     x::json::json j = {
         {"type", "ai_velocity_iepe"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -692,7 +692,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -711,7 +711,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
 TEST(ChannelsTest, ParseAIVoltageChan) {
     x::json::json j = {
         {"type", "ai_voltage"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -724,7 +724,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_analog_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -754,7 +754,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_output(p, "ni_analog_write");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -783,7 +783,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_output(p, "ni_analog_write");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     std::shared_ptr<daqmx::MockAPI> mock;
@@ -801,7 +801,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
 
 TEST(ChannelsTest, ParseDIChan) {
     x::json::json j = {
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"line", 1},
         {"disabled", false},
@@ -810,7 +810,7 @@ TEST(ChannelsTest, ParseDIChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_digital_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
@@ -835,7 +835,7 @@ TEST(ChannelsTest, ParseDOChan) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_output(p, "ni_digital_write");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
@@ -851,7 +851,7 @@ TEST(ChannelsTest, ParseDOChan) {
 TEST(ChannelsTest, ParseCIFrequencyChanHz) {
     x::json::json j = {
         {"type", "ci_frequency"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -869,7 +869,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -892,7 +892,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
 TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     x::json::json j = {
         {"type", "ci_frequency"},
-        {"key", "ks1VnWdrSVB"},
+        {"key", "channel_b"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -910,7 +910,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -934,7 +934,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
     x::json::json j = {
         {"type", "ci_edge_count"},
-        {"key", "ks1VnWdrSVC"},
+        {"key", "channel_c"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -947,7 +947,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -966,7 +966,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
 TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     x::json::json j = {
         {"type", "ci_edge_count"},
-        {"key", "ks1VnWdrSVD"},
+        {"key", "channel_d"},
         {"port", 2},
         {"disabled", false},
         {"name", ""},
@@ -979,7 +979,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -999,7 +999,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
     x::json::json j = {
         {"type", "ci_period"},
-        {"key", "ks1VnWdrSVE"},
+        {"key", "channel_e"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1017,7 +1017,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1035,7 +1035,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
 TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     x::json::json j = {
         {"type", "ci_period"},
-        {"key", "ks1VnWdrSVF"},
+        {"key", "channel_f"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1053,7 +1053,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1072,7 +1072,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
     x::json::json j = {
         {"type", "ci_pulse_width"},
-        {"key", "ks1VnWdrSVG"},
+        {"key", "channel_g"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1087,7 +1087,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1103,7 +1103,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
 TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     x::json::json j = {
         {"type", "ci_pulse_width"},
-        {"key", "ks1VnWdrSVH"},
+        {"key", "channel_h"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1118,7 +1118,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1135,7 +1135,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
     x::json::json j = {
         {"type", "ci_semi_period"},
-        {"key", "ks1VnWdrSVI"},
+        {"key", "channel_i"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1148,7 +1148,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1164,7 +1164,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
 TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     x::json::json j = {
         {"type", "ci_semi_period"},
-        {"key", "ks1VnWdrSVJ"},
+        {"key", "channel_j"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1177,7 +1177,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1193,7 +1193,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
 TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
     x::json::json j = {
         {"type", "ci_two_edge_sep"},
-        {"key", "ks1VnWdrSVK"},
+        {"key", "channel_k"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1208,7 +1208,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1226,7 +1226,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
 TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     x::json::json j = {
         {"type", "ci_two_edge_sep"},
-        {"key", "ks1VnWdrSVL"},
+        {"key", "channel_l"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1241,7 +1241,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1259,7 +1259,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
 TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     x::json::json j = {
         {"type", "ci_velocity_linear"},
-        {"key", "ks1VnWdrSVW"},
+        {"key", "channel_w"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1276,7 +1276,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1298,7 +1298,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
     x::json::json j = {
         {"type", "ci_velocity_linear"},
-        {"key", "ks1VnWdrSVX"},
+        {"key", "channel_x"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1315,7 +1315,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1336,7 +1336,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
 TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     x::json::json j = {
         {"type", "ci_velocity_angular"},
-        {"key", "ks1VnWdrSVY"},
+        {"key", "channel_y"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1353,7 +1353,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1375,7 +1375,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     x::json::json j = {
         {"type", "ci_velocity_angular"},
-        {"key", "ks1VnWdrSVZ"},
+        {"key", "channel_z"},
         {"port", 2},
         {"disabled", false},
         {"name", ""},
@@ -1392,7 +1392,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1413,7 +1413,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
 TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     x::json::json j = {
         {"type", "ci_position_linear"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1435,7 +1435,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1459,7 +1459,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
     x::json::json j = {
         {"type", "ci_position_linear"},
-        {"key", "ks1VnWdrSVB"},
+        {"key", "channel_b"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1481,7 +1481,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1504,7 +1504,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
 TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     x::json::json j = {
         {"type", "ci_position_angular"},
-        {"key", "ks1VnWdrSVC"},
+        {"key", "channel_c"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1526,7 +1526,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1550,7 +1550,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     x::json::json j = {
         {"type", "ci_position_angular"},
-        {"key", "ks1VnWdrSVD"},
+        {"key", "channel_d"},
         {"port", 2},
         {"disabled", false},
         {"name", ""},
@@ -1572,7 +1572,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1595,7 +1595,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
 TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     x::json::json j = {
         {"type", "ci_duty_cycle"},
-        {"key", "ks1VnWdrSVA"},
+        {"key", "channel_a"},
         {"port", 0},
         {"disabled", false},
         {"name", ""},
@@ -1609,7 +1609,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
@@ -1627,7 +1627,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     x::json::json j = {
         {"type", "ci_duty_cycle"},
-        {"key", "ks1VnWdrSVB"},
+        {"key", "channel_b"},
         {"port", 1},
         {"disabled", false},
         {"name", ""},
@@ -1641,7 +1641,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_input(p, "ni_counter_read");
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
