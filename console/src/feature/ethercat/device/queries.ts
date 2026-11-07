@@ -7,20 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, deep, primitive, verbs } from "@synnaxlabs/x";
+import { array, primitive, verbs } from "@synnaxlabs/x";
 
-import {
-  type OpModeChoice,
-  SLAVE_SCHEMAS,
-  type SlaveDevice,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { use: useSlave, useResult: useResultSlave } =
-  Device.createRetrieve(SLAVE_SCHEMAS);
+export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);
@@ -55,45 +49,6 @@ export const useCommonNetwork = (channels: Channel[]) => {
   );
   return slave?.properties?.network ?? "";
 };
-
-export interface ConfigureParams {
-  key: device.Key;
-  name: string;
-  identifier: string;
-  /** The mode the Driver sets up. Undefined lets the Driver pick it. */
-  opMode?: OpModeChoice;
-}
-
-/** Saves the settings of a slave and marks it configured. */
-export const { useUpdate: useConfigure } = Flux.createUpdate<
-  ConfigureParams,
-  SlaveDevice
->({
-  name: "device",
-  verbs: verbs.UPDATE,
-  update: async ({
-    data: { key, name, identifier, opMode },
-    client,
-    onOptimisticComplete,
-  }) => {
-    const dev = await client.devices.retrieve({
-      key,
-      includeStatus: true,
-      schemas: SLAVE_SCHEMAS,
-    });
-    const { opMode: _, ...rest } = dev.properties;
-    const properties = { ...deep.copy(ZERO_SLAVE_PROPERTIES), ...rest, identifier };
-    const updated: SlaveDevice = {
-      ...dev,
-      name,
-      configured: true,
-      properties: opMode == null ? properties : { ...properties, opMode },
-    };
-    return await client.devices.create(device.toUpdate(updated), SLAVE_SCHEMAS, {
-      onOptimistic: async () => await onOptimisticComplete(updated),
-    });
-  },
-});
 
 export interface ToggleEnabledParams {
   keys: device.Key | device.Key[];

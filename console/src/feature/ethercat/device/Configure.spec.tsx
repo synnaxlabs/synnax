@@ -37,6 +37,9 @@ const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ),
 );
 
+const IDENTIFIER_FORMAT_ERROR =
+  "Identifier must start with a letter and contain only letters, numbers, and underscores";
+
 const OP_MODE = { index: 0, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 };
 
 interface SetupArgs {
@@ -129,9 +132,17 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     const slave = await setup();
     fireEvent.change(identifierInput(), { target: { value: "1x" } });
     await save();
-    expect(screen.getByText("General")).toBeTruthy();
+    await screen.findByText(IDENTIFIER_FORMAT_ERROR);
     const unchanged = await retrieve(slave.key);
     expect(unchanged.properties.identifier).toEqual(slave.properties.identifier);
+  });
+
+  it("should flag the empty identifier of a new slave only after Save", async () => {
+    await setup({ configured: false });
+    fireEvent.change(nameInput(), { target: { value: uniqueName("renamed") } });
+    expect(screen.queryByText(IDENTIFIER_FORMAT_ERROR)).toBeNull();
+    await save();
+    await screen.findByText(IDENTIFIER_FORMAT_ERROR);
   });
 
   it("should fill the identifier from a suggestion", async () => {
