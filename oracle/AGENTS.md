@@ -220,7 +220,9 @@ when most types need it, declare it file-level and omit the exceptions.
 
 - `@<lang> omit`: the type does not exist in that language. References to it from
   generating types are analyzer errors; a language output whose types are all omitted is
-  an analyzer error (remove the output).
+  an analyzer error (remove the output). One exception: a live `@go omit` on a member
+  that a version file records only keeps it out of the root package. Its `versions/vN`
+  package still declares it.
 - `@<lang> hand`: the type exists, hand-written at the declared output path. No
   declaration is generated, but references resolve to it, pb translators generate
   against it, and it anchors the language output.
