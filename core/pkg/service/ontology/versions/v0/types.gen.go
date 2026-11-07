@@ -76,13 +76,15 @@ const (
 	ResourceTypeArcDirectory   ResourceType = "arc_directory"
 	// ResourceTypeSecret identifies a secret.
 	ResourceTypeSecret ResourceType = "secret"
+	// ResourceTypeCertificate identifies a certificate.
+	ResourceTypeCertificate ResourceType = "certificate"
 )
 
 // IsValid reports whether r is one of the defined ResourceType
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer, ResourceTypeArcDirectory, ResourceTypeSecret:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer, ResourceTypeArcDirectory, ResourceTypeSecret, ResourceTypeCertificate:
 		return true
 	default:
 		return false

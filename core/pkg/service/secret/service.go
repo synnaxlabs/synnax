@@ -51,8 +51,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED] when Signals is set.
 	Channel *channel.Service
-	// Uses finds the resources that use a secret, for delete and for the rack rule of
-	// Resolve.
+	// Uses finds the resources that use a secret.
 	//
 	// [REQUIRED]
 	Uses Finder

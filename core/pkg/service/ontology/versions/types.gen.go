@@ -76,6 +76,8 @@ const (
 	ResourceTypeArcDirectory   ResourceType = v0.ResourceTypeArcDirectory
 	// ResourceTypeSecret identifies a secret.
 	ResourceTypeSecret ResourceType = v0.ResourceTypeSecret
+	// ResourceTypeCertificate identifies a certificate.
+	ResourceTypeCertificate ResourceType = v0.ResourceTypeCertificate
 )
 
 // RelationshipType is the kind of link between two resources.

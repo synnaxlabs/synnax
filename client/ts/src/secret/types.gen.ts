@@ -29,6 +29,11 @@ export const baseZ = z.object({
   name: z.string().min(1, "name is required"),
   /** updated is when the value or path of the secret last changed. */
   updated: telem.timeStampZ,
+  /**
+   * uses are the resources that use the secret and that the caller can read, filled
+   * only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(ontology.idZ.array()),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
@@ -94,6 +99,8 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
   /** offset is the number of matching secrets to skip. */
   offset: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

@@ -49,6 +49,11 @@ var _ = Describe("Codec", func() {
 				Name:    "",
 				Updated: telem.TimeStamp(0),
 			}),
+			Entry("empty collections", v0.Base{
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:    "test_2",
+				Updated: telem.TimeStamp(4),
+			}),
 		)
 	})
 	Describe("Secret", func() {
@@ -116,6 +121,18 @@ func FuzzDecodeBase(f *testing.F) {
 			Key:     uuid.Nil(),
 			Name:    "",
 			Updated: telem.TimeStamp(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Base{
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:    "test_2",
+			Updated: telem.TimeStamp(4),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

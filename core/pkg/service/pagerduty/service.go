@@ -11,11 +11,14 @@ package pagerduty
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -29,6 +32,9 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Secret stores the routing key of each alert task.
+	// [REQUIRED]
+	Secret *secret.Service
 	alamos.Instrumentation
 }
 
@@ -37,6 +43,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -45,6 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("pagerduty.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("secret", c.Secret)
 	return v.Error()
 }
 
@@ -63,6 +71,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
+	create := createSecret(cfg.Secret)
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -74,7 +83,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.TaskConfigLadder,
 			Legacy:          &legacy.Alert,
+			Migrations:      []gorp.Migration{v2.NewMigration(create)},
 			SetEntryKey:     (*TaskConfig).SetKey,
+			ResolveEntry: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				name string,
+				c *TaskConfig,
+			) error {
+				return v2.ResolveTaskConfig(ctx, tx, create, name, c)
+			},
 		},
 	); !ok(err, s.Alert) {
 		return nil, err
@@ -89,4 +107,19 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Alert}
+}
+
+func createSecret(svc *secret.Service) v2.CreateSecret {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		name string,
+		value []byte,
+	) (secret.Key, error) {
+		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
+		if err := svc.NewWriter(tx).Create(ctx, &s, value); err != nil {
+			return uuid.Nil(), err
+		}
+		return s.Base().Key, nil
+	}
 }

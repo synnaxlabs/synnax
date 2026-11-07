@@ -13,12 +13,12 @@ import (
 	"context"
 	"strings"
 	"time"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -28,15 +28,13 @@ import (
 
 var _ = Describe("AlertTask", func() {
 	var (
-		sender  *mockEventSender
-		factory driver.Factory
+		sender     *mockEventSender
+		factory    driver.Factory
+		routingKey secret.Key
 	)
 
 	validConfig := func(alerts ...pd.Alert) pd.TaskConfig {
-		return pd.TaskConfig{
-			RoutingKey: strings.Repeat("b", 32),
-			Alerts:     alerts,
-		}
+		return pd.TaskConfig{RoutingKey: &routingKey, Alerts: alerts}
 	}
 
 	configureAndStart := func(
@@ -44,12 +42,7 @@ var _ = Describe("AlertTask", func() {
 		cfg pd.TaskConfig,
 	) driver.Task {
 		GinkgoHelper()
-		t := task.Task{
-			Key:    uuid.New(),
-			Name:   "PagerDuty Test",
-			Type:   pd.AlertTaskType,
-			Config: encodeConfig(cfg),
-		}
+		t := storeTask(ctx, "PagerDuty Test", cfg)
 		tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
@@ -77,25 +70,21 @@ var _ = Describe("AlertTask", func() {
 		Expect(tx.Commit(ctx)).To(Succeed())
 	}
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 			DB:     db,
 			Status: statusSvc,
+			Secret: secretSvc,
 			Sender: sender,
 		}))
+		routingKey = createRoutingKey(ctx, strings.Repeat("b", 32))
 	})
 
 	Describe("Exec", func() {
 		It("Should return ErrUnsupportedCommand for unknown commands",
 			func(ctx context.Context) {
-				cfg := validConfig(pd.Alert{Status: "s1"})
-				t := task.Task{
-					Key:    uuid.New(),
-					Name:   "test",
-					Type:   pd.AlertTaskType,
-					Config: encodeConfig(cfg),
-				}
+				t := storeTask(ctx, "test", validConfig(pd.Alert{Status: "s1"}))
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				err := tsk.Exec(ctx, task.Command{Type: "restart"})
@@ -105,12 +94,11 @@ var _ = Describe("AlertTask", func() {
 
 		DescribeTable("Should acknowledge a command that needs no work",
 			func(ctx context.Context, cmdType string, running bool) {
-				t := task.Task{
-					Key:    uuid.New(),
-					Name:   "PagerDuty Test",
-					Type:   pd.AlertTaskType,
-					Config: encodeConfig(validConfig(pd.Alert{Status: "s1"})),
-				}
+				t := storeTask(
+					ctx,
+					"PagerDuty Test",
+					validConfig(pd.Alert{Status: "s1"}),
+				)
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(false)).To(Succeed()) }()
 				if running {
@@ -260,6 +248,92 @@ var _ = Describe("AlertTask", func() {
 					Should(BeNumerically(">=", 1))
 
 				Expect(sender.getEvents()[0].Payload.Severity).To(Equal("info"))
+			},
+		)
+	})
+
+	Describe("Routing key", func() {
+		It("Should keep the value it started with until the next start",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "replaced-key"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				replaceRoutingKey(ctx, routingKey, strings.Repeat("c", 32))
+
+				setStatus(ctx, "replaced-key", status.VariantError, "First", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(1))
+
+				Expect(tsk.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				setStatus(ctx, "replaced-key", status.VariantSuccess, "Second", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(2))
+
+				events := sender.getEvents()
+				Expect(events[0].RoutingKey).To(Equal(strings.Repeat("b", 32)))
+				Expect(events[1].RoutingKey).To(Equal(strings.Repeat("c", 32)))
+			},
+		)
+
+		It("Should keep sending after the saved config picks another secret",
+			func(ctx context.Context) {
+				t := storeTask(ctx, "PagerDuty Test", validConfig(
+					pd.Alert{Status: "saved-key"},
+				))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				other := createRoutingKey(ctx, strings.Repeat("c", 32))
+				cfg := validConfig(pd.Alert{Status: "saved-key"})
+				cfg.RoutingKey = &other
+				MustSucceed(alertSvc.Alert.Write(
+					ctx,
+					nil,
+					t.Key,
+					t.Name,
+					encodeConfig(cfg),
+				))
+
+				setStatus(ctx, "saved-key", status.VariantError, "Trigger", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(1))
+				Expect(sender.getEvents()[0].RoutingKey).
+					To(Equal(strings.Repeat("b", 32)))
+			},
+		)
+
+		It("Should fail to start when the routing key is not 32 characters",
+			func(ctx context.Context) {
+				t := storeTask(
+					ctx,
+					"PagerDuty Test",
+					validConfig(pd.Alert{Status: "bad-key"}),
+				)
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				replaceRoutingKey(ctx, routingKey, "tooshort")
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).
+					To(MatchError(ContainSubstring(
+						"routing_key: must be exactly 32 characters",
+					)))
+				Eventually(func(g Gomega) {
+					var stat task.Status
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](
+							t.OntologyID().String(),
+						)).
+						Entry(&stat).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to start task"))
+					g.Expect(stat.Description).
+						To(ContainSubstring("must be exactly 32 characters"))
+				}).WithTimeout(2 * time.Second).Should(Succeed())
 			},
 		)
 	})
@@ -419,12 +493,11 @@ var _ = Describe("AlertTask", func() {
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
 				sender.setError(errors.New("simulated PagerDuty outage"))
-				t := task.Task{
-					Key:    uuid.New(),
-					Name:   "PagerDuty Test",
-					Type:   pd.AlertTaskType,
-					Config: encodeConfig(validConfig(pd.Alert{Status: "send-failure"})),
-				}
+				t := storeTask(
+					ctx,
+					"PagerDuty Test",
+					validConfig(pd.Alert{Status: "send-failure"}),
+				)
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())

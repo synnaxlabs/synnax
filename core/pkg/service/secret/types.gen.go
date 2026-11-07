@@ -19,7 +19,7 @@ import (
 // Key is a unique identifier for a secret.
 type Key = versions.Key
 
-// Source is where the value of a secret lives.
+// Source is where the value of a secret or certificate lives.
 type Source = versions.Source
 
 const (
