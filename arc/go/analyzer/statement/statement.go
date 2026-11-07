@@ -122,14 +122,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		return
 	}
 	// A bare identifier bound to a reactive variable is itself reactive.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		if ref, rerr := ctx.Scope.Resolve(
-			ctx,
-			primary.IDENTIFIER().GetText(),
-		); rerr == nil {
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		if ref, rerr := ctx.Scope.ResolveMember(ctx, head, tail); rerr == nil {
 			if ref.Kind == symbol.KindStatefulVariable {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"stateful variables cannot be assigned to ':=' variables"))
@@ -170,11 +164,8 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	}
 	// A bare reference that resolves to a channel, channel-read/write, or channel-read
 	// variable.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		ref, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			return false
 		}
@@ -191,8 +182,9 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
-	for _, name := range parser.CollectIdentifiers(expr) {
-		sym, err := ctx.Scope.Resolve(ctx, name)
+	for _, pe := range parser.CollectNamedPrimaries(expr) {
+		head, tail := parser.PrimaryNameParts(pe)
+		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
@@ -384,11 +376,11 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 // getChannelSymbol checks if an expression is a simple identifier referencing
 // a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
-	primary := parser.GetPrimaryExpression(ctx.AST)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(ctx.AST)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}
@@ -407,11 +399,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expr parser.IExpressionContext,
 ) *int {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}

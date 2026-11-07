@@ -373,12 +373,8 @@ func compilePrimary(
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(ctx.Child(lit))
 	}
-	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
+	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
 		return compileIdentifier(ctx, head, tail)
-	}
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		return compileIdentifier(ctx, id.GetText(), "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(ctx.Child(ctx.AST.Expression()))

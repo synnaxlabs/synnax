@@ -610,6 +610,20 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export.
+func (s *Symbol) ResolveMember(
+	ctx context.Context,
+	head, tail string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
+	}
+	return sym.Resolve(ctx, tail)
+}
+
 // resolve does the actual lexical walk. origin is the scope the caller
 // invoked Resolve on; it is propagated unchanged through the parent walk
 // so that UndefinedSymbolError reports the original scope (where "did

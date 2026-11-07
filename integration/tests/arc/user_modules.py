@@ -41,7 +41,7 @@ import $inner
 export func value() {t u8} i64 { return $inner_name.value() + 1 }
 
 export stage relay {
-    $inner_name.doubled -> um_var_out
+    $inner_name.doubled + 1 -> um_var_out
 }
 """)
 
@@ -87,8 +87,8 @@ class UserModules(ArcCase):
        channel-reading function's value to a channel, and calls down the chain.
     3. The start trigger produces the function's value, both scope writes, and the
        chain's value.
-    4. A write to ``um_data`` shows up formatted on ``um_text_out`` and doubled on
-       ``um_var_out`` through the chain's stage.
+    4. A write to ``um_data`` shows up formatted on ``um_text_out``, and doubled plus
+       one on ``um_var_out`` through the chain's stage.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -157,5 +157,5 @@ class UserModules(ArcCase):
         self.log("Writing um_data=42; the text function must format it")
         self.writer.write("um_data", 42)
         self.wait_for_eq("um_text_out", "Data: 42", timeout=5 * sy.TimeSpan.SECOND)
-        self.log("Waiting for the chain stage to double it")
-        self.wait_for_eq("um_var_out", 84, timeout=5 * sy.TimeSpan.SECOND)
+        self.log("Waiting for the chain stage to double it and add one")
+        self.wait_for_eq("um_var_out", 85, timeout=5 * sy.TimeSpan.SECOND)

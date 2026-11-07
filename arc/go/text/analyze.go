@@ -911,11 +911,11 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil, nil, true
 	}
-	rhs, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	rhs, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
@@ -1408,7 +1408,9 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	triggered bool,
 ) {
 	for i, p := range n.Inputs {
-		vsym, err := ctx.Scope.Resolve(ctx, p.Name)
+		// A lifted input carries the name its expression reads, such as m.doubled.
+		head, tail, _ := strings.Cut(p.Name, ".")
+		vsym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
@@ -2051,16 +2053,14 @@ func extractInputValues(
 		// Top-level literal variables cannot be reassigned, so they inline; so
 		// does any literal variable with no write sites in the source. Any
 		// other literal variable stamps a var ref to its node instead.
-		if primary := parser.GetPrimaryExpression(expr); primary != nil {
-			if id := primary.IDENTIFIER(); id != nil {
-				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&
-					sym.IsLiteral() {
-					if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-						return sym.DefaultValue, types.VarRef(sym.Type, rn.Key), true
-					}
-					if !sym.Reassigned && sym.DefaultValue != nil {
-						return sym.DefaultValue, paramType, true
-					}
+		if head, tail := parser.ExpressionNameParts(expr); head != "" {
+			if sym, err := ctx.Scope.ResolveMember(ctx, head, tail); err == nil &&
+				sym.IsLiteral() {
+				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
+					return sym.DefaultValue, types.VarRef(sym.Type, rn.Key), true
+				}
+				if !sym.Reassigned && sym.DefaultValue != nil {
+					return sym.DefaultValue, paramType, true
 				}
 			}
 		}

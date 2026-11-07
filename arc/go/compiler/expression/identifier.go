@@ -10,6 +10,8 @@
 package expression
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
@@ -22,17 +24,21 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	head, tail string,
 ) (types.Type, error) {
-	scope, err := ctx.Scope.Resolve(ctx, head, symbol.IncludeInternal)
-	if err != nil {
-		return types.Type{}, err
-	}
 	name := head
 	if tail != "" {
-		scope, err = scope.Resolve(ctx, tail)
-		if err != nil {
+		name = head + "." + tail
+	}
+	scope := liftedInput(ctx.Scope, name)
+	if scope == nil {
+		var err error
+		if scope, err = ctx.Scope.ResolveMember(
+			ctx,
+			head,
+			tail,
+			symbol.IncludeInternal,
+		); err != nil {
 			return types.Type{}, err
 		}
-		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
@@ -93,6 +99,22 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			name,
 		)
 	}
+}
+
+// liftedInput returns the input of the enclosing function that carries a read of the
+// module member name, nil for a bare name or a read that was not lifted.
+func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
+	if !strings.Contains(name, ".") {
+		return nil
+	}
+	fn, _ := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fn == nil {
+		return nil
+	}
+	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
+		return in
+	}
+	return nil
 }
 
 // channelKeyOf returns the channel key sym refers to: its SourceID when sym is

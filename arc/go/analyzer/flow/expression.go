@@ -191,11 +191,13 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	fn *symbol.Symbol,
 	expr parser.IExpressionContext,
 ) {
-	for _, name := range parser.CollectIdentifiers(expr) {
+	for _, pe := range parser.CollectNamedPrimaries(expr) {
+		name := parser.PrimaryName(pe)
 		if _, ok := fn.Type.Inputs.Get(name); ok {
 			continue
 		}
-		sym, err := fn.Resolve(ctx, name)
+		head, tail := parser.PrimaryNameParts(pe)
+		sym, err := fn.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}

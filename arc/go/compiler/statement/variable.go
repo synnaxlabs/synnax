@@ -118,11 +118,11 @@ func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
 ) (*symbol.Symbol, channelSourceKind) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil, channelSourceNone
 	}
-	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	scope, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil, channelSourceNone
 	}

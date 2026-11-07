@@ -121,6 +121,65 @@ trig == 1 => a.s
 		Expect(vals[len(vals)-1]).To(Equal(int64(2)))
 	})
 
+	It("Should read an exported expression variable inside an expression", func(
+		ctx SpecContext,
+	) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+m.doubled + 1 -> fn_out
+`, map[string]string{"m": `
+export doubled := i64(trig) * 2
+`}, resolver, digests...)
+		defer h.Close(ctx)
+		vals := last(run(ctx, h, 1), fnOut).Unmarshal[int64]()
+		Expect(vals[len(vals)-1]).To(Equal(int64(3)))
+	})
+
+	It("Should format an exported expression variable", func(ctx SpecContext) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig -> f"v={m.doubled}" -> text_out
+`, map[string]string{"m": `
+export doubled := i64(trig) * 2
+`}, resolver, digests...)
+		defer h.Close(ctx)
+		texts := last(run(ctx, h, 1), textOut).Unmarshal[string]()
+		Expect(texts[len(texts)-1]).To(Equal("v=2"))
+	})
+
+	It(
+		"Should read a dependency's expression variable inside a module expression",
+		func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import a
+
+trig == 1 => a.s
+`, map[string]string{
+				"a": "import b\n\nexport stage s { b.doubled + 1 -> fn_out }",
+				"b": "export doubled := i64(trig) * 2",
+			}, resolver, digests...)
+			defer h.Close(ctx)
+			vals := last(run(ctx, h, 2), fnOut).Unmarshal[int64]()
+			Expect(vals[len(vals)-1]).To(Equal(int64(3)))
+		},
+	)
+
+	It("Should bind a variable to an exported channel alias", func(ctx SpecContext) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+x := m.b
+x -> seq_out
+`, map[string]string{"m": "export b := trig"}, resolver, digests...)
+		defer h.Close(ctx)
+		vals := last(run(ctx, h, 1), seqOut).Unmarshal[uint8]()
+		Expect(vals[len(vals)-1]).To(Equal(uint8(1)))
+	})
+
 	It("Should run an exported function that formats a channel it reads", func(
 		ctx SpecContext,
 	) {

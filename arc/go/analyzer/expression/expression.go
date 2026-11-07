@@ -524,15 +524,8 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		if _, err := ctx.ResolveQualified(head, tail); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		}
-		return
-	}
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Resolve(id.GetText())
+	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
+		resolved, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -642,11 +635,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}
