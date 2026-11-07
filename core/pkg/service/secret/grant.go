@@ -11,7 +11,6 @@ package secret
 
 import (
 	"context"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -44,10 +43,9 @@ func (s *Service) Grant(
 }
 
 // Resolve returns the plain text value of each stored secret with the given keys, for
-// rack to connect with. With a zero grant key, rack may read a secret when something on
-// the rack uses it. With a grant key, rack may read only the secrets that the grant
-// names, and Resolve spends the grant, so no later call can use it. Resolve returns
-// access.ErrDenied when rack may not read a secret or the grant has ended,
+// rack to connect with. Rack may read only the secrets that the grant names, and
+// Resolve spends the grant, so no later call can use it. Resolve returns
+// access.ErrDenied when the grant does not name a secret or has ended,
 // query.ErrNotFound when a secret does not exist, and a validation error for a file
 // secret, whose value only the file holds.
 func (s *Service) Resolve(
@@ -64,10 +62,11 @@ func (s *Service) Resolve(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	readable, err := s.readable(ctx, tx, rack, grantKey, keys)
+	g, err := s.cfg.Grant.Redeem(ctx, grantKey, rack)
 	if err != nil {
 		return nil, err
 	}
+	readable := set.New(g.Secrets...)
 	values := make(map[Key][]byte, len(secrets))
 	for _, sec := range secrets {
 		base := sec.Base()
@@ -97,33 +96,4 @@ func (s *Service) Resolve(
 		}
 	}
 	return values, nil
-}
-
-// readable returns the secrets among keys that rack may read: the secrets that the
-// grant names, or with a zero grant key, the secrets that something on the rack uses.
-func (s *Service) readable(
-	ctx context.Context,
-	tx gorp.Tx,
-	rack ontology.ID,
-	grantKey grant.Key,
-	keys []Key,
-) (set.Set[Key], error) {
-	if grantKey != uuid.Nil() {
-		g, err := s.cfg.Grant.Redeem(ctx, grantKey, rack)
-		if err != nil {
-			return nil, err
-		}
-		return set.New(g.Secrets...), nil
-	}
-	uses, err := s.cfg.Uses(ctx, gorp.OverrideTx(s.cfg.DB, tx), keys)
-	if err != nil {
-		return nil, err
-	}
-	readable := make(set.Set[Key], len(keys))
-	for _, use := range uses {
-		if slices.Contains(use.Racks, rack) {
-			readable.Add(use.Secret)
-		}
-	}
-	return readable, nil
 }
