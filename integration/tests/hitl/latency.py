@@ -14,17 +14,16 @@ import time
 import numpy as np
 
 import synnax as sy
+from framework.streamer import Stream
 from framework.test_case import TestCase
 
 
-def wait_for(
-    streamer: sy.Streamer, channel: str, value: float, *, timeout_s: float
-) -> bool:
+def wait_for(streamer: Stream, channel: str, value: float, *, timeout_s: float) -> bool:
     """Reads streamer until the last value of channel equals value. Returns False when
     timeout_s passes first."""
     deadline = time.perf_counter() + timeout_s
     while (remaining := deadline - time.perf_counter()) > 0:
-        frame = streamer.read(timeout=remaining)
+        frame = streamer.read(timeout=sy.TimeSpan.from_seconds(remaining))
         if frame is not None and frame[channel].to_numpy()[-1] == value:
             return True
     return False
