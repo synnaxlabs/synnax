@@ -24,7 +24,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, isConnectionError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -96,8 +96,10 @@ const createTables = (
   relationships.subscribe((event) => {
     if (event.variant !== "set") return;
     backfill(event.value).catch((exc: unknown) => {
-      // The relationship reaches callers who cannot read its target.
-      if (!AccessDeniedError.matches(exc)) cache.onError(errors.fromUnknown(exc));
+      // The relationship reaches callers who cannot read its target. A client that
+      // closes or loses the Core ends the fetch, and the next epoch refetches answers.
+      if (AccessDeniedError.matches(exc) || isConnectionError(exc)) return;
+      cache.onError(errors.fromUnknown(exc));
     });
   });
 
