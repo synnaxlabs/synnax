@@ -562,7 +562,7 @@ class Client:
             return sug
         if channel is not None and positional and len(res) > 1:
             raise _multiple_results_error(channel, res)
-        return sole("channel", req.where, sug)
+        return sole("channel", req, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:

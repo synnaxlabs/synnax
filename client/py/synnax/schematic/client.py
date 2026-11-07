@@ -188,9 +188,7 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields)
         )
         res = self._client.send("/schematic/retrieve", req, RetrieveResponse)
-        return (
-            sole("schematic", req.where, res.schematics) if single else res.schematics
-        )
+        return sole("schematic", req, res.schematics) if single else res.schematics
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.

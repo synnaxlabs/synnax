@@ -175,7 +175,7 @@ export class WriteAdapter {
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
     const where = channel.singleWhere(typeof ch === "object" ? ch.key : ch);
-    checkForMultipleOrNoResults("channel", where, res, true);
+    checkForMultipleOrNoResults("channel", { where }, res, true);
     return res[0];
   }
 
