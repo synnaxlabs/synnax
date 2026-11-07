@@ -209,7 +209,7 @@ export class Client extends query.Retriever<
         return tsk == null ? [] : [tsk.key];
       },
       compose: (records) => records[0] ?? null,
-      matches: (t, q) => arcKeyOf(t) === q,
+      matches: (t, q) => !t.snapshot && arcKeyOf(t) === q,
     });
   }
 
@@ -426,7 +426,9 @@ export class Client extends query.Retriever<
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
-    const [tsk] = await this.cfg.tasks.retrieve({ where: { arcs: [arcKey] } });
+    const [tsk] = await this.cfg.tasks.retrieve({
+      where: { arcs: [arcKey], snapshot: { eq: false } },
+    });
     return tsk ?? null;
   }
 }

@@ -38,11 +38,12 @@ class MQTTEdgeTask(MQTTCase):
         )
 
     def teardown(self) -> None:
+        # The Core refuses to delete a channel that a task uses, so the task goes first.
         try:
+            super().teardown()
+        finally:
             with self._try_to("delete the tag channel"):
                 delete_channels(self.client, [self.channel, self.index])
-        finally:
-            super().teardown()
 
     def run(self) -> None:
         page = self.test_create_task()

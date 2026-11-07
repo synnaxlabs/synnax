@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -392,7 +393,7 @@ var _ = Describe("SetGroup", func() {
 			g := createGroup(ctx, "Set group denied")
 			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrievePanel(ctx, p.Key).Group).To(BeNil())
@@ -412,12 +413,64 @@ var _ = Describe("SetGroup", func() {
 				g.ResourceID(),
 			)
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
 		},
 	)
+	Context("Into a group under another project", func() {
+		var (
+			u    user.User
+			x    panel.Panel
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			x = createPanel(ctx, "Cross project")
+			dest = project.Project{Name: "Destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		move := func(ctx SpecContext) (struct{}, error) {
+			return apiSvc.SetGroup(
+				AuthedCtx(ctx, u),
+				db,
+				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{x.Key}},
+			)
+		}
+		DescribeTable(
+			"Should refuse the move without update on both projects",
+			func(ctx SpecContext, projects func() []resource.ID) {
+				objects := projects()
+				grant(ctx, u.ResourceID(), access.ActionUpdate, append(
+					objects,
+					panel.ResourceID(x.Key),
+					g.ResourceID(),
+				)...)
+				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&proj.Key))
+			},
+			Entry("without the destination", func() []resource.ID {
+				return []resource.ID{project.ResourceID(proj.Key)}
+			}),
+			Entry("without the source", func() []resource.ID {
+				return []resource.ID{dest.ResourceID()}
+			}),
+		)
+		It("Should move the panel with update on both projects", func(ctx SpecContext) {
+			objects := []resource.ID{project.ResourceID(proj.Key), dest.ResourceID()}
+			grant(ctx, u.ResourceID(), access.ActionUpdate, append(
+				objects,
+				panel.ResourceID(x.Key),
+				g.ResourceID(),
+			)...)
+			MustSucceed(move(ctx))
+			Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&dest.Key))
+		})
+	})
 })
 
 var _ = Describe("Create in a group", func() {
@@ -435,7 +488,7 @@ var _ = Describe("Create in a group", func() {
 			u := newUser(ctx)
 			g := createGroup(ctx, "Create denied")
 			grantCreate(ctx, u.ResourceID())
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
 				Panels: []panel.Panel{newPanel("Denied", g)},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
@@ -446,9 +499,64 @@ var _ = Describe("Create in a group", func() {
 		grantCreate(ctx, u.ResourceID())
 		grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
 		p := newPanel("Granted", g)
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+		Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().ToNot(HaveOccurred())
 		Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
+	})
+	Context("Under another project", func() {
+		var (
+			u    user.User
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			grantCreate(ctx, u.ResourceID())
+			dest = project.Project{Name: "Create destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		create := func(ctx SpecContext, carried *project.Key) (apipanel.CreateResponse, error) {
+			return apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
+				Panels: []panel.Panel{
+					{
+						Key:     uuid.New(),
+						Project: carried,
+						Name:    "Elsewhere",
+						Group:   &g.Key,
+					},
+				},
+			})
+		}
+		DescribeTable(
+			"Should refuse a create in a group without update on the group's project",
+			func(ctx SpecContext, carried func() *project.Key) {
+				grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
+				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+			},
+			Entry(
+				"with the project it carries",
+				func() *project.Key { return &proj.Key },
+			),
+			Entry("with no project", func() *project.Key { return nil }),
+		)
+		It(
+			"Should create the panel with update on the group's project",
+			func(ctx SpecContext) {
+				grant(
+					ctx,
+					u.ResourceID(),
+					access.ActionUpdate,
+					g.ResourceID(),
+					dest.ResourceID(),
+				)
+				res := MustSucceed(create(ctx, nil))
+				Expect(
+					retrievePanel(ctx, res.Panels[0].Key).Project,
+				).To(Equal(&dest.Key))
+			},
+		)
 	})
 })

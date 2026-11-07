@@ -683,6 +683,17 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	return b.String(), nil
 }
 
+// sameReference reports whether a and b declare the same reference.
+func sameReference(a, b refInfo) bool {
+	return a.OnDelete == b.OnDelete &&
+		a.Unique == b.Unique &&
+		a.Acyclic == b.Acyclic &&
+		a.IsID == b.IsID &&
+		a.ElemGoType == b.ElemGoType &&
+		a.Zero == b.Zero &&
+		slices.Equal(a.Tables, b.Tables)
+}
+
 // renderNestedRefs renders the references that walked found on typ, whose entries have
 // the Go type entryType and keys of the Go type keyType.
 func renderNestedRefs(
@@ -716,6 +727,21 @@ func renderNestedRefs(
 		info, err := extractRef(typ, named, "", inArray, rt, table, r, ctx)
 		if err != nil {
 			return nil, err
+		}
+		for _, s := range ref.sites[1:] {
+			other := s.field
+			other.Name = ref.path
+			o, err := extractRef(typ, other, "", inArray, rt, table, r, ctx)
+			if err != nil {
+				return nil, err
+			}
+			if !sameReference(info, o) {
+				return nil, errors.Newf(
+					"%s: @ref field %s declares different references in its variants",
+					typ.QualifiedName,
+					ref.path,
+				)
+			}
 		}
 		var structField strings.Builder
 		for seg := range strings.SplitSeq(ref.path, ".") {

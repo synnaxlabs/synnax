@@ -177,7 +177,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
-	taskKeys, err := w.childTaskKeys(ctx, key)
+	taskKeys, err := w.taskKeys(ctx, w.matchTasks(key))
 	if err != nil {
 		return err
 	}
@@ -190,10 +190,15 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	return nil
 }
 
-func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
+// liveTasks matches the tasks of the arc with the given key that are not snapshots.
+func (w Writer) liveTasks(key Key) task.Filter {
+	return task.And(w.matchTasks(key), task.MatchSnapshot(false))
+}
+
+func (w Writer) taskKeys(ctx context.Context, f task.Filter) ([]task.Key, error) {
 	var tasks []task.Task
 	if err := w.tasks.NewRetrieve().
-		Where(w.matchTasks(key)).
+		Where(f).
 		Entries(&tasks).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
@@ -223,7 +228,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := w.childTaskKeys(ctx, key)
+	existing, err := w.taskKeys(ctx, w.liveTasks(key))
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +331,7 @@ func (w Writer) retrieveTask(
 // semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
 // bound and for edits, like graph layout moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Base) error {
-	existing, err := w.childTaskKeys(ctx, a.Key)
+	existing, err := w.taskKeys(ctx, w.liveTasks(a.Key))
 	if err != nil || len(existing) == 0 {
 		return err
 	}

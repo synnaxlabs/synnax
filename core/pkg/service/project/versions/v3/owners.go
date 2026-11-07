@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // OwnersConfig configures a migration that moves the owners of the visualizations of
@@ -32,6 +33,8 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	Type resource.Type
 	// Owned reports whether e has a project or a range.
 	Owned func(e E) bool
+	// NameOf returns the name of e.
+	NameOf func(e E) string
 	// SetOwner sets the project or the range of e. Exactly one of them is non-nil.
 	SetOwner func(e *E, project, rng *uuid.UUID)
 }
@@ -40,8 +43,9 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 // type cfg.Type from the parent edge that points at it from a stored project or range.
 // A project edge wins over a range edge, and an edge from an owner that is not stored
 // counts as no edge. The migration deletes the converted edges, then deletes each
-// visualization with no owner along with its ontology resource and edges. It reads the
-// project and range tables, so they must open and migrate first.
+// visualization with no owner along with its ontology resource and edges, and logs a
+// warning for each. It reads the project and range tables, so they must open and
+// migrate first.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],
 ) gorp.Migration {
@@ -68,7 +72,7 @@ func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 			if err := fields.Run(ctx, tx, ins); err != nil {
 				return err
 			}
-			return deleteOrphans(ctx, tx, cfg)
+			return deleteOrphans(ctx, tx, cfg, ins)
 		},
 	)
 }
@@ -117,6 +121,7 @@ func deleteOrphans[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,
 	cfg OwnersConfig[K, E],
+	ins alamos.Instrumentation,
 ) error {
 	var entries []E
 	if err := gorp.NewRetrieve[K, E]().Entries(&entries).Exec(ctx, tx); err != nil {
@@ -132,6 +137,12 @@ func deleteOrphans[K gorp.Key, E gorp.Entry[K]](
 			continue
 		}
 		key := gorp.FormatKey(e.GorpKey())
+		ins.L.Warn(
+			"deleted a visualization with no project or range",
+			zap.String("type", string(cfg.Type)),
+			zap.String("key", key),
+			zap.String("name", cfg.NameOf(e)),
+		)
 		orphans = append(orphans, e.GorpKey())
 		resources = append(resources, resource.ID{Type: cfg.Type, Key: key}.String())
 		orphaned.Add(key)

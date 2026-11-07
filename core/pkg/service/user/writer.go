@@ -94,7 +94,7 @@ func (w Writer) SetRoles(
 		Where(gorp.MatchKeys[Key, User](keys...)).
 		ChangeErr(func(_ gorp.Context, u User) (User, error) {
 			if u.RootUser {
-				return u, errors.Wrapf(
+				return User{}, errors.Wrapf(
 					validate.ErrValidation,
 					"cannot change the roles of root user %s",
 					u.Name,

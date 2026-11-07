@@ -20,11 +20,10 @@ to create disconnect tests like:
         pass
 
 The base class provides the run() method that tests:
-1. Device deletion while task exists
-2. Device reconnection
-3. Task operation after reconnection
-4. Simulator crash and restart
-5. Task operation after simulator restart
+1. The Core refuses to delete a device that a task uses
+2. Task operation after the refused delete
+3. Simulator crash and restart
+4. Task operation after simulator restart
 """
 
 from abc import ABC
@@ -50,7 +49,6 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
 
     The class uses these methods from TaskCase:
     - self.assert_sample_count(): Verify task operation
-    - self.assert_device_deleted(): Verify device deletion
     - self.assert_device_exists(): Verify device existence
     - self.fail(): Fail the test with a message
     - self.log(): Log test progress
@@ -72,33 +70,31 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
         tsk = self.tsk
         device = client.devices.retrieve(name=self.device_name)
 
-        self.log("Test 1 - Delete Device")
-        client.devices.delete([device.key])
-        self.assert_device_deleted(device_key=device.key)
+        self.log("Test 1 - Delete Device Used by Task")
+        try:
+            client.devices.delete([device.key])
+        except sy.ValidationError as e:
+            assert "because task" in str(e), f"Refusal should name the task, got {e}"
+            self.log(f"  Correctly refused: {e}")
+        else:
+            self.fail("Core deleted a device that a task uses")
+        self.assert_device_exists(device_key=device.key)
 
-        self.log("Test 2 - Reconnect Device")
-        reconnected_device = client.devices.create(device)
-        self.assert_device_exists(device_key=reconnected_device.key)
-        sy.sleep(3)  # Give the driver time to reconnect
-
-        self.log("Test 3 - Run Task After Device Reconnection")
+        self.log("Test 2 - Run Task After Refused Delete")
         client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
 
-        self.log("Test 4 - Kill Simulator")
+        self.log("Test 3 - Kill Simulator")
         if self.simulator_process is None:
             self.fail("Simulator process not found")
         self.cleanup_simulator()
 
-        self.log("Test 5 - Restart Simulator")
+        self.log("Test 4 - Restart Simulator")
         self.start_simulator()
 
-        self.log("Test 6 - Run Task")
+        self.log("Test 5 - Run Task")
         client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
-
-        client.devices.delete([reconnected_device.key])
-        self.assert_device_deleted(device_key=reconnected_device.key)
 
 
 class DisconnectOpcua(DisconnectTask[sy.opcua.ReadTask], OPCUAReadMixed):

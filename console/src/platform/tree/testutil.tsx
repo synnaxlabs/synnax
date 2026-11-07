@@ -407,7 +407,7 @@ export interface RenderTreeContextMenuOptions extends Pick<
   resources: Tree.Resource[];
   /** The selected ids; defaults to every resource. */
   selected?: resource.ID[];
-  /** The tree root; defaults to the ontology root. */
+  /** The tree root; defaults to the channel type ID. */
   rootID?: resource.ID;
   /** The tree parent of the selection; defaults to the root. */
   parentID?: resource.ID;

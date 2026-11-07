@@ -103,17 +103,18 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
+        # Deleting the range deletes its task snapshots, which use the channels.
+        try:
+            rng = self.client.ranges.retrieve(name=RANGE_NAME)
+            self.client.ranges.delete(rng.key)
+        except sy.NotFoundError:
+            pass
         with self._try_to("delete example channels"):
             for names in EXAMPLE_CHANNELS:
                 try:
                     self.client.channels.delete(names)
                 except sy.NotFoundError:
                     pass
-        try:
-            rng = self.client.ranges.retrieve(name=RANGE_NAME)
-            self.client.ranges.delete(rng.key)
-        except sy.NotFoundError:
-            pass
         super().teardown()
 
     def run(self) -> None:

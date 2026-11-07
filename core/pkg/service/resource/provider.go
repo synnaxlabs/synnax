@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Provider searches the records of one type and retrieves them by ID.
@@ -131,13 +132,25 @@ func (p *TableProvider[K, E]) Search(
 }
 
 // Retrieve implements Provider. It returns the error of the configured Key for an ID
-// with a malformed key.
+// with a malformed key, and a validation error for a key that ID does not give back
+// unchanged.
 func (p *TableProvider[K, E]) Retrieve(
 	ctx context.Context,
 	tx gorp.Tx,
 	ids []ID,
 ) ([]Resource, error) {
-	keys, err := lo.MapErr(ids, func(id ID, _ int) (K, error) { return p.cfg.Key(id) })
+	keys, err := lo.MapErr(ids, func(id ID, _ int) (K, error) {
+		k, err := p.cfg.Key(id)
+		if err == nil && p.cfg.ID(k) != id {
+			return k, errors.Wrapf(
+				validate.ErrValidation,
+				"invalid %s key %q",
+				id.Type,
+				id.Key,
+			)
+		}
+		return k, err
+	})
 	if err != nil {
 		return nil, err
 	}

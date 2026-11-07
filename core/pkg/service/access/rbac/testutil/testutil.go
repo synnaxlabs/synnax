@@ -67,13 +67,15 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 	}); !ok(err, s.Rack) {
 		return nil, err
 	}
-	s.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
+	if s.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
 		DB:    cfg.DB,
 		Roles: roles,
 		User:  cfg.User,
 		Rack:  s.Rack,
-	})
-	return s, err
+	}); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // Grant gives the user with the given key a new role whose one policy allows the
@@ -98,5 +100,8 @@ func Grant(
 	}); err != nil {
 		return uuid.Nil(), err
 	}
-	return r.Key, users.NewWriter(nil).AssignRole(ctx, r.Key, key)
+	if err := users.NewWriter(nil).AssignRole(ctx, r.Key, key); err != nil {
+		return uuid.Nil(), err
+	}
+	return r.Key, nil
 }

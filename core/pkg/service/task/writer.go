@@ -116,12 +116,12 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
-// config hash. An existing snapshot keeps its config and range. Create returns a
-// validation error when a task that is not a snapshot has a range. A provided status is
-// persisted as given. Without one, a new task gets a "not deployed" placeholder, and an
-// existing task keeps its reported status (healed to "status unknown" if the row is
-// missing). After the transaction commits, Create broadcasts a create action that
-// carries the stored task.
+// config hash. An existing snapshot stays a snapshot and keeps its config and range.
+// Create returns a validation error when a task that is not a snapshot has a range. A
+// provided status is persisted as given. Without one, a new task gets a "not deployed"
+// placeholder, and an existing task keeps its reported status (healed to "status
+// unknown" if the row is missing). After the transaction commits, Create broadcasts a
+// create action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
 }
@@ -153,6 +153,7 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 	}
 	var record *config.Record
 	if existed && existing.Snapshot {
+		t.Snapshot = true
 		t.Range = existing.Range
 		t.ConfigHash = existing.ConfigHash
 		existingStore, ok := w.configs.Store(existing.Type)
@@ -385,11 +386,13 @@ func (w Writer) Copy(
 	rng *ranger.Key,
 ) (Task, error) {
 	var res Task
-	err := w.inTx(ctx, func(w Writer) (err error) {
+	if err := w.inTx(ctx, func(w Writer) (err error) {
 		res, err = w.copy(ctx, key, name, snapshot, rng)
 		return err
-	})
-	return res, err
+	}); err != nil {
+		return Task{}, err
+	}
+	return res, nil
 }
 
 func (w Writer) copy(

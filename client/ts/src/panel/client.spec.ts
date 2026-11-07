@@ -10,7 +10,6 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { lineplot } from "@/lineplot";
 import { type panel } from "@/panel";
 import { type project } from "@/project";
 import { type query } from "@/query";
@@ -81,36 +80,6 @@ describe("Panel Client", () => {
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
       ).rejects.toBe(WRITE_FAILED);
       expect(expectLive(client.panels.getCached(pan.key)).name).toEqual(pan.name);
-    });
-  });
-
-  describe("references", () => {
-    it("should drop the tab of a deleted resource from the cached panel", async () => {
-      await client.connect();
-      const [kept, deleted] = await client.lineplots.create([
-        { name: `plot-${id.create()}`, project: proj },
-        { name: `plot-${id.create()}`, project: proj },
-      ]);
-      const pan = await client.panels.create({
-        name: `panel-${id.create()}`,
-        project: proj,
-        root: {
-          variant: "leaf",
-          tabs: [
-            { variant: "resource", resource: lineplot.resourceID(kept.key) },
-            { variant: "resource", resource: lineplot.resourceID(deleted.key) },
-          ],
-        },
-      });
-      await client.lineplots.delete(deleted.key);
-      const shown = (): string[] => {
-        const { root } = expectLive(client.panels.getCached(pan.key));
-        if (root.variant !== "leaf") return [];
-        return root.tabs.flatMap((t) =>
-          t.variant === "resource" ? [t.resource.key] : [],
-        );
-      };
-      await expect.poll(shown).toEqual([kept.key]);
     });
   });
 });

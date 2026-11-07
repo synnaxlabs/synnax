@@ -66,15 +66,15 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 
 // Set creates or updates a status. A status with an owner goes to the status its owner
 // holds, whatever key it carries. Otherwise, Set uses the status's key, or a new UUID
-// when the key is empty. A create stores the labels s carries. An update keeps the
-// stored labels, which change only through AddLabels, ReplaceLabels, and RemoveLabels,
-// and keeps the stored owner when s has none. On return, s holds what was stored.
+// when the key is empty. A create stores the labels and owner s carries. An update
+// keeps the stored owner and labels. Labels change only through AddLabels,
+// ReplaceLabels, and RemoveLabels. On return, s holds what was stored.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	return w.inTx(ctx, func(w Writer) error {
 		if err := w.validate(*s); err != nil {
 			return err
 		}
-		if err := w.resolve(ctx, s); err != nil {
+		if err := w.Resolve(ctx, s); err != nil {
 			return err
 		}
 		return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
@@ -135,7 +135,9 @@ func (w Writer) ownedKey(ctx context.Context, owner resource.ID) (Key, error) {
 	return keys[0], nil
 }
 
-func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
+// Resolve sets the key, labels, and owner of s to the ones Set would write, without
+// writing anything. Calling it again on the result changes nothing.
+func (w Writer) Resolve[D any](ctx context.Context, s *Status[D]) error {
 	if s.Owner != nil {
 		key, err := w.ownedKey(ctx, *s.Owner)
 		if err == nil {
@@ -156,9 +158,7 @@ func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
 		return err
 	}
 	s.Labels = stored.Labels
-	if s.Owner == nil {
-		s.Owner = stored.Owner
-	}
+	s.Owner = stored.Owner
 	return nil
 }
 

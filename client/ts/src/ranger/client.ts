@@ -210,8 +210,9 @@ export class Range {
   }
 
   async retrieveParent(): Promise<Range | null> {
-    if (this.parent == null) return null;
-    return await this.rangeClient.retrieve(this.parent);
+    const { parent } = await this.rangeClient.retrieve(this.key);
+    if (parent == null) return null;
+    return await this.rangeClient.retrieve(parent);
   }
 
   async retrieveChildren(): Promise<Range[]> {
@@ -225,8 +226,9 @@ export class Range {
   }
 
   async retrieveLabels(): Promise<label.Label[]> {
-    if (this.labels.length === 0) return [];
-    return await this.labelClient.retrieve({ where: { key: { in: this.labels } } });
+    const { labels } = await this.rangeClient.retrieve(this.key);
+    if (labels.length === 0) return [];
+    return await this.labelClient.retrieve({ where: { key: { in: labels } } });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {

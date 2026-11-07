@@ -58,7 +58,7 @@ func (p provider) Retrieve(
 	resources := make([]resource.Resource, 0, len(ids))
 	for _, id := range ids {
 		k, err := strconv.ParseUint(id.Key, 10, 16)
-		if err != nil {
+		if err != nil || ResourceID(Key(k)) != id {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"invalid node key %q",

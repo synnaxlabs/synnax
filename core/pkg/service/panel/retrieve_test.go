@@ -40,7 +40,6 @@ var _ = Describe("Retrieve", func() {
 		"Should retrieve a panel by key with its full tree intact",
 		func(ctx SpecContext) {
 			key := uuid.New()
-			createPlot(ctx, tx, key)
 			p := panel.Panel{
 				Name:    "test",
 				Root:    leafNode(tab(key)),

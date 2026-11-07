@@ -149,19 +149,9 @@ func (w Writer) checkMove(
 	if err != nil {
 		return nil, false, err
 	}
-	after := parent
-	if parent != nil && parent.Type == resource.TypeGroup {
-		key, err := KeyFromResourceID(*parent)
-		if err != nil {
-			return nil, false, validate.PathedError(err, "parent")
-		}
-		p, err := retrieveGroup(ctx, w.tx, key)
-		if err != nil {
-			return nil, false, validate.PathedError(err, "parent")
-		}
-		if after, err = topParent(ctx, w.tx, p); err != nil {
-			return nil, false, err
-		}
+	after, err := parentTop(ctx, w.tx, parent)
+	if err != nil {
+		return nil, false, err
 	}
 	if sameID(before, after) {
 		return after, false, nil
@@ -177,6 +167,58 @@ func (w Writer) checkMove(
 		member.Type,
 		member.Key,
 	), "parent")
+}
+
+// parentTop returns the top parent that a group takes under parent.
+func parentTop(
+	ctx context.Context,
+	tx gorp.Tx,
+	parent *resource.ID,
+) (*resource.ID, error) {
+	if parent == nil || parent.Type != resource.TypeGroup {
+		return parent, nil
+	}
+	key, err := KeyFromResourceID(*parent)
+	if err != nil {
+		return nil, validate.PathedError(err, "parent")
+	}
+	p, err := retrieveGroup(ctx, tx, key)
+	if err != nil {
+		return nil, validate.PathedError(err, "parent")
+	}
+	return topParent(ctx, tx, p)
+}
+
+// SetParentObjects returns the top parents that moving the groups in gs under parent
+// needs update access on: for each group whose top parent the move changes, the top
+// parent it leaves and the one it joins. A nil top parent adds nothing.
+func SetParentObjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	gs []Group,
+	parent *resource.ID,
+) ([]resource.ID, error) {
+	after, err := parentTop(ctx, tx, parent)
+	if err != nil {
+		return nil, err
+	}
+	var objects []resource.ID
+	add := func(id *resource.ID) {
+		if id != nil && !slices.Contains(objects, *id) {
+			objects = append(objects, *id)
+		}
+	}
+	for _, g := range gs {
+		before, err := topParent(ctx, tx, g)
+		if err != nil {
+			return nil, err
+		}
+		if !sameID(before, after) {
+			add(before)
+			add(after)
+		}
+	}
+	return objects, nil
 }
 
 // moveMembers passes the groups with keys and every group under them to the

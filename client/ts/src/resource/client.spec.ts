@@ -9,6 +9,7 @@
 
 import { describe, expect, it, onTestFinished } from "vitest";
 
+import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { group } from "@/group";
 import { label } from "@/label";
@@ -73,14 +74,15 @@ describe("Resource", () => {
       });
       expect(page).toHaveLength(2);
       expect(page.every((r) => r.id.type === "label")).toBe(true);
-      expect(
-        await client.resources.search({
-          searchTerm: "",
-          types: ["label"],
-          limit: 1,
-          offset: 1,
-        }),
-      ).toEqual([page[1]]);
+    });
+
+    it.each([
+      ["limit", { limit: -1 }],
+      ["offset", { offset: -1 }],
+    ])("should refuse a negative %s", async (_, bounds) => {
+      await expect(
+        client.resources.search({ searchTerm: "pump", ...bounds }),
+      ).rejects.toSatisfy(ValidationError.matches);
     });
 
     it("should refuse a type that the Core cannot search", async () => {
@@ -126,6 +128,15 @@ describe("Resource", () => {
         )
         .toEqual(count);
     };
+
+    it("should leave a retrieved internal channel out of a subscribed list", async () => {
+      const read = await subscribe({ searchTerm: "", types: ["channel"], limit: 1000 });
+      expect(read()?.length).toBeLessThan(1000);
+      const internal = await client.channels.retrieve(channel.SET_CHANNEL_NAME);
+      const id = channel.resourceID(internal.key);
+      await client.resources.retrieve(id);
+      expect(read()?.map((r) => r.id)).not.toContainEqual(id);
+    });
 
     it("should rename a resource in a subscribed search", async () => {
       const token = randomToken();

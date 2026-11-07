@@ -633,6 +633,22 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It(
+			"Should keep a snapshot written again as not a snapshot",
+			func(ctx SpecContext) {
+				openTx()
+				r := createRange(ctx, tx)
+				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
+				snap.Snapshot = false
+				snap.Range = nil
+				Expect(w.Create(ctx, &snap)).To(Succeed())
+				Expect(snap.Snapshot).To(BeTrue())
+				Expect(snap.Range).To(Equal(&r.Key))
+			},
+		)
+
+		It(
 			"Should broadcast a create of the copy after the commit",
 			func(ctx SpecContext) {
 				m := &task.Task{
@@ -837,12 +853,15 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should reject a create", func(ctx SpecContext) {
+			overwritten := *alerts
+			overwritten.Name = "Overwritten"
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				task.NewCreateAction(task.CreatePayload{Task: *alerts}),
+				task.NewCreateAction(task.CreatePayload{Task: overwritten}),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("only the Core dispatches a task create")),
 			))
+			expectUnchanged(ctx)
 		})
 
 		It("Should rename a snapshot, keeping its config", func(ctx SpecContext) {
@@ -1012,6 +1031,17 @@ var _ = Describe("Task", Ordered, func() {
 			expected.Status = nil
 			Expect(res).To(Equal(expected))
 		})
+
+		It(
+			"Should fail to filter by Arc on a service that cannot match Arcs",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchArcs(testArc)).
+					Entries(&[]task.Task{}).
+					Exec(ctx, tx)).
+					To(MatchError("this task service cannot filter tasks by Arc"))
+			},
+		)
 
 		It("Should filter tasks by snapshot status", func(ctx SpecContext) {
 			regular := &task.Task{

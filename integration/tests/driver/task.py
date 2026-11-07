@@ -285,6 +285,17 @@ def assert_configure_rejected(
     raise AssertionError(f"Configure did not reject {label}")
 
 
+def assert_create_refused(client: sy.Synnax, task: sy.task.Protocol, label: str) -> str:
+    """Save a task and assert the Core refuses it with a validation error. Returns the
+    refusal message."""
+    try:
+        client.tasks.configure(task)
+    except sy.ValidationError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Core did not refuse {label}")
+
+
 def assert_start_rejected(
     client: sy.Synnax,
     task: DriverTask[sy.task.StartConfig],

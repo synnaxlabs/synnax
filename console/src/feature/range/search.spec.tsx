@@ -11,6 +11,8 @@ import { ranger, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,10 +25,14 @@ import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/te
 
 const client = createTestClient();
 
-const createHarness = (item: resource.Resource) => {
+const createHarness = (
+  item: resource.Resource,
+  onStatuses: (statuses: Status.NotificationSpec[]) => void = () => {},
+) => {
   const SearchListItem = Range.SEARCH_LIST_ITEMS.range;
   if (SearchListItem == null) throw new Error("range SearchListItem is not defined");
   const Harness = (): ReactElement => {
+    onStatuses(Status.useNotifications().statuses);
     const staticProps = List.useStaticData<string, resource.Resource>({
       data: [item],
     });
@@ -72,6 +78,39 @@ describe("range/search", () => {
         variant: "persisted",
         key: rng.key,
       });
+    });
+
+    it("opens the range when selected before it loads", async () => {
+      const rng = await createTestRange(client);
+      // A client opened after the create does not hold the range, so it loads late.
+      const fresh = createTestClient();
+      const item = createResource(ranger.resourceID(rng.key), rng.name);
+      const Harness = createHarness(item);
+      const { wrapper, store } = await createConsoleWrapper({ client: fresh });
+      await selectTestProject(store, fresh);
+      render(<Harness />, { wrapper });
+      fireEvent.click(await screen.findByText(rng.name), { detail: 0 });
+      const tab = await resolveFocusedTab(store, fresh);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource).toEqual(ranger.resourceID(rng.key));
+    });
+
+    it("reports an error when the selected range does not exist", async () => {
+      const item = createResource(ranger.resourceID(uuid.create()), "missing");
+      let statuses: Status.NotificationSpec[] = [];
+      const Harness = createHarness(item, (s) => (statuses = s));
+      const { wrapper } = await createConsoleWrapper({ client });
+      render(<Harness />, { wrapper });
+      fireEvent.click(await screen.findByText("missing"), { detail: 0 });
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name: "missing",
+            message: "Failed to select range",
+          }),
+        ),
+      );
     });
   });
 });

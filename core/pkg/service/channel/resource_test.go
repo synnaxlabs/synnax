@@ -25,6 +25,7 @@ import (
 
 var _ = Describe("Resources", func() {
 	create := func(ctx SpecContext, name string, internal bool) channel.Channel {
+		GinkgoHelper()
 		ch := channel.Channel{
 			Name:     name,
 			DataType: telem.Float32T,
@@ -82,6 +83,21 @@ var _ = Describe("Resources", func() {
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("pump is not a valid channel key")),
+		))
+	})
+
+	It("Should return a validation error for a key with a leading zero", func(
+		ctx SpecContext,
+	) {
+		ch := create(ctx, "fuel", false)
+		key := "0" + ch.ResourceID().Key
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{{Type: resource.TypeChannel, Key: key}},
+		)).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`invalid channel key "%s"`, key)),
 		))
 	})
 

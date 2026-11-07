@@ -106,8 +106,10 @@ func OpenRoles(ctx context.Context, configs ...RolesConfig) (r *Roles, err error
 	}); !ok(err, r.Policy) {
 		return nil, err
 	}
-	r.Builtin, err = builtin.Provision(ctx, cfg.DB, r.Policy, r.Role)
-	return r, err
+	if r.Builtin, err = builtin.Provision(ctx, cfg.DB, r.Policy, r.Role); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // ServiceConfig is the configuration for creating a [Service].

@@ -10,36 +10,47 @@
 package testutil_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Grant", func() {
-	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
+	var (
+		users   *user.Service
+		rbacSvc *rbac.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       db,
 			Password: passwords,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
 		}))
-		rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 			DB:     db,
 			User:   users,
 			Status: statuses,
 		})).RBAC
+	})
+
+	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
 		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{Name: "u"}))
 		req := access.Request{
 			Subject: u.ResourceID(),
@@ -63,5 +74,16 @@ var _ = Describe("Grant", func() {
 			Entry(&stored).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(stored.Roles).To(Equal([]role.Key{r}))
+	})
+
+	It("Should return no role key when the user does not exist", func(ctx SpecContext) {
+		Expect(rbactestutil.Grant(
+			ctx,
+			rbacSvc,
+			users,
+			uuid.New(),
+			[]access.Action{access.ActionUpdate},
+			resource.ID{Type: resource.TypeChannel},
+		)).Error().To(MatchError(query.ErrNotFound))
 	})
 })

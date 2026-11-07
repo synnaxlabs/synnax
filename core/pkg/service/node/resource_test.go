@@ -51,6 +51,19 @@ var _ = Describe("Resources", func() {
 		))
 	})
 
+	It("Should return a validation error for a key with a leading zero", func(
+		ctx SpecContext,
+	) {
+		Expect(testSvc.Resources().Retrieve(
+			ctx,
+			nil,
+			[]resource.ID{{Type: resource.TypeNode, Key: "01"}},
+		)).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`invalid node key "01"`)),
+		))
+	})
+
 	DescribeTable("Should list the nodes in the cluster in order of key",
 		func(
 			ctx SpecContext,
