@@ -97,6 +97,8 @@ jobs:
         timeout-minutes: 1
         shell: powershell
         env:
+          # The EtherCAT scan resets every slave and stops other masters on the bus.
+          SYNNAX_DISABLE_INTEGRATIONS: ethercat
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run:
           integration/scripts/StartCore.ps1 -Listen "${env:CORE_HOST}:${env:CORE_PORT}"
