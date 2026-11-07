@@ -429,11 +429,11 @@ func inferSeriesLiteralType(
 	exprs := exprList.AllExpression()
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
-	allLiterals := parser.IsNumericLiteral(firstExpr)
+	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
-		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
+		thisIsLiteral := parser.IsNumericLiteral(exprs[i]) || isUntypedNumber(nextType)
 		// Literals can unify across int/float (like Go), but variables cannot
 		if allLiterals && thisIsLiteral {
 			if !literalsCompatible(elemType, nextType) {
@@ -464,6 +464,13 @@ func inferSeriesLiteralType(
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+// isUntypedNumber reports whether t is the type of an untyped numeric value, such as
+// a literal or a module constant, which mixes with other literals like a literal.
+func isUntypedNumber(t types.Type) bool {
+	return t.Kind == types.KindVariable && t.Constraint != nil &&
+		isNumericConstraint(t.Constraint.Kind)
 }
 
 // seriesElementCompatible checks if two types are compatible for use in the same series

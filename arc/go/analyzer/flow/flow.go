@@ -390,18 +390,19 @@ func analyzeIdentifier(
 		constantType(ctx, ctx.AST, sym)
 		return
 	}
-	if prevNode != nil {
-		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
-			sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
-			sym.Kind == symbol.KindStatefulVariable
-		if !validTarget {
-			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
-			if sym.Kind == symbol.KindFunction {
-				d = d.WithNote("use " + name + "() to instantiate the function")
-			}
-			ctx.Diagnostics.Add(d)
-			return
+	// Any other symbol would lower to a read or write of a channel that does not exist.
+	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
+		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
+		sym.Kind == symbol.KindStatefulVariable
+	if !isFlowNode {
+		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
+		if sym.Kind == symbol.KindFunction {
+			d = d.WithNote("use " + name + "() to instantiate the function")
 		}
+		ctx.Diagnostics.Add(d)
+		return
+	}
+	if prevNode != nil {
 		if sym.IsReactive() {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"cannot write to channel-read variable %s; it is read-only", name))
