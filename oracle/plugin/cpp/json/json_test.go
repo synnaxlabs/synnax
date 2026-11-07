@@ -721,6 +721,22 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should write a generic map of scalars as an object",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Names struct<K extends comparable> {
+						values map<K, uint32>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[x::json::map_key(key)] = item;`)
+				},
+			)
+			It(
 				"Should defer the key check of a generic map of structs",
 				func(ctx SpecContext) {
 					source := `

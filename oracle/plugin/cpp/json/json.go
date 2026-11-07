@@ -381,10 +381,8 @@ func objectMap(
 		_, isStruct = value.Form.(resolution.StructForm)
 	}
 	key := ref.TypeArgs[0]
-	if key.IsTypeParam() {
-		return ref, isStruct, isStruct
-	}
-	return ref, isStruct, isStruct || resolution.PrimitiveBase(key, table) != "string"
+	return ref, isStruct, isStruct || key.IsTypeParam() ||
+		resolution.PrimitiveBase(key, table) != "string"
 }
 
 // checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
