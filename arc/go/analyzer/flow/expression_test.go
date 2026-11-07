@@ -431,6 +431,14 @@ var _ = Describe("Series expressions in flows", func() {
 			"sequence main {\n stage a {\n s + 1.0 -> out\n }\n}\nx => main",
 		),
 		Entry("a declaration read by a flow", "y := s + 1.0\ny -> out"),
+		Entry(
+			"a function trigger",
+			"func consume() {v series f32} {\n}\n(s) -> consume()",
+		),
+		Entry(
+			"a function trigger after a sum",
+			"func consume() {v series f32} {\n}\ns + 1.0 -> consume()",
+		),
 	)
 })
 
