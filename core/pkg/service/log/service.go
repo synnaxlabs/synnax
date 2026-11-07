@@ -117,6 +117,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the log outside the writer. The service
+	// publishes it as a create, which replaces the cached document.
+	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, l Log) {
+			create := NewCreateAction(CreatePayload{Log: l})
+			s.state.Dispatcher().Notify(ctx, l.Key, create)
+		},
+	)))
 	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err

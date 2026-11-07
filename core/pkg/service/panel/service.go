@@ -94,6 +94,14 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the panel outside the writer. The
+	// service publishes it as a create, which replaces the cached document.
+	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p Panel) {
+			create := NewCreateAction(CreatePayload{Panel: p})
+			s.state.Dispatcher().Notify(ctx, p.Key, create)
+		},
+	)))
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
