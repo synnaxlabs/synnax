@@ -10,11 +10,13 @@
 package schematic_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -31,6 +33,55 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 			Expect(s.Key).ToNot(Equal(uuid.Nil()))
 		})
+
+		DescribeTable("Should validate the scale of a decoded schematic",
+			func(ctx SpecContext, scale string, matcher OmegaMatcher) {
+				var s schematic.Schematic
+				Expect(json.Unmarshal([]byte(
+					`{"name":"valves","nodes":[{"key":"v1"}],"configs":{"v1":`+
+						`{"variant":"valve"`+scale+`}}}`,
+				), &s)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(matcher)
+			},
+			Entry("omitted scale takes the default", "", Succeed()),
+			Entry(
+				"zero scale is rejected",
+				`,"scale":0`,
+				SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				),
+			),
+		)
+
+		DescribeTable("Should keep the gauge bounds of a decoded schematic",
+			func(ctx SpecContext, config string, expected spatial.Bounds) {
+				var s schematic.Schematic
+				Expect(json.Unmarshal([]byte(
+					`{"name":"gauges","nodes":[{"key":"g1"}],"configs":{"g1":`+
+						config+`}}`,
+				), &s)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				gauge, ok := res.Configs["g1"].Variant.(schematic.GaugeElementConfig)
+				Expect(ok).To(BeTrue())
+				Expect(gauge.Bounds).To(Equal(expected))
+			},
+			Entry(
+				"explicit zero upper bound stays",
+				`{"variant":"gauge","bounds":{"lower":-10,"upper":0}}`,
+				spatial.Bounds{Lower: -10, Upper: 0},
+			),
+			Entry(
+				"omitted bounds take the default",
+				`{"variant":"gauge"}`,
+				spatial.Bounds{Lower: 0, Upper: 100},
+			),
+		)
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
@@ -114,6 +165,52 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("test"))
 			},
 		)
+		Describe("A schematic that stores a zero scale", func() {
+			var stored schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				stored = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"stored","nodes":[{"key":"v1"}],`+
+						`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+				), &stored)).To(Succeed())
+				stored.Key = uuid.New()
+				Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+			})
+
+			It("Should accept an unrelated dispatch", func(ctx SpecContext) {
+				Expect(svc.Dispatch(ctx, stored.Key, "session-1", []schematic.Action{
+					schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed"}),
+				})).To(Succeed())
+			})
+
+			It("Should accept a create that keeps the stored config", func(
+				ctx SpecContext,
+			) {
+				stored.Name = "overwritten"
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &stored)).To(Succeed())
+			})
+		})
+
+		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[{"key":"v1"}],`+
+					`"configs":{"v1":{"variant":"valve"}}}`,
+			), &s)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			Expect(svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"configs", "v1", "scale"},
+					Value: 0.0,
+				}),
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+			))
+		})
+
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

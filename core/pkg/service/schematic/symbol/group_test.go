@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -32,10 +33,10 @@ func createGroup(ctx SpecContext, parent ontology.ID) group.Group {
 
 func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	GinkgoHelper()
-	sym := symbol.Symbol{
+	sym := defaults.Fill(symbol.Symbol{
 		Name: "Inlet",
 		Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-	}
+	})
 	Expect(svc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())

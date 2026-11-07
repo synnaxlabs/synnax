@@ -10,20 +10,24 @@
 package symbol_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a Symbol", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "test-symbol",
 				Data: symbol.Spec{
 					SVG:     "<svg>...</svg>",
@@ -33,7 +37,7 @@ var _ = Describe("Writer", func() {
 						{Key: "active", Name: "active"},
 					},
 				},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 			Expect(sym.Key).ToNot(Equal(uuid.Nil()))
 		})
@@ -43,51 +47,83 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("missing name", symbol.Symbol{
+			Entry("missing name", defaults.Fill(symbol.Symbol{
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}, "name: required"),
-			Entry("missing svg", symbol.Symbol{
+			}), "name: required"),
+			Entry("missing svg", defaults.Fill(symbol.Symbol{
 				Name: "no-svg",
 				Data: symbol.Spec{Variant: "valve"},
-			}, "svg: required"),
-			Entry("missing variant", symbol.Symbol{
+			}), "svg: required"),
+			Entry("missing variant", defaults.Fill(symbol.Symbol{
 				Name: "no-variant",
 				Data: symbol.Spec{SVG: "<svg/>"},
-			}, "variant: required"),
-			Entry("invalid handle orientation", symbol.Symbol{
+			}), "variant: required"),
+			Entry("invalid handle orientation", defaults.Fill(symbol.Symbol{
 				Name: "bad-handle",
 				Data: symbol.Spec{
 					SVG:     "<svg/>",
 					Variant: "valve",
 					Handles: []symbol.Handle{{Key: "h1", Orientation: "diagonal"}},
 				},
-			}, "invalid orientation"),
+			}), "invalid orientation"),
 		)
 
-		It("Should apply schema defaults for omitted fields", func(ctx SpecContext) {
+		It(
+			"Should default the scale that a decoded symbol omits",
+			func(ctx SpecContext) {
+				var sym symbol.Symbol
+				Expect(json.Unmarshal(
+					[]byte(
+						`{"name":"scaled","data":{"svg":"<svg/>","variant":"valve"}}`,
+					),
+					&sym,
+				)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+					To(Succeed())
+				var res symbol.Symbol
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(sym.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Data.Scale).To(Equal(1.0))
+			},
+		)
+
+		It("Should accept a create that keeps a stored zero scale", func(
+			ctx SpecContext,
+		) {
 			sym := symbol.Symbol{
-				Name: "defaults",
+				Key:  uuid.New(),
+				Name: "stored",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
-			// Defaults are stamped on the caller's struct.
-			Expect(sym.Data.Scale).To(Equal(1.0))
-
-			var res symbol.Symbol
-			Expect(svc.NewRetrieve().
-				Where(symbol.MatchKeys(sym.Key)).
-				Entry(&res).
+			Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().
+				Entry(&sym).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Data.Scale).To(Equal(1.0))
+			sym.Name = "overwritten"
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+				To(Succeed())
+		})
+
+		It("Should reject a decoded symbol with a zero scale", func(ctx SpecContext) {
+			var sym symbol.Symbol
+			Expect(json.Unmarshal([]byte(
+				`{"name":"scaled","data":{"svg":"<svg/>","variant":"valve","scale":0}}`,
+			), &sym)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data.scale: must be positive")),
+				))
 		})
 
 		It("Should create a Symbol with a predefined key", func(ctx SpecContext) {
 			key := uuid.New()
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Key:  key,
 				Name: "predefined-key-symbol",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 			Expect(sym.Key).To(Equal(key))
 		})
@@ -96,20 +132,20 @@ var _ = Describe("Writer", func() {
 			"Should update an existing Symbol if key already exists",
 			func(ctx SpecContext) {
 				key := uuid.New()
-				sym1 := symbol.Symbol{
+				sym1 := defaults.Fill(symbol.Symbol{
 					Key:  key,
 					Name: "original-name",
 					Data: symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
-				}
+				})
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID()),
 				).To(Succeed())
 
-				sym2 := symbol.Symbol{
+				sym2 := defaults.Fill(symbol.Symbol{
 					Key:  key,
 					Name: "updated-name",
 					Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
-				}
+				})
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID()),
 				).To(Succeed())
@@ -127,10 +163,10 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should properly set ontology relationships", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "ontology-test",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 
 			var res []ontology.Resource
@@ -150,10 +186,10 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should create a Symbol under the permanent symbols group if provided",
 			func(ctx SpecContext) {
-				sym := symbol.Symbol{
+				sym := defaults.Fill(symbol.Symbol{
 					Name: "group-test",
 					Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-				}
+				})
 				groupOntologyID := ontology.ID{
 					Type: "group",
 					Key:  svc.Group().Key.String(),
@@ -180,7 +216,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("CreateMany", func() {
 		It("Should create multiple Symbols", func(ctx SpecContext) {
-			symbols := []symbol.Symbol{
+			symbols := defaults.Fill([]symbol.Symbol{
 				{
 					Name: "symbol-1",
 					Data: symbol.Spec{SVG: "<svg>1</svg>", Variant: "valve"},
@@ -189,7 +225,7 @@ var _ = Describe("Writer", func() {
 					Name: "symbol-2",
 					Data: symbol.Spec{SVG: "<svg>2</svg>", Variant: "valve"},
 				},
-			}
+			})
 			Expect(
 				svc.NewWriter(tx).CreateMany(ctx, &symbols, proj.OntologyID()),
 			).To(Succeed())
@@ -205,10 +241,10 @@ var _ = Describe("Writer", func() {
 
 	Describe("Rename", func() {
 		It("Should rename a Symbol", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "original-name",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
 
@@ -230,10 +266,10 @@ var _ = Describe("Writer", func() {
 					{Key: "error", Name: "error"},
 				},
 			}
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "data-preservation-test",
 				Data: originalData,
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "renamed")).To(Succeed())
 
@@ -250,10 +286,10 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		It("Should delete a single Symbol", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "to-delete",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 
@@ -266,18 +302,18 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete multiple Symbols", func(ctx SpecContext) {
-			sym1 := symbol.Symbol{
+			sym1 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-1",
 				Data: symbol.Spec{SVG: "<svg>1</svg>", Variant: "valve"},
-			}
-			sym2 := symbol.Symbol{
+			})
+			sym2 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-2",
 				Data: symbol.Spec{SVG: "<svg>2</svg>", Variant: "valve"},
-			}
-			sym3 := symbol.Symbol{
+			})
+			sym3 := defaults.Fill(symbol.Symbol{
 				Name: "to-keep",
 				Data: symbol.Spec{SVG: "<svg>3</svg>", Variant: "valve"},
-			}
+			})
 
 			Expect(
 				svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID()),
@@ -301,10 +337,10 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should remove ontology relationships when deleting", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "ontology-delete-test",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
 
 			// Verify it exists in ontology

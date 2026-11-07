@@ -25,14 +25,16 @@ const minCellDim = 32
 // baseRow and baseCol are the entries an action gives the opposing axis when it
 // bootstraps that axis on an empty table. Both take their size from the schema.
 func baseRow(key string) Row {
-	r := Row{Key: key}
-	r.ApplyDefaults()
+	var r Row
+	r.SetDefaults()
+	r.Key = key
 	return r
 }
 
 func baseCol(key string) Column {
-	c := Column{Key: key}
-	c.ApplyDefaults()
+	var c Column
+	c.SetDefaults()
+	c.Key = key
 	return c
 }
 

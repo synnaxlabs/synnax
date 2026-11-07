@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -22,15 +23,15 @@ var _ = Describe("Retrieve", func() {
 	var sym1, sym2, sym3 symbol.Symbol
 
 	BeforeEach(func(ctx SpecContext) {
-		sym1 = symbol.Symbol{
+		sym1 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-1",
 			Data: symbol.Spec{
 				SVG:     "<svg>1</svg>",
 				Variant: "valve",
 				States:  []symbol.State{{Key: "default", Name: "default"}},
 			},
-		}
-		sym2 = symbol.Symbol{
+		})
+		sym2 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-2",
 			Data: symbol.Spec{
 				SVG:     "<svg>2</svg>",
@@ -40,8 +41,8 @@ var _ = Describe("Retrieve", func() {
 					{Key: "active", Name: "active"},
 				},
 			},
-		}
-		sym3 = symbol.Symbol{
+		})
+		sym3 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-3",
 			Data: symbol.Spec{
 				SVG:     "<svg>3</svg>",
@@ -52,7 +53,7 @@ var _ = Describe("Retrieve", func() {
 					{Key: "error", Name: "error"},
 				},
 			},
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID())).To(Succeed())
 		Expect(svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID())).To(Succeed())
 		Expect(svc.NewWriter(tx).Create(ctx, &sym3, proj.OntologyID())).To(Succeed())
@@ -104,10 +105,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should execute without transaction", func(ctx SpecContext) {
 			// Create a symbol without transaction
-			symNoTx := symbol.Symbol{
+			symNoTx := defaults.Fill(symbol.Symbol{
 				Name: "no-tx-symbol",
 				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
-			}
+			})
 			Expect(
 				svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID()),
 			).To(Succeed())
@@ -154,10 +155,10 @@ var _ = Describe("Retrieve", func() {
 				})
 			}
 
-			largeSym := symbol.Symbol{
+			largeSym := defaults.Fill(symbol.Symbol{
 				Name: "large-symbol",
 				Data: largeData,
-			}
+			})
 			Expect(
 				svc.NewWriter(tx).Create(ctx, &largeSym, proj.OntologyID()),
 			).To(Succeed())

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -101,7 +102,9 @@ func createGroup(ctx SpecContext, name string) group.Group {
 
 // newSymbol returns an unsaved symbol a create request can carry.
 func newSymbol(name string) symbol.Symbol {
-	return symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
+	return defaults.Fill(
+		symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}},
+	)
 }
 
 // createSymbol creates a symbol under g, committing it for the same reason createGroup

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -39,8 +40,10 @@ var _ = Describe("Create", func() {
 		grantUpdateOn(ctx, u.OntologyID(), g.OntologyID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
-				Parent:  g.OntologyID(),
-				Symbols: []symbol.Symbol{newSymbol("Inlet"), newSymbol("Outlet")},
+				Parent: g.OntologyID(),
+				Symbols: defaults.Fill(
+					[]symbol.Symbol{newSymbol("Inlet"), newSymbol("Outlet")},
+				),
 			},
 		))
 		Expect(res.Symbols).To(HaveLen(2))
@@ -57,7 +60,7 @@ var _ = Describe("Create", func() {
 		grantUpdateOn(ctx, u.OntologyID(), g.OntologyID())
 		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
 			Parent:  g.OntologyID(),
-			Symbols: []symbol.Symbol{newSymbol("Inlet")},
+			Symbols: defaults.Fill([]symbol.Symbol{newSymbol("Inlet")}),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when update is not granted on the parent", func(
@@ -68,7 +71,7 @@ var _ = Describe("Create", func() {
 		grantCreateOn(ctx, u.OntologyID(), symbolType)
 		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apisymbol.CreateRequest{
 			Parent:  g.OntologyID(),
-			Symbols: []symbol.Symbol{newSymbol("Inlet")},
+			Symbols: defaults.Fill([]symbol.Symbol{newSymbol("Inlet")}),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })

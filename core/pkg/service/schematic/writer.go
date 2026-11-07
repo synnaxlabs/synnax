@@ -11,12 +11,17 @@ package schematic
 
 import (
 	"context"
+	"encoding/json/v2"
+	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -45,19 +50,26 @@ func (w Writer) Create(
 	projectKey project.Key,
 	s *Schematic,
 ) (err error) {
-	var exists bool
+	var (
+		exists   bool
+		existing Schematic
+	)
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
+		exists = err == nil
 	}
-	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
+		return err
+	}
+	if err = validateScales(existing, *s); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -177,4 +189,35 @@ func (w Writer) Delete(
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+}
+
+// validateScales returns an error wrapping validate.ErrValidation when a config that
+// next adds or changes from prev carries a scale that is not positive. A zero scale
+// sizes a symbol to nothing. A config left as stored passes, so a stored zero does not
+// block an unrelated edit.
+func validateScales(prev, next Schematic) error {
+	for key, cfg := range next.Configs {
+		if old, ok := prev.Configs[key]; ok && reflect.DeepEqual(old, cfg) {
+			continue
+		}
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		var scaled struct {
+			Scale *float64 `json:"scale"`
+		}
+		if err = json.Unmarshal(b, &scaled); err != nil {
+			return err
+		}
+		if scaled.Scale != nil && *scaled.Scale <= 0 {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"configs.%s.scale: must be positive, got %v",
+				key,
+				*scaled.Scale,
+			)
+		}
+	}
+	return nil
 }

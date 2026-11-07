@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,6 +47,30 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+
+		It("Should reject a decoded Arc whose source is null", func(ctx SpecContext) {
+			var a arc.Arc
+			Expect(json.Unmarshal(
+				[]byte(`{"type":"automation","name":"null-source","source":null}`),
+				&a,
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("source: required")),
+			))
+		})
+
+		It("Should give a decoded Arc that omits its source a text source", func(
+			ctx SpecContext,
+		) {
+			var a arc.Arc
+			Expect(json.Unmarshal(
+				[]byte(`{"type":"automation","name":"no-source"}`),
+				&a,
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(a.Base().Source.Variant).To(BeAssignableToTypeOf(arc.TextSource{}))
+		})
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
