@@ -120,6 +120,9 @@ export class Points {
   // boundary is where tiles end and raw samples begin. It trails rawFrom until the
   // tiles that replace the samples before it land, so no span goes blank.
   private boundary = TimeStamp.ZERO;
+  // steps holds each rawFrom past the boundary whose tiles a rebuild asked for, oldest
+  // first.
+  private steps: TimeStamp[] = [];
   // raw holds the raw samples last served, which stand in for blocks being read again.
   private raw: Series[] = [];
   // rawRead is reading while a raw read or its backoff runs, and stopped once the read
@@ -199,7 +202,7 @@ export class Points {
     }
     if (this.index == null) return;
     this.stream(this.index);
-    if (moved) this.boundary = this.rawFrom(this.home());
+    if (moved) this.moveBoundary();
   }
 
   /**
@@ -357,7 +360,7 @@ export class Points {
           throw new ValidationError(`channel ${payload.name} has no index to draw on`);
         this.props.store.setChannel(payload);
         this.index = index;
-        this.boundary = this.rawFrom(this.home());
+        this.moveBoundary();
         this.stream(index);
         this.breaker.reset();
         this.readFailure = null;
@@ -419,6 +422,11 @@ export class Points {
 
   private floor(): Floor | undefined {
     return this.index == null ? undefined : this.props.store.floor(this.index);
+  }
+
+  private moveBoundary(): void {
+    this.boundary = this.rawFrom(this.home());
+    this.steps = [];
   }
 
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
@@ -495,18 +503,25 @@ export class Points {
       });
   }
 
-  // Moves the boundary to rawFrom once the tiles that replace the raw samples before
-  // rawFrom arrive. Returns the keys of those tiles while any is missing.
+  // Moves the boundary to the newest rawFrom it reached whose tiles arrived, so a
+  // floor that moves faster than its tiles land still moves it. Returns the keys of the
+  // tiles of each newer rawFrom.
   private advance(view: TimeRange, home: TimeRange): string[] {
     const rawFrom = this.rawFrom(home);
-    if (!rawFrom.after(this.boundary)) return [];
-    const next = this.targets(view, home, false, rawFrom);
-    const keys = next.map((spec) => tileRequestKey(spec));
-    if (keys.every((k) => this.held.has(k))) {
-      this.boundary = rawFrom;
-      return [];
+    if (rawFrom.after(this.steps.at(-1) ?? this.boundary)) this.steps.push(rawFrom);
+    this.steps = this.steps.filter((step) => step.after(this.boundary));
+    const keys: string[] = [];
+    for (let i = this.steps.length - 1; i >= 0; i--) {
+      const next = this.targets(view, home, false, this.steps[i]);
+      const stepKeys = next.map((spec) => tileRequestKey(spec));
+      if (stepKeys.every((k) => this.held.has(k))) {
+        this.boundary = this.steps[i];
+        this.steps = this.steps.slice(i + 1);
+        break;
+      }
+      next.forEach((spec) => this.request(spec));
+      keys.push(...stepKeys);
     }
-    next.forEach((spec) => this.request(spec));
     return keys;
   }
 
@@ -799,7 +814,7 @@ export class Points {
     this.rejection = null;
     this.rawRead = "idle";
     this.loading = true;
-    if (this.index != null) this.boundary = this.rawFrom(this.home());
+    if (this.index != null) this.moveBoundary();
     this.changed();
   }
 }

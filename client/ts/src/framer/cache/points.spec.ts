@@ -401,6 +401,22 @@ describe("Points", () => {
       return sum;
     };
 
+    // Returns the largest span inside the snapshot that no series draws.
+    const largestGap = (points: Points): bigint => {
+      const sorted = points
+        .value()
+        .series.series.map((s) => s.timeRange)
+        .sort((a, b) => TimeRange.sort(a, b));
+      let end = sorted[0].end.valueOf();
+      let gap = 0n;
+      for (const tr of sorted.slice(1)) {
+        const start = tr.start.valueOf();
+        if (start - end > gap) gap = start - end;
+        if (tr.end.valueOf() > end) end = tr.end.valueOf();
+      }
+      return gap;
+    };
+
     it("should keep the held and drawn samples bounded", async () => {
       const core = new SyntheticCore({
         rate: Rate.hz(2000),
@@ -471,21 +487,6 @@ describe("Points", () => {
       );
       const key = core.index.key;
       const points = subscribe(key, dynamicWindow(TimeSpan.seconds(30)), TILED);
-      // Returns the largest span inside the snapshot that no series draws.
-      const largestGap = (): bigint => {
-        const sorted = points
-          .value()
-          .series.series.map((s) => s.timeRange)
-          .sort((a, b) => TimeRange.sort(a, b));
-        let end = sorted[0].end.valueOf();
-        let gap = 0n;
-        for (const tr of sorted.slice(1)) {
-          const start = tr.start.valueOf();
-          if (start - end > gap) gap = start - end;
-          if (tr.end.valueOf() > end) end = tr.end.valueOf();
-        }
-        return gap;
-      };
       try {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         for (let i = 0; i < 100; i++) {
@@ -500,9 +501,63 @@ describe("Points", () => {
           await sleep.sleep(TimeSpan.milliseconds(5));
         }
         expect(store.floor(key)?.kept?.after(kept!)).toBe(true);
-        expect(largestGap()).toBeLessThanOrEqual(TimeSpan.milliseconds(10).valueOf());
+        expect(largestGap(points)).toBeLessThanOrEqual(
+          TimeSpan.milliseconds(10).valueOf(),
+        );
       } finally {
         stalls.forEach((resolve) => resolve());
+        await close();
+      }
+    });
+
+    it("should move past the samples of a floor once its tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      let stalls: Array<{ tr: TimeRange; resolve: () => void }> = [];
+      let stalled = false;
+      const { joins, store, subscribe, close } = createPoints(
+        core,
+        async (tr, keys, reduction) => {
+          if (reduction != null && stalled)
+            await new Promise<void>((resolve) => stalls.push({ tr, resolve }));
+          return core.read(tr, keys, reduction);
+        },
+        { liveSamples: LIVE_SAMPLES },
+      );
+      const key = core.index.key;
+      const points = subscribe(key, dynamicWindow(TimeSpan.seconds(30)), TILED);
+      // Lands the tiles of each floor once the floor after it moves, so the tiles of
+      // the newest floor are always missing.
+      const release = (): void => {
+        const kept = store.floor(key)?.kept;
+        if (kept == null) return;
+        const landed = stalls.filter(({ tr }) => !tr.end.after(kept));
+        stalls = stalls.filter((s) => !landed.includes(s));
+        landed.forEach(({ resolve }) => resolve());
+      };
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        stalled = true;
+        for (let i = 0; i < 300; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          release();
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        const kept = store.floor(key)!.kept!;
+        const before = points
+          .value()
+          .series.series.filter((s) => s.timeRange.start.before(kept))
+          .reduce((sum, s) => sum + s.length, 0);
+        expect(before).toBeLessThan(LIVE_SAMPLES);
+        expect(largestGap(points)).toBeLessThanOrEqual(
+          TimeSpan.milliseconds(10).valueOf(),
+        );
+      } finally {
+        stalled = false;
+        stalls.forEach(({ resolve }) => resolve());
         await close();
       }
     });
