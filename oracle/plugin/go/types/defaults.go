@@ -42,9 +42,12 @@ type defaultFillData struct {
 	// Setup holds the statements that build a union literal's variant in local
 	// variables before Expr assigns it. Empty for every other default.
 	Setup []string
-	// SetOnly marks a zero value that overrides a default SetDefaults set first.
+	// SetOnly marks a fill that overrides a default SetDefaults set first.
 	// ApplyDefaults skips it, since it fills only zero fields.
 	SetOnly bool
+	// ApplyOnly marks a fill that only ApplyDefaults assigns, since a SetOnly fill
+	// replaces it in SetDefaults.
+	ApplyOnly bool
 }
 
 // enumCheckData describes a single enum-membership assertion emitted by a generated
@@ -144,6 +147,13 @@ func structDefaultFills(
 // default.
 // SetDefaults sets the parent's default first, so a zero default must be written out.
 func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
+	if fill, ok := structOverrideFill(field, data); ok {
+		apply := goDefaultFills(field, data)
+		for i := range apply {
+			apply[i].ApplyOnly = true
+		}
+		return append(apply, fill)
+	}
 	if fills := goDefaultFills(field, data); len(fills) > 0 ||
 		field.Default == nil || field.Optional {
 		return fills
@@ -152,6 +162,54 @@ func overrideFills(field resolution.Field, data *templateData) []defaultFillData
 		return []defaultFillData{fill}
 	}
 	return nil
+}
+
+// structOverrideFill returns the SetOnly fill of a field that restates an inherited
+// struct default with a struct literal. It builds the whole value, so no leaf of the
+// parent's default survives: the type's own defaults, then every leaf of the literal.
+// It returns ok=false when the default is not a plain struct literal.
+func structOverrideFill(
+	field resolution.Field,
+	data *templateData,
+) (defaultFillData, bool) {
+	if field.Default == nil || field.Optional ||
+		field.Default.Kind != resolution.ValueKindStruct {
+		return defaultFillData{}, false
+	}
+	if _, ok := unionLiteralFill("", field.Type, *field.Default, data); ok {
+		return defaultFillData{}, false
+	}
+	goType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
+	setup := []string{"v0 := " + goType + "{}"}
+	if typeSetsDefaults(field.Type, data, set.New[string]()) {
+		setup = append(setup, "v0.SetDefaults()")
+	}
+	next := 1
+	lines, ok := literalAssignments(
+		"v0",
+		field.Type,
+		false,
+		*field.Default,
+		data,
+		&next,
+	)
+	if !ok {
+		return defaultFillData{}, false
+	}
+	return defaultFillData{
+		GoName:  naming.GetFieldName(field),
+		Expr:    "v0",
+		Setup:   append(setup, lines...),
+		SetOnly: true,
+	}, true
+}
+
+// emptyWithoutDefault reports whether v is an empty list for field f that has no
+// default
+// to override, so the zero value its struct starts with already holds it.
+func emptyWithoutDefault(f resolution.Field, v resolution.ExpressionValue) bool {
+	return v.Kind == resolution.ValueKindArray && len(v.Elements) == 0 &&
+		f.Default == nil
 }
 
 // zeroFill returns the fill that writes the zero value v to the Go selector goName. It
@@ -245,6 +303,9 @@ func unionLiteral(
 		if !ok {
 			return nil, "", false
 		}
+		if emptyWithoutDefault(f, comp.Value) {
+			continue
+		}
 		lines, ok := literalAssignments(
 			variable+"."+naming.GetFieldName(f),
 			f.Type,
@@ -301,6 +362,9 @@ func literalAssignments(
 			if !ok {
 				return nil, false
 			}
+			if emptyWithoutDefault(f, comp.Value) {
+				continue
+			}
 			sub, ok := literalAssignments(
 				selector+"."+naming.GetFieldName(f),
 				f.Type,
@@ -317,7 +381,7 @@ func literalAssignments(
 		return lines, true
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
-			// The literal may override a default list that SetDefaults set.
+			// The literal overrides a default list that SetDefaults set.
 			return []string{selector + " = nil"}, true
 		}
 		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
@@ -1089,7 +1153,7 @@ func applyFills(fills []defaultFillData) []defaultFillData {
 // allFills returns fills followed by the fills of every group. SetDefaults assigns
 // each one, since a decode overwrites whatever the input supplies.
 func allFills(fills []defaultFillData, groups []defaultGroupData) []defaultFillData {
-	all := slices.Clone(fills)
+	all := lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.ApplyOnly })
 	for _, g := range groups {
 		all = append(all, g.Fills...)
 	}
