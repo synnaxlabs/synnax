@@ -164,6 +164,25 @@ describe("Status", () => {
       expect(second.owner).toEqual(owner);
     });
 
+    it("should keep the stored owner in the optimistic status of a set by key", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      let duringWrite: string | undefined;
+      await client.statuses.set(
+        { key: created.key, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = client.statuses.ownedBy(owner)?.key;
+          },
+        },
+      );
+      expect(duringWrite).toEqual(created.key);
+    });
+
     it("should retrieve the statuses that resources own", async () => {
       const owner = await createOwner();
       const created = await client.statuses.set({

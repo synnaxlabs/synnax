@@ -259,6 +259,8 @@ var _ = Describe("ParentMigration", func() {
 var _ = Describe("MembersMigration", func() {
 	var (
 		db       *gorp.DB
+		holds    func(*log.Log, *resource.ID) bool
+		dropped  *observer.ObservedLogs
 		root     = v1.Group{Key: uuid.New(), Name: "Logs", Scope: resource.TypeBuiltin}
 		top      = v1.Group{Key: uuid.New(), Name: "Top", Scope: resource.TypeProject}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
@@ -277,15 +279,22 @@ var _ = Describe("MembersMigration", func() {
 		}
 		migrate = func(ctx context.Context, projectOwned bool) []log.Log {
 			GinkgoHelper()
+			var core zapcore.Core
+			core, dropped = observer.New(zapcore.WarnLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:        db,
-				Namespace: "log",
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				DB:              db,
+				Namespace:       "log",
 				Migrations: []gorp.Migration{
 					v1.NewMembersMigration(v1.MembersConfig[log.Key, log.Log]{
 						Name:         "members",
 						Type:         resource.TypeLog,
 						SetGroup:     func(l *log.Log, g v1.Key) { l.Group = &g },
 						ProjectOwned: projectOwned,
+						Holds:        holds,
 					}),
 				},
 			})).To(Succeed())
@@ -302,6 +311,7 @@ var _ = Describe("MembersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		holds = nil
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
 		groups := []v1.Group{root, top, projTop, projLeaf, chans}
@@ -338,6 +348,30 @@ var _ = Describe("MembersMigration", func() {
 		"Should leave a member under a group of another scope with no group",
 		func(ctx SpecContext) {
 			Expect(migrate(ctx, false)[4].Group).To(BeNil())
+		},
+	)
+
+	It(
+		"Should leave a member with no group when its group breaks the pin",
+		func(ctx SpecContext) {
+			holds = func(_ *log.Log, top *resource.ID) bool {
+				return top != nil && top.Type == resource.TypeProject
+			}
+			out := migrate(ctx, false)
+			Expect(out[1].Group).To(BeNil())
+			Expect(out[2].Group).To(Equal(&projLeaf.Key))
+			var got []map[string]any
+			for _, e := range dropped.FilterMessage(
+				"dropped a member from a group outside its pinned parent",
+			).All() {
+				got = append(got, e.ContextMap())
+			}
+			Expect(got).To(ConsistOf(map[string]any{
+				"group":      top.Key.String(),
+				"group_name": top.Name,
+				"member":     logID(1).String(),
+			}))
+			Expect(edges(ctx, db)).To(ConsistOf(parentOf(project, logID(3))))
 		},
 	)
 

@@ -598,9 +598,13 @@ var _ = Describe("Edge task", func() {
 				Expect(configured.Exec(
 					startCtx,
 					task.Command{Type: "start", Key: "start"},
-				)).To(MatchError(ContainSubstring(
+				)).To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
 					"the broker refused the subscription to spBv1.0/plant/NCMD/line1",
-				)))
+				))
 			},
 		)
 
