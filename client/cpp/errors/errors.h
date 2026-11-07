@@ -9,8 +9,13 @@
 
 #pragma once
 
+#include <cstddef>
+#include <string>
+
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
+#include "x/cpp/json/json.h"
 
 namespace synnax::errors {
 /// @brief the base of every license error the Core returns.
@@ -37,6 +42,16 @@ inline x::errors::Error unexpected_missing_error(const std::string &name) {
     );
 }
 
+/// @brief returns the error for a query for one record that sets a limit or an offset,
+/// since a page could hide a second match.
+inline x::errors::Error paged_one_error() {
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "a query for one record takes no limit or offset, since a page could hide a "
+        "second match"
+    );
+}
+
 inline x::errors::Error
 not_found_error(const std::string &resource_name, const std::string &query) {
     return x::errors::Error(
@@ -45,11 +60,25 @@ not_found_error(const std::string &resource_name, const std::string &query) {
     );
 }
 
-inline x::errors::Error
-multiple_found_error(const std::string &resource_name, const std::string &query) {
+/// @brief checks that a retrieve of one record found exactly one.
+/// @param name the name of the record type, such as "range".
+/// @param where the JSON form of the filter that the retrieve sent. The errors
+/// describe it.
+/// @param count the number of records that the retrieve found.
+/// @returns NIL when count is 1, NOT_FOUND when it is 0, or MULTIPLE_RESULTS.
+inline x::errors::Error check_one(
+    const std::string &name,
+    const x::json::json &where,
+    const std::size_t count
+) {
+    if (count == 1) return x::errors::NIL;
+    const auto description = x::filter::describe(where);
+    const auto clause = description.empty() ? "" : " where " + description;
+    if (count == 0)
+        return x::errors::Error(x::errors::NOT_FOUND, "Found no " + name + clause);
     return x::errors::Error(
         x::errors::MULTIPLE_RESULTS,
-        "Multiple " + resource_name + " matching " + query + " found."
+        "Expected one " + name + clause + ", but found " + std::to_string(count)
     );
 }
 }
