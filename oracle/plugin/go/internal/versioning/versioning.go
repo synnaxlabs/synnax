@@ -236,22 +236,27 @@ func RewriteOutputPaths(
 		newDomains := make(map[string]resolution.Domain, len(typ.Domains))
 		for k, v := range typ.Domains {
 			if k == "go" {
-				newExprs := make(resolution.Expressions, len(v.Expressions))
-				for i, expr := range v.Expressions {
+				newExprs := make(resolution.Expressions, 0, len(v.Expressions))
+				for _, expr := range v.Expressions {
+					// The version file records a member, so its version package
+					// declares it even when the live file omits it, as a frozen
+					// package does.
+					if expr.Name == "omit" && members.Contains(typ.QualifiedName) {
+						continue
+					}
 					if expr.Name == "output" && len(expr.Values) > 0 {
 						newVals := make([]resolution.ExpressionValue, len(expr.Values))
 						copy(newVals, expr.Values)
 						newVals[0] = resolution.ExpressionValue{
 							StringValue: mirroredPath,
 						}
-						newExprs[i] = resolution.Expression{
+						expr = resolution.Expression{
 							AST:    expr.AST,
 							Name:   expr.Name,
 							Values: newVals,
 						}
-					} else {
-						newExprs[i] = expr
 					}
+					newExprs = append(newExprs, expr)
 				}
 				newDomains[k] = resolution.Domain{
 					AST:         v.AST,

@@ -270,6 +270,23 @@ func (l Location) IsValid() bool {
 	}
 }
 
+// CenterLocation is a location at the center of a container.
+type CenterLocation string
+
+// CenterLocationCenter is the center of the container.
+const CenterLocationCenter CenterLocation = "center"
+
+// IsValid reports whether c is one of the defined CenterLocation
+// values.
+func (c CenterLocation) IsValid() bool {
+	switch c {
+	case CenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
 // XCenterLocation is a horizontal-axis location at the left, right, or center.
 type XCenterLocation string
 
