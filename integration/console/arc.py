@@ -46,9 +46,8 @@ class ArcClient(ResourceClient):
     def create(self, name: str, *, source: str) -> None:
         """Create a new Arc automation via Console UI.
 
-        Args:
-            name: The name for the new Arc automation.
-            source: The source code for the Arc.
+        :param name: The name for the new Arc automation.
+        :param source: The source code for the Arc.
         """
         self._show_arc_panel()
 
