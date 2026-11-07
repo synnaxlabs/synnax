@@ -13,7 +13,7 @@ import synnax as sy
 # See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
-dev = client.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289", one=True)
 
 # Create an index channel that will be used to store the timestamps
 # for the digital read data.

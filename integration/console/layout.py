@@ -388,7 +388,7 @@ class LayoutClient:
         input_field = (
             self.page.locator(f"text={input_label}")
             .locator("..")
-            .locator("input")
+            .locator("input, textarea")
             .first
         )
         input_field.wait_for(state="attached", timeout=5000)
@@ -399,7 +399,7 @@ class LayoutClient:
         input_field = (
             self.page.locator(f"text={input_label}")
             .locator("..")
-            .locator("input")
+            .locator("input, textarea")
             .first
         )
         input_field.wait_for(state="attached", timeout=5000)

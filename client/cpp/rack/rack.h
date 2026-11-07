@@ -21,6 +21,7 @@
 #include "client/cpp/rack/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/json/json.h"
 
 #include "core/pkg/api/rack/pb/rack.pb.h"
@@ -70,14 +71,6 @@ inline std::uint16_t rack_key_node(const Key key) {
     return key >> 16;
 }
 
-/// @brief Options for retrieving racks.
-struct RetrieveOptions {
-    /// @brief When true, the server joins each rack's current operational
-    /// status from the Status service and returns it on the retrieved rack.
-    /// Leave false for lighter-weight reads that don't need live status.
-    bool include_status = false;
-};
-
 /// @brief Client for managing racks in a Synnax cluster.
 class Client {
 public:
@@ -105,40 +98,42 @@ public:
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> create(const std::string &name) const;
 
-    /// @brief Retrieves a rack by its key.
-    /// @param key The key of the rack to retrieve.
-    /// @returns A pair containing the retrieved rack and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Rack, x::errors::Error> retrieve(std::uint32_t key) const;
-
-    /// @brief Retrieves a rack by its key with options.
-    /// @param key The key of the rack to retrieve.
-    /// @param options Options controlling which optional fields the server
-    /// joins onto the returned rack (e.g. its current operational status).
-    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    /// @brief retrieves the rack with the given key.
+    /// @param key the key of the rack.
+    /// @param options the options of the retrieve.
+    /// @returns the rack, and an error that matches NOT_FOUND when no rack has the key.
     [[nodiscard]]
     std::pair<Rack, x::errors::Error>
-    retrieve(std::uint32_t key, const RetrieveOptions &options) const;
+    retrieve(Key key, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves a rack by its name.
-    /// @param name The name of the rack to retrieve.
-    /// @returns A pair containing the retrieved rack and an error if one occurred.
-    [[nodiscard]]
-    std::pair<Rack, x::errors::Error> retrieve(const std::string &name) const;
-
-    /// @brief Retrieves a rack by its name with options.
-    /// @param name The name of the rack to retrieve.
-    /// @param options Options controlling which optional fields the server
-    /// joins onto the returned rack (e.g. its current operational status).
-    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    /// @brief retrieves the rack with the given name.
+    /// @param name the name of the rack.
+    /// @param options the options of the retrieve.
+    /// @returns the rack, and an error that matches NOT_FOUND when no rack has the
+    /// name, or MULTIPLE_RESULTS when more than one does.
     [[nodiscard]]
     std::pair<Rack, x::errors::Error>
-    retrieve(const std::string &name, const RetrieveOptions &options) const;
+    retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves the racks that req selects.
+    /// @brief retrieves the racks that where selects.
+    /// @param where the filter that the racks match. An empty filter matches all racks.
+    /// @param options the options of the retrieve.
     [[nodiscard]]
     std::pair<std::vector<Rack>, x::errors::Error>
-    retrieve(const RetrieveRequest &req) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one rack that where selects.
+    /// @param where the filter that the rack matches.
+    /// @param options the options of the retrieve.
+    /// @returns the rack, and an error that matches NOT_FOUND when no rack matches,
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
+    /// or an offset.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
@@ -148,8 +143,11 @@ public:
 
 private:
     [[nodiscard]]
-    std::pair<Rack, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    std::pair<Rack, x::errors::Error> retrieve_one(
+        const Where &where,
+        const RetrieveOptions &options,
+        const std::string &query
+    ) const;
 
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;

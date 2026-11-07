@@ -336,6 +336,32 @@ describe("encoder", () => {
     });
   });
 
+  describe("series views", () => {
+    it("should encode only the samples of a sub-series", () => {
+      const codec = new Codec([1], [DataType.INT32]);
+      const sub = new Series(new Int32Array([1, 2, 3, 4, 5])).sub(1, 3);
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [sub])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([2, 3]);
+    });
+
+    it("should encode only the written samples of an allocated series", () => {
+      const codec = new Codec([1], [DataType.FLOAT64]);
+      const s = Series.alloc({ capacity: 10, dataType: DataType.FLOAT64 });
+      s.write(new Series(new Float64Array([1.5, 2.5])));
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [s])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([1.5, 2.5]);
+    });
+
+    it("should encode only the samples of a subarray", () => {
+      const codec = new Codec([1], [DataType.UINT8]);
+      const data = new Uint8Array([9, 8, 7, 6]).subarray(2);
+      const decoded = codec.decode(
+        codec.encode(new framer.Frame([1], [new Series(data)])),
+      );
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([7, 6]);
+    });
+  });
+
   describe("alignment multiples", () => {
     const MULTIPLES_PRESENT_BIT = 1 << 6;
     const EXTENDED_BIT = 1 << 7;

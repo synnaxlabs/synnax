@@ -46,6 +46,9 @@ struct StatusDetails {
     ::synnax::rack::Key rack = 0;
     /// @brief device is the device identifier.
     Key device;
+    /// @brief connected is true while the Driver confirms that it can reach the device.
+    /// A device whose state is unknown is not connected.
+    bool connected = false;
     /// @brief data contains device-specific status data.
     std::optional<x::json::json::object_t> data;
 
@@ -117,6 +120,20 @@ struct Where {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching devices to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+    /// @brief include_parent includes the parent of each record.
+    bool include_parent = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve devices.
 struct RetrieveRequest {
     /// @brief where selects the devices to retrieve. An absent where selects all of
@@ -132,6 +149,18 @@ struct RetrieveRequest {
     bool include_status = false;
     /// @brief include_parent includes the parent of each record.
     bool include_parent = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+            .include_parent = options.include_parent,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

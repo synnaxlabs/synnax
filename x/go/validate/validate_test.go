@@ -115,6 +115,31 @@ var _ = Describe("Validate", func() {
 		})
 	})
 
+	Describe("Failing checks", func() {
+		It("Should keep the Ternary message and path", func() {
+			v.Ternary("parent.childField", true, "100% wrong")
+			Expect(v.Error()).To(MatchError("parent.child_field: 100% wrong"))
+			var pathErr validate.PathError
+			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
+		})
+
+		It("Should keep the Ternaryf message and path", func() {
+			v.Ternaryf("parent.childField", true, "invalid value: %v", 12)
+			Expect(v.Error()).To(MatchError("parent.child_field: invalid value: 12"))
+			var pathErr validate.PathError
+			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
+		})
+
+		It("Should keep an earlier failure through a passing check", func() {
+			v.Ternary("first", true, "failed")
+			Expect(v.Ternary("second", false, "passed")).To(BeTrue())
+			Expect(v.Ternaryf("third", false, "passed: %d", 1)).To(BeTrue())
+			Expect(v.Error()).To(MatchError("first: failed"))
+		})
+	})
+
 	Describe("Validation Helpers", func() {
 		Describe("NotNil", func() {
 			It("Should validate non-nil values", func() {
