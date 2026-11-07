@@ -94,11 +94,8 @@ class Schematic(ConsolePage):
     def create_symbol(self, symbol: _SymbolT) -> _SymbolT:
         """Add a symbol to the schematic and configure it.
 
-        Args:
-            symbol: Symbol instance to add to the schematic
-
-        Returns:
-            The configured symbol instance
+        :param symbol: Symbol instance to add to the schematic
+        :returns: The configured symbol instance
 
         Example:
             valve = Valve(
@@ -119,11 +116,8 @@ class Schematic(ConsolePage):
         Use this to get a reference to a symbol that was already created
         (e.g., when opening a schematic as a different user).
 
-        Args:
-            symbol: Symbol instance with label set (not yet attached to schematic).
-
-        Returns:
-            The same symbol, now attached to the existing schematic node.
+        :param symbol: Symbol instance with label set (not yet attached to schematic).
+        :returns: The same symbol, now attached to the existing schematic node.
         """
         symbol.page = self.page
         symbol.layout = self.layout
@@ -139,9 +133,8 @@ class Schematic(ConsolePage):
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
 
-        Returns:
-            List of writer names currently shown in the legend.
-            Returns empty list if legend is not visible.
+        :returns: List of writer names currently shown in the legend. Returns empty list
+            if legend is not visible.
         """
         legend = self.page.locator(".pluto-legend")
         if legend.count() == 0 or not legend.is_visible():
@@ -160,17 +153,14 @@ class Schematic(ConsolePage):
         """
         Align multiple symbols using the schematic alignment controls.
 
-        Args:
-            symbols: List of symbols to align (must have at least 2 symbols)
-            alignment: The alignment type to apply
-            tolerance: Maximum allowed difference in pixels for assertion
-                - Default: 3.0 for edge alignments (left/right/top/bottom)
-                - Default: 15.0 for center alignments (horizontal/vertical)
-
-        Raises:
-            ValueError: If fewer than 2 symbols are provided
-            AssertionError: If symbols are not properly aligned within tolerance after
-                alignment
+        :param symbols: List of symbols to align (must have at least 2 symbols)
+        :param alignment: The alignment type to apply
+        :param tolerance: Maximum allowed difference in pixels for assertion. Defaults
+            to 3.0 for edge alignments (left/right/top/bottom) and 15.0 for center
+            alignments (horizontal/vertical).
+        :raises ValueError: If fewer than 2 symbols are provided
+        :raises AssertionError: If symbols are not properly aligned within tolerance
+            after alignment
         """
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment")
@@ -208,17 +198,14 @@ class Schematic(ConsolePage):
         """
         Distribute multiple symbols evenly using the schematic distribution controls.
 
-        Args:
-            symbols: List of symbols to distribute (must have at least 3 symbols)
-            distribution: The distribution type to apply ('horizontal' or 'vertical')
-            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0
-                for horizontal, 20.0 for vertical)
-
-        Raises:
-            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to
-                distribute)
-            AssertionError: If symbols are not evenly distributed within tolerance after
-                distribution
+        :param symbols: List of symbols to distribute (must have at least 3 symbols)
+        :param distribution: The distribution type to apply ('horizontal' or 'vertical')
+        :param tolerance: Maximum allowed difference in spacing for assertion (default:
+            3.0 for horizontal, 20.0 for vertical)
+        :raises ValueError: If fewer than 3 symbols are provided (otherwise, nothing to
+            distribute)
+        :raises AssertionError: If symbols are not evenly distributed within tolerance
+            after distribution
         """
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
@@ -249,14 +236,11 @@ class Schematic(ConsolePage):
         """
         Rotate multiple symbols using the schematic rotation controls.
 
-        Args:
-            symbols: List of symbols to rotate (must have at least 1 symbol)
-            direction: The rotation direction ('clockwise' or 'counterclockwise')
-            group: If True, rotate symbols around their group center. If False, rotate
-                each individually.
-
-        Raises:
-            ValueError: If no symbols are provided
+        :param symbols: List of symbols to rotate (must have at least 1 symbol)
+        :param direction: The rotation direction ('clockwise' or 'counterclockwise')
+        :param group: If True, rotate symbols around their group center. If False,
+            rotate each individually.
+        :raises ValueError: If no symbols are provided
         """
         if len(symbols) < 1:
             raise ValueError("At least 1 symbol is required for rotation")
@@ -357,8 +341,7 @@ class Schematic(ConsolePage):
 
         An edge must be selected first (see select_edge).
 
-        Args:
-            variant: The display name of the edge variant (e.g. "Electric signal").
+        :param variant: The display name of the edge variant (e.g. "Electric signal").
         """
         self.layout.show_visualization_toolbar()
         self.page.get_by_text("Properties", exact=True).first.click()
@@ -510,8 +493,7 @@ class Schematic(ConsolePage):
     def get_properties(self) -> Properties:
         """Get the current properties of the schematic.
 
-        Returns:
-            Dict with control_authority and show_control_legend keys.
+        :returns: Dict with control_authority and show_control_legend keys.
         """
         self.layout.show_visualization_toolbar()
         self.notifications.close_all()

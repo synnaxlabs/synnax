@@ -26,7 +26,7 @@ class UnaryClient(Transport, Protocol):
         :param req: the request to issue to the server
         :param res_t: the response type expected from the server. Implementations can
             use this to validate the response.
-        :return: the response returned by the server.
+        :returns: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
         :raises Exception: any error returned by the server.
         """
@@ -47,7 +47,7 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
         :param req: the request to issue to the server
         :param res_t: the response from the server. Implementations can use this to
             validate the response.
-        :return: the response returned by the server.
+        :returns: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
         :raises Exception: any error returned by the server.
         """

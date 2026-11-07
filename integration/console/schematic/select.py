@@ -26,10 +26,9 @@ class Select(Symbol):
     ):
         """Initialize a select symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the select output
-            options: States to add as options
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the select output
+        :param options: States to add as options
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
@@ -74,8 +73,7 @@ class Select(Symbol):
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.
 
-        Args:
-            option_name: The display name of the option to select
+        :param option_name: The display name of the option to select
         """
         self._disable_edit_mode()
         self.notifications.close_all()

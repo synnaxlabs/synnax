@@ -206,9 +206,8 @@ class Client:
     def assign(self, *, user: UUID, role: UUID) -> None:
         """Assign a role to a user.
 
-        Args:
-            user: The UUID of the user to assign the role to
-            role: The UUID of the role to assign
+        :param user: The UUID of the user to assign the role to
+        :param role: The UUID of the role to assign
         """
         req = _AssignRequest(user=user, role=role)
         self._client.send("/access/role/assign", req, Empty)
@@ -216,9 +215,8 @@ class Client:
     def unassign(self, *, user: UUID, role: UUID) -> None:
         """Remove a role from a user.
 
-        Args:
-            user: The UUID of the user to unassign the role from
-            role: The UUID of the role to unassign
+        :param user: The UUID of the user to unassign the role from
+        :param role: The UUID of the role to unassign
         """
         req = _UnassignRequest(user=user, role=role)
         self._client.send("/access/role/unassign", req, Empty)

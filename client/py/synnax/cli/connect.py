@@ -32,7 +32,7 @@ def prompt_client_options(ctx: Context) -> Options:
     """Prompts the user for the parameters to connect to a Synnax server.
 
     :param ctx: The context of the current flow.
-    :return: The options to connect to a Synnax server.
+    :returns: The options to connect to a Synnax server.
     """
     ctx.console.info("Enter your Synnax connection parameters:")
     host = ctx.console.ask("Host", default="localhost")

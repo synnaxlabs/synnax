@@ -43,10 +43,9 @@ def transform_value(
 ) -> JsonValue:
     """Recursively transform values, replacing config keys with synnax keys.
 
-    Args:
-        value: The value to transform
-        key_map: Mapping of config_key -> synnax_key
-        stats: Dictionary to track replacement statistics
+    :param value: The value to transform
+    :param key_map: Mapping of config_key -> synnax_key
+    :param stats: Dictionary to track replacement statistics
     """
     if isinstance(value, dict):
         return {

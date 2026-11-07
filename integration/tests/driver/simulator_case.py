@@ -73,8 +73,7 @@ class SimulatorCase(HardwareCase):
     def start_simulator(self, device_name: str | None = None) -> None:
         """Start (or restart) a simulator.
 
-        Args:
-            device_name: Target a specific sim. When None, restarts the primary sim.
+        :param device_name: Target a specific sim. When None, restarts the primary sim.
         """
         target = device_name or self.device_name
         old_sim = self.sims.get(target)
@@ -92,9 +91,8 @@ class SimulatorCase(HardwareCase):
     ) -> None:
         """Stop a simulator.
 
-        Args:
-            log: Whether to log cleanup.
-            device_name: Target a specific sim. When None, stops the primary sim.
+        :param log: Whether to log cleanup.
+        :param device_name: Target a specific sim. When None, stops the primary sim.
         """
         target = device_name or self.device_name
         sim = self.sims.get(target)

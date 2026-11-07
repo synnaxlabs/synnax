@@ -306,11 +306,8 @@ class LayoutClient:
     def check_for_errors(self, match: str) -> bool:
         """Check notifications for a specific error.
 
-        Args:
-            match: Substring to search for in the notification message.
-
-        Returns:
-            True if a matching error was found, False otherwise.
+        :param match: Substring to search for in the notification message.
+        :returns: True if a matching error was found, False otherwise.
         """
         for notification in self.notifications.check():
             if match.lower() in notification.message.lower():
@@ -586,8 +583,7 @@ class LayoutClient:
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
 
-        Args:
-            selector: Either a text string to search for, or a Playwright Locator
+        :param selector: Either a text string to search for, or a Playwright Locator
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
@@ -601,8 +597,7 @@ class LayoutClient:
     def meta_click(self, selector: str | Locator) -> None:
         """Click an element with platform-appropriate modifier key held.
 
-        Args:
-            selector: Either a text string to search for, or a Playwright Locator
+        :param selector: Either a text string to search for, or a Playwright Locator
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
@@ -623,11 +618,8 @@ class LayoutClient:
         TODO: This is a workaround for overlapping elements in the Console UI.
         Once the underlying z-index bug is fixed, this method should be removed.
 
-        Args:
-            element: The Playwright Locator to bring to front
-
-        Yields:
-            The same element, now with z-index set to 9999
+        :param element: The Playwright Locator to bring to front
+        :returns: A context that yields the same element, with z-index set to 9999
         """
         original_z_index = element.evaluate("el => el.style.zIndex || 'auto'")
         element.evaluate("el => el.style.zIndex = '9999'")
@@ -639,11 +631,8 @@ class LayoutClient:
     def get_tab(self, name: str) -> Locator:
         """Get a tab locator by its name.
 
-        Args:
-            name: The name/title of the tab to find
-
-        Returns:
-            Locator for the tab element
+        :param name: The name/title of the tab to find
+        :returns: Locator for the tab element
         """
         return (
             self.page.locator(self.TAB_SELECTOR)
@@ -712,19 +701,15 @@ class LayoutClient:
     def get_tombstone(self, name: str) -> Locator:
         """Get the tombstone a deleted resource's tab shows in place of content.
 
-        Args:
-            name: The name the resource had when it was deleted
-
-        Returns:
-            Locator for the tombstone element
+        :param name: The name the resource had when it was deleted
+        :returns: Locator for the tombstone element
         """
         return self.page.get_by_role("group", name=f"{name} was deleted", exact=True)
 
     def restore_tombstone(self, name: str) -> None:
         """Click Restore on a deleted resource's tombstone.
 
-        Args:
-            name: The name the resource had when it was deleted
+        :param name: The name the resource had when it was deleted
         """
         tombstone = self.get_tombstone(name)
         tombstone.get_by_role("button", name="Restore", exact=True).click()
@@ -732,8 +717,7 @@ class LayoutClient:
     def close_tombstone(self, name: str) -> None:
         """Click Close on a deleted resource's tombstone.
 
-        Args:
-            name: The name the resource had when it was deleted
+        :param name: The name the resource had when it was deleted
         """
         tombstone = self.get_tombstone(name)
         tombstone.get_by_role("button", name="Close", exact=True).click()
@@ -757,8 +741,7 @@ class LayoutClient:
     def wait_for_tab(self, name: str) -> None:
         """Wait for a tab to be visible.
 
-        Args:
-            name: The name/title of the tab to wait for.
+        :param name: The name/title of the tab to wait for.
         """
         self.get_tab(name).wait_for(state="visible", timeout=5000)
 
@@ -769,8 +752,7 @@ class LayoutClient:
         - Click close button (X)
         - Context menu -> Close
 
-        Args:
-            name: Name of the tab to close
+        :param name: Name of the tab to close
         """
         self.close_left_toolbar()
         tab = self.get_tab(name)
@@ -795,9 +777,8 @@ class LayoutClient:
         - Double-click on tab name
         - Context menu -> Rename
 
-        Args:
-            old_name: Current name of the tab
-            new_name: New name for the tab
+        :param old_name: Current name of the tab
+        :param new_name: New name for the tab
         """
         self.close_left_toolbar()
         tab = self.get_tab(old_name)
@@ -840,8 +821,7 @@ class LayoutClient:
     def split_horizontal(self, tab_name: str) -> None:
         """Split a leaf horizontally via context menu.
 
-        Args:
-            tab_name: Name of the tab to split
+        :param tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
         self.ctx_menu.action(tab, "Split horizontally", exact=False)
@@ -849,8 +829,7 @@ class LayoutClient:
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
 
-        Args:
-            tab_name: Name of the tab to split
+        :param tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
         self.ctx_menu.action(tab, "Split vertically", exact=False)
@@ -858,8 +837,7 @@ class LayoutClient:
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
 
-        Args:
-            tab_name: Name of the tab to focus
+        :param tab_name: Name of the tab to focus
         """
         self.close_left_toolbar()
         # Focus is a session action, not a panel write, so it must work on tabs
@@ -912,24 +890,21 @@ class LayoutClient:
     def wait_for_visible(self, locator: Locator) -> None:
         """Wait for a locator to become visible.
 
-        Args:
-            locator: The Playwright Locator to wait for.
+        :param locator: The Playwright Locator to wait for.
         """
         locator.wait_for(state="visible", timeout=5000)
 
     def wait_for_hidden(self, locator: Locator) -> None:
         """Wait for a locator to become hidden.
 
-        Args:
-            locator: The Playwright Locator to wait for.
+        :param locator: The Playwright Locator to wait for.
         """
         locator.wait_for(state="hidden", timeout=5000)
 
     def press_key(self, key: str) -> None:
         """Press a keyboard key.
 
-        Args:
-            key: The key to press (e.g., "Enter", "Escape", "ControlOrMeta+a").
+        :param key: The key to press (e.g., "Enter", "Escape", "ControlOrMeta+a").
         """
         self.page.keyboard.press(key)
 
@@ -959,52 +934,41 @@ class LayoutClient:
     def type_text(self, text: str) -> None:
         """Type text using the keyboard.
 
-        Args:
-            text: The text to type.
+        :param text: The text to type.
         """
         self.page.keyboard.type(text)
 
     def get_by_text(self, text: str, *, exact: bool = False) -> Locator:
         """Get a locator for an element containing the specified text.
 
-        Args:
-            text: The text to search for.
-            exact: If True, match the exact text. If False, match substring.
-
-        Returns:
-            A Playwright Locator for the element.
+        :param text: The text to search for.
+        :param exact: If True, match the exact text. If False, match substring.
+        :returns: A Playwright Locator for the element.
         """
         return self.page.get_by_text(text, exact=exact)
 
     def click_role(self, role: AriaRole, name: str, *, exact: bool = False) -> None:
         """Click on an element by its ARIA role and accessible name.
 
-        Args:
-            role: The ARIA role (e.g., "button", "checkbox", "textbox").
-            name: The accessible name of the element.
-            exact: If True, match the name exactly.
+        :param role: The ARIA role (e.g., "button", "checkbox", "textbox").
+        :param name: The accessible name of the element.
+        :param exact: If True, match the name exactly.
         """
         self.page.get_by_role(role, name=name, exact=exact).click()
 
     def locator(self, selector: str) -> Locator:
         """Create a locator for the given CSS selector.
 
-        Args:
-            selector: CSS selector string.
-
-        Returns:
-            A Playwright Locator for the element(s).
+        :param selector: CSS selector string.
+        :returns: A Playwright Locator for the element(s).
         """
         return self.page.locator(selector)
 
     def wait_for_selector_visible(self, selector: str) -> Locator:
         """Wait for a selector to become visible and return its locator.
 
-        Args:
-            selector: CSS selector string.
-
-        Returns:
-            A Playwright Locator for the visible element.
+        :param selector: CSS selector string.
+        :returns: A Playwright Locator for the visible element.
         """
         loc = self.page.locator(selector)
         loc.wait_for(state="visible", timeout=5000)
@@ -1013,24 +977,21 @@ class LayoutClient:
     def wait_for_selector_hidden(self, selector: str) -> None:
         """Wait for a selector to become hidden.
 
-        Args:
-            selector: CSS selector string.
+        :param selector: CSS selector string.
         """
         self.page.locator(selector).wait_for(state="hidden", timeout=5000)
 
     def sleep(self, ms: int) -> None:
         """Wait for a specified number of milliseconds.
 
-        Args:
-            ms: The number of milliseconds to wait.
+        :param ms: The number of milliseconds to wait.
         """
         self.page.wait_for_timeout(ms)
 
     def read_clipboard(self) -> str:
         """Read text from the clipboard.
 
-        Returns:
-            The clipboard text.
+        :returns: The clipboard text.
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
@@ -1103,9 +1064,9 @@ class LayoutClient:
     def show_toolbar(self, shortcut_key: str, *, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.
 
-        Args:
-            shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
-            item_prefix: The ID prefix of items in the panel (e.g., "rack:", "role:").
+        :param shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
+        :param item_prefix: The ID prefix of items in the panel (e.g., "rack:",
+            "role:").
         """
         items = self.page.locator(f"div[id^='{item_prefix}']")
         if items.count() > 0 and items.first.is_visible():
@@ -1205,8 +1166,8 @@ class LayoutClient:
         Triggers "Rename" from the context menu, which turns the item's name into an
         editable text element, then types the new name and commits it.
 
-        Args:
-            item: The Locator for the element to rename. new_name: The new name to set.
+        :param item: The Locator for the element to rename.
+        :param new_name: The new name to set.
         """
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Rename")
@@ -1219,9 +1180,8 @@ class LayoutClient:
     def open_modal(self, command: str, *, selector: str) -> None:
         """Open a modal via command palette.
 
-        Args:
-            command: The command to execute in the palette.
-            selector: CSS selector for the modal to wait for.
+        :param command: The command to execute in the palette.
+        :param selector: CSS selector for the modal to wait for.
         """
         self.command_palette(command)
         self.page.locator(selector).wait_for(state="visible", timeout=5000)
@@ -1229,8 +1189,7 @@ class LayoutClient:
     def close_modal(self, selector: str) -> None:
         """Close a modal via close button.
 
-        Args:
-            selector: CSS selector for the modal to wait for hidden.
+        :param selector: CSS selector for the modal to wait for hidden.
         """
         close_btn = (
             self.page.locator(self.MODAL_SELECTOR)

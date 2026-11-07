@@ -49,8 +49,9 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
 The universal body-comment and doc-comment rules in the root AGENTS.md apply. Python
 form: Sphinx/reST field style in triple-quoted docstrings. Fields: `:param name:`,
-`:returns:` (not `:return:`), `:raises Type:`. Never Google `Args:`/`Returns:` style.
-Never put types in docstrings; signatures carry them.
+`:returns:` (not `:return:`), `:raises Type:`. Never Google `Args:`/`Returns:` style;
+`scripts/check_docstrings_py.py` fails CI on it. Never put types in docstrings;
+signatures carry them.
 
 ```python
 def create(self, name: str) -> Channel:

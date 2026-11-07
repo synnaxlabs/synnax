@@ -161,17 +161,15 @@ def assert_rotation(
         - Checks that the spatial arrangement has changed according to 90-degree
           rotation
 
-    Args:
-        symbols: List of symbols that were rotated
-        initial_positions: List of Box objects before rotation (from symbol.position)
-        direction: The rotation direction ('clockwise' or 'counterclockwise')
-        group: If True, expects group rotation. If False, expects individual rotation.
-        tolerance: Maximum allowed difference in pixels for position comparisons
-            (default: 3.0)
-
-    Raises:
-        ValueError: If the number of symbols doesn't match initial_positions
-        AssertionError: If rotation was not applied correctly
+    :param symbols: List of symbols that were rotated
+    :param initial_positions: List of Box objects before rotation (from symbol.position)
+    :param direction: The rotation direction ('clockwise' or 'counterclockwise')
+    :param group: If True, expects group rotation. If False, expects individual
+        rotation.
+    :param tolerance: Maximum allowed difference in pixels for position comparisons
+        (default: 3.0)
+    :raises ValueError: If the number of symbols doesn't match initial_positions
+    :raises AssertionError: If rotation was not applied correctly
     """
     if len(symbols) != len(initial_positions):
         raise ValueError(

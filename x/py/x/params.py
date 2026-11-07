@@ -43,13 +43,11 @@ def require_named_params(
     Decorator that catches TypeError exceptions related to positional arguments
     and re-raises them with a more helpful error message.
 
-    Args:
-        func: The function to decorate
-        example_params: Optional tuple of (param_name, param_value) to show in the
-            error message. Example: example_params=("user_id", "12345")
-
-    Returns:
-        The decorated function with improved error messages for positional arguments
+    :param func: The function to decorate
+    :param example_params: Optional tuple of (param_name, param_value) to show in the
+        error message. Example: example_params=("user_id", "12345")
+    :returns: The decorated function with improved error messages for positional
+        arguments
     """
 
     def decorator(f: Callable[P, R]) -> Callable[P, R]:

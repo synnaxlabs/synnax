@@ -95,10 +95,9 @@ class Symbol(ABC):
         The symbol is not yet attached to a schematic. Call
         schematic.create_symbol(symbol) to add it to the schematic.
 
-        Args:
-            label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
-            rotatable: Whether the symbol can be rotated (default: False)
+        :param label: Display label for the symbol
+        :param symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
+        :param rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
             raise ValueError("Label cannot be empty")
@@ -113,8 +112,7 @@ class Symbol(ABC):
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
-        Args:
-            layout: LayoutClient for UI interactions (includes notifications)
+        :param layout: LayoutClient for UI interactions (includes notifications)
         """
         from console.schematic.symbol_toolbar import SymbolToolbar
 
@@ -236,8 +234,7 @@ class Symbol(ABC):
     def position(self) -> FloatRect:
         """Get the symbol's bounding box for alignment checks.
 
-        Raises:
-            RuntimeError: If the symbol's bounding box cannot be retrieved
+        :raises RuntimeError: If the symbol's bounding box cannot be retrieved
         """
         box = self.locator.bounding_box()
         if not box:
@@ -271,11 +268,8 @@ class Symbol(ABC):
         Subclasses should call super().get_properties(tab="TabName") to open the correct
         tab.
 
-        Args:
-            tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
-
-        Returns:
-            Empty dict - subclasses should populate with actual properties
+        :param tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
+        :returns: Empty dict - subclasses should populate with actual properties
         """
         self.click()
         self.open_properties_tab()

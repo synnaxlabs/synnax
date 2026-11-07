@@ -44,10 +44,9 @@ class Table(ConsolePage):
     ) -> None:
         """Set a cell to display a channel's telemetry value.
 
-        Args:
-            channel_name: Name of the channel to display
-            row: Row index (0-based)
-            col: Column index (0-based)
+        :param channel_name: Name of the channel to display
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
         """
         self._get_cell(row, col).click()
         self.set_toolbar_variant("Value")
@@ -58,12 +57,9 @@ class Table(ConsolePage):
     def get_cell_channel(self, row: int = 0, col: int = 0) -> str:
         """Get the channel name displayed in a cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The channel name or empty string if not set
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The channel name or empty string if not set
         """
         self._select_cell(row, col)
         self.page.get_by_role("tab", name="Telemetry", exact=True).click()
@@ -75,12 +71,9 @@ class Table(ConsolePage):
     def get_cell_text(self, row: int = 0, col: int = 0) -> str:
         """Get the text content of a text cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The text value of the cell
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The text value of the cell
         """
         self._select_cell(row, col)
         text_input = self.page.locator("text=Text").locator("..").locator("input").first
@@ -89,26 +82,20 @@ class Table(ConsolePage):
     def has_text(self, text: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a text cell contains the given text.
 
-        Args:
-            text: Text to check for
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            True if the cell text matches
+        :param text: Text to check for
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: True if the cell text matches
         """
         return self.get_cell_text(row, col) == text
 
     def has_channel(self, channel_name: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a channel is shown in a cell.
 
-        Args:
-            channel_name: Name of the channel to check
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            True if the channel is displayed in the cell
+        :param channel_name: Name of the channel to check
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: True if the channel is displayed in the cell
         """
         return channel_name in self.get_cell_channel(row, col)
 
@@ -127,9 +114,8 @@ class Table(ConsolePage):
     def delete_row(self, row: int, *, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based) of the cell to right-click
+        :param row: Row index (0-based)
+        :param col: Column index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
         self.ctx_menu.action(cell, f"Delete row {row + 1}")
@@ -137,9 +123,8 @@ class Table(ConsolePage):
     def delete_column(self, col: int, *, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
 
-        Args:
-            col: Column index (0-based) of the column to delete
-            row: Row index (0-based) of the cell to right-click
+        :param col: Column index (0-based) of the column to delete
+        :param row: Row index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
         letter = chr(ord("A") + col)
@@ -150,11 +135,10 @@ class Table(ConsolePage):
 
         The cell must already be set to "Value" variant with a channel configured.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-            threshold: Lowest value the band paints. It must exceed every existing
-                threshold, since a new band is added at the bottom of the list.
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :param threshold: Lowest value the band paints. It must exceed every existing
+            threshold, since a new band is added at the bottom of the list.
         """
         bands = self._open_redline_bands(row, col)
         self.page.locator(".pluto-redline-form").get_by_text(
@@ -167,12 +151,9 @@ class Table(ConsolePage):
     def get_redline_thresholds(self, row: int, col: int) -> list[str]:
         """Get the band thresholds of a value cell's redline, lowest first.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The threshold of each band as shown in its input
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The threshold of each band as shown in its input
         """
         inputs = self._open_redline_bands(row, col).locator(".lyra-list__item input")
         return [inputs.nth(i).input_value() for i in range(inputs.count())]
@@ -194,12 +175,9 @@ class Table(ConsolePage):
     def _get_cell(self, row: int, col: int) -> Locator:
         """Get a locator for a specific cell in the table.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            Locator for the cell element
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: Locator for the cell element
         """
         cells = self.page.locator(".pluto-table__cell")
         cell_index = row * self.get_column_count() + col

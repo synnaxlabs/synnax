@@ -54,9 +54,8 @@ class StatusesClient(ResourceClient):
     ) -> None:
         """Create a new status via the command palette.
 
-        Args:
-            name: The name for the new status.
-            labels: Optional list of label names to attach.
+        :param name: The name for the new status.
+        :param labels: Optional list of label names to attach.
         """
         self.layout.command_palette("Create status")
         modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
@@ -97,11 +96,8 @@ class StatusesClient(ResourceClient):
     def get_labels_in_explorer(self, name: str) -> list[str]:
         """Get the label names displayed on a status item in the explorer.
 
-        Args:
-            name: The status name to look up.
-
-        Returns:
-            List of label name strings displayed as tags on the status item.
+        :param name: The status name to look up.
+        :returns: List of label name strings displayed as tags on the status item.
         """
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
@@ -155,24 +151,21 @@ class StatusesClient(ResourceClient):
     def select_explorer_variant_filter(self, variant_name: str) -> None:
         """Select a variant in the explorer's variant filter dropdown.
 
-        Args:
-            variant_name: The display name of the variant (e.g. "Error", "Success").
+        :param variant_name: The display name of the variant (e.g. "Error", "Success").
         """
         self.views.select_filter("Variants", variant_name)
 
     def clear_explorer_variant_filter(self, variant_name: str) -> None:
         """Remove a variant from the active filter by clicking its chip close button.
 
-        Args:
-            variant_name: The display name of the variant to remove.
+        :param variant_name: The display name of the variant to remove.
         """
         self.views.clear_filter(variant_name)
 
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
 
-        Args:
-            label_name: The name of the label to filter by.
+        :param label_name: The name of the label to filter by.
         """
         self.views.select_filter("Labels", label_name)
 

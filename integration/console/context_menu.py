@@ -35,19 +35,15 @@ class ContextMenu:
     def __init__(self, page: Page):
         """Initialize the context menu helper.
 
-        Args:
-            page: Playwright Page instance.
+        :param page: Playwright Page instance.
         """
         self.page = page
 
     def open_on(self, element: Locator) -> "ContextMenu":
         """Right-click to open context menu.
 
-        Args:
-            element: The Playwright Locator to right-click on.
-
-        Returns:
-            Self for method chaining.
+        :param element: The Playwright Locator to right-click on.
+        :returns: Self for method chaining.
         """
         element.click(button="right")
         menu = self.page.get_by_role("menu").first
@@ -62,12 +58,9 @@ class ContextMenu:
     def _find_option(self, text: str, *, exact: bool) -> Locator | None:
         """Resolve a menu item by its label, ignoring any trigger-key badge.
 
-        Args:
-            text: The label of the menu option to find.
-            exact: Whether to match the label exactly or as a substring.
-
-        Returns:
-            Locator for the matching menu item, or None when absent.
+        :param text: The label of the menu option to find.
+        :param exact: Whether to match the label exactly or as a substring.
+        :returns: Locator for the matching menu item, or None when absent.
         """
         items = self._visible_menu().get_by_role("menuitem")
         labels: list[str] = items.evaluate_all(_ITEM_LABELS_JS)
@@ -83,9 +76,8 @@ class ContextMenu:
         Waits up to 5s for the option to appear, then waits for the context
         menu to be hidden after clicking.
 
-        Args:
-            text: The text of the menu option to click.
-            exact: Whether to match text exactly.
+        :param text: The text of the menu option to click.
+        :param exact: Whether to match text exactly.
         """
         menu = self._visible_menu()
         deadline = time.monotonic() + 5
@@ -108,10 +100,9 @@ class ContextMenu:
     def action(self, element: Locator, action_text: str, *, exact: bool = True) -> None:
         """Right-click element and click action in one call.
 
-        Args:
-            element: The Playwright Locator to right-click on.
-            action_text: The text of the menu action to click.
-            exact: Whether to match text exactly.
+        :param element: The Playwright Locator to right-click on.
+        :param action_text: The text of the menu action to click.
+        :param exact: Whether to match text exactly.
         """
         self.open_on(element)
         self.click_option(action_text, exact=exact)
@@ -119,12 +110,9 @@ class ContextMenu:
     def has_option(self, text: str, *, exact: bool = True) -> bool:
         """Check if a menu option is visible and not disabled.
 
-        Args:
-            text: The text of the menu option to check.
-            exact: Whether to match text exactly.
-
-        Returns:
-            True if the option is visible and not disabled.
+        :param text: The text of the menu option to check.
+        :param exact: Whether to match text exactly.
+        :returns: True if the option is visible and not disabled.
         """
         option = self._find_option(text, exact=exact)
         if option is None or not option.is_visible():

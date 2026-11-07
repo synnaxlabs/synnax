@@ -70,8 +70,7 @@ class Client:
     def __init__(self, transport: UnaryClient) -> None:
         """Initialize the status client.
 
-        Args:
-            transport: The unary transport client to use for communication.
+        :param transport: The unary transport client to use for communication.
         """
         self.client = transport
 
@@ -99,12 +98,9 @@ class Client:
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Create or update a status.
 
-        Args:
-            status: A single status or list of statuses to create or update.
-            parent: Optional parent ontology ID for organizing the status.
-
-        Returns:
-            The created/updated status or list of statuses.
+        :param status: A single status or list of statuses to create or update.
+        :param parent: Optional parent ontology ID for organizing the status.
+        :returns: The created/updated status or list of statuses.
 
         Examples:
             Create a single status:
@@ -282,8 +278,7 @@ class Client:
         This operation is idempotent - deleting a non-existent status will not
         raise an error.
 
-        Args:
-            keys: A single key or list of keys to delete.
+        :param keys: A single key or list of keys to delete.
 
         Examples:
             Delete a single status:

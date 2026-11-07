@@ -124,11 +124,10 @@ def send_and_verify_commands(
     Automatically detects whether command channels are indexed (non-virtual)
     and includes timestamp writes for their index channels.
 
-    Args:
-        command_values: Two lists of values to send in each round, one value per
-            command key. If None, defaults to [42+i, ...] and [100+i, ...].
-        task_key: If set, also streams ``sy_status_set`` and fails if the
-            driver emits any warning or error status for this task.
+    :param command_values: Two lists of values to send in each round, one value per
+        command key. If None, defaults to [42+i, ...] and [100+i, ...].
+    :param task_key: If set, also streams ``sy_status_set`` and fails if the driver
+        emits any warning or error status for this task.
     """
     if command_values is None:
         command_values = [

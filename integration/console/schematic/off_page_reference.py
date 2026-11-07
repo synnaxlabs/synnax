@@ -24,9 +24,8 @@ class OffPageReference(Symbol):
     ):
         """Initialize an off-page reference symbol.
 
-        Args:
-            label: Display label for the symbol
-            page_name: Name of the target schematic page to navigate to
+        :param label: Display label for the symbol
+        :param page_name: Name of the target schematic page to navigate to
         """
         super().__init__(label=label, symbol_type="Off page", rotatable=False)
         self._page_name = page_name
@@ -55,8 +54,7 @@ class OffPageReference(Symbol):
     ) -> None:
         """Set off-page reference properties.
 
-        Args:
-            page_name: Name of the target schematic page to link to.
+        :param page_name: Name of the target schematic page to link to.
         """
         self.click()
 

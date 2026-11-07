@@ -285,8 +285,7 @@ class LinePlot(ConsoleCase):
     def test_copy_link(self, plot: Plot) -> str:
         """Test copying a link to the line plot via toolbar button.
 
-        Returns:
-            The full link to the plot.
+        :returns: The full link to the plot.
         """
         self.log("Testing copy link to line plot")
 
