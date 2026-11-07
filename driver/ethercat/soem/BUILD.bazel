@@ -90,6 +90,8 @@ cc_library(
     deps = [
         ":soem_api",
         "//x/cpp/binary",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
     ],
 )
 
@@ -110,6 +112,7 @@ cc_library(
         "//x/cpp/binary",
         "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/loop",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
     ],
@@ -123,6 +126,7 @@ cc_test(
         ":soem_mock_api",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

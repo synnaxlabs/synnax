@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
@@ -34,7 +35,7 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// @brief how long the master waits for the slaves.
+/// @brief how long, and on which clock, the master waits for the slaves.
 struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
     /// the PreopTimeout of the ESI files.
@@ -44,6 +45,9 @@ struct Config {
     /// @brief how long the clocks of the slaves in a DC mode get to settle on the
     /// reference clock before SYNC0 starts.
     x::telem::TimeSpan dc_settle_timeout = x::telem::SECOND * 2;
+    /// @brief the host clock that the master waits on and times process data sends
+    /// with.
+    x::loop::Clock clock = x::loop::host_clock();
 };
 
 /// @brief SOEM-based implementation of the Master interface.
@@ -85,10 +89,10 @@ class Master final : public master::Master {
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
     /// @brief the latest DC time that moved forward, in nanoseconds.
     int64_t last_dc_time = NO_DC_FRAME;
-    /// @brief the host steady clock time of the last process data send, in nanoseconds.
-    int64_t sent_at = 0;
-    /// @brief the DC time minus the host steady clock time, in nanoseconds, at the send
-    /// of the frame that gave last_dc_time.
+    /// @brief the Config::clock time of the last process data send.
+    std::chrono::steady_clock::time_point sent_at;
+    /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send of
+    /// the frame that gave last_dc_time.
     std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
     /// @brief whether the cycle holds process data back. A frame then carries only the
     /// reference clock time.

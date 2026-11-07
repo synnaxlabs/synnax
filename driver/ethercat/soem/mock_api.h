@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/soem/api.h"
 
@@ -164,13 +166,15 @@ public:
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
-    /// @brief when set, each send_processdata sets dc_time_value to the host steady
-    /// clock time plus this, in nanoseconds, like a reference clock that runs on.
+    /// @brief the host clock that the reference clock of host_dc_offset and
+    /// latch_receive_times run on.
+    x::loop::Clock clock = x::loop::host_clock();
+    /// @brief when set, each send_processdata sets dc_time_value to the clock time plus
+    /// this, in nanoseconds, like a reference clock that runs on.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
-    /// @brief the host steady clock time of the last latch_receive_times call, in
-    /// nanoseconds.
+    /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
     int64_t latched_at = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
@@ -180,11 +184,9 @@ public:
 private:
     uint8_t *iomap_ptr = nullptr;
 
-    static int64_t now() {
-        return std::chrono::duration_cast<std::chrono::nanoseconds>(
-                   std::chrono::steady_clock::now().time_since_epoch()
-        )
-            .count();
+    /// @brief returns the clock time in nanoseconds.
+    [[nodiscard]] int64_t now() const {
+        return x::telem::TimeSpan(this->clock.now().time_since_epoch()).nanoseconds();
     }
 
 public:

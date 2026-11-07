@@ -111,6 +111,14 @@ void expect_rate(Wait wait, const int rate_hz) {
         << "at " << rate_hz << " Hz";
 }
 
+/// @brief it should read and sleep on the host's steady clock.
+TEST(HostClock, SleepsOnTheSteadyClock) {
+    const auto clock = host_clock();
+    const auto start = clock.now();
+    clock.sleep(telem::MILLISECOND * 5);
+    EXPECT_GE(clock.now() - start, std::chrono::milliseconds(5));
+}
+
 /// @brief it should hold its period on each wait at a high rate.
 TEST(LoopTest, testWaitPrecise) {
     const auto rate = telem::HERTZ * 5000;

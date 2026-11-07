@@ -25,6 +25,7 @@
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
+#include "driver/ethercat/testutil/clock.h"
 
 namespace driver::ethercat::soem {
 namespace {
@@ -612,6 +613,30 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
+}
+
+/// @brief it should wait for a state change on the clock of its config, so a fake clock
+/// ends a one-minute timeout at once.
+TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
+    const testutil::SimClock clock;
+    auto api = std::make_unique<MockAPI>();
+    this->mock = api.get();
+    this->master = std::make_unique<Master>(
+        std::move(api),
+        "eth0",
+        Config{
+            .pre_op_timeout = x::telem::MILLISECOND * 100,
+            .state_change_timeout = x::telem::MINUTE,
+            .clock = clock.loop(),
+        }
+    );
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP;
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
 }
 
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP

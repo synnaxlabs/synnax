@@ -76,14 +76,6 @@ bool stopped(const x::breaker::Breaker *breaker) {
     return breaker != nullptr && !breaker->running();
 }
 
-/// @brief returns the host steady clock time in nanoseconds.
-int64_t steady_now() {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               std::chrono::steady_clock::now().time_since_epoch()
-    )
-        .count();
-}
-
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
@@ -265,7 +257,7 @@ x::errors::Error Master::activate(
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
-            std::chrono::steady_clock::now() + std::chrono::microseconds(timeout)
+            this->cfg.clock.now() + std::chrono::microseconds(timeout)
         ))
         return x::errors::Error(
             errors::STATE_CHANGE_ERROR,
@@ -329,7 +321,11 @@ x::errors::Error Master::receive() {
     if (const int64_t dc = this->api->dc_time();
         this->has_dc && dc > this->last_dc_time) {
         this->last_dc_time = dc;
-        this->host_dc_offset.store(dc - this->sent_at, std::memory_order_relaxed);
+        const x::telem::TimeSpan sent_at(this->sent_at.time_since_epoch());
+        this->host_dc_offset.store(
+            dc - sent_at.nanoseconds(),
+            std::memory_order_relaxed
+        );
     }
     return x::errors::NIL;
 }
@@ -355,7 +351,7 @@ x::errors::Error Master::send() {
         );
         return x::errors::NIL;
     }
-    const int64_t sent_at = steady_now();
+    const auto sent_at = this->cfg.clock.now();
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
@@ -1227,8 +1223,7 @@ x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const x::breaker::Breaker *breaker
 ) {
-    const auto deadline = std::chrono::steady_clock::now() +
-                          this->cfg.dc_settle_timeout.chrono();
+    const auto deadline = this->cfg.clock.now() + this->cfg.dc_settle_timeout.chrono();
     const x::errors::Error stop_err(
         errors::ACTIVATION_ERROR,
         "the bus stopped before the clocks settled"
@@ -1261,7 +1256,7 @@ x::errors::Error Master::wait_for_dc_settle(
         }
         if (worst <= DC_SETTLED_DIFF) return x::errors::NIL;
         if (stopped(breaker)) return stop_err;
-        if (std::chrono::steady_clock::now() >= deadline)
+        if (this->cfg.clock.now() >= deadline)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
@@ -1274,7 +1269,7 @@ x::errors::Error Master::wait_for_dc_settle(
                     DC_SETTLED_DIFF.to_string()
                 )
             );
-        std::this_thread::sleep_for(DC_SETTLE_POLL_INTERVAL.chrono());
+        this->cfg.clock.sleep(DC_SETTLE_POLL_INTERVAL);
     }
 }
 
@@ -1329,7 +1324,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 }
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
-    const int64_t latched_at = steady_now();
+    const x::telem::TimeSpan latched_at(this->cfg.clock.now().time_since_epoch());
     if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
@@ -1366,8 +1361,11 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
             errors::ACTIVATION_ERROR,
             "no frame has carried the DC time to set the clock from"
         );
-    return this
-        ->write_dc_register(pos, ECT_REG_DCSYSOFFSET, latched_at + offset - local);
+    return this->write_dc_register(
+        pos,
+        ECT_REG_DCSYSOFFSET,
+        latched_at.nanoseconds() + offset - local
+    );
 }
 
 x::errors::Error
@@ -1392,8 +1390,7 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
     }
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(timeout);
+    const auto deadline = this->cfg.clock.now() + std::chrono::microseconds(timeout);
     while (true) {
         this->api->readstate();
         std::vector<uint16_t> pending;
@@ -1409,9 +1406,8 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
             return this->refuses(pos, state);
         });
         if (!refused.empty()) return this->state_error(refused, state);
-        if (std::chrono::steady_clock::now() >= deadline)
-            return this->state_error(pending, state);
-        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+        if (this->cfg.clock.now() >= deadline) return this->state_error(pending, state);
+        this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
 }
 
@@ -1427,9 +1423,8 @@ bool Master::wait_for_frame(
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (std::chrono::steady_clock::now() >= deadline || stopped(breaker))
-            return false;
-        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+        if (this->cfg.clock.now() >= deadline || stopped(breaker)) return false;
+        this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
     return true;
 }

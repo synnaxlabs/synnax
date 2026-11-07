@@ -40,6 +40,17 @@ struct Clock {
     std::function<void(telem::TimeSpan)> sleep;
 };
 
+/// @brief returns the host's steady clock. Its sleep blocks the calling thread for the
+/// span.
+inline Clock host_clock() {
+    return {
+        .now = [] { return hs_clock::now(); },
+        .sleep = [](
+                     const telem::TimeSpan span
+                 ) { std::this_thread::sleep_for(span.chrono()); },
+    };
+}
+
 class Timer {
 public:
     Timer() = default;
