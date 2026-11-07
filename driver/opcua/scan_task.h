@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <string>
@@ -80,6 +81,11 @@ const std::string REGENERATE_CERTIFICATE_CMD_TYPE = "regenerate_certificate";
 /// @brief how often the Scanner offers the next Driver certificate to each server.
 inline const x::telem::TimeSpan RENEWAL_ATTEMPT_INTERVAL = x::telem::DAY;
 
+/// @brief how long a read_node command runs, from receipt, before it fails. The Console
+/// adds this to the time that it waits for a connection and one request.
+inline constexpr std::chrono::steady_clock::duration
+    READ_NODE_DEADLINE = std::chrono::seconds(20);
+
 /// @brief OPC UA scanner implementing the common::Scanner interface.
 /// Handles device health monitoring, node browsing, server certificate pinning, and
 /// renewal of the Driver certificate.
@@ -89,7 +95,8 @@ public:
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         std::shared_ptr<connection::Pool> conn_pool,
-        std::shared_ptr<certificate::Store> store
+        std::shared_ptr<certificate::Store> store,
+        std::chrono::steady_clock::duration read_node_deadline = READ_NODE_DEADLINE
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.
@@ -122,6 +129,7 @@ private:
     synnax::task::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
     std::shared_ptr<certificate::Store> store;
+    std::chrono::steady_clock::duration read_node_deadline;
     ScanTaskConfig cfg;
     /// @brief only scan() reads or writes it, since commands run on another thread.
     Renewal renewal;
@@ -137,7 +145,8 @@ private:
         const x::json::Parser &parser,
         const ScanCommandArgs &args,
         synnax::task::Status &status,
-        const std::string &failure
+        const std::string &failure,
+        std::chrono::steady_clock::time_point deadline
     ) const;
 
     /// @brief Browse child nodes of a given OPC UA node.

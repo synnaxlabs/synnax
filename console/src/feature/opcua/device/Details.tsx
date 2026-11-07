@@ -24,7 +24,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { math } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
-import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import { readNodeTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type Device } from "@/feature/opcua/device/types";
@@ -229,7 +229,7 @@ export const Details = ({
         type: READ_NODE_COMMAND_TYPE,
         args: { connection: properties.connection, node_id: nodeId, field },
         schema: nodeDetailsZ,
-        timeout: commandTimeout(properties.connection),
+        timeout: readNodeTimeout(properties.connection),
       });
       reading.current = read.catch(() => undefined);
       let next: State;
