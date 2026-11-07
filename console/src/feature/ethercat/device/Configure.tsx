@@ -23,7 +23,7 @@ import { deep, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
-import { useConfigure, useResultSlave } from "@/feature/ethercat/device/queries";
+import { useConfigure, useSlave } from "@/feature/ethercat/device/queries";
 import {
   autoIndex,
   choose,
@@ -79,14 +79,14 @@ const staleLabel = ({ index, assignActivate }: OpModeChoice): string =>
 
 interface ModeSelectProps {
   modes: OpMode[];
-  choice: OpModeChoice | null;
+  value: OpModeChoice | null;
   stale: boolean;
   onChange: (choice: OpModeChoice | null) => void;
 }
 
 const ModeSelect = ({
   modes,
-  choice,
+  value: choice,
   stale,
   onChange,
 }: ModeSelectProps): ReactElement => {
@@ -338,7 +338,7 @@ const Internal = ({
                 <Input.Item label="Mode" padHelpText={false}>
                   <ModeSelect
                     modes={modes}
-                    choice={choice}
+                    value={choice}
                     stale={stale}
                     onChange={setChoice}
                   />
@@ -412,8 +412,7 @@ const Internal = ({
 export const Configure = ({
   deviceKey,
   ...rest
-}: Device.ConfigureProps): ReactElement | null => {
-  const { data: slave } = useResultSlave({ key: deviceKey });
-  if (slave == null) return null;
+}: Device.ConfigureProps): ReactElement => {
+  const slave = useSlave({ key: deviceKey });
   return <Internal slave={slave} {...rest} />;
 };
