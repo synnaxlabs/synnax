@@ -13,21 +13,21 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
-import { useSyncModeModal } from "@/feature/ethercat/device/useSyncModeModal";
+import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 
-interface SyncModeItemProps {
+interface ConfigureItemProps {
   deviceKey: device.Key;
 }
 
-const SyncModeItem = ({ deviceKey }: SyncModeItemProps) => {
-  const openSyncMode = useSyncModeModal();
+const ConfigureItem = ({ deviceKey }: ConfigureItemProps) => {
+  const configure = useConfigureModal();
   return (
-    <Menu.Item itemKey="ethercat.syncMode" onClick={() => openSyncMode({ deviceKey })}>
-      <Icon.Time />
-      Set sync mode
+    <Menu.Item itemKey="ethercat.configure" onClick={() => configure({ deviceKey })}>
+      <Icon.Hardware />
+      Configure
     </Menu.Item>
   );
 };
@@ -65,7 +65,7 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       <Device.ConfigureMenuItem {...props} />
       <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       {FLAGS.ethercatSyncMode && hasUpdatePermission && keys.length === 1 && (
-        <SyncModeItem deviceKey={keys[0]} />
+        <ConfigureItem deviceKey={keys[0]} />
       )}
       <Menu.Divider />
       <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />

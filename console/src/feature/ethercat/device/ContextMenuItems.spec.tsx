@@ -161,11 +161,11 @@ const retrieveOpMode = async (key: device.Key) =>
   (await client.devices.retrieve({ key, schemas: EtherCAT.Device.SLAVE_SCHEMAS }))
     .properties.opMode;
 
-/** Opens the sync mode form from the menu of a slave with the given properties. */
-const openSyncMode = async (properties: Partial<EtherCAT.Device.SlaveProperties>) => {
+/** Opens the Configure dialog from the menu of a slave with the given properties. */
+const openConfigure = async (properties: Partial<EtherCAT.Device.SlaveProperties>) => {
   const slave = await createSlave(true, properties);
   await renderContextMenu([slave]);
-  fireEvent.click(await screen.findByText("Set sync mode"));
+  fireEvent.click(await screen.findByText("Configure"));
   await screen.findByText("Sync mode");
   return slave;
 };
@@ -262,16 +262,16 @@ describe("EtherCAT device ContextMenuItems", () => {
   });
 
   describe("sync mode", () => {
-    it("should offer Set sync mode for one slave but not for several", async () => {
+    it("should offer Configure for one slave but not for several", async () => {
       const slaveA = await createSlave(true);
       const slaveB = await createSlave(true);
       await renderContextMenu([slaveA, slaveB]);
       await screen.findByText("Disable");
-      expect(screen.queryByText("Set sync mode")).toBeNull();
+      expect(screen.queryByText("Configure")).toBeNull();
     });
 
     it("should save the chosen DC mode to the device", async () => {
-      const slave = await openSyncMode({ opModes: [SM_MODE, DC_MODE] });
+      const slave = await openConfigure({ opModes: [SM_MODE, DC_MODE] });
       expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
       await pickMode(DC_DESCRIPTION);
       expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
@@ -287,7 +287,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should hide the cycle fields when SM sync is picked", async () => {
-      await openSyncMode({ opModes: [SM_MODE, DC_MODE] });
+      await openConfigure({ opModes: [SM_MODE, DC_MODE] });
       await pickMode(DC_DESCRIPTION);
       expect(screen.getByRole("textbox", { name: "SYNC1 cycle" })).toBeTruthy();
       await pickMode(SM_DESCRIPTION);
@@ -295,7 +295,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should hide the cycle fields for a mode that takes no cycles", async () => {
-      await openSyncMode({ opModes: [DC_MODE, PDI_MODE, NO_SYNC0_MODE] });
+      await openConfigure({ opModes: [DC_MODE, PDI_MODE, NO_SYNC0_MODE] });
       expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
       await pickMode("The device sets its own clock ticks.");
       expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
@@ -304,7 +304,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should put the slave back in auto when the auto mode is picked", async () => {
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [SM_MODE, DC_MODE],
         opMode: { index: 1, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 },
       });
@@ -319,7 +319,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should run the first mode in auto when there is no SM mode", async () => {
-      await openSyncMode({ opModes: [FIXED_MODE, DC_MODE] });
+      await openConfigure({ opModes: [FIXED_MODE, DC_MODE] });
       expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
       expect(
@@ -333,7 +333,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     it.each(MODE_TEXTS)(
       "should describe the clock ticks of a mode with $name",
       async ({ mode, option, help }) => {
-        await openSyncMode({ opModes: [mode] });
+        await openConfigure({ opModes: [mode] });
         expect(screen.getByText(help)).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
         expect(await screen.findByText(option)).toBeTruthy();
@@ -341,7 +341,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     );
 
     it("should keep a cycle to the nanosecond", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "62.5");
       const sync0 = screen.getByRole("textbox", { name: "SYNC0 cycle" });
       expect(sync0).toHaveProperty("value", "62μs 500ns");
@@ -358,7 +358,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should put a cycle back to the mode's own when Auto is clicked", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "300");
       expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
       fireEvent.click(getIconButton(document.body, "auto"));
@@ -381,7 +381,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should say when a SYNC1 cycle turns on SYNC1", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC1 cycle", "1000000");
       expect(
         screen.getByText("The cycle turns on SYNC1, which the mode leaves off.", {
@@ -400,7 +400,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should not save a SYNC1 cycle that is not a multiple of SYNC0", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "300");
       typeCycle("SYNC1 cycle", "1000");
       expect(
@@ -413,7 +413,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should check SYNC1 against the fixed SYNC0 cycle of the mode", async () => {
-      const slave = await openSyncMode({ opModes: [FIXED_MODE] });
+      const slave = await openConfigure({ opModes: [FIXED_MODE] });
       typeCycle("SYNC1 cycle", "1000");
       expect(
         screen.getByText("SYNC1 cycle must be a multiple of the SYNC0 cycle"),
@@ -425,7 +425,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should not save a SYNC0 cycle over the limit of its register", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "5000000");
       expect(
         screen.getByText("SYNC0 cycle of 5s is over the limit of 4s 294ms 967μs 295ns"),
@@ -437,7 +437,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should not save a SYNC1 cycle over the limit of its register", async () => {
-      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      const slave = await openConfigure({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "1000000");
       typeCycle("SYNC1 cycle", "6000000");
       expect(
@@ -451,7 +451,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should not save a SYNC1 shift that puts SYNC1 before SYNC0", async () => {
       const mode = { ...createMode("DC (shift)", 0x0700), sync1Shift: -1000 };
-      const slave = await openSyncMode({ opModes: [mode] });
+      const slave = await openConfigure({ opModes: [mode] });
       typeCycle("SYNC0 cycle", "300");
       expect(
         screen.getByText("SYNC1 shift of -1μs is under the limit of 0s"),
@@ -463,7 +463,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should save auto with a warning on a mode with no SYNC0 cycle", async () => {
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [NO_CYCLE_MODE],
         opMode: {
           index: 0,
@@ -486,7 +486,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should not save a chosen mode that gives no SYNC0 cycle", async () => {
       const smChoice = { index: 0, assignActivate: 0, sync0Cycle: 0, sync1Cycle: 0 };
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [SM_MODE, NO_CYCLE_MODE],
         opMode: smChoice,
       });
@@ -514,7 +514,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should drop the cycles of a mode that takes none on save", async () => {
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [SM_MODE, PDI_MODE],
         opMode: {
           index: 1,
@@ -536,13 +536,13 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should show a mode the device no longer lists as an error", async () => {
-      await openSyncMode({ opModes: [DC_MODE], opMode: STALE_CHOICE });
+      await openConfigure({ opModes: [DC_MODE], opMode: STALE_CHOICE });
       expect(screen.getByText(STALE_ERROR)).toBeTruthy();
       expect(screen.getByText("Mode 2 (0x0700)")).toBeTruthy();
     });
 
     it("should not save a mode the device no longer lists", async () => {
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [SM_MODE, DC_MODE],
         opMode: STALE_CHOICE,
       });
@@ -554,7 +554,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should accept the mode now listed at a stale index", async () => {
-      const slave = await openSyncMode({
+      const slave = await openConfigure({
         opModes: [SM_MODE, DC_MODE],
         opMode: STALE_CHOICE,
       });

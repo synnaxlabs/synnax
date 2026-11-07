@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/ethercat/device/SyncMode.css";
+import "@/feature/ethercat/device/Configure.css";
 
 import { type device, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -222,12 +223,12 @@ const Help = ({ text, problem }: HelpProps): ReactElement => (
   </Text.Text>
 );
 
-interface FormProps {
+interface InternalProps {
   slave: SlaveDevice;
   close: () => void;
 }
 
-const Form = ({ slave, close }: FormProps): ReactElement => {
+const Internal = ({ slave, close }: InternalProps): ReactElement => {
   const [choice, setChoice] = useState<OpModeChoice | null>(
     () => slave.properties.opMode ?? null,
   );
@@ -258,48 +259,49 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   else if (choice == null) help = { text: autoDescription(modes) };
   else help = { text: describeMode(modes[choice.index]) };
   return (
-    <Modal.Frame className={CSS.BE("ethercat-sync", "frame")}>
+    <Modal.Frame className={CSS.BE("ethercat-configure", "frame")}>
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
-        {[slave.name, "Sync mode"]}
+        {[slave.name, "Configure"]}
       </Modal.Header>
-      <Modal.Body align="stretch" gap="large">
-        <Flex.Box y gap="small">
-          <Input.Item label="Mode" padHelpText={false}>
-            <ModeSelect
-              modes={modes}
-              choice={choice}
-              stale={stale}
-              onChange={setChoice}
-            />
-          </Input.Item>
-          {mode == null && <Help {...help} />}
-        </Flex.Box>
-        {mode != null && index != null && (
-          <Flex.Box y gap="small">
-            <Flex.Box x gap="large">
-              <CycleField
-                label="SYNC0 cycle"
-                value={choice == null ? 0 : choice.sync0Cycle}
-                problem={sync0Problem == null ? undefined : severity}
-                onChange={(ns) =>
-                  setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
-                }
+      <Modal.Body align="stretch">
+        <Form.Sections>
+          <Form.Section title="Sync mode">
+            <Input.Item label="Mode" padHelpText={false}>
+              <ModeSelect
+                modes={modes}
+                choice={choice}
+                stale={stale}
+                onChange={setChoice}
               />
-              <CycleField
-                label="SYNC1 cycle"
-                value={choice == null ? 0 : choice.sync1Cycle}
-                problem={sync1Problem == null ? undefined : severity}
-                onChange={(ns) =>
-                  setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
-                }
-              />
+            </Input.Item>
+            {mode != null && index != null && (
+              <Flex.Box x>
+                <CycleField
+                  label="SYNC0 cycle"
+                  value={choice == null ? 0 : choice.sync0Cycle}
+                  problem={sync0Problem == null ? undefined : severity}
+                  onChange={(ns) =>
+                    setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                  }
+                />
+                <CycleField
+                  label="SYNC1 cycle"
+                  value={choice == null ? 0 : choice.sync1Cycle}
+                  problem={sync1Problem == null ? undefined : severity}
+                  onChange={(ns) =>
+                    setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                  }
+                />
+              </Flex.Box>
+            )}
+            <Flex.Box y gap="small">
+              <Help {...help} />
+              <Text.Text level="small" color={9}>
+                {APPLY_NOTE}
+              </Text.Text>
             </Flex.Box>
-            <Help {...help} />
-          </Flex.Box>
-        )}
-        <Text.Text level="small" color={9}>
-          {APPLY_NOTE}
-        </Text.Text>
+          </Form.Section>
+        </Form.Sections>
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
@@ -319,18 +321,18 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   );
 };
 
-interface SyncModeParams {
+interface ConfigureParams {
   deviceKey: device.Key;
 }
 
-const SyncMode = ({
+const Configure = ({
   deviceKey,
   close,
-}: Modals.ContentProps<SyncModeParams, void>): ReactElement | null => {
+}: Modals.ContentProps<ConfigureParams, void>): ReactElement | null => {
   const { data: slave } = useResultSlave({ key: deviceKey });
   if (slave == null) return null;
-  return <Form slave={slave} close={close} />;
+  return <Internal slave={slave} close={close} />;
 };
 
-/** Opens the form that sets the sync mode of one EtherCAT slave. */
-export const useSyncModeModal = Modals.create(SyncMode);
+/** Opens the form that sets the settings of one EtherCAT slave. */
+export const useConfigureModal = Modals.create(Configure);
