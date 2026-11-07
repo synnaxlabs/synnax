@@ -10,7 +10,9 @@
 package rack_test
 
 import (
+	"context"
 	"encoding/json/v2"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,9 +22,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -362,6 +367,87 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Auth.Authenticate(ctx, token)).Error().
 			To(MatchError(auth.ErrInvalidToken))
+	})
+
+	// deleterOf returns a context for a new user allowed to delete the rack with key.
+	deleterOf := func(ctx SpecContext, key rack.Key) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(ctx, access.ActionDelete, u.ResourceID(), key.ResourceID())
+		return AuthedCtx(ctx, u)
+	}
+	exists := func(ctx SpecContext, key rack.Key) bool {
+		GinkgoHelper()
+		return MustSucceed(svc.Rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Exists(ctx, nil))
+	}
+
+	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Device"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		d := device.Device{
+			Key:      "api-rack-device",
+			Rack:     r.Key,
+			Location: "loc",
+			Name:     "Device",
+			Make:     "make",
+			Model:    "model",
+		}
+		Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+		Expect(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"cannot delete rack %s because device api-rack-device references "+
+					"it through rack",
+				r.Key,
+			))),
+		))
+		Expect(exists(ctx, r.Key)).To(BeTrue())
+	})
+
+	It(
+		"Should refuse to delete a rack that holds a task that is not internal",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "With Task"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			t := task.Task{
+				Rack: r.Key,
+				Name: "User Task",
+				Type: pagerduty.AlertTaskType,
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(apiSvc.Delete(
+				deleterOf(ctx, r.Key), nil,
+				apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+			)).Error().To(MatchError(ContainSubstring(
+				"cannot delete rack With Task because it still holds tasks",
+			)))
+			Expect(exists(ctx, r.Key)).To(BeTrue())
+		},
+	)
+
+	It("Should delete the internal tasks of a deleted rack", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Internal Task"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		t := task.Task{
+			Rack:     r.Key,
+			Name:     "Scanner",
+			Type:     pagerduty.AlertTaskType,
+			Internal: true,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		MustSucceed(apiSvc.Delete(
+			deleterOf(ctx, r.Key), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		))
+		Expect(exists(ctx, r.Key)).To(BeFalse())
+		Expect(svc.Task.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Exists(ctx, nil)).To(BeFalse())
 	})
 })
 

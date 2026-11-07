@@ -13,6 +13,7 @@ import {
   group,
   ni,
   NotFoundError,
+  ontology,
   rack,
   type resource,
   type Synnax as Client,
@@ -23,13 +24,16 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
 import { answerNextCommand } from "@/platform/task/testutil";
 import {
+  createHostItems,
   createResource,
+  expandTreeRow,
   findModalButton,
   findTreeRow,
   renderOntologyTree,
@@ -122,6 +126,16 @@ describe("rack ontology service", () => {
     it("should refuse a device or group from another rack", () => {
       expect(canDrop(device.resourceID("d"), [rack.resourceID(2), root])).toBe(false);
       expect(canDrop(group.resourceID("g"), [rack.resourceID(2), root])).toBe(false);
+    });
+
+    it("should refuse a device under another device", () => {
+      expect(
+        canDrop(device.resourceID("d"), [
+          device.resourceID("p"),
+          rack.resourceID(1),
+          root,
+        ]),
+      ).toBe(false);
     });
 
     it("should refuse a rack", () => {
@@ -226,6 +240,38 @@ describe("rack ontology service", () => {
       });
       expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });
+  });
+});
+
+describe("rack children", () => {
+  it("should list only the devices that sit directly on the rack", async () => {
+    const r = await createRack();
+    const make = async (name: string, parent?: device.Key) =>
+      await client.devices.create({
+        key: uniqueName(name),
+        name: uniqueName(name),
+        rack: r.key,
+        location: name,
+        make: "make",
+        model: "model",
+        properties: {},
+        parent,
+      });
+    const chassis = await make("chassis");
+    const module = await make("module", chassis.key);
+    await renderOntologyTree({
+      client,
+      root: ontology.ROOT_ID,
+      items: {
+        ...Rack.TREE_ITEMS,
+        ...Device.TREE_ITEMS,
+        ...createHostItems([rack.resourceID(r.key)]),
+      },
+    });
+    await findTreeRow(r.name);
+    expandTreeRow(r.name);
+    await findTreeRow(chassis.name);
+    expect(screen.queryByText(module.name)).toBeNull();
   });
 });
 

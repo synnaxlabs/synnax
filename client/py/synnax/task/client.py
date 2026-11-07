@@ -65,6 +65,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: UUID | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -469,6 +470,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: UUID | list[UUID] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -488,6 +491,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: UUID | list[UUID] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -507,6 +512,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: UUID | list[UUID] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -529,6 +536,8 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
+        ranges: UUID | list[UUID] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -572,6 +581,8 @@ class Client:
             false.
         :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
             false.
+        :param ranges: Keeps the snapshots in any of these ranges.
+        :param arcs: Keeps the tasks that run any of these Arcs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
         :param not_: Keeps tasks that do not match the filter.
@@ -642,17 +653,38 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
+    @overload
+    def copy(
+        self, key: Key, name: str, *, snapshot: Literal[False] = False
+    ) -> Task: ...
+
+    @overload
     def copy(
         self,
         key: Key,
         name: str,
+        *,
+        snapshot: Literal[True],
+        range_key: UUID | None = None,
+    ) -> Task: ...
+
+    def copy(
+        self,
+        key: Key,
+        name: str,
+        *,
+        snapshot: bool = False,
+        range_key: UUID | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
+        :param snapshot: Whether the copy is a snapshot of the task.
+        :param range_key: The key of the range that a snapshot copy sits in. Only a
+            snapshot copy can sit in a range.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

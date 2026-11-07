@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -270,9 +271,11 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string   `json:"name"     msgpack:"name"`
-		Key      task.Key `json:"key"      msgpack:"key"`
-		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+		// Range is the range a snapshot copy sits in, if any.
+		Range    *ranger.Key `json:"range"    msgpack:"range"`
+		Name     string      `json:"name"     msgpack:"name"`
+		Key      task.Key    `json:"key"      msgpack:"key"`
+		Snapshot bool        `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -291,7 +294,7 @@ func (s *Service) Copy(
 	}); err != nil {
 		return CopyResponse{}, err
 	}
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot)
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
 	if err != nil {
 		return CopyResponse{}, err
 	}

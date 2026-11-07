@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from synnax import group as group_
 from synnax import rack as rack_
-from synnax import resource
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter
@@ -58,6 +57,9 @@ class Where(BaseModel):
         rack: Selects by rack.
         groups: Matches the devices in any of the given groups.
         grouped: Matches the devices in a group, or in no group when false.
+        parents: Matches the devices that any of the given devices hold.
+        nested: Matches the devices that another device holds, or the devices that sit
+            directly on their rack when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -73,8 +75,10 @@ class Where(BaseModel):
     rack: filter.Set[rack_.Key] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+    parents: list[Key] | None = None
+    nested: bool | None = None
 
-    @field_validator("groups", mode="before")
+    @field_validator("groups", "parents", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -96,6 +100,8 @@ WhereInput = TypedDict(
         "rack": filter.SetInput[rack_.Key],
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
+        "parents": Key | list[Key],
+        "nested": bool,
     },
     total=False,
 )
@@ -112,7 +118,6 @@ class RetrieveRequest(BaseModel):
         limit: Is the most devices to return.
         offset: Is the number of matching devices to skip.
         include_status: Includes the status of each record.
-        include_parent: Includes the parent of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -122,7 +127,6 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
-    include_parent: bool = False
 
 
 class Device(BaseModel):
@@ -144,8 +148,8 @@ class Device(BaseModel):
             Structure varies by device make and model.
         status: Is the current operational status of the device.
         group: Is the group the device sits in, if any.
-        parent: Is an optional parent resource ID for hierarchical device organization
-            (e.g., NI chassis containing modules).
+        parent: Is the key of the device that holds this device, such as the NI chassis
+            of a module. Empty for a device that sits directly on its rack.
     """
 
     key: Key
@@ -158,7 +162,7 @@ class Device(BaseModel):
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
     group: group_.Key | None = None
-    parent: resource.ID | None = None
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:

@@ -15,7 +15,6 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -57,9 +56,9 @@ type Device struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Group is the group the device sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Parent is an optional parent resource ID for hierarchical device organization
-	// (e.g., NI chassis containing modules).
-	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	// Parent is the key of the device that holds this device, such as the NI chassis of
+	// a module. Empty for a device that sits directly on its rack.
+	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -71,8 +70,5 @@ func (d Device) Validate() error {
 	v.NotEmptyString("make", d.Make)
 	v.NotEmptyString("model", d.Model)
 	v.NotEmptyString("name", d.Name)
-	if d.Parent != nil {
-		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
-	}
 	return v.Error()
 }

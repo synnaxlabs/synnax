@@ -9,6 +9,7 @@
 
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
+import "schemas/synnax/ranger"
 import "schemas/synnax/status"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -67,10 +68,11 @@ Task struct<
         @key
     }
     rack        rack.Key = 0 {
-        @doc value """
+        @doc value     """
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
+        @ref on_delete cascade
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
@@ -106,6 +108,12 @@ Task struct<
         @doc value  "is the current execution status of the task."
         @go marshal omit
         @include
+    }
+    range       ranger.Key?         {
+        @cpp omit
+        @doc value     "is the range the task is a snapshot in, if any."
+        @pb omit
+        @ref on_delete cascade
     }
 
     action Create {
@@ -156,6 +164,14 @@ Where filter Task {
     rack
     internal
     snapshot
+    ranges   ranger.Key[] {
+        @cpp omit
+        @doc value "matches the tasks that are snapshots in any of the given ranges."
+    }
+    arcs     uuid[]       {
+        @cpp omit
+        @doc value "matches the tasks that run any of the Arcs with the given keys."
+    }
 
     @doc value         "is a filter that selects tasks."
     @go request_output "core/pkg/api/task"

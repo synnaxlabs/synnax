@@ -49,6 +49,7 @@ var (
 	groupSvc   *group.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
+	arcTaskSvc *arctask.Service
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	testRack   *rack.Rack
@@ -90,7 +91,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	imexSvc = imex.NewService()
-	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+	arcTaskSvc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 		DB: db,
 	}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
@@ -107,9 +109,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:                  db,
+		Table:               arcTable,
 		Ontology:            otg,
 		Channel:             channelSvc,
 		Task:                taskSvc,
+		MatchTasks:          arcTaskSvc.MatchArcs,
 		Status:              statusSvc,
 		ImEx:                imexSvc,
 		TextSweepQuiescence: 5 * telem.Second,

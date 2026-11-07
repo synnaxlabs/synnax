@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -78,6 +79,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	ImExExcluded []string
+	// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+	// keys.
+	//
+	// [OPTIONAL] - A retrieve that filters by Arc fails without it.
+	MatchArcs func(arcs ...uuid.UUID) Filter
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -98,6 +104,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
 	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
+	c.MatchArcs = override.Nil(c.MatchArcs, other.MatchArcs)
 	return c
 }
 
@@ -144,9 +151,10 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -285,6 +293,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:        s,
 		tx:         tx,
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
@@ -293,17 +302,33 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),
+		racks:      s.cfg.Rack.NewWriter(tx),
+		guardRack:  s.guardRack,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
-		gorp:    s.table.NewRetrieve(),
-		otg:     s.cfg.Ontology,
-		configs: s.cfg.Configs,
+		indexes:   s.indexes,
+		baseTX:    s.cfg.DB,
+		gorp:      s.table.NewRetrieve(),
+		configs:   s.cfg.Configs,
+		matchArcs: s.cfg.MatchArcs,
 	}
+}
+
+func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
+	exists, err := s.NewRetrieve().
+		Where(And(MatchRacks(r.Key), MatchInternal(false))).
+		Exists(ctx, ctx.Tx)
+	if err != nil || !exists {
+		return err
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete rack %s because it still holds tasks",
+		r.Name,
+	)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {

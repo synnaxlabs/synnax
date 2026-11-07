@@ -25,8 +25,6 @@ type RetrieveRequest struct {
 	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
-	// IncludeParent includes the parent of each record.
-	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
 }
 
 // RetrieveResponse holds the devices a RetrieveRequest selects.

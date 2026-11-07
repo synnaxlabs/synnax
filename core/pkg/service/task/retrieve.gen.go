@@ -11,7 +11,11 @@
 
 package task
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+)
 
 // tableName names the Task table for references. Pass it as
 // gorp.TableConfig.Name.
@@ -22,7 +26,9 @@ const tableName = "task"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, Task]
+	rack     *gorp.KeyReference[Key, Task, rack.Key]
+	rangeVal *gorp.KeyReference[Key, Task, ranger.Key]
+	search   *gorp.SearchIndex[Key, Task]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -30,6 +36,28 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Task) []rack.Key {
+				if e.Rack == 0 {
+					return nil
+				}
+				return []rack.Key{e.Rack}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Targets: func(e *Task) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Task](
 			"search",
 			func(e *Task) []string {
@@ -44,6 +72,15 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Task] {
 	return []gorp.Index[Key, Task]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Task] {
+	return []gorp.Reference[Key, Task]{
+		i.rack,
+		i.rangeVal,
 	}
 }
 

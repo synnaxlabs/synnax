@@ -10,14 +10,14 @@
 import { describe } from "vitest";
 
 import { device } from "@/device";
+import { LINES } from "@/device/where";
 import { matches, serverComputed } from "@/device/where.gen";
-import { group } from "@/group";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
   itMatchesVectors(
     readVectors("devices", device.deviceZ(), device.whereZ),
-    (d, where) => matches(group.MEMBER_LINES, d, where),
-    (where) => serverComputed(group.MEMBER_LINES, where),
+    (d, where) => matches(LINES, d, where),
+    (where) => serverComputed(LINES, where),
   );
 });

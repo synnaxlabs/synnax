@@ -40,7 +40,7 @@ type directories struct {
 
 func openDirectories(
 	ctx context.Context,
-	cfg ServiceConfig,
+	cfg TableConfig,
 ) (directories, error) {
 	d := directories{
 		db: cfg.DB,
@@ -132,10 +132,15 @@ func (d directories) Search(
 
 // openRoot returns the key of the root directory under the ontology root, creating it
 // when it does not exist.
-func (s *Service) openRoot(ctx context.Context) (root directory.Key, err error) {
-	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+func openRoot(
+	ctx context.Context,
+	cfg TableConfig,
+	dirs directories,
+	owner *ontology.Owner,
+) (root directory.Key, err error) {
+	err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var children []ontology.Resource
-		if err := s.cfg.Ontology.NewRetrieve().
+		if err := cfg.Ontology.NewRetrieve().
 			WhereIDs(ontology.RootID).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(resource.TypeArcDirectory).
@@ -150,11 +155,11 @@ func (s *Service) openRoot(ctx context.Context) (root directory.Key, err error) 
 			return err
 		}
 		d := directory.Directory{Key: uuid.New(), Name: rootName}
-		if err := s.directories.table.NewCreate().Entry(&d).Exec(ctx, tx); err != nil {
+		if err := dirs.table.NewCreate().Entry(&d).Exec(ctx, tx); err != nil {
 			return err
 		}
 		root = d.Key
-		w := s.owner.NewWriter(tx)
+		w := owner.NewWriter(tx)
 		if err := w.DefineResources(ctx, d.ResourceID()); err != nil {
 			return err
 		}

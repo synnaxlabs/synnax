@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -43,10 +42,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Ontology stores the relationships between resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var (
@@ -60,7 +55,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -70,15 +64,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	device   *device.Service
-	status   *status.Service
-	ontology *ontology.Ontology
+	access *rbac.Service
+	device *device.Service
+	status *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -87,10 +79,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		device:   cfg.Device,
-		status:   cfg.Status,
-		access:   cfg.RBAC,
-		ontology: cfg.Ontology,
+		device: cfg.Device,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
@@ -216,26 +207,6 @@ func (s *Service) Retrieve(
 		Objects: device.ResourceIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-	if req.IncludeParent {
-		for i, d := range res.Devices {
-			var parent ontology.Resource
-			err := s.ontology.NewRetrieve().
-				WhereIDs(d.ResourceID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Limit(1).
-				ExcludeFieldData(true).
-				Entry(&parent).
-				Exec(ctx, nil)
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			pid := resource.ID(parent.ID)
-			res.Devices[i].Parent = &pid
-		}
 	}
 	return res, nil
 }

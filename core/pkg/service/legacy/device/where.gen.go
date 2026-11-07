@@ -196,6 +196,12 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Grouped; l != nil {
 		fs = append(fs, MatchGrouped(*l))
 	}
+	if l := w.Parents; l != nil {
+		fs = append(fs, MatchParents(l...))
+	}
+	if l := w.Nested; l != nil {
+		fs = append(fs, MatchNested(*l))
+	}
 	return And(fs...), nil
 }
 

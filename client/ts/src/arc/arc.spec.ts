@@ -156,16 +156,11 @@ describe("arc", () => {
   describe("task", () => {
     const attachTask = async (arcKey: arc.Key): Promise<task.Task> => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const tsk = await rack.createTask({
+      return await rack.createTask({
         name: `arc-task-${id.create()}`,
         type: "arc",
-        config: {},
+        config: { arcKey },
       });
-      await client.ontology.addChildren(
-        arc.resourceID(arcKey),
-        task.resourceID(tsk.key),
-      );
-      return tsk;
     };
 
     it("resolves null for an arc with no task", async () => {
@@ -175,6 +170,13 @@ describe("arc", () => {
 
     it("resolves null for an arc that does not exist", async () => {
       expect(await client.arcs.task.retrieve(uuid.create())).toBeNull();
+    });
+
+    it("resolves null for an arc whose task runs another arc", async () => {
+      const owner = await client.arcs.create(newTextArc(`task-own-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`task-other-${id.create()}`));
+      await attachTask(owner.key);
+      expect(await client.arcs.task.retrieve(other.key)).toBeNull();
     });
 
     it("retrieves the task attached to an arc and caches the answer", async () => {
@@ -256,6 +258,16 @@ describe("arc", () => {
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
     });
 
+    it("finds the task through the task client by its Arc", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const deployed = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const tsk = await client.arcs.updateTask(deployed.key, { rack: rack.key });
+      await client.arcs.updateTask(other.key, { rack: rack.key });
+      const found = await client.tasks.retrieve({ where: { arcs: [deployed.key] } });
+      expect(found.map(({ key }) => key)).toEqual([tsk?.key]);
+    });
+
     it("reuses the task across rebinds and rack moves", async () => {
       const rackA = await client.racks.create({ name: `rack-${id.create()}` });
       const rackB = await client.racks.create({ name: `rack-${id.create()}` });
@@ -309,6 +321,19 @@ describe("arc", () => {
       await client.tasks.retrieve(tsk.key);
       await client.arcs.updateTask(created.key, { rack: 0 });
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+    });
+
+    it("does not serve a snapshot of the task after an unbind", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`snap-${id.create()}`));
+      const tsk = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (tsk == null) throw new Error("expected a deployment task");
+      expect((await client.arcs.task.retrieve(created.key))?.key).toEqual(tsk.key);
+      await client.tasks.copy(tsk.key, "Snapshot", true);
+      await client.arcs.updateTask(created.key, { rack: 0 });
+      await expect
+        .poll(async () => await client.arcs.task.retrieve(created.key))
+        .toBeNull();
     });
 
     it("defaults a new task to auto performance", async () => {
