@@ -643,6 +643,22 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It(
+			"Should keep a snapshot written again as not a snapshot",
+			func(ctx SpecContext) {
+				openTx()
+				r := createRange(ctx, tx)
+				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
+				snap.Snapshot = false
+				snap.Range = nil
+				Expect(w.Create(ctx, &snap)).To(Succeed())
+				Expect(snap.Snapshot).To(BeTrue())
+				Expect(snap.Range).To(Equal(&r.Key))
+			},
+		)
+
+		It(
 			"Should broadcast a create of the copy after the commit",
 			func(ctx SpecContext) {
 				m := &task.Task{
