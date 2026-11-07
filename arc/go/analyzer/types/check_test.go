@@ -31,14 +31,13 @@ var _ = Describe("Check", func() {
 			func(target, value types.Type, fits bool) {
 				t := types.Variable("target", &target)
 				v := types.Variable("value", &value)
-				err := atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")
 				if fits {
-					Expect(err).ToNot(HaveOccurred())
+					Expect(atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")).
+						To(Succeed())
 					return
 				}
-				Expect(
-					err,
-				).To(MatchError(ContainSubstring("expected integer, got float")))
+				Expect(atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")).
+					To(MatchError(ContainSubstring("expected integer, got float")))
 			},
 			Entry(
 				"float into integer",

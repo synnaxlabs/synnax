@@ -508,6 +508,48 @@ var _ = Describe("Statement", func() {
 		)
 
 		DescribeTable(
+			"Should give an untyped variable one type",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"a scalar read after an assignment",
+				"x := 1.5\nx = v\nw f32 := x",
+				"",
+			),
+			Entry(
+				"a scalar read before an assignment",
+				"x := 1.5\nw := x\nx = v",
+				"f32 is not compatible with f64",
+			),
+			Entry(
+				"a series read after an assignment",
+				"y := [1.5]\ny = [v]\nw series f32 := y",
+				"",
+			),
+			Entry(
+				"a series read before an assignment",
+				"y := [1.5]\nw := y\ny = [v]",
+				"f32 is not compatible with f64",
+			),
+			Entry(
+				"an element read before an assignment",
+				"y := [1.5]\nw := y[0]\ny = [v]",
+				"f32 is not compatible with f64",
+			),
+			Entry(
+				"an empty series read before a use",
+				"y := []\nn := len(y)\ny = [v]",
+				"",
+			),
+		)
+
+		DescribeTable(
 			"Should keep an untyped integer variable an integer",
 			func(specCtx SpecContext, code, message string) {
 				ctx := analyze(specCtx, code)
