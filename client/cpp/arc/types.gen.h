@@ -137,6 +137,18 @@ to_proto(const Source &value);
 std::pair<Source, x::errors::Error>
 source_from_proto(const ::service::arc::pb::Source &pb);
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching arcs to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve arcs.
 struct RetrieveRequest {
     /// @brief where selects the arcs to retrieve. An absent where selects all of them.
@@ -149,6 +161,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_program = options.include_program,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

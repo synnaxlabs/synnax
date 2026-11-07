@@ -261,6 +261,18 @@ struct ScanConfig : public KeyedConfig {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the tasks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most tasks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching tasks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve tasks.
 struct RetrieveRequest {
     /// @brief where selects the tasks to retrieve. An absent where selects all of them.
@@ -273,6 +285,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

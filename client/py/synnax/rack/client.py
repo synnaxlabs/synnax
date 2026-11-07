@@ -246,7 +246,7 @@ class Client:
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
-        return sole("Rack", fields, res.racks) if single else res.racks
+        return sole("rack", req.where, res.racks) if single else res.racks
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
