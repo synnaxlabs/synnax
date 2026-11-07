@@ -195,9 +195,7 @@ scan(Scanner &scanner, const synnax::device::Device &dev) {
     std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices;
-    auto [out, err] = scanner.scan(scan_ctx);
-    EXPECT_FALSE(err) << err;
-    return out;
+    return ASSERT_NIL_P(scanner.scan(scan_ctx));
 }
 }
 

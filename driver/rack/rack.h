@@ -131,10 +131,13 @@ struct Config {
     std::optional<std::string> incompatible_core_version;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
-    /// With an incompatible Core, the factory runs only the rack status, which reports
-    /// the mismatch, and refuses every other task.
-    [[nodiscard]] std::unique_ptr<task::Factory>
-    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
+    /// Give it the same client as the task manager. With an incompatible Core, the
+    /// factory runs only the rack status, which reports the mismatch, and refuses every
+    /// other task.
+    [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {

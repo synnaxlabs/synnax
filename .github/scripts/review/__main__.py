@@ -21,18 +21,20 @@ review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that r
 Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
-policy commit, the usage, and the review. `post` posts the review in a record. `compare`
-takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints
-a Markdown comparison of the records of the last days with Greptile's reviews of the
-same commits.
+policy commit, the usage, the review, and each pass before the join. `post` posts the
+review in a record. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
+with full history, and prints a Markdown comparison of the records of the last days
+with Greptile's reviews of the same commits.
 """
 
+import contextlib
 import dataclasses
 import json
 import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -50,7 +52,7 @@ from review import (
 )
 
 
-def claude(args: list[str], stdin: str, cwd: Path) -> str:
+def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
     with tempfile.TemporaryDirectory() as home:
         env = {
             "PATH": os.environ["PATH"],
@@ -58,15 +60,24 @@ def claude(args: list[str], stdin: str, cwd: Path) -> str:
             "CLAUDE_CONFIG_DIR": home,
             "CLAUDE_CODE_OAUTH_TOKEN": os.environ["CLAUDE_CODE_OAUTH_TOKEN"],
         }
-        return subprocess.run(
+        with subprocess.Popen(
             args,
-            input=stdin,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
             cwd=cwd,
             env=env,
-            stdout=subprocess.PIPE,
             text=True,
-            check=True,
-        ).stdout
+        ) as proc:
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            # The exit code tells why Claude Code stopped reading its stdin.
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.write(stdin)
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.close()
+            yield from proc.stdout
+        if proc.returncode:
+            raise subprocess.CalledProcessError(proc.returncode, args)
 
 
 def review(target: Target, path: Path, *, replay: bool) -> None:
@@ -121,7 +132,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         new=new,
     )
     with tempfile.TemporaryDirectory() as workdir:
-        result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
+        result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))
     record = {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "pr": target.pr,
@@ -130,6 +141,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         "policy": os.environ["POLICY_SHA"],
         "usage": dataclasses.asdict(usage),
         "review": dataclasses.asdict(result),
+        "passes": [dataclasses.asdict(p) for p in passes],
     }
     path.write_text(json.dumps(record))
 
