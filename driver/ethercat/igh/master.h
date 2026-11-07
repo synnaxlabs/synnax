@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <span>
 #include <string>
@@ -86,7 +87,7 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
     /// @brief does what master::Master::activate does, but ignores period and starts no
     /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.

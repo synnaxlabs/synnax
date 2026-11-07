@@ -781,7 +781,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -800,7 +800,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -823,7 +823,7 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->add_slave(plain);
     this->add_slave(dc);
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(3, false);
+    this->master->replace_slave_configs({{3, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -926,7 +926,7 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
 /// @brief it should leave DC sync off on a disabled slave.
 TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnADisabledSlave) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->master->set_slave_enabled(1, false);
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
     ASSERT_NIL(this->activate());
     EXPECT_TRUE(this->mock->register_writes.empty());
 }
@@ -1243,7 +1243,7 @@ TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
     enabled.hasdc = true;
     this->add_slave(enabled);
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(1, false);
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
     EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
@@ -1373,7 +1373,7 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
 TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
-    this->master->set_slave_enabled(2, false);
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     ASSERT_NIL(this->master->initialize());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
@@ -1433,14 +1433,19 @@ TEST_F(SOEMMasterTest, InterfaceName) {
 
 ////////////////////// Slave Enable/Disable //////////////////////
 
-TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
-    this->initialize_with_slave();
-    this->master->set_slave_enabled(1, false);
-    this->master->set_slave_enabled(1, true);
+/// @brief it should disable a slave the replacement configs disable and enable one they
+/// leave out.
+TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
+    this->add_slave(MockSlaveInfo{});
+    this->add_slave(MockSlaveInfo{});
+    ASSERT_NIL(this->master->initialize());
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
+    EXPECT_EQ(this->mock->slave_infos[1].group, 2);
 }
 
 ////////////////////// PDO Layout //////////////////////

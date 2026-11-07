@@ -379,7 +379,9 @@ void Engine::supervise() {
     }
 }
 
-x::errors::Error Engine::start_locked(const uint64_t mhz) {
+x::errors::Error
+Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> configs) {
+    this->master->replace_slave_configs(std::move(configs));
     const auto start_cycle = [this, mhz] {
         {
             std::lock_guard lock(this->write_mu);
@@ -422,6 +424,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
 
 void Engine::stop_locked() {
     if (!this->bus.stop()) return;
+    this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
     this->master->deactivate();
@@ -433,6 +436,19 @@ void Engine::stop_locked() {
     }
     std::lock_guard lock(this->health_mu);
     this->slave_health.clear();
+}
+
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+Engine::read_slave_configs(std::unique_lock<std::mutex> &lock) const {
+    while (!this->running()) {
+        const auto stops = this->stops;
+        lock.unlock();
+        auto result = this->config.slave_configs();
+        lock.lock();
+        // A bus that ran during the read may have run with newer settings.
+        if (this->stops == stops) return result;
+    }
+    return {};
 }
 
 std::vector<x::telem::Rate> Engine::read_rates_locked() const {
@@ -575,14 +591,18 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const x::telem::Rate sample_rate,
     const size_t samples_per_read
 ) {
-    std::lock_guard lock(this->mu);
+    std::unique_lock lock(this->mu);
+    auto [configs, configs_err] = this->read_slave_configs(lock);
     auto reads = this->read_rates_locked();
     reads.push_back(sample_rate);
     const auto [mhz, rate_err] = this->rate_locked(reads, this->write_rates_locked());
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
-    if (started)
-        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
+    if (started) {
+        if (configs_err) return {nullptr, configs_err};
+        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+            return {nullptr, err};
+    }
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,
@@ -607,14 +627,18 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate execution_rate
 ) {
-    std::lock_guard lock(this->mu);
+    std::unique_lock lock(this->mu);
+    auto [configs, configs_err] = this->read_slave_configs(lock);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
     const auto [mhz, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
-    if (started)
-        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
+    if (started) {
+        if (configs_err) return {nullptr, configs_err};
+        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+            return {nullptr, err};
+    }
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,
@@ -675,9 +699,5 @@ std::vector<slave::Health> Engine::health() const {
 
 std::string Engine::interface_name() const {
     return this->master->interface_name();
-}
-
-void Engine::set_slave_enabled(const uint16_t position, const bool enabled) {
-    this->master->set_slave_enabled(position, enabled);
 }
 }

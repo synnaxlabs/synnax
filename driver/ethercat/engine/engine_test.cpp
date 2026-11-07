@@ -9,7 +9,12 @@
 
 #include <algorithm>
 #include <atomic>
+#include <future>
+#include <map>
+#include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -25,6 +30,11 @@ namespace driver::ethercat::engine {
 namespace {
 /// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
 const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
+
+/// @brief a loader for a network with no saved slave settings.
+const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+};
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
 const pdo::Entry IN_I24(0, 0x6000, 3, 24, true, x::telem::INT32_T);
@@ -88,6 +98,18 @@ Config quick_start_config() {
         .max_retries = 2,
         .scale = 1,
         .max_interval = x::telem::MILLISECOND,
+    };
+    return cfg;
+}
+
+/// @brief an engine configuration whose slave settings disable the slave at position.
+Config disabling(const uint16_t position) {
+    Config cfg;
+    cfg.slave_configs = [position] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{{position, {.enabled = false}}},
+            x::errors::NIL
+        };
     };
     return cfg;
 }
@@ -554,11 +576,180 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
     );
+}
+
+/// @brief it should read the slave settings again each time the bus starts.
+TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail to start the bus with the error that kept the slave settings
+/// from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should open a reader on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
+}
+
+/// @brief it should read the slave settings again when the bus ran and stopped while an
+/// open read them.
+TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
+    this->master->add_slave(io_slave(1));
+    const auto calls = std::make_shared<std::atomic<int>>(0);
+    const auto disabled = std::make_shared<std::atomic<bool>>(false);
+    std::promise<void> release;
+    Config cfg;
+    cfg.slave_configs = [calls, disabled, released = release.get_future().share()] {
+        std::map<uint16_t, slave::Config> configs;
+        if (disabled->load()) configs[1] = {.enabled = false};
+        if (calls->fetch_add(1) == 0) released.wait();
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
+    std::thread opening([&] {
+        late = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    });
+    ASSERT_EVENTUALLY_EQ(calls->load(), 1);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    disabled->store(true);
+    release.set_value();
+    opening.join();
+    ASSERT_OCCURRED_AS(late.second, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(calls->load(), 3);
+}
+
+/// @brief it should read the slave settings again each time a writer starts the bus.
+TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto writer = ASSERT_NIL_P(
+            this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100)),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail a writer's bus start with the error that kept the slave
+/// settings from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(100));
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should open a writer on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I32, 1)}, x::telem::Rate(100))
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
 }
 
 /// @brief it should return the error that kept the master from initializing once the
@@ -939,7 +1130,7 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
@@ -1116,7 +1307,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
@@ -1129,7 +1320,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1148,7 +1339,7 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     );
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_OCCURRED_AS_P(
         pool.discover_slaves("eth0"),
         errors::MASTER_INIT_ERROR

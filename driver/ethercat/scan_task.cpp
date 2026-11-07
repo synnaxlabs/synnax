@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <ranges>
 #include <set>
 #include <string>
 #include <utility>
@@ -78,6 +77,15 @@ std::string pdo_error_description(const std::string &error) {
     );
     return sentence + ". " + get_pdo_error_guidance(error);
 }
+
+/// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
+/// field when they do not parse.
+std::pair<slave::Properties, x::errors::Error>
+parse_properties(const x::json::json &json) {
+    auto parser = x::json::Parser(json);
+    auto props = slave::Properties::parse(parser);
+    return {props, parser.error()};
+}
 }
 
 Scanner::Scanner(
@@ -109,21 +117,6 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
     if (this->pool == nullptr) return {devices, x::errors::NIL};
-
-    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
-        for (const auto &dev: *scan_ctx.devices | std::views::values) {
-            auto props_parser = x::json::Parser(dev.properties);
-            auto props = slave::Properties::parse(props_parser);
-            if (props_parser.error() || props.enabled) continue;
-
-            auto [engine, err] = this->pool->acquire(props.network);
-            if (err) continue;
-
-            LOG(INFO) << SCAN_LOG_PREFIX << "initializing slave " << props.position
-                      << " on " << props.network << " as disabled";
-            engine->set_slave_enabled(props.position, props.enabled);
-        }
-    }
 
     std::set<std::string> failures;
     const auto masters = this->pool->enumerate();
@@ -274,24 +267,16 @@ std::string Scanner::generate_slave_key(
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {
-    auto props_parser = x::json::Parser(dev.properties);
-    auto props = slave::Properties::parse(props_parser);
-    if (props_parser.error()) return;
-
-    auto [engine, err] = this->pool->acquire(props.network);
-    if (err) return;
-
-    LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
-              << props.network << " enabled=" << (props.enabled ? "true" : "false");
-    engine->set_slave_enabled(props.position, props.enabled);
-    const auto health = engine->health();
+    if (dev.model != SLAVE_DEVICE_MODEL) return;
+    const auto [props, err] = parse_properties(dev.properties);
+    const auto health = this->pool->health(props.network);
     const auto live = std::ranges::find(
         health,
         props.position,
         &slave::Health::position
     );
-    const bool connected = props.enabled && (live == health.end() || !live->lost);
-
+    const bool connected = !err && props.enabled &&
+                           (live == health.end() || !live->lost);
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
@@ -301,6 +286,11 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
+    if (err) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Invalid device properties";
+        status.description = common::config_err_description(err);
+    }
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
                      << "failed to update device status: " << status_err;

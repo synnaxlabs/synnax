@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <map>
+#include <string>
+#include <utility>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -19,6 +24,13 @@
 #include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat {
+namespace {
+/// @brief a loader for a network with no saved slave settings.
+const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+};
+}
+
 class EtherCATScanTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -71,7 +83,10 @@ protected:
         );
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
-        this->pool = std::make_shared<engine::Pool>(std::move(manager));
+        this->pool = std::make_shared<engine::Pool>(
+            std::move(manager),
+            NO_SLAVE_CONFIGS
+        );
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             this->scan_task(),
@@ -206,7 +221,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -261,7 +276,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("enp3s0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -293,7 +308,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     );
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
     synnax::task::Task task{
         .rack = this->rack.key,
         .name = "EtherCAT Scanner",
@@ -312,7 +327,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -357,7 +372,7 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager))
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
         );
     }
 
@@ -391,7 +406,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
 /// @brief it should fail to configure the scan task and report an error status when the
 /// packet capture library is missing.
 TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
-    Factory factory(std::unique_ptr<master::Manager>{});
+    Factory factory(std::unique_ptr<master::Manager>{}, this->client, this->rack.key);
     const synnax::task::Task task{
         .rack = this->rack.key,
         .name = "EtherCAT Scanner",
@@ -589,5 +604,96 @@ TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
     );
     EXPECT_EQ(status.message, "Device enabled");
     EXPECT_TRUE(status.details.connected);
+}
+
+/// @brief a scanner over a mock bus with one slave, for device set specs.
+class EtherCATScanDeviceSetTest : public EtherCATScanTest {
+protected:
+    std::unique_ptr<Scanner> scanner;
+
+    void SetUp() override {
+        EtherCATScanTest::SetUp();
+        auto master = std::make_shared<testutil::Master>("eth0");
+        master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
+        auto manager = std::make_unique<testutil::Manager>();
+        manager->configure("eth0", master);
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            this->scan_task(),
+            ScanTaskConfig{},
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+        );
+    }
+
+    /// @brief creates a device of the model with the given enabled value.
+    synnax::device::Device create_slave(
+        const x::json::json &enabled,
+        const std::string &model = SLAVE_DEVICE_MODEL
+    ) {
+        synnax::device::Device dev{
+            .key = "ecat_device_set_" + std::to_string(this->rack.key),
+            .rack = this->rack.key,
+            .location = "eth0.Slot 0",
+            .make = INTEGRATION_NAME,
+            .model = model,
+            .name = "EL3102",
+            .properties = {
+                {"serial", 0},
+                {"vendor_id", 0x2},
+                {"product_code", 0xC1E3052},
+                {"revision", 1},
+                {"name", "EL3102"},
+                {"network", "eth0"},
+                {"position", 0},
+                {"enabled", enabled},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            },
+        };
+        const auto err = this->client->devices.create(dev);
+        EXPECT_FALSE(err) << err;
+        return dev;
+    }
+
+    [[nodiscard]] synnax::device::Status
+    status(const synnax::device::Device &dev) const {
+        return ASSERT_NIL_P(
+            this->client->statuses.retrieve<synnax::device::StatusDetails>(
+                synnax::device::status_key(dev)
+            )
+        );
+    }
+};
+
+/// @brief it should report a changed device that is disabled as not connected.
+TEST_F(EtherCATScanDeviceSetTest, ReportsADisabledDevice) {
+    const auto dev = this->create_slave(false);
+    this->scanner->on_device_set(dev);
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(status.message, "Device disabled");
+    EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should write no status for a device that is not a slave.
+TEST_F(EtherCATScanDeviceSetTest, IgnoresADeviceThatIsNotASlave) {
+    const auto dev = this->create_slave(nullptr, "network");
+    const auto before = this->status(dev);
+    this->scanner->on_device_set(dev);
+    const auto after = this->status(dev);
+    EXPECT_EQ(after.message, before.message);
+    EXPECT_EQ(after.variant, before.variant);
+    EXPECT_EQ(after.time, before.time);
+}
+
+/// @brief it should report an error status that names the invalid field.
+TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
+    const auto dev = this->create_slave(nullptr);
+    this->scanner->on_device_set(dev);
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Invalid device properties");
+    EXPECT_EQ(status.description, "enabled: type must be boolean, but is null");
 }
 }

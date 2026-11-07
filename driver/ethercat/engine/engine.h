@@ -11,6 +11,8 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -44,6 +46,15 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief returns the settings of each slave, keyed by position. An open_reader or
+    /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
+    /// can run on several threads at once. Only an open that then starts the bus uses
+    /// the result, and only that open fails on an error. A slave missing from the map
+    /// runs with the defaults of slave::Config.
+    std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
+        slave_configs = [] {
+            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        };
 
     Config() = default;
 };
@@ -122,6 +133,8 @@ class Engine {
 
     /// @brief runs while the bus cycles. Stopping it wakes the supervisor.
     x::breaker::Breaker bus;
+    /// @brief the number of times the bus stopped, guarded by mu.
+    uint64_t stops = 0;
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
@@ -154,8 +167,14 @@ class Engine {
     void supervise();
     void apply_rt(x::telem::TimeSpan period) const;
     /// @param mhz the bus rate in millihertz.
-    [[nodiscard]] x::errors::Error start_locked(uint64_t mhz);
+    [[nodiscard]] x::errors::Error
+    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
+    /// @brief returns the slave settings while the bus is stopped, read after the bus
+    /// last stopped, or empty settings while it runs. Unlocks lock while the loader
+    /// runs, since the loader can block, and returns with lock held.
+    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    read_slave_configs(std::unique_lock<std::mutex> &lock) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
     /// @param mhz the bus rate in millihertz.
@@ -306,9 +325,5 @@ public:
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
-
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect the next time
-    /// the bus starts.
-    void set_slave_enabled(uint16_t position, bool enabled);
 };
 }

@@ -354,7 +354,7 @@ TEST(MasterPdoOffset, SkipsDisabledSlave) {
             }
         }
     );
-    master.set_slave_enabled(0, false);
+    master.replace_slave_configs({{0, {.enabled = false}}});
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_OCCURRED_AS_P(
@@ -417,7 +417,7 @@ protected:
 TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
     this->master.add_slave(slave::Properties{.position = 0});
     this->master.add_slave(slave::Properties{.position = 1});
-    this->master.set_slave_enabled(1, false);
+    this->master.replace_slave_configs({{1, {.enabled = false}}});
     ASSERT_NIL(this->master.initialize());
     ASSERT_NIL(this->master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(
