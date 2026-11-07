@@ -213,6 +213,11 @@ public:
     /// @brief returns true when the group's process data frames carry the reference
     /// clock time.
     [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
+
+    /// @brief makes the process data frames of a group read the reference clock time.
+    /// configdc does this only for the group of the reference slave. Call it after
+    /// configdc.
+    virtual void set_group_dc(uint8_t grp) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -440,6 +445,11 @@ public:
 
     [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
         return this->context.grouplist[grp].hasdc;
+    }
+
+    void set_group_dc(uint8_t grp) override {
+        this->context.grouplist[grp].hasdc = this->context.slavelist[0].hasdc;
+        this->context.grouplist[grp].DCnext = this->context.slavelist[0].DCnext;
     }
 };
 

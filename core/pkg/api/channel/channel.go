@@ -121,8 +121,12 @@ func (s *Service) RetrieveDataTypes(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
-		return ch.DataType
+	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		dataTypes[ch.Key()] = ch.DataType
+	}
+	return lo.Map(keys, func(k channel.Key, _ int) telem.DataType {
+		return dataTypes[k]
 	}), nil
 }
 
