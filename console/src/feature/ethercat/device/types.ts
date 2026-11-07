@@ -50,6 +50,14 @@ const opModeChoiceZ = z.object({
   sync1Cycle: z.number().default(0),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
+/** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
+const startupParameterZ = z.object({
+  index: z.number(),
+  subIndex: z.number(),
+  dataType: z.string(),
+  value: z.number(),
+  name: z.string().default(""),
+});
 
 const ZERO_PDOS: PDOs = {
   inputs: [],
@@ -79,6 +87,7 @@ export const slavePropertiesZ = z.object({
   opModes: z.array(opModeZ).default(() => []),
   /** The mode the Driver sets up. Unset means the Driver picks it. */
   opMode: opModeChoiceZ.optional(),
+  startupParameters: z.array(startupParameterZ).default(() => []),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -98,6 +107,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   write: { channels: {} },
   enabled: true,
   opModes: [],
+  startupParameters: [],
 };
 
 export interface SlaveDevice extends device.Device<

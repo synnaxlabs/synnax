@@ -777,6 +777,30 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
     EXPECT_EQ(this->master->init_call_count(), 1);
 }
 
+/// @brief it should pass the startup parameters in the slave settings to the master
+/// when the bus starts.
+TEST_F(EngineTest, StartupParametersReachTheMaster) {
+    this->master->add_slave(io_slave(1));
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [params] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{{1, {.startup_parameters = params}}},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->startup_parameters(1), params);
+}
+
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
