@@ -115,15 +115,13 @@ imports cost about 0.06 ms per dependent Arc, 50 ms at I = 807, whatever N is.
 
 ### 3.4 Exports and compilation
 
-A top-level `func`, `stage`, `sequence`, or constant in a module is visible to importers
-only when its declaration starts with `export`, the keyword that pairs with `import`. A
-constant is a top-level variable with a literal initializer (`gain := 2 * 3`), so an
-importer can pass it in a `{}` input block. `export` on any other variable, `export` in
-an automation, a top-level flow or authority block in a module, and an import that names
-a function are errors. There is no re-export. An importer's program contains the
-exported code of its modules, so the Driver receives one program per task, as today. A
-module has no task, so the Core compiles it on each save and stores the result as the
-Arc's status.
+A top-level `func`, `stage`, `sequence`, or `:=` variable in a module is visible to
+importers only when its declaration starts with `export`, the keyword that pairs with
+`import`. `export` in an automation, a top-level flow or authority block in a module,
+and an import that names a function are errors. There is no re-export. An importer's
+program contains the exported code of its modules, so the Driver receives one program
+per task, as today. A module has no task, so the Core compiles it on each save and
+stores the result as the Arc's status.
 
 ### 3.5 Migrations
 
@@ -185,6 +183,5 @@ renames the module.
 ## 6 What this RFC does not cover
 
 Parameterized sequences and stages, `=> name` inside imported code, modules in graph
-mode, Arc programs following renames, exported channel variables, bundle import and
-export of modules (RFC 0052), access control on modules, and the Console beyond Phase
-1's explorer work.
+mode, Arc programs following renames, bundle import and export of modules (RFC 0052),
+access control on modules, and the Console beyond Phase 1's explorer work.

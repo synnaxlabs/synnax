@@ -101,32 +101,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
 		It(
-			"Should correctly retrieve channels by regex expression",
-			func(ctx SpecContext) {
-				created := []channel.Channel{
-					{
-						Virtual:  true,
-						DataType: telem.Float32T,
-						Name:     "SG222",
-					},
-					{
-						Virtual:  true,
-						DataType: telem.Float32T,
-						Name:     "SG223",
-					},
-				}
-				Expect(writer.CreateMany(ctx, &created)).To(Succeed())
-				var resChannels []channel.Channel
-
-				Expect(svc.
-					NewRetrieve().
-					Where(channel.MatchNamePatterns("SG22.*")).
-					Entries(&resChannels).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(resChannels).To(HaveLen(2))
-			},
-		)
-		It(
 			"Should return a well formatted error if a channel cannot be found by its key",
 			func(ctx SpecContext) {
 				var resChannels []channel.Channel

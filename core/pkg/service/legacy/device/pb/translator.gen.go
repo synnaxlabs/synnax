@@ -26,8 +26,9 @@ import (
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Rack:   uint32(r.Rack),
-		Device: r.Device,
+		Rack:      uint32(r.Rack),
+		Device:    r.Device,
+		Connected: r.Connected,
 	}
 	if r.Data != nil {
 		var err error
@@ -47,6 +48,7 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	}
 	r.Rack = rack.Key(pb.Rack)
 	r.Device = pb.Device
+	r.Connected = pb.Connected
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()
 	}
