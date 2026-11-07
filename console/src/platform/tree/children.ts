@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  query,
-  resource,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { query, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, type record } from "@synnaxlabs/x";
 
 import { type Resource } from "@/platform/tree/types";
@@ -24,9 +20,7 @@ export interface Source {
   /** Fetches the list. The answer reaches onChange handlers too. */
   retrieve: () => Promise<Resource[]>;
   /** Calls the handler with the list each time it changes. */
-  onChange: (
-    handler: (resources: Resource[]) => void,
-  ) => destructor.Destructor;
+  onChange: (handler: (resources: Resource[]) => void) => destructor.Destructor;
   /** Returns the cached list, or undefined when nothing is cached. */
   getCached: () => Resource[] | undefined;
   /** Returns the cached resource under the key of a resource the list holds. */

@@ -18,11 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  createScopeTree,
-  getTreeRow,
-  renderLiveTree,
-} from "@/platform/tree/testutil";
+import { createScopeTree, getTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
