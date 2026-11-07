@@ -124,9 +124,34 @@ func structDefaultFills(
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
+		} else if f.Default != nil {
+			// SetDefaults sets the nested type's own default first, so a zero leaf
+			// that overrides it must be written out.
+			if fill, ok := zeroFill(selector, comp.Value); ok {
+				fills = append(fills, fill)
+			}
 		}
 	}
 	return fills
+}
+
+// zeroFill returns the fill that writes the zero value v to the Go selector goName. It
+// returns ok=false for a kind whose zero has no plain literal, such as an enum member.
+func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, bool) {
+	var lit string
+	switch v.Kind {
+	case resolution.ValueKindString:
+		lit = `""`
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		lit = "0"
+	case resolution.ValueKindBool:
+		lit = "false"
+	case resolution.ValueKindArray:
+		lit = "nil"
+	default:
+		return defaultFillData{}, false
+	}
+	return defaultFillData{GoName: goName, ZeroLit: lit, Expr: lit}, true
 }
 
 // unionLiteralFill returns the fill for a union field defaulted by an object literal

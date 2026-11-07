@@ -1488,6 +1488,26 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should write a zero leaf that overrides a nested type's own default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct {
+				rate int32 = 5
+				tags string[] = ["a"]
+			}
+			Outer struct { inner Inner = { rate = 0, tags = [] } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n" +
+					"\to.Inner.Rate = 0\n\to.Inner.Tags = nil\n}",
+			)
+		},
+	)
+
+	It(
 		"Should set a union base's defaults on a defaulted variant",
 		func(ctx SpecContext) {
 			source := `
