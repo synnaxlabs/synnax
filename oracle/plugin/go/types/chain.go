@@ -265,17 +265,6 @@ func ChainFrozenTable(
 	return chainFrozenTable(ctx, req, origPath, livePath, k, true)
 }
 
-// ChainLatestTable builds version k's table as its omitted fields resolve it: each
-// dependency type takes its live declaration at the dependency's root package.
-func ChainLatestTable(
-	ctx context.Context,
-	req *plugin.Request,
-	origPath, livePath string,
-	k int,
-) (*resolution.Table, string, error) {
-	return chainFrozenTable(ctx, req, origPath, livePath, k, false)
-}
-
 // chainFrozenTable builds a frozen package's table. With pinned false, dependency types
 // resolve to their root packages instead of their versions/vN directories.
 func chainFrozenTable(
@@ -579,7 +568,8 @@ func annotateOutputs(
 			// task/config); a member with its own live output resolves there,
 			// not at the chain's first output. That package is generated from
 			// the live declaration, so its @go name comes along.
-			if lt, has := liveType(req, lp, t.Name); has {
+			lt, has := liveType(req, lp, t.Name)
+			if has {
 				if p := output.GetPath(lt, "go"); p != "" {
 					goRoot = p
 				}
@@ -587,10 +577,12 @@ func annotateOutputs(
 					withGoName(t, n)
 				}
 			}
-		}
-		if dependency && !pinned {
-			withGoOutput(t, goRoot)
-			continue
+			// A type the live schema no longer declares has no root to point at, so
+			// it stays on the pinned version.
+			if !pinned && has {
+				withGoOutput(t, goRoot)
+				continue
+			}
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}

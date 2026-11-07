@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
-	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1357,29 +1356,48 @@ Doc struct {
 	})
 })
 
-var _ = Describe("ChainLatestTable", func() {
-	It("Should give a dependency type its live declaration at the root", func() {
+var _ = Describe("Frozen omitted field to a removed dependency type", func() {
+	It("Should keep the reference on the pinned version", func() {
 		root := GinkgoT().TempDir()
 		for rel, content := range map[string]string{
 			"schemas/x/versions/color/v0.oracle": `
+Old struct {
+	r uint8
+}
+
 Color struct {
 	r uint8
 
 	@go marshal
 }
+`,
+			"schemas/x/versions/color/v1.oracle": `
+Color = v0.Color
 `,
 			"schemas/x/color.oracle": `
 @go output "x/go/color"
 
 Color struct {
 	r uint8
-	g uint8
 
 	@go marshal
 }
 `,
 			"schemas/synnax/versions/doc/v0.oracle": `
 import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	old color.Old {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+import "schemas/x/versions/color/v1"
 
 Doc struct {
 	key uuid @key
@@ -1396,8 +1414,6 @@ import "schemas/x/color"
 Doc struct {
 	key uuid @key
 	tint color.Color
-
-	@go marshal
 }
 `,
 		} {
@@ -1413,22 +1429,18 @@ Doc struct {
 			loader,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		latest, ns := MustSucceed2(gotypes.ChainLatestTable(
-			GinkgoT().Context(),
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
 			&plugin.Request{
 				Resolutions: table,
 				RepoRoot:    root,
 				Versions:    versions.NewResolver(chains, loader),
 			},
-			"core/pkg/service/doc",
-			"schemas/synnax/doc",
-			0,
 		))
-		doc := MustBeOk(latest.Get(ns + ".Doc"))
-		tint := doc.Form.(resolution.StructForm).Fields[1]
-		color := MustBeOk(latest.Get(tint.Type.Name))
-		Expect(color.Form.(resolution.StructForm).Fields).To(HaveLen(2))
-		Expect(output.GetPath(color, "go")).To(Equal("x/go/color"))
+		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+		Expect(frozen).To(ContainSubstring("Old color.Old"))
+		const colorPkg = `"github.com/synnaxlabs/synnax/x/go/color`
+		Expect(frozen).To(ContainSubstring(`color ` + colorPkg + `/versions/v0"`))
+		Expect(frozen).ToNot(ContainSubstring(colorPkg + `"`))
 	})
 })
 
