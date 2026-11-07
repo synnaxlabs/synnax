@@ -114,7 +114,6 @@ type Panel struct {
 func (p *Panel) ApplyDefaults() {
 	if p.Root.Variant == nil {
 		v0 := LeafNode{}
-		v0.Tabs = nil
 		p.Root.Variant = v0
 	}
 }
@@ -123,7 +122,6 @@ func (p *Panel) ApplyDefaults() {
 func (p *Panel) SetDefaults() {
 	{
 		v0 := LeafNode{}
-		v0.Tabs = nil
 		p.Root.Variant = v0
 	}
 }
