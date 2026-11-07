@@ -156,13 +156,6 @@ public:
     }
 
 private:
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Key of rack that this client belongs to.
     rack::Key rack{};
     /// @brief Task creation transport.

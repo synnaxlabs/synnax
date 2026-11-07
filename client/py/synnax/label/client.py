@@ -219,7 +219,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/label/retrieve", req, RetrieveResponse)
-        return sole("Label", fields, res.labels) if single else res.labels
+        return sole("label", req, res.labels) if single else res.labels
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes one or more labels and removes them from every resource. Deleting

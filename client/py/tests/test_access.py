@@ -111,7 +111,7 @@ class TestAccessClient:
         """Should return one policy for a plain key beside other fields."""
         key = two_policies[0].key
         assert client.access.policies.retrieve(key=key, internal=False).key == key
-        with pytest.raises(sy.NotFoundError, match=r"Policy matching .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Found no policy where .+"):
             client.access.policies.retrieve(key=key, internal=True)
 
     def test_retrieve_or(
@@ -221,7 +221,7 @@ class TestRoleClient:
         """Should return one role for a plain key beside other fields."""
         key = two_roles[0].key
         assert client.access.roles.retrieve(key=key, internal=False).key == key
-        with pytest.raises(sy.NotFoundError, match=r"Role matching .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Found no role where .+"):
             client.access.roles.retrieve(key=key, internal=True)
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:
@@ -247,7 +247,7 @@ class TestRoleClient:
         assert role.key is not None
         client.access.roles.delete(role.key)
         with pytest.raises(
-            sy.NotFoundError, match=rf"Role matching .*{role.key}.* not found"
+            sy.NotFoundError, match=rf"Found no role where .*{role.key}"
         ):
             client.access.roles.retrieve(role.key)
 

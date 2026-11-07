@@ -19,6 +19,8 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/status/status.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
@@ -80,6 +82,51 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_TRUE(cfg.connection.password.empty());
     ASSERT_NE(cfg.rack.key, 0);
     ASSERT_NE(cfg.rack.name, "");
+}
+
+/// @brief it should write the version of this Driver to its rack and find a Core of the
+/// same train compatible.
+TEST_F(RackConfigTest, WritesDriverVersionToRack) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    EXPECT_FALSE(cfg.incompatible_core_version.has_value());
+    const auto rack = ASSERT_NIL_P(new_test_client().racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
+}
+
+/// @brief it should start only the rack status when the Core runs another minor, and
+/// report the mismatch in its heartbeat.
+TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("mismatch_rack"));
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    auto tasks = factory->configure_initial_tasks(
+        std::make_shared<task::MockContext>(client),
+        rack
+    );
+    x::defer::defer stop([&tasks]() {
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+    });
+    ASSERT_EQ(tasks.size(), 1);
+    EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
+    const auto key = synnax::rack::resource_id(rack.key).string();
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        client->statuses.retrieve<synnax::rack::StatusDetails>(key).first.message,
+        "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+            " cannot work with Core 99.1.0",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(50)
+    );
+    const auto stat = ASSERT_NIL_P(
+        client->statuses.retrieve<synnax::rack::StatusDetails>(key)
+    );
+    EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        stat.description,
+        "Install the Driver release that matches the Core, then restart the Driver."
+    );
 }
 
 /// @brief it should load rack key from persisted state file.
