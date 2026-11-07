@@ -138,6 +138,9 @@ func structDefaultFills(
 // default. SetDefaults sets the parent's default first, so a zero default must be
 // written out.
 func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
+	if fill, ok := structOverrideFill(field, data); ok {
+		return []defaultFillData{fill}
+	}
 	if fills := goDefaultFills(field, data); len(fills) > 0 ||
 		field.Default == nil || field.Optional {
 		return fills
@@ -146,6 +149,52 @@ func overrideFills(field resolution.Field, data *templateData) []defaultFillData
 		return []defaultFillData{fill}
 	}
 	return nil
+}
+
+// structOverrideFill returns the fill of a field that restates an inherited
+// struct default with a struct literal. It builds the whole value, so no leaf of the
+// parent's default survives: the type's own defaults, then every leaf of the literal.
+// It returns ok=false when the default is not a plain struct literal.
+func structOverrideFill(
+	field resolution.Field,
+	data *templateData,
+) (defaultFillData, bool) {
+	if field.Default == nil || field.Optional ||
+		field.Default.Kind != resolution.ValueKindStruct {
+		return defaultFillData{}, false
+	}
+	if _, ok := unionLiteralFill("", field.Type, *field.Default, data); ok {
+		return defaultFillData{}, false
+	}
+	goType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
+	setup := []string{"v0 := " + goType + "{}"}
+	if typeSetsDefaults(field.Type, data, set.New[string]()) {
+		setup = append(setup, "v0.SetDefaults()")
+	}
+	next := 1
+	lines, ok := literalAssignments(
+		"v0",
+		field.Type,
+		false,
+		*field.Default,
+		data,
+		&next,
+	)
+	if !ok {
+		return defaultFillData{}, false
+	}
+	return defaultFillData{
+		GoName: naming.GetFieldName(field),
+		Expr:   "v0",
+		Setup:  append(setup, lines...),
+	}, true
+}
+
+// emptyWithoutDefault reports whether v is an empty list for field f that has no
+// default to override, so the zero value its struct starts with already holds it.
+func emptyWithoutDefault(f resolution.Field, v resolution.ExpressionValue) bool {
+	return v.Kind == resolution.ValueKindArray && len(v.Elements) == 0 &&
+		f.Default == nil
 }
 
 // zeroFill returns the fill that writes the zero value v to the Go selector goName. It
@@ -238,6 +287,9 @@ func unionLiteral(
 		if !ok {
 			return nil, "", false
 		}
+		if emptyWithoutDefault(f, comp.Value) {
+			continue
+		}
 		lines, ok := literalAssignments(
 			variable+"."+naming.GetFieldName(f),
 			f.Type,
@@ -294,6 +346,9 @@ func literalAssignments(
 			if !ok {
 				return nil, false
 			}
+			if emptyWithoutDefault(f, comp.Value) {
+				continue
+			}
 			sub, ok := literalAssignments(
 				selector+"."+naming.GetFieldName(f),
 				f.Type,
@@ -310,7 +365,7 @@ func literalAssignments(
 		return lines, true
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
-			// The literal may override a default list that SetDefaults set.
+			// The literal overrides a default list that SetDefaults set.
 			return []string{selector + " = nil"}, true
 		}
 		setup, expr, ok := arrayLiteral(typeRef, v, data, next)

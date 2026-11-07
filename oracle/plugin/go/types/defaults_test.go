@@ -1363,9 +1363,32 @@ var _ = Describe("Decode-time default generation", func() {
 			Child struct extends Parent { rate float64 = 0 }
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n" +
+						"\tc.Rate = 0\n}",
+				).
+				ToNotContain("c.Rate == 0")
+		},
+	)
+
+	It(
+		"Should build a struct default that overrides an inherited one in full",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			XY struct {
+				x int32
+				y int32
+			}
+			Parent struct { pos XY = { x = 5 } }
+			Child struct extends Parent { pos XY = { x = 0, y = 3 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n" +
-					"\tc.Rate = 0\n}",
+				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n\t{\n" +
+					"\t\tv0 := XY{}\n\t\tv0.X = 0\n\t\tv0.Y = 3\n\t\tc.Pos = v0\n\t}\n}",
 			)
 		},
 	)
