@@ -16,6 +16,7 @@ import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
 import { bounds } from "@/spatial";
+import { strings } from "@/strings";
 import {
   type GLBufferController,
   type GLBufferUsage,
@@ -52,17 +53,6 @@ interface GL {
 }
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
-
-/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
-const stringifyFloat32 = (value: number): string => {
-  const f32 = Math.fround(value);
-  if (!Number.isFinite(f32)) return f32.toString();
-  for (let p = 1; p <= 9; p++) {
-    const parsed = parseFloat(f32.toPrecision(p));
-    if (Math.fround(parsed) === f32) return parsed.toString();
-  }
-  return f32.toString();
-};
 
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
@@ -871,6 +861,8 @@ export class Series<T extends TelemValue = TelemValue>
   // coerce through Number() and lose precision above 2^53; do the addition in bigint
   // space when the offset is a bigint.
   private applyOffset(v: math.Numeric): math.Numeric {
+    // Adding a zero offset would turn -0 into 0.
+    if (this.sampleOffset === 0) return v;
     if (typeof this.sampleOffset === "bigint" && typeof v === "number")
       return BigInt(Math.round(v)) + this.sampleOffset;
     return math.add(v, this.sampleOffset);
@@ -911,8 +903,7 @@ export class Series<T extends TelemValue = TelemValue>
     // bigint at runtime — an i64 value narrowed into a float32 GL buffer and
     // reconstructed via a bigint sampleOffset — which stringifies as an integer.
     if (typeof v !== "number") return String(v);
-    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v);
-    return String(v);
+    return strings.formatFloat(v, this.dataType.equals(DataType.FLOAT32) ? 32 : 64);
   }
 
   private atVariable(index: number, required: boolean): string | undefined {

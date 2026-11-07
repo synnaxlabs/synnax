@@ -17,6 +17,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -359,8 +360,10 @@ func castToString(value any) string {
 		TimeStamp,
 		TimeSpan:
 		return fmt.Sprintf("%d", v)
-	case float32, float64:
-		return fmt.Sprintf("%g", v)
+	case float32:
+		return xstrconv.FormatFloat(float64(v), 32)
+	case float64:
+		return xstrconv.FormatFloat(v, 64)
 	case string:
 		return v
 	default:

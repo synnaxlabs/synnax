@@ -120,3 +120,61 @@ export const escapeHTML = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+/**
+ * Formats a float as the shortest text that parses back to it at the given width. The
+ * text is in exponent notation below 1e-6 or from 1e21 (1e-7, 1e+21). NaN is NaN, and
+ * infinities are Infinity and -Infinity. It matches the float text of every Synnax
+ * runtime.
+ *
+ * @param value - The float to format.
+ * @param bits - The width of the float, 32 or 64.
+ * @returns The text of value.
+ */
+export const formatFloat = (value: number, bits: 32 | 64 = 64): string => {
+  const f32 = Math.fround(value);
+  if (Object.is(value, -0) || (bits === 32 && Object.is(f32, -0))) return "-0";
+  if (bits === 64 || !Number.isFinite(value)) return String(value);
+  const exact = exactDecimal(f32);
+  for (let p = 1; p <= 9; p++) {
+    const parsed =
+      exact.digits.length === p + 1 && exact.digits.endsWith("5")
+        ? roundTieToEven(exact, p)
+        : parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return String(parsed);
+  }
+  return String(f32);
+};
+
+interface ExactDecimal {
+  negative: boolean;
+  digits: string;
+  exponent: number;
+}
+
+// The exact value of a finite float32 as digits × 10^exponent, without trailing zeros.
+const exactDecimal = (f32: number): ExactDecimal => {
+  const view = new DataView(new ArrayBuffer(4));
+  view.setFloat32(0, f32);
+  const bits = view.getUint32(0);
+  const biased = (bits >>> 23) & 0xff;
+  const fraction = bits & 0x7fffff;
+  const mantissa = BigInt(biased === 0 ? fraction : fraction | 0x800000);
+  const power = (biased === 0 ? 1 : biased) - 150;
+  let digits =
+    power >= 0
+      ? (mantissa << BigInt(power)).toString()
+      : (mantissa * 5n ** BigInt(-power)).toString();
+  let exponent = Math.min(power, 0);
+  const trimmed = digits.replace(/0+$/, "");
+  exponent += digits.length - trimmed.length;
+  digits = trimmed;
+  return { negative: bits >>> 31 === 1, digits, exponent };
+};
+
+// toPrecision rounds a tie up. The other runtimes round it to the even digit.
+const roundTieToEven = ({ negative, digits, exponent }: ExactDecimal, p: number) => {
+  const head = BigInt(digits.slice(0, p));
+  const even = head % 2n === 0n ? head : head + 1n;
+  return parseFloat(`${negative ? "-" : ""}${even}e${exponent + 1}`);
+};

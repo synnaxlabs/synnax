@@ -463,7 +463,31 @@ describe("Series", () => {
       expect(series.asString(2, true)).toEqual("100.5");
       expect(series.asString(3, true)).toEqual("-1.234");
       expect(series.asString(4, true)).toEqual("3.14");
-      expect(series.asString(5, true)).toEqual("0");
+      expect(series.asString(5, true)).toEqual("-0");
+    });
+
+    it("should write FLOAT64 values in the float text of Arc and the Core", () => {
+      const series = new Series({
+        data: new Float64Array([
+          1e20,
+          1e21,
+          1e-6,
+          1.5e-7,
+          -0,
+          NaN,
+          Infinity,
+          -Infinity,
+        ]),
+        dataType: DataType.FLOAT64,
+      });
+      expect(series.asString(0, true)).toEqual("100000000000000000000");
+      expect(series.asString(1, true)).toEqual("1e+21");
+      expect(series.asString(2, true)).toEqual("0.000001");
+      expect(series.asString(3, true)).toEqual("1.5e-7");
+      expect(series.asString(4, true)).toEqual("-0");
+      expect(series.asString(5, true)).toEqual("NaN");
+      expect(series.asString(6, true)).toEqual("Infinity");
+      expect(series.asString(7, true)).toEqual("-Infinity");
     });
 
     it("should stringify integer-valued FLOAT32 values without decimals", () => {

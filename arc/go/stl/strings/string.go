@@ -12,11 +12,13 @@ package strings
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -145,7 +147,46 @@ func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
 	if !ok {
 		return ""
 	}
+	if f, ok := value.(float64); ok && math.IsInf(f, 0) {
+		return formatInfinity(string(spec), f)
+	}
 	return fmt.Sprintf("%"+string(spec), value)
+}
+
+// formatInfinity formats v as Infinity under the sign flags and width of spec, where
+// fmt would write +Inf.
+func formatInfinity(spec string, v float64) string {
+	var plus, space, left bool
+	i := 0
+flags:
+	for ; i < len(spec); i++ {
+		switch spec[i] {
+		case '+':
+			plus = true
+		case ' ':
+			space = true
+		case '-':
+			left = true
+		case '#', '0':
+		default:
+			break flags
+		}
+	}
+	n := 0
+	for ; i < len(spec) && spec[i] >= '0' && spec[i] <= '9'; i++ {
+		n = n*10 + int(spec[i]-'0')
+	}
+	text := xstrconv.FormatFloat(v, 64)
+	switch {
+	case v > 0 && plus:
+		text = "+" + text
+	case v > 0 && space:
+		text = " " + text
+	}
+	if left {
+		return fmt.Sprintf("%-*s", n, text)
+	}
+	return fmt.Sprintf("%*s", n, text)
 }
 
 // Host is the runtime host-side support for the string module: it registers
@@ -241,13 +282,13 @@ func NewHost(
 		builder,
 		s,
 		"from_f32",
-		func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) },
+		func(v float32) string { return xstrconv.FormatFloat(float64(v), 32) },
 	)
 	builder = registerFrom(
 		builder,
 		s,
 		"from_f64",
-		func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) },
+		func(v float64) string { return xstrconv.FormatFloat(v, 64) },
 	)
 	builder = registerFrom(builder, s, "from_bool", func(v int32) string {
 		if v != 0 {

@@ -10,11 +10,52 @@
 #pragma once
 
 #include <cctype>
+#include <charconv>
+#include <cmath>
+#include <concepts>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace x::strings {
+
+/// @brief Formats v as the shortest text that parses back to v. The text is in exponent
+/// notation when the decimal exponent of its shortest digits is below -6 or from 21,
+/// with an unpadded exponent (1e-7, 1e+21). NaN is "NaN", and infinities are "Infinity"
+/// and "-Infinity".
+template<std::floating_point T>
+std::string format_float(T v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    char buf[64];
+    const auto [end, ec] = std::to_chars(
+        buf,
+        buf + sizeof(buf),
+        v,
+        std::chars_format::scientific
+    );
+    if (ec != std::errc{}) return "";
+    // Fixed-mode to_chars writes every integer digit of a large value, not the
+    // shortest ones, so expand the shortest scientific digits by hand.
+    const std::string sci(buf, end);
+    const size_t e = sci.find('e');
+    const int exp = std::stoi(sci.substr(e + 1));
+    const bool neg = sci[0] == '-';
+    std::string digits;
+    for (size_t i = neg ? 1 : 0; i < e; ++i)
+        if (sci[i] != '.') digits += sci[i];
+    std::string out = neg ? "-" : "";
+    if (exp < -6 || exp >= 21) {
+        out += digits[0];
+        if (digits.size() > 1) out += "." + digits.substr(1);
+        return out + (exp < 0 ? "e-" : "e+") + std::to_string(std::abs(exp));
+    }
+    if (exp < 0) return out + "0." + std::string(-exp - 1, '0') + digits;
+    const auto point = static_cast<size_t>(exp) + 1;
+    if (digits.size() <= point)
+        return out + digits + std::string(point - digits.size(), '0');
+    return out + digits.substr(0, point) + "." + digits.substr(point);
+}
 
 /// @brief escapes the line breaks in s so it occupies one line.
 /// @param s the string to escape.
