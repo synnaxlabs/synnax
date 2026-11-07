@@ -123,6 +123,26 @@ var _ = Describe("HTTP", func() {
 			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
 			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
 			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
+			Entry(
+				"unary NI device create",
+				http.MethodPost,
+				"/api/v1/ni/device/create",
+			),
+			Entry(
+				"unary NI device retrieve",
+				http.MethodPost,
+				"/api/v1/ni/device/retrieve",
+			),
+			Entry(
+				"unary NI device update",
+				http.MethodPost,
+				"/api/v1/ni/device/update",
+			),
+			Entry(
+				"unary NI device delete",
+				http.MethodPost,
+				"/api/v1/ni/device/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
 		)
