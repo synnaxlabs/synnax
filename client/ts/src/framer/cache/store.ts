@@ -150,8 +150,8 @@ export class Store {
   // leaseholders holds the node of each stored channel.
   private readonly leaseholders = new Map<channel.Key, number>();
   private readonly liveSamples: number;
-  // indexes holds the data channels of each known index channel.
-  private readonly indexes = new Map<channel.Key, Set<channel.Key>>();
+  // indexOf holds the index of each known channel, an index itself included.
+  private readonly indexOf = new Map<channel.Key, channel.Key>();
   // floors holds the raw sample floor of each trimmed index channel, and the floor
   // before it.
   private readonly floors = new Map<channel.Key, { start: Mark; kept?: Mark }>();
@@ -190,12 +190,14 @@ export class Store {
 
   /**
    * Caches the block under the key as the most recently used, replacing any block
-   * there, and evicts least recently used blocks past the budget. The block it sets is
+   * there, and evicts least recently used blocks past the budget. A raw block takes the
+   * floor of its channel's index. The block it sets is
    * never evicted. Call it again after the block changes, so its new size counts
    * against the budget.
    */
   set(key: string, block: Block): void {
     if (block instanceof RawBlock) {
+      this.applyFloor(block);
       this.changed(block.channel);
       if (block.coveredCount > 0)
         this.newest.set(
@@ -303,9 +305,8 @@ export class Store {
   setChannel(p: channel.Payload): void {
     const index = p.isIndex ? p.key : p.index;
     if (index !== 0) {
-      const data = this.indexes.get(index) ?? new Set();
-      if (index !== p.key) data.add(p.key);
-      this.indexes.set(index, data);
+      this.indexOf.set(p.key, index);
+      this.indexOf.set(index, index);
     }
     if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
@@ -465,7 +466,8 @@ export class Store {
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
       this.set(rawKey(block.channel, block.index), block);
-    if (this.indexes.has(block.channel)) this.trim(block.channel, block);
+    if (this.indexOf.get(block.channel) === block.channel)
+      this.trim(block.channel, block);
   }
 
   /**
@@ -513,7 +515,7 @@ export class Store {
     this.dataTypes.clear();
     this.newest.clear();
     this.streamed.clear();
-    this.indexes.clear();
+    this.indexOf.clear();
     this.floors.clear();
     this.bytes = 0;
   }
@@ -531,9 +533,8 @@ export class Store {
   }
 
   // Moves the index's floor once more than half the sample limit streamed past it. The
-  // new floor keeps a quarter of the limit, and never passes the commit point. Samples
-  // before the old floor leave, from the index and from its data channels, whose series
-  // split at the new floor so that every channel of the index draws from it.
+  // new floor keeps a quarter of the limit, and never passes the commit point. Each
+  // block of the index's channels at either floor takes it again.
   private trim(index: channel.Key, open: RawBlock): void {
     const prev = this.floors.get(index);
     const keep = this.liveSamples / 4;
@@ -561,15 +562,31 @@ export class Store {
       return;
     const kept = prev?.start;
     this.floors.set(index, { start: next, kept });
-    for (const ch of [index, ...(this.indexes.get(index) ?? [])]) {
-      const at = this.peekRaw(ch, Number(domainOf(next.alignment)));
-      at?.split(next.alignment, next.time);
-      const from =
-        kept == null ? undefined : this.peekRaw(ch, Number(domainOf(kept.alignment)));
-      if (kept != null) from?.trim(kept.alignment, kept.time);
-      for (const b of new Set([at, from]))
-        if (b != null) this.set(rawKey(ch, b.index), b);
+    const domains = new Set(
+      [next, kept].flatMap((m) => (m == null ? [] : [Number(domainOf(m.alignment))])),
+    );
+    for (const [ch, of] of this.indexOf) {
+      if (of !== index) continue;
+      for (const domain of domains) {
+        const block = this.peekRaw(ch, domain);
+        if (block != null) this.set(rawKey(ch, domain), block);
+      }
       this.changed(ch);
+    }
+  }
+
+  // Drops the block's samples before the kept floor of its channel's index, and splits
+  // its series at both floors, so that every channel of the index draws from them.
+  private applyFloor(block: RawBlock): void {
+    const index = this.indexOf.get(block.channel);
+    const floor = index == null ? undefined : this.floors.get(index);
+    if (floor == null) return;
+    const { start, kept } = floor;
+    if (domainOf(start.alignment) === BigInt(block.index))
+      block.split(start.alignment, start.time);
+    if (kept != null && domainOf(kept.alignment) === BigInt(block.index)) {
+      block.split(kept.alignment, kept.time);
+      block.trim(kept.alignment, kept.time);
     }
   }
 

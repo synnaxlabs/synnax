@@ -562,6 +562,46 @@ describe("Store", () => {
       }
     });
 
+    it("should apply the floor to a data channel read after the index trims", () => {
+      const store = new Store({
+        liveSamples: 64,
+        dynamicBufferSize: 8,
+        now: () => BLOCK.end,
+      });
+      store.setChannel(index);
+      for (let offset = 0; offset < 10_000; offset += 4) {
+        const start = BLOCK.start.add(TimeSpan.milliseconds(offset));
+        store.append(
+          store.raw(index.key, 100),
+          new Series({
+            data: new Float32Array(4),
+            alignment: alignmentOf(100, offset),
+            timeRange: start.range(start.add(TimeSpan.milliseconds(4))),
+          }),
+        );
+      }
+      const floor = store.floor(index.key);
+      store.setChannel(data);
+      const block = store.raw(data.key, 100);
+      const end = BLOCK.start.add(TimeSpan.milliseconds(10_000));
+      block.fill(
+        [
+          new Series({
+            data: new Float32Array(10_000),
+            alignment: alignmentOf(100, 0),
+            timeRange: BLOCK.start.range(end),
+          }),
+        ],
+        end,
+        10_000,
+      );
+      store.set(rawKey(data.key, 100), block);
+      const starts = block.seriesIn(TimeRange.MAX).map((s) => s.timeRange.start);
+      expect(starts[0]).toEqual(floor?.kept);
+      expect(starts).toContainEqual(floor?.start);
+      expect(held(store, data.key)).toBeLessThanOrEqual(64);
+    });
+
     it("should not cover a span before the samples it keeps", () => {
       const store = createStore(BLOCK.end);
       stream(store, 10_000);
