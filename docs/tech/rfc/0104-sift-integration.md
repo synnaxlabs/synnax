@@ -51,9 +51,10 @@ RFC replaces it.
 The integration is Go code in the Core, `core/pkg/service/sift`, with a factory in
 `driver.Open` (`core/pkg/service/layer.go:829`). The Core holds the data and the framer
 service, and Sift ships no C++ client (RFC 0064 §7.0 made the same call for MQTT). It
-depends on `github.com/sift-stack/sift/go` v0.4.0 (MIT), which holds generated stubs for
-`ingest/v1`, `ingestion_configs/v2`, `runs/v2`, and `assets/v1`, and `UseSiftChannel`
-for TLS and the bearer token.
+depends on `github.com/sift-stack/sift/go` (MIT), pinned to a pseudo-version after
+v0.4.0, which holds generated stubs for `ingest/v1`, `ingestion_configs/v2`, `runs/v2`,
+and `assets/v1`, and `UseSiftChannel` for TLS and the bearer token. A URL on a local
+host connects without TLS, for the fake server and a local Sift.
 
 ### 4.1 Engine
 
@@ -66,8 +67,9 @@ start position, and an optional end.
   frame, then sends the held and live frames.
 - **Flows**: One flow per index channel, named after it, holds the channels it indexes.
   Index samples become message timestamps and are not sent as Sift channels. A channel
-  missing from a frame gets an `Empty` value. A virtual channel with no index takes the
-  receive time and is live only.
+  missing from a frame gets an `Empty` value. The engine rejects a virtual channel, a
+  calculated one included, and a channel with no index: the Core stores neither, so a
+  restart could not send them again.
 - **Ingestion config**: `client_key` is a hash of the asset and the ordered flow
   schemas. The engine lists by key, then creates. A changed channel set gives a new key,
   and Sift continues the same channels when name and type match.
@@ -75,10 +77,10 @@ start position, and an optional end.
   gRPC keepalive every 20 s because Sift closes idle streams at 60 s.
   `end_stream_on_validation_error` stays false, as Sift advises for production. The
   checks at configure time make a validation failure a defect in our mapping.
-- **Checkpoint**: Every 60 s and at the end of an upload, the engine half-closes the
-  stream (`CloseAndRecv`), waits for Sift's empty reply, saves the position, and opens a
-  new stream. This reply is the only confirmation Sift gives; `sift_stream`, Sift's Rust
-  client, checkpoints the same way.
+- **Checkpoint**: Every 60 s (`FactoryConfig.CheckpointInterval`) and at the end of an
+  upload, the engine half-closes the stream (`CloseAndRecv`), waits for Sift's empty
+  reply, saves the position, and opens a new stream. This reply is the only confirmation
+  Sift gives; `sift_stream`, Sift's Rust client, checkpoints the same way.
 - **Failure**: `UNAVAILABLE` and `RESOURCE_EXHAUSTED` are `driver.ErrTemporary`. The
   engine closes the streamer, waits 1 s doubling to 30 s (the MQTT reconnect values),
   and starts again from the position. `UNAUTHENTICATED`, `PERMISSION_DENIED`, and
@@ -103,24 +105,29 @@ Channel names pass unchanged. Synnax names match `^[a-zA-Z_][a-zA-Z0-9_]*$`
 ### 4.2 Connection device
 
 A Sift device (make `sift`) on the Core's rack holds the gRPC URL and the key of a
-secret that holds the API key. The Core reads the value with `secret.Service.Resolve`
-(PR #4410). Device properties, task configs, and status details are declared in
+secret that holds the API key. Secrets are grant-only (PR #4410): a rack reads a value
+only through a grant. The Core runs Sift tasks itself, so it reads the key of a saved
+device with `secret.Service.Reveal`, which checks no grant. `test_connection` reads an
+unsaved key with `Resolve` and the grant that the connect dialog gives the rack. Device
+properties, task configs, and status details are declared in
 `schemas/synnax/sift.oracle` with a `versions/` snapshot, like `kafka.oracle`.
 
 ### 4.3 Uploader
 
-`InitialTasks` creates one hidden `sift_uploader` task per rack, like the Kafka and MQTT
-scanners. Commands carry secret keys, never values; the connect dialog tests an unsaved
-key through a secret grant (PR #4410).
+`InitialTasks` creates one hidden `sift_scan` task per rack, like the Kafka and MQTT
+scanners. Commands carry secret keys, never values.
 
-- `test_connection`: Pings Sift with a URL and key.
-- `list_assets`: Returns asset names from `AssetService.ListAssets`.
-- `upload`: Sends a device's channels over a time span to an asset, for a range or a
-  plain time span. The reply carries the upload's status key.
+- `test_connection`: Pings Sift with a URL, a key, and a grant.
+- `list_assets`: Returns asset names from `AssetService.ListAssets`, and the asset of
+  the device's newest upload.
+- `upload`: Sends a device's channels to an asset, for a range or a plain time span. An
+  end after the current time is cut to it, so a range that has not ended sends what
+  exists. The reply carries the upload's status key, `sift_upload:<UUIDv7>`.
 
 An upload is a `loading` status whose details hold the request and the position. It is a
 child of the range when there is one (`status.Writer.SetWithParent`,
-`core/pkg/service/status/writer.go:67`). That status is the saved command:
+`core/pkg/service/status/writer.go:67`), and of the status group for a plain time span.
+That status is the saved command:
 
 1. The uploader writes the status, then queues the upload. It runs one upload at a time
    per device, in order.
@@ -143,14 +150,18 @@ new task, or one whose position status was deleted, starts at the current time.
 
 Data goes to the asset with no `run_id`. A range becomes a Sift ad hoc run
 (`CreateAdhocRun`) over the same span. Its `client_key` is the range key, so the task
-finds an existing run before it makes one. Range labels become run tags.
+finds an existing run and updates it. Range labels become run tags. An existing run
+keeps its assets, so a second upload of the range to another asset does not add that
+asset to the run.
 
 - **Upload**: Makes the run after the last checkpoint. A plain time span makes no run.
 - **Streaming**: Listens to `ranger.Service.OnAction`
-  (`core/pkg/service/ranger/service.go:156`). When a range that has one of the task's
-  labels (`ranger.MatchLabels`) ends before the position, the task makes its run. On
-  start it does the same for labeled ranges that ended while it was stopped. A rename or
-  time edit later calls `UpdateRun`. A deleted range leaves its Sift run.
+  (`core/pkg/service/ranger/service.go:156`). After each checkpoint, the task makes the
+  run of each range that has one of its labels (`ranger.MatchLabels`) and ends before
+  the position. The checks resume from a time saved in the position status, so ranges
+  that ended while the task was stopped get runs too. A rename or time edit updates the
+  run. A label change fires no range action, so it does not update the tags. A deleted
+  range leaves its Sift run.
 
 Sift cannot make an ad hoc run over a live stream, so a run appears after its range
 ends.
@@ -159,22 +170,25 @@ ends.
 
 `console/src/feature/sift` is behind a `sift` flag in `console/src/flags.ts` and
 registers at the sites the Kafka feature uses (`feature/device/make.tsx`,
-`feature/task/tab.tsx`).
+`feature/task/tab.tsx`). `feature/range` and `feature/lineplot` also import it, for the
+upload actions, as `feature/task` and `feature/device` import each integration.
 
 - **Connect dialog**: Name, URL, and a secret field for the API key. Save runs
   `test_connection`.
-- **Upload modal**: Opens from the range context menu, the range overview, and a line
-  plot selection. It asks for the connection, the asset, and the channels. The asset
-  list comes from `list_assets`; a new asset is an explicit "New asset" choice, and the
-  field starts at the asset last used with that connection.
+- **Upload modal**: Opens from the range context menus, the range overview, a line plot
+  selection, and a range annotation on a plot. It asks for the connection, the asset,
+  and the channels. The asset list comes from `list_assets`; a new asset is an explicit
+  "New asset" choice, and the field starts at the asset last used with that connection.
 - **Range overview**: Shows the range's Sift upload statuses with progress.
 - **Streaming task form**: Connection, asset, channels, and run labels.
 
 ### 4.7 Clients and documentation
 
 `client/py` gets a `sift` module with `Device`, `StreamTask`, and an `upload` call that
-sends the command, following `mqtt/types.py`. A page under
-`site/docs/src/pages/reference/` documents both modes.
+sends the command to the scan task on the device's rack, following `mqtt/types.py`. The
+device goes on the Core's rack, not on the rack of the embedded Driver.
+`site/docs/src/pages/reference/ranges/sift.mdx` documents both modes, behind a docs flag
+until the Console flag goes.
 
 ### 4.8 Testing
 
@@ -188,6 +202,17 @@ integration has no client interface, as with Kafka's kfake and MQTT's mochi (RFC
 Each phase is one PR into `main`. Phases 2 to 4 stack on PR #4410 until it merges, and
 Phase 5 uses the Console secret field from the same work. Nothing here has shipped, so
 no format owes a migration.
+
+The phases landed as smaller stacked PRs. The Console work sits on PR #4505, which made
+secrets grant-only.
+
+- **Phase 1**: #4836.
+- **Phase 2**: #4837.
+- **Phase 3**: #4838 (runs), #4839 (upload), #4857 (plain time spans, last asset).
+- **Phase 4**: #4846.
+- **Phase 5**: #4848 (TypeScript types), #4852 (device), #4854 (stream form), #4855
+  (range upload), #4859 (asset picker), #4860 (range overview), #4865 (line plot).
+- **Phase 6**: #4867 (Python), #4868 (docs), #4869 (flag removal).
 
 | Phase | Scope                                                | Touches                                                                            | Depends on |
 | ----- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
