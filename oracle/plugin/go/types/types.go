@@ -79,12 +79,11 @@ func (p *Plugin) Requires() []string { return nil }
 // Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages resolve persisted references through the
-// dependency version their version file imports, as a frozen package does, so a freeze
-// never moves an import. Omitted fields and declarations outside the persisted
-// closure resolve to dependency roots and track the latest version, since they never
-// reach the stored wire format. Unversioned packages reference the root re-export
-// surface.
+// re-defined. Version packages resolve every dependency reference, omitted fields and
+// transient declarations included, at the dependency version their version file pins,
+// as a frozen package does, so a freeze never moves them. Transient declarations at a
+// versioned root path resolve to dependency roots. Unversioned packages reference the
+// root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
 		context.Background(), req.Resolutions, req.Versions,
@@ -277,9 +276,8 @@ type goFileGenerator struct {
 	// orders maps current version output paths to their version file's declaration
 	// order.
 	orders map[string]map[string]int
-	// original is the unrewritten table; set only for the versioned pass, where
-	// transient declarations resolve against it (self path rewritten) so their
-	// dependency references track the latest version.
+	// original is the unrewritten table. Transient declarations at a versioned root
+	// path resolve against it, so their dependency references hit root re-exports.
 	original *resolution.Table
 	// pathMap maps each version-laid-out root path to its current versions/vN sub-path.
 	pathMap map[string]string
