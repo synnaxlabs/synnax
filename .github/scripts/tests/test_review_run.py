@@ -454,7 +454,7 @@ class TestLenses:
         run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
         assert "--include-partial-messages" in rules.args
 
-    def test_should_start_the_lenses_when_the_first_pass_fails(self) -> None:
+    def test_should_skip_the_lenses_when_the_first_pass_fails_first(self) -> None:
         lenses: list[str] = []
 
         def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
@@ -467,7 +467,7 @@ class TestLenses:
 
         with pytest.raises(subprocess.CalledProcessError):
             run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
-        assert len(lenses) == 2
+        assert lenses == []
 
     def test_should_start_the_lenses_when_no_response_begins(self) -> None:
         def claude(args: list[str], stdin: str, cwd: Path) -> list[str]:

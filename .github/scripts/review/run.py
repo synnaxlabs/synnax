@@ -422,22 +422,18 @@ def _pass(
     started: threading.Event | None = None,
 ) -> tuple[Review, Usage]:
     """Runs one pass of a review. Sets started, if given, once the first response
-    begins, or once the pass ends."""
+    begins."""
     command = _command(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
     messages: list[dict[str, Any]] = []
-    try:
-        for line in claude(command, text, workdir):
-            if not line.strip():
-                continue
-            m = json.loads(line)
-            if m["type"] != "stream_event":
-                messages.append(m)
-            elif started and m["event"]["type"] == "message_start":
-                started.set()
-    finally:
-        if started:
+    for line in claude(command, text, workdir):
+        if not line.strip():
+            continue
+        m = json.loads(line)
+        if m["type"] != "stream_event":
+            messages.append(m)
+        elif started and m["event"]["type"] == "message_start":
             started.set()
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
@@ -451,7 +447,8 @@ def run(
     """Reviews a pull request, and returns the review, what it cost, and each pass.
 
     The passes of the lenses start once the first response of the pass with the rules
-    begins, so they read the shared prompt from the prompt cache.
+    begins, so they read the shared prompt from the prompt cache. They do not start
+    when that pass fails first.
 
     :param claude: Called from one thread for each pass when the config has lenses.
     :param workdir: An empty directory that Claude Code starts in and can read.
@@ -474,19 +471,6 @@ def run(
             return _cap(review, config.caps), usage, [only]
         started = threading.Event()
         begin = time.monotonic()
-
-        def focused(lens: Lens) -> tuple[Review, Usage]:
-            started.wait()
-            return _pass(
-                config,
-                pr,
-                _focused(lens),
-                system=system,
-                claude=claude,
-                workdir=workdir,
-                effort=lens.effort,
-            )
-
         with ThreadPoolExecutor(1 + len(config.lenses)) as pool:
             first = pool.submit(
                 _pass,
@@ -498,6 +482,24 @@ def run(
                 workdir=workdir,
                 started=started,
             )
+            first.add_done_callback(lambda _: started.set())
+
+            def focused(lens: Lens) -> tuple[Review, Usage]:
+                started.wait()
+                if first.done() and first.exception():
+                    raise RuntimeError(
+                        f"{lens.name} did not run: the first pass failed"
+                    )
+                return _pass(
+                    config,
+                    pr,
+                    _focused(lens),
+                    system=system,
+                    claude=claude,
+                    workdir=workdir,
+                    effort=lens.effort,
+                )
+
             lenses = pool.map(focused, config.lenses)
             results = [first.result(), *lenses]
     wall = round((time.monotonic() - begin) * 1000)
