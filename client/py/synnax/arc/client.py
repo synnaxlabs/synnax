@@ -263,7 +263,7 @@ class Client:
         )
         res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        return sole("Arc", req.where, arcs) if single else arcs
+        return sole("Arc", req, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

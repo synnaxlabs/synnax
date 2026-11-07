@@ -28,6 +28,8 @@ type index struct {
 		pointers []pointer
 		sync.RWMutex
 	}
+	// persistHead is the position of the first pointer that the index file may not
+	// hold. Guarded by mu.
 	persistHead int
 	deleteLock  sync.RWMutex
 	totalSize   *atomic.Int64
