@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep } from "@synnaxlabs/x";
+import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -36,10 +36,10 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
@@ -284,11 +284,12 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Rack", q, racks, true);
+      checkForMultipleOrNoResults("rack", { key: { eq: q.key } }, racks, true);
       return this.sugar(racks[0]);
     }
     const racks = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Rack", q, racks, true);
+    const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
+    checkForMultipleOrNoResults("rack", where, racks, true);
     return this.sugar(racks[0]);
   }
 }

@@ -24,6 +24,7 @@
 #include "client/cpp/status/status.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/json/struct.h"
 
@@ -65,14 +66,6 @@ inline std::string status_key(const Device &device) {
     return ontology_id(device.key).string();
 }
 
-/// @brief Options for retrieving devices.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved devices.
-    bool include_status = false;
-    /// @brief Whether to include parent ontology ID in the retrieved devices.
-    bool include_parent = false;
-};
-
 /// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:
@@ -86,43 +79,45 @@ public:
         std::unique_ptr<DeleteClient> device_delete_client
     );
 
-    /// @brief Retrieves a device by its key.
-    /// @param key The key of the device to retrieve.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
-    [[nodiscard]]
-    std::pair<Device, x::errors::Error> retrieve(const std::string &key) const;
-
-    /// @brief Retrieves a device by its key with options.
-    /// @param key The key of the device to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
+    /// @brief retrieves the device with the given key.
+    /// @param key the key of the device.
+    /// @param options the options of the retrieve.
+    /// @returns the device, and an error that matches NOT_FOUND when no device has the
+    /// key.
     [[nodiscard]]
     std::pair<Device, x::errors::Error>
-    retrieve(const std::string &key, const RetrieveOptions &options) const;
+    retrieve(const std::string &key, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves multiple devices by their keys.
-    /// @param keys The keys of the devices to retrieve.
-    /// @returns the devices for the keys that exist, and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Device>, x::errors::Error>
-    retrieve(const std::vector<std::string> &keys) const;
-
-    /// @brief Retrieves multiple devices by their keys with options.
-    /// @param keys The keys of the devices to retrieve.
-    /// @param options Options for the retrieval.
+    /// @brief retrieves the devices with the given keys.
+    /// @param keys the keys of the devices.
+    /// @param options the options of the retrieve.
     /// @returns the devices for the keys that exist, and an error if one occurred.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error> retrieve(
         const std::vector<std::string> &keys,
-        const RetrieveOptions &options
+        const RetrieveOptions &options = {}
     ) const;
 
-    /// @brief Retrieves the devices that req selects.
+    /// @brief retrieves the devices that where selects.
+    /// @param where the filter that the devices match. An empty filter matches all
+    /// devices.
+    /// @param options the options of the retrieve.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error>
-    retrieve(const RetrieveRequest &req) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one device that where selects.
+    /// @param where the filter that the device matches.
+    /// @param options the options of the retrieve.
+    /// @returns the device, and an error that matches NOT_FOUND when no device
+    /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
+    /// set a limit or an offset.
+    [[nodiscard]]
+    std::pair<Device, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.
@@ -150,8 +145,11 @@ public:
 
 private:
     [[nodiscard]]
-    std::pair<Device, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    std::pair<Device, x::errors::Error> retrieve_one(
+        const Where &where,
+        const RetrieveOptions &options,
+        const std::string &query
+    ) const;
 
     /// @brief Device creation transport.
     std::unique_ptr<CreateClient> device_create_client;

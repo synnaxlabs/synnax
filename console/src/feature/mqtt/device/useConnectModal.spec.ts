@@ -149,6 +149,19 @@ describe("MQTT.Device.useConnectModal", () => {
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
   });
 
+  it("should mark the device it connected as connected", async () => {
+    const { result, rack } = await renderConnectModal();
+    const scanner = await openScanner(client, rack.key);
+    fillHost();
+    pressSaveTrigger();
+    await scanner.answer({});
+    scanner.close();
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
+  });
+
   it("should report a device it connected and leave an empty port unset", async () => {
     const rack = await createRack();
     const scanner = await openScanner(client, rack.key);
@@ -237,6 +250,7 @@ describe("MQTT.Device.useConnectModal", () => {
     await renderEditModal(dev.key);
     await screen.findByDisplayValue(dev.name);
     pressSaveTrigger();
-    expect(await screen.findByText(/not found/i)).toBeTruthy();
+    const missing = `Found no task where rack = ${rack.key} and type = "mqtt_scan"`;
+    expect(await screen.findByText(new RegExp(missing))).toBeTruthy();
   });
 });
