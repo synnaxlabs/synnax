@@ -29,8 +29,7 @@ import (
 )
 
 // testType is the task type the suite registers its store under. The record type
-// is the Arc task config, picked because it exercises both the ApplyDefaults and
-// Validate hooks.
+// is the Arc task config, picked because it has both schema defaults and validation.
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
@@ -125,6 +124,15 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
+		})
+
+		It("Should keep an explicit empty field instead of defaulting it", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "",
+			})).Error().To(MatchError(ContainSubstring("invalid performance")))
 		})
 
 		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
