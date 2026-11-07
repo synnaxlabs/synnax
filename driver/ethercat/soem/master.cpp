@@ -445,14 +445,10 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        const bool restored = [this, pos] {
-            std::lock_guard lock(this->mu);
-            return !this->dc_restore_errors.contains(pos);
-        }();
         // From PRE-OP, the next check restores the clock again.
         this->api->set_slave_state(
             pos,
-            restored ? EC_STATE_OPERATIONAL : EC_STATE_PRE_OP
+            this->restore_failed(pos) ? EC_STATE_PRE_OP : EC_STATE_OPERATIONAL
         );
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
@@ -1380,10 +1376,12 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
     if (local_err) return local_err;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         const auto other = static_cast<uint16_t>(i);
-        // A slave in SAFE-OP or OP kept its clock since activation or its restore.
+        // A slave in SAFE-OP or OP kept its clock since activation or a restore that
+        // worked. A failed restore leaves its slave in SAFE-OP until the next check.
         if (other == pos || this->api->slave_group(other) != ENABLED_GROUP ||
             !this->api->slave_hasdc(other) || this->api->slave_lost(other) ||
-            (this->api->slave_state(other) & 0x0F) < EC_STATE_SAFE_OP)
+            (this->api->slave_state(other) & 0x0F) < EC_STATE_SAFE_OP ||
+            this->restore_failed(other))
             continue;
         const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
             other,
@@ -1464,6 +1462,11 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
 bool Master::al_error(const uint16_t pos) const {
     return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
            this->api->slave_ALstatuscode(pos) != 0;
+}
+
+bool Master::restore_failed(const uint16_t pos) const {
+    std::lock_guard lock(this->mu);
+    return this->dc_restore_errors.contains(pos);
 }
 
 bool Master::wait_for_frame(

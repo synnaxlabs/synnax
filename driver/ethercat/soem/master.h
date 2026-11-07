@@ -272,8 +272,9 @@ private:
     x::errors::Error start_dc();
 
     /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
-    /// matches the clock of another enabled DC slave in SAFE-OP or OP. Without one, the
-    /// clock continues the latest DC time that moved forward.
+    /// matches the clock of another enabled DC slave in SAFE-OP or OP whose latest
+    /// restore did not fail. Without one, the clock continues the latest DC time that
+    /// moved forward.
     /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, a slave
     /// does not answer a read, or the slave does not take the write.
     x::errors::Error align_clock(uint16_t pos);
@@ -294,6 +295,9 @@ private:
         std::chrono::steady_clock::time_point deadline,
         const std::function<bool()> &stopped
     ) const;
+
+    /// @brief whether the latest clock restore of the slave failed.
+    [[nodiscard]] bool restore_failed(uint16_t pos) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;

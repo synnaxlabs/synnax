@@ -1846,6 +1846,23 @@ TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should set the clock of a DC slave from the latest frame, and not from a
+/// slave whose restore failed in the same check, when the whole bus comes back from a
+/// power loss.
+TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveWhoseRestoreFailed) {
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->unwritable_slaves.insert(1);
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->mock->register_values[{2, 0x0918}] = 5'000;
+    this->check_while_cycling();
+    EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
+    const auto error = this->written_offset(2) - (7'000'000'000 - 5'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
 /// @brief it should send a DC slave that comes back from a power loss to PRE-OP from
 /// SAFE-OP, and report why, when the master cannot restore its clock.
 TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
