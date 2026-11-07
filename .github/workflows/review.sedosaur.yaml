@@ -103,25 +103,31 @@ jobs:
             jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
               "base=\(if $base == "" then .base.sha else $base end)",
-              "fork=\(.head.repo.full_name != .base.repo.full_name)"
+              "fork=\(.head.repo.full_name != .base.repo.full_name)",
+              "key=\(.number):\(.base.ref)"
             ' >> "$GITHUB_OUTPUT"
 
       # A fork's code never reaches a runner. Sessions often ask again for a review of a
-      # head that has one. The reviews of one pull request take turns, so a head whose
-      # last review succeeded needs no other.
+      # head that has one. The reviews of one pull request take turns, so a head needs
+      # no other review when its last review for this pull request and base succeeded.
+      # The check run's external ID names the pull request and base.
       - name: Decide whether to review
         id: skip
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           FORK: ${{ steps.pr.outputs.fork }}
+          KEY: ${{ steps.pr.outputs.key }}
           REPEAT: ${{ inputs.repeat || inputs.replay }}
         run: |
           skip=$FORK
           if [ "$skip" = false ] && [ "$REPEAT" != true ]; then
             runs="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
-            skip=$(gh api -X GET "$runs" -f check_name="Sedosaur Review" --jq '
-              any(.check_runs[]; .app.slug == "sedosaur" and .conclusion == "success")')
+            skip=$(gh api -X GET "$runs" -f check_name="Sedosaur Review" -f filter=all \
+              -f per_page=100 --jq '
+                [.check_runs[] | select(.app.slug == "sedosaur")
+                  | select(.external_id == env.KEY)]
+                | max_by(.started_at) | .conclusion == "success"')
           fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
@@ -167,9 +173,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
         run: |
           id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
-            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" \
+            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
             -f status=queued -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
