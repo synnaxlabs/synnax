@@ -17,6 +17,7 @@ import {
 import {
   compare,
   type CrudeTimeSpan,
+  deep,
   type destructor,
   errors,
   primitive,
@@ -25,6 +26,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { z } from "zod";
 
 import {
   errorResult,
@@ -113,7 +115,13 @@ export interface UseListParams<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  initialQuery?: Query;
+  /**
+   * The query that retrieves build on. When it changes by deep equality, it replaces
+   * the list's query and the list reads it from the first page. Only the search term
+   * and page size of the old query stay, unless the new query names them. A list that
+   * has not retrieved waits for its first retrieve. Removing it changes nothing.
+   */
+  query?: Query;
   filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
   retrieveDebounce?: CrudeTimeSpan;
@@ -152,16 +160,33 @@ const chainSetters =
   (prev) =>
     state.executeSetter(second, state.executeSetter(first, prev));
 
+const pagerZ = z.object({
+  searchTerm: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+});
+
+/** @returns the new query, with the old query's pager state, on its first page. */
+const rebaseQuery = <Query extends query.Params>(
+  current: Query | {},
+  to: Query,
+): Query => {
+  const { offset, ...pager } = pagerZ.parse(current);
+  return Object.assign(pager, to, offset == null ? {} : { offset: 0 });
+};
+
 /** One retrieved page: its query, answer keys, and live subscription. */
-interface Page<K extends record.Key> {
+interface Page<K extends record.Key, D> {
   hash: string;
   keys: K[];
   unsubscribe: destructor.Destructor;
   /** Set when the client cache answered the page. The next retrieve replaces it. */
   cached?: boolean;
-  /** Set while the retrieve that opened the page runs. The page ignores answers until
+  /** Set while the retrieve that opened the page runs. The page holds answers until
    *  the retrieve lands. */
   pending?: boolean;
+  /** The newest answer that arrived while the page was pending. */
+  held?: D[];
 }
 
 export const createList = <
@@ -185,7 +210,7 @@ export const createList = <
     const {
       filter = defaultFilter,
       sort,
-      initialQuery,
+      query: callerQuery,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
     } = params;
@@ -197,9 +222,13 @@ export const createList = <
       () => new Map(),
     );
     const queryRef = useRef<Query | null>(
-      initialQuery != null ? normalized(initialQuery) : null,
+      callerQuery != null ? normalized(callerQuery) : null,
     );
-    const pagesRef = useRef<Page<Key>[]>([]);
+    const callerQueryRef = useRef(callerQuery);
+    const retrievedRef = useRef(false);
+    const recordsStaleRef = useRef(false);
+    const callerQueryChangesRef = useRef(0);
+    const pagesRef = useRef<Page<Key, Data>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
     );
@@ -274,7 +303,7 @@ export const createList = <
     };
 
     /** Applies a page answer: updates items, notifies, recomputes keys. */
-    const applyPageAnswer = (page: Page<Key>, items: Data[]) => {
+    const applyPageAnswer = (page: Page<Key, Data>, items: Data[]) => {
       const filtered = items.filter(filterRef.current);
       filtered.forEach((item) => {
         const prev = dataRef.current.get(item.key);
@@ -302,7 +331,7 @@ export const createList = <
       });
     };
 
-    const closePages = (closes: (page: Page<Key>) => boolean) => {
+    const closePages = (closes: (page: Page<Key, Data>) => boolean) => {
       pagesRef.current = pagesRef.current.filter((page) => {
         if (!closes(page)) return true;
         page.unsubscribe();
@@ -336,7 +365,54 @@ export const createList = <
       });
     };
 
-    const subscribePage = (page: Page<Key>, q: Query): Page<Key> => {
+    const retrieveSingle = async (
+      key: Key,
+      options: query.FetchOptions = {},
+    ): Promise<void> => {
+      const { signal } = options;
+      const changes = callerQueryChangesRef.current;
+      const outdated = () =>
+        signal?.aborted === true || callerQueryChangesRef.current !== changes;
+      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
+      const apply = async (): Promise<void> => {
+        if (client == null || primitive.isZero(key)) return;
+        const item = await retrieveByKey({
+          client,
+          key,
+          query: queryRef.current ?? {},
+        });
+        if (outdated() || item == null) return;
+        openItemSub(key);
+        if (!filterRef.current(item)) {
+          dataRef.current.set(key, null);
+          return;
+        }
+        dataRef.current.set(key, item);
+        notifyListeners(key);
+      };
+      try {
+        await apply();
+      } catch (error) {
+        if (outdated()) return;
+        dataRef.current.set(key, null);
+        setResult(errorResult(`retrieve ${name}`, error));
+      }
+    };
+
+    /**
+     * Reads each record that no page holds under the current query, on a new feed. A
+     * record can depend on the query, such as a channel's alias on its range.
+     */
+    const refreshRecords = () => {
+      clearItemSubs();
+      coverRecords();
+      const paged = new Set(pagesRef.current.flatMap((page) => page.keys));
+      listItemListenersRef.current.forEach((_, key) => {
+        if (!paged.has(key)) void retrieveSingle(key);
+      });
+    };
+
+    const subscribePage = (page: Page<Key, Data>, q: Query): Page<Key, Data> => {
       if (subscribeToQuery != null && client != null)
         page.unsubscribe = subscribeToQuery(
           {
@@ -344,8 +420,9 @@ export const createList = <
             query: q,
           },
           (answer: query.Cached<Data[]> | undefined) => {
-            if (page.pending === true || !isLive(answer)) return;
-            applyPageAnswer(page, answer);
+            if (!isLive(answer)) return;
+            if (page.pending === true) page.held = answer;
+            else applyPageAnswer(page, answer);
           },
         );
       pagesRef.current.push(page);
@@ -366,7 +443,7 @@ export const createList = <
      * Opens the page for a retrieve before it fetches, so the client cache keeps the
      * answer maintained while it settles and need not fetch it again for the page.
      */
-    const openPendingPage = (q: Query): Page<Key> =>
+    const openPendingPage = (q: Query): Page<Key, Data> =>
       subscribePage(
         { hash: query.hash(q), keys: [], unsubscribe: () => {}, pending: true },
         q,
@@ -378,6 +455,7 @@ export const createList = <
       options: AsyncListOptions,
     ): Promise<boolean> => {
       const { signal, mode = "replace" } = options;
+      retrievedRef.current = true;
 
       const query = normalized(
         state.executeSetter(paramsSetter, queryRef.current ?? {}),
@@ -431,7 +509,9 @@ export const createList = <
         page.keys = keys;
         page.pending = false;
         keys.forEach(notifyListeners);
-        coverRecords();
+        if (recordsStaleRef.current) refreshRecords();
+        else coverRecords();
+        recordsStaleRef.current = false;
 
         // If we've already retrieved the initial data, and it's the same as the
         // data we just retrieved, then don't notify listeners.
@@ -441,6 +521,10 @@ export const createList = <
         )
           setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
         else setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
+        // An answer that arrived while the retrieve ran is at least as new as its value.
+        const { held } = page;
+        page.held = undefined;
+        if (held != null) applyPageAnswer(page, held);
         return true;
       };
       try {
@@ -512,37 +596,6 @@ export const createList = <
       const query = queryRef.current;
       if (query != null) void retrieveAsyncRef.current(query);
     }, [client]);
-
-    const retrieveSingle = async (
-      key: Key,
-      options: query.FetchOptions = {},
-    ): Promise<void> => {
-      const { signal } = options;
-      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<void> => {
-        if (client == null || primitive.isZero(key)) return;
-        const item = await retrieveByKey({
-          client,
-          key,
-          query: queryRef.current ?? {},
-        });
-        if (signal?.aborted || item == null) return;
-        openItemSub(key);
-        if (!filterRef.current(item)) {
-          dataRef.current.set(key, null);
-          return;
-        }
-        dataRef.current.set(key, item);
-        notifyListeners(key);
-      };
-      try {
-        await apply();
-      } catch (error) {
-        if (signal?.aborted) return;
-        dataRef.current.set(key, null);
-        setResult(errorResult(`retrieve ${name}`, error));
-      }
-    };
 
     const getOne = (key?: Key) => {
       // Zero-value keys that are not null or undefined are common as initialized
@@ -619,6 +672,24 @@ export const createList = <
         );
       debouncedRetrieve();
     };
+
+    useEffect(() => {
+      if (callerQuery == null || deep.equal(callerQueryRef.current, callerQuery))
+        return;
+      callerQueryRef.current = callerQuery;
+      callerQueryChangesRef.current += 1;
+      const rebase = (current: Query | {}) => rebaseQuery(current, callerQuery);
+      const next = normalized(rebase(queryRef.current ?? {}));
+      queryRef.current = next;
+      if (retrievedRef.current) {
+        recordsStaleRef.current = true;
+        return retrieveSync(rebase);
+      }
+      clearPages();
+      setResult(loadingResult<Key[]>(`retrieving ${name}`));
+      createCachedPage(next);
+      refreshRecords();
+    }, [callerQuery]);
 
     return {
       retrieve: retrieveSync,

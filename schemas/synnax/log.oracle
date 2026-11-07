@@ -38,7 +38,8 @@ TimestampConfig struct {
 
 ChannelEntry struct {
     channel   channel.Key       {
-        @doc value "is the channel this entry references."
+        @doc value         "is the channel this entry references."
+        @validate required
     }
     color     color.Color       {
         @doc value "is the display color for the channel."
@@ -89,6 +90,9 @@ Log struct {
     }
     timestamps_hidden    bool = false {
         @doc value "is true when entry timestamps are hidden."
+    }
+    time_zone            telem.TimeZone = "local" {
+        @doc value "is the time zone of the line times and day rows of the log."
     }
     group                group.Key?     {
         @doc value     "is the group the log sits in, if any."
@@ -250,7 +254,7 @@ Log struct {
         @doc value """
             repoints the entry referencing the "from" channel at the "to" channel in
             place, preserving the entry's position and display configuration. No-op when
-            no entry references "from".
+            no entry references "from" or an entry already references "to".
         """
     }
 
@@ -270,6 +274,12 @@ Log struct {
         timestamps_hidden bool
 
         @doc value "sets whether entry timestamps are hidden."
+    }
+
+    action SetTimeZone {
+        time_zone telem.TimeZone
+
+        @doc value "sets the time zone of the line times and day rows of the log."
     }
 
     @create

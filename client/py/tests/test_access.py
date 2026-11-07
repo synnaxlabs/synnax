@@ -124,6 +124,31 @@ class TestAccessClient:
         )
         assert res == []
 
+    def test_retrieve_key_operator(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the policies whose key matches an operator."""
+        keys = [p.key for p in two_policies]
+        res = client.access.policies.retrieve(key={"in": keys})
+        assert {p.key for p in res} == set(keys)
+
+    def test_retrieve_plain_key_beside_fields(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should return one policy for a plain key beside other fields."""
+        key = two_policies[0].key
+        assert client.access.policies.retrieve(key=key, internal=False).key == key
+        with pytest.raises(sy.NotFoundError, match=r"Policy matching .* not found"):
+            client.access.policies.retrieve(key=key, internal=True)
+
+    def test_retrieve_or(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the policies that match any filter in or_."""
+        a, b = two_policies
+        res = client.access.policies.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {p.key for p in res} == {a.key, b.key}
+
     def test_delete_by_key(
         self, two_policies: list[sy.Policy], client: sy.Synnax
     ) -> None:
@@ -205,6 +230,36 @@ class TestRoleClient:
         )
         assert [r.key for r in roles] == [two_roles[1].key]
 
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one role for a plain name."""
+        role = client.access.roles.create(sy.Role(name=str(uuid.uuid4())))
+        assert client.access.roles.retrieve(name=role.name).key == role.key
+
+    def test_retrieve_key_operator(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the roles whose key matches an operator."""
+        keys = [r.key for r in two_roles]
+        roles = client.access.roles.retrieve(key={"in": keys})
+        assert {r.key for r in roles} == set(keys)
+
+    def test_retrieve_plain_key_beside_fields(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should return one role for a plain key beside other fields."""
+        key = two_roles[0].key
+        assert client.access.roles.retrieve(key=key, internal=False).key == key
+        with pytest.raises(sy.NotFoundError, match=r"Role matching .* not found"):
+            client.access.roles.retrieve(key=key, internal=True)
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the roles that match any filter in or_."""
+        a, b = client.access.roles.create(
+            [sy.Role(name=str(uuid.uuid4())), sy.Role(name=str(uuid.uuid4()))]
+        )
+        roles = client.access.roles.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in roles} == {a.key, b.key}
+
     def test_retrieve_multiple(
         self, two_roles: list[sy.Role], client: sy.Synnax
     ) -> None:
@@ -220,7 +275,7 @@ class TestRoleClient:
         assert role.key is not None
         client.access.roles.delete(role.key)
         with pytest.raises(
-            sy.NotFoundError, match=f"Role matching {role.key} not found"
+            sy.NotFoundError, match=rf"Role matching .*{role.key}.* not found"
         ):
             client.access.roles.retrieve(role.key)
 

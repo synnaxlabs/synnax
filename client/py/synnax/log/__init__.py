@@ -15,6 +15,7 @@ from synnax.log.types_gen import (
     Log,
     TimestampConfig,
     Where,
+    WhereInput,
     resource_id,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "Log",
     "TimestampConfig",
     "Where",
+    "WhereInput",
     "resource_id",
 ]

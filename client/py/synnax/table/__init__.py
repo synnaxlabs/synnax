@@ -20,6 +20,7 @@ from synnax.table.types_gen import (
     TextCellConfig,
     ValueCellConfig,
     Where,
+    WhereInput,
     resource_id,
 )
 
@@ -36,5 +37,6 @@ __all__ = [
     "TextCellConfig",
     "ValueCellConfig",
     "Where",
+    "WhereInput",
     "resource_id",
 ]

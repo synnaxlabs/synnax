@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
@@ -197,5 +198,16 @@ var _ = Describe("DriverTrustAnchors", func() {
 		Expect(start.DriverTrustAnchors(false, cert.LoaderConfig{FS: xfs.NewMem()})).
 			Error().
 			To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("AddDataFlag", func() {
+	It("Should add the data flag with its shorthand and default", func() {
+		cmd := &cobra.Command{}
+		start.AddDataFlag(cmd)
+		flag := cmd.Flags().Lookup(start.FlagData)
+		Expect(flag).ToNot(BeNil())
+		Expect(flag.Shorthand).To(Equal("d"))
+		Expect(flag.DefValue).To(Equal("synnax-data"))
 	})
 })

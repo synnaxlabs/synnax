@@ -8,7 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ranger.client import Client, Range
-from synnax.ranger.types_gen import Key, KeyRef, Ref, Where, WindowRef
+from synnax.ranger.types_gen import Key, KeyRef, Ref, Where, WhereInput, WindowRef
 from synnax.ranger.writer import Writer
 
-__all__ = ["Client", "Key", "KeyRef", "Range", "Ref", "Where", "WindowRef", "Writer"]
+__all__ = [
+    "Client",
+    "Key",
+    "KeyRef",
+    "Range",
+    "Ref",
+    "Where",
+    "WhereInput",
+    "WindowRef",
+    "Writer",
+]

@@ -96,7 +96,7 @@ protected:
             {"channels",
              x::json::json::array({
                  {{"type", "ao_voltage"},
-                  {"key", "hCzuNC9glqc"},
+                  {"key", "output_key"},
                   {"port", 0},
                   {"disabled", false},
                   {"min_val", 0},
@@ -107,7 +107,7 @@ protected:
                  {
 
                      {"type", "ao_voltage"},
-                     {"key", "hCzuNC9glqc"},
+                     {"key", "output_key"},
                      {"port", 1},
                      {"disabled", false},
                      {"min_val", 0},
@@ -362,7 +362,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         {"channels",
          x::json::json::array(
              {{{"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
-               {"key", "hCzuNC9glqc"},
+               {"key", "output_key"},
                {"port", 0},
                {"disabled", false},
                {"min_val", 0},
@@ -377,5 +377,152 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
 
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
+/// @brief runs write tasks on one device whose state channels share an index, each
+/// writing to a live Core.
+class SharedIndexWriteTest : public ::testing::Test {
+protected:
+    struct Run {
+        std::shared_ptr<task::MockContext> ctx;
+        std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
+        std::unique_ptr<common::WriteTask> write_task;
+    };
+
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::rack::Rack rack;
+    synnax::device::Device dev;
+    synnax::channel::Channel state_index;
+
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->state_index = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("state_index"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
+        this->rack = ASSERT_NIL_P(this->client->racks.create("cat"));
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("shared_index_device"),
+            .rack = this->rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+        };
+        ASSERT_NIL(this->client->devices.create(this->dev));
+    }
+
+    void create_task(const std::string &name, const int port, Run &run) {
+        const auto state = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("state"),
+            x::telem::FLOAT64_T,
+            this->state_index.key,
+            false
+        ));
+        const auto cmd = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("cmd"),
+            x::telem::FLOAT64_T,
+            true
+        ));
+        auto task = synnax::task::Task{.name = name, .type = "ni_analog_write"};
+        ASSERT_NIL(this->rack.tasks.create(task));
+        const x::json::json j{
+            {"data_saving_disabled", false},
+            {"state_rate", 25},
+            {"device", this->dev.key},
+            {"channels",
+             x::json::json::array({
+                 {{"type", "ao_voltage"},
+                  {"key", "output_key"},
+                  {"port", port},
+                  {"disabled", false},
+                  {"min_val", 0},
+                  {"max_val", 1},
+                  {"state_channel", state.key},
+                  {"cmd_channel", cmd.key},
+                  {"custom_scale", {{"type", "none"}}}},
+             })}
+        };
+        auto p = x::json::Parser(j);
+        WriteTaskConfig cfg(this->client, p, "ni_analog_write");
+        ASSERT_NIL(p.error());
+        WriteTaskSink<double>::MakeHardware make_hw = [](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            return {
+                std::make_unique<hardware::mock::Writer<double>>(
+                    std::make_shared<std::vector<std::vector<double>>>()
+                ),
+                x::errors::NIL,
+            };
+        };
+        run.ctx = std::make_shared<task::MockContext>(this->client);
+        run.writers = std::make_shared<pipeline::testutil::CoreWriterFactory>(
+            this->client
+        );
+        run.write_task = std::make_unique<common::WriteTask>(
+            task,
+            run.ctx,
+            x::breaker::default_config(task.name),
+            std::make_unique<WriteTaskSink<double>>(std::move(cfg), std::move(make_hw)),
+            run.writers,
+            pipeline::testutil::simple_streamer_factory(
+                {cmd.key},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        );
+    }
+};
+
+/// @brief a second task on a running task's state index should fail and name that
+/// task.
+TEST_F(SharedIndexWriteTest, testSecondTaskFails) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    first.write_task->start("start_first");
+    ASSERT_EVENTUALLY_EQ(
+        first.writers->writers_open.load(std::memory_order_acquire),
+        1
+    );
+    second.write_task->start("start_second");
+    ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
+    const auto failed = second.ctx->snapshot().back();
+    EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_FALSE(failed.details.running);
+    EXPECT_TRUE(failed.description.contains("first_task"));
+    EXPECT_TRUE(failed.description.contains("no control authority"));
+    EXPECT_EQ(second.writers->writers_open.load(), 0);
+    for (const auto &status: first.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR);
+    first.write_task->stop("stop_first", true);
+    second.write_task->stop("stop_second", true);
+}
+
+/// @brief a task should reopen its writer after a stop, and a stopped task should
+/// leave the state index free for another task.
+TEST_F(SharedIndexWriteTest, testRestartIgnoresReleasedWriter) {
+    Run first, second;
+    this->create_task("first_task", 0, first);
+    this->create_task("second_task", 1, second);
+    for (size_t i = 1; i <= 3; i++) {
+        first.write_task->start("start_first");
+        ASSERT_EVENTUALLY_EQ(
+            first.writers->writers_open.load(std::memory_order_acquire),
+            i
+        );
+        first.write_task->stop("stop_first", true);
+    }
+    second.write_task->start("start_second");
+    ASSERT_EVENTUALLY_EQ(
+        second.writers->writers_open.load(std::memory_order_acquire),
+        1
+    );
+    second.write_task->stop("stop_second", true);
+    for (const auto &status: first.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
+    for (const auto &status: second.ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
 }

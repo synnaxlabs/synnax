@@ -50,8 +50,7 @@ describe("Group queries", () => {
       });
 
       const { result } = renderHook(
-        () =>
-          Group.useList({ initialQuery: { parents: [group.resourceID(parent.key)] } }),
+        () => Group.useList({ query: { parents: [group.resourceID(parent.key)] } }),
         { wrapper },
       );
 
@@ -87,7 +86,7 @@ describe("Group queries", () => {
         name: `other-${uuid.create()}`,
       });
       const query: Group.ListQuery = { scope: "channel", nested: false };
-      const { result } = renderHook(() => Group.useList({ initialQuery: query }), {
+      const { result } = renderHook(() => Group.useList({ query }), {
         wrapper,
       });
 
@@ -121,7 +120,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: {
+            query: {
               parents: [group.resourceID(parent.key)],
               limit: 2,
               offset: 1,
@@ -165,7 +164,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent.key)] },
+            query: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
@@ -346,7 +345,7 @@ describe("Group queries", () => {
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent.key)] },
+            query: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
@@ -363,7 +362,7 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent.key)] },
+            query: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
@@ -392,7 +391,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent.key)] },
+            query: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
@@ -432,7 +431,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent2.key)] },
+            query: { parents: [group.resourceID(parent2.key)] },
           }),
         { wrapper },
       );
@@ -476,7 +475,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parents: [group.resourceID(parent1.key)] },
+            query: { parents: [group.resourceID(parent1.key)] },
           }),
         { wrapper },
       );
