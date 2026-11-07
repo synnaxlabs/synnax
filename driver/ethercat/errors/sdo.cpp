@@ -61,7 +61,7 @@ constexpr std::array<std::pair<uint32_t, std::string_view>, 32> ABORT_REASONS{{
 
 std::string sdo_abort_reason(const uint32_t code) {
     if (code == 0) return "no response";
-    const auto it = std::ranges::find(
+    const auto *const it = std::ranges::find(
         ABORT_REASONS,
         code,
         &decltype(ABORT_REASONS)::value_type::first
