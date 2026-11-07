@@ -12,7 +12,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
-import { createSiftDevice } from "@/feature/sift/testutil";
+import { createAPIKey, createSiftDevice } from "@/feature/sift/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
@@ -33,10 +33,10 @@ const createScanTask = async () => {
 
 describe("Sift.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
+    const apiKey = await createAPIKey(client);
     const dev = await createSiftDevice(client, {
-      properties: { uri: "sift.example.com:443" },
+      properties: { uri: "sift.example.com:443", apiKey: apiKey.key },
     });
-    const apiKey = await client.secrets.retrieve({ key: dev.properties.apiKey });
     await renderModalOpener(Sift.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
@@ -63,7 +63,11 @@ describe("Sift.Device.useConnectModal", () => {
 
   it("should test the connection with a grant for the API key", async () => {
     const { rack, scan } = await createScanTask();
-    const dev = await createSiftDevice(client, { rack: rack.key });
+    const apiKey = await createAPIKey(client);
+    const dev = await createSiftDevice(client, {
+      rack: rack.key,
+      properties: { apiKey: apiKey.key },
+    });
     const analytics = createTestSink();
     await renderModalOpener(Sift.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
@@ -75,7 +79,7 @@ describe("Sift.Device.useConnectModal", () => {
     const cmd = await answered;
     expect(cmd.type).toBe(Sift.Task.TEST_CONNECTION_COMMAND_TYPE);
     expect(cmd.args).toMatchObject({
-      connection: { uri: "localhost:50051", apiKey: dev.properties.apiKey },
+      connection: { uri: "localhost:50051", apiKey: apiKey.key },
       grant: expect.any(String),
     });
     await waitFor(async () =>

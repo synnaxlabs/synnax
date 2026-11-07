@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack, type Synnax } from "@synnaxlabs/client";
+import { type device, type rack, type secret, type Synnax } from "@synnaxlabs/client";
 
 import { MAKE, type Properties } from "@/feature/sift/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
@@ -18,21 +18,27 @@ export interface CreateSiftDeviceOptions {
   properties?: Partial<Properties>;
 }
 
-/** Creates a Sift device, and a stored API key for it, on the live Core. */
-export const createSiftDevice = async (
-  client: Synnax,
-  { rack, properties }: CreateSiftDeviceOptions = {},
-): Promise<device.Device> => {
-  const apiKey = await client.secrets.create({
+/** Creates a stored secret that holds a Sift API key on the live Core. */
+export const createAPIKey = async (client: Synnax): Promise<secret.Secret> =>
+  await client.secrets.create({
     name: uniqueName("sift_api_key"),
     source: "stored",
     value: "key",
   });
-  return await createTestDevice(client, {
+
+/** Creates a Sift device on the live Core, with a new API key unless one is given. */
+export const createSiftDevice = async (
+  client: Synnax,
+  { rack, properties }: CreateSiftDeviceOptions = {},
+): Promise<device.Device> =>
+  await createTestDevice(client, {
     name: uniqueName("sift"),
     make: MAKE,
     model: "sift",
     rack,
-    properties: { uri: "localhost:50051", apiKey: apiKey.key, ...properties },
+    properties: {
+      uri: "localhost:50051",
+      apiKey: properties?.apiKey ?? (await createAPIKey(client)).key,
+      ...properties,
+    },
   });
-};
