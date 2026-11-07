@@ -6243,6 +6243,7 @@ var _ = Describe("Sequence", func() {
 			// startMain starts the main sequence, ingests each value into raw on its
 			// own cycle, and returns what the program wrote to out.
 			startMain := func(ctx SpecContext, program string, values ...int64) []int64 {
+				GinkgoHelper()
 				h := newRuntimeHarness(
 					ctx, record+program+"\ntrig => main", resolver, digests...,
 				)
