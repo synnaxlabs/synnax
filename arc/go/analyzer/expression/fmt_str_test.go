@@ -212,6 +212,37 @@ trig -> f()`
 		)
 	})
 
+	It("Should parse each placeholder at its position in the source", func(
+		specCtx SpecContext,
+	) {
+		code := "func f() {\n    log = f`a {1 + 2}\n  {trig}`\n}\ntrig -> f()"
+		ast := MustSucceed(parser.Parse(code))
+		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Placeholders).To(HaveLen(1))
+		var starts [][2]int
+		for _, exprs := range ctx.Placeholders {
+			for _, expr := range exprs {
+				if expr != nil {
+					start := expr.GetStart()
+					starts = append(starts, [2]int{start.GetLine(), start.GetColumn()})
+				}
+			}
+		}
+		Expect(starts).To(Equal([][2]int{{2, 15}, {3, 3}}))
+	})
+
+	It("Should anchor an error inside a placeholder on the expression", func(
+		specCtx SpecContext,
+	) {
+		diags := analyze(specCtx, "func f() {\n    log = f\"pre {1 + undeclared}\"\n}")
+		d := findError(diags, "undeclared")
+		Expect(d).ToNot(BeNil(), diags.String())
+		Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+		Expect(d.Range.Start.Character).To(Equal(uint32(21)))
+	})
+
 	Describe("Format spec validation", func() {
 		DescribeTable("rejects float-only specs on integer placeholders",
 			func(specCtx SpecContext, body string) {

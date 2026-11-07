@@ -99,7 +99,7 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 //	    }
 //	`)
 func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Program)
+	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Program)
 }
 
 // ParseExpression parses a single Arc expression.
@@ -115,7 +115,23 @@ func ParseExpression(
 	source string,
 	cfgs ...Config,
 ) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Expression)
+	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Expression)
+}
+
+// ParseExpressionAt parses an Arc expression that starts at line (1-based) and column
+// of an enclosing source, so its tokens and diagnostics carry positions in that source.
+func ParseExpressionAt(
+	source string,
+	line, column int,
+	cfgs ...Config,
+) (IExpressionContext, *diagnostics.Diagnostics) {
+	return parseWithContext(
+		source,
+		ConfigOf(cfgs...),
+		line,
+		column,
+		(*ArcParser).Expression,
+	)
 }
 
 // ParseStatement parses a single Arc statement.
@@ -131,7 +147,7 @@ func ParseStatement(
 	source string,
 	cfgs ...Config,
 ) (IStatementContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Statement)
+	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Statement)
 }
 
 // ParseBlock parses an Arc block (sequence of statements enclosed in braces).
@@ -146,7 +162,7 @@ func ParseBlock(
 	source string,
 	cfgs ...Config,
 ) (IBlockContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Block)
+	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
@@ -155,6 +171,7 @@ func ParseBlock(
 func parseWithContext[T any](
 	source string,
 	cfg Config,
+	line, column int,
 	parseFn func(*ArcParser) T,
 ) (T, *diagnostics.Diagnostics) {
 	var (
@@ -164,6 +181,9 @@ func parseWithContext[T any](
 		diag   = &diagnostics.Diagnostics{}
 		errLis = &errorListener{Diagnostics: diag}
 	)
+	sim := lexer.Interpreter.(*antlr.LexerATNSimulator)
+	sim.Line = line
+	sim.CharPositionInLine = column
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(errLis)
 	parser.RemoveErrorListeners()
@@ -237,3 +257,8 @@ func (p *ArcParser) CalleeTouchesParen() bool {
 	return paren != nil && paren.GetTokenType() == ArcLexerLPAREN &&
 		p.TokensAdjacent(stream.LT(nameIndex), paren)
 }
+
+// Placeholders maps a format string token to the parsed expression of each of its
+// segments, in order. A literal segment, or a placeholder that failed to parse, has a
+// nil expression.
+type Placeholders map[antlr.TerminalNode][]IExpressionContext

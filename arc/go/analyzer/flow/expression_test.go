@@ -13,12 +13,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -108,12 +110,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 				expr1 := MustSucceed(parser.ParseExpression(`100`))
 				ctx1 := context.Context[parser.IExpressionContext]{
-					Context:     bCtx,
-					Scope:       ctx.Scope,
-					Diagnostics: ctx.Diagnostics,
-					Constraints: ctx.Constraints,
-					TypeMap:     ctx.TypeMap,
-					AST:         expr1,
+					Context:      bCtx,
+					Scope:        ctx.Scope,
+					Diagnostics:  ctx.Diagnostics,
+					Constraints:  ctx.Constraints,
+					TypeMap:      ctx.TypeMap,
+					Placeholders: ctx.Placeholders,
+					AST:          expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
 
@@ -189,12 +192,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 			expr1 := MustSucceed(parser.ParseExpression(`pressure < 50`))
 			ctx1 := context.Context[parser.IExpressionContext]{
-				Context:     bCtx,
-				Scope:       ctx.Scope,
-				Diagnostics: ctx.Diagnostics,
-				Constraints: ctx.Constraints,
-				TypeMap:     ctx.TypeMap,
-				AST:         expr1,
+				Context:      bCtx,
+				Scope:        ctx.Scope,
+				Diagnostics:  ctx.Diagnostics,
+				Constraints:  ctx.Constraints,
+				TypeMap:      ctx.TypeMap,
+				Placeholders: ctx.Placeholders,
+				AST:          expr1,
 			}
 			flow.AnalyzeSingleExpression(ctx1)
 
@@ -299,12 +303,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 				expr1 := MustSucceed(parser.ParseExpression(`f"{ox_pt_2}"`))
 				ctx1 := context.Context[parser.IExpressionContext]{
-					Context:     bCtx,
-					Scope:       ctx.Scope,
-					Diagnostics: ctx.Diagnostics,
-					Constraints: ctx.Constraints,
-					TypeMap:     ctx.TypeMap,
-					AST:         expr1,
+					Context:      bCtx,
+					Scope:        ctx.Scope,
+					Diagnostics:  ctx.Diagnostics,
+					Constraints:  ctx.Constraints,
+					TypeMap:      ctx.TypeMap,
+					Placeholders: ctx.Placeholders,
+					AST:          expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
 
@@ -536,6 +541,14 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		GinkgoHelper()
 		expr := MustSucceed(parser.ParseExpression(code))
 		ctx := context.NewRoot(bCtx, expr, root)
+		// The flow analyzes a format string, and parses its placeholders, first.
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if strTerm := parser.StringTerminal(lit); strTerm != nil {
+				analysis := ctx
+				analysis.Diagnostics = &diagnostics.Diagnostics{}
+				expression.AnalyzeFmtStrLiteral(analysis, strTerm)
+			}
+		}
 		flow.LiftFmtStrVarReads(ctx, fn, expr)
 		return ctx
 	}

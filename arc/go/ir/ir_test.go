@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -47,6 +48,7 @@ var _ = Describe("IR", func() {
 				ir.IR{Symbols: &symbol.Symbol{}}, false),
 			Entry("a type map",
 				ir.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
+			Entry("placeholders", ir.IR{Placeholders: parser.Placeholders{}}, false),
 		)
 	})
 

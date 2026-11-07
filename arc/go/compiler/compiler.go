@@ -87,6 +87,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
 	compCtx.Config = o.config
+	compCtx.Placeholders = program.Placeholders
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))
@@ -288,7 +289,15 @@ func compileFmtStrSynthetic(
 		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
 	}
 	typeIdx := ctx.Module.AddType(funcT)
-	if _, err := expression.EmitFmtSegments(ctx, segments); err != nil {
+	lit, ok := fn.Body.AST.(parser.ILiteralContext)
+	if !ok {
+		return compiledFunction{}, errors.Newf(
+			"format string %s has no literal",
+			fn.Key,
+		)
+	}
+	strTerm := parser.StringTerminal(lit)
+	if _, err := expression.EmitFmtSegments(ctx, strTerm, segments); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{

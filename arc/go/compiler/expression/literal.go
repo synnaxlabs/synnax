@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -25,7 +26,7 @@ func compileLiteral(
 		return compileNumericLiteral(ctx.Child(num))
 	}
 	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
-		return compileStringLiteral(ctx, strTerm.GetText())
+		return compileStringLiteral(ctx, strTerm)
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(ctx.Child(series))
@@ -43,8 +44,9 @@ func compileLiteral(
 
 func compileStringLiteral(
 	ctx context.Context[parser.ILiteralContext],
-	text string,
+	strTerm antlr.TerminalNode,
 ) (types.Type, error) {
+	text := strTerm.GetText()
 	body, flags, ok := literal.StripQuotes(text)
 	if !ok {
 		return types.Type{}, errors.Newf("invalid string literal: %s", text)
@@ -62,7 +64,7 @@ func compileStringLiteral(
 		if err != nil {
 			return types.Type{}, err
 		}
-		return EmitFmtSegments(ctx, segments)
+		return EmitFmtSegments(ctx, strTerm, segments)
 	}
 	emitLiteralSegment(ctx, value)
 	return types.String(), nil

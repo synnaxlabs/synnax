@@ -24,7 +24,7 @@ import (
 var _ = Describe("Format String Compilation", func() {
 	Describe("Single Placeholder, No Spec", func() {
 		DescribeTable("compiles numeric literal placeholder via from_<type> conversion",
-			expectExpression,
+			expectAnalyzedExpression,
 
 			Entry(
 				"integer literal placeholder",
@@ -67,7 +67,7 @@ var _ = Describe("Format String Compilation", func() {
 	Describe("Single Placeholder, With Format Spec", func() {
 		DescribeTable(
 			"compiles numeric placeholder with spec via emitSpecBytes + format_<type>",
-			expectExpression,
+			expectAnalyzedExpression,
 			Entry(
 				"i32 with :05d",
 				`f"{i32(7):05d}"`,
@@ -132,13 +132,13 @@ var _ = Describe("Format String Compilation", func() {
 
 	Describe("Mixed Literal and Placeholder Segments", func() {
 		It("compiles literal + placeholder with concat", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `f"x={42}"`)
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"x={42}"`, nil)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles placeholder + literal with concat", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `f"{42} done"`)
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{42} done"`, nil)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
@@ -146,23 +146,24 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles two placeholders separated by literal with two concat ops",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, `f"{1} and {2}"`)
+				bytecode, exprType := compileWithAnalyzer(bCtx, `f"{1} and {2}"`, nil)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).ToNot(BeEmpty())
 			},
 		)
 
 		It("compiles three placeholders with mixed specs", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(
+			bytecode, exprType := compileWithAnalyzer(
 				bCtx,
 				`f"{1}, {i32(2):05d}, {f64(3.14):.2f}"`,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles adjacent placeholders with no separator", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `f"{1}{2}"`)
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{1}{2}"`, nil)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
@@ -170,7 +171,11 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles a multi-line format string with literal newlines around a placeholder",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, "f`line1\n{42}\nline3`")
+				bytecode, exprType := compileWithAnalyzer(
+					bCtx,
+					"f`line1\n{42}\nline3`",
+					nil,
+				)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).ToNot(BeEmpty())
 			},
@@ -179,7 +184,7 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles a multi-line format string with multiple placeholders across lines",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, "f`a={1}\nb={2}`")
+				bytecode, exprType := compileWithAnalyzer(bCtx, "f`a={1}\nb={2}`", nil)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).ToNot(BeEmpty())
 			},
@@ -188,7 +193,7 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles an rf-prefixed format string with placeholder and backslash literal",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, `rf"path\to\{42}"`)
+				bytecode, exprType := compileWithAnalyzer(bCtx, `rf"path\to\{42}"`, nil)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).ToNot(BeEmpty())
 			},
@@ -197,7 +202,11 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles an rf-prefixed multi-line format string with placeholder across newlines",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, "rf`path\\to\n{42}`")
+				bytecode, exprType := compileWithAnalyzer(
+					bCtx,
+					"rf`path\\to\n{42}`",
+					nil,
+				)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).ToNot(BeEmpty())
 			},
@@ -208,7 +217,7 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles a bool literal placeholder via strings.from_bool",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, `f"{true}"`)
+				bytecode, exprType := compileWithAnalyzer(bCtx, `f"{true}"`, nil)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(1),
@@ -220,7 +229,7 @@ var _ = Describe("Format String Compilation", func() {
 		It(
 			"compiles a false literal placeholder via strings.from_bool",
 			func(bCtx SpecContext) {
-				bytecode, exprType := compileExpression(bCtx, `f"{false}"`)
+				bytecode, exprType := compileWithAnalyzer(bCtx, `f"{false}"`, nil)
 				Expect(exprType).To(Equal(types.String()))
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(0),
@@ -239,11 +248,25 @@ var _ = Describe("Format String Compilation", func() {
 				Type: types.Series(types.Bool()),
 			}))
 			expr := MustSucceed(parser.ParseExpression(`f"{s}"`))
+			strTerm := parser.StringTerminal(parser.GetLiteral(expr))
+			placeholder := MustSucceed(parser.ParseExpression("s"))
+			ctx.Placeholders = parser.Placeholders{
+				strTerm: {placeholder},
+			}
 			Expect(expression.Compile(ctx.Child(expr))).Error().
 				To(MatchError(ContainSubstring(
 					"only numeric, string, and bool types are supported",
 				)))
 		})
+	})
+
+	It("Should fail to compile a placeholder the analyzer did not parse", func(
+		bCtx SpecContext,
+	) {
+		expr := MustSucceed(parser.ParseExpression(`f"{1}"`))
+		ctx := NewContext(bCtx)
+		Expect(expression.Compile(ctx.Child(expr))).Error().
+			To(MatchError(ContainSubstring(`placeholder "1" was not analyzed`)))
 	})
 
 	Describe("Malformed Format String Body", func() {

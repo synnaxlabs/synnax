@@ -46,7 +46,7 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 		Line:      uint32(sym.GetLine() - 1),
 		Character: uint32(sym.GetColumn() + bodyOff),
 	}
-	AnalyzeFmtStrSegments(ctx, body, base, ctx.AST)
+	AnalyzeFmtStrSegments(ctx, strTerm, body, base, ctx.AST)
 }
 
 // bodyOffset returns the column offset from the start of a string token to the
@@ -60,12 +60,15 @@ func bodyOffset(text string, _ literal.StringFlags) int {
 	return prefix + 1
 }
 
-// AnalyzeFmtStrSegments parses body and analyzes each placeholder expression
-// in ctx's scope. base is the source position of body[0]; placeholder
-// diagnostics anchor on the offending `{...}` span. Returns parsed segments,
-// or nil if body is malformed.
+// AnalyzeFmtStrSegments parses body, the body of strTerm, and analyzes each
+// placeholder expression in ctx's scope. base is the source position of body[0], and
+// each placeholder parses at its position in the source. The parsed placeholders go
+// in ctx.Placeholders under strTerm, and a later call reuses them. Placeholder
+// diagnostics anchor on the offending `{...}` span. Returns parsed segments, or nil if
+// body is malformed.
 func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
+	strTerm antlr.TerminalNode,
 	body string,
 	base protocol.Position,
 	anchor antlr.ParserRuleContext,
@@ -75,7 +78,12 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(diagnostics.Error(err, anchor))
 		return nil
 	}
-	for _, seg := range segments {
+	exprs, parsed := ctx.Placeholders[strTerm]
+	if !parsed {
+		exprs = make([]parser.IExpressionContext, len(segments))
+		ctx.Placeholders[strTerm] = exprs
+	}
+	for i, seg := range segments {
 		if !seg.IsPlaceholder {
 			continue
 		}
@@ -89,10 +97,23 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 				"placeholder '{}' must contain an expression"))
 			continue
 		}
-		expr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-		if diags != nil && !diags.Ok() {
-			emit(diagnostics.Errorf(anchor,
-				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
+		if !parsed {
+			textStart := diagnostics.Advance(base, body, seg.Start+1)
+			expr, diags := parser.ParseExpressionAt(
+				seg.Text,
+				int(textStart.Line)+1,
+				int(textStart.Character),
+				ctx.Config,
+			)
+			if diags != nil && !diags.Ok() {
+				emit(diagnostics.Errorf(anchor,
+					"invalid placeholder expression %q: %s", seg.Text, diags.String()))
+				continue
+			}
+			exprs[i] = expr
+		}
+		expr := exprs[i]
+		if expr == nil {
 			continue
 		}
 		Analyze(ctx.Child(expr))

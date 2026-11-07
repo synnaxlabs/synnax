@@ -164,23 +164,10 @@ func LiftFmtStrVarReads[T antlr.ParserRuleContext](
 	if strTerm == nil {
 		return
 	}
-	body, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
-		return
-	}
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		return
-	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder || seg.Text == "" {
-			continue
+	for _, expr := range ctx.Placeholders[strTerm] {
+		if expr != nil {
+			LiftVarReads(ctx, fn, expr)
 		}
-		phExpr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-		if diags != nil && !diags.Ok() {
-			continue
-		}
-		LiftVarReads(ctx, fn, phExpr)
 	}
 }
 

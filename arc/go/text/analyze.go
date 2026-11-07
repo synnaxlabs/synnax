@@ -1303,7 +1303,7 @@ func tryAnalyzeFmtStrLiteral(
 	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
-		Body:     ir.Body{Raw: body},
+		Body:     ir.Body{Raw: body, AST: literalCtx},
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
@@ -1481,7 +1481,11 @@ func analyze(
 		aCtx = acontext.NewRoot(ctx, t.AST, root).
 			WithConfig(parser.ConfigOf(cfgs...)).
 			WithModule(module)
-		i = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
+		i = ir.IR{
+			Symbols:      aCtx.Scope,
+			TypeMap:      aCtx.TypeMap,
+			Placeholders: aCtx.Placeholders,
+		}
 	)
 
 	analyzer.AnalyzeProgram(aCtx)
