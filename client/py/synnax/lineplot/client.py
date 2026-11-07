@@ -170,7 +170,9 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields)
         )
         res = self._client.send("/lineplot/retrieve", req, RetrieveResponse)
-        return sole("Line plot", fields, res.line_plots) if single else res.line_plots
+        return (
+            sole("line plot", req.where, res.line_plots) if single else res.line_plots
+        )
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.
