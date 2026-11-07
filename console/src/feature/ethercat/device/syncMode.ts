@@ -9,11 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 
-import {
-  type OpMode,
-  type OpModeChoice,
-  type SlaveProperties,
-} from "@/feature/ethercat/device/types";
+import { type OpMode, type OpModeChoice } from "@/feature/ethercat/device/types";
 
 /** The AssignActivate bit that gives the sync unit to the PDI. */
 const PDI_SYNC_UNIT = 0x0001;
@@ -58,34 +54,13 @@ export const autoIndex = (modes: OpMode[]): number | null => {
 export const isStale = (modes: OpMode[], choice: OpModeChoice): boolean =>
   modes[choice.index]?.assignActivate !== choice.assignActivate;
 
-/** A choice being edited. Index null is auto. A cycle of 0 is the mode's own. */
-export interface Draft {
-  index: number | null;
-  sync0: number;
-  sync1: number;
-}
-
-export const draftFromProperties = ({ opMode }: SlaveProperties): Draft =>
-  opMode == null
-    ? { index: null, sync0: 0, sync1: 0 }
-    : { index: opMode.index, sync0: opMode.sync0Cycle, sync1: opMode.sync1Cycle };
-
-/** The stored choice for the draft, or undefined for auto. */
-export const choiceFromDraft = (
-  modes: OpMode[],
-  draft: Draft,
-  stored?: OpModeChoice,
-): OpModeChoice | undefined => {
-  if (draft.index == null) return undefined;
-  const assignActivate =
-    modes[draft.index]?.assignActivate ?? stored?.assignActivate ?? 0;
-  return {
-    index: draft.index,
-    assignActivate,
-    sync0Cycle: draft.sync0,
-    sync1Cycle: draft.sync1,
-  };
-};
+/** The choice of the mode at the index, with the mode's own cycles. */
+export const choose = (modes: OpMode[], index: number): OpModeChoice => ({
+  index,
+  assignActivate: modes[index].assignActivate,
+  sync0Cycle: 0,
+  sync1Cycle: 0,
+});
 
 const span = (ns: number): string => new TimeSpan(ns).toString("full");
 
@@ -108,10 +83,15 @@ const sync1Text = (mode: OpMode): string | null => {
   return "with each SYNC0 tick";
 };
 
-/** One sentence that says when the clock ticks of a DC mode run. */
-export const describeTicks = (mode: OpMode, draft: Draft): string => {
-  const sync0 = draft.sync0 !== 0 ? `every ${span(draft.sync0)}` : sync0Text(mode);
-  const sync1 = draft.sync1 !== 0 ? `every ${span(draft.sync1)}` : sync1Text(mode);
+/**
+ * One sentence that says when the clock ticks of a DC mode run. A null choice runs the
+ * mode's own cycles.
+ */
+export const describeTicks = (mode: OpMode, choice: OpModeChoice | null): string => {
+  const sync0Cycle = choice == null ? 0 : choice.sync0Cycle;
+  const sync1Cycle = choice == null ? 0 : choice.sync1Cycle;
+  const sync0 = sync0Cycle !== 0 ? `every ${span(sync0Cycle)}` : sync0Text(mode);
+  const sync1 = sync1Cycle !== 0 ? `every ${span(sync1Cycle)}` : sync1Text(mode);
   if (sync1 == null) return `SYNC0 ticks ${sync0}. SYNC1 is off.`;
   const on = hasSync1(mode)
     ? ""
@@ -130,10 +110,17 @@ export const describeMode = (mode: OpMode): string => {
     : `Clock ticks: SYNC0 ${sync0Text(mode)}, SYNC1 ${sync1}.`;
 };
 
-/** The error of a SYNC1 cycle that cannot run with the SYNC0 cycle, or null. */
-export const sync1Error = (draft: Draft): string | null => {
-  if (draft.sync0 === 0 || draft.sync1 === 0) return null;
-  if (draft.sync1 % draft.sync0 !== 0)
-    return "SYNC1 cycle must be a multiple of the SYNC0 cycle";
-  return null;
+/**
+ * The error of a chosen SYNC1 cycle that is not a multiple of the SYNC0 cycle, or null.
+ * A SYNC0 cycle that comes from the bus period is not known here, so the Driver checks
+ * it at start.
+ */
+export const sync1Error = (
+  mode: OpMode,
+  choice: OpModeChoice | null,
+): string | null => {
+  if (choice == null || choice.sync1Cycle === 0) return null;
+  const sync0 = choice.sync0Cycle !== 0 ? choice.sync0Cycle : mode.sync0Cycle;
+  if (sync0 === 0 || choice.sync1Cycle % sync0 === 0) return null;
+  return "SYNC1 cycle must be a multiple of the SYNC0 cycle";
 };

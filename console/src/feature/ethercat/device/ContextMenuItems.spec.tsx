@@ -93,10 +93,14 @@ const createSlave = async (
   });
 };
 
-const createMode = (name: string, assignActivate: number): EtherCAT.Device.OpMode => ({
+const createMode = (
+  name: string,
+  assignActivate: number,
+  sync0Cycle = 0,
+): EtherCAT.Device.OpMode => ({
   name,
   assignActivate,
-  sync0Cycle: 0,
+  sync0Cycle,
   sync0Factor: 1,
   sync0Shift: 0,
   sync1Factor: 0,
@@ -107,6 +111,13 @@ const SM_MODE = createMode("SM", 0);
 const DC_MODE = createMode("DC", 0x0300);
 const PDI_MODE = createMode("DC (PDI)", 0x0301);
 const NO_SYNC0_MODE = createMode("DC (no SYNC0)", 0x0100);
+const FIXED_MODE = createMode("DC (300 us)", 0x0300, 300_000);
+const STALE_CHOICE = { index: 1, assignActivate: 0x0700, sync0Cycle: 0, sync1Cycle: 0 };
+const STALE_ERROR =
+  "The device no longer lists this mode, so the network fails to start. Pick a mode.";
+
+/** Whether a save is in flight, which disables the button until the Core answers. */
+const saving = () => findButton("Save").getAttribute("aria-disabled") != null;
 
 const retrieveOpMode = async (key: device.Key) =>
   (await client.devices.retrieve({ key, schemas: EtherCAT.Device.SLAVE_SCHEMAS }))
@@ -297,23 +308,57 @@ describe("EtherCAT device ContextMenuItems", () => {
       ).toBeTruthy();
       fireEvent.click(findButton("Save"));
       await act(async () => {});
-      // A save in flight disables the button until the Core answers.
-      expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
+      expect(saving()).toBe(false);
+      expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
+    it("should check SYNC1 against the fixed SYNC0 cycle of the mode", async () => {
+      const slave = await openSyncMode({ opModes: [FIXED_MODE] });
+      typeCycle("SYNC1 cycle", "1000");
+      expect(
+        screen.getByText("SYNC1 cycle must be a multiple of the SYNC0 cycle"),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
       expect(await retrieveOpMode(slave.key)).toBeUndefined();
     });
 
     it("should show a mode the device no longer lists as an error", async () => {
-      await openSyncMode({
-        opModes: [DC_MODE],
-        opMode: { index: 1, assignActivate: 0x0700, sync0Cycle: 0, sync1Cycle: 0 },
-      });
-      expect(
-        screen.getByText(
-          "The device no longer lists this mode, so the network fails to start. " +
-            "Pick a mode.",
-        ),
-      ).toBeTruthy();
+      await openSyncMode({ opModes: [DC_MODE], opMode: STALE_CHOICE });
+      expect(screen.getByText(STALE_ERROR)).toBeTruthy();
       expect(screen.getByText("Mode 2 (0x0700)")).toBeTruthy();
+    });
+
+    it("should not save a mode the device no longer lists", async () => {
+      const slave = await openSyncMode({
+        opModes: [SM_MODE, DC_MODE],
+        opMode: STALE_CHOICE,
+      });
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
+      expect(screen.getByText(STALE_ERROR)).toBeTruthy();
+      expect(await retrieveOpMode(slave.key)).toEqual(STALE_CHOICE);
+    });
+
+    it("should accept the mode now listed at a stale index", async () => {
+      const slave = await openSyncMode({
+        opModes: [SM_MODE, DC_MODE],
+        opMode: STALE_CHOICE,
+      });
+      await pickMode(DC_DESCRIPTION);
+      expect(screen.queryByText(STALE_ERROR)).toBeNull();
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 1,
+          assignActivate: 0x0300,
+          sync0Cycle: 0,
+          sync1Cycle: 0,
+        }),
+      );
     });
   });
 });

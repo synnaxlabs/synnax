@@ -24,11 +24,9 @@ import { type ReactElement, useState } from "react";
 import { useResultSlave, useUpdateOpMode } from "@/feature/ethercat/device/queries";
 import {
   autoIndex,
-  choiceFromDraft,
+  choose,
   describeMode,
   describeTicks,
-  type Draft,
-  draftFromProperties,
   isSM,
   isStale,
   modeName,
@@ -74,34 +72,24 @@ const modeIcon = (mode: OpMode): Icon.ReactElement =>
 const staleLabel = ({ index, assignActivate }: OpModeChoice): string =>
   `Mode ${index + 1} (0x${assignActivate.toString(16).padStart(4, "0").toUpperCase()})`;
 
-/** Whether the draft still holds the stored choice that the device no longer lists. */
-const draftIsStale = ({ properties }: SlaveDevice, draft: Draft): boolean =>
-  properties.opMode != null &&
-  draft.index === properties.opMode.index &&
-  isStale(properties.opModes, properties.opMode);
-
-/** The mode that runs for the draft when it takes cycles, or null. */
-const cycleMode = (slave: SlaveDevice, draft: Draft): OpMode | null => {
-  if (draftIsStale(slave, draft)) return null;
-  const modes = slave.properties.opModes;
-  const index = draft.index ?? autoIndex(modes);
-  if (index == null) return null;
-  const mode = modes[index];
-  return mode != null && takesCycles(mode) ? mode : null;
-};
-
 interface ModeSelectProps {
-  slave: SlaveDevice;
-  draft: Draft;
-  onChange: (index: number | null) => void;
+  modes: OpMode[];
+  choice: OpModeChoice | null;
+  stale: boolean;
+  onChange: (choice: OpModeChoice | null) => void;
 }
 
-const ModeSelect = ({ slave, draft, onChange }: ModeSelectProps): ReactElement => {
-  const { opModes: modes, opMode: stored } = slave.properties;
-  const stale = draftIsStale(slave, draft);
+const ModeSelect = ({
+  modes,
+  choice,
+  stale,
+  onChange,
+}: ModeSelectProps): ReactElement => {
   const auto = autoIndex(modes);
   const autoName = auto == null ? "SM" : modeName(modes[auto], auto);
-  const value = stale ? STALE : (draft.index ?? AUTO);
+  let value = AUTO;
+  if (stale) value = STALE;
+  else if (choice != null) value = choice.index;
   let icon: Icon.ReactElement;
   if (value === AUTO) icon = <Icon.Auto />;
   else if (value === STALE) icon = <Icon.Warning />;
@@ -111,7 +99,7 @@ const ModeSelect = ({ slave, draft, onChange }: ModeSelectProps): ReactElement =
       value={value}
       onChange={(k: number | null) => {
         if (k == null || k === STALE) return;
-        onChange(k === AUTO ? null : k);
+        onChange(k === AUTO ? null : choose(modes, k));
       }}
       resourceName="mode"
       searchHidden
@@ -153,14 +141,14 @@ const ModeSelect = ({ slave, draft, onChange }: ModeSelectProps): ReactElement =
           <Select.ItemDescription>{describeMode(mode)}</Select.ItemDescription>
         </Select.Item>
       ))}
-      {stale && stored != null && (
+      {stale && choice != null && (
         <Select.Item<number>
           itemKey={STALE}
-          label={staleLabel(stored)}
+          label={staleLabel(choice)}
           textValue="stale"
         >
           <Icon.Warning />
-          {staleLabel(stored)}
+          {staleLabel(choice)}
           <Select.ItemDescription>
             The device no longer lists this mode.
           </Select.ItemDescription>
@@ -204,17 +192,20 @@ const CycleField = ({
   );
 };
 
-/** Sets a cycle. A cycle typed in auto keeps the mode that auto picks. */
+/**
+ * Sets a cycle on the choice. A cycle typed in auto chooses the mode that auto runs,
+ * at the index.
+ */
 const withCycle = (
   modes: OpMode[],
-  draft: Draft,
-  key: "sync0" | "sync1",
+  choice: OpModeChoice | null,
+  index: number,
+  key: "sync0Cycle" | "sync1Cycle",
   ns: number,
-): Draft => ({
-  ...draft,
-  index: draft.index ?? (ns === 0 ? null : autoIndex(modes)),
-  [key]: ns,
-});
+): OpModeChoice | null => {
+  if (choice == null && ns === 0) return null;
+  return { ...(choice ?? choose(modes, index)), [key]: ns };
+};
 
 interface HelpProps {
   text: string;
@@ -237,27 +228,26 @@ interface FormProps {
 }
 
 const Form = ({ slave, close }: FormProps): ReactElement => {
-  const [draft, setDraft] = useState<Draft>(() =>
-    draftFromProperties(slave.properties),
+  const [choice, setChoice] = useState<OpModeChoice | null>(
+    () => slave.properties.opMode ?? null,
   );
   const { update, variant } = useUpdateOpMode({ afterSuccess: () => close() });
   const modes = slave.properties.opModes;
-  const stale = draftIsStale(slave, draft);
-  const mode = cycleMode(slave, draft);
-  const cycleError = sync1Error(draft);
+  const stale = choice != null && isStale(modes, choice);
+  const index = choice == null ? autoIndex(modes) : choice.index;
+  let mode: OpMode | null = null;
+  if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
+  const cycleError = mode == null ? null : sync1Error(mode, choice);
   const handleSave = () => {
-    if (cycleError != null) return;
-    update({
-      key: slave.key,
-      opMode: choiceFromDraft(modes, draft, slave.properties.opMode),
-    });
+    if (stale || cycleError != null) return;
+    update({ key: slave.key, opMode: choice ?? undefined });
   };
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, error: true };
   else if (cycleError != null) help = { text: cycleError, error: true };
-  else if (mode != null) help = { text: describeTicks(mode, draft) };
-  else if (draft.index == null) help = { text: autoDescription(modes) };
-  else help = { text: describeMode(modes[draft.index]) };
+  else if (mode != null) help = { text: describeTicks(mode, choice) };
+  else if (choice == null) help = { text: autoDescription(modes) };
+  else help = { text: describeMode(modes[choice.index]) };
   return (
     <Modal.Frame className={CSS.BE("ethercat-sync", "frame")}>
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
@@ -267,26 +257,31 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
         <Flex.Box y gap="small">
           <Input.Item label="Mode" padHelpText={false}>
             <ModeSelect
-              slave={slave}
-              draft={draft}
-              onChange={(index) => setDraft({ index, sync0: 0, sync1: 0 })}
+              modes={modes}
+              choice={choice}
+              stale={stale}
+              onChange={setChoice}
             />
           </Input.Item>
           {mode == null && <Help {...help} />}
         </Flex.Box>
-        {mode != null && (
+        {mode != null && index != null && (
           <Flex.Box y gap="small">
             <Flex.Box x gap="large">
               <CycleField
                 label="SYNC0 cycle"
-                value={draft.sync0}
-                onChange={(ns) => setDraft(withCycle(modes, draft, "sync0", ns))}
+                value={choice == null ? 0 : choice.sync0Cycle}
+                onChange={(ns) =>
+                  setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                }
               />
               <CycleField
                 label="SYNC1 cycle"
-                value={draft.sync1}
+                value={choice == null ? 0 : choice.sync1Cycle}
                 error={cycleError != null}
-                onChange={(ns) => setDraft(withCycle(modes, draft, "sync1", ns))}
+                onChange={(ns) =>
+                  setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                }
               />
             </Flex.Box>
             <Help {...help} />
