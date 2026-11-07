@@ -262,7 +262,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,
@@ -380,7 +380,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	var stat device.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+			Where(status.MatchKeys[device.StatusDetails](dev.ResourceID().String())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,

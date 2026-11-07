@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -59,7 +59,7 @@ func createUser(ctx SpecContext) user.User {
 
 // grantUpdateOn grants update access on the given objects to the subject through a
 // fresh role.
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
 	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)

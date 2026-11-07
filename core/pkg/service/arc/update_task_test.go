@@ -177,7 +177,7 @@ var _ = Describe("UpdateTask", func() {
 		)
 		stored := retrieveTask(ctx, tsk.Key)
 		stat := task.Status{
-			Key:     stored.OntologyID().String(),
+			Key:     stored.ResourceID().String(),
 			Name:    stored.Name,
 			Variant: status.VariantSuccess,
 			Message: "running",

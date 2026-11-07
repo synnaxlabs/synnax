@@ -17,8 +17,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ontology
-from synnax.ontology.payload import ID
+from synnax import resource as resource_
+from synnax.resource import ID
 from x import color as color_
 from x import filter, spatial
 
@@ -86,7 +86,7 @@ class ResourceTab(TabBase):
     """Is a tab displaying a backing Core document."""
 
     variant: Literal["resource"] = "resource"
-    resource: ontology.ID
+    resource: resource_.ID
 
 
 class ViewTab(TabBase, View):
@@ -171,7 +171,7 @@ class Panel(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
-    parent: ontology.ID | None = None
+    parent: resource_.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
 
@@ -193,8 +193,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="panel")
+TYPE_RESOURCE_ID = ID(type="panel")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="panel", key=str(key))

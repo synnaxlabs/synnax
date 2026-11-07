@@ -73,7 +73,7 @@ describe("device ontology context menu", () => {
     fireEvent.click(screen.getByText("Create digital write task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.DIGITAL_WRITE_TYPE);
     expect(created.config).toMatchObject({ device: deviceKey });
@@ -84,7 +84,7 @@ describe("device ontology context menu", () => {
     fireEvent.click(await screen.findByText("Create analog read task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
     expect(created.config).toMatchObject({ channels: [{ device: deviceKey }] });

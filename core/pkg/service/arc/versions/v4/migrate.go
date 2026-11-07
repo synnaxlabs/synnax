@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -55,7 +56,7 @@ type MigrationConfig struct {
 	// Owner writes the parent relationships of Arcs.
 	Owner *ontology.Owner
 	// Root is the directory that holds every Arc.
-	Root ontology.ID
+	Root resource.ID
 }
 
 // NewRootMigration returns the migration that parents every stored Arc without a
@@ -69,20 +70,20 @@ func NewRootMigration(cfg MigrationConfig) gorp.Migration {
 				return err
 			}
 			defer func() { err = errors.Combine(err, iter.Close()) }()
-			var orphans []ontology.ID
+			var orphans []resource.ID
 			for iter.First(); iter.Valid(); iter.Next() {
 				a := iter.Value(ctx)
 				if err = iter.Error(); err != nil {
 					return err
 				}
-				id := a.OntologyID()
+				id := a.ResourceID()
 				var parents []ontology.Resource
 				// The Arc ontology service is not registered yet, so field data must
 				// stay excluded.
 				if err = cfg.Ontology.NewRetrieve().
 					WhereIDs(id).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeArcDirectory).
+					WhereTypes(resource.TypeArcDirectory).
 					ExcludeFieldData(true).
 					Entries(&parents).
 					Exec(ctx, tx); err != nil {

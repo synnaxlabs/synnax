@@ -14,8 +14,8 @@ package pb
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -384,7 +384,7 @@ func DeviceToPB(
 	}
 	if r.Parent != nil {
 		var err error
-		pb.Parent, err = ontologypb.IDToPB(*r.Parent)
+		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
 		if err != nil {
 			return nil, err
 		}
@@ -417,7 +417,7 @@ func DeviceFromPB(
 		r.Status = &val
 	}
 	if pb.Parent != nil {
-		val, err := ontologypb.IDFromPB(pb.Parent)
+		val, err := resourcepb.IDFromPB(pb.Parent)
 		if err != nil {
 			return device.Device{}, err
 		}

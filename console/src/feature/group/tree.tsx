@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, ontology, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
   useUpdate: Group.useRename,
-  ontologyID: group.ontologyID,
+  resourceID: group.resourceID,
   convertKey: String,
 });
 
@@ -45,10 +45,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const isSingle = ids.length === 1;
   const isZeroDepth =
-    PTree.getDepth(ontology.idToString(firstID), shape) === 0 &&
-    ontology.idsEqual(rootID, ontology.ROOT_ID);
+    PTree.getDepth(resource.idToString(firstID), shape) === 0 &&
+    resource.idsEqual(rootID, ontology.ROOT_ID);
   const isDelete = ids.every((id) => {
-    const node = PTree.findNode({ tree: nodes, key: ontology.idToString(id) });
+    const node = PTree.findNode({ tree: nodes, key: resource.idToString(id) });
     return node?.children == null || node?.children.length === 0;
   });
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -78,7 +78,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+              handleLink({ name: getResource(firstID).name, resourceID: firstID })
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
@@ -97,7 +97,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): ontology.ID => {
+const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID => {
   if (parentID == null)
     throw new Error("Cannot ungroup groups that sit under more than one parent");
   return parentID;
@@ -119,7 +119,7 @@ const baseUngroup = Flux.createUpdate<UngroupParams>({
     if (prevNodes == null) return args;
     const parentID = parentOf(selection);
     const resourceIDStrings = new Set(
-      selection.ids.map((id) => ontology.idToString(id)),
+      selection.ids.map((id) => resource.idToString(id)),
     );
     for (const id of selection.ids) {
       // The tree can hold only some of the children: a search shows only the matches,
@@ -127,7 +127,7 @@ const baseUngroup = Flux.createUpdate<UngroupParams>({
       const children = await client.ontology.children.retrieve({ ids: id });
       const childIDs = children
         .map((child) => child.id)
-        .filter((child) => !resourceIDStrings.has(ontology.idToString(child)));
+        .filter((child) => !resourceIDStrings.has(resource.idToString(child)));
       await client.ontology.moveChildren(id, parentID, ...childIDs);
     }
     await client.groups.delete(selection.ids.map((id) => id.key));
@@ -140,18 +140,18 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     selection,
     state: { shape, nodes, setNodes },
   } = data;
-  const parentKey = ontology.idToString(parentOf(selection));
+  const parentKey = resource.idToString(parentOf(selection));
   // Flat search results do not show the real parent, so the children move to the top.
   const destination =
     PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   const byDepth = PTree.compareDepth(shape);
-  selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
+  selection.ids.sort((a, b) => byDepth(resource.idToString(a), resource.idToString(b)));
   const prevNodes = PTree.deepCopy(nodes);
   const nextNodes = [
     ...selection.ids.reduce(
       (acc, id) => {
-        const key = ontology.idToString(id);
+        const key = resource.idToString(id);
         const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
         acc = PTree.moveNode({
           tree: acc,

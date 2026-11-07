@@ -18,15 +18,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func subject() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+func subject() resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 }
 
 func proof(username, pwd string) auth.Proof {
@@ -38,7 +38,7 @@ func proof(username, pwd string) auth.Proof {
 func storedHash(
 	ctx context.Context,
 	svc *password.Service,
-	subject ontology.ID,
+	subject resource.ID,
 ) []byte {
 	GinkgoHelper()
 	var p password.Password
@@ -51,7 +51,7 @@ func storedHash(
 func createHash(
 	ctx context.Context,
 	db *gorp.DB,
-	subject ontology.ID,
+	subject resource.ID,
 	username string,
 	hash []byte,
 ) {
@@ -112,7 +112,7 @@ var _ = Describe("OpenService", func() {
 var _ = Describe("Service", func() {
 	var (
 		svc      *password.Service
-		alice    ontology.ID
+		alice    resource.ID
 		username string
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -192,7 +192,7 @@ var _ = Describe("Service", func() {
 		)
 	})
 	Describe("NewRetrieve", func() {
-		var bob ontology.ID
+		var bob resource.ID
 		BeforeEach(func(ctx SpecContext) {
 			bob = subject()
 			Expect(svc.NewWriter(nil).Set(ctx, bob, auth.Credentials{

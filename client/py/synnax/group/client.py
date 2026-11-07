@@ -21,7 +21,7 @@ from synnax.group.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 

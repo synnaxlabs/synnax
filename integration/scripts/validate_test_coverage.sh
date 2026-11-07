@@ -24,7 +24,8 @@ set -euo pipefail
 
 TESTS_DIR="integration/tests"
 # Test prefixes exempt from the integration matrix — these run in dedicated workflows.
-EXEMPT="example"
+# hitl runs in test.hitl.yaml on the station that holds its hardware.
+EXEMPT="example hitl"
 
 # Matrix definition (single source of truth)
 # Format: "name:target:hosted:shards:args" where target can be comma-separated file

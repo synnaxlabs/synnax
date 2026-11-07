@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -292,10 +292,10 @@ var _ = Describe("Framer", func() {
 				u := createUserGranted(
 					ctx,
 					access.ActionRetrieve,
-					svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+					svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 				)
 				Expect(apiSvc.Read(
-					subjectCtx(ctx, u.OntologyID()),
+					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
 						Bounds:             telem.TimeRangeMax,
@@ -310,10 +310,10 @@ var _ = Describe("Framer", func() {
 					u := createUserGranted(
 						ctx,
 						access.ActionRetrieve,
-						svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+						svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 					)
 					res := MustSucceed(apiSvc.Read(
-						subjectCtx(ctx, u.OntologyID()),
+						subjectCtx(ctx, u.ResourceID()),
 						apiframer.ReadRequest{
 							Keys:   channel.Keys{data.Key()},
 							Bounds: telem.TimeRangeMax,
@@ -329,10 +329,10 @@ var _ = Describe("Framer", func() {
 				u := createUserGranted(
 					ctx,
 					access.ActionRetrieve,
-					svcframer.OntologyIDs(channel.Keys{data.Key(), index.Key()})...,
+					svcframer.ResourceIDs(channel.Keys{data.Key(), index.Key()})...,
 				)
 				res := MustSucceed(apiSvc.Read(
-					subjectCtx(ctx, u.OntologyID()),
+					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
 						Bounds:             telem.TimeRangeMax,
@@ -393,8 +393,8 @@ var _ = Describe("Framer", func() {
 
 	Describe("Stream", func() {
 		var (
-			readable = ontology.ID{Type: ontology.ResourceTypeTask, Key: "readable"}
-			denied   = ontology.ID{Type: ontology.ResourceTypeTask, Key: "denied"}
+			readable = resource.ID{Type: resource.TypeTask, Key: "readable"}
+			denied   = resource.ID{Type: resource.TypeTask, Key: "denied"}
 			records  channel.Channel
 			other    channel.Channel
 			writer   *svcframer.Writer
@@ -403,7 +403,7 @@ var _ = Describe("Framer", func() {
 				apiframer.StreamerResponse,
 			]
 		)
-		samples := func(ids ...ontology.ID) telem.Series {
+		samples := func(ids ...resource.ID) telem.Series {
 			series := telem.Series{DataType: telem.JSONT}
 			for _, id := range ids {
 				series.Data = append(
@@ -446,19 +446,19 @@ var _ = Describe("Framer", func() {
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
 				Records: map[channel.Key]apiframer.RecordOf{
-					records.Key(): func(sample []byte) (ontology.ID, error) {
+					records.Key(): func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))
 						if err != nil {
-							return ontology.ID{}, err
+							return resource.ID{}, err
 						}
-						return ontology.ParseID(id)
+						return resource.ParseID(id)
 					},
 				},
 			}))
 			u := createUserGranted(
 				ctx,
 				access.ActionRetrieve,
-				append(svcframer.OntologyIDs(keys), readable)...,
+				append(svcframer.ResourceIDs(keys), readable)...,
 			)
 			var server apiframer.StreamerStream
 			client, server = freightertestutil.NewStreams[
@@ -466,7 +466,7 @@ var _ = Describe("Framer", func() {
 				apiframer.StreamerResponse,
 			](ctx)
 			done := make(chan error, 1)
-			go func() { done <- svc.Stream(subjectCtx(ctx, u.OntologyID()), server) }()
+			go func() { done <- svc.Stream(subjectCtx(ctx, u.ResourceID()), server) }()
 			DeferCleanup(func() {
 				Expect(client.CloseSend()).To(Succeed())
 				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())

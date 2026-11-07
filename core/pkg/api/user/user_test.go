@@ -32,7 +32,7 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	GinkgoHelper()
 	u := MustSucceed(writer.Create(ctx, user.User{Name: "non-root"}))
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
+	fctx.Set("Subject", u.ResourceID())
 	return fctx, u
 }
 
@@ -40,7 +40,7 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 func createUser(ctx SpecContext, username string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(writer.Create(ctx, user.User{Name: username}))
-	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
 		Username: username,
 		Password: "p",
 	})).To(Succeed())
@@ -141,7 +141,7 @@ var _ = Describe("Service", func() {
 			name := "user-name-" + uuid.New().String()
 			password := "password-name-" + uuid.New().String()
 			u := MustSucceed(writer.Create(ctx, user.User{Name: name}))
-			Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+			Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
 				Username: password,
 				Password: "p",
 			})).To(Succeed())
@@ -365,7 +365,7 @@ var _ = Describe("Service", func() {
 				)
 				Expect(passwordSvc.NewWriter(nil).Set(
 					ctx,
-					created.OntologyID(),
+					created.ResourceID(),
 					auth.Credentials{Username: username, Password: "password"},
 				)).To(Succeed())
 				Expect(apiSvc.Delete(

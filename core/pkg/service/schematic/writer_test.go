@@ -514,7 +514,7 @@ var _ = Describe("Writer", func() {
 				var res []ontology.Resource
 				Expect(
 					otg.NewRetrieve().
-						WhereIDs(proj.OntologyID()).
+						WhereIDs(proj.ResourceID()).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx),

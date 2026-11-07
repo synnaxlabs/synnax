@@ -37,7 +37,7 @@ describe("Project.importBundle", () => {
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(src.name);
     const children = await client.ontology.retrieveChildren(
-      project.ontologyID(imported),
+      project.resourceID(imported),
     );
     expect(children.map(({ name }) => name)).toEqual(["Metrics"]);
   });

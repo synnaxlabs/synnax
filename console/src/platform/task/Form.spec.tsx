@@ -59,11 +59,11 @@ interface MakeRendererParams {
   deployConfigZ?: z.ZodType;
 }
 
-const getInitialValues: Task.GetInitialValues<typeof schemas> = () => ({
+const INITIAL_VALUES = {
   name: "New Test Task",
   type: "opc_read",
   config: { device: "", channels: [] },
-});
+};
 
 const createRenderer = ({
   showControls = true,
@@ -197,7 +197,7 @@ describe("wrapForm", () => {
 
     it("should block deploy and surface field errors for an invalid config", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       let configured = false;
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
@@ -232,7 +232,7 @@ describe("wrapForm", () => {
       ChannelStatusProbe.displayName = "ChannelStatusProbe";
       const client = createTestClient();
       const draft = await client.tasks.create({
-        ...getInitialValues({}),
+        ...INITIAL_VALUES,
         config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
         rack: 0,
       });
@@ -254,7 +254,7 @@ describe("wrapForm", () => {
 
     it("should block deploy on an error from a check the form runs", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       let configured = false;
       const Renderer = createRenderer({
         Form: PortCheckProbe,
@@ -277,7 +277,7 @@ describe("wrapForm", () => {
 
     it("should not show a deploy error before the first deploy", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: requiredDeviceZ,
@@ -288,7 +288,7 @@ describe("wrapForm", () => {
 
     it("should clear a deploy error once an edit fixes it", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: requiredDeviceZ,
@@ -305,7 +305,7 @@ describe("wrapForm", () => {
 
     it("should deploy when the only issues are warnings", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       let configured = false;
       const Renderer = createRenderer({
         deployConfigZ: schemas.config.check(({ value, issues }) => {
@@ -332,7 +332,7 @@ describe("wrapForm", () => {
 
     it("should not deploy while a field holds a value that fails its schema", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const DeviceForm: FC = () => {
         const { set } = PForm.useContext();
         return (
@@ -367,7 +367,7 @@ describe("wrapForm", () => {
 
     it("should keep a deploy error after an edit to another field", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: requiredDeviceZ,
@@ -391,7 +391,7 @@ describe("wrapForm", () => {
 
     it("should keep a deploy warning after the task deploys", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: schemas.config.check(({ value, issues }) => {
@@ -421,7 +421,7 @@ describe("wrapForm", () => {
 
     it("should clear a fixed deploy error on the next deploy", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       let offline = true;
       let configured = false;
       const Renderer = createRenderer({
@@ -470,7 +470,7 @@ describe("wrapForm", () => {
         properties: {},
       });
       const tsk = await client.tasks.create({
-        ...getInitialValues({}),
+        ...INITIAL_VALUES,
         rack: rack.key,
         config: { device: deviceKey, channels: [] },
       });
@@ -512,7 +512,7 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const draft = await client.tasks.create({
-        ...getInitialValues({}),
+        ...INITIAL_VALUES,
         rack: 0,
       });
       const Renderer = createRenderer({
@@ -539,7 +539,7 @@ describe("wrapForm", () => {
 
     it("should write the config fields that onConfigure fills", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
         onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
       });
@@ -561,7 +561,7 @@ describe("wrapForm", () => {
 
     it("should keep a field another client edits while onConfigure runs", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const other = createTestClient();
       await other.tasks.retrieve({ key: draft.key });
       const Renderer = createRenderer({
@@ -595,7 +595,7 @@ describe("wrapForm", () => {
 
     it("should report the type of the task it started", async () => {
       const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const analytics = createTestSink();
       const { container } = await renderTaskFormTab(createRenderer(), {
         client,
@@ -615,7 +615,7 @@ describe("wrapForm", () => {
       const operator = await createTestClientWithRole(client, "Operator");
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const deployed = await client.tasks.create({
-        ...getInitialValues({}),
+        ...INITIAL_VALUES,
         rack: rack.key,
       });
       const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(

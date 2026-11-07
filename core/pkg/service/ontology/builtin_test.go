@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -27,7 +28,7 @@ var _ = Describe("Builtin", func() {
 	It(
 		"Should return query.ErrNotFound for a nonexistent builtin resource",
 		func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "nonexistent"}
+			id := resource.ID{Type: resource.TypeBuiltin, Key: "nonexistent"}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)).

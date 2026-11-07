@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  group,
+  ontology,
+  ranger,
+  resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -22,17 +28,17 @@ import { createConsoleWrapper } from "@/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const parentID = group.ontologyID(id.create());
-const childID = ranger.ontologyID(id.create());
-const parentKey = ontology.idToString(parentID);
-const childKey = ontology.idToString(childID);
+const parentID = group.resourceID(id.create());
+const childID = ranger.resourceID(id.create());
+const parentKey = resource.idToString(parentID);
+const childKey = resource.idToString(childID);
 
 const shape: Tree.Shape = Tree.flatten({
   nodes: [{ key: parentKey, children: [{ key: childKey }] }],
   expanded: [parentKey],
 });
 
-const nestedRootID = group.ontologyID(id.create());
+const nestedRootID = group.resourceID(id.create());
 
 const renderItems = async (ui: ReactElement) => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -90,7 +96,7 @@ describe("Group.ContextMenuItem", () => {
   });
 
   it("should hide the group item when the selection is absent from the tree", async () => {
-    const absentID = ranger.ontologyID(id.create());
+    const absentID = ranger.resourceID(id.create());
     await renderItems(
       <>
         <Group.ContextMenuItem
@@ -131,8 +137,8 @@ describe("Group.ContextMenuItem", () => {
   });
 
   it("should show the group item for a multi-item selection sharing the same minimum depth", async () => {
-    const siblingID = ranger.ontologyID(id.create());
-    const siblingKey = ontology.idToString(siblingID);
+    const siblingID = ranger.resourceID(id.create());
+    const siblingKey = resource.idToString(siblingID);
     const multiShape: Tree.Shape = Tree.flatten({
       nodes: [{ key: parentKey, children: [{ key: childKey }, { key: siblingKey }] }],
       expanded: [parentKey],

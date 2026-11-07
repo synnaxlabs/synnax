@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, filter, spatial, text
 from x import color as color_
@@ -1984,8 +1984,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="schematic")
+TYPE_RESOURCE_ID = ID(type="schematic")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="schematic", key=str(key))

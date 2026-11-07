@@ -68,7 +68,7 @@ describe("channel/search", () => {
       name: uniqueName("proj"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name),
+      createResource(channelClient.resourceID(ch.key), ch.name),
     );
     store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
@@ -87,16 +87,16 @@ describe("channel/search", () => {
     });
     const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
     const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name),
+      createResource(channelClient.resourceID(ch.key), ch.name),
     );
     const tabKey = uuid.create();
     const pan = await client.panels.create({
       name: uniqueName("panel"),
-      parent: project.ontologyID(proj.key),
+      parent: project.resourceID(proj.key),
       root: {
         variant: "leaf",
         tabs: [
-          { variant: "resource", key: tabKey, resource: lineplot.ontologyID(plot.key) },
+          { variant: "resource", key: tabKey, resource: lineplot.resourceID(plot.key) },
         ],
       },
     });
@@ -122,7 +122,7 @@ describe("channel/search", () => {
       name: uniqueName("proj"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name, {
+      createResource(channelClient.resourceID(ch.key), ch.name, {
         virtual: true,
         expression: "",
       }),
@@ -144,7 +144,7 @@ describe("channel/search", () => {
     });
     const doc = await client.logs.create(proj.key, { name: uniqueName("log") });
     const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name, {
+      createResource(channelClient.resourceID(ch.key), ch.name, {
         virtual: true,
         expression: "",
       }),
@@ -152,10 +152,10 @@ describe("channel/search", () => {
     const tabKey = uuid.create();
     const pan = await client.panels.create({
       name: uniqueName("panel"),
-      parent: project.ontologyID(proj.key),
+      parent: project.resourceID(proj.key),
       root: {
         variant: "leaf",
-        tabs: [{ variant: "resource", key: tabKey, resource: log.ontologyID(doc.key) }],
+        tabs: [{ variant: "resource", key: tabKey, resource: log.resourceID(doc.key) }],
       },
     });
     store.dispatch(Session.Project.select(proj.key));
@@ -180,7 +180,7 @@ describe("channel/search", () => {
       name: uniqueName("proj"),
     });
     const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name, {
+      createResource(channelClient.resourceID(ch.key), ch.name, {
         virtual: true,
         expression: "return 1",
       }),

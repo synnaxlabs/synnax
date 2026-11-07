@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -66,7 +67,7 @@ func migrateLayoutsToStaging(
 
 // legacyWorkspaceType is the ontology resource type workspaces were stored under before
 // the rename to project.
-const legacyWorkspaceType = ontology.ResourceType("workspace")
+const legacyWorkspaceType = resource.Type("workspace")
 
 // migrateWorkspaceToProject lifts a renamed workspace into a project. The
 // workspace-to-project change was a pure rename, so it lifts every record from the
@@ -151,7 +152,7 @@ func rewriteWorkspaceResources(ctx context.Context, tx gorp.Tx) error {
 	w := gorp.WrapWriter[string, ontology.Resource](tx)
 	for _, r := range stale {
 		oldKey := r.GorpKey()
-		r.ID.Type = ontology.ResourceTypeProject
+		r.ID.Type = resource.TypeProject
 		if err := w.Set(ctx, r); err != nil {
 			return err
 		}
@@ -180,10 +181,10 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 	for _, rel := range stale {
 		oldKey := rel.GorpKey()
 		if rel.From.Type == legacyWorkspaceType {
-			rel.From.Type = ontology.ResourceTypeProject
+			rel.From.Type = resource.TypeProject
 		}
 		if rel.To.Type == legacyWorkspaceType {
-			rel.To.Type = ontology.ResourceTypeProject
+			rel.To.Type = resource.TypeProject
 		}
 		if err := w.Set(ctx, rel); err != nil {
 			return err
@@ -211,8 +212,8 @@ func removeAuthorRelationships(
 		gorp.WrapReader[string, ontology.Relationship](tx),
 		func(rel ontology.Relationship) bool {
 			return rel.Type == ontology.RelationshipTypeParentOf &&
-				rel.From.Type == ontology.ResourceTypeUser &&
-				rel.To.Type == ontology.ResourceTypeProject
+				rel.From.Type == resource.TypeUser &&
+				rel.To.Type == resource.TypeProject
 		},
 	)
 	if err != nil {

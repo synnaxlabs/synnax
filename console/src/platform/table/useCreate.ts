@@ -31,7 +31,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Table.create({ key, editable: true }));
-      openTab({ variant: "resource", resource: table.ontologyID(key), key: tabKey });
+      openTab({ variant: "resource", resource: table.resourceID(key), key: tabKey });
     },
   });
   return (params = {}) =>

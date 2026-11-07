@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -35,15 +35,15 @@ type (
 	Range = ranger.Range
 )
 
-func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(ranges))
+func rangeAccessResourceIDs(ranges []Range) []resource.ID {
+	ids := make([]resource.ID, 0, len(ranges))
 	for _, r := range ranges {
-		ids = append(ids, r.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
+		ids = append(ids, r.ResourceID())
+		ids = append(ids, label.ResourceIDsFromLabels(r.Labels)...)
 		if r.Parent == nil {
 			continue
 		}
-		ids = append(ids, r.Parent.OntologyID())
+		ids = append(ids, r.Parent.ResourceID())
 	}
 	return ids
 }
@@ -125,7 +125,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: rangeAccessOntologyIDs(req.Ranges),
+		Objects: rangeAccessResourceIDs(req.Ranges),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -152,7 +152,7 @@ func (s *Service) Dispatch(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+		Objects: []resource.ID{ranger.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -173,7 +173,7 @@ func (s *Service) Retrieve(
 	}
 	if req.IncludeLabels {
 		for i, r := range res.Ranges {
-			labels, err := s.label.RetrieveFor(ctx, r.OntologyID(), nil)
+			labels, err := s.label.RetrieveFor(ctx, r.ResourceID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
@@ -203,7 +203,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rangeAccessOntologyIDs(res.Ranges),
+		Objects: rangeAccessResourceIDs(res.Ranges),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -223,7 +223,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+		Objects: []resource.ID{ranger.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -245,7 +245,7 @@ func (s *Service) SetEnd(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+		Objects: []resource.ID{ranger.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -269,7 +269,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: ranger.OntologyIDs(req.Keys),
+		Objects: ranger.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
