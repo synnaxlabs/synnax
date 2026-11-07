@@ -283,7 +283,76 @@ func chainFrozenTable(
 	if err != nil {
 		return nil, "", err
 	}
+	if !pinned {
+		if err := withLiveDependencies(req, table, livePath); err != nil {
+			return nil, "", err
+		}
+	}
 	return table, ns, nil
+}
+
+// withLiveDependencies gives every dependency type in an unpinned frozen table its live
+// declaration, as a current package resolves it, and adds the live types those
+// declarations reach. A frozen omitted field then takes its type, defaults, and checks
+// from the root shape it names.
+func withLiveDependencies(
+	req *plugin.Request, table *resolution.Table, ownLive string,
+) error {
+	var queue []resolution.TypeRef
+	for i := range table.Types {
+		t := &table.Types[i]
+		lp, _, ok := versions.ParseDepNS(t.Namespace)
+		if !ok || lp == ownLive {
+			continue
+		}
+		live, has := liveType(req, lp, t.Name)
+		if !has {
+			continue
+		}
+		t.Form, t.Domains = live.Form, live.Domains
+		queue = append(queue, formRefs(live.Form)...)
+	}
+	for len(queue) > 0 {
+		ref := queue[len(queue)-1]
+		queue = append(queue[:len(queue)-1], ref.TypeArgs...)
+		if _, has := table.Get(ref.Name); has {
+			continue
+		}
+		live, ok := req.Resolutions.Get(ref.Name)
+		if !ok {
+			continue
+		}
+		if err := table.Add(live); err != nil {
+			return err
+		}
+		queue = append(queue, formRefs(live.Form)...)
+	}
+	return nil
+}
+
+// formRefs returns the type references a declaration's form names directly.
+func formRefs(form resolution.TypeForm) []resolution.TypeRef {
+	var refs []resolution.TypeRef
+	switch f := form.(type) {
+	case resolution.StructForm:
+		refs = append(refs, f.Extends...)
+		for _, field := range f.Fields {
+			refs = append(refs, field.Type)
+		}
+	case resolution.UnionForm:
+		refs = append(refs, f.Extends...)
+		if f.BorrowsEnum() {
+			refs = append(refs, f.Enum)
+		}
+		for _, v := range f.Variants {
+			refs = append(refs, v.Type)
+		}
+	case resolution.AliasForm:
+		refs = append(refs, f.Target)
+	case resolution.DistinctForm:
+		refs = append(refs, f.Base)
+	}
+	return refs
 }
 
 // frozenFile emits one frozen version package's type file.
@@ -463,11 +532,7 @@ func withLiveMethods(
 		}
 		form.Fields = fields
 		t.Form = form
-		for _, name := range []string{"to_any", "fields", "imports"} {
-			if expr, has := live.Domains["go"].Expressions.Find(name); has {
-				withGoExpr(t, expr)
-			}
-		}
+		withLiveGoExprs(t, live, "to_any", "fields", "imports")
 	}
 	return nil
 }
@@ -559,6 +624,33 @@ func goStringExpr(name, value string) resolution.Expression {
 			{Kind: resolution.ValueKindString, StringValue: value},
 		},
 	}
+}
+
+// withLiveGoExprs replaces t's @go expressions of the named kinds with every live one,
+// so a repeated @go fields or @go imports keeps all its lines.
+func withLiveGoExprs(t *resolution.Type, live resolution.Type, names ...string) {
+	kinds := set.New(names...)
+	var copied resolution.Expressions
+	for _, e := range live.Domains["go"].Expressions {
+		if kinds.Contains(e.Name) {
+			copied = append(copied, e)
+		}
+	}
+	if len(copied) == 0 {
+		return
+	}
+	domains := maps.Clone(t.Domains)
+	if domains == nil {
+		domains = make(map[string]resolution.Domain)
+	}
+	dom := domains["go"]
+	dom.Name = "go"
+	dom.Expressions = append(slices.DeleteFunc(
+		slices.Clone(dom.Expressions),
+		func(e resolution.Expression) bool { return kinds.Contains(e.Name) },
+	), copied...)
+	domains["go"] = dom
+	t.Domains = domains
 }
 
 func withGoExpr(t *resolution.Type, expr resolution.Expression) {
