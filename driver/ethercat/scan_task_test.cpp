@@ -763,14 +763,17 @@ protected:
         );
     }
 
-    /// @brief creates a slave device with the given enabled value.
-    synnax::device::Device create_slave(const x::json::json &enabled) {
+    /// @brief creates a device of the model with the given enabled value.
+    synnax::device::Device create_slave(
+        const x::json::json &enabled,
+        const std::string &model = SLAVE_DEVICE_MODEL
+    ) {
         synnax::device::Device dev{
             .key = "ecat_device_set_" + std::to_string(this->rack.key),
             .rack = this->rack.key,
             .location = "eth0.Slot 0",
             .make = INTEGRATION_NAME,
-            .model = SLAVE_DEVICE_MODEL,
+            .model = model,
             .name = "EL3102",
             .properties = {
                 {"serial", 0},
@@ -809,6 +812,17 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsADisabledDevice) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
     EXPECT_EQ(status.message, "Device disabled");
     EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should write no status for a device that is not a slave.
+TEST_F(EtherCATScanDeviceSetTest, IgnoresADeviceThatIsNotASlave) {
+    const auto dev = this->create_slave(nullptr, "network");
+    const auto before = this->status(dev);
+    this->scanner->on_device_set(dev);
+    const auto after = this->status(dev);
+    EXPECT_EQ(after.message, before.message);
+    EXPECT_EQ(after.variant, before.variant);
+    EXPECT_EQ(after.time, before.time);
 }
 
 /// @brief it should report an error status that names the invalid field.
