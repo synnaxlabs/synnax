@@ -50,9 +50,10 @@ type enumCheckData struct {
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
 // yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
-// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key). It
-// returns nil for fields with no default, nullable/optional fields, defaults that equal
-// the zero value (nothing to fill), and non-static defaults such as create/now.
+// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key), and
+// a fill for a zero leaf that overrides a nested default. It returns nil for
+// fields with no default, nullable/optional fields, defaults that equal the zero value,
+// and non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -84,7 +85,7 @@ func componentFill(
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
-// component and per zero leaf that overrides the nested type's own default. prefix is
+// component and a fill per zero leaf that overrides a nested default. prefix is
 // the Go selector to the struct field (e.g. "X1"), structRef its
 // type, and val the literal. Nested struct components recurse with an extended
 // selector.
@@ -122,17 +123,48 @@ func structDefaultFills(
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
-			continue
-		}
-		// The nested type's SetDefaults runs first, so a zero leaf over a field that
-		// has its own default must be written out.
-		if defaultsHasOwn(f, data) {
-			if lit, ok := goLiteral(f.Type, &comp.Value, data); ok {
-				fills = append(fills, defaultFillData{GoName: selector, Expr: lit})
+		} else if f.Default != nil {
+			// SetDefaults sets the nested type's own default first, so a zero leaf
+			// that overrides it must be written out.
+			if fill, ok := zeroFill(selector, comp.Value); ok {
+				fills = append(fills, fill)
 			}
 		}
 	}
 	return fills
+}
+
+// overrideFills returns the fills of a field that restates an inherited field's
+// default. SetDefaults sets the parent's default first, so a zero default must be
+// written out.
+func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
+	if fills := goDefaultFills(field, data); len(fills) > 0 ||
+		field.Default == nil || field.Optional {
+		return fills
+	}
+	if fill, ok := zeroFill(naming.GetFieldName(field), *field.Default); ok {
+		return []defaultFillData{fill}
+	}
+	return nil
+}
+
+// zeroFill returns the fill that writes the zero value v to the Go selector goName. It
+// returns ok=false for a kind whose zero has no plain literal, such as an enum member.
+func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, bool) {
+	var lit string
+	switch v.Kind {
+	case resolution.ValueKindString:
+		lit = `""`
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		lit = "0"
+	case resolution.ValueKindBool:
+		lit = "false"
+	case resolution.ValueKindArray:
+		lit = "nil"
+	default:
+		return defaultFillData{}, false
+	}
+	return defaultFillData{GoName: goName, Expr: lit}, true
 }
 
 // unionLiteralFill returns the fill for a union field defaulted by an object literal
@@ -904,7 +936,8 @@ func typeSetsDefaults(
 		return false
 	}
 	visited.Add(ref.Name)
-	resolved, ok := ref.Resolve(data.table)
+	// An alias names the same Go type as its target.
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}

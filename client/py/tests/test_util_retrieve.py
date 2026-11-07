@@ -16,32 +16,41 @@ from synnax.util import request_where, returns_one, sole, sole_or_none
 class TestSole:
     """Tests for the helpers that return the one record of a single retrieve."""
 
+    where = sy.label.Where(name=sy.filter.String(eq="a"))
+
     def test_sole(self) -> None:
         """Should return the only record."""
-        assert sole("Range", "a", ["x"]) == "x"
+        assert sole("label", self.where, ["x"]) == "x"
 
     def test_sole_not_found(self) -> None:
-        """Should raise NotFoundError when no record matched."""
-        with pytest.raises(sy.NotFoundError, match="Range matching a not found"):
-            sole("Range", "a", [])
+        """Should describe the filter when no record matched."""
+        with pytest.raises(
+            sy.NotFoundError, match=r'^Found no label where name = "a"$'
+        ):
+            sole("label", self.where, [])
+
+    def test_sole_not_found_without_filter(self) -> None:
+        """Should leave out the filter when there is none."""
+        with pytest.raises(sy.NotFoundError, match=r"^Found no label$"):
+            sole("label", None, [])
 
     def test_sole_multiple_found(self) -> None:
-        """Should raise MultipleFoundError when more than one record matched."""
+        """Should describe the filter when more than one record matched."""
         with pytest.raises(
             sy.MultipleFoundError,
-            match="Expected one Range matching a, but found 2",
+            match=r'^Expected one label where name = "a", but found 2$',
         ):
-            sole("Range", "a", ["x", "y"])
+            sole("label", self.where, ["x", "y"])
 
     def test_sole_or_none(self) -> None:
         """Should return the only record, or None when no record matched."""
-        assert sole_or_none("Range", "a", ["x"]) == "x"
-        assert sole_or_none("Range", "a", []) is None
+        assert sole_or_none("label", self.where, ["x"]) == "x"
+        assert sole_or_none("label", self.where, []) is None
 
     def test_sole_or_none_multiple_found(self) -> None:
         """Should raise MultipleFoundError when more than one record matched."""
         with pytest.raises(sy.MultipleFoundError):
-            sole_or_none("Range", "a", ["x", "y"])
+            sole_or_none("label", self.where, ["x", "y"])
 
 
 class TestRequestWhere:

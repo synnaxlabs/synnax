@@ -40,9 +40,10 @@ bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
     return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
 }
 
-/// @brief sets the variant, message, and description of status from the condition of an
-/// enabled slave on a running bus.
+/// @brief sets the variant, message, description, and connection of status from the
+/// condition of an enabled slave on a running bus.
 void set_live_status(const slave::Health &health, synnax::device::Status &status) {
+    status.details.connected = !health.lost;
     if (health.operational()) {
         status.variant = synnax::status::VARIANT_SUCCESS;
         status.message = "Operational";
@@ -214,7 +215,7 @@ synnax::device::Device Scanner::create_slave_device(
         .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
     };
     const auto live = std::ranges::find(
         health,
@@ -283,6 +284,13 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
               << props.network << " enabled=" << (props.enabled ? "true" : "false");
     engine->set_slave_enabled(props.position, props.enabled);
+    const auto health = engine->health();
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
+    const bool connected = props.enabled && (live == health.end() || !live->lost);
 
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
@@ -291,7 +299,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key},
+        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX

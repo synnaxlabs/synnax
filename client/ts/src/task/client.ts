@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  filter,
   id,
   primitive,
   type record,
@@ -328,12 +329,9 @@ export type RetrieveMultipleParams = RetrieveRequest;
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
 
-const retrieveParamsZ = z.union([
-  singleRetrieveParamsZ,
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -352,10 +350,9 @@ const singleQueryZ = z
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
-const retrieveMultiParamsZ = z.union([
-  retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
-  filterParamsZ.transform(({ includeStatus: _, ...rest }) => rest),
-]);
+const retrieveMultiParamsZ = requestParamsZ.transform(
+  ({ includeStatus: _, ...rest }) => rest,
+);
 
 type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
 
@@ -651,8 +648,9 @@ export class Client extends query.Retriever<
         const res = singleQueryZ.safeParse(request);
         if (!res.success) throw singleQueryError("task", request, res.error);
       }
-      const sugared = await this.execRetrieve<S>(request, schemas);
-      checkForMultipleOrNoResults("Task", request, sugared, isSingle);
+      const req = retrieveParamsZ.parse(request);
+      const sugared = await this.execRetrieve<S>(req, schemas);
+      checkForMultipleOrNoResults("task", req.where, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -853,16 +851,14 @@ export class Client extends query.Retriever<
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults("Task", q, tasks, true);
+      checkForMultipleOrNoResults("task", { key: { eq: q.key } }, tasks, true);
       return this.compose(tasks[0]);
     }
     const since = this.store.stamp();
     const statusSince = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({
-      where: singleWhere(q),
-      includeStatus: true,
-    });
-    checkForMultipleOrNoResults("Task", q, tasks, true);
+    const where = singleWhere(q);
+    const tasks = await this.execRetrieve({ where, includeStatus: true });
+    checkForMultipleOrNoResults("task", where, tasks, true);
     this.hydrate(tasks[0], since, statusSince);
     return tasks[0];
   }

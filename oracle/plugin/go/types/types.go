@@ -836,7 +836,11 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		if !genMethods {
 			continue
 		}
-		sd.SetFills = append(sd.SetFills, goDefaultFills(field, data)...)
+		fills := goDefaultFills(field, data)
+		if defaultOnly.Contains(field.Name) {
+			fills = overrideFills(field, data)
+		}
+		sd.SetFills = append(sd.SetFills, fills...)
 		if validateSkip(field, data) {
 			continue
 		}

@@ -68,7 +68,10 @@ var _ = Describe("Schematic", func() {
 			for range 5 {
 				s := newSchematic("left")
 				formatted := make(chan string, 1)
-				go func() { formatted <- s.Validate().Error() }()
+				go func() {
+					defer GinkgoRecover()
+					formatted <- s.Validate().Error()
+				}()
 				Eventually(formatted, 5*time.Second).Should(
 					Receive(ContainSubstring("invalid align: left")),
 				)
