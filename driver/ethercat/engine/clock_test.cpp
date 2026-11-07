@@ -62,12 +62,11 @@ TEST(HostClock, ReadsTheHostByDefault) {
     const HostClock clock;
     const auto before = x::telem::TimeStamp::now();
     const auto now = clock.now();
-    EXPECT_FALSE(clock.cycle().has_value());
     EXPECT_GE(now, before);
     EXPECT_LE(now, x::telem::TimeStamp::now());
 }
 
-/// @brief it should move the wall time with the clock it reads from.
+/// @brief it should wait on the clock it reads from and move the wall time with it.
 TEST(HostClock, MovesTheWallTimeWithItsSource) {
     auto steady = hs_clock::now();
     const HostClock clock(
@@ -78,8 +77,8 @@ TEST(HostClock, MovesTheWallTimeWithItsSource) {
         }
     );
     const auto start = clock.now();
-    ASSERT_TRUE(clock.cycle().has_value());
-    clock.cycle().value().sleep(x::telem::SECOND * 5);
+    auto timer = clock.timer(x::telem::SECOND * 5);
+    timer.wait();
     EXPECT_EQ(clock.now() - start, x::telem::SECOND * 5);
 }
 }

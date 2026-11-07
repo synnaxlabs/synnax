@@ -247,10 +247,7 @@ void Engine::run() {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
-                timer = x::loop::Timer(
-                    sched->rate.period(),
-                    this->config.host_clock.cycle()
-                );
+                timer = this->config.host_clock.timer(sched->rate.period());
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->master->dc_sync())
                     if (regs.marks_data())

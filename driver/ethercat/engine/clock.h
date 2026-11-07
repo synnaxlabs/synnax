@@ -60,10 +60,10 @@ public:
         steady_start(source.now()),
         steady(std::move(source)) {}
 
-    /// @brief returns the clock for the bus cycle to wait on, or nothing for the host's
-    /// steady clock.
-    [[nodiscard]] const std::optional<x::loop::Clock> &cycle() const {
-        return this->steady;
+    /// @brief returns a timer for the bus cycle that waits on this clock.
+    [[nodiscard]] x::loop::Timer timer(const x::telem::TimeSpan &interval) const {
+        if (!this->steady) return x::loop::Timer(interval);
+        return {interval, *this->steady};
     }
 
     /// @brief returns the wall time.

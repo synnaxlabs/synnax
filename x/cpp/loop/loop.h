@@ -44,11 +44,13 @@ class Timer {
 public:
     Timer() = default;
 
-    /// @param clock the clock to wait on. Defaults to the host's steady clock.
-    explicit Timer(
-        const telem::TimeSpan &interval,
-        std::optional<Clock> clock = std::nullopt
-    ):
+    /// @brief a timer that waits on the host's steady clock.
+    explicit Timer(const telem::TimeSpan &interval):
+        interval(interval), last(hs_clock::now()) {}
+
+    /// @brief a timer that reads and sleeps on clock in place of the host's steady
+    /// clock.
+    Timer(const telem::TimeSpan &interval, Clock clock):
         interval(interval), clock(std::move(clock)), last(this->clock_now()) {}
 
     explicit Timer(const telem::Rate &rate): Timer(rate.period()) {}
