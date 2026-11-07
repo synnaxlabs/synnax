@@ -95,9 +95,8 @@ func componentFill(
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
 // component and a SetOnly fill per zero leaf that overrides a nested default. prefix is
-// the Go selector to the struct field (e.g. "X1"), structRef its
-// type, and val the literal. Nested struct components recurse with an extended
-// selector.
+// the Go selector to the struct field (e.g. "X1"), structRef its type, and val the
+// literal. Nested struct components recurse with an extended selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -112,6 +111,9 @@ func structDefaultFills(
 	if !ok {
 		return nil
 	}
+	// SetDefaults fills a type that sets defaults before these fills run, so a zero
+	// leaf must be written out to override it.
+	defaulted := typeSetsDefaults(structRef, data, set.New[string]())
 	var fills []defaultFillData
 	for _, comp := range val.Fields {
 		f, ok := form.Field(comp.Name)
@@ -132,9 +134,7 @@ func structDefaultFills(
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
-		} else if f.Default != nil {
-			// SetDefaults sets the nested type's own default first, so a zero leaf
-			// that overrides it must be written out.
+		} else if defaulted {
 			if fill, ok := zeroFill(selector, comp.Value); ok {
 				fills = append(fills, fill)
 			}
@@ -144,8 +144,8 @@ func structDefaultFills(
 }
 
 // overrideFills returns the fills of a field that restates an inherited field's
-// default.
-// SetDefaults sets the parent's default first, so a zero default must be written out.
+// default. SetDefaults sets the parent's default first, so a zero default must be
+// written out.
 func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
 	if fill, ok := structOverrideFill(field, data); ok {
 		apply := goDefaultFills(field, data)
@@ -181,7 +181,8 @@ func structOverrideFill(
 	}
 	goType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
 	setup := []string{"v0 := " + goType + "{}"}
-	if typeSetsDefaults(field.Type, data, set.New[string]()) {
+	defaulted := typeSetsDefaults(field.Type, data, set.New[string]())
+	if defaulted {
 		setup = append(setup, "v0.SetDefaults()")
 	}
 	next := 1
@@ -189,6 +190,7 @@ func structOverrideFill(
 		"v0",
 		field.Type,
 		false,
+		defaulted,
 		*field.Default,
 		data,
 		&next,
@@ -204,12 +206,10 @@ func structOverrideFill(
 	}, true
 }
 
-// emptyWithoutDefault reports whether v is an empty list for field f that has no
-// default
-// to override, so the zero value its struct starts with already holds it.
-func emptyWithoutDefault(f resolution.Field, v resolution.ExpressionValue) bool {
-	return v.Kind == resolution.ValueKindArray && len(v.Elements) == 0 &&
-		f.Default == nil
+// isEmptyList reports whether v is an empty list literal. In a value that SetDefaults
+// never filled, the zero value already holds it, so no assignment is needed.
+func isEmptyList(v resolution.ExpressionValue) bool {
+	return v.Kind == resolution.ValueKindArray && len(v.Elements) == 0
 }
 
 // zeroFill returns the fill that writes the zero value v to the Go selector goName. It
@@ -290,7 +290,8 @@ func unionLiteral(
 		variable + " := " +
 			casing.QualifiedVariantTypeName(unionType, variant.Name, ".") + "{}",
 	}
-	if variantSetsDefaults(form, variant, data) {
+	defaulted := variantSetsDefaults(form, variant, data)
+	if defaulted {
 		setup = append(setup, variable+".SetDefaults()")
 	}
 	for _, comp := range val.Fields {
@@ -303,13 +304,14 @@ func unionLiteral(
 		if !ok {
 			return nil, "", false
 		}
-		if emptyWithoutDefault(f, comp.Value) {
+		if !defaulted && isEmptyList(comp.Value) {
 			continue
 		}
 		lines, ok := literalAssignments(
 			variable+"."+naming.GetFieldName(f),
 			f.Type,
 			f.Optional,
+			defaulted,
 			comp.Value,
 			data,
 			next,
@@ -324,11 +326,13 @@ func unionLiteral(
 
 // literalAssignments renders the statements that assign the literal v to the Go
 // selector of type typeRef, recursing into struct and union literals. An optional
-// selector is a pointer, so the statements allocate its value first.
+// selector is a pointer, so the statements allocate its value first. defaulted reports
+// whether SetDefaults filled the value the selector reaches into.
 func literalAssignments(
 	selector string,
 	typeRef resolution.TypeRef,
 	optional bool,
+	defaulted bool,
 	v resolution.ExpressionValue,
 	data *templateData,
 	next *int,
@@ -339,6 +343,7 @@ func literalAssignments(
 		var lines []string
 		if optional {
 			lines = append(lines, selector+" = &"+goType+"{}")
+			defaulted = false
 		}
 		if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
 			lines = append(lines, setup...)
@@ -362,13 +367,14 @@ func literalAssignments(
 			if !ok {
 				return nil, false
 			}
-			if emptyWithoutDefault(f, comp.Value) {
+			if !defaulted && isEmptyList(comp.Value) {
 				continue
 			}
 			sub, ok := literalAssignments(
 				selector+"."+naming.GetFieldName(f),
 				f.Type,
 				f.Optional,
+				defaulted,
 				comp.Value,
 				data,
 				next,
@@ -480,7 +486,15 @@ func arrayLiteral(
 		}
 		variable := fmt.Sprintf("v%d", *next)
 		*next++
-		lines, ok := literalAssignments(variable, elemRef, false, elem, data, next)
+		lines, ok := literalAssignments(
+			variable,
+			elemRef,
+			false,
+			false,
+			elem,
+			data,
+			next,
+		)
 		if !ok {
 			return nil, "", false
 		}
