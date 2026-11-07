@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -364,12 +365,11 @@ TEST(HostClock, MovesBothTimesWithItsSource) {
     EXPECT_EQ(telem::TimeSpan(clock.steady() - steady), telem::SECOND * 5);
 }
 
-/// @brief it should share one time between the copies of a fake clock.
+/// @brief it should share one time between the copies of a fake clock on any thread.
 TEST(FakeClock, SharesItsTimeBetweenCopies) {
     const auto clock = fake_clock();
-    const auto copy = clock;
-    const auto start = copy.steady();
-    clock.sleep(telem::SECOND);
-    EXPECT_EQ(telem::TimeSpan(copy.steady() - start), telem::SECOND);
+    const auto start = clock.steady();
+    std::thread([copy = clock] { copy.sleep(telem::SECOND); }).join();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND);
 }
 }
