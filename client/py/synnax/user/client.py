@@ -210,7 +210,6 @@ class Client:
         :raises ValidationError: If a filter field or ``username`` is None, or if one
             user is wanted beside a limit or an offset.
         """
-        query = dict(fields)
         if "username" in fields:
             username = fields.pop("username")
             if username is None:
@@ -221,17 +220,14 @@ class Client:
             one = True
         single = returns_one(fields, one, limit, offset)
         flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
-        res = self.client.send(
-            "/user/retrieve",
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            _RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        return sole("User", query, res.users) if single else res.users
+        res = self.client.send("/user/retrieve", req, _RetrieveResponse)
+        return sole("user", req.where, res.users) if single else res.users
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)
