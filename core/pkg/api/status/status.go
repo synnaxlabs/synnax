@@ -126,7 +126,7 @@ func validateDetails(s status.Status[any]) error {
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
 	// Statuses are the statuses to set. A status with an owner goes to the status its
-	// owner holds, whatever key it carries.
+	// owner holds, whatever key it carries. An update keeps the stored owner.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
@@ -137,20 +137,23 @@ type SetResponse struct {
 }
 
 // Set creates or updates statuses in the cluster. It returns a validation error and
-// writes nothing if a status keyed by a rack, device, task, or channel carries details
-// that resource cannot decode.
+// writes nothing if a status carries details that its resolved owner cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
+	labelIDs := labelAccessResourceIDs(req.Statuses)
+	w := s.internal.NewWriter(tx)
+	for i := range req.Statuses {
+		if err := w.Resolve(ctx, &req.Statuses[i]); err != nil {
+			return SetResponse{}, err
+		}
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: append(
-			statusAccessResourceIDs(req.Statuses),
-			labelAccessResourceIDs(req.Statuses)...,
-		),
+		Objects: append(statusAccessResourceIDs(req.Statuses), labelIDs...),
 	}); err != nil {
 		return SetResponse{}, err
 	}
@@ -161,7 +164,7 @@ func (s *Service) Set(
 			)
 		}
 	}
-	if err := s.internal.NewWriter(tx).SetMany(ctx, &req.Statuses); err != nil {
+	if err := w.SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
 	}
 	return SetResponse(req), nil

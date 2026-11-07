@@ -100,12 +100,15 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject a create", func(ctx SpecContext) {
+		overwritten := hotFire
+		overwritten.Name = "Overwritten"
 		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
-			ranger.NewCreateAction(ranger.CreatePayload{Range: hotFire}),
+			ranger.NewCreateAction(ranger.CreatePayload{Range: overwritten}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("only the Core dispatches a range create")),
 		))
+		Expect(retrieve(ctx, hotFire.Key).Name).To(Equal("Hot fire"))
 	})
 
 	It("Should return not found for a missing range", func(ctx SpecContext) {

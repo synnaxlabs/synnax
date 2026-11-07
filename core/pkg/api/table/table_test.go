@@ -89,7 +89,7 @@ var _ = Describe("SetGroup", func() {
 			g := createGroup(ctx, "Set group denied")
 			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(t.Key))
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{t.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveTable(ctx, t.Key).Group).To(BeNil())
@@ -109,12 +109,64 @@ var _ = Describe("SetGroup", func() {
 				g.ResourceID(),
 			)
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrieveTable(ctx, t.Key).Group).To(Equal(&g.Key))
 		},
 	)
+	Context("Into a group under another project", func() {
+		var (
+			u    user.User
+			x    table.Table
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			x = createTable(ctx, "Cross project")
+			dest = project.Project{Name: "Destination"}
+			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		move := func(ctx SpecContext) (struct{}, error) {
+			return apiSvc.SetGroup(
+				AuthedCtx(ctx, u),
+				db,
+				apitable.SetGroupRequest{Group: &g.Key, Keys: []table.Key{x.Key}},
+			)
+		}
+		DescribeTable(
+			"Should refuse the move without update on both projects",
+			func(ctx SpecContext, projects func() []resource.ID) {
+				objects := projects()
+				grant(ctx, access.ActionUpdate, u.ResourceID(), append(
+					objects,
+					table.ResourceID(x.Key),
+					g.ResourceID(),
+				)...)
+				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveTable(ctx, x.Key).Project).To(Equal(&proj.Key))
+			},
+			Entry("without the destination", func() []resource.ID {
+				return []resource.ID{project.ResourceID(proj.Key)}
+			}),
+			Entry("without the source", func() []resource.ID {
+				return []resource.ID{dest.ResourceID()}
+			}),
+		)
+		It("Should move the table with update on both projects", func(ctx SpecContext) {
+			objects := []resource.ID{project.ResourceID(proj.Key), dest.ResourceID()}
+			grant(ctx, access.ActionUpdate, u.ResourceID(), append(
+				objects,
+				table.ResourceID(x.Key),
+				g.ResourceID(),
+			)...)
+			MustSucceed(move(ctx))
+			Expect(retrieveTable(ctx, x.Key).Project).To(Equal(&dest.Key))
+		})
+	})
 })
 
 var _ = Describe("Create in a group", func() {
@@ -123,7 +175,7 @@ var _ = Describe("Create in a group", func() {
 		func(ctx SpecContext) {
 			u := newCreator(ctx)
 			g := createGroup(ctx, "Create denied")
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
 				Tables: []table.Table{
 					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
 				},
@@ -134,10 +186,59 @@ var _ = Describe("Create in a group", func() {
 		u := newCreator(ctx)
 		g := createGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
-		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
 			Tables: []table.Table{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
 		}))
 		Expect(retrieveTable(ctx, res.Tables[0].Key).Group).To(Equal(&g.Key))
+	})
+	Context("Under another project", func() {
+		var (
+			u    user.User
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newCreator(ctx)
+			dest = project.Project{Name: "Create destination"}
+			Expect(svc.Project.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
+			Expect(svc.Group.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		create := func(ctx SpecContext, carried *project.Key) (apitable.CreateResponse, error) {
+			return apiSvc.Create(AuthedCtx(ctx, u), db, apitable.CreateRequest{
+				Tables: []table.Table{
+					{Project: carried, Name: "Elsewhere", Group: &g.Key},
+				},
+			})
+		}
+		DescribeTable(
+			"Should refuse a create in a group without update on the group's project",
+			func(ctx SpecContext, carried func() *project.Key) {
+				grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+			},
+			Entry(
+				"with the project it carries",
+				func() *project.Key { return &proj.Key },
+			),
+			Entry("with no project", func() *project.Key { return nil }),
+		)
+		It(
+			"Should create the table with update on the group's project",
+			func(ctx SpecContext) {
+				grant(
+					ctx,
+					access.ActionUpdate,
+					u.ResourceID(),
+					g.ResourceID(),
+					dest.ResourceID(),
+				)
+				res := MustSucceed(create(ctx, nil))
+				Expect(
+					retrieveTable(ctx, res.Tables[0].Key).Project,
+				).To(Equal(&dest.Key))
+			},
+		)
 	})
 })
 

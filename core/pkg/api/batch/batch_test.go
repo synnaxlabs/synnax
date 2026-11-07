@@ -147,12 +147,11 @@ var _ = Describe("Batch", func() {
 	})
 
 	It("Should reject a payload that does not decode", func(ctx SpecContext) {
-		_, err := exec(ctx, decode(ctx, `{"requests": [
+		Expect(exec(ctx, decode(ctx, `{"requests": [
 			{"endpoint": "/set", "payload": {"key": 12}}
-		]}`))
-		var pathErr validate.PathError
-		Expect(errors.As(err, &pathErr)).To(BeTrue())
-		Expect(pathErr.Path).To(Equal([]string{"requests", "0", "payload"}))
-		Expect(pathErr.Err).To(MatchError(validate.ErrValidation))
+		]}`))).Error().To(SatisfyAll(
+			HaveField("Path", Equal([]string{"requests", "0", "payload"})),
+			HaveField("Err", MatchError(validate.ErrValidation)),
+		))
 	})
 })

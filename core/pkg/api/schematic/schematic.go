@@ -112,7 +112,21 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypeSchematic,
+		req.Schematics,
+		stored,
+		func(e schematic.Schematic) *group.Key { return e.Group },
+		func(e schematic.Schematic) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		},
+	)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: slices.Concat(
@@ -121,13 +135,7 @@ func (s *Service) Create(
 				stored,
 				func(e schematic.Schematic) *group.Key { return e.Group },
 			),
-			project.CreateObjects(
-				req.Schematics,
-				stored,
-				func(e schematic.Schematic) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				},
-			),
+			owners,
 		),
 	}); err != nil {
 		return CreateResponse{}, err
@@ -261,7 +269,9 @@ type SetGroupRequest struct {
 	Keys  []schematic.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the schematics with the given keys into a group.
+// SetGroup moves the schematics with the given keys into a group. A move into a group
+// under another project also requires update access on the stored owner and on that
+// project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -285,6 +295,25 @@ func (s *Service) SetGroup(
 			),
 			req.Group,
 		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypeSchematic,
+		lo.Map(schematics, func(e schematic.Schematic, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
 	}); err != nil {
 		return struct{}{}, err
 	}
