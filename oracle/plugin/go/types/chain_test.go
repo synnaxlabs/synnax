@@ -1432,8 +1432,10 @@ Doc struct {
 	})
 })
 
-var _ = Describe("Frozen omitted field to a removed dependency type", func() {
-	It("Should keep the reference on the pinned version", func() {
+var _ = Describe("Frozen omitted field to a dependency type with no root", func() {
+	DescribeTable("Should keep the reference on the pinned version", func(
+		v1Extra, liveExtra string,
+	) {
 		root := GinkgoT().TempDir()
 		for rel, content := range map[string]string{
 			"schemas/x/versions/color/v0.oracle": `
@@ -1449,7 +1451,7 @@ Color struct {
 `,
 			"schemas/x/versions/color/v1.oracle": `
 Color = v0.Color
-`,
+` + v1Extra,
 			"schemas/x/color.oracle": `
 @go output "x/go/color"
 
@@ -1458,7 +1460,7 @@ Color struct {
 
 	@go marshal
 }
-`,
+` + liveExtra,
 			"schemas/synnax/versions/doc/v0.oracle": `
 import "schemas/x/versions/color/v0"
 
@@ -1517,7 +1519,11 @@ Doc struct {
 		const colorPkg = `"github.com/synnaxlabs/synnax/x/go/color`
 		Expect(frozen).To(ContainSubstring(`color ` + colorPkg + `/versions/v0"`))
 		Expect(frozen).ToNot(ContainSubstring(colorPkg + `"`))
-	})
+	},
+		Entry("when the live file removes the type", "", ""),
+		Entry("when the live file omits the type from Go",
+			"\nOld = v0.Old\n", "\nOld struct {\n\tr uint8\n\n\t@go omit\n}\n"),
+	)
 })
 
 var _ = Describe("Frozen omitted field with a default", func() {
