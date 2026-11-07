@@ -261,22 +261,26 @@ func (s *Service) rolesOf(
 			return nil, err
 		}
 		var u user.User
-		err = s.cfg.User.NewRetrieve().
+		if err = s.cfg.User.NewRetrieve().
 			Where(user.MatchKeys(key)).
 			Entry(&u).
-			Exec(ctx, tx)
-		return u.Roles, err
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return u.Roles, nil
 	case resource.TypeRack:
 		key, err := rack.KeyFromResourceID(subject)
 		if err != nil {
 			return nil, err
 		}
 		var r rack.Rack
-		err = s.cfg.Rack.NewRetrieve().
+		if err = s.cfg.Rack.NewRetrieve().
 			Where(rack.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, tx)
-		return r.Roles, err
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return r.Roles, nil
 	default:
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
