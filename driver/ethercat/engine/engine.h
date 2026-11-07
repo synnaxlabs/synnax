@@ -22,10 +22,10 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/rt/rt.h"
 
-#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::engine {
@@ -48,7 +48,7 @@ struct Config {
         .max_interval = x::telem::SECOND * 5
     };
     /// @brief the clocks the bus cycle waits on and stamps frames with.
-    HostClock host_clock;
+    x::loop::HostClock host_clock;
     /// @brief returns the settings of each slave, keyed by position. An open_reader or
     /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
     /// can run on several threads at once. Only an open that then starts the bus uses

@@ -189,4 +189,48 @@ private:
     /// @brief Welford's algorithm state: sample count.
     int64_t sleep_count_ = 1;
 };
+
+/// @brief the host clocks that a loop reads: steady time to wait on and wall time to
+/// stamp with. A default HostClock reads the host.
+class HostClock {
+    telem::TimeStamp wall_start;
+    hs_clock::time_point steady_start;
+    std::optional<Clock> source;
+
+public:
+    HostClock() = default;
+
+    /// @brief reads both times from source. The wall time starts at the host's wall
+    /// time and then moves with source.
+    explicit HostClock(Clock source):
+        wall_start(telem::TimeStamp::now()),
+        steady_start(source.now()),
+        source(std::move(source)) {}
+
+    /// @brief returns the steady time.
+    [[nodiscard]] hs_clock::time_point steady() const {
+        return this->source ? this->source->now() : hs_clock::now();
+    }
+
+    /// @brief returns once span has passed on this clock.
+    void sleep(const telem::TimeSpan &span) const {
+        if (this->source)
+            this->source->sleep(span);
+        else
+            std::this_thread::sleep_for(span.chrono());
+    }
+
+    /// @brief returns a timer that waits on this clock.
+    [[nodiscard]] Timer timer(const telem::TimeSpan &interval) const {
+        if (!this->source) return Timer(interval);
+        return {interval, *this->source};
+    }
+
+    /// @brief returns the wall time.
+    [[nodiscard]] telem::TimeStamp now() const {
+        if (!this->source) return telem::TimeStamp::now();
+        return this->wall_start +
+               telem::TimeSpan(this->source->now() - this->steady_start);
+    }
+};
 }

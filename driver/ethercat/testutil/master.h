@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-#include "x/cpp/telem/mono_clock.h"
+#include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
@@ -86,19 +86,19 @@ class Master final : public master::Master {
     std::mutex stall_mu;
     std::condition_variable stall_cv;
     bool stalled{false};
-    x::telem::NowFunc now;
+    x::loop::HostClock clock;
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
     std::condition_variable recorded_cv;
 
 public:
-    /// @param now returns the host time at which a frame is sent.
+    /// @param clock stamps the host time at which a frame is sent.
     explicit Master(
         std::string interface_name = "mock0",
-        x::telem::NowFunc now = x::telem::TimeStamp::now
+        x::loop::HostClock clock = {}
     ):
-        iface_name(std::move(interface_name)), now(std::move(now)) {}
+        iface_name(std::move(interface_name)), clock(std::move(clock)) {}
 
     /// @brief records the DC time of each of the next frames that pass the reference
     /// clock, up to frames of them.
@@ -491,7 +491,7 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
-        this->last_sent = this->now();
+        this->last_sent = this->clock.now();
         if (this->host_dc_rate && !this->host_dc_start)
             this->host_dc_start = this->last_sent;
         this->sent_outputs = this->output_iomap;
