@@ -10,10 +10,11 @@
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { Codec, WSIteratorCodec, WSWriterCodec } from "@/framer/codec";
+import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
 import { ValidationError } from "@/index";
 
 // Wire bytes the Core uses to mark JSON and binary WebSocket messages.
@@ -452,6 +453,20 @@ describe("encoder", () => {
       expect(() => decoder.decode(stale)).toThrow(
         new ValidationError("remote sent invalid sequence number 1"),
       );
+    });
+  });
+
+  describe("websocket codec JSON fallback", () => {
+    [WSWriterCodec, WSStreamerCodec, WSIteratorCodec].forEach((WSCodec) => {
+      it(`should label parse errors in ${WSCodec.name}`, () => {
+        const codec = new WSCodec(new Codec([1], [DataType.INT32]));
+        const json = new TextEncoder().encode(JSON.stringify({ id: "a" }));
+        const data = new Uint8Array([LOW_PERF_SPECIAL_CHAR, ...json]);
+        const schema = z.object({ id: z.number() });
+        expect(() => codec.decode(data, schema, { label: "test response" })).toThrow(
+          /test response/,
+        );
+      });
     });
   });
 
