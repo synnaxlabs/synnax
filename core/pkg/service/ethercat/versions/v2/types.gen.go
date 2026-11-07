@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -345,20 +346,22 @@ func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
-	*r = ReadConfig{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
 func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadConfig
-	*r = ReadConfig{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return dec.Decode((*plain)(r))
 }
 
@@ -390,20 +393,22 @@ func (w *WriteConfig) SetDefaults() {
 	w.ExecutionRate = 1000
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over w. A zero w first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain WriteConfig
-	*w = WriteConfig{}
-	w.SetDefaults()
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(w))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over w, as UnmarshalJSONFrom does.
 func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain WriteConfig
-	*w = WriteConfig{}
-	w.SetDefaults()
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
 	return dec.Decode((*plain)(w))
 }
 

@@ -14,6 +14,7 @@ package v6
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
@@ -279,20 +280,22 @@ func (l *LinePlot) SetDefaults() {
 	l.Axes.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 

@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
@@ -104,20 +105,22 @@ func (s *Spec) SetDefaults() {
 	s.Scale = 1
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (s *Spec) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Spec
-	*s = Spec{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
 func (s *Spec) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Spec
-	*s = Spec{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return dec.Decode((*plain)(s))
 }
 
@@ -154,20 +157,22 @@ func (s *Symbol) SetDefaults() {
 	s.Data.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (s *Symbol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Symbol
-	*s = Symbol{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
 func (s *Symbol) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Symbol
-	*s = Symbol{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return dec.Decode((*plain)(s))
 }
 

@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
@@ -125,20 +126,22 @@ func (p *Panel) SetDefaults() {
 	}
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over p. A zero p first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Panel
-	*p = Panel{}
-	p.SetDefaults()
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(p))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over p, as UnmarshalJSONFrom does.
 func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Panel
-	*p = Panel{}
-	p.SetDefaults()
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
 	return dec.Decode((*plain)(p))
 }
 

@@ -14,6 +14,7 @@ package v3
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -68,20 +69,22 @@ func (c *ChannelEntry) SetDefaults() {
 	c.Timestamp.Tz = "local"
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ChannelEntry
-	*c = ChannelEntry{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
 func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ChannelEntry
-	*c = ChannelEntry{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return dec.Decode((*plain)(c))
 }
 
@@ -133,20 +136,22 @@ func (l *Log) SetDefaults() {
 	l.TimeZone = "local"
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *Log) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Log
-	*l = Log{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *Log) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Log
-	*l = Log{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 

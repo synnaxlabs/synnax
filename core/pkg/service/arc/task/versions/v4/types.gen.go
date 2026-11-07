@@ -14,6 +14,7 @@ package v4
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -70,20 +71,22 @@ func (c *Config) SetDefaults() {
 	c.Performance = PerformanceAuto
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (c *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Config
-	*c = Config{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
 func (c *Config) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Config
-	*c = Config{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return dec.Decode((*plain)(c))
 }
 

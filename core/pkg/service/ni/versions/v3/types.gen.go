@@ -14,6 +14,7 @@ package v3
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -908,20 +909,22 @@ func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
-	*s = ScanConfig{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
 func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ScanConfig
-	*s = ScanConfig{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return dec.Decode((*plain)(s))
 }
 

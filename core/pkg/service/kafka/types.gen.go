@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -262,19 +263,21 @@ func (p *Properties) SetDefaults() {
 	p.Sasl.Variant = NoneSASL{}
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over p. A zero p first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Properties
-	*p = Properties{}
-	p.SetDefaults()
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(p))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over p, as UnmarshalJSONFrom does.
 func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Properties
-	*p = Properties{}
-	p.SetDefaults()
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
 	return dec.Decode((*plain)(p))
 }

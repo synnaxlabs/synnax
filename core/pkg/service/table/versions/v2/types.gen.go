@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -308,20 +309,22 @@ func (r *Row) SetDefaults() {
 	r.Size = 36
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Row
-	*r = Row{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
 func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Row
-	*r = Row{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return dec.Decode((*plain)(r))
 }
 
@@ -343,20 +346,22 @@ func (c *Column) SetDefaults() {
 	c.Size = 72
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Column
-	*c = Column{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
 func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Column
-	*c = Column{}
-	c.SetDefaults()
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
 	return dec.Decode((*plain)(c))
 }
 

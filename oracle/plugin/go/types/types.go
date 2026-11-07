@@ -870,6 +870,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if sd.DecodeHooks {
 		data.AddExternal("encoding/json/v2")
 		data.AddExternal("encoding/json/jsontext")
+		data.AddExternal("reflect")
 		// The alias keeps clear of x's msgpack package and of a v5 version package.
 		data.AddInternal("vmsgpack", msgpackImportPath)
 	}
@@ -1141,8 +1142,8 @@ type structData struct {
 	// the generated SetDefaults.
 	SetSteps []recurseStepData
 	SetFills []defaultFillData
-	// DecodeHooks marks a struct that decodes JSON and msgpack over its defaults. A
-	// type that some struct embeds takes none: its embedder sets its defaults.
+	// DecodeHooks marks a struct whose zero value decodes JSON and msgpack over its
+	// defaults. A type that some struct embeds takes none: its embedder sets them.
 	DecodeHooks      bool
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
@@ -1476,20 +1477,22 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over {{$s.Receiver}}. A zero {{$s.Receiver}} first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
-	*{{$s.Receiver}} = {{$s.Name}}{}
-	{{$s.Receiver}}.SetDefaults()
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}}))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over {{$s.Receiver}}, as UnmarshalJSONFrom does.
 func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain {{$s.Name}}
-	*{{$s.Receiver}} = {{$s.Name}}{}
-	{{$s.Receiver}}.SetDefaults()
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetDefaults()
+	}
 	return dec.Decode((*plain)({{$s.Receiver}}))
 }
 {{- end}}

@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -628,20 +629,22 @@ func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
-	*r = ReadConfig{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
 func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadConfig
-	*r = ReadConfig{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return dec.Decode((*plain)(r))
 }
 
@@ -679,20 +682,22 @@ func (w *WriteConfig) SetDefaults() {
 	w.StateRate = 10
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over w. A zero w first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain WriteConfig
-	*w = WriteConfig{}
-	w.SetDefaults()
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(w))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over w, as UnmarshalJSONFrom does.
 func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain WriteConfig
-	*w = WriteConfig{}
-	w.SetDefaults()
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
 	return dec.Decode((*plain)(w))
 }
 
@@ -718,19 +723,21 @@ func (s *ScanConfig) SetDefaults() {
 	s.TCPScanMultiplier = 10
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
-	*s = ScanConfig{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
 func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ScanConfig
-	*s = ScanConfig{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return dec.Decode((*plain)(s))
 }

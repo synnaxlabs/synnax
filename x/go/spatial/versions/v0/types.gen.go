@@ -14,6 +14,7 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -210,20 +211,22 @@ func (s *StickyXY) SetDefaults() {
 	s.Units.Y = StickyUnitPx
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (s *StickyXY) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain StickyXY
-	*s = StickyXY{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
 func (s *StickyXY) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain StickyXY
-	*s = StickyXY{}
-	s.SetDefaults()
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
 	return dec.Decode((*plain)(s))
 }
 
@@ -264,20 +267,22 @@ func (vi *Viewport) SetDefaults() {
 	vi.Zoom = 1
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over vi. A zero vi first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (vi *Viewport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Viewport
-	*vi = Viewport{}
-	vi.SetDefaults()
+	if reflect.ValueOf(*vi).IsZero() {
+		vi.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(vi))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over vi, as UnmarshalJSONFrom does.
 func (vi *Viewport) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Viewport
-	*vi = Viewport{}
-	vi.SetDefaults()
+	if reflect.ValueOf(*vi).IsZero() {
+		vi.SetDefaults()
+	}
 	return dec.Decode((*plain)(vi))
 }
 

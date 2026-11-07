@@ -43,10 +43,10 @@ var _ = Describe("Viewport", func() {
 		),
 	)
 
-	It("Should reset fields that a previous value held", func() {
+	It("Should merge the input into a value that already holds data", func() {
 		vp := v0.Viewport{Zoom: 3, Position: v0.XY{X: 4}}
-		Expect(json.Unmarshal([]byte(`{}`), &vp)).To(Succeed())
-		Expect(vp).To(Equal(v0.Viewport{Zoom: 1}))
+		Expect(json.Unmarshal([]byte(`{"position":{"y":5}}`), &vp)).To(Succeed())
+		Expect(vp).To(Equal(v0.Viewport{Zoom: 3, Position: v0.XY{X: 4, Y: 5}}))
 	})
 })
 

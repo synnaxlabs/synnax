@@ -1301,10 +1301,12 @@ var _ = Describe("Decode-time default generation", func() {
 				"func (c *Cfg) SetDefaults() {\n\tc.Rolling = 1\n"+
 					"\tc.Name = \"untitled\"\n}",
 				"func (c *Cfg) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n"+
-					"\ttype plain Cfg\n\t*c = Cfg{}\n\tc.SetDefaults()\n"+
+					"\ttype plain Cfg\n"+
+					"\tif reflect.ValueOf(*c).IsZero() {\n\t\tc.SetDefaults()\n\t}\n"+
 					"\treturn json.UnmarshalDecode(dec, (*plain)(c))\n}",
 				"func (c *Cfg) DecodeMsgpack(dec *vmsgpack.Decoder) error {\n"+
-					"\ttype plain Cfg\n\t*c = Cfg{}\n\tc.SetDefaults()\n"+
+					"\ttype plain Cfg\n"+
+					"\tif reflect.ValueOf(*c).IsZero() {\n\t\tc.SetDefaults()\n\t}\n"+
 					"\treturn dec.Decode((*plain)(c))\n}",
 			)
 		},

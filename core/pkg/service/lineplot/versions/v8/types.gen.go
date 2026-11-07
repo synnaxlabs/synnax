@@ -14,6 +14,7 @@ package v8
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -147,20 +148,22 @@ func (l *Line) SetDefaults() {
 	l.Detail = DetailMedium
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Line
-	*l = Line{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Line
-	*l = Line{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 
@@ -224,20 +227,22 @@ func (l *LinePlot) SetDefaults() {
 	l.Axes.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 

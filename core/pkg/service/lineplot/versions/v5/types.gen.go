@@ -14,6 +14,7 @@ package v5
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -163,20 +164,22 @@ func (t *Title) SetDefaults() {
 	t.Level = text.LevelH4
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over t. A zero t first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (t *Title) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Title
-	*t = Title{}
-	t.SetDefaults()
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(t))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over t, as UnmarshalJSONFrom does.
 func (t *Title) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Title
-	*t = Title{}
-	t.SetDefaults()
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
+	}
 	return dec.Decode((*plain)(t))
 }
 
@@ -231,20 +234,22 @@ func (l *Legend) SetDefaults() {
 	l.Position.Units.Y = spatial.StickyUnitPx
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *Legend) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Legend
-	*l = Legend{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *Legend) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Legend
-	*l = Legend{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 
@@ -338,20 +343,22 @@ func (a *Axis) SetDefaults() {
 	a.TickSpacing = 75
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over a. A zero a first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (a *Axis) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Axis
-	*a = Axis{}
-	a.SetDefaults()
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(a))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over a, as UnmarshalJSONFrom does.
 func (a *Axis) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Axis
-	*a = Axis{}
-	a.SetDefaults()
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
 	return dec.Decode((*plain)(a))
 }
 
@@ -441,20 +448,22 @@ func (a *Axes) SetDefaults() {
 	a.Y4.LabelDirection = spatial.DirectionY
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over a. A zero a first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (a *Axes) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Axes
-	*a = Axes{}
-	a.SetDefaults()
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(a))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over a, as UnmarshalJSONFrom does.
 func (a *Axes) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Axes
-	*a = Axes{}
-	a.SetDefaults()
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
 	return dec.Decode((*plain)(a))
 }
 
@@ -512,20 +521,22 @@ func (l *Line) SetDefaults() {
 	l.DownsampleMode = DownsampleModeDecimate
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Line
-	*l = Line{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Line
-	*l = Line{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 
@@ -570,20 +581,22 @@ func (r *Rule) SetDefaults() {
 	r.LineWidth = 1
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (r *Rule) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Rule
-	*r = Rule{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
 func (r *Rule) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Rule
-	*r = Rule{}
-	r.SetDefaults()
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
 	return dec.Decode((*plain)(r))
 }
 
@@ -641,20 +654,22 @@ func (l *LinePlot) SetDefaults() {
 	l.Axes.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over the schema defaults, so a member the input
-// omits takes its default and an explicit zero value stays.
+// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
+// defaults, so a member the input omits takes its default and an explicit zero stays.
 func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over the schema defaults, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
 func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain LinePlot
-	*l = LinePlot{}
-	l.SetDefaults()
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
 	return dec.Decode((*plain)(l))
 }
 
