@@ -191,6 +191,29 @@ var _ = Describe("Writer", func() {
 				stored.Name = "overwritten"
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &stored)).To(Succeed())
 			})
+
+			It("Should accept a dispatch that edits another field of the element", func(
+				ctx SpecContext,
+			) {
+				Expect(svc.Dispatch(ctx, stored.Key, "session-1", []schematic.Action{
+					schematic.NewSetAction(schematic.SetPayload{
+						Path:  []string{"configs", "v1", "label", "label"},
+						Value: "Inlet",
+					}),
+				})).To(Succeed())
+			})
+
+			It("Should accept a create that edits another field of the element", func(
+				ctx SpecContext,
+			) {
+				var edited schematic.Schematic
+				Expect(json.Unmarshal([]byte(
+					`{"name":"stored","nodes":[{"key":"v1"}],"configs":{"v1":`+
+						`{"variant":"valve","scale":0,"label":{"label":"Inlet"}}}}`,
+				), &edited)).To(Succeed())
+				edited.Key = stored.Key
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &edited)).To(Succeed())
+			})
 		})
 
 		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
