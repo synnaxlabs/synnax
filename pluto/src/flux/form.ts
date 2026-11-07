@@ -57,7 +57,10 @@ import { Synnax } from "@/synnax";
 export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
-    Omit<Form.UseReturn<Schema>, "setStatus"> {}
+    Omit<Form.UseReturn<Schema>, "setStatus"> {
+  /** Sets the status of one form field, such as an error the Core scoped to it. */
+  setFieldStatus: Form.UseReturn<Schema>["setStatus"];
+}
 
 /** Client and query handles for a form operation. */
 interface FormClientParams<Query extends query.Params> {
@@ -262,7 +265,7 @@ const persist = async <
           variant: nextStatus.variant,
         } as Result<undefined>;
       });
-    await update({ ...params, setStatus });
+    await update({ ...params, setStatus, setFieldStatus: params.setStatus });
     setResult(successResult(`updated ${name}`, undefined));
     if (afterSave != null) afterSave(params);
     return true;

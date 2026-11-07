@@ -89,6 +89,9 @@ ResourceType enum {
     ni_device        = "ni_device"
     opcua_server     = "opcua_server"
     arc_directory    = "arc_directory"
+    icd              = "icd" {
+        @doc value "identifies an interface control document."
+    }
 
     @doc value "is the type of the resource."
 }

@@ -45,6 +45,7 @@ export const RESOURCE_TYPES = [
   "ni_device",
   "opcua_server",
   "arc_directory",
+  "icd",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

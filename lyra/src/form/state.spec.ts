@@ -462,6 +462,16 @@ describe("State", () => {
       expect(state.getState("email").status.variant).toBe("success");
     });
 
+    it("should clear only the root status when the root path is given", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.setStatus("", { key: "", variant: "error", message: "e" });
+      state.setStatus("name", { key: "name", variant: "error", message: "e" });
+      state.clearStatus("");
+      expect(state.getStatuses()).toEqual([
+        { key: "name", variant: "error", message: "e" },
+      ]);
+    });
+
     describe("external statuses", () => {
       const taken = { key: "name", variant: "error" as const, message: "Taken" };
 

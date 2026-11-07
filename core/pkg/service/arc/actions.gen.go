@@ -198,98 +198,98 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Arc: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Arc, actions ...Action) (Arc, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNode.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
 		case ActionTypeSetNodeInputs:
 			if a.SetNodeInputs == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodeInputs.Handle(state)
 		case ActionTypeRemoveNode:
 			if a.RemoveNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveNode.Handle(state)
 		case ActionTypeAddEdge:
 			if a.AddEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddEdge.Handle(state)
 		case ActionTypeRemoveEdge:
 			if a.RemoveEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
 		case ActionTypeReconnectEdge:
 			if a.ReconnectEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ReconnectEdge.Handle(state)
 		case ActionTypeInsertChar:
 			if a.InsertChar == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.InsertChar.Handle(state)
 		case ActionTypeDeleteChar:
 			if a.DeleteChar == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.DeleteChar.Handle(state)
 		case ActionTypeForgetChars:
 			if a.ForgetChars == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ForgetChars.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Arc{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Arc{}, err
 		}
 	}
 	return state, nil

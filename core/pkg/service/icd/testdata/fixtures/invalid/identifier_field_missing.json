@@ -1,0 +1,44 @@
+{
+  "description": "A message is identified by a field it does not hold.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "messages.0.payload.identifier.field",
+      "message": "the identifier field is not in this message"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "signed": false,
+              "float": false
+            }
+          ],
+          "length": 8,
+          "identifier": {
+            "type": "field",
+            "field": "00000000-0000-4000-8000-000000000063",
+            "value": 1
+          }
+        }
+      }
+    ]
+  }
+}

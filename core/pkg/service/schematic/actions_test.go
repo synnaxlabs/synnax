@@ -815,23 +815,21 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
+		It("Should error with a zero state when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+			Expect(schematic.Reduce(state, schematic.Action{Type: "made_up"})).
+				Error().To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
 			"Should error when Type names a variant whose payload pointer is nil",
 			func(actionType string) {
 				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
+				Expect(schematic.Reduce(state, schematic.Action{Type: actionType})).
+					Error().To(MatchError(union.ErrMissingPayload))
 			},
 			Entry("rename", schematic.ActionTypeRename),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),

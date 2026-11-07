@@ -74,6 +74,8 @@ const (
 	ResourceTypeNiDevice       ResourceType = versions.ResourceTypeNiDevice
 	ResourceTypeOpcuaServer    ResourceType = versions.ResourceTypeOpcuaServer
 	ResourceTypeArcDirectory   ResourceType = versions.ResourceTypeArcDirectory
+	// ResourceTypeICD identifies an interface control document.
+	ResourceTypeICD ResourceType = versions.ResourceTypeICD
 )
 
 // RelationshipType is the kind of link between two resources.

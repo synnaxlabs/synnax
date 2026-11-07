@@ -161,73 +161,73 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Panel: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Panel, actions ...Action) (Panel, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		case ActionTypeSetIcon:
 			if a.SetIcon == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetIcon.Handle(state)
 		case ActionTypeSetColor:
 			if a.SetColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetColor.Handle(state)
 		case ActionTypeInsertTabs:
 			if a.InsertTabs == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.InsertTabs.Handle(state)
 		case ActionTypeRemoveTab:
 			if a.RemoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveTab.Handle(state)
 		case ActionTypeMoveTab:
 			if a.MoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveTab.Handle(state)
 		case ActionTypeSplitTab:
 			if a.SplitTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SplitTab.Handle(state)
 		case ActionTypeResizeSplit:
 			if a.ResizeSplit == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
 		case ActionTypeSetTabResource:
 			if a.SetTabResource == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabResource.Handle(state)
 		case ActionTypeSetTabView:
 			if a.SetTabView == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabView.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Panel{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Panel{}, err
 		}
 	}
 	return state, nil

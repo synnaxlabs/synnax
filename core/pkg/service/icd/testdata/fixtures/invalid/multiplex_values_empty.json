@@ -1,0 +1,59 @@
+{
+  "description": "A multiplexed field lists no multiplexor values.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.1.multiplex_values",
+      "message": "at least one value is required when the field has a multiplexor"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "mux",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "signed": false,
+              "float": false
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000b",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 8,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "signed": false,
+              "float": false,
+              "multiplexor": "00000000-0000-4000-8000-00000000000a"
+            }
+          ],
+          "length": 8,
+          "identifier": {
+            "type": "can",
+            "id": 256,
+            "extended": false,
+            "fd": false
+          }
+        }
+      }
+    ]
+  }
+}

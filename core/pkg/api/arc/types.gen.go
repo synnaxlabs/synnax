@@ -11,7 +11,12 @@
 
 package arc
 
-import servicearc "github.com/synnaxlabs/synnax/pkg/service/arc"
+import (
+	"strconv"
+
+	servicearc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // RetrieveRequest is a request to retrieve arcs.
 type RetrieveRequest struct {
@@ -31,4 +36,21 @@ type RetrieveRequest struct {
 type RetrieveResponse struct {
 	// Arcs are the arcs the request selects.
 	Arcs []servicearc.Arc `json:"arcs" msgpack:"arcs"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RetrieveResponse) ApplyDefaults() {
+	for i := range r.Arcs {
+		r.Arcs[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Arcs {
+		v.Exec(func() error { return validate.PathedError(r.Arcs[i].Validate(), "arcs", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

@@ -1,0 +1,103 @@
+{
+  "messages": [
+    {
+      "name": "Telemetry",
+      "id": 768,
+      "extended": true,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "Group",
+          "start_bit": 0,
+          "bit_length": 4,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 15
+        },
+        {
+          "name": "Channel",
+          "start_bit": 4,
+          "bit_length": 4,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": "Group",
+          "multiplex_values": [0],
+          "min": 0,
+          "max": 15
+        },
+        {
+          "name": "Voltage",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.001,
+          "offset": 0.0,
+          "units": "V",
+          "multiplexor": "Channel",
+          "multiplex_values": [0, 1, 2, 3],
+          "min": 0,
+          "max": 65.535
+        },
+        {
+          "name": "Current",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": true,
+          "float": false,
+          "scale": 0.01,
+          "offset": 0.0,
+          "units": "A",
+          "multiplexor": "Channel",
+          "multiplex_values": [4, 5, 8, 9],
+          "min": -327.68,
+          "max": 327.67
+        },
+        {
+          "name": "Status",
+          "start_bit": 8,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": "Group",
+          "multiplex_values": [1, 2],
+          "min": 0,
+          "max": 255
+        },
+        {
+          "name": "Flags",
+          "start_bit": 16,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": "Group",
+          "multiplex_values": [3],
+          "min": 0,
+          "max": 255
+        }
+      ]
+    }
+  ]
+}

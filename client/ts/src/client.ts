@@ -31,6 +31,7 @@ import { device } from "@/device";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
 import { license } from "@/license";
@@ -153,6 +154,7 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly icds: icd.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -328,6 +330,7 @@ export default class Synnax extends framer.Client {
       statusStore: this.statuses.store,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
+    this.icds = new icd.Client({ unary, cache, ontology: this.ontology });
     this.groups = new group.Client({
       unary,
       ontology: this.ontology,

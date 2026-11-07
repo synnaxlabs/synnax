@@ -216,98 +216,98 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Table: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Table, actions ...Action) (Table, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		case ActionTypeAddRow:
 			if a.AddRow == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddRow.Handle(state)
 		case ActionTypeRemoveRow:
 			if a.RemoveRow == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveRow.Handle(state)
 		case ActionTypeAddCol:
 			if a.AddCol == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddCol.Handle(state)
 		case ActionTypeRemoveCol:
 			if a.RemoveCol == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveCol.Handle(state)
 		case ActionTypeResizeRow:
 			if a.ResizeRow == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeRow.Handle(state)
 		case ActionTypeResizeCol:
 			if a.ResizeCol == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeCol.Handle(state)
 		case ActionTypeMoveRow:
 			if a.MoveRow == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveRow.Handle(state)
 		case ActionTypeMoveCol:
 			if a.MoveCol == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveCol.Handle(state)
 		case ActionTypeSetCell:
 			if a.SetCell == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetCell.Handle(state)
 		case ActionTypeEraseCells:
 			if a.EraseCells == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.EraseCells.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Table{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Table{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Table{}, err
 		}
 	}
 	return state, nil

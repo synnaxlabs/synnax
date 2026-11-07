@@ -1,0 +1,66 @@
+{
+  "description": "A JSON document with a number, a string, a boolean, and a timestamp.",
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "temp",
+              "scale": 0.1,
+              "offset": -40,
+              "units": "degC",
+              "pointer": "/sensors/0/temp",
+              "type": "number",
+              "min": -40,
+              "max": 125
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000b",
+              "name": "state",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/state",
+              "type": "string"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000c",
+              "name": "armed",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/armed",
+              "type": "boolean"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000d",
+              "name": "time",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/ts",
+              "type": "timestamp",
+              "format": "unix_ms"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000e",
+              "name": "escaped",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/a~1b/c~0d",
+              "type": "number"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

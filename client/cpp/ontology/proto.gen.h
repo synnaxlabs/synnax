@@ -68,6 +68,7 @@ resource_type_to_pb(const std::string &cpp) {
              ::service::ontology::pb::RESOURCE_TYPE_OPCUA_SERVER},
             {RESOURCE_TYPE_ARC_DIRECTORY,
              ::service::ontology::pb::RESOURCE_TYPE_ARC_DIRECTORY},
+            {RESOURCE_TYPE_ICD, ::service::ontology::pb::RESOURCE_TYPE_ICD},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -144,6 +145,8 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_OPCUA_SERVER, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_ARC_DIRECTORY:
             return {RESOURCE_TYPE_ARC_DIRECTORY, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_ICD:
+            return {RESOURCE_TYPE_ICD, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }

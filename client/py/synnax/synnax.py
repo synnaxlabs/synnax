@@ -22,6 +22,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    icd,
     label,
     lineplot,
     log,
@@ -94,6 +95,7 @@ class Synnax(framer.Client):
     groups: group.Client
     labels: label.Client
     views: view.Client
+    icds: icd.Client
     imex: ImexClient
     projects: project.Client
     tables: table.Client
@@ -233,6 +235,7 @@ class Synnax(framer.Client):
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
+        self.icds = icd.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,

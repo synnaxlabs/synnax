@@ -50,6 +50,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
+	{Type: ontology.ResourceTypeICD},
 }
 
 var (
@@ -107,6 +108,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
+				{Type: ontology.ResourceTypeICD},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
