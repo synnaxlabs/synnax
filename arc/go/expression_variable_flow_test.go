@@ -36,6 +36,32 @@ var _ = Describe("Expression variables in flows", func() {
 		Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(6.0))
 	})
 
+	It("Should send a sequence variable derived from a channel", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		sequence main {
+			a f64 := x + 1.0
+			stage s {
+				a -> out
+			}
+		}
+		x => main`, channelSymbols(
+			map[string]channelDef{"x": {types.F64(), 100}, "out": {types.F64(), 200}},
+		),
+			channels.Digest{Key: 100, DataType: telem.Float64T},
+			channels.Digest{Key: 200, DataType: telem.Float64T},
+		)
+		defer h.Close(ctx)
+		for range 3 {
+			h.Ingest(100, telem.NewSeriesV(3.0))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+		out, _ := h.Flush()
+		series := out.Get(200).Series
+		Expect(series).ToNot(BeEmpty())
+		Expect(series[len(series)-1].Unmarshal[float64]()).To(ContainElement(4.0))
+	})
+
 	DescribeTable("Should reject a variable with a non-constant initializer",
 		func(ctx SpecContext, source string) {
 			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{

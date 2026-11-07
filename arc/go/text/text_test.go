@@ -2074,17 +2074,6 @@ var _ = Describe("Text", func() {
 						w = v
 					}
 				}`),
-			Entry("value variable derived from a reactive variable", `
-				sequence main {
-					a i64 := count_ch + 1
-					b i64 := a + 2
-					stage s1 {
-						a -> out_ch
-						b > 5 => s2
-					}
-					stage s2 {
-					}
-				}`),
 			Entry("alias read in an expression in a later stage", `
 				sequence main {
 					p := count_ch
