@@ -96,6 +96,8 @@ const THREE_INPUTS: ethercat.PDOEntry[] = [
   { name: "Overrange", index: 0x6000, subIndex: 3, bitLength: 8, dataType: "uint8" },
 ];
 
+const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
@@ -205,7 +207,7 @@ describe("Read", () => {
     });
     const { draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     expect(await screen.findByText("Scale", { selector: "label" })).toBeTruthy();
@@ -813,7 +815,7 @@ describe("Read", () => {
       network: "eth0",
       pdos: createPDOs(),
     });
-    const raw = createEntryReadChannel(slave.key, STATUS_ENTRY);
+    const raw = EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY);
     const first = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [raw],
@@ -851,8 +853,7 @@ describe("Read", () => {
   });
 
   describe("a typed name that the other channel of the entry holds", () => {
-    type Overrides = Parameters<typeof createEntryReadChannel>[2];
-    const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+    type Overrides = Partial<ethercat.EntryReadChannel>;
 
     const expectSecondDeployRejected = async (first: Overrides, second: Overrides) => {
       const name = uniqueName("ecat_typed");
@@ -865,7 +866,11 @@ describe("Read", () => {
         await renderRead({
           ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
           channels: [
-            createEntryReadChannel(slave.key, STATUS_ENTRY, { name, ...overrides }),
+            {
+              ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+              name,
+              ...overrides,
+            },
           ],
         });
       const initial = await render(first);
@@ -905,9 +910,10 @@ describe("Read", () => {
     });
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: pdos.inputs
-        .slice(0, 2)
-        .map((entry) => createEntryReadChannel(slave.key, entry, { name })),
+      channels: pdos.inputs.slice(0, 2).map((entry) => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, entry),
+        name,
+      })),
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -938,9 +944,10 @@ describe("Read", () => {
     );
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: slaves.map((slave) =>
-        createEntryReadChannel(slave.key, STATUS_ENTRY, { name }),
-      ),
+      channels: slaves.map((slave) => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+        name,
+      })),
     });
     await clickDeploy(container);
     await awaitStatus(
@@ -972,8 +979,11 @@ describe("Read", () => {
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [
-          createEntryReadChannel(slave.key, pdos.inputs[0], { name }),
-          createEntryReadChannel(slave.key, pdos.inputs[1], { name: second }),
+          { ...EtherCAT.Task.createEntryReadChannel(slave.key, pdos.inputs[0]), name },
+          {
+            ...EtherCAT.Task.createEntryReadChannel(slave.key, pdos.inputs[1]),
+            name: second,
+          },
         ],
       });
     const rejected = await render(name);
@@ -1003,10 +1013,11 @@ describe("Read", () => {
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
           name,
-          scale: { type: "linear", slope: 2, offset: 0 },
-        }),
+          scale: LINEAR,
+        },
       ],
     });
     const deployed = await deployAndAwaitTask(
@@ -1028,9 +1039,10 @@ describe("Read", () => {
     const config = {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createEntryReadChannel(slave.key, STATUS_ENTRY, {
-          scale: { type: "linear", slope: 2, offset: 0 },
-        }),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          scale: LINEAR,
+        },
       ],
     };
     const deploy = async () => {
