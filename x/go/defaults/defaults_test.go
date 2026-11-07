@@ -10,6 +10,8 @@
 package defaults_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/defaults"
@@ -68,6 +70,16 @@ var _ = Describe("Fill", func() {
 		Expect(defaults.Fill(outer{Inner: leaf{Label: "d"}})).
 			To(Equal(outer{Inner: leaf{Size: 36, Label: "d"}}))
 		Expect(defaults.Fill(outer{})).To(Equal(outer{Inner: leaf{Size: 36}}))
+	})
+
+	It("Should keep a value whose type has unexported fields", func() {
+		at := time.Now()
+		type stamped struct {
+			At      time.Time
+			Variant any
+		}
+		Expect(defaults.Fill(stamped{At: at, Variant: at})).
+			To(Equal(stamped{At: at, Variant: at}))
 	})
 
 	It("Should default the value a union holds", func() {
