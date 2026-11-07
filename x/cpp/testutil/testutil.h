@@ -470,6 +470,14 @@ auto assert_occurred_as_p(
         ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
     } while (0)
 
+/// @brief macro expecting that the provided errors::Error is NIL. Unlike ASSERT_NIL, it
+/// does not return, so it works in a function that returns a value.
+#define EXPECT_NIL(expr)                                                               \
+    do {                                                                               \
+        const auto &_xtest_err = (expr);                                               \
+        EXPECT_FALSE(_xtest_err) << _xtest_err;                                        \
+    } while (0)
+
 /// @brief macro asserting that the provided errors::Error is the same as the
 /// provided error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \

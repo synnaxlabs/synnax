@@ -365,7 +365,10 @@ TEST(MockServerTest, SecureInvalidCertFailsStart) {
     cfg.key_path = "nonexistent_key.pem";
     cfg.routes = {{.path = "/x", .response_body = "x"}};
     testutil::Server server(cfg);
-    EXPECT_TRUE(server.start());
+    ASSERT_OCCURRED_AS(
+        server.start(),
+        x::errors::Error("mock server is not valid (bad TLS cert?)")
+    );
 }
 
 TEST(MockServerTest, ServesOptionsRoute) {

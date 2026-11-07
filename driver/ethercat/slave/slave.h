@@ -69,6 +69,16 @@ inline State from_al_state(const uint16_t al_state) {
     }
 }
 
+/// @brief the settings the master applies to a slave when the bus starts.
+struct Config {
+    /// @brief whether the slave joins cyclic exchange.
+    bool enabled = true;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
+
+    bool operator==(const Config &) const = default;
+};
+
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
 struct Properties {
     /// @brief network interface the slave is connected to.
@@ -95,10 +105,17 @@ struct Properties {
     std::vector<pdo::Properties> output_pdos;
     /// @brief synchronization modes the slave lists in its SII, in SII order.
     std::vector<dc::OpMode> op_modes;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
+
+    /// @brief returns the settings the master applies to the slave when the bus starts.
+    [[nodiscard]] Config config() const {
+        return {.enabled = this->enabled, .op_mode = this->op_mode};
+    }
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
@@ -127,6 +144,7 @@ struct Properties {
         props.position = static_cast<uint16_t>(parser.field<int>("position"));
         props.enabled = parser.field<bool>("enabled");
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
+        props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
@@ -158,6 +176,7 @@ struct Properties {
         for (const auto &mode: this->op_modes)
             op_modes.push_back(mode.to_json());
         props["op_modes"] = op_modes;
+        if (this->op_mode) props["op_mode"] = this->op_mode->to_json();
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
@@ -182,19 +201,37 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief why the bus started without a slave that refused a state.
+struct Refusal {
+    /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
+    /// Inconsistent settings".
+    std::string reason;
+    /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
+    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    bool dc_sync_invalid = false;
+
+    bool operator==(const Refusal &) const = default;
+};
+
 /// @brief the condition of a slave on a running bus.
 struct Health {
     /// @brief position of the slave on the bus.
     uint16_t position = 0;
     /// @brief application layer state the slave reports.
     State state = State::UNKNOWN;
-    /// @brief true when the slave set the error flag of its AL status.
+    /// @brief true when the slave set the error flag of its AL status, or the master
+    /// could not restore its distributed clock.
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
     /// @brief description of the slave's AL status code, empty when it reports none or
     /// the master cannot read it.
     std::string al_status;
+    /// @brief why the master could not restore the slave's distributed clock, or empty.
+    std::string dc_restore_error;
+    /// @brief why the bus started without the slave, or nullopt when the slave is on
+    /// the bus.
+    std::optional<Refusal> refusal;
 
     bool operator==(const Health &) const = default;
 
@@ -210,6 +247,9 @@ struct Health {
         std::string desc = slave_state_to_string(this->state);
         if (this->faulted) desc += " + ERROR";
         if (!this->al_status.empty()) desc += ": " + this->al_status;
+        if (!this->dc_restore_error.empty())
+            desc += ": failed to restore the distributed clock: " +
+                    this->dc_restore_error;
         return desc;
     }
 };
