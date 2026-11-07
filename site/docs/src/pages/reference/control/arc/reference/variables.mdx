@@ -72,7 +72,7 @@ tank_pt -> delta() -> tank_pt_delta
 ```
 
 In a function, the first value of a `$=` variable can be any expression, a channel read
-included. It runs on the first call only.
+included. It runs on each call, but only the value from the first call is kept.
 
 When a stage starts, the `:=` variables of the stage and its sequence, and the `$=`
 variables of the functions it calls, go back to their first values. See
