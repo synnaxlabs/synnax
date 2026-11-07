@@ -104,7 +104,7 @@ public:
         if (this->clock)
             this->clock->sleep(remaining);
         else if (this->precise || this->high_rate())
-            this->precise_sleep(remaining);
+            this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else

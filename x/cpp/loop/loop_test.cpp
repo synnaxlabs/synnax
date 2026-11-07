@@ -113,6 +113,20 @@ void expect_rate(Wait wait, const int rate_hz) {
         << "at " << rate_hz << " Hz";
 }
 
+/// @brief Waits on timer 100 times from its creation.
+/// @returns the median time that a wait on time ended after its deadline.
+telem::TimeSpan median_lateness(Timer &timer, const telem::TimeSpan &interval) {
+    auto deadline = hs_clock::now() + interval.chrono();
+    std::vector<telem::TimeSpan> lateness;
+    for (int i = 0; i < 100; i++) {
+        const auto [_, on_time] = timer.wait();
+        const auto now = hs_clock::now();
+        if (on_time) lateness.emplace_back(now - deadline);
+        deadline = (on_time ? deadline : now) + interval.chrono();
+    }
+    return median(lateness);
+}
+
 /// @brief it should hold its period on each wait at a high rate.
 TEST(LoopTest, testWaitPrecise) {
     const auto rate = telem::HERTZ * 5000;
@@ -138,15 +152,20 @@ TEST(LoopTest, testWaitLowRate) {
 TEST(LoopTest, testPreciseWaitEndsOnDeadline) {
     const auto interval = telem::MILLISECOND * 10;
     Timer timer{interval, true};
-    auto deadline = hs_clock::now() + interval.chrono();
-    std::vector<telem::TimeSpan> lateness;
-    for (int i = 0; i < 100; i++) {
-        const auto [_, on_time] = timer.wait();
-        const auto now = hs_clock::now();
-        if (on_time) lateness.emplace_back(now - deadline);
-        deadline = (on_time ? deadline : now) + interval.chrono();
-    }
-    EXPECT_LT(median(lateness), telem::MICROSECOND * 20);
+    EXPECT_LT(median_lateness(timer, interval), telem::MICROSECOND * 20);
+}
+
+/// @brief it should end a long precise wait when the breaker stops.
+TEST(LoopTest, testPreciseWaitBreaker) {
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
+    Timer timer{telem::SECOND, true};
+    const auto start = hs_clock::now();
+    std::thread t([&] { timer.wait(brk); });
+    std::this_thread::sleep_for((telem::MILLISECOND * 10).chrono());
+    brk.stop();
+    t.join();
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 500);
 }
 
 void runBreaker(breaker::Breaker &brk) {
@@ -369,6 +388,13 @@ TEST(HostClock, testSleepsOnTheHostSteadyClockByDefault) {
     const auto start = clock.steady();
     clock.sleep(telem::MILLISECOND * 5);
     EXPECT_GE(clock.steady() - start, std::chrono::milliseconds(5));
+}
+
+/// @brief it should return a precise timer on the host steady clock.
+TEST(HostClock, testReturnsAPreciseTimer) {
+    const auto interval = telem::MILLISECOND * 10;
+    auto timer = HostClock().timer(interval, true);
+    EXPECT_LT(median_lateness(timer, interval), telem::MICROSECOND * 20);
 }
 
 /// @brief it should move the wall time and the steady time with its source.
