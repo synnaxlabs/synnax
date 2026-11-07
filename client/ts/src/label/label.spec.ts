@@ -148,6 +148,12 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
       ).rejects.toThrow(MultipleFoundError);
     });
+    it("should name the search term when a search that sets one matches nothing", async () => {
+      const term = id.create();
+      await expect(
+        client.labels.retrieve({ searchTerm: term, one: true }),
+      ).rejects.toThrow(new NotFoundError(`Found no label matching "${term}"`));
+    });
     it("should name the operator at fault in a where tree", async () => {
       await expect(
         // @ts-expect-error - a name operator takes a string.

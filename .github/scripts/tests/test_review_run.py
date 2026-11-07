@@ -139,27 +139,35 @@ def limits(utilization: float, status: str) -> dict[str, Any]:
 
 
 class LensClaude:
-    """Answers each focused pass with one finding named after its lens, and the
-    merging pass with a fixed review. Records every prompt, from any thread."""
+    """Answers each focused pass with the review set for its lens. Records the prompt
+    and effort of each pass, from any thread."""
 
-    def __init__(self, merged: FakeClaude):
-        self.merged = merged
-        self.prompts: list[str] = []
+    def __init__(self, reviews: dict[str, FakeClaude]):
+        self.reviews = reviews
+        self.calls: dict[str, tuple[str, str]] = {}
         self._lock = threading.Lock()
 
     def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
-        with self._lock:
-            self.prompts.append(stdin)
-        if "# Candidate findings" in stdin:
-            return self.merged(args, stdin, cwd)
         name = stdin.split("# Your focus: ")[1].split("\n")[0]
-        found = finding("P2") | {"title": f"Found by {name}"}
-        return FakeClaude(5, [found])(args, stdin, cwd)
+        fake = self.reviews[name]
+        out = fake(args, stdin, cwd)
+        with self._lock:
+            self.calls[name] = (stdin, fake.flag("--effort"))
+        return out
+
+
+def at(
+    severity: str, line: int, start: int | None = None, path: str = "a.go"
+) -> dict[str, Any]:
+    """A finding of the given severity on lines of a file."""
+    f = finding(severity) | {"title": f"{severity} at {line}", "line": line}
+    f["path"] = path
+    return f if start is None else f | {"start_line": start}
 
 
 LENSES = [
     Lens(name="Races", focus="Trace each interleaving."),
-    Lens(name="Edges", focus="Try empty and boundary values."),
+    Lens(name="Edges", focus="Try empty and boundary values.", effort="medium"),
 ]
 
 
@@ -355,7 +363,7 @@ class TestScore:
 
 
 class TestLenses:
-    """Tests a review that takes one pass for each lens and merges their findings."""
+    """Tests a review that takes one parallel pass for each lens."""
 
     def test_should_review_in_one_pass_without_lenses(self) -> None:
         prompts: list[str] = []
@@ -368,35 +376,137 @@ class TestLenses:
         run(config(), pull(), claude=claude, workdir=WORK)
         [prompt] = prompts
         assert "# Your focus" not in prompt
-        assert "# Candidate findings" not in prompt
+
+    def lenses(
+        self,
+        races: FakeClaude | None = None,
+        edges: FakeClaude | None = None,
+        pr: PullRequest | None = None,
+    ) -> tuple[LensClaude, Any]:
+        claude = LensClaude(
+            {"Races": races or FakeClaude(), "Edges": edges or FakeClaude()}
+        )
+        got, usage = run(
+            config(lenses=LENSES), pr or pull(), claude=claude, workdir=WORK
+        )
+        return claude, (got, usage)
 
     def test_should_give_each_pass_the_review_prompt_and_its_focus(self) -> None:
-        claude = LensClaude(FakeClaude())
-        run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
-        focused = sorted(p for p in claude.prompts if "# Your focus" in p)
-        assert len(focused) == 2
-        assert all(p.startswith("Review the pull request.") for p in focused)
-        assert "# Your focus: Edges\n\nTry empty and boundary values." in focused[0]
-        assert "# Your focus: Races\n\nTrace each interleaving." in focused[1]
+        claude, _ = self.lenses()
+        races, edges = claude.calls["Races"][0], claude.calls["Edges"][0]
+        assert races.startswith("Review the pull request.")
+        assert edges.startswith("Review the pull request.")
+        assert "# Your focus: Races\n\nTrace each interleaving." in races
+        assert "# Your focus: Edges\n\nTry empty and boundary values." in edges
 
-    def test_should_merge_the_findings_of_every_pass(self) -> None:
-        claude = LensClaude(FakeClaude(5, [finding("P1")]))
-        got, _ = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
-        [merging] = [p for p in claude.prompts if "# Candidate findings" in p]
-        assert merging.startswith("Review the pull request.")
-        assert '"title": "Found by Races"' in merging
-        assert '"title": "Found by Edges"' in merging
-        assert "# Your focus" not in merging
-        assert [f.title for f in got.findings] == ["T"]
-        assert got.score == 4
+    def test_should_run_each_pass_at_the_effort_of_its_lens(self) -> None:
+        claude, _ = self.lenses()
+        assert claude.calls["Races"][1] == "high"
+        assert claude.calls["Edges"][1] == "medium"
+
+    def test_should_keep_the_findings_of_every_pass(self) -> None:
+        races = FakeClaude(5, [at("P2", 10), at("P2", 3, path="b.go")])
+        edges = FakeClaude(5, [at("P1", 20)])
+        _, (got, _) = self.lenses(races, edges)
+        assert sorted(f.title for f in got.findings) == [
+            "P1 at 20",
+            "P2 at 10",
+            "P2 at 3",
+        ]
+
+    def test_should_keep_the_more_severe_of_two_passes_on_one_line(self) -> None:
+        races = FakeClaude(5, [at("P2", 12, start=10)])
+        edges = FakeClaude(5, [at("P1", 12)])
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == ["P1 at 12"]
+
+    def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
+        both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
+        _, (got, _) = self.lenses(FakeClaude(5, both))
+        assert [f.title for f in got.findings] == ["P1 at 12", "Other"]
+
+    def test_should_keep_overlapping_findings_that_end_on_other_lines(self) -> None:
+        races = FakeClaude(5, [at("P1", 12, start=5)])
+        edges = FakeClaude(5, [at("P2", 10)])
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == ["P1 at 12", "P2 at 10"]
+
+    def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
+        races = FakeClaude(5, [at("P2", 12) | {"title": "New"}])
+        edges = FakeClaude(5, [at("P2", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P2 at 12"]
+
+    def test_should_keep_a_more_severe_finding_over_an_open_thread(self) -> None:
+        races = FakeClaude(4, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P0", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P0 at 12"]
+        assert got.score == 2
+
+    def test_should_join_findings_of_two_passes_with_one_title(self) -> None:
+        races = FakeClaude(5, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P1", 14) | {"title": "P2 at 12"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [("P2 at 12", 14)]
+
+    def test_should_join_a_finding_with_one_finding_of_each_pass(self) -> None:
+        races = FakeClaude(
+            5,
+            [
+                at("P2", 40) | {"title": "Lock released"},
+                at("P2", 12) | {"title": "Cache read"},
+            ],
+        )
+        edges = FakeClaude(5, [at("P1", 40) | {"title": "Cache read"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [
+            ("Cache read", 40),
+            ("Lock released", 40),
+        ]
+
+    def test_should_join_a_title_on_the_same_line_first(self) -> None:
+        races = FakeClaude(
+            5, [at("P2", 10) | {"title": "T"}, at("P2", 50) | {"title": "T"}]
+        )
+        edges = FakeClaude(5, [at("P1", 50) | {"title": "T"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.severity, f.line) for f in got.findings] == [("P1", 50), ("P2", 10)]
+
+    def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
+        races = FakeClaude(5)
+        races.out["structured_output"]["verdict"] = "From races."
+        edges = FakeClaude(5, [at("P0", 1)])
+        edges.out["structured_output"]["verdict"] = "From edges."
+        _, (got, _) = self.lenses(races, edges)
+        assert (got.score, got.verdict) == (2, "From edges.")
+
+    def test_should_take_the_first_summary_when_the_scores_tie(self) -> None:
+        races = FakeClaude(4)
+        races.out["structured_output"]["verdict"] = "From races."
+        _, (got, _) = self.lenses(races, FakeClaude(4))
+        assert (got.score, got.verdict) == (4, "From races.")
 
     def test_should_add_up_the_usage_of_every_pass(self) -> None:
-        merged = FakeClaude()
-        merged.limits = [limits(0.5, "allowed")]
-        claude = LensClaude(merged)
-        _, usage = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
-        assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.5, 36, 120_000)
-        assert usage.output_tokens == 6_000
+        races = FakeClaude()
+        races.limits = [limits(0.5, "allowed")]
+        edges = FakeClaude()
+        edges.out["duration_ms"] = 90_000
+        edges.limits = [limits(0.7, "allowed")]
+        _, (_, usage) = self.lenses(races, edges)
+        assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.0, 24, 90_000)
+        assert usage.output_tokens == 4_000
+        assert usage.limits["seven_day"].utilization == 0.7
+
+    def test_should_take_the_limits_of_a_pass_that_reported_any(self) -> None:
+        races = FakeClaude()
+        races.limits = [limits(0.5, "allowed")]
+        edges = FakeClaude()
+        edges.out["duration_ms"] = 90_000
+        edges.limits = []
+        _, (_, usage) = self.lenses(races, edges)
         assert usage.limits["seven_day"].utilization == 0.5
 
 

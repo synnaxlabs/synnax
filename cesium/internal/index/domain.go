@@ -63,7 +63,12 @@ func (i *Domain) Distance(
 	continuous continuousPolicy,
 ) (approx DistanceApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "distance")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() {
+		if err != nil {
+			approx = DistanceApproximation{}
+		}
+		_ = span.EndWith(err, ErrDiscontinuous)
+	}()
 
 	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.Combine(err, iter.Close()) }()
@@ -202,6 +207,11 @@ func (i *Domain) AppendSegments(
 	if start >= end {
 		return dst, nil
 	}
+	defer func() {
+		if err != nil {
+			segments = nil
+		}
+	}()
 	iter := i.DB.OpenIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
@@ -300,7 +310,12 @@ func (i *Domain) Stamp(
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "stamp")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() {
+		if err != nil {
+			approx = TimeStampApproximation{}
+		}
+		_ = span.EndWith(err, ErrDiscontinuous)
+	}()
 	if offset == 0 {
 		approx, err = i.zeroStamp(ctx, ref)
 	} else if offset < 0 {
@@ -387,6 +402,9 @@ func (i *Domain) zeroStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 	startApprox, err := i.search(ref, r)
+	if err != nil {
+		return approx, err
+	}
 	readStamp := newStampReader()
 	if !startApprox.Exact() {
 		approx.Upper, err = readStamp(r, byteSize(startApprox.Upper))

@@ -560,7 +560,12 @@ export class Client extends query.Retriever<
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
       if (isSingle)
-        checkForMultipleOrNoResults("channel", singleWhere(rawNormalized[0]), [], true);
+        checkForMultipleOrNoResults(
+          "channel",
+          { where: singleWhere(rawNormalized[0]) },
+          [],
+          true,
+        );
       return [];
     }
     const rangeKey = options?.rangeKey;
@@ -572,7 +577,7 @@ export class Client extends query.Retriever<
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
-    checkForMultipleOrNoResults("channel", where, res, isSingle);
+    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -722,7 +727,12 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults("channel", { key: { eq: key } }, fetched, true);
+      checkForMultipleOrNoResults(
+        "channel",
+        { where: { key: { eq: key } } },
+        fetched,
+        true,
+      );
       [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
