@@ -141,11 +141,7 @@ TEST(TestArc, testRetrieveOneWhereNotFound) {
     const auto name = random_arc_name("none_where");
     const auto [_, err] = client.arcs.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(Arc matching {"name":{"case_insensitive":false,"eq":")" + name +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no Arc where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one Arc program matches a filter.

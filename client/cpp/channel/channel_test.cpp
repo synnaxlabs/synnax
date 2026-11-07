@@ -315,11 +315,7 @@ TEST(TestChannel, testRetrieveOneWhereNotFound) {
     const auto name = make_unique_channel_name("one_none");
     const auto [_, err] = client.channels.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(channel matching {"name":{"case_insensitive":false,"eq":")" + name +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no channel where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one channel matches a filter.

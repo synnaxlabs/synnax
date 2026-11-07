@@ -167,10 +167,7 @@ TEST(StatusTest, RetrieveOneWhereNotFound) {
     const auto key = "test-one-none-" + x::uuid::create().to_string();
     const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(status matching {"key":{"eq":")" + key + R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no status where key = \"" + key + "\"");
 }
 
 /// @brief it should return an error when more than one status matches a filter.

@@ -26,7 +26,7 @@ Client::Client(
 
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.key = key}, options, "key " + key);
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
@@ -55,21 +55,13 @@ std::pair<Device, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve_one(where, options, where.to_json().dump());
-}
-
-std::pair<Device, x::errors::Error> Client::retrieve_one(
-    const Where &where,
-    const RetrieveOptions &options,
-    const std::string &query
-) const {
     if (options.limit.has_value() || options.offset != 0)
         return {Device{}, errors::paged_one_error()};
     auto [devices, err] = this->retrieve(where, options);
     if (err) return {Device{}, err};
-    if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
-    if (devices.size() > 1)
-        return {Device{}, errors::multiple_found_error("devices", query)};
+    if (const auto
+            one_err = errors::check_one("device", where.to_json(), devices.size()))
+        return {Device{}, one_err};
     return {std::move(devices[0]), x::errors::NIL};
 }
 

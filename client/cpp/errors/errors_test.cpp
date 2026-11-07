@@ -12,6 +12,7 @@
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::errors {
@@ -46,26 +47,40 @@ TEST(ErrorsTest, NotFoundErrorWithName) {
 }
 
 /// @brief it should create a multiple results error for channels.
-TEST(ErrorsTest, MultipleFoundError) {
-    const auto err = multiple_found_error("channels", "name test");
+/// @brief it should accept exactly one record.
+TEST(ErrorsTest, CheckOneFound) {
+    ASSERT_NIL(check_one("range", x::json::json{{"key", {{"eq", 12}}}}, 1));
+}
+
+/// @brief it should describe the filter when no record matched.
+TEST(ErrorsTest, CheckOneNotFound) {
+    const auto err = check_one("range", x::json::json{{"key", {{"eq", 12}}}}, 0);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    EXPECT_EQ(err.data, "Found no range where key = 12");
+}
+
+/// @brief it should leave out the filter when it sets no conditions.
+TEST(ErrorsTest, CheckOneNotFoundEmptyFilter) {
+    const auto err = check_one("range", x::json::json::object(), 0);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    EXPECT_EQ(err.data, "Found no range");
+}
+
+/// @brief it should describe the filter and count the records when more than one
+/// matched.
+TEST(ErrorsTest, CheckOneMultipleFound) {
+    const auto err = check_one(
+        "range",
+        x::json::json{{"name", {{"starts_with", "press"}}}},
+        2
+    );
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
-        err.message(),
-        "[sy.query.multiple_results] Multiple channels matching name test found."
+        err.data,
+        R"(Expected one range where name starts with "press", but found 2)"
     );
 }
 
-/// @brief it should create a multiple results error for ranges.
-TEST(ErrorsTest, MultipleFoundErrorRanges) {
-    const auto err = multiple_found_error("ranges", "name experiment-1");
-    ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.multiple_results] Multiple ranges matching name experiment-1 found."
-    );
-}
-
-/// @brief it should match only the errors that clear without a restart.
 TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));

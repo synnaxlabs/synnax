@@ -83,12 +83,12 @@ x::errors::Error Client::create(std::vector<Channel> &channels) const {
 
 std::pair<Channel, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.key = key}, options, "key " + std::to_string(key));
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<Channel, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.name = name}, options, "name " + name);
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
@@ -138,21 +138,13 @@ std::pair<Channel, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve_one(where, options, where.to_json().dump());
-}
-
-std::pair<Channel, x::errors::Error> Client::retrieve_one(
-    const Where &where,
-    const RetrieveOptions &options,
-    const std::string &query
-) const {
     if (options.limit.has_value() || options.offset != 0)
         return {Channel{}, errors::paged_one_error()};
     auto [channels, err] = this->retrieve(where, options);
     if (err) return {Channel{}, err};
-    if (channels.empty()) return {Channel{}, errors::not_found_error("channel", query)};
-    if (channels.size() > 1)
-        return {Channel{}, errors::multiple_found_error("channels", query)};
+    if (const auto
+            one_err = errors::check_one("channel", where.to_json(), channels.size()))
+        return {Channel{}, one_err};
     return {std::move(channels[0]), x::errors::NIL};
 }
 }

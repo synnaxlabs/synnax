@@ -159,12 +159,6 @@ public:
     ) const;
 
 private:
-    [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief transport for retrieving channels.
     std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief transport for creating channels.

@@ -494,11 +494,7 @@ TEST(DeviceTests, testRetrieveOneWhereNotFound) {
     const auto make = "none_make_" + std::to_string(gen_rand_device());
     const auto [_, err] = client.devices.retrieve(Where{.make = make}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(device matching {"make":{"case_insensitive":false,"eq":")" + make +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
 }
 
 /// @brief it should reject a limit or an offset on a retrieve of one device.
