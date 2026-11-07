@@ -81,6 +81,17 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     status.description = "The Driver is returning the device to OP.";
 }
 
+/// @brief sets status to the error of saved slave properties that do not parse.
+void set_invalid_properties_status(
+    const x::errors::Error &err,
+    synnax::device::Status &status
+) {
+    status.variant = synnax::status::VARIANT_ERROR;
+    status.message = "Invalid device properties";
+    status.description = common::config_err_description(err);
+    status.details.connected = false;
+}
+
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
     auto sentence = error;
@@ -205,7 +216,8 @@ synnax::device::Device Scanner::create_slave_device(
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
-    const bool is_enabled = json_props["enabled"].get<bool>();
+    const auto [saved, saved_err] = parse_properties(json_props);
+    const bool is_enabled = saved.enabled;
 
     synnax::device::Device dev;
     dev.key = key;
@@ -227,7 +239,9 @@ synnax::device::Device Scanner::create_slave_device(
         props.position,
         &slave::Health::position
     );
-    if (!is_enabled) {
+    if (saved_err)
+        set_invalid_properties_status(saved_err, status);
+    else if (!is_enabled) {
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
@@ -287,8 +301,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         props.position,
         &slave::Health::position
     );
-    const bool connected = !err && props.enabled &&
-                           (live == health.end() || !live->lost);
+    const bool connected = props.enabled && (live == health.end() || !live->lost);
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
@@ -298,11 +311,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
-    if (err) {
-        status.variant = synnax::status::VARIANT_ERROR;
-        status.message = "Invalid device properties";
-        status.description = common::config_err_description(err);
-    }
+    if (err) set_invalid_properties_status(err, status);
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
                      << "failed to update device status: " << status_err;

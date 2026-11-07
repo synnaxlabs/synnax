@@ -651,6 +651,74 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
     EXPECT_EQ(this->master->init_call_count(), 1);
 }
 
+/// @brief it should read the slave settings again each time a writer starts the bus.
+TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto writer = ASSERT_NIL_P(
+            this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100)),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail a writer's bus start with the error that kept the slave
+/// settings from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(100));
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should open a writer on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I32, 1)}, x::telem::Rate(100))
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
+}
+
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
