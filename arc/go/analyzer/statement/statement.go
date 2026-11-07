@@ -925,54 +925,10 @@ func analyzeExprReadReassignment(
 	sym.Reassigned = true
 }
 
-// analyzeAliasRebind re-points a channel alias at rhs, recording the candidate
-// for read and write routing.
-func analyzeAliasRebind(
-	ctx context.Context[parser.IAssignmentContext],
-	alias, rhs *symbol.Symbol,
-) {
-	if alias.Parent == alias.Root() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"cannot rebind top-level variable '%s'", alias.Name))
-		return
-	}
-	if !types.StructuralMatch(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
-			alias.Name, alias.Type, rhs.Name, rhs.Type))
-		return
-	}
-	alias.Reassigned = true
-	if alias.Channels.Write == nil {
-		alias.Channels = types.NewChannels()
-	}
-	key := uint32(rhs.ID)
-	if rhs.SourceID != nil {
-		key = uint32(*rhs.SourceID)
-	}
-	alias.Channels.Read[key] = rhs.Name
-	alias.Channels.Write[key] = rhs.Name
-}
-
 func analyzeChannelAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	channelSym *symbol.Symbol,
 ) {
-	// A bare-channel RHS on an alias variable rebinds it rather than writing a value.
-	if channelSym.Kind == symbol.KindVariable {
-		if expr := ctx.AST.Expression(); expr != nil {
-			if p := parser.GetPrimaryExpression(
-				expr,
-			); p != nil &&
-				p.IDENTIFIER() != nil {
-				if rhs, rerr := ctx.Resolve(p.IDENTIFIER().GetText()); rerr == nil &&
-					rhs.Kind == symbol.KindChannel {
-					analyzeAliasRebind(ctx, channelSym, rhs)
-					return
-				}
-			}
-		}
-	}
 	// Validate we're in a function context (channel writes only allowed in imperative
 	// context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
@@ -1350,13 +1306,9 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	// Top-level variables are immutable;
-	isChanAlias := varScope.Type.Kind == types.KindChan && varScope.SourceID != nil
-	if !isChanAlias && varScope.Parent == varScope.Root() &&
-		(varScope.Kind == symbol.KindVariable ||
-			varScope.Kind == symbol.KindStatefulVariable) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"cannot reassign top-level variable '%s'", name))
+	// Assigning to an alias writes its channel.
+	isAlias := varScope.Type.Kind == types.KindChan && varScope.SourceID != nil
+	if !isAlias && ctx.RejectTopLevel(varScope, name) {
 		return
 	}
 

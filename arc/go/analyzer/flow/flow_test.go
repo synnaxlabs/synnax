@@ -1128,7 +1128,7 @@ sensor_chan -> demux() -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to top-level variable 'some_var'"))
+					).To(Equal("cannot reassign top-level variable 'some_var'"))
 				},
 			)
 

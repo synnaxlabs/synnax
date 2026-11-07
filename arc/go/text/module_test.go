@@ -556,7 +556,7 @@ trig > 0 => m.s
 			))
 			diag = analyze(ctx, "import m\n\ntrig -> m.k")
 			Expect(diag.String()).To(ContainSubstring(
-				"cannot write to top-level variable 'm.k'",
+				"cannot reassign top-level variable 'm.k'",
 			))
 		})
 

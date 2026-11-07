@@ -377,9 +377,7 @@ func analyzeIdentifier(
 			return
 		}
 		if isValueVarSink {
-			if sym.Parent == sym.Root() {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"cannot write to top-level variable '%s'", name))
+			if ctx.RejectTopLevel(sym, name) {
 				return
 			}
 			sym.Reassigned = true

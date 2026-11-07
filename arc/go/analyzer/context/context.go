@@ -195,6 +195,17 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
+// variable declared at the top level of its program or module.
+func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {
+	if !sym.IsValueVariable() || sym.Parent != sym.Root() {
+		return false
+	}
+	c.Diagnostics.Add(diagnostics.Errorf(c.AST,
+		"cannot reassign top-level variable '%s'", name))
+	return true
+}
+
 func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
