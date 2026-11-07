@@ -47,7 +47,7 @@ class _DeleteReq(BaseModel):
 
 
 class _SetParentReq(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
     parent: ID | None = None
 
 
