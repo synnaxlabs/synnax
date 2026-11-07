@@ -414,11 +414,13 @@ x::errors::Error Master::activate(
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
     this->activated = true;
-    start_cycle();
     if (auto err = this->start_dc(dc_setups)) return err;
 
+    // Proof: no process data until SAFE-OP. The 6xSTG never starts its data loop when
+    // the master reads its inputs during PRE-OP to SAFE-OP.
     if (auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT))
         return err;
+    start_cycle();
     // A slave that has not taken outputs in SAFE-OP refuses OP with a sync manager
     // watchdog error.
     std::this_thread::sleep_for((period * SAFE_OP_CYCLES).chrono());
