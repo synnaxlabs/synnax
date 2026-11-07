@@ -1255,6 +1255,28 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(exists(ctx, t.Key)).To(BeTrue())
 		})
 
+		It("Should find the drafts with rack zero", func(ctx SpecContext) {
+			r := createRack(ctx)
+			draft := &task.Task{Type: testType, Name: "Draft"}
+			onRack := &task.Task{Type: testType, Rack: r.Key, Name: "On Rack"}
+			Expect(w.Create(ctx, draft)).To(Succeed())
+			Expect(w.Create(ctx, onRack)).To(Succeed())
+			keysOn := func(racks ...rack.Key) []task.Key {
+				GinkgoHelper()
+				var res []task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchRacks(racks...)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })
+			}
+			Expect(keysOn(0)).To(And(
+				ContainElement(draft.Key),
+				Not(ContainElement(onRack.Key)),
+			))
+			Expect(keysOn(0, r.Key)).To(ContainElements(draft.Key, onRack.Key))
+		})
+
 		It("Should find the tasks on a rack", func(ctx SpecContext) {
 			r := createRack(ctx)
 			t := &task.Task{Type: testType, Rack: r.Key, Name: "On Rack"}
