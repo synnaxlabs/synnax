@@ -157,8 +157,11 @@ func (w Writer) checkMove(
 		return after, false, nil
 	}
 	member, err := w.pinnedMember(ctx, g.Key)
-	if member == nil || err != nil {
-		return after, err == nil, err
+	if err != nil {
+		return nil, false, err
+	}
+	if member == nil {
+		return after, true, nil
 	}
 	return nil, false, validate.PathedError(errors.Wrapf(
 		validate.ErrValidation,

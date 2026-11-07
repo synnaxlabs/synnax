@@ -10,12 +10,15 @@
 package table_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
@@ -130,6 +133,31 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Cells["c2"].Variant).
 					To(BeAssignableToTypeOf(table.ValueCellConfig{}))
 				Expect(asText(res.Cells["c1"]).Weight).To(Equal(700.0))
+			},
+		)
+
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				Expect(imexSvc.Import(ctx, db,
+					LoadEnvelope("versions/testdata/import_v1.json"),
+					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(table.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
 			},
 		)
 
