@@ -89,7 +89,10 @@ func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	return true, closer.Close()
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // deleteKeys implements registeredTable.
