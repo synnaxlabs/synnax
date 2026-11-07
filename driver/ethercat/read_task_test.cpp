@@ -724,6 +724,28 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
     EXPECT_EQ(errors[0]["message"], "Pre-scaled min and pre-scaled max must differ");
 }
 
+/// @brief it should reject a table scale whose pre-scaled values do not increase.
+TEST_F(EtherCATReadTest, ParseConfigRejectsATableScaleWithUnorderedPreScaledValues) {
+    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {
+        {"type", "table"},
+        {"pre_scaled_vals", {0, 200, 100}},
+        {"scaled_vals", {0, 10, 40}},
+    };
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_vals");
+    EXPECT_EQ(errors[0]["message"], "Pre-scaled values must be in increasing order");
+}
+
 /// @brief it should skip the map scale check on a disabled channel.
 TEST_F(EtherCATReadTest, ParseConfigSkipsTheMapScaleCheckOnADisabledChannel) {
     const auto valid_ch = create_data_channel("valid", x::telem::INT16_T);
@@ -791,6 +813,50 @@ TEST_F(EtherCATReadTest, SourceAppliesAMapScale) {
             return frame.series->at(0).at<double>(0);
         }(),
         2.5
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should apply a polynomial scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesAPolynomialScale) {
+    const auto source = start_scaled_source(
+        {{"type", "polynomial"}, {"coeffs", {1, 2, 3}}}
+    );
+    this->mock_master->set_input<int16_t>(0, 2);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        17.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should apply a table scale to each sample it reads.
+TEST_F(EtherCATReadTest, SourceAppliesATableScale) {
+    const auto source = start_scaled_source(
+        {{"type", "table"},
+         {"pre_scaled_vals", {0, 100, 200}},
+         {"scaled_vals", {0, 10, 40}}}
+    );
+    this->mock_master->set_input<int16_t>(0, 150);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        25.0
     );
     brk.stop();
     ASSERT_NIL(source->stop());
