@@ -484,10 +484,24 @@ describe("Input.Table", () => {
       expect(marked(cell("Scaled", "1"))).toBe(false);
     });
 
-    it("should name the text that did not parse in the cell's tooltip", () => {
+    it("should name the text and the column of a refused cell in its tooltip", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       paste(cell("Raw", "1"), "5\tabc");
-      expect(hoverTip(cell("Scaled", "1"))).toBe('"abc" is not a number');
+      expect(hoverTip(cell("Scaled", "1"))).toBe(
+        '"abc" is not a valid value for Scaled',
+      );
+    });
+
+    it("should call an unnamed column 'this column' in a refused cell's tooltip", () => {
+      render(
+        <Stateful initial={[[1]]}>
+          <Input.TableColumn />
+        </Stateful>,
+      );
+      paste(screen.getByLabelText("1"), "1\nabc");
+      expect(hoverTip(screen.getByLabelText("2"))).toBe(
+        '"abc" is not a valid value for this column',
+      );
     });
 
     it("should read a pasted cell with its column's parse", () => {

@@ -304,12 +304,11 @@ export const Table = ({
   const statusAt = (at: xy.XY): Status.Crude | undefined => {
     const rejection = marks.find((mark) => xy.equals(mark.at, at));
     if (rejection == null) return cellStatus?.(at);
-    const { name, parse } = columns[at.x];
-    const message =
-      parse == null
-        ? `"${rejection.text}" is not a number`
-        : `"${rejection.text}" is not a valid value for ${name ?? "this column"}`;
-    return { variant: "error", message };
+    const column = columns[at.x].name ?? "this column";
+    return {
+      variant: "error",
+      message: `"${rejection.text}" is not a valid value for ${column}`,
+    };
   };
 
   // A gutter header shifts the data columns over by one.
