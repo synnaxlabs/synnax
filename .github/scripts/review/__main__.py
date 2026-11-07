@@ -27,6 +27,7 @@ a Markdown comparison of the records of the last days with Greptile's reviews of
 same commits.
 """
 
+import contextlib
 import dataclasses
 import json
 import os
@@ -69,8 +70,11 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
         ) as proc:
             assert proc.stdin is not None
             assert proc.stdout is not None
-            proc.stdin.write(stdin)
-            proc.stdin.close()
+            # The exit code tells why Claude Code stopped reading its stdin.
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.write(stdin)
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.close()
             yield from proc.stdout
         if proc.returncode:
             raise subprocess.CalledProcessError(proc.returncode, args)
