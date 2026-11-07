@@ -370,11 +370,13 @@ func (w Writer) Copy(
 	rng *ranger.Key,
 ) (Task, error) {
 	var res Task
-	err := w.inTx(ctx, func(w Writer) (err error) {
+	if err := w.inTx(ctx, func(w Writer) (err error) {
 		res, err = w.copy(ctx, key, name, snapshot, rng)
 		return err
-	})
-	return res, err
+	}); err != nil {
+		return Task{}, err
+	}
+	return res, nil
 }
 
 func (w Writer) copy(
