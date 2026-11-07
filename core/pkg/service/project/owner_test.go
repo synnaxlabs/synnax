@@ -10,6 +10,7 @@
 package project_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -108,6 +109,33 @@ var _ = Describe("GroupProject", func() {
 			To(MatchError(ContainSubstring(
 				"group: a schematic cannot sit in a channel group",
 			)))
+	})
+})
+
+var _ = Describe("ValidateGroup", func() {
+	It("Should accept a nil group", func(ctx SpecContext) {
+		p := createProject(ctx)
+		Expect(project.ValidateGroup(ctx, db, p.Key, nil, resource.TypeLineplot)).
+			To(Succeed())
+	})
+
+	It("Should accept a group in the project", func(ctx SpecContext) {
+		p := createProject(ctx)
+		g := createGroup(ctx, new(p.ResourceID()), resource.TypeProject)
+		Expect(project.ValidateGroup(ctx, db, p.Key, &g.Key, resource.TypeLineplot)).
+			To(Succeed())
+	})
+
+	It("Should refuse a group in another project", func(ctx SpecContext) {
+		p := createProject(ctx)
+		other := createProject(ctx)
+		g := createGroup(ctx, new(other.ResourceID()), resource.TypeProject)
+		Expect(project.ValidateGroup(ctx, db, p.Key, &g.Key, resource.TypeLineplot)).
+			To(MatchError(ContainSubstring(fmt.Sprintf(
+				"group: group %s is not in project %s",
+				g.Key,
+				p.Key,
+			))))
 	})
 })
 

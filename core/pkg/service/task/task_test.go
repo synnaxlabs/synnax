@@ -1562,6 +1562,38 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should not write a provided status over the status of another task",
+			func(ctx SpecContext) {
+				a := &task.Task{Type: testType, Rack: testRack.Key, Name: "A"}
+				Expect(w.Create(ctx, a)).To(Succeed())
+				b := &task.Task{
+					Type: testType,
+					Rack: testRack.Key,
+					Name: "B",
+					Status: &task.Status{
+						Key:     a.Status.Key,
+						Variant: status.VariantSuccess,
+						Message: "forged",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, b)).To(Succeed())
+				var aStatus, bStatus task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](a.ResourceID())).
+					Entry(&aStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(aStatus.Message).To(Equal("Task not deployed"))
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](b.ResourceID())).
+					Entry(&bStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(bStatus.Message).To(Equal("forged"))
+				Expect(bStatus.Key).ToNot(Equal(aStatus.Key))
+			},
+		)
+
+		It(
 			"Should not clobber a live status row on a no-op re-configure",
 			func(ctx SpecContext) {
 				t := &task.Task{
