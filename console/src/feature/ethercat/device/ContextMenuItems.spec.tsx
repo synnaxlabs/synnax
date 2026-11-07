@@ -144,6 +144,12 @@ const MODE_TEXTS = [
     help: "SYNC0 ticks each bus cycle. SYNC1 ticks every 3 SYNC0 ticks.",
   },
   {
+    name: "SYNC1 on each SYNC0 tick",
+    mode: createMode("DC", 0x0700),
+    option: "Clock ticks: SYNC0 each bus cycle, SYNC1 with each SYNC0 tick.",
+    help: "SYNC0 ticks each bus cycle. SYNC1 ticks with each SYNC0 tick.",
+  },
+  {
     name: "a negative SYNC1 factor",
     mode: { ...createMode("DC", 0x0700), sync1Factor: -2 },
     option: "Clock ticks: SYNC0 each bus cycle, SYNC1 every 2 bus cycles.",
@@ -316,6 +322,14 @@ describe("EtherCAT device ContextMenuItems", () => {
       await waitFor(async () =>
         expect(await retrieveOpMode(slave.key)).toBeUndefined(),
       );
+    });
+
+    it("should run SM sync in auto on a slave that lists no modes", async () => {
+      await openConfigure({ opModes: [] });
+      expect(
+        screen.getByText("The Driver uses SM sync, because the device lists no modes."),
+      ).toBeTruthy();
+      expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
     });
 
     it("should run the first mode in auto when there is no SM mode", async () => {

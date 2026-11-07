@@ -18,7 +18,8 @@ import {
 } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
+export const { use: useSlave, useResult: useResultSlave } =
+  Device.createRetrieve(SLAVE_SCHEMAS);
 
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);

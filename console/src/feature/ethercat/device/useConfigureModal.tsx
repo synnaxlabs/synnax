@@ -22,7 +22,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { useResultSlave, useUpdateOpMode } from "@/feature/ethercat/device/queries";
+import { useSlave, useUpdateOpMode } from "@/feature/ethercat/device/queries";
 import {
   autoIndex,
   choose,
@@ -76,14 +76,14 @@ const staleLabel = ({ index, assignActivate }: OpModeChoice): string =>
 
 interface ModeSelectProps {
   modes: OpMode[];
-  choice: OpModeChoice | null;
+  value: OpModeChoice | null;
   stale: boolean;
   onChange: (choice: OpModeChoice | null) => void;
 }
 
 const ModeSelect = ({
   modes,
-  choice,
+  value: choice,
   stale,
   onChange,
 }: ModeSelectProps): ReactElement => {
@@ -269,7 +269,7 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
             <Input.Item label="Mode" padHelpText={false}>
               <ModeSelect
                 modes={modes}
-                choice={choice}
+                value={choice}
                 stale={stale}
                 onChange={setChoice}
               />
@@ -328,9 +328,8 @@ interface ConfigureParams {
 const Configure = ({
   deviceKey,
   close,
-}: Modals.ContentProps<ConfigureParams, void>): ReactElement | null => {
-  const { data: slave } = useResultSlave({ key: deviceKey });
-  if (slave == null) return null;
+}: Modals.ContentProps<ConfigureParams, void>): ReactElement => {
+  const slave = useSlave({ key: deviceKey });
   return <Internal slave={slave} close={close} />;
 };
 
