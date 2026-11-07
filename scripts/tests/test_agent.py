@@ -318,7 +318,8 @@ class TestMain:
 
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
-echo "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+echo "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+login=$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
 """
 
@@ -360,6 +361,10 @@ class TestPrivateReport:
         runner_temp = tmp_path / "runner"
         runner_temp.mkdir()
         monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        login = tmp_path / "claude"
+        login.mkdir()
+        (login / ".credentials.json").write_text("seat")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(login))
         capfd.readouterr()
         argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
@@ -370,7 +375,7 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary="
+        assert plain == "secret report token= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
