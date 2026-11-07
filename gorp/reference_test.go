@@ -1369,6 +1369,7 @@ var _ = Describe("DropDangling", func() {
 			refs []gorp.Reference[string, refDevice],
 			migrations ...gorp.Migration,
 		) *gorp.Table[string, refDevice] {
+			GinkgoHelper()
 			return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 				DB:         db,
 				Name:       "device",
