@@ -485,7 +485,7 @@ class TestTaskClient:
         )
         client.ranges.delete(rng.key)
         with pytest.raises(
-            sy.NotFoundError, match=f"Found no task where key = {snap.key}"
+            sy.NotFoundError, match=f'Found no task where key = "{snap.key}"'
         ):
             client.tasks.retrieve(key=snap.key)
 
