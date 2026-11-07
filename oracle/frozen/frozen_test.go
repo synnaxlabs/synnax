@@ -142,20 +142,36 @@ Doc struct {
 				ToNot(Equal(before.Output))
 		})
 
-		It(
-			"Should carry an edit of an earlier version file forward",
+		It("Should carry a field change in an earlier version forward",
 			func(ctx SpecContext) {
 				before := compute(ctx, v0File, v1File).Sums[1]
 				write("schemas/synnax/versions/doc/v0.oracle", `
-// Edited.
 Doc struct {
 	key uuid @key
+	name string
 
 	@go marshal
 }
 `)
 				Expect(compute(ctx, v0File, v1File).Sums[1].Schema).
 					ToNot(Equal(before.Schema))
+			},
+		)
+
+		It("Should keep every schema sum on a comment and format edit",
+			func(ctx SpecContext) {
+				before := compute(ctx, v0File, v1File).Sums
+				write("schemas/synnax/versions/doc/v0.oracle", `
+// Edited.
+Doc struct {
+		key    uuid    @key
+
+	@go marshal
+}
+`)
+				after := compute(ctx, v0File, v1File).Sums
+				Expect(after[0].Schema).To(Equal(before[0].Schema))
+				Expect(after[1].Schema).To(Equal(before[1].Schema))
 			},
 		)
 

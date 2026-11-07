@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
@@ -41,7 +42,7 @@ var ErrMalformed = errors.New("malformed sum file")
 
 // Sum identifies one version package at one point in time.
 type Sum struct {
-	// Schema hashes the chain's version files up to and including the version.
+	// Schema hashes what the version resolves to, so a comment or format edit keeps it.
 	Schema string
 	// Output hashes the package's generated files as they stand on disk.
 	Output string
@@ -86,9 +87,8 @@ func (c Chain) Versions(recorded map[int]Sum) []int {
 func Compute(
 	ctx context.Context, res *pipeline.Result, repoRoot string,
 ) ([]Chain, error) {
-	roots, err := gotypes.ChainPaths(ctx, &plugin.Request{
-		Resolutions: res.Resolutions, Versions: res.Versions,
-	})
+	req := &plugin.Request{Resolutions: res.Resolutions, Versions: res.Versions}
+	roots, err := gotypes.ChainPaths(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -108,30 +108,51 @@ func Compute(
 			Current: cp.Current,
 			Sums:    make(map[int]Sum, len(cp.Numbers)),
 		}
-		schema := sha256.New()
 		for _, n := range cp.Numbers {
-			source := res.Versions.Chains()[cp.LivePath].FilePath(n) + ".oracle"
-			b, err := os.ReadFile(paths.Resolve(source, repoRoot))
-			if err != nil {
-				return nil, err
-			}
-			schema.Write(b)
 			files := outputs[c.Package(n)]
 			if len(files) == 0 {
 				continue
+			}
+			schema, err := hashSchema(ctx, req, root, cp.LivePath, n)
+			if err != nil {
+				return nil, err
 			}
 			output, err := hashFiles(files, repoRoot)
 			if err != nil {
 				return nil, err
 			}
-			c.Sums[n] = Sum{
-				Schema: hex.EncodeToString(schema.Sum(nil)),
-				Output: output,
-			}
+			c.Sums[n] = Sum{Schema: schema, Output: output}
 		}
 		chains = append(chains, c)
 	}
 	return chains, nil
+}
+
+// hashSchema hashes what version n resolves to: its surface after extends, aliases, and
+// imports resolve, rendered without comments or formatting. An edit that leaves the
+// surface the same leaves the hash the same.
+func hashSchema(
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	n int,
+) (string, error) {
+	table, ns, err := gotypes.ChainFrozenTable(ctx, req, origPath, livePath, n)
+	if err != nil {
+		return "", err
+	}
+	var decls []versions.Decl
+	for _, t := range table.TypesInNamespace(ns) {
+		if !t.Synthetic {
+			decls = append(decls, versions.Decl{Type: t})
+		}
+	}
+	slices.SortFunc(decls, func(a, b versions.Decl) int {
+		return strings.Compare(a.Type.Name, b.Type.Name)
+	})
+	rendered := versions.Render(decls, versions.RenderOptions{Resolve: table.Get})
+	sum := sha256.Sum256([]byte(rendered))
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // sumPath maps a live path ("schemas/x/telem") to its sum file.

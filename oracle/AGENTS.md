@@ -125,21 +125,23 @@ or generator logic and schemas disagree.
 ## Frozen sums
 
 `oracle sync` records every version package in `schemas/<domain>/frozen/<resource>.sum`:
-one line per version, with a hash of the chain's version files up to it and a hash of
+one line per version, with a hash of what the version resolves to (its surface after
+`extends`, aliases, and imports resolve, without comments or formatting) and a hash of
 its generated files. The blocking `frozen` gate fails when a frozen package no longer
-matches its line while those version files stand still. A hand edit, a generator change,
-and a mint that moves the demoted package all fail it.
+matches its line while what it resolves to stands still. A hand edit, a generator
+change, and a mint that moves the demoted package all fail it.
 
-- An edit to a version file updates the sums by itself on the next sync.
+- An edit that changes what a version resolves to updates the sums by itself on the next
+  sync. A comment or format edit leaves them as they are.
 - A mint must leave the demoted package byte-identical. When the gate flags a mint, find
   what moved. Keep a live rule by restating the field in the version file, or fix the
   generator.
 - `oracle sync --refreeze` accepts the change. Use it only for a change that must reach
   frozen packages, such as a generator change for every version or a live rule on a type
   the current version aliases, and say why in the PR.
-- A merge conflict in a sum file: take either side, then run `oracle sync`. If either
-  side ran `--refreeze`, run `oracle sync --refreeze` instead, or the gate keeps failing
-  on the packages that side accepted.
+- A merge conflict in a sum file: for each version line, keep the side that changed it,
+  so a line one side refroze keeps that side's sum. Then run `oracle sync` without
+  `--refreeze`. If the gate still fails, find what moved before you refreeze.
 
 ## Field optionality
 
