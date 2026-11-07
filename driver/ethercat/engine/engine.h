@@ -285,8 +285,8 @@ public:
 
     /// @brief opens a writer for the entries. The bus cycles at least as fast as
     /// execution_rate while the writer is open. Starts the bus when it is not running.
-    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when
-    /// a slave runs DC sync and its fixed bus rate does not suit the writer.
+    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
+    /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
     /// error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>

@@ -377,9 +377,9 @@ needs another rate does not start. Use a sample rate that the network rate is a 
 of, or an execution rate at or below the network rate.
 
 To change the rate, stop every task on the port. The first task that starts again sets
-the rate, so start first a task at a rate that every task fits. For example, read tasks
-at 300 Hz and 200 Hz need 600 Hz, so start a write task at an execution rate of 600 Hz
-first.
+the rate, so start a task at a rate that every task fits first. For example, read tasks
+at 300 Hz and 200 Hz need 600 Hz, so first start a write task at an execution rate of
+600 Hz.
 
 ### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
 

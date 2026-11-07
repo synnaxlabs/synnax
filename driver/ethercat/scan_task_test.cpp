@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <map>
+#include <string>
+#include <utility>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -19,6 +24,13 @@
 #include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat {
+namespace {
+/// @brief a loader for a network with no saved slave settings.
+const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+};
+}
+
 class EtherCATScanTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -71,7 +83,10 @@ protected:
         );
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
-        this->pool = std::make_shared<engine::Pool>(std::move(manager));
+        this->pool = std::make_shared<engine::Pool>(
+            std::move(manager),
+            NO_SLAVE_CONFIGS
+        );
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             this->scan_task(),
@@ -206,7 +221,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -261,7 +276,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("enp3s0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -293,7 +308,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     );
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
     synnax::task::Task task{
         .rack = this->rack.key,
         .name = "EtherCAT Scanner",
@@ -312,7 +327,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
 
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
 
     synnax::task::Task task{
         .rack = this->rack.key,
@@ -357,7 +372,7 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager))
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
         );
     }
 
@@ -720,7 +735,7 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager))
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
         );
     }
 

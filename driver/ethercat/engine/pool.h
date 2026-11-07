@@ -43,14 +43,11 @@ class Pool {
 
 public:
     /// @brief constructs a pool with the given manager and optional RT manager. Each
-    /// engine reads its slave settings from slave_configs when its bus starts. The
-    /// default gives every slave the defaults of slave::Config.
-    explicit Pool(
+    /// engine reads its slave settings from slave_configs when its bus starts.
+    Pool(
         std::unique_ptr<master::Manager> manager,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
-        SlaveConfigs slave_configs = [](const std::string &) {
-            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
-        }
+        SlaveConfigs slave_configs,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     );
 
     /// @brief returns all available EtherCAT masters discovered by the manager.

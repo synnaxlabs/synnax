@@ -14,8 +14,8 @@ namespace driver::ethercat::engine {
 
 Pool::Pool(
     std::unique_ptr<master::Manager> manager,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager,
-    SlaveConfigs slave_configs
+    SlaveConfigs slave_configs,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
 ):
     manager(std::move(manager)),
     rt_manager(std::move(rt_manager)),

@@ -161,10 +161,10 @@ Factory::Factory(
     pool(
         std::make_shared<engine::Pool>(
             std::move(manager),
-            std::move(rt_manager),
             [client = std::move(client), rack](const std::string &network) {
                 return slave_configs(client, rack, network);
-            }
+            },
+            std::move(rt_manager)
         )
     ) {}
 

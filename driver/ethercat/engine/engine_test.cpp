@@ -11,7 +11,9 @@
 #include <atomic>
 #include <map>
 #include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -27,6 +29,11 @@ namespace driver::ethercat::engine {
 namespace {
 /// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
 const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
+
+/// @brief a loader for a network with no saved slave settings.
+const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+};
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
 const pdo::Entry IN_I24(0, 0x6000, 3, 24, true, x::telem::INT32_T);
@@ -1194,6 +1201,20 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
 }
 
+/// @brief it should keep the bus rate while a slave runs a SYNC0 too fast to mark
+/// process data, since its SYNC1 cycle comes from the bus period.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
+    this->master->set_dc_sync(
+        {{.assign_activate = 0x0700, .sync0_cycle = 1'000, .sync1_cycle = 9'999'000}}
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should report the health of each enabled slave and leave out disabled
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
@@ -1390,7 +1411,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
@@ -1403,7 +1424,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1422,7 +1443,7 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     );
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_OCCURRED_AS_P(
         pool.discover_slaves("eth0"),
         errors::MASTER_INIT_ERROR
