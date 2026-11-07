@@ -47,6 +47,19 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 	})
 
+	DescribeTable("Should keep an explicit zero in a Core export", func(
+		ctx SpecContext,
+		path string,
+	) {
+		lp := decode(ctx, path)
+		Expect(lp.Legend.Position.X).To(BeZero())
+		Expect(lp.Legend.Position.Y).To(BeZero())
+		Expect(lp.Title.Level).To(Equal(text.LevelH4))
+	},
+		Entry("older version", "testdata/import_v6_zeros.json"),
+		Entry("current version", "testdata/import_v8_zeros.json"),
+	)
+
 	It("Should lift a v6 envelope's downsample mode to an aggregation", func(
 		ctx SpecContext,
 	) {

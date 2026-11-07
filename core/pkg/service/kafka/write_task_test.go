@@ -545,6 +545,24 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
 	)
 
+	It("Should reject an explicit empty value pointer instead of defaulting it",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.TimestampT)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := toJSON(kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    "t",
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			cfg["record"].(map[string]any)["value_pointer"] = ""
+			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("value_pointer")),
+			))
+		},
+	)
+
 	DescribeTable("Should reject an invalid config",
 		func(
 			ctx SpecContext,
