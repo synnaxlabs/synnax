@@ -177,8 +177,8 @@ export default class Synnax extends framer.Client {
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
-   * @param props.sessionPersistent - Whether closing the client leaves its session open,
-   * for a caller that saves the session token.
+   * @param props.sessionPersistent - Whether closing the client leaves its session
+   * open, for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must

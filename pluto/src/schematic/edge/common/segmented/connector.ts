@@ -422,8 +422,8 @@ const internalNewConnector = ({
   if (location.swap(sourceStumpOrientation) === target.orientation) {
     const dir = direction.construct(sourceStumpOrientation);
     // push three segments on
-    // first segment is in same direction as source stump orientation and half way to the
-    // target stump tip
+    // first segment is in same direction as source stump orientation and half way to
+    // the target stump tip
     const dist = (targetStumpTip[dir] - sourceStumpTip[dir]) / 2;
     segments.push({ direction: dir, length: dist });
     const swappedDir = direction.swap(dir);
@@ -731,8 +731,8 @@ const moveNodeInDirection = (
       };
     return segments;
   }
-  // This means that there is only one segment in the 'swappedDirection' direction in the whole
-  // connector, so we split it in half and add a new segment.
+  // This means that there is only one segment in the 'swappedDirection' direction in
+  // the whole connector, so we split it in half and add a new segment.
   if (idxToAdjust === -1)
     if (segments.length === 1) {
       if (segments[0].direction === dir)
@@ -820,8 +820,9 @@ export interface BuildProps extends BuildNew {
   middleSegments: Segment[];
 }
 
-/// @brief routes an edge's full segment list: a fresh orthogonal connector when there are
-/// no middle segments, otherwise the user's middle segments stitched to the endpoints.
+/// @brief routes an edge's full segment list: a fresh orthogonal connector when there
+/// are no middle segments, otherwise the user's middle segments stitched to the
+/// endpoints.
 export const build = ({ middleSegments, ...endpoints }: BuildProps): Segment[] =>
   middleSegments.length === 0
     ? createConnector(endpoints)

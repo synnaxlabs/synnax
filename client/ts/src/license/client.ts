@@ -36,7 +36,8 @@ export const DEACTIVATE_ENDPOINT = "/license/deactivate";
 
 /**
  * The channel the Core announces license changes on. A sample names the license, never
- * carries it, so the client rereads it through the retrieve endpoint's permission check.
+ * carries it, so the client rereads it through the retrieve endpoint's permission
+ * check.
  */
 export const SET_CHANNEL_NAME = "sy_license_set";
 

@@ -435,8 +435,8 @@ describe("connector", () => {
       it(spec.name, () => {
         const actual = Segmented.createConnector(spec.props);
         expect(actual).toEqual(spec.expected);
-        // We also want to do a sanity check to make sure that the connector actually gets to the target from the
-        // source.
+        // We also want to do a sanity check to make sure that the connector actually
+        // gets to the target from the source.
         const target = Segmented.travelSegments(spec.props.source.position, ...actual);
         expect(target).toEqual(spec.props.target.position);
       });

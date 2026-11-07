@@ -245,8 +245,10 @@ const createConverter = (
       const nkey = f(key);
 
       // Look up schema using BOTH original key and converted key since:
-      // - For snakeToCamel: schema has camelCase keys, input has snake_case, nkey is camelCase (matches)
-      // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is snake_case (key matches)
+      // - For snakeToCamel: schema has camelCase keys, input has snake_case, nkey is
+      //   camelCase (matches)
+      // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is
+      //   snake_case (key matches)
       const propSchema: z.ZodType | undefined =
         shape != null ? (shape[key] ?? shape[nkey] ?? undefined) : undefined;
 

@@ -29,7 +29,9 @@ export const withCORS = (res: Response): Response => {
   return res;
 };
 
-/** preflight answers the CORS preflight of a route the Desktop app or the Console calls. */
+/**
+ * preflight answers the CORS preflight of a route the Desktop app or the Console calls.
+ */
 export const preflight: APIRoute = () =>
   new Response(null, { status: 204, headers: CORS_HEADERS });
 

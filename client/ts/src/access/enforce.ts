@@ -54,8 +54,8 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
       const actionAllowed = policy.actions.includes(action);
       if (!actionAllowed) continue;
 
-      // Check if any object in the policy matches the requested object
-      // Type-level match: empty key means the policy applies to all instances of this type
+      // Check if any object in the policy matches the requested object Type-level
+      // match: empty key means the policy applies to all instances of this type
       for (const policyObj of policy.objects)
         if (policyObj.key === "") {
           if (policyObj.type === requestedObj.type) {

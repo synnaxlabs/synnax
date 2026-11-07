@@ -165,7 +165,9 @@ export const clearWorkspace = async (opts: ConnectionOptions = {}): Promise<void
   }
 };
 
-/** removeRanges deletes every range with one of the names, so a shot can recreate it. */
+/**
+ * removeRanges deletes every range with one of the names, so a shot can recreate it.
+ */
 export const removeRanges = async (
   names: string[],
   opts: ConnectionOptions = {},

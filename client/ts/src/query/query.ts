@@ -980,8 +980,8 @@ export class Space<
    * Applies membership rechecks for the given keys against the table's current entries,
    * without notifying. Admissions append in iteration order up to the query's limit. In
    * a single space, evicting the last member flips the query to deleted or unfetched,
-   * and admitting a second member flips it to unfetched. A deleted answer admits like an
-   * empty one. Returns whether the answer changed: membership moved, or a member's
+   * and admitting a second member flips it to unfetched. A deleted answer admits like
+   * an empty one. Returns whether the answer changed: membership moved, or a member's
    * content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {

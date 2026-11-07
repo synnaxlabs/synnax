@@ -204,8 +204,8 @@ const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
 const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
   new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), timeZone);
 
-// East Asian characters take two columns of a monospace font. An emoji takes two already,
-// as a surrogate pair.
+// East Asian characters take two columns of a monospace font. An emoji takes two
+// already, as a surrogate pair.
 const WIDE =
   /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
 
@@ -343,8 +343,8 @@ export class Log
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
-    // Always call setChannels — the source short-circuits if unchanged.
-    // This handles both initial setup (where prevState === state) and subsequent changes.
+    // Always call setChannels — the source short-circuits if unchanged. This handles
+    // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
     const { data } = i.telem.value();
     this.entries = data;
@@ -799,8 +799,8 @@ export class Log
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
-  // Waits at the oldest entry while older pages can still reach the time. When no stored
-  // sample does, the view stays there. Entries that share the time all show.
+  // Waits at the oldest entry while older pages can still reach the time. When no
+  // stored sample does, the view stays there. Entries that share the time all show.
   private seek(time: bigint): void {
     const { lineHeight, telem } = this.internal;
     this.moveView(0, lineHeight);

@@ -127,8 +127,8 @@ export const createStreamer = ({
       { channels },
       {
         breaker: breakerConfig,
-        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
-        // circuit
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness
+        // short circuit
         onReopen: () => {
           onLive?.();
           onReopen?.();

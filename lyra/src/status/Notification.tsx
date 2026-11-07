@@ -53,7 +53,8 @@ export const Notification = ({
   const getCopyText = () => toString(stat);
 
   return (
-    // The key remounts the card when a repeat arrives, replaying the entrance animation.
+    // The key remounts the card when a repeat arrives, replaying the entrance
+    // animation.
     <div
       className={CSS.cls(CSS.B("notification"), className)}
       key={time.toString()}

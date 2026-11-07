@@ -531,7 +531,9 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
   };
 };
 
-/** Just makes sure that the lines we draw to make stuff thick are really close together. */
+/**
+ * Just makes sure that the lines we draw to make stuff thick are really close together.
+ */
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>

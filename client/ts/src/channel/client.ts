@@ -95,8 +95,8 @@ export class Channel {
   readonly dataType: DataType;
   /**
    * The key of the node in the Synnax cluster that holds the 'lease' over the channel
-   * i.e. it's the only node in the cluster allowed to accept writes to the channel. This
-   * property is mostly for internal use.
+   * i.e. it's the only node in the cluster allowed to accept writes to the channel.
+   * This property is mostly for internal use.
    */
   readonly leaseholder: number;
   /**

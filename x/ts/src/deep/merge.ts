@@ -14,8 +14,8 @@ import { errors } from "@/errors";
 import { narrow } from "@/narrow";
 
 /**
- * Overrides the properties of the base object with the existing properties of the provided
- * object(s)
+ * Overrides the properties of the base object with the existing properties of the
+ * provided object(s)
  * @param base - The base object to override
  * @param overrides - The object(s) to override the base object with
  */

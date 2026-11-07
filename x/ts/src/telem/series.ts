@@ -53,7 +53,10 @@ interface GL {
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
-/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+/**
+ * Shortest decimal string that round-trips through f32 — JS analogue of Go's
+ * strconv.FormatFloat(_, 'g', -1, 32).
+ */
 const stringifyFloat32 = (value: number): string => {
   const f32 = Math.fround(value);
   if (!Number.isFinite(f32)) return f32.toString();
@@ -541,8 +544,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns an array of the values in the series as strings.
-   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * Returns an array of the values in the series as strings. For variable length data
+   * types (like STRING or JSON), this decodes the underlying buffer.
    * @returns An array of string representations of the series values.
    */
   toStrings(): string[] {
@@ -605,8 +608,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns the number of samples in this array.
-   * For variable length data types, this is calculated by scanning uint32 length prefixes.
+   * Returns the number of samples in this array. For variable length data types, this
+   * is calculated by scanning uint32 length prefixes.
    * @returns The number of samples in the series.
    */
   get length(): number {
@@ -730,8 +733,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * @returns the ascending, disjoint [lower, upper) index ranges of the NaN and ±Infinity
-   * samples in the series.
+   * @returns the ascending, disjoint [lower, upper) index ranges of the NaN and
+   * ±Infinity samples in the series.
    */
   get nonFiniteRanges(): readonly Readonly<bounds.Bounds>[] {
     if (!this.dataType.isFloat) return EMPTY_RANGES;
@@ -955,8 +958,9 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * @returns the index of the first sample that is greater than or equal to the given value.
-   * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
+   * @returns the index of the first sample that is greater than or equal to the given
+   * value. The underlying array must be sorted. If it is not, the behavior of this
+   * method is undefined.
    * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
@@ -1320,7 +1324,10 @@ export class Series<T extends TelemValue = TelemValue>
   }
 }
 
-/** @returns true if a Series can be constructed from the given value, and false otherwise. */
+/**
+ * @returns true if a Series can be constructed from the given value, and false
+ * otherwise.
+ */
 export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   if (value == null) return false;
   if (Array.isArray(value)) return true;
@@ -1772,8 +1779,8 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   /**
-   * Returns an array of the values in the multi-series as strings.
-   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * Returns an array of the values in the multi-series as strings. For variable length
+   * data types (like STRING or JSON), this decodes the underlying buffer.
    * @returns An array of string representations of the multi-series values.
    */
   toStrings(): string[] {

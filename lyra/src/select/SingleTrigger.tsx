@@ -44,9 +44,9 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
   /**
-   * Whether hovering the trigger shows a button that clears the selection, and Delete or
-   * Backspace on the focused trigger clears it. The button covers the icon, or the caret
-   * when there is no icon. Single sets it from `allowNone`.
+   * Whether hovering the trigger shows a button that clears the selection, and Delete
+   * or Backspace on the focused trigger clears it. The button covers the icon, or the
+   * caret when there is no icon. Single sets it from `allowNone`.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */

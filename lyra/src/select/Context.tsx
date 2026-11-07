@@ -87,9 +87,10 @@ const [SetHover, useSetHover] = context.create<(key: record.Key) => void>({
 });
 
 /**
- * Context distributes a controlled selection to keyed item consumers. Membership, focus,
- * and hover are held in independent stores, so an item re-renders only for the dimensions
- * it reads via useItemState. Focus tracks the head of an ordered multi-selection.
+ * Context distributes a controlled selection to keyed item consumers. Membership,
+ * focus, and hover are held in independent stores, so an item re-renders only for the
+ * dimensions it reads via useItemState. Focus tracks the head of an ordered
+ * multi-selection.
  */
 export const Context = <K extends record.Key = record.Key>({
   value,
@@ -144,8 +145,8 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
 };
 
 /**
- * useItemState subscribes a single keyed item to the enclosing Context, re-rendering only
- * when that key's selected, focused, or hovered state flips.
+ * useItemState subscribes a single keyed item to the enclosing Context, re-rendering
+ * only when that key's selected, focused, or hovered state flips.
  */
 /**
  * Reads one key's place in the enclosing selection. The caller re-renders only when
@@ -170,10 +171,10 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
 };
 
 /**
- * useSelectedAmong returns the selected key among the given keys, or undefined when none
- * of them is selected. It subscribes only to the given keys, so consumers stay isolated
- * from changes to the rest of the selection. When more than one of the keys is selected,
- * the earliest in the selection's order wins.
+ * useSelectedAmong returns the selected key among the given keys, or undefined when
+ * none of them is selected. It subscribes only to the given keys, so consumers stay
+ * isolated from changes to the rest of the selection. When more than one of the keys is
+ * selected, the earliest in the selection's order wins.
  */
 export const useSelectedAmong = <K extends record.Key = record.Key>(
   keys: K[],

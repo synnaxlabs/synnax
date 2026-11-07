@@ -33,7 +33,10 @@ type LSPReceiver = {
 
 const MAX_DRAIN = 50;
 
-/** Drains messages from the stream until a JSON-RPC response with the expected id arrives. */
+/**
+ * Drains messages from the stream until a JSON-RPC response with the expected id
+ * arrives.
+ */
 const receiveResponse = async (
   stream: LSPReceiver,
   expectedId: number,
@@ -75,7 +78,10 @@ const receiveResponses = async (
   return responses;
 };
 
-/** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
+/**
+ * Drains messages from the stream until a JSON-RPC notification with the expected
+ * method arrives.
+ */
 const receiveNotification = async (
   stream: LSPReceiver,
   expectedMethod: string,

@@ -16,16 +16,16 @@ import { CSS } from "@/css";
 import { Triggers } from "@/triggers";
 
 /**
- * Class applying the `touch-action`/`user-select` rules a cursor-drag element needs. Add
- * it to whatever element receives the handler returned by {@link useDrag}.
+ * Class applying the `touch-action`/`user-select` rules a cursor-drag element needs.
+ * Add it to whatever element receives the handler returned by {@link useDrag}.
  */
 export const DRAG_CLASS = CSS.B("cursor-drag");
 
 export interface UseDragProps {
   /**
    * Called once when the pointer has moved past the activation threshold, marking the
-   * true start of a drag. Receives the press location, the mouse button, and the element
-   * the gesture started on.
+   * true start of a drag. Receives the press location, the mouse button, and the
+   * element the gesture started on.
    */
   onStart?: (loc: xy.XY, mouseKey: Triggers.Key, el: HTMLElement) => void;
   /** Called on every pointer move during a drag with the box from start to current. */

@@ -47,8 +47,8 @@ export interface Return {
 const normalizePreference = (pref: LocationPreference): Preference => {
   if (typeof pref === "string" || "x" in pref || "y" in pref)
     return { targetCorner: pref, dialogCorner: undefined };
-  // The only remaining case here is an empty object, which is valid as both a preference
-  // and a location.
+  // The only remaining case here is an empty object, which is valid as both a
+  // preference and a location.
   return pref as Preference;
 };
 

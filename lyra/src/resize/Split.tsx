@@ -24,7 +24,8 @@ export interface SplitProps extends Omit<
    * right/bottom. Exactly two children are required. */
   children: [ReactNode, ReactNode];
   /**
-   * The fraction of the container occupied by the first pane, as a decimal between 0 and
+   * The fraction of the container occupied by the first pane, as a decimal between 0
+   * and
    * 1. Acts as the source of truth whenever the handle is not being actively dragged;
    * while a drag is in progress the panes render their transient drag ratio instead.
    * Defaults to 0.5.
@@ -34,12 +35,13 @@ export interface SplitProps extends Omit<
   minSize?: number;
   /**
    * Called continuously while the handle is being dragged with the first pane's live
-   * fraction (0..1). Use for transient, per-frame side effects; do not persist from here.
+   * fraction (0..1). Use for transient, per-frame side effects; do not persist from
+   * here.
    */
   onResize?: (size: number) => void;
   /**
-   * Called once when a drag gesture ends with the committed fraction (0..1). This is the
-   * callback to persist the new ratio to the source of truth.
+   * Called once when a drag gesture ends with the committed fraction (0..1). This is
+   * the callback to persist the new ratio to the source of truth.
    */
   onResizeEnd?: (size: number) => void;
   /**
@@ -52,8 +54,9 @@ export interface SplitProps extends Omit<
 /**
  * Offset applied to the rendered pane sizes when the split is evenly distributed. Two
  * panes at exactly 50% do not change size when their contents are swapped (e.g. a tab
- * reorder), so ResizeObservers inside them never fire. Nudging the panes by DELTA forces
- * a measurable size change on swap. Applied at render only; never reported via onResize.
+ * reorder), so ResizeObservers inside them never fire. Nudging the panes by DELTA
+ * forces a measurable size change on swap. Applied at render only; never reported via
+ * onResize.
  */
 const DELTA = 0.001;
 

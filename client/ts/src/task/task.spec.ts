@@ -106,7 +106,8 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different input/output types
+      // Exclude status, internal, snapshot when updating - these have different
+      // input/output types
       const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
       const updated = await client.tasks.create({
         ...taskFields,

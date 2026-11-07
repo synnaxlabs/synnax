@@ -1099,7 +1099,8 @@ describe("schematic reducer inverses", () => {
         },
       });
       // Each dispatch carries the FULL form values, matching IndividualConfig's
-      // onChange: ({ values }) => dispatch(schematic.setConfig({ key, config: values })).
+      // onChange: ({ values }) => dispatch(schematic.setConfig({ key, config: values
+      // })).
       const r1 = schematic.reduceAll(initial, [
         schematic.setConfig({
           key: "n1",

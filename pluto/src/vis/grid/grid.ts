@@ -39,9 +39,9 @@ export const gridZ = z.record(z.string(), regionZ);
 export type Region = z.input<typeof regionZ>;
 
 /**
- * A uniform grid used to position elements in the outer regions of a container. This grid
- * is particularly useful for positioning axes and other elements that are not part of the
- * main visualization.
+ * A uniform grid used to position elements in the outer regions of a container. This
+ * grid is particularly useful for positioning axes and other elements that are not part
+ * of the main visualization.
  *
  * @example
  * const grid: Grid = {

@@ -111,7 +111,9 @@ export const useUtilContext = <
 >(): UtilContextValue<K, E> =>
   useUtilCtx("List.useUtilContext") as unknown as UtilContextValue<K, E>;
 
-/** Props for {@link Frame}. A data hook such as `useStaticData` supplies most of them. */
+/**
+ * Props for {@link Frame}. A data hook such as `useStaticData` supplies most of them.
+ */
 export interface FrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,

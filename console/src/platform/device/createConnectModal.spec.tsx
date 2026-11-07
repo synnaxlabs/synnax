@@ -26,8 +26,8 @@ describe("createConnectModal", () => {
     const rack = await createRunningRack(client, integration);
     const useConnectModal = Device.createConnectModal(Connect, integration);
     const { reopen } = await renderModalOpener(useConnectModal, [], { client });
-    // The opener reads the rack list when called, so it reopens until the list loads. It
-    // polls on an interval, since each reopen changes the DOM.
+    // The opener reads the rack list when called, so it reopens until the list loads.
+    // It polls on an interval, since each reopen changes the DOM.
     await vi.waitFor(() => {
       reopen();
       expect(screen.getByText(`Connect from ${rack.key}`)).toBeTruthy();

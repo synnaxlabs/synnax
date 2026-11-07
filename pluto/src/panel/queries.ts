@@ -92,9 +92,9 @@ const requireTab = (root: panel.Node, { key, tabKey }: TabContentParams) => {
   return tab;
 };
 
-// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
-// sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
-// The two-level analogue of scope.bindHook.
+// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys
+// are sourced from the surrounding Panel and Tab scopes; either may be overridden
+// explicitly. The two-level analogue of scope.bindHook.
 type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   optional.Optional<Args, "key" | "tabKey">,
   R

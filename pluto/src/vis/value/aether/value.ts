@@ -219,8 +219,8 @@ export class Value
       const textColor = this.getTextColor();
       canvas.fillStyle = color.hex(textColor);
 
-      // If the value is negative, chop of the negative sign and draw it separately
-      // so that the first digit always stays in the same position, regardless of the sign.
+      // If the value is negative, chop of the negative sign and draw it separately so
+      // that the first digit always stays in the same position, regardless of the sign.
       if (isNegative)
         canvas.fillText(
           "-",

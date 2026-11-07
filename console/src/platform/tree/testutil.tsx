@@ -77,7 +77,9 @@ export const createState = (
   };
 };
 
-/** Builds an ontology resource for the given id with an optional name and data payload. */
+/**
+ * Builds an ontology resource for the given id with an optional name and data payload.
+ */
 export const createResource = (
   id: ontology.ID,
   name: string,
@@ -390,7 +392,9 @@ export const renderTreeContextMenu = async (
 
 export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
-  /** Real tree items keyed by resource type; other types fall back to Tree.DefaultItem. */
+  /**
+   * Real tree items keyed by resource type; other types fall back to Tree.DefaultItem.
+   */
   items?: Tree.Items;
 }
 

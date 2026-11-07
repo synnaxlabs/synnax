@@ -89,7 +89,8 @@ export type CrudeFrame =
  * A horizontal frame typically has a single array (in which case, it's also 'square'),
  * although it can have multiple series if all the series are continuous in time.
  *
- * - Vertical frames are strongly aligned and have on or more channels, but ONLY a single
+ * - Vertical frames are strongly aligned and have on or more channels, but ONLY a
+ *   single
  * array per channel. Synnax requires that all frames written to the database are
  * vertical.
  *
@@ -173,16 +174,16 @@ export class Frame {
   }
 
   /**
-   * @returns the unique channel keys if the frame is keyed by channel key, and throws an
-   * error otherwise.
+   * @returns the unique channel keys if the frame is keyed by channel key, and throws
+   * an error otherwise.
    */
   get uniqueKeys(): channel.Key[] {
     return unique.unique(this.keys);
   }
 
   /**
-   * @returns the channel names if the frame is keyed by channel name, and throws an error
-   * otherwise.
+   * @returns the channel names if the frame is keyed by channel name, and throws an
+   * error otherwise.
    */
   get names(): string[] {
     if (this.colType === "key") throw new UnexpectedError("colType is not name");
@@ -190,8 +191,8 @@ export class Frame {
   }
 
   /**
-   * @returns the unique channel names if the frame is keyed by channel name, and throws an
-   * otherwise.
+   * @returns the unique channel names if the frame is keyed by channel name, and throws
+   * an otherwise.
    */
   get uniqueNames(): string[] {
     return unique.unique(this.names);
@@ -229,8 +230,8 @@ export class Frame {
   }
 
   /**
-   * @returns true if the frame is square. Square frames are both horizontal and vertical.
-   * Only a frame with a single channel and array can be square.
+   * @returns true if the frame is square. Square frames are both horizontal and
+   * vertical. Only a frame with a single channel and array can be square.
    */
   get isSquare(): boolean {
     return this.isHorizontal && this.isVertical;
@@ -321,8 +322,8 @@ export class Frame {
   }
 
   /**
-   * @returns a shallow copy of this frame containing all series in the current frame and the
-   * provided frame.
+   * @returns a shallow copy of this frame containing all series in the current frame
+   * and the provided frame.
    */
   concat(frame: Frame): Frame {
     return new Frame([...this.columns, ...frame.columns] as channel.Key[], [

@@ -102,8 +102,8 @@ export type RequestInput<Z extends z.ZodType> =
 
 /**
  * The query objects a request schema accepts that return one record: those with a plain
- * `key` or `name` value beside any other fields, and those that set `one`. Neither takes
- * a limit or an offset, since a page could hide a second match.
+ * `key` or `name` value beside any other fields, and those that set `one`. Neither
+ * takes a limit or an offset, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   | (z.input<Z> extends infer I

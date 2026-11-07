@@ -13,8 +13,8 @@ import { FLAG_MQTT, VERCEL_ENV } from "astro:env/client";
 const PREVIEW = VERCEL_ENV === "preview";
 
 /**
- * Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. Dev servers
- * and preview deploys turn every flag on.
+ * Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. Dev
+ * servers and preview deploys turn every flag on.
  */
 export const flag = (value: boolean): boolean =>
   value || PREVIEW || import.meta.env.DEV;

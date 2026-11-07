@@ -66,7 +66,8 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   /**
    * Checks the config from the first deploy on, as a check the form runs on every edit.
    * A deploy starts only when no field shows an error, so a warning never blocks one.
-   * Keep the shape schemas lax: a field whose value fails its shape schema stays unsent.
+   * Keep the shape schemas lax: a field whose value fails its shape schema stays
+   * unsent.
    */
   deployConfigZ: z.ZodType;
   showHeader?: boolean;

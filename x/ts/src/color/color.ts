@@ -103,8 +103,8 @@ export type Crude = Hex | RGBA | Color | RGB | LegacyObject | RGBAStruct;
 export const colorZ = crudeZ.transform((v) => construct(v));
 
 /**
- * A color in RGBA format. Used as the standard representation of a color in this package.
- * See https://en.wikipedia.org/wiki/RGBA_color_model
+ * A color in RGBA format. Used as the standard representation of a color in this
+ * package. See https://en.wikipedia.org/wiki/RGBA_color_model
  */
 export type Color = RGBA;
 

@@ -33,7 +33,9 @@ export interface Driver {
   update(path: readonly string[], type: string, state: record.Unknown): void;
   /** Delete the component at `path` and its descendants. */
   delete(path: readonly string[]): void;
-  /** Look up a mounted component by absolute path. Throws if no component exists there. */
+  /**
+   * Look up a mounted component by absolute path. Throws if no component exists there.
+   */
   find<T extends aether.Component = aether.Component>(path: readonly string[]): T;
 }
 
@@ -60,9 +62,10 @@ export const createDriver = (
     type: string,
     stateValue: record.Unknown,
   ): void => {
-    // A component retains the array it is constructed with as its `path`, and derives its
-    // `key` from the last element. Snapshot so a caller mutating its own path array (e.g.
-    // pushing the next provider key) cannot rewrite an already-mounted component's key.
+    // A component retains the array it is constructed with as its `path`, and derives
+    // its `key` from the last element. Snapshot so a caller mutating its own path array
+    // (e.g. pushing the next provider key) cannot rewrite an already-mounted
+    // component's key.
     const snapshot = [...path];
     root._updateState({
       path: snapshot,

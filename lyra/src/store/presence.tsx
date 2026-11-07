@@ -39,8 +39,8 @@ export interface PresenceProps<
  */
 export interface Presence<K extends record.Key = record.Key> {
   /**
-   * Context distributes the single present key to keyed consumers. On change it notifies
-   * only the previous and next holders, so at most two items re-render.
+   * Context distributes the single present key to keyed consumers. On change it
+   * notifies only the previous and next holders, so at most two items re-render.
    */
   Context: (props: PresenceProps<K>) => ReactElement;
   useContext: () => ContextValue<K>;
@@ -49,7 +49,9 @@ export interface Presence<K extends record.Key = record.Key> {
    * only when this key gains or loses presence.
    */
   useIsPresent: (key: K) => boolean;
-  /** usePresent returns the currently present key, or undefined when none is present. */
+  /**
+   * usePresent returns the currently present key, or undefined when none is present.
+   */
   usePresent: () => K | undefined;
 }
 

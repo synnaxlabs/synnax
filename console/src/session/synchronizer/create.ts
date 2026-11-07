@@ -70,7 +70,9 @@ export interface Synchronizer<S, A extends Action> {
  */
 export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 
-/** The slice of a domain client a remover needs: delete events and an existence sweep. */
+/**
+ * The slice of a domain client a remover needs: delete events and an existence sweep.
+ */
 export interface Removable<K extends record.Key> {
   onDelete: (handler: (key: K) => void) => destructor.Destructor;
   /** Retrieves the records that match a filter on keys. */

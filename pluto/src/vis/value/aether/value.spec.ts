@@ -33,7 +33,8 @@ interface SetupOptions {
 // string telem source (and an optional color background source) are registered before
 // mount so the telem TestFactory resolves them on the first afterUpdate. No render loop
 // runs in tests, so the component draws synchronously on mount and on every telem emit;
-// call `recorder.clear()` before an explicit `render({})` to isolate that render's calls.
+// call `recorder.clear()` before an explicit `render({})` to isolate that render's
+// calls.
 const setup = ({
   value: initialValue = "",
   background,

@@ -203,6 +203,16 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
+      // Prettier leaves comments alone, so this checks only lines that start with one.
+      "@stylistic/max-len": [
+        "error",
+        {
+          code: 88,
+          ignorePattern: "^(?!\\s*(//|/?\\*))",
+          ignoreUrls: true,
+          ignoreTemplateLiterals: true,
+        },
+      ],
       "jsdoc/no-types": "error",
       "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
@@ -306,9 +316,11 @@ const config: Linter.Config[] = [
     },
   },
   {
-    // Oracle imports one generated module into another as a namespace.
+    // Oracle imports one generated module into another as a namespace. A generated file
+    // follows its generator, so its comment length is not checked.
     files: ["**/*.gen.ts"],
     rules: {
+      "@stylistic/max-len": "off",
       "no-restricted-syntax": [
         "error",
         ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),

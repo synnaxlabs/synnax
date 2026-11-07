@@ -23,8 +23,8 @@ const { startMock, stopMock } = vi.hoisted(() => ({
   stopMock: vi.fn(),
 }));
 
-// The real language client pulls in monaco; replace it with a class whose start/stop are
-// the only behaviors useLanguageServer drives.
+// The real language client pulls in monaco; replace it with a class whose start/stop
+// are the only behaviors useLanguageServer drives.
 vi.mock("vscode-languageclient/browser", () => {
   class BaseLanguageClient {
     start = startMock;
@@ -72,9 +72,9 @@ describe("useLanguageServer", () => {
     );
 
   // The first client start cold-loads the monaco runtime, whose deep CSS imports cannot
-  // be evaluated under Node's ESM loader. That failure is a test-env artifact (CSS loads
-  // fine in the browser), so absorb it once here rather than letting it surface in the
-  // first connection assertion.
+  // be evaluated under Node's ESM loader. That failure is a test-env artifact (CSS
+  // loads fine in the browser), so absorb it once here rather than letting it surface
+  // in the first connection assertion.
   beforeAll(async () => {
     startMock.mockResolvedValue(undefined);
     const warmStatus = vi.fn<StatusFn>();

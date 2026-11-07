@@ -149,8 +149,8 @@ export const createStaticTabName = ({
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
 /**
- * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
- * id, so editing one is a no-op.
+ * editTabName starts an in-place edit of the tab's name. Tabs with static names carry
+ * no id, so editing one is a no-op.
  */
 export const editTabName = (tabKey: string): void => {
   const id = tabNameID(tabKey);

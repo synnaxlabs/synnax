@@ -11,7 +11,8 @@ import { addChannel, choose, taskScript, VALVE_OUTPUTS } from "./common/task";
 
 /**
  * Docs `reference/hardware/ethercat/write-task` (Create a write task): set the state
- * update rate, add a channel, select the module and its first output entry, and start the task.
+ * update rate, add a channel, select the module and its first output entry, and start
+ * the task.
  */
 export default taskScript({
   device: VALVE_OUTPUTS,

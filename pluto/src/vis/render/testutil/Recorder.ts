@@ -70,8 +70,8 @@ export interface RecordingCanvas {
   /** Records the call and returns this same recording surface, so chained draw calls
    * land on the same {@link calls} list (production returns a scaled sub-context). */
   applyScale(scale: scale.XY): RecordingCanvas;
-  /** Records the call and returns a deterministic size derived from the label length, so
-   * width-dependent layout logic under test gets stable, varied inputs. */
+  /** Records the call and returns a deterministic size derived from the label length,
+   * so width-dependent layout logic under test gets stable, varied inputs. */
   textDimensions(label: string, options?: unknown): dimensions.Dimensions;
   [op: string]: unknown;
 }

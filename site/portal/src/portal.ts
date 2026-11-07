@@ -55,7 +55,9 @@ export interface Portal {
   now: () => Date;
 }
 
-/** mailer sends real mail only from production. Previews and local development log it. */
+/**
+ * mailer sends real mail only from production. Previews and local development log it.
+ */
 const mailer = (): Mailer => {
   if (VERCEL_ENV !== "production") return log();
   if (RESEND_API_KEY == null)

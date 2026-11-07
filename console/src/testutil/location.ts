@@ -30,8 +30,8 @@ export const pinLocationOrigin = (origin: string, search: string = ""): void => 
 };
 
 /**
- * mockLocationReload replaces window.location.reload with a mock for the duration of the
- * calling test, because jsdom does not implement navigation. It returns the mock.
+ * mockLocationReload replaces window.location.reload with a mock for the duration of
+ * the calling test, because jsdom does not implement navigation. It returns the mock.
  */
 export const mockLocationReload = (): Mock<() => void> => {
   const original = window.location;

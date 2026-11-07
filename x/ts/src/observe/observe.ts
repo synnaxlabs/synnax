@@ -75,7 +75,8 @@ export interface ObservableAsyncCloseable<T> extends Observable<T> {
 export type Transform<I, O> = (value: I) => [O, true] | [O | null, false];
 
 /**
- * An implementation fo the Observable interface that can be manually notified of changes.
+ * An implementation fo the Observable interface that can be manually notified of
+ * changes.
  */
 export class Observer<I, O = I> implements ObservableAsyncCloseable<O> {
   private readonly handlers: Map<Handler<O>, null>;

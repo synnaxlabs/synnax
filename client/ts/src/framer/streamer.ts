@@ -57,7 +57,10 @@ const intermediateStreamerConfigZ = z.object({
   channels: channel.paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.uint32().default(1),
-  /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
+  /**
+   * Optional throttle rate in Hz to limit the rate of frames sent to the client.
+   * Defaults to 0 (no throttling).
+   */
   throttleRate: Rate.z.default(new Rate(0)),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */

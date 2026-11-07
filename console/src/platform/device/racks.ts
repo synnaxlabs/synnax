@@ -60,7 +60,9 @@ export interface UseBlockedReasonArgs extends Omit<BlockedReasonArgs, "rack"> {
   rack: rack.Key | null;
 }
 
-/** Returns {@link getBlockedReason} for the Core's racks, or null until they resolve. */
+/**
+ * Returns {@link getBlockedReason} for the Core's racks, or null until they resolve.
+ */
 export const useBlockedReason = ({
   integration,
   name,

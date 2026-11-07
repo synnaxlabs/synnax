@@ -259,8 +259,8 @@ export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "Mouse
 export interface MatchOptions {
   /**
    * If true, triggers in actual that are a superset of those in expected will still be
-   * considered a match i.e. if expected is [["Control"]] and actual is [["Control", "A"]],
-   * then match will return true.
+   * considered a match i.e. if expected is [["Control"]] and actual is [["Control",
+   * "A"]], then match will return true.
    */
   loose?: boolean;
   /**
@@ -339,7 +339,8 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * Determines if two triggers are semantically equal.
  * @param loose - If true, if the second trigger is a superset of the first, then
  * the triggers will be considered equal.
- * @returns a comparison function that determines if two triggers are semantically equal.
+ * @returns a comparison function that determines if two triggers are semantically
+ * equal.
  */
 const compareF = (opts?: MatchOptions): compare.Comparator<Trigger> => {
   if (opts?.loose === true) return _looseCompare;

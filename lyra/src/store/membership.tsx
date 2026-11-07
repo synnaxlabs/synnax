@@ -51,9 +51,9 @@ export interface MembershipItem {
 }
 
 /**
- * Membership is a created set-membership context: a provider that publishes a controlled
- * set of keys plus hooks bound to its own React context. Nesting is independent, so a
- * created membership never reads or writes the set of another.
+ * Membership is a created set-membership context: a provider that publishes a
+ * controlled set of keys plus hooks bound to its own React context. Nesting is
+ * independent, so a created membership never reads or writes the set of another.
  */
 export interface Membership<K extends record.Key = record.Key> {
   /**
@@ -76,8 +76,8 @@ export interface Membership<K extends record.Key = record.Key> {
   /**
    * useMemberAmong returns the member among the given keys, or undefined when none of
    * them is a member. It subscribes only to the given keys, so consumers stay isolated
-   * from changes to the rest of the set. When more than one is a member, the earliest in
-   * the set's order wins.
+   * from changes to the rest of the set. When more than one is a member, the earliest
+   * in the set's order wins.
    */
   useMemberAmong: (keys: K[]) => K | undefined;
 }

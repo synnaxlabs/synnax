@@ -13,7 +13,9 @@ type Media = HTMLImageElement | HTMLVideoElement;
 
 interface Expanded {
   media: Media;
-  /** The element that moved into the lightbox: the media, or a themed image's picture. */
+  /**
+   * The element that moved into the lightbox: the media, or a themed image's picture.
+   */
   moved: Element;
   /** The hidden copy that holds the media's place on the page. */
   placeholder: Element;

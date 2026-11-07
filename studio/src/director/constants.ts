@@ -117,7 +117,9 @@ export const LEAN_MAX_DEG = 6;
 export const PACE_MIN_S = 0.8;
 export const PACE_MAX_S = 1.9;
 
-/** Seconds of pace a beat's move adds per frame width traveled and per zoom doubling. */
+/**
+ * Seconds of pace a beat's move adds per frame width traveled and per zoom doubling.
+ */
 export const PACE_PER_WIDTH_S = 0.35;
 export const PACE_PER_ZOOM_S = 0.4;
 
@@ -125,8 +127,8 @@ export const PACE_PER_ZOOM_S = 0.4;
 export const PUSH_PER_S = 0.01;
 
 /**
- * Share of the frame width the whole window takes on a wide beat. A portrait frame crops
- * the window's sides; a landscape frame holds all of it with a margin.
+ * Share of the frame width the whole window takes on a wide beat. A portrait frame
+ * crops the window's sides; a landscape frame holds all of it with a margin.
  */
 export const WINDOW_FILL: Record<Format, number> = { portrait: 1.3, landscape: 0.72 };
 

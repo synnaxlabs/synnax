@@ -27,7 +27,8 @@ export interface TextMateRule {
 
 /** LanguageTheme declares how a language's tokens are colored, split by editor theme
  * (`dark`/`light`). `semanticTokenColors` maps semantic token types to colors;
- * `textMateRules` colors raw TextMate scopes for languages without a semantic provider. */
+ * `textMateRules` colors raw TextMate scopes for languages without a semantic provider.
+ * */
 export interface LanguageTheme {
   semanticTokenColors?: {
     dark: Record<string, string>;
@@ -40,8 +41,9 @@ export interface LanguageTheme {
 }
 
 /** BASE_THEMES are the settings ids of the VS Code themes that a language with a theme
- * builds on. VS Code renames these between releases, and a stale id silently drops every
- * token color, so `language.spec.ts` pins them against the installed theme extension. */
+ * builds on. VS Code renames these between releases, and a stale id silently drops
+ * every token color, so `language.spec.ts` pins them against the installed theme
+ * extension. */
 export const BASE_THEMES = { dark: "Dark+", light: "Light+" } as const;
 
 /** Language is the declarative contribution a consumer passes to Code.Provider. It is
@@ -52,7 +54,9 @@ export interface Language {
   name: string;
   /** aliases are display names for the language. */
   aliases?: string[];
-  /** extensions are the file extensions associated with the language (e.g. [".arc"]). */
+  /**
+   * extensions are the file extensions associated with the language (e.g. [".arc"]).
+   */
   extensions?: string[];
   /** configuration is the raw language-configuration.json contents (comments, brackets,
    * folding, indentation rules). */

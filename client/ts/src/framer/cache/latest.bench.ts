@@ -114,8 +114,8 @@ test("stream", async ({ bench }) => {
   await Promise.all(streams.map(async (s) => await s.stop()));
 });
 
-// Returns the bytes each open latest holds once loaded, with the typed array storage the
-// heap leaves out.
+// Returns the bytes each open latest holds once loaded, with the typed array storage
+// the heap leaves out.
 const retained = async (open: () => Latest, n = 100): Promise<number> => {
   const used = (): number => {
     gc();

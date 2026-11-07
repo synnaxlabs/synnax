@@ -106,10 +106,10 @@ const PREFERENCES: position.LocationPreference[] = [
  *
  * @returns visible - Whether the menu is visible.
  * @returns close - A function to close the menu.
- * @returns open - A function to open the menu. The function accepts an XY coordinate and
- * an optional set of keys to set as the selected menu items. It's important to note
- * that these keys override the default behavior of the menu, which is explained in
- * the documentation for {@link Menu.ContextMenu}.
+ * @returns open - A function to open the menu. The function accepts an XY coordinate
+ * and an optional set of keys to set as the selected menu items. It's important to note
+ * that these keys override the default behavior of the menu, which is explained in the
+ * documentation for {@link Menu.ContextMenu}.
  */
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);

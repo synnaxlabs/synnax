@@ -537,8 +537,8 @@ export class SyntheticCore {
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
   // sample zero. A group cut by the read reduces the samples inside it. The index
-  // reduces exactly: min_max keeps each group's first and last times, decimate its first,
-  // and average its midpoint.
+  // reduces exactly: min_max keeps each group's first and last times, decimate its
+  // first, and average its midpoint.
   private reduced(
     key: channel.Key,
     tr: TimeRange,

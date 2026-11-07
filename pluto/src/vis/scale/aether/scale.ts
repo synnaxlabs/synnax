@@ -51,8 +51,8 @@ export const scaleStateZ = staleness.configZ.extend({
   showScale: z.boolean().default(true),
   // The side of the bar on which tick marks and labels are drawn.
   side: location.outerZ.default("right"),
-  // The direction the readout is offset from the value. A side along the bar has no edge
-  // to clear, so the readout sits inside the bar beside the fill edge.
+  // The direction the readout is offset from the value. A side along the bar has no
+  // edge to clear, so the readout sits inside the bar beside the fill edge.
   caretSide: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),

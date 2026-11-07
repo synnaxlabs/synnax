@@ -16,9 +16,10 @@ export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
 }
 
 /**
- * Hook is a hook whose key argument has been made optional by {@link Instance.bindHook}.
- * The key is resolved from the surrounding scope unless overridden. If the hook has no
- * arguments other than the key, it may be called with no arguments at all.
+ * Hook is a hook whose key argument has been made optional by
+ * {@link Instance.bindHook}. The key is resolved from the surrounding scope unless
+ * overridden. If the hook has no arguments other than the key, it may be called with no
+ * arguments at all.
  */
 export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> = optional.Arg<
   optional.Optional<Args, "key">,

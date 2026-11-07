@@ -78,8 +78,9 @@ export interface NodeGeometry {
 }
 
 /// @brief the connection point and side of a node's handle, matching React Flow's
-/// getHandlePosition (the point sits on the handle's edge for its side, not its center).
-/// Returns null when the named handle is absent; an empty handleKey uses the first handle.
+/// getHandlePosition (the point sits on the handle's edge for its side, not its
+/// center). Returns null when the named handle is absent; an empty handleKey uses the
+/// first handle.
 export const resolveEndpoint = (
   { positionAbsolute, handleBounds }: NodeGeometry,
   handleKey: string,

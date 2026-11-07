@@ -58,10 +58,11 @@ export interface TextProps
  * @param props.value - The value of the input.
  * @param props.onChange - A function to call when the input value changes.
  * @param props.size - The size of the input: "small" | "medium" | "large".
- * @param props.selectOnFocus - Whether the input should select its contents when focused.
+ * @param props.selectOnFocus - Whether the input should select its contents when
+ * focused.
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
- * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous value if
- * blurred while empty.
+ * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous
+ * value if blurred while empty.
  * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
  * user blurs the input or the user presses 'Enter'.
  * @param props.flush - Marks the input as its surface's sole keystroke target,

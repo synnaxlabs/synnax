@@ -134,8 +134,8 @@ const TabNameProbe = (): ReactElement => {
   return <span>{`name:${type}`}</span>;
 };
 
-// TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so gesture
-// specs can target an individual tab's handle by its visible text.
+// TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so
+// gesture specs can target an individual tab's handle by its visible text.
 const TabKeyNameProbe = (): ReactElement => {
   const tabKey = Panel.TabScope.use();
   return <span>{`name:${tabKey}`}</span>;

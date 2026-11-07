@@ -45,7 +45,8 @@ const stringifyAllDigits = (value: number | bigint, notation: Notation): string 
  * @param value - The number to be converted.
  * @param precision - The number of decimal places to include in the output. Must be
  * between 0 and 20. When undefined, the output keeps every digit of the value.
- * @param notation - The notation to use for the conversion. Can be "standard", "scientific", or "engineering".
+ * @param notation - The notation to use for the conversion. Can be "standard",
+ * "scientific", or "engineering".
  * @returns The string representation of the number.
  *
  * Edge cases:

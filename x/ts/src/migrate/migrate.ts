@@ -42,7 +42,8 @@ export interface CompareSemVerOptions {
  * Compares two pre-release identifiers according to semver spec.
  * @param a - First pre-release identifier (without leading hyphen)
  * @param b - Second pre-release identifier (without leading hyphen)
- * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if equal
+ * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if
+ * equal
  */
 const comparePreRelease = (a: string, b: string): number => {
   const aParts = a.split(".");

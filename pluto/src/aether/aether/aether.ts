@@ -186,7 +186,8 @@ export abstract class Node implements Component {
    * of every key in this map for the descendants nearest to it. */
   protected readonly childCtxValues: Map<string, unknown>;
   /** Keys in {@link childCtxValues} this node changed during the current
-   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each run. */
+   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each
+   * run. */
   private readonly childCtxChangedKeys: Set<string>;
   /** Provider side: for each key this node publishes, the descendants currently
    * subscribed to it (i.e. those that resolved this node as their nearest provider of
@@ -199,9 +200,9 @@ export abstract class Node implements Component {
    * their resolved provider (or `null` if unresolved). Non-`null` only while
    * {@link afterUpdate} is running, so reads outside that window are not tracked. */
   private ctxReads: Map<string, Node | null> | null = null;
-  /** {@link toString} and the span labels derived from it, built once. `type` and `path`
-   * never change, and every update would otherwise rebuild these strings only for noop
-   * instrumentation to discard them. */
+  /** {@link toString} and the span labels derived from it, built once. `type` and
+   * `path` never change, and every update would otherwise rebuild these strings only
+   * for noop instrumentation to discard them. */
   private readonly label: string;
   private readonly afterUpdateSpan: string;
   protected readonly updateStateSpan: string;
@@ -271,10 +272,10 @@ export abstract class Node implements Component {
 
   /** Resolves `key` to the nearest ancestor publishing it (self excluded) and records
    * the read against the in-progress {@link afterUpdate} so a subscription is formed.
-   * Returns the provider, or `null` if unresolved. Self is excluded so a node overriding
-   * a parent's key still reads the parent's value via {@link Context.get}. The read is
-   * not recorded outside an {@link afterUpdate} (e.g. during {@link afterDelete}), where
-   * {@link ctxReads} is `null`. */
+   * Returns the provider, or `null` if unresolved. Self is excluded so a node
+   * overriding a parent's key still reads the parent's value via {@link Context.get}.
+   * The read is not recorded outside an {@link afterUpdate} (e.g. during
+   * {@link afterDelete}), where {@link ctxReads} is `null`. */
   private readCtx(key: string): Node | null {
     let node = this._parent;
     while (node != null && !node.childCtxValues.has(key)) node = node._parent;
@@ -301,7 +302,8 @@ export abstract class Node implements Component {
 
   /** Diffs the keys read this pass against the prior subscriptions, updating both this
    * node's {@link ctxSubscriptions} and each provider's {@link ctxSubscribers}. Re-runs
-   * every pass so conditional reads subscribe/unsubscribe as they appear and disappear. */
+   * every pass so conditional reads subscribe/unsubscribe as they appear and disappear.
+   * */
   private reconcileSubscriptions(reads: Map<string, Node | null>): void {
     for (const [key, oldProvider] of this.ctxSubscriptions) {
       const stillReading = reads.has(key);

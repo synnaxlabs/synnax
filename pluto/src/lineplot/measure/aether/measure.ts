@@ -308,7 +308,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     } else {
       region = box.construct(position, width, height);
 
-      // Check if label goes outside the view region on the right, if so flip it to the left
+      // Check if label goes outside the view region on the right, if so flip it to the
+      // left
       if (box.right(region) > box.right(viewRegion)) {
         const flippedPos = xy.translateX(
           position,
