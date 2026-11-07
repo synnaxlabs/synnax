@@ -94,8 +94,8 @@ class Config:
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
-    rules. On the first review of a pull request, the passes of the lenses run beside
-    it, and the review joins the findings of all passes."""
+    rules. When no earlier commit in the history of the head has a review, the passes of
+    the lenses run beside it, and the review joins the findings of all passes."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -448,10 +448,10 @@ def run(
 ) -> tuple[Review, Usage, list[Pass]]:
     """Reviews a pull request, and returns the review, what it cost, and each pass.
 
-    The passes of the lenses run only when the pull request has no earlier review.
-    They start once the first response of the pass with the rules begins, so they read
-    the shared prompt from the prompt cache. They do not start when that pass fails
-    first.
+    The passes of the lenses run only when no earlier commit in the history of the head
+    has a review. They start once the first response of the pass with the rules begins,
+    so they read the shared prompt from the prompt cache. They do not start when that
+    pass fails first.
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.

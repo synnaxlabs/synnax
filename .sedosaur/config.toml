@@ -126,8 +126,9 @@ path = "scripts/AGENTS.md"
 description = "Repository scripts"
 paths = ["scripts/**"]
 
-# Focused passes that run beside the pass with the rules on the first review of a pull
-# request. They see the pull request and its diff, but not the rules.
+# Focused passes that run beside the pass with the rules when no earlier commit in the
+# history of the head has a review. They see the pull request and its diff, but not the
+# rules.
 [[lens]]
 name = "Interleavings"
 effort = "medium"
