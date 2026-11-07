@@ -56,7 +56,7 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting panels on a Synnax
-    Core. A panel is a tree of visualization tabs owned by a project.
+    Core. A panel is a tree of visualization tabs owned by a project or a range.
     """
 
     _client: UnaryClient
@@ -89,7 +89,8 @@ class Client:
             omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
-        :raises ValidationError: If a panel has no project.
+        :raises ValidationError: If a panel does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(panels, list)
         if panels is None:
