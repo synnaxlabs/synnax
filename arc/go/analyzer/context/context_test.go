@@ -75,6 +75,8 @@ var _ = Describe("Context", func() {
 			Entry("a negated constant", "-math.inf", math.Inf(-1)),
 			Entry("a double negation", "--math.inf", math.Inf(1)),
 			Entry("parentheses", "((math.inf))", math.Inf(1)),
+			Entry("an f32 cast", "f32(-math.inf)", math.Inf(-1)),
+			Entry("an f64 cast with a unit", "f64 psi(math.inf)", math.Inf(1)),
 		)
 
 		It("Should return NaN for math.nan", func(specCtx SpecContext) {
@@ -89,6 +91,7 @@ var _ = Describe("Context", func() {
 				Expect(ok).To(BeFalse())
 			},
 			Entry("a binary expression", "math.inf + 1.0"),
+			Entry("an integer cast", "i64(math.inf)"),
 			Entry("a bare name", "x"),
 			Entry("a literal", "1.5"),
 			Entry("an undefined head", "nope.inf"),
