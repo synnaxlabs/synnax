@@ -19,11 +19,9 @@
 #include "driver/ethercat/dc/dc.h"
 
 namespace driver::ethercat::engine {
-/// @brief holds the bus cycle at a fixed phase of the distributed clock. The grid is
-/// the largest span that divides every SYNC0 cycle and the period, so the SYNC0 events
-/// of all slaves fall at the same phases in each grid. Each frame passes the reference
-/// clock midway in the longest span between those phases, the phase farthest from
-/// every SYNC0 event.
+/// @brief holds the bus cycle at a fixed phase of the distributed clock: each frame
+/// passes the reference clock midway in the longest span between SYNC0 events. The
+/// events repeat on a grid, the largest span that divides the period and each cycle.
 class PhaseLock {
 public:
     /// @brief the SYNC0 events of a slave.
