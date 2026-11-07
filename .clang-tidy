@@ -227,3 +227,11 @@ CustomChecks:
           - BindName: occurredPair
             Message: use ASSERT_OCCURRED_AS_P to check the error in a std::pair
             Level: Warning
+    # Code reads a member through this->, so its name needs no prefix or suffix.
+    - Name: member-name
+      Query: |
+          match fieldDecl(matchesName("(_$|::_[^:]*$|::m_[^:]*$)")).bind("member")
+      Diagnostic:
+          - BindName: member
+            Message: name a member without a _ or m_ prefix or a _ suffix
+            Level: Warning

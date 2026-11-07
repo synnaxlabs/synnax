@@ -27,7 +27,8 @@ Format with `scripts/clang_format.sh <path>`, check with
 version via `scripts/install_clang_format.sh`, never a plain package-manager install.
 Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
 types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
-variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
+variables, `snake_case` members with no `_` or `m_` prefix and no `_` suffix,
+`UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
 
 🚨 **NO NAMESPACE TERMINATION COMMENTS.** Never `} // namespace foo` — bare closing
 brace only. Claude sessions add these constantly. Delete on sight when editing a file
