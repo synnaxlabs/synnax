@@ -19,13 +19,13 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -60,9 +60,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Password: passwordSvc,
 	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, User: userSvc,
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
 	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:       db,
+		Ontology: otg,
+		User:     userSvc,
+		Status:   statusSvc,
+	})).RBAC
 	signer = svctestutil.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: signer.Anchors,
@@ -82,8 +89,7 @@ func freshUser(ctx SpecContext) user.User {
 	)
 }
 
-// grantOn assigns a role granting the given actions on the given objects to the
-// subject.
+// grantOn grants the actions on the objects to the subject through a new role.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -91,16 +97,6 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
 }

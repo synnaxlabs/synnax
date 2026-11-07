@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError, resource, user } from "@synnaxlabs/client";
+import { access, NotFoundError, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -127,6 +127,7 @@ describe("role ontology service", () => {
         key: "u1",
         name: "",
         rootUser,
+        roles: [],
       }),
     ];
 
@@ -144,30 +145,44 @@ describe("role ontology service", () => {
       expect(canDrop([...dragUser(false), ...items])).toBe(false);
     });
 
-    it("should move a user to the role it is dropped on", async () => {
-      const from = await createRole();
-      const to = await createRole();
+    const dropUserOnRole = async (
+      held: access.role.Role[],
+      to: access.role.Role,
+    ): Promise<string> => {
       const u = await client.users.create({
         username: uniqueName("user"),
         password: "password",
+        roles: held.map(({ key }) => key),
       });
-      await client.access.roles.assign({ user: u.key, role: from.key });
       await renderOntologyTree({
         client,
         root: access.role.TYPE_RESOURCE_ID,
         listRoot: Access.Role.listTreeRoot,
         items: { ...Access.Role.TREE_ITEMS, ...User.TREE_ITEMS },
       });
-      await findTreeRow(from.name);
-      expandTreeRow(from.name);
+      await findTreeRow(held[0].name);
+      expandTreeRow(held[0].name);
       fireEvent.dragStart(await findTreeRow(u.name));
       fireEvent.drop(await findTreeRow(to.name));
+      return u.key;
+    };
+
+    it("should move a user to the role it is dropped on", async () => {
+      const from = await createRole();
+      const to = await createRole();
+      const key = await dropUserOnRole([from], to);
       await waitFor(async () => {
-        const roles = await client.ontology.parents.retrieve({
-          ids: user.resourceID(u.key),
-          types: [access.role.TYPE_RESOURCE_ID.type],
-        });
-        expect(roles.map(({ id }) => id.key)).toEqual([to.key]);
+        expect((await client.users.retrieve(key)).roles).toEqual([to.key]);
+      });
+    });
+
+    it("should keep the other roles of a dropped user", async () => {
+      const from = await createRole();
+      const other = await createRole();
+      const to = await createRole();
+      const key = await dropUserOnRole([from, other], to);
+      await waitFor(async () => {
+        expect((await client.users.retrieve(key)).roles).toEqual([to.key, other.key]);
       });
     });
   });

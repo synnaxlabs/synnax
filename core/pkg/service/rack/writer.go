@@ -97,10 +97,10 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key does
-// not exist, a new rack will be created. An existing rack keeps its group. A status
-// provided on the rack replaces the stored status. With no provided status, the stored
-// status stays and takes the rack's name, and only a rack with no stored status gets
-// the default "unknown" status.
+// not exist, a new rack will be created with the Driver role. An existing rack keeps
+// its group and roles. A status provided on the rack replaces the stored status. With
+// no provided status, the stored status stays and takes the rack's name, and only a
+// rack with no stored status gets the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
 }
@@ -124,34 +124,26 @@ func (w Writer) create(ctx context.Context, r *Rack) error {
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	exists := err == nil
-	if exists {
+	if err == nil {
 		r.Group = existing.Group
-	} else if err = group.CheckMember(
-		ctx,
-		w.tx,
-		r.Group,
-		resource.TypeRack,
-		nil,
-	); err != nil {
-		return err
+		r.Roles = existing.Roles
+	} else {
+		r.Roles = []role.Key{w.driverRole}
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			r.Group,
+			resource.TypeRack,
+			nil,
+		); err != nil {
+			return err
+		}
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := r.ResourceID()
-	if err = w.otg.DefineResources(ctx, otgID); err != nil {
+	if err = w.otg.DefineResources(ctx, r.ResourceID()); err != nil {
 		return err
-	}
-	if !exists {
-		if err = w.otg.DefineRelationships(
-			ctx,
-			role.ResourceID(w.driverRole),
-			ontology.RelationshipTypeParentOf,
-			otgID,
-		); err != nil {
-			return err
-		}
 	}
 	if err = w.writeStatus(ctx, r); err != nil {
 		return err

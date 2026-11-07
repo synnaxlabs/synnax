@@ -17,19 +17,26 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rolev0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+	rackv3 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding"
@@ -43,6 +50,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/types"
 )
 
 // stack is a rack service and the services it depends on. Closing it closes all of
@@ -57,7 +65,7 @@ type stack struct {
 }
 
 // openStack opens a rack service and its dependencies on db, as a Core start does. It
-// fills every dependency in cfg.
+// fills every dependency in cfg, and creates a Driver role when cfg has none.
 func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	GinkgoHelper()
 	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -78,10 +86,16 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	cfg.Ontology = otg
 	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
-	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
+	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	if cfg.DriverRole == uuid.Nil() {
+		cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, roles))
+	}
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
 	return stack{
-		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, svc},
+		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, roles, svc},
 		rack:        svc,
 		status:      stat,
 		group:       g,
@@ -90,23 +104,30 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 }
 
-// hasDriverRole reports whether the rack with key holds the role driverRole.
-func hasDriverRole(
-	ctx context.Context,
-	otg *ontology.Ontology,
-	driverRole role.Key,
-	key rack.Key,
-) bool {
+// markApplied records the migrations with the given keys as applied in namespace
+// without running them, as on a store that ran them before an upgrade.
+func markApplied(ctx context.Context, db *gorp.DB, namespace string, keys ...string) {
 	GinkgoHelper()
-	var children []ontology.Resource
-	Expect(otg.NewRetrieve().
-		WhereIDs(role.ResourceID(driverRole)).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, nil)).To(Succeed())
-	return slices.ContainsFunc(children, func(r ontology.Resource) bool {
-		return r.ID == key.ResourceID()
+	noop := func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil }
+	migrations := lo.Map(keys, func(k string, _ int) gorp.Migration {
+		return migrate.New(k, noop)
 	})
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  namespace,
+		Migrations: migrations,
+	})).To(Succeed())
+}
+
+// hasDriverRole reports whether the rack with key holds the stack's Driver role.
+func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
+	GinkgoHelper()
+	var r rack.Rack
+	Expect(s.rack.NewRetrieve().
+		Where(rack.MatchKeys(key)).
+		Entry(&r).
+		Exec(ctx, nil)).To(Succeed())
+	return slices.Contains(r.Roles, s.driverRole)
 }
 
 var _ = Describe("Driver role", func() {
@@ -115,31 +136,48 @@ var _ = Describe("Driver role", func() {
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		r := &rack.Rack{Name: "new"}
 		Expect(s.rack.NewWriter(nil).Create(ctx, r)).To(Succeed())
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, r.Key)).To(BeTrue())
+		Expect(hasDriverRole(ctx, s, r.Key)).To(BeTrue())
 	})
 	It("Should give the embedded rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, s.rack.EmbeddedKey)).
+		Expect(hasDriverRole(ctx, s, s.rack.EmbeddedKey)).
 			To(BeTrue())
 	})
-	It(
-		"Should not give the role back when a rack is saved again",
-		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-			w := s.rack.NewWriter(nil)
-			r := &rack.Rack{Name: "revoked"}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(s.otg.NewWriter(nil).DeleteRelationships(ctx, ontology.Relationship{
-				From: role.ResourceID(s.driverRole),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   r.ResourceID(),
-			})).To(Succeed())
-			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(hasDriverRole(ctx, s.otg, s.driverRole, r.Key)).To(BeFalse())
-		},
-	)
+	It("Should keep a rack revoked before the upgrade revoked", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		driver := rolev0.Role{Key: uuid.New(), Name: "Driver", Internal: true}
+		Expect(gorp.WrapWriter[rolev0.Key, rolev0.Role](db).Set(ctx, driver)).
+			To(Succeed())
+		kept := rackv3.Rack{Key: rack.NewKey(1, 10), Name: "kept"}
+		revoked := rackv3.Rack{Key: rack.NewKey(1, 11), Name: "revoked"}
+		Expect(gorp.WrapWriter[rackv3.Key, rackv3.Rack](db).Set(ctx, kept, revoked)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[string, ontologyv0.Relationship](db).Set(
+			ctx,
+			ontologyv0.Relationship{
+				From: role.ResourceID(driver.Key),
+				To:   kept.ResourceID(),
+				Type: ontologyv0.RelationshipTypeParentOf,
+			},
+		)).To(Succeed())
+		var chain []string
+		for _, m := range rackversions.NewMigrations(rackversions.MigrationsConfig{}) {
+			if m.Key() != "v61_rack_roles" {
+				chain = append(chain, m.Key())
+			}
+		}
+		markApplied(ctx, db, types.Name[rack.Rack](), chain...)
+		markApplied(ctx, db, "rack.roles", "v0.driver_role")
+		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{DriverRole: driver.Key}))
+		Expect(hasDriverRole(ctx, s, kept.Key)).To(BeTrue())
+		Expect(hasDriverRole(ctx, s, revoked.Key)).To(BeFalse())
+		Expect(s.rack.NewWriter(nil).Create(ctx, &rack.Rack{
+			Key:  revoked.Key,
+			Name: revoked.Name,
+		})).To(Succeed())
+		Expect(hasDriverRole(ctx, s, revoked.Key)).To(BeFalse())
+	})
 	It("Should give the Driver role to racks stored before it", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		s := openStack(ctx, db, rack.ServiceConfig{})
@@ -149,7 +187,7 @@ var _ = Describe("Driver role", func() {
 		// The second open gives the rack a new Driver role, which only the migration
 		// can assign to a rack that already exists.
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
-		Expect(hasDriverRole(ctx, s.otg, s.driverRole, embedded)).To(BeTrue())
+		Expect(hasDriverRole(ctx, s, embedded)).To(BeTrue())
 	})
 })
 

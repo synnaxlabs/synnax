@@ -13,6 +13,7 @@ export {
   type KeyRetrieveRequest,
   resourceID,
   type RetrieveParams,
+  type RoleChange,
   SET_CHANNEL_NAME,
   TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,

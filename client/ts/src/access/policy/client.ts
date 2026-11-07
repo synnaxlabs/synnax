@@ -21,6 +21,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Where,
 } from "@/access/policy/types.gen";
 import {
   type Lines,
@@ -30,7 +31,7 @@ import {
 } from "@/access/policy/where.gen";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
-import { resource } from "@/resource";
+import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
@@ -46,8 +47,11 @@ const retrieveMultiParamsZ = z.union([
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-// Policies do not carry their subjects, so only the Core can check them.
-const LINES: Lines = { subjects: null };
+// The roles of a subject live on the subject, so only the Core can check subjects.
+const LINES: Lines = {
+  subjects: null,
+  roles: ({ role }, roles) => roles.includes(role),
+};
 
 const singleCreateParamsZ = policyZ.transform((p) => ({ policies: [p] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -67,7 +71,19 @@ export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  /** Holds the roles of users, so a role change refetches the policies of a user. */
+  users: user.Client;
 }
+
+/** @returns whether any subjects line of where names the user with the given key. */
+const namesUser = (where: Where | undefined, key: user.Key): boolean =>
+  where != null &&
+  (where.subjects?.some(
+    ({ type, key: k }) => type === user.TYPE_RESOURCE_ID.type && k === key,
+  ) === true ||
+    where.and?.some((w) => namesUser(w, key)) === true ||
+    where.or?.some((w) => namesUser(w, key)) === true ||
+    namesUser(where.not, key));
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
   private readonly cfg: ClientConfig;
@@ -91,6 +107,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         fetch: async (req) => await this.execRetrieve(req),
         matches: (policy, req) => matches(LINES, policy, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
+        watch: [
+          query.watch(cfg.users.store, ({ key }, req: RetrieveRequest) =>
+            namesUser(req.where, key) ? "refetch" : null,
+          ),
+        ],
       },
     });
     this.cfg = cfg;
@@ -130,9 +151,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => resource.idsEqual(r.from, id) || resource.idsEqual(r.to, id)),
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -149,25 +167,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       },
     });
     rename();
-  }
-
-  /**
-   * Retrieves every policy governing the subject, warming the role links of
-   * the subject and its policies so role reads resolve from the cache.
-   */
-  async retrieveForSubject(subject: resource.ID): Promise<Policy[]> {
-    const policies = await this.retrieve({ where: { subjects: [subject] } });
-    const { parents } = this.cfg.ontology;
-    const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
-    if (policies.length > 0)
-      warms.push(
-        parents.retrieve({
-          ids: policies.map((p) => resourceID(p.key)),
-          types: ["role"],
-        }),
-      );
-    await Promise.all(warms);
-    return policies;
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {

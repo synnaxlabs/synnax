@@ -81,6 +81,7 @@ type Transport struct {
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
+	UserSetRoles       freighter.UnaryServer[user.SetRolesRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
@@ -206,8 +207,6 @@ type Transport struct {
 	AccessCreateRole     freighter.UnaryServer[role.CreateRequest, role.CreateResponse]
 	AccessDeleteRole     freighter.UnaryServer[role.DeleteRequest, struct{}]
 	AccessRetrieveRole   freighter.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]
-	AccessAssignRole     freighter.UnaryServer[role.AssignRequest, struct{}]
-	AccessUnassignRole   freighter.UnaryServer[role.UnassignRequest, struct{}]
 	// STATUS
 	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
@@ -347,6 +346,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
+		t.UserSetRoles,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -480,8 +480,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.AccessCreateRole,
 		t.AccessDeleteRole,
 		t.AccessRetrieveRole,
-		t.AccessAssignRole,
-		t.AccessUnassignRole,
 
 		// STATUS
 		t.StatusSet,
@@ -565,6 +563,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
 	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
+	t.UserSetRoles.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRoles))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
@@ -762,12 +761,6 @@ func (l *Layer) BindTo(t Transport) {
 		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
 	)
 	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
-	t.AccessAssignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Assign),
-	)
-	t.AccessUnassignRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Unassign),
-	)
 
 	// STATUS
 	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))

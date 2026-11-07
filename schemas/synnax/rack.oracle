@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/group"
+import "schemas/synnax/role"
 import "schemas/synnax/status"
 import "schemas/x/filter"
 
@@ -71,6 +72,11 @@ Rack struct {
         @doc value     "is the group the rack sits in, if any."
         @ref on_delete detach
     }
+    roles        role.Key[] = [] {
+        @cpp omit
+        @doc value     "are the roles that grant the rack its permissions."
+        @ref on_delete detach
+    }
 
     @cpp includes    "client/cpp/task/task.h"
     @cpp methods     "task::Client tasks"
@@ -113,6 +119,7 @@ Where filter Rack {
 
 New struct extends Rack {
     -embedded
+    -roles
     key = 0
 
     @cpp omit

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AuthError, NotFoundError, ValidationError } from "@/index";
@@ -15,7 +15,9 @@ import { query } from "@/query";
 import {
   createTestClient,
   expectDeleted,
+  expectLive,
   holdResponses,
+  TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
 import { type user } from "@/user";
@@ -267,6 +269,65 @@ describe("User", () => {
       expect(cachedName()).toBe(name);
     });
   });
+  describe("Roles", () => {
+    test("create a user with roles", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [r.key],
+      });
+      expect(u.roles).toEqual([r.key]);
+    });
+    test("remove and add the roles of users", async () => {
+      const [old, kept, next] = await client.access.roles.create([
+        { name: `old-${id.create()}` },
+        { name: `kept-${id.create()}` },
+        { name: `next-${id.create()}` },
+      ]);
+      const a = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [old.key, kept.key],
+      });
+      const b = await client.users.create({ username: id.create(), password: "test" });
+      await client.users.setRoles([a.key, b.key], {
+        add: [next.key],
+        remove: [old.key],
+      });
+      const fresh = createTestClient();
+      const stored = await fresh.users.retrieve([a.key, b.key]);
+      expect(stored.map((u) => u.roles)).toEqual([[next.key, kept.key], [next.key]]);
+    });
+    test("refuse to change the roles of the root user", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const root = await client.users.retrieve({
+        username: TEST_CREDENTIALS.username,
+      });
+      await expect(client.users.setRoles(root.key, { add: [r.key] })).rejects.toThrow(
+        "cannot change the roles of root user",
+      );
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(root.key)).roles).not.toContain(r.key);
+    });
+    test("retrieve the users that hold a role", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        roles: [r.key],
+      });
+      await client.users.create({ username: id.create(), password: "test" });
+      const held = await client.users.retrieve({ roles: [r.key] });
+      expect(held.map(({ key }) => key)).toEqual([u.key]);
+    });
+    test("refuse a role that does not exist", async () => {
+      const u = await client.users.create({ username: id.create(), password: "test" });
+      await expect(
+        client.users.setRoles(u.key, { add: [uuid.create()] }),
+      ).rejects.toThrow("does not exist");
+    });
+  });
   describe("Delete", () => {
     test("one that exists", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
@@ -328,6 +389,23 @@ describe("cached reads", () => {
     } finally {
       off();
     }
+  });
+
+  test("should drop a deleted role from the cached user", async () => {
+    const [deleted, kept] = await client.access.roles.create([
+      { name: `deleted-${id.create()}` },
+      { name: `kept-${id.create()}` },
+    ]);
+    const u = await client.users.create({
+      username: id.create(),
+      password: "test",
+      roles: [deleted.key, kept.key],
+    });
+    await client.users.retrieve(u.key);
+    await remote.access.roles.delete(deleted.key);
+    await expect
+      .poll(() => expectLive(client.users.getCached(u.key)).roles)
+      .toEqual([kept.key]);
   });
 
   test("should deliver a remote delete as a deleted result", async () => {

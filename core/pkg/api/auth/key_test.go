@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -35,7 +35,7 @@ func keyProof(key string) auth.Proof {
 	}}
 }
 
-func assignBuiltin(ctx context.Context, subject resource.ID, name string) {
+func assignBuiltin(ctx context.Context, subject user.Key, name string) {
 	GinkgoHelper()
 	var r role.Role
 	Expect(rbacSvc.Role.NewRetrieve().
@@ -44,30 +44,19 @@ func assignBuiltin(ctx context.Context, subject resource.ID, name string) {
 		})).
 		Entry(&r).
 		Exec(ctx, nil)).To(Succeed())
-	Expect(rbacSvc.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key)).
-		To(Succeed())
+	Expect(userSvc.NewWriter(nil).AssignRole(ctx, r.Key, subject)).To(Succeed())
 }
 
+// grant grants the action on the object to the subject through a new role.
 func grant(
 	ctx context.Context,
-	subject resource.ID,
+	subject user.Key,
 	action access.Action,
 	object resource.ID,
 ) {
 	GinkgoHelper()
-	r := &role.Role{Name: string(action) + "-" + uuid.New().String()}
-	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.New().String(),
-		Objects: []resource.ID{object},
-		Actions: []access.Action{action},
-	}
-	policies := rbacSvc.Policy.NewWriter(nil, true)
-	Expect(policies.Create(ctx, p)).To(Succeed())
-	Expect(policies.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(
-		rbacSvc.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key),
-	).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, subject, actions, object))
 }
 
 var _ = Describe("API keys", func() {
@@ -98,7 +87,7 @@ var _ = Describe("API keys", func() {
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		eng = createUser(ctx, "eng-"+uuid.New().String(), "p")
-		assignBuiltin(ctx, eng.ResourceID(), "Engineer")
+		assignBuiltin(ctx, eng.Key, "Engineer")
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
@@ -135,7 +124,7 @@ var _ = Describe("API keys", func() {
 		It("Should deny a key for a user the caller may only update", func(
 			ctx SpecContext,
 		) {
-			grant(ctx, bob.ResourceID(), access.ActionUpdate, eng.ResourceID())
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
 			Expect(create(ctx, bobToken, eng.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
@@ -144,7 +133,7 @@ var _ = Describe("API keys", func() {
 		) {
 			grant(
 				ctx,
-				bob.ResourceID(),
+				bob.Key,
 				access.ActionUpdate,
 				resource.ID{Type: resource.TypeRack},
 			)

@@ -184,7 +184,7 @@ var _ = Describe("Service.Set", func() {
 func createRack(ctx SpecContext) resource.ID {
 	GinkgoHelper()
 	r := rack.Rack{Key: rack.Key(65536 + rand.Uint32N(1<<16)), Name: "rack"}
-	Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+	Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	return r.ResourceID()
 }
 

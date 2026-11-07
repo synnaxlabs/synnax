@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -30,18 +29,17 @@ import (
 type MigrationConfig struct {
 	// User retrieves the users whose legacy permission flags are converted.
 	User *user.Service
-	// Ontology holds the user-role relationships the migration creates.
+	// Ontology holds the legacy group relationships of users, which the migration
+	// deletes.
 	Ontology *ontology.Ontology
-	// Role resolves the built-in roles assigned to migrated users.
-	Role *role.Service
 	// Roles is the set of provisioned built-in roles to assign.
 	Roles builtin.ProvisionResult
 }
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
-// appropriate role for each user, and creates the ontology relationships. It does
-// nothing for a store that a v0.53 Core already migrated.
+// appropriate role for each user, and adds it to the user's roles. It does nothing for
+// a store that a v0.53 Core already migrated.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v0.permission_assignment",
@@ -68,7 +66,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 				policyByUser[m.UserResourceID.String()] = m.Policies
 			}
 
-			roleWriter := cfg.Role.NewWriter(tx, true)
+			userWriter := cfg.User.NewWriter(tx)
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			for _, u := range users {
 				userResourceID := u.ResourceID()
@@ -93,11 +91,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 						return err
 					}
 				}
-				if err = roleWriter.AssignRole(
-					ctx,
-					userResourceID,
-					roleKey,
-				); err != nil {
+				if err = userWriter.AssignRole(ctx, roleKey, u.Key); err != nil {
 					return err
 				}
 			}

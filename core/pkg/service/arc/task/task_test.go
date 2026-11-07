@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -136,12 +137,16 @@ var _ = Describe("Task", Ordered, func() {
 			Ontology: otg,
 			Group:    groupSvc,
 		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           node.DB,
 			Ontology:     otg,
 			HostProvider: node.Cluster,
 			Status:       statusSvc,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: node.DB,
