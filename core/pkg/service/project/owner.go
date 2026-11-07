@@ -69,7 +69,10 @@ func TopParentProject(top *resource.ID, t resource.Type) (*Key, error) {
 		), "group")
 	}
 	k, err := KeyFromResourceID(*top)
-	return &k, err
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
 }
 
 // OwnerID returns the ID of the project or range that owns a visualization, or nil when

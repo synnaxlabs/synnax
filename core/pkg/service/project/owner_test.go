@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ValidateOwner", func() {
@@ -37,4 +39,33 @@ var _ = Describe("ValidateOwner", func() {
 		Entry("neither", nil, nil),
 		Entry("both", new(uuid.New()), new(ranger.Key(uuid.New()))),
 	)
+})
+
+var _ = Describe("TopParentProject", func() {
+	It("Should return the project at the top", func() {
+		k := uuid.New()
+		Expect(project.TopParentProject(
+			new(project.ResourceID(k)),
+			resource.TypeSchematic,
+		)).To(Equal(&k))
+	})
+
+	DescribeTable(
+		"Should refuse a top parent that is not a project",
+		func(top *resource.ID) {
+			Expect(project.TopParentProject(top, resource.TypeSchematic)).Error().
+				To(MatchError(ContainSubstring(
+					"group: a schematic sits only in a group under a project",
+				)))
+		},
+		Entry("no top parent", nil),
+		Entry("a range", new(ranger.ResourceID(uuid.New()))),
+	)
+
+	It("Should refuse a project key that is not a UUID", func() {
+		Expect(project.TopParentProject(
+			&resource.ID{Type: resource.TypeProject, Key: "bad"},
+			resource.TypeSchematic,
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
 })
