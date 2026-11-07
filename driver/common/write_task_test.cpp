@@ -399,6 +399,133 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     EXPECT_EQ(sink->stop_count, 1);
 }
 
+namespace {
+const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
+
+/// @brief creates a write task with one state channel.
+std::unique_ptr<WriteTask> create_state_write_task(
+    const std::shared_ptr<driver::task::MockContext> &ctx,
+    const std::shared_ptr<pipeline::testutil::WriterFactory> &writer_factory,
+    const std::shared_ptr<std::vector<x::telem::Frame>> &cmd_reads,
+    const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
+    const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
+) {
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    return std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::Config{.name = "cat", .base_interval = x::telem::MILLISECOND},
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 100,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            writes,
+            write_errors
+        ),
+        writer_factory,
+        pipeline::testutil::simple_streamer_factory(
+            std::vector<synnax::channel::Key>{1},
+            cmd_reads
+        )
+    );
+}
+}
+
+/// @brief it should report a failed start when the state writer fails to open after
+/// the command streamer opens.
+TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::promise<void> open;
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{OPEN_ERR}
+    );
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Started task");
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(status.description, "no control authority");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed command while the state writer is still opening.
+TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::promise<void> open;
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    cmd_reads->emplace_back(1, x::telem::Series(static_cast<uint8_t>(1)));
+    const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        cmd_reads,
+        writes,
+        std::make_shared<std::vector<x::errors::Error>>(
+            std::vector{x::errors::Error("base", "write error")}
+        )
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    // The failed command stops the task, which waits for the state writer to open.
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "write error");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed write when the state writer fails to reopen
+/// after it opened.
+TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // The second state write fails, the writer closes as unreachable, and the reopen
+    // fails.
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::NIL, OPEN_ERR},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "no control authority");
+    write_task->stop("stop_cmd", true);
+}
+
 /// @brief a task whose sink has no state channels never starts the state pipeline.
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
