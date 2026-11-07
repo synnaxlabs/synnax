@@ -167,7 +167,7 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields)
         )
         res = self._client.send("/log/retrieve", req, RetrieveResponse)
-        return sole("log", req.where, res.logs) if single else res.logs
+        return sole("log", req, res.logs) if single else res.logs
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a log.

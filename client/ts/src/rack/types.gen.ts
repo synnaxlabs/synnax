@@ -104,6 +104,11 @@ export const payloadZ = z.object({
     .string()
     .array()
     .default(() => []),
+  /**
+   * version is the version of the Driver that runs the rack, written at each connect.
+   * Absent until a Driver reports it.
+   */
+  version: z.string().optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
