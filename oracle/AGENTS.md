@@ -116,7 +116,7 @@ or generator logic and schemas disagree.
 
 ## Field optionality
 
-Four states. Pick by asking whether the field always means something, and when it does
+Five states. Pick by asking whether the field always means something, and when it does
 not, whether the schema itself can tell.
 
 - **`X = value`**: always meaningful, and absence is harmless, because absence and the
@@ -132,10 +132,18 @@ not, whether the schema itself can tell.
   message, such as a channel data type. No schema can settle it, so absence is the
   honest encoding. On the wire, an absent field is left out of the JSON, never sent as
   `null`.
+- **`X = default`, the default means "not applicable"**: as `X?`, but no valid value can
+  equal the default or the type's zero value (`0`, `""`, or an enum member that this
+  field never holds). Go fills a default only over the zero value. A sample rate is
+  never `0` Hz, so `0` can mean "not supported". A client that leaves the field out
+  sends "not applicable", so use this only where that guess is harmless. The doc comment
+  says what the default means.
 
-Never fake absence with a value. No `none` enum member, no empty string meaning "not
-applicable". A sentinel claims the question was answered when it was not, and it makes
-the "did you forget" check impossible to write.
+Outside that case, never fake absence with a value. No `none` enum member, no `""`
+meaning "not applicable" where `""` is a real value, no `-1` meaning "inherit" (that is
+a behavior, not "not applicable"). A sentinel claims the question was answered when it
+was not, and it makes the "did you forget" check impossible to write. Never add a value
+to a type so that it can mean absence.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
