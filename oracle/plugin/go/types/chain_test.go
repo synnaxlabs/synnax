@@ -1167,6 +1167,124 @@ Doc struct {
 		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")).
 			To(ContainSubstring("Side = v0.Side"))
 	})
+	It("Should drop a shared enum that only a dropped declaration uses", func() {
+		frozen := frozenV0(`
+Side enum {
+	left = "left"
+}
+
+Note struct {
+	side Side
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`, `
+Side = v0.Side
+
+Note = v0.Note
+
+Doc struct {
+	key uuid @key
+	name string
+
+	@go marshal
+}
+`, `
+@go output "core/pkg/service/doc"
+
+Side enum {
+	left = "left"
+
+	@go omit
+}
+
+Note struct {
+	side Side
+
+	@go omit
+}
+
+Doc struct {
+	key uuid @key
+	name string
+}
+`)
+		Expect(frozen).ToNot(ContainSubstring("type Side string"))
+		Expect(frozen).ToNot(ContainSubstring("type Note struct"))
+	})
+	It("Should keep a shared enum that another resource's frozen version uses",
+		func() {
+			root := GinkgoT().TempDir()
+			for rel, content := range map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/doc/v1.oracle": sharedSide,
+				"schemas/synnax/doc.oracle":             liveSide,
+				"schemas/synnax/versions/job/v0.oracle": `
+import "schemas/synnax/versions/doc/v0"
+
+Job struct {
+	key uuid @key
+	side doc.Side
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/job/v1.oracle": `
+Job struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/job.oracle": `
+@go output "core/pkg/service/job"
+
+Job struct {
+	key uuid @key
+}
+`,
+			} {
+				full := filepath.Join(root, rel)
+				Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+				Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+			}
+			chains := MustSucceed(versions.Discover(root))
+			loader := analyzer.NewStandardFileLoader(root)
+			table, diag := analyzer.Analyze(
+				GinkgoT().Context(),
+				[]string{"schemas/synnax/doc", "schemas/synnax/job"},
+				loader,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+				&plugin.Request{
+					Resolutions: table,
+					RepoRoot:    root,
+					Versions:    versions.NewResolver(chains, loader),
+				},
+			))
+			Expect(generatedFile(
+				resp, "core/pkg/service/job/versions/v0/types.gen.go",
+			)).To(ContainSubstring(".Side"))
+			Expect(generatedFile(
+				resp, "core/pkg/service/doc/versions/v0/types.gen.go",
+			)).To(ContainSubstring("type Side string"))
+		},
+	)
 	It("Should drop a shared enum that no frozen declaration uses", func() {
 		frozen := frozenV0(`
 Side enum {
