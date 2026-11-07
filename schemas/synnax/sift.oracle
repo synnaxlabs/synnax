@@ -16,6 +16,7 @@ import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/sift"
+@py output "client/py/synnax/sift"
 @ts output "client/ts/src/sift"
 
 Properties struct {
