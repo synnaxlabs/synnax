@@ -34,7 +34,7 @@ type RequireWindowKey<Payload extends OptionalKeyParams> = require.Require<
  * Builds a reducer wrapper that scopes a handler to a single window's state. The
  * returned wrapper resolves (and lazily creates from schema defaults) the per-window
  * state for the action's windowKey, then invokes handler with it.
- * @param schema the zod schema used to default a window's state on first access.
+ * @param schema - the zod schema used to default a window's state on first access.
  * @throws {UnexpectedError} if the dispatched action has no windowKey, which should
  * already have been injected by createInjectKeyMiddleware.
  */
@@ -80,7 +80,7 @@ interface DocumentsState<Doc> {
  * Builds a reducer wrapper that scopes a handler to one document's view state in one
  * window. A window is a viewport, so two windows showing one document each get their
  * own viewport, selection, and toolbar; the document itself lives on the Core.
- * @param schema the zod schema used to default a document's state on first access.
+ * @param schema - the zod schema used to default a document's state on first access.
  * @throws {UnexpectedError} if the dispatched action has no windowKey, which should
  * already have been injected by createInjectKeyMiddleware.
  */
@@ -111,7 +111,7 @@ export const createWithDocumentHandler =
  * Builds the reducer for a document's create action: it starts this window's view from
  * the payload, and leaves an existing view alone so reopening a document does not
  * discard where the user had it.
- * @param schema the zod schema the initial state is parsed through.
+ * @param schema - the zod schema the initial state is parsed through.
  * @throws {UnexpectedError} if the dispatched action has no windowKey.
  */
 export const createDocumentInitializer =
@@ -166,7 +166,7 @@ type KeyActionMatcher = Pick<ActionCreatorWithPayload<OptionalKeyParams>, "match
  * actions that were dispatched without an explicit windowKey. Actions that already
  * carry a windowKey pass through unchanged; matching actions dispatched before a window
  * key is available are dropped.
- * @param actionCreators the action creator(s) whose payloads should be key-injected.
+ * @param actionCreators - the action creator(s) whose payloads should be key-injected.
  */
 export const createInjectKeyMiddleware = <StoreState>(
   actionCreators: KeyActionMatcher | KeyActionMatcher[],

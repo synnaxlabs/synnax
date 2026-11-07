@@ -81,8 +81,8 @@ const comparePreRelease = (a: string, b: string): number => {
 /**
  * Compares the two semantic versions.
  *
- * @param a  The first semantic version.
- * @param b  The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
@@ -145,8 +145,8 @@ export const versionsEqual = (
 
 /**
  * @returns true if the first semantic version is newer than the second.
- * @param a The first semantic version.
- * @param b The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  */
@@ -158,8 +158,8 @@ export const semVerNewer = (
 
 /**
  * @returns true if the first semantic version is older than the second.
- * @param a The first semantic version.
- * @param b The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  */

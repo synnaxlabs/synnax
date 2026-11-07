@@ -131,7 +131,7 @@ export const retrieveAPIKey = async (): Promise<string | null> =>
 /**
  * Saves the API key, with the address of the running Core, where the client libraries
  * on this computer find it. The save happens only while the saved key is `replaces`.
- * @param replaces The key the caller read, or null when none was saved.
+ * @param replaces - The key the caller read, or null when none was saved.
  * @returns False, with no save, when another window changed the key first.
  */
 export const saveAPIKey = async (

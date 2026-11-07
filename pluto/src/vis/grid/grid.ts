@@ -85,7 +85,7 @@ export const regions = (loc: location.Outer, grid: Grid): Region[] =>
 /**
  * Calculates the X and Y coordinates of the top-left corner of a region in the grid
  * based on a containing box.
- * @param container The container to calculate the position within.
+ * @param container - The container to calculate the position within.
  * @returns The X and Y coordinates for the region.
  */
 export const position = (key: string, grid: Grid, container: box.Box): xy.XY => {
@@ -120,8 +120,8 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
 /**
  * Calculates the width and height for the visualization in the center of the grid
  * after accounting for all additional regions and the size of the container.
- * @param grid The grid to calculate the visualization box from.
- * @param container The container to calculate the visualization box within.
+ * @param grid - The grid to calculate the visualization box from.
+ * @param container - The container to calculate the visualization box within.
  * @returns The box for the visualization.
  */
 export const visualizationBox = (grid: Grid, container: box.Box): box.Box => {

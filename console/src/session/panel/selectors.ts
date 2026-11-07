@@ -119,7 +119,7 @@ const selectIsSelected = (state: StoreState, key?: panel.Key): boolean => {
 
 /**
  * @returns a panel's selected tabs, as {@link selectSelectedTabs}.
- * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * @param key - the panel to read. Defaults to the surrounding Panel scope, then to the
  * active window's selected panel.
  */
 export const useSelectSelectedTabs = (key?: panel.Key): panel.TabKey[] => {
@@ -139,10 +139,10 @@ export const useGetIsOverlaid = (): (() => boolean) => {
 /**
  * @returns true if the given tab is the overlaid tab on the active window: the window
  * is overlaid and the tab is the focused tab of the window's selected panel.
- * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * @param key - the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
- * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
- * when no tab resolves.
+ * @param tabKey - the tab to check. Defaults to the surrounding Tab scope. Returns
+ * false when no tab resolves.
  */
 export const useSelectIsTabOverlaid = (
   key?: panel.Key,
@@ -170,7 +170,7 @@ export const useSelectSelected = (): panel.Key | undefined =>
 /**
  * @returns the focused tab of a panel: the first key of its exact selection, or
  * undefined when the panel has no tabs.
- * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * @param key - the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
  */
 export const useSelectFocusedTab = (key?: panel.Key): panel.TabKey | undefined =>
@@ -204,10 +204,10 @@ const selectIsTabFocused = (
 /**
  * @returns true if the given tab is the focused tab of its panel and that panel is the
  * window's selected panel.
- * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * @param key - the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
- * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
- * when no tab resolves.
+ * @param tabKey - the tab to check. Defaults to the surrounding Tab scope. Returns
+ * false when no tab resolves.
  */
 export const useSelectIsTabFocused = (
   key?: panel.Key,
@@ -254,10 +254,10 @@ const selectIsTabVisible = (
  * @returns true if the given tab is rendered: its panel is the window's selected
  * panel, and it is one of that panel's selected tabs, or the focused one when the
  * window is overlaid.
- * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * @param key - the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
- * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
- * when no tab resolves.
+ * @param tabKey - the tab to check. Defaults to the surrounding Tab scope. Returns
+ * false when no tab resolves.
  */
 export const useSelectIsTabVisible = (
   key?: panel.Key,

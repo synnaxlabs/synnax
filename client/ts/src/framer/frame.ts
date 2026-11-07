@@ -274,13 +274,13 @@ export class Frame {
 
   /**
    * @returns lazy series matching the given channel key or name.
-   * @param key the channel key or name.
+   * @param key - the channel key or name.
    */
   get(key: channel.Key | channel.Name): MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
-   * @param keys the channel keys or names.
+   * @param keys - the channel keys or names.
    */
   get(keys: channel.Key[] | channel.Name[]): Frame;
 
@@ -333,7 +333,7 @@ export class Frame {
 
   /**
    * @returns true if the frame contains the provided channel key or name.
-   * @param channel the channel key or name to check.
+   * @param channel - the channel key or name to check.
    */
   has(channel: channel.Key | channel.Name): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
@@ -343,7 +343,7 @@ export class Frame {
 
   /**
    * @returns a new frame containing the mapped output of the provided function.
-   * @param fn a function that takes a channel key and series and returns a boolean.
+   * @param fn - a function that takes a channel key and series and returns a boolean.
    */
   map(
     fn: (
@@ -374,7 +374,7 @@ export class Frame {
 
   /**
    * Iterates over all series in the current frame.
-   * @param fn a function that takes a channel key and series.
+   * @param fn - a function that takes a channel key and series.
    */
   forEach(fn: (k: channel.Key | channel.Name, arr: Series, i: number) => void): void {
     this.columns.forEach((k, i) => {
@@ -385,7 +385,7 @@ export class Frame {
 
   /**
    * Iterates over all unique columns in the frame.
-   * @param fn a function that takes a channel key, multi-series, and index.
+   * @param fn - a function that takes a channel key, multi-series, and index.
    */
   forEachUnique(
     fn: (k: channel.Key | channel.Name, ms: MultiSeries, i: number) => void,
@@ -414,7 +414,7 @@ export class Frame {
   /**
    * @returns a new frame containing all series in the current frame that pass
    * the provided filter function.
-   * @param fn a function that takes a channel key and series and returns a boolean.
+   * @param fn - a function that takes a channel key and series and returns a boolean.
    */
   filter(
     fn: (k: channel.Key | channel.Name, arr: Series, i: number) => boolean,

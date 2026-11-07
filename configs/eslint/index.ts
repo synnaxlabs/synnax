@@ -12,6 +12,7 @@ import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
 import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
+import jsdoc from "eslint-plugin-jsdoc";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
@@ -140,6 +141,7 @@ const config: Linter.Config[] = [
     plugins: {
       "simple-import-sort": simpleImportSort,
       "@stylistic": stylistic,
+      jsdoc,
       "react-hooks": {
         rules: {
           ...reactHooks.rules,
@@ -200,6 +202,8 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
+      "jsdoc/no-types": "error",
+      "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",

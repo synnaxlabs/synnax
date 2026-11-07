@@ -60,7 +60,7 @@ const NOOP = () => {};
  * present key and hooks that read it. Presence is a single-valued membership: the
  * hovered item, the active item, the keyboard cursor. Call once per use case so each
  * presence carries its own React context and nests independently of other presences.
- * @param name identifies the presence in the context display name.
+ * @param name - identifies the presence in the context display name.
  */
 export const createPresence = (name: string): Presence => {
   const [BaseContext, useCtx] = context.create<ContextValue>({

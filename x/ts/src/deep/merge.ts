@@ -16,8 +16,8 @@ import { narrow } from "@/narrow";
 /**
  * Overrides the properties of the base object with the existing properties of the provided
  * object(s)
- * @param base The base object to override
- * @param overrides The object(s) to override the base object with
+ * @param base - The base object to override
+ * @param overrides - The object(s) to override the base object with
  */
 export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
   if (overrides.length === 0) return base;

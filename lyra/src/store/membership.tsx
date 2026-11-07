@@ -88,7 +88,7 @@ const NOOP = () => {};
  * createMembership mints a typed set-membership context: a Provider that publishes a
  * controlled set of keys and hooks that read it. Call once per use case so each set
  * carries its own React context and nests independently of other sets.
- * @param name identifies the set in the context display name.
+ * @param name - identifies the set in the context display name.
  */
 export const createMembership = (name: string): Membership => {
   const [BaseContext, useCtx] = context.create<ContextValue>({
