@@ -11,7 +11,6 @@ package testutil_test
 
 import (
 	"context"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,18 +32,17 @@ var _ = Describe("OpenService", func() {
 			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
 		)
 		r := rack.Key(1).OntologyID()
-		var uses []secret.Use
 		svc := secrettestutil.OpenService(ctx, db, otg, g, func(
 			context.Context,
 			gorp.Tx,
 			[]secret.Key,
 		) ([]secret.Use, error) {
-			return uses, nil
+			return nil, nil
 		})
 		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
 		Expect(svc.NewWriter(nil).Create(ctx, &s, []byte("hunter2"))).To(Succeed())
-		uses = []secret.Use{{Secret: s.Base().Key, Racks: []ontology.ID{r}}}
-		Expect(svc.Resolve(ctx, nil, r, uuid.Nil(), s.Base().Key)).
+		grant := MustSucceed(svc.Grant(ctx, nil, r, s.Base().Key))
+		Expect(svc.Resolve(ctx, nil, r, grant, s.Base().Key)).
 			To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("hunter2")}))
 	})
 })
