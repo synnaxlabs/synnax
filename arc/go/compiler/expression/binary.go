@@ -256,7 +256,8 @@ func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
-	leftType, err := compileAdditive(ctx.Child(adds[0]))
+	// A comparison gives a bool, so an outer hint says nothing about its operands.
+	leftType, err := compileAdditive(ctx.Child(adds[0]).WithHint(types.Type{}))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -314,7 +315,8 @@ func compileBinaryEquality(
 	ctx context.Context[parser.IEqualityExpressionContext],
 ) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
-	leftType, err := compileRelational(ctx.Child(rels[0]))
+	// An equality gives a bool, so an outer hint says nothing about its operands.
+	leftType, err := compileRelational(ctx.Child(rels[0]).WithHint(types.Type{}))
 	if err != nil {
 		return types.Type{}, err
 	}

@@ -474,11 +474,20 @@ func inferSeriesLiteralType(
 		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
 			elemType = nextType
 		}
+		// A float element makes a series of untyped numbers a float series.
+		if allLiterals && constrainedTo(nextType, types.KindFloatConstant) {
+			elemType = nextType
+		}
 	}
 
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+// constrainedTo reports whether t is a type variable with the constraint kind k.
+func constrainedTo(t types.Type, k types.Kind) bool {
+	return t.Kind == types.KindVariable && t.Constraint != nil && t.Constraint.Kind == k
 }
 
 // isUntypedNumber reports whether t is the type of an untyped numeric value, such as
