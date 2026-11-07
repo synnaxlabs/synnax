@@ -34,6 +34,8 @@ type Writer struct {
 	table    *gorp.Table[Key, Device]
 }
 
+// resolveStatus returns the status to persist for d. The owner selects the status, so a
+// provided key is ignored.
 func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
@@ -46,6 +48,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 		}
 	}
 	stat := *provided
+	stat.Key = ""
 	stat.Owner = new(d.ResourceID())
 	stat.Name = d.Name
 	stat.Details.Rack = d.Rack
