@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1353,6 +1354,81 @@ Doc struct {
 `)
 		Expect(frozen).To(ContainSubstring("type Side string"))
 		Expect(frozen).To(ContainSubstring("type Mode string"))
+	})
+})
+
+var _ = Describe("ChainLatestTable", func() {
+	It("Should give a dependency type its live declaration at the root", func() {
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/x/versions/color/v0.oracle": `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`,
+			"schemas/x/color.oracle": `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+	g uint8
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+
+	@go marshal
+}
+`,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/doc"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		latest, ns := MustSucceed2(gotypes.ChainLatestTable(
+			GinkgoT().Context(),
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+			"core/pkg/service/doc",
+			"schemas/synnax/doc",
+			0,
+		))
+		doc := MustBeOk(latest.Get(ns + ".Doc"))
+		tint := doc.Form.(resolution.StructForm).Fields[1]
+		color := MustBeOk(latest.Get(tint.Type.Name))
+		Expect(color.Form.(resolution.StructForm).Fields).To(HaveLen(2))
+		Expect(output.GetPath(color, "go")).To(Equal("x/go/color"))
 	})
 })
 
