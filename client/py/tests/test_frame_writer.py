@@ -977,7 +977,7 @@ class _EndableStream:
             raise EOF()
         return WriterResponse(
             command=WriterCommand.OPEN,
-            end=None,
+            end=sy.TimeStamp(0),
             err=ExceptionPayload(type=None, data=None),
             authorized=True,
         )
