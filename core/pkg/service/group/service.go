@@ -237,7 +237,8 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
 // the parent's scope, and a scope that differs from the parent's is a validation error.
-// An existing group with g.Key keeps its scope.
+// An existing group with g.Key keeps its stored parent and scope; only SetParent moves
+// a group.
 func (w Writer) Create(ctx context.Context, g *Group) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, g) })
 }
@@ -245,18 +246,6 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 func (w Writer) create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
-	}
-	if g.Parent != nil {
-		scope, err := w.parentScope(ctx, *g.Parent)
-		if err != nil {
-			return err
-		}
-		if g.Scope == "" {
-			g.Scope = scope
-		}
-		if err = checkScope(*g, scope); err != nil {
-			return err
-		}
 	}
 	var existing Group
 	err := w.table.NewRetrieve().
@@ -267,16 +256,16 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 		return err
 	}
 	if err == nil {
-		if existing.Scope != g.Scope {
-			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"cannot change the scope of a group",
-				),
-				"scope",
-			)
+		g.Parent, g.Scope = existing.Parent, existing.Scope
+	} else if g.Parent != nil {
+		scope, err := w.parentScope(ctx, *g.Parent)
+		if err != nil {
+			return err
 		}
-		if err = w.checkMove(ctx, existing, g.Parent); err != nil {
+		if g.Scope == "" {
+			g.Scope = scope
+		}
+		if err = checkScope(*g, scope); err != nil {
 			return err
 		}
 	}

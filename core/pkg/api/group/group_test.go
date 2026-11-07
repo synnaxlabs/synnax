@@ -77,6 +77,27 @@ var _ = Describe("Group", func() {
 				Expect(res.Group.Scope).To(Equal(resource.TypeChannel))
 			},
 		)
+
+		It(
+			"Should not move an existing group for a user with only create access",
+			func(ctx SpecContext) {
+				parent := newGroup(ctx, resource.TypeChannel, nil)
+				g := newGroup(ctx, resource.TypeChannel, &parent)
+				u := newUser(ctx, grant(create, groups))
+				res := MustSucceed(apiSvc.Create(
+					AuthedCtx(ctx, u),
+					nil,
+					apigroup.CreateRequest{Key: g.Key, Name: g.Name},
+				))
+				Expect(res.Group.Parent).To(Equal(new(parent.ResourceID())))
+				var stored group.Group
+				Expect(svc.Group.NewRetrieve().
+					Where(group.MatchKeys(g.Key)).
+					Entry(&stored).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Parent).To(Equal(new(parent.ResourceID())))
+			},
+		)
 	})
 
 	Describe("SetParent", func() {

@@ -72,7 +72,8 @@ class Client:
             has no parent.
         :param parent: The group, project, or rack to nest the group under. The group
             takes its scope from the parent.
-        :param key: The key of the group to update.
+        :param key: The key of the group to update. An existing group keeps its
+            parent and scope. Use set_parent to move it.
         :returns: The created group.
         """
         return self._client.send(
