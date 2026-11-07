@@ -51,7 +51,7 @@ if existing_device is not None:
 def find() -> sy.Device | None:
     if SERIAL_NUMBER is not None:
         return client.devices.retrieve(key=str(SERIAL_NUMBER), ignore_not_found=True)
-    return client.devices.retrieve(model=MODEL, ignore_not_found=True)
+    return client.devices.retrieve(model=MODEL, one=True, ignore_not_found=True)
 
 
 print(f"Waiting up to {TIMEOUT} for the Driver to find the device...")
