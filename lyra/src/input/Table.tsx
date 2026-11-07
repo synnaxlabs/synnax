@@ -172,7 +172,10 @@ export interface TableProps
   preview?: boolean;
   /** Labels a row's gutter cell. Omitted, no gutter column renders. */
   rowLabel?: (index: number) => string;
-  /** Builds the row the add button appends. Defaults to the column default values. */
+  /**
+   * Builds each new row: the one the add button appends, and each row a paste adds
+   * before its cells are written. Defaults to the column default values.
+   */
   createRow?: (value: TableCell[][]) => TableCell[];
   /** Names one row in the add and remove buttons ("header"). Defaults to "row". */
   resourceName?: string;
@@ -281,7 +284,7 @@ export const Table = ({
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
-      next.push(emptyRow());
+      next.push(createRow?.(next) ?? emptyRow());
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
       if (parsed != null) next[at.y][at.x] = parsed;

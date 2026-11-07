@@ -250,6 +250,22 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should add the JSON fields a paste adds as numbers", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Name 1");
+    fireEvent.focus(input);
+    fireEvent.paste(input, {
+      clipboardData: { getData: () => "Temp\t/temp\nSpeed\t/speed" },
+    });
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Temp", pointer: "/temp", type: "number" },
+        { name: "Speed", pointer: "/speed", type: "number", scale: 1 },
+      ]),
+    );
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
