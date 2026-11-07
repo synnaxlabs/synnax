@@ -630,6 +630,36 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should answer the configuring command when an auto-start fails",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "auto_start_fail", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-auto-start-fail",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						AutoStart:   true,
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				Expect(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(`unknown performance "unknown"`))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						svcTask.OntologyID().String(),
+					)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				Expect(stat.Details.Running).To(BeFalse())
+			},
+		)
+
+		It(
 			"Should not write a terminal status when stopped silently",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{

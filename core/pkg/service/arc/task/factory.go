@@ -152,9 +152,10 @@ func (f *factory) ConfigureTask(
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false.
+	// command, and a "configured" status would answer it first with running false. An
+	// auto-start that fails must answer it too, since no start follows.
 	if cfg.AutoStart {
-		if err := errors.Combine(arcTask.start(ctx, driver.NoCommand)); err != nil {
+		if err := errors.Combine(arcTask.start(ctx, cmdKey)); err != nil {
 			return nil, err
 		}
 	}
