@@ -429,6 +429,21 @@ var _ = Describe("Ontology Integration", func() {
 		)
 	})
 
+	Describe("ResourceIDs", func() {
+		It("Should return an empty slice when given no keys", func() {
+			Expect(role.ResourceIDs(nil)).To(BeEmpty())
+			Expect(role.ResourceIDs([]role.Key{})).To(BeEmpty())
+		})
+
+		It("Should map each key to its role resource ID in order", func() {
+			keys := []role.Key{uuid.New(), uuid.New()}
+			Expect(role.ResourceIDs(keys)).To(Equal([]resource.ID{
+				{Type: resource.TypeRole, Key: keys[0].String()},
+				{Type: resource.TypeRole, Key: keys[1].String()},
+			}))
+		})
+	})
+
 	Describe("ResourceIDsFromRoles", func() {
 		It("Should return an empty slice when given no roles", func() {
 			Expect(role.ResourceIDsFromRoles(nil)).To(BeEmpty())

@@ -114,7 +114,21 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypeLog,
+		req.Logs,
+		stored,
+		func(e log.Log) *group.Key { return e.Group },
+		func(e log.Log) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		},
+	)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: slices.Concat(
@@ -123,13 +137,7 @@ func (s *Service) Create(
 				stored,
 				func(e log.Log) *group.Key { return e.Group },
 			),
-			project.CreateObjects(
-				req.Logs,
-				stored,
-				func(e log.Log) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				},
-			),
+			owners,
 		),
 	}); err != nil {
 		return CreateResponse{}, err
@@ -211,7 +219,8 @@ type SetGroupRequest struct {
 	Keys  []log.Key  `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the logs with the given keys into a group.
+// SetGroup moves the logs with the given keys into a group. A move into a group under
+// another project also requires update access on the stored owner and on that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -232,6 +241,25 @@ func (s *Service) SetGroup(
 			lo.Map(logs, func(e log.Log, _ int) *group.Key { return e.Group }),
 			req.Group,
 		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypeLog,
+		lo.Map(logs, func(e log.Log, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
 	}); err != nil {
 		return struct{}{}, err
 	}

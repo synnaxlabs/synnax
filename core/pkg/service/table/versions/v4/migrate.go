@@ -43,6 +43,7 @@ var OwnersMigration = projectv3.NewOwnersMigration(
 		Name:     "v61_table_owner",
 		Type:     resource.TypeTable,
 		Owned:    func(e Table) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e Table) string { return e.Name },
 		SetOwner: func(e *Table, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

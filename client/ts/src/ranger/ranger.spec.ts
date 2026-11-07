@@ -331,6 +331,16 @@ describe("range", () => {
       expect(await newRange.retrieveLabels()).toEqual([label]);
     });
 
+    it("should retrieve labels added after the range was created", async () => {
+      const rng = await client.ranges.create({
+        name: "Labeled later",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const label = await client.labels.create({ name: "Later", color: "#E774D0" });
+      await rng.addLabel(label.key);
+      expect(await rng.retrieveLabels()).toEqual([label]);
+    });
+
     it("should remove a label from the range", async () => {
       const label = await client.labels.create({ name: "Removed", color: "#E774D0" });
       const rng = await client.ranges.create({
@@ -361,6 +371,22 @@ describe("range", () => {
       const stored = await createTestClient().ranges.retrieve(child.key);
       expect(stored.parent).toEqual(parent.key);
       expect((await stored.retrieveParent())?.key).toEqual(parent.key);
+    });
+
+    it("should retrieve a parent set after the range was created", async () => {
+      const parent = await client.ranges.create({
+        name: "Parent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const child = await client.ranges.create({
+        name: "Child",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.dispatch(
+        child.key,
+        ranger.set({ path: ["parent"], value: parent.key }),
+      );
+      expect((await child.retrieveParent())?.key).toEqual(parent.key);
     });
 
     it("should remove the parent of the range", async () => {
