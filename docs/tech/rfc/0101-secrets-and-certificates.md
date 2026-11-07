@@ -75,14 +75,14 @@ the ontology type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller               | Does                                       |
-| --------------------- | -------------------- | ------------------------------------------ |
-| `secret/create`       | Can create secrets   | Saves a value or path, or replaces it      |
-| `secret/retrieve`     | Can retrieve secrets | Returns records without values             |
-| `secret/rename`       | Can update secrets   | Renames a secret                           |
-| `secret/delete`       | Can delete secrets   | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices   | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only          | Returns stored values; refuses file values |
+| Endpoint              | Caller                                      | Does                                       |
+| --------------------- | ------------------------------------------- | ------------------------------------------ |
+| `secret/create`       | Can create secrets                          | Saves a value or path, or replaces it      |
+| `secret/retrieve`     | Can retrieve secrets                        | Returns records without values             |
+| `secret/rename`       | Can update secrets                          | Renames a secret                           |
+| `secret/delete`       | Can delete secrets                          | Refuses while anything uses the secret     |
+| `secret/grant/create` | Can create devices and retrieve the secrets | Stores a one-time grant (§3.3)             |
+| `secret/resolve`      | A rack only                                 | Returns stored values; refuses file values |
 
 Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
 retrieve them. The Driver role also retrieves secrets, and retrieves and creates
@@ -134,19 +134,23 @@ task. Every node of a cluster needs the same key.
 ### 3.3 Who reads a secret
 
 Only a rack (RFC 0073 §4.8) can call `secret/resolve`. Every other subject, Owner
-included, gets a permission error. The Core's integrations run the same check in
-process, as the Core's rack. A rack reads a secret when:
+included, gets a permission error. The Core's integrations read their secrets in process
+with no check, because they run in the Core. A rack reads a secret when:
 
 1. A device or task on the rack uses it, directly or through a certificate.
 2. The request carries a grant for that rack that names it.
 
+A user who saves a device or task that names a secret must be able to retrieve that
+secret, or the save fails. Otherwise a user could give a rack a secret the user cannot
+see. Phase 7 adds the first rule and this check, with the first Driver integration.
+
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
 calls `secret/grant/create` with a subject and secrets, and the Core checks that the
-caller can create devices. Only a rack can be a subject for now. For a certificate, the
-Console sends the secret in its `private_key`. The Core stores the grant with the
-subject, the secrets, and an expiry one minute away, and returns its key. The Console
-sends the key with the command.
+caller can create devices and retrieve each secret. Only a rack can be a subject for
+now. For a certificate, the Console sends the secret in its `private_key`. The Core
+stores the grant with the subject, the secrets, and an expiry one minute away, and
+returns its key. The Console sends the key with the command.
 
 The first resolve that carries the key deletes the grant, and reads only the secrets
 that the grant names. A grant that no resolve uses ends at its expiry. The key travels
