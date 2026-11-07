@@ -57,6 +57,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -71,6 +75,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
@@ -80,6 +85,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
@@ -87,6 +93,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
+	stopper  *task.Stopper
 	alamos.Instrumentation
 }
 
@@ -100,6 +107,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		stopper:         cfg.Stopper,
 	}, nil
 }
 
@@ -154,7 +162,15 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	w := s.internal.NewWriter(tx)
+	taskKeys, err := w.TaskKeys(ctx, req.Keys...)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.stopper.Stop(ctx, taskKeys); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, w.Delete(ctx, req.Keys...)
 }
 
 // DispatchRequest carries a sequence of collaborative-edit actions to relay to the

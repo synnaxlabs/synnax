@@ -19,13 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -35,16 +37,76 @@ const (
 	stopPollInterval = 20 * time.Millisecond
 )
 
-// stopRunning stops the tasks that report running and waits for each to report that it
-// stopped. The Core marks the tasks of a silent rack as not running, so an offline
-// Driver costs no wait. A timeout is not an error: the caller deletes the tasks anyway.
-func (s *Service) stopRunning(ctx context.Context, keys []task.Key) error {
-	ctx, cancel := context.WithTimeout(ctx, s.stopTimeout)
+// StopperConfig is the configuration for creating a Stopper.
+type StopperConfig struct {
+	// Task provides the channel that carries the stop commands.
+	//
+	// [REQUIRED]
+	Task *Service
+	// Status reports which tasks are running.
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// Framer writes the stop commands.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Timeout caps how long one Stop call takes. Keep it under the 5 second default
+	// read timeout of the Python client.
+	//
+	// [OPTIONAL] - Defaults to 4 seconds.
+	Timeout time.Duration
+}
+
+var (
+	_ xconfig.Config[StopperConfig] = StopperConfig{}
+	// DefaultStopperConfig is the default configuration for a Stopper.
+	DefaultStopperConfig = StopperConfig{Timeout: 4 * time.Second}
+)
+
+// Override implements xconfig.Config.
+func (c StopperConfig) Override(other StopperConfig) StopperConfig {
+	c.Task = override.Nil(c.Task, other.Task)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Timeout = override.Numeric(c.Timeout, other.Timeout)
+	return c
+}
+
+// Validate implements xconfig.Config.
+func (c StopperConfig) Validate() error {
+	v := validate.New("task.stopper")
+	v.NotNil("task", c.Task)
+	v.NotNil("status", c.Status)
+	v.NotNil("framer", c.Framer)
+	v.Positive("timeout", c.Timeout)
+	return v.Error()
+}
+
+// Stopper stops running tasks ahead of a delete, so that the channels of a task are
+// free once the delete returns.
+type Stopper struct{ cfg StopperConfig }
+
+// NewStopper creates a Stopper from the given configurations.
+func NewStopper(cfgs ...StopperConfig) (*Stopper, error) {
+	cfg, err := xconfig.New(DefaultStopperConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Stopper{cfg: cfg}, nil
+}
+
+// Stop stops the tasks with the given keys that report running, and waits for each to
+// report that it stopped. The caller must authorize keys. The Core marks the tasks of a
+// silent rack as not running, so an offline Driver costs no wait. A timeout is not an
+// error: the caller deletes the tasks anyway. Stop returns the error of a canceled ctx.
+func (s *Stopper) Stop(ctx context.Context, keys []Key) error {
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout)
 	defer cancel()
 	return errors.Skip(s.stopAndWait(ctx, keys), context.DeadlineExceeded)
 }
 
-func (s *Service) stopAndWait(ctx context.Context, keys []task.Key) error {
+func (s *Stopper) stopAndWait(ctx context.Context, keys []Key) error {
 	running, err := s.retrieveRunning(ctx, keys)
 	if err != nil || len(running) == 0 {
 		return err
@@ -67,22 +129,22 @@ func (s *Service) stopAndWait(ctx context.Context, keys []task.Key) error {
 	return nil
 }
 
-func (s *Service) retrieveRunning(
+func (s *Stopper) retrieveRunning(
 	ctx context.Context,
-	keys []task.Key,
-) ([]task.Key, error) {
+	keys []Key,
+) ([]Key, error) {
 	// Status details are caller-provided, so a stop target must come from keys.
-	byStatus := lo.SliceToMap(keys, func(k task.Key) (string, task.Key) {
-		return task.OntologyID(k).String(), k
+	byStatus := lo.SliceToMap(keys, func(k Key) (string, Key) {
+		return OntologyID(k).String(), k
 	})
-	var statuses []task.Status
-	if err := s.status.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](lo.Keys(byStatus)...)).
+	var statuses []Status
+	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
+		Where(status.MatchKeys[StatusDetails](lo.Keys(byStatus)...)).
 		Entries(&statuses).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
-	running := make([]task.Key, 0, len(statuses))
+	running := make([]Key, 0, len(statuses))
 	for _, stat := range statuses {
 		if stat.Details.Running {
 			running = append(running, byStatus[stat.Key])
@@ -91,11 +153,11 @@ func (s *Service) retrieveRunning(
 	return running, nil
 }
 
-func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
+func (s *Stopper) sendStops(ctx context.Context, keys []Key) error {
 	series, err := telem.NewJSONSeriesV(lo.Map(
 		keys,
-		func(k task.Key, _ int) task.Command {
-			return task.Command{
+		func(k Key, _ int) Command {
+			return Command{
 				Task: k,
 				Type: stopCommandType,
 				Key:  uuid.New().String(),
@@ -106,8 +168,8 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 	if err != nil {
 		return err
 	}
-	sw, err := s.framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  channel.Keys{s.task.CommandChannelKey()},
+	sw, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+		Keys:  channel.Keys{s.cfg.Task.CommandChannelKey()},
 		Start: telem.Now(),
 	})
 	if err != nil {
@@ -141,7 +203,7 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 		return sCtx.Wait()
 	case requests.Inlet() <- framer.WriterRequest{
 		Command: framer.WriterCommandWrite,
-		Frame:   frame.NewUnary(s.task.CommandChannelKey(), series),
+		Frame:   frame.NewUnary(s.cfg.Task.CommandChannelKey(), series),
 	}:
 	}
 	requests.Close()
