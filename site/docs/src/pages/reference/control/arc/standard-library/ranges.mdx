@@ -90,7 +90,7 @@ automation created, keep its key in a variable:
 import ranges
 
 sequence test {
-    key := ranges.create(name="Hotfire", color="#3bc454")
+    key := ranges.create("Hotfire", "", "#3bc454")
     stage run {
         stop_cmd == 1 => next
     }
