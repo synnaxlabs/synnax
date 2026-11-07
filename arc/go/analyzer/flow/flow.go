@@ -220,7 +220,7 @@ func resolveUpstreamType(
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
 		}
-		if idSym.Kind == symbol.KindConstant {
+		if isFloatConstant(idSym) {
 			return constantType(ctx, prevIDNode, idSym), true
 		}
 		// A register-backed value variable feeds its current value.
@@ -348,6 +348,11 @@ func consultTrigger[T antlr.ParserRuleContext](
 	}
 }
 
+func isFloatConstant(sym *symbol.Symbol) bool {
+	_, ok := sym.DefaultValue.(float64)
+	return sym.Kind == symbol.KindConstant && ok
+}
+
 // constantType returns the type of the module constant sym at flow node id, giving
 // each use its own type variable so it takes the type of the node it feeds.
 func constantType[T antlr.ParserRuleContext](
@@ -359,6 +364,7 @@ func constantType[T antlr.ParserRuleContext](
 		return t
 	}
 	t := types.Freshen(sym.Type, ctx.ScopedKey("const", id))
+	ctx.Constraints.AddVariable(t)
 	ctx.TypeMap[id] = t
 	return t
 }
@@ -378,7 +384,7 @@ func analyzeIdentifier(
 	isValueVarSink := (sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
 	// A module constant sends its value, as a compile-time variable does.
-	if sym.Kind == symbol.KindConstant && !isLastNode {
+	if isFloatConstant(sym) && !isLastNode {
 		constantType(ctx, ctx.AST, sym)
 		return
 	}
@@ -448,7 +454,7 @@ func flowSourceType(
 		if err != nil {
 			return types.Type{}, ""
 		}
-		if srcSym.Kind == symbol.KindConstant {
+		if isFloatConstant(srcSym) {
 			t := constantType(ctx, prevID, srcSym)
 			return t, fmt.Sprintf("%s value type %s", srcName, t)
 		}
@@ -966,7 +972,7 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 		if err != nil {
 			return types.Type{}
 		}
-		if sym.Kind == symbol.KindConstant {
+		if isFloatConstant(sym) {
 			return constantType(ctx, idNode, sym)
 		}
 		if sym.Kind != symbol.KindChannel {

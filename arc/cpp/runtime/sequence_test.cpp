@@ -315,6 +315,18 @@ TEST(FloatFlowTest, SendsF64Constants) {
     float_flow::expect_values<double>(x::telem::FLOAT64_T);
 }
 
+/// @brief it should run a stage transition fed by a constant alone.
+TEST(FloatFlowTest, TransitionsOnAConstant) {
+    Sequence h(
+        "import math\nsequence main {\n    stage a {\n        %x% -> math.inf => b\n    }\n"
+        "    stage b {\n        1 -> %out%\n    }\n}\n%x% => main\n",
+        {{"x", x::telem::FLOAT64_T}, {"out", x::telem::UINT8_T}}
+    );
+    for (int i = 0; i < 5; i++)
+        h.push("x", x::telem::Series(1.5));
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("out")), 1);
+}
+
 namespace float_check {
 /// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
 /// for each value on x, and returns the codes in order.
