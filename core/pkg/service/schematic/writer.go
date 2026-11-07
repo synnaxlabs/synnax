@@ -11,12 +11,15 @@ package schematic
 
 import (
 	"context"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -57,6 +60,9 @@ func (w Writer) Create(
 		}
 	}
 	if err = s.Validate(); err != nil {
+		return err
+	}
+	if err = validateScales(*s); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -176,4 +182,30 @@ func (w Writer) Delete(
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+}
+
+// validateScales returns an error wrapping validate.ErrValidation when a config of s
+// carries a scale that is not positive. A zero scale sizes a symbol to nothing.
+func validateScales(s Schematic) error {
+	for key, cfg := range s.Configs {
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		var scaled struct {
+			Scale *float64 `json:"scale"`
+		}
+		if err = json.Unmarshal(b, &scaled); err != nil {
+			return err
+		}
+		if scaled.Scale != nil && *scaled.Scale <= 0 {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"configs.%s.scale: must be positive, got %v",
+				key,
+				*scaled.Scale,
+			)
+		}
+	}
+	return nil
 }

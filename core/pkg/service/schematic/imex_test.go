@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ImEx", func() {
@@ -139,6 +140,16 @@ var _ = Describe("ImEx", func() {
 					To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 			},
 		)
+
+		It("Should reject a file whose config has a zero scale", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, db,
+				LoadEnvelope("versions/testdata/import_v10_zero_scale.json"),
+				imex.ImportOptions{Parent: proj.OntologyID()},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("must be positive")),
+			))
+		})
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
