@@ -303,11 +303,25 @@ Doc struct {
 			},
 		)
 
+		It("Should change the schema sum when the predecessor changes",
+			func(ctx SpecContext) {
+				doc := "Doc struct {\n\tkey uuid @key\n\n\t@go marshal\n}\n"
+				write("schemas/synnax/versions/doc/v1.oracle", doc)
+				before := compute(ctx, v0File, v1File).Sums[1].Schema
+				write(
+					"schemas/synnax/versions/doc/v0.oracle",
+					"Doc struct {\n\tkey uuid @key\n\tname string\n\n\t@go marshal\n}\n",
+				)
+				Expect(compute(ctx, v0File, v1File).Sums[1].Schema).
+					ToNot(Equal(before))
+			},
+		)
+
 		It("Should keep the schema hash under its scheme", func(ctx SpecContext) {
 			// A failure means hashSchema changed what it hashes: bump schemaScheme in
 			// frozen.go, then update this value.
 			Expect(compute(ctx, v0File, v1File).Sums[0].Schema).To(Equal(
-				"s2:e985ec57e58010f28cd2a7f2b1608380e7bf196fef8445d40d6aafdfbb73acf3",
+				"s3:487eb228a32ab57f114bbba53ce7c3f99dad6c7cfe0a224117bdbac67f7d8259",
 			))
 		})
 
