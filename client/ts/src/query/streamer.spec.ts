@@ -14,7 +14,7 @@ import z from "zod";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { DisconnectedError, NotFoundError } from "@/index";
+import { AuthError, DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
@@ -1092,6 +1092,60 @@ describe("openStreamer", () => {
       await closeStreamer();
 
       expect(mockStreamer!.closeVi).toHaveBeenCalledTimes(1);
+    });
+
+    it("should wait for a change in flight before the close resolves", async () => {
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+      const onChange = vi.fn(async () => await gate);
+      const schema = z.object({ value: z.number() });
+      const frames = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      let closed = false;
+      const closing = closeStreamer().then(() => (closed = true));
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(closed).toBe(false);
+      release();
+      await closing;
+      expect(closed).toBe(true);
+    });
+
+    it("should wait for a change in flight when the stream already ended", async () => {
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+      const onChange = vi.fn(async () => await gate);
+      const onDead = vi.fn();
+      const schema = z.object({ value: z.number() });
+      let opens = 0;
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          onDead,
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: async () => {
+            if (opens++ > 0) throw new AuthError("denied");
+            let read = false;
+            return new MockHardenedStreamer([], async () => {
+              if (read) throw new Unreachable();
+              read = true;
+              const frame = new framer.Frame({ test: new Series([{ value: 1 }]) });
+              return { done: false, value: frame };
+            });
+          },
+        }),
+      );
+      await expect.poll(() => onDead.mock.calls.length).toBe(1);
+      expect(onChange).toHaveBeenCalledTimes(1);
+      let closed = false;
+      const closing = closeStreamer().then(() => (closed = true));
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(closed).toBe(false);
+      release();
+      await closing;
+      expect(closed).toBe(true);
     });
 
     it("should stop listeners from receiving data after close", async () => {

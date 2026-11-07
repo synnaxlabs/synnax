@@ -87,7 +87,10 @@ export interface Streamer {
    * once streaming is live. Safe to call concurrently and repeatedly.
    */
   demand: () => Promise<void>;
-  /** Closes the stream. A no-op when the stream was never demanded. */
+  /**
+   * Closes the stream, then waits for the changes it already received to finish
+   * handling. A no-op when the stream was never demanded.
+   */
   close: () => Promise<void>;
 }
 
@@ -111,6 +114,7 @@ export const createStreamer = ({
   let opened: Promise<ObservableStreamer> | null = null;
   let hardened: HardenedStreamer | null = null;
   let closed = false;
+  const handling = new Set<Promise<void>>();
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
     // A connectivity failure mid-change is repaired by the reconcile that
@@ -146,7 +150,7 @@ export const createStreamer = ({
     onLive?.();
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = frame.uniqueNames.sort(channelNameSort);
-      void (async () => {
+      const handled = (async () => {
         for (const name of namesInFrame) {
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
@@ -171,6 +175,8 @@ export const createStreamer = ({
           }
         }
       })();
+      handling.add(handled);
+      void handled.finally(() => handling.delete(handled));
     };
     const stream = new ObservableStreamer(h, undefined, (error) => {
       // drop the memoized stream so the next demand opens a fresh one
@@ -205,9 +211,9 @@ export const createStreamer = ({
       closed = true;
       // Interrupts an in-flight open's retry loop; opened then settles.
       hardened?.close();
-      if (opened == null) return;
-      const streamer = await opened.catch(() => null);
+      const streamer = await opened?.catch(() => null);
       if (streamer != null) await streamer.close();
+      await Promise.all(handling);
     },
   };
 };
