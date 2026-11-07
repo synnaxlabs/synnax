@@ -17,6 +17,9 @@ BROWSER = "browser"
 NI = "ni"
 """The NI devices of the machine. Only the first Core's Driver reaches them."""
 
+CRIO = "crio"
+"""The cRIO of the HITL station. Only one Driver at a time runs on it."""
+
 
 def simulator(device_name: str) -> str:
     """Returns the resource of a device simulator. A simulator listens on a fixed

@@ -1,0 +1,13 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "cDAQ",
+      "tests": [{ "case": "hitl/ni_cdaq" }]
+    },
+    {
+      "sequence_name": "cRIO",
+      "tests": [{ "case": "hitl/crio_driver" }]
+    }
+  ]
+}
