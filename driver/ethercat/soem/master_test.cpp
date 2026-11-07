@@ -737,6 +737,37 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     EXPECT_EQ(this->master->refusals(), expected);
 }
 
+/// @brief it should record why a slave refused OP after SAFE-OP when another slave
+/// with process data reached OP.
+TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
+    for (const auto *name: {"RunningSlave", "RefusingSlave"}) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.name = name;
+        slave.Ibits = 16;
+        this->add_slave(slave);
+    }
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->inputs_wkc = 1;
+    this->mock->receive_return = 3;
+    this->mock->slave_infos[1].ALstatuscode = 0x0026;
+    this->mock->slave_infos[1].bus_state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        err.data,
+        "failed to reach OP: slave 2 (RefusingSlave) is in SAFE-OP: Inconsistent "
+        "settings"
+    );
+    EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_OPERATIONAL);
+    const std::map<uint16_t, slave::Refusal> expected = {
+        {2, {.reason = "refused OP: Inconsistent settings"}},
+    };
+    EXPECT_EQ(this->master->refusals(), expected);
+}
+
 /// @brief it should end the error for an entry on a left-out slave that reports
 /// "Invalid DC SYNC configuration" with the DC sync advice.
 TEST_F(SOEMMasterTest, PdoOffsetGivesTheDCSyncAdviceOfALeftOutSlave) {
