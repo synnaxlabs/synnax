@@ -11,9 +11,12 @@
 
 import time
 
+import numpy as np
+from pydantic import ValidationError
+
 import synnax as sy
 from tests.hitl import latency
-from tests.hitl.ni_cdaq import CDAQDigitalWrite
+from tests.hitl.ni_cdaq import CDAQAnalogRead, CDAQDigitalWrite
 
 _COMMANDS = 500
 # The first commands are slow while the Core opens its relay to the Driver.
@@ -24,6 +27,9 @@ _MAX_MEDIAN_MS = 6
 _MAX_P99_MS = 10
 _CMD = "hitl_cdaq_do_cmd_0"
 _STATE = "hitl_cdaq_do_state_0"
+# Up to the 250 kS/s of the NI 9205 across four inputs.
+_RATES_HZ = [10_000, 25_000, 50_000, 62_500]
+_ACQUISITION_S = 10
 
 
 class CDAQDigitalWriteLatency(CDAQDigitalWrite):
@@ -63,3 +69,54 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
             max_median_ms=_MAX_MEDIAN_MS,
             max_p99_ms=_MAX_P99_MS,
         )
+
+
+class CDAQAnalogReadRate(CDAQAnalogRead):
+    """Acquires four inputs of the NI 9205 at rising rates. At each rate, the Driver
+    must send no warning or error, and the stamps of the samples must have no gap."""
+
+    task_name = "HITL cDAQ Analog Read Rate"
+
+    def run(self) -> None:
+        if self.tsk is None:
+            self.fail("Task not configured")
+        config = self.tsk.config
+        assert isinstance(config, sy.task.ReadConfig)
+        for rate in _RATES_HZ:
+            config.sample_rate = sy.Rate(rate)
+            self.client.tasks.configure(self.tsk)
+            problems = self._acquire(rate)
+            if problems:
+                self.fail(f"At {rate} Hz: {'; '.join(problems)}")
+            self.metrics["max_gap_free_rate_hz"] = rate
+            self.log(f"{rate} Hz: no gap")
+
+    def _acquire(self, rate: int) -> list[str]:
+        assert self.tsk is not None
+        problems: list[str] = []
+        start = sy.TimeStamp.now()
+        with self.client.open_streamer(["sy_status_set"]) as statuses:
+            with self.tsk.run():
+                sy.sleep(_ACQUISITION_S)
+            while (frame := statuses.read(timeout=0)) is not None:
+                for raw in frame["sy_status_set"]:
+                    try:
+                        status = sy.task.Status.model_validate(raw)
+                    except ValidationError:
+                        continue
+                    if (
+                        status.details is not None
+                        and status.details.task == self.tsk.key
+                        and status.variant in ("warning", "error")
+                    ):
+                        problems.append(f"{status.variant}: {status.message}")
+        stamps = self.client.read(
+            sy.TimeRange(start, sy.TimeStamp.now()), "hitl_cdaq_ai_time"
+        ).to_numpy()
+        if len(stamps) < rate:
+            problems.append(f"{len(stamps)} samples in {_ACQUISITION_S} s")
+        else:
+            gap = sy.TimeSpan(int(np.diff(stamps.astype(np.int64)).max()))
+            if gap > 1.5 * sy.Rate(rate).period:
+                problems.append(f"a gap of {gap} between samples")
+        return problems
