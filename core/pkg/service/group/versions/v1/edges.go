@@ -264,6 +264,9 @@ type MembersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// ProjectOwned adds a parent edge to each grouped member from the project at the
 	// top of its group's chain.
 	ProjectOwned bool
+	// Holds reports whether a group with top parent top can hold e. Nil holds every
+	// group.
+	Holds func(e *E, top *resource.ID) bool
 }
 
 // NewMembersMigration returns a migration that sets the group of each member from the
@@ -274,8 +277,8 @@ func NewMembersMigration[K gorp.Key, E gorp.Entry[K]](
 ) gorp.Migration {
 	return migrate.New(
 		cfg.Name,
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			return migrateMembers(ctx, tx, cfg)
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			return migrateMembers(ctx, tx, cfg, ins)
 		},
 	)
 }
@@ -284,6 +287,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,
 	cfg MembersConfig[K, E],
+	ins alamos.Instrumentation,
 ) error {
 	edges, err := ontology.RetrieveRelationships(
 		ctx,
@@ -329,13 +333,26 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	for i := range members {
 		id := gorp.FormatKey(members[i].GorpKey())
 		g := memberGroups[id]
+		var top *resource.ID
+		if p, ok := topParent(g, byKey); ok {
+			top = &p
+		}
+		if cfg.Holds != nil && !cfg.Holds(&members[i], top) {
+			ins.L.Warn(
+				"dropped a member from a group outside its pinned parent",
+				zap.Stringer("group", g.Key),
+				zap.String("group_name", g.Name),
+				zap.Stringer("member", resource.ID{Type: cfg.Type, Key: id}),
+			)
+			continue
+		}
 		cfg.SetGroup(&members[i], g.Key)
 		if !cfg.ProjectOwned {
 			continue
 		}
-		if p, ok := topParent(g, byKey); ok && p.Type == resource.TypeProject {
+		if top != nil && top.Type == resource.TypeProject {
 			owners = append(owners, ontology.Relationship{
-				From: p,
+				From: *top,
 				Type: ontology.RelationshipTypeParentOf,
 				To:   resource.ID{Type: cfg.Type, Key: id},
 			})

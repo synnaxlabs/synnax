@@ -60,9 +60,7 @@ var _ = Describe("Migrations", func() {
 			}),
 		)
 	}
-	// own stores a project and its edge to the panel with key, and returns the
-	// project's
-	// key.
+	// own stores a project and its edge to the panel with key, and returns its key.
 	own := func(key versions.Key) uuid.UUID {
 		GinkgoHelper()
 		owner := uuid.New()

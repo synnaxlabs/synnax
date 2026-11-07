@@ -165,6 +165,88 @@ var _ = Describe("Dispatch", func() {
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
 	})
+	moveUnder := func(parent ranger.Key) []ranger.Action {
+		return []ranger.Action{ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"parent"},
+			Value: parent.String(),
+		})}
+	}
+	It(
+		"Should refuse a move under a parent the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			child := createRange(ctx)
+			parent := createRange(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), child.ResourceID())
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apiranger.DispatchRequest{
+					Key:     child.Key,
+					Actions: moveUnder(parent.Key),
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRange(ctx, child.Key).Parent).To(BeNil())
+		},
+	)
+	It(
+		"Should refuse a move out of a parent the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			oldParent := createRange(ctx)
+			newParent := createRange(ctx)
+			child := ranger.Range{
+				Name:      "Child",
+				TimeRange: telem.NewRangeSeconds(1, 5),
+				Parent:    &oldParent.Key,
+			}
+			Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+			grant(
+				ctx,
+				access.ActionUpdate,
+				u.ResourceID(),
+				child.ResourceID(),
+				newParent.ResourceID(),
+			)
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				apiranger.DispatchRequest{
+					Key:     child.Key,
+					Actions: moveUnder(newParent.Key),
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveRange(ctx, child.Key).Parent).
+				To(HaveValue(Equal(oldParent.Key)))
+		},
+	)
+	It("Should move a range when the subject can update both parents", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		oldParent := createRange(ctx)
+		newParent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "Child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &oldParent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			child.ResourceID(),
+			oldParent.ResourceID(),
+			newParent.ResourceID(),
+		)
+		MustSucceed(apiSvc.Dispatch(
+			AuthedCtx(ctx, u),
+			apiranger.DispatchRequest{
+				Key:     child.Key,
+				Actions: moveUnder(newParent.Key),
+			},
+		))
+		Expect(retrieveRange(ctx, child.Key).Parent).To(HaveValue(Equal(newParent.Key)))
+	})
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
