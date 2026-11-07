@@ -117,6 +117,7 @@ var _ = Describe("Graph", func() {
 		Expect(gorp.WrapWriter[string, v0.Relationship](db).Set(ctx, aToB, bToC)).
 			To(Succeed())
 		resources = func(ctx context.Context) []v0.Resource {
+			GinkgoHelper()
 			var out []v0.Resource
 			Expect(gorp.NewRetrieve[string, v0.Resource]().
 				Entries(&out).
@@ -124,6 +125,7 @@ var _ = Describe("Graph", func() {
 			return out
 		}
 		relationships = func(ctx context.Context) []v0.Relationship {
+			GinkgoHelper()
 			return MustSucceed(v0.RetrieveRelationships(ctx, db, allRelationsOf))
 		}
 	})
