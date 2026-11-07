@@ -102,7 +102,7 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
@@ -120,6 +120,11 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, u.Close())
+		}
+	}()
 	// For non-index channels, resolve the index DB. The index DB is always a
 	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
@@ -139,6 +144,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 			}
 		}
 		u.SetIndex(idxDB.Index())
+		if err = u.TruncateToIndex(ctx); err != nil {
+			return err
+		}
 	}
 	db.mu.dbs.unary[ch.Key] = *u
 	return nil

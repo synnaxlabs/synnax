@@ -64,7 +64,6 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
-  namePatterns?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -96,12 +95,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
-  /**
-   * namePatterns matches channels whose name matches any of the given patterns. A valid
-   * channel name matches exactly, and any other pattern is a regular expression,
-   * anchored when unanchored.
-   */
-  namePatterns: zod.nullToUndefined(z.string().array()),
 });
 
 export const nameZ = z.string().min(1, "Name is required");

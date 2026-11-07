@@ -461,6 +461,8 @@ var _ = Describe("Factory", func() {
 				}).WithTimeout(15 * time.Second).Should(Succeed())
 				Expect(deviceStatus(ctx, live).Variant).To(Equal(status.VariantSuccess))
 				Expect(deviceStatus(ctx, dead).Variant).To(Equal(status.VariantWarning))
+				Expect(deviceStatus(ctx, live).Details.Connected).To(BeTrue())
+				Expect(deviceStatus(ctx, dead).Details.Connected).To(BeFalse())
 			},
 		)
 	})
