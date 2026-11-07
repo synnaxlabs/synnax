@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -111,11 +112,11 @@ var _ = Describe("ProgramState", func() {
 				in3.MarkFresh(0)
 				target.RefreshInputs()
 				target1In1 := target.Input(0)
-				Expect(target1In1).To(telem.MatchSeriesDataV[int32](1))
+				Expect(target1In1).To(MatchSeriesDataV[int32](1))
 				target1In2 := target.Input(1)
-				Expect(target1In2).To(telem.MatchSeriesDataV[float32](2))
+				Expect(target1In2).To(MatchSeriesDataV[float32](2))
 				target1In3 := target.Input(2)
-				Expect(target1In3).To(telem.MatchSeriesDataV[uint8](3))
+				Expect(target1In3).To(MatchSeriesDataV[uint8](3))
 			},
 		)
 
@@ -159,8 +160,8 @@ var _ = Describe("ProgramState", func() {
 				first.MarkFresh(0)
 				Expect(first.RefreshInputs()).To(BeTrue())
 				Expect(second.RefreshInputs()).To(BeTrue())
-				Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
-				Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))
+				Expect(second.Input(0)).To(MatchSeries(*first.Output(0)))
+				Expect(second.InputTime(0)).To(MatchSeries(*first.OutputTime(0)))
 			},
 		)
 
@@ -221,24 +222,24 @@ var _ = Describe("ProgramState", func() {
 			emit(a, 1, 2, 3)
 			emit(b, 10)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](1, 2, 3))
+			Expect(target.Input(0)).To(MatchSeriesDataV[float32](1, 2, 3))
 			Expect(target.InputStale(0)).To(BeFalse())
 			Expect(target.InputStale(1)).To(BeFalse())
 
 			emit(b, 20)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](3))
-			Expect(target.InputTime(0)).To(telem.MatchSeriesData(
+			Expect(target.Input(0)).To(MatchSeriesDataV[float32](3))
+			Expect(target.InputTime(0)).To(MatchSeriesData(
 				telem.NewSeriesSecondsTSV(3),
 			))
-			Expect(target.Input(1)).To(telem.MatchSeriesDataV[float32](20))
+			Expect(target.Input(1)).To(MatchSeriesDataV[float32](20))
 			Expect(target.InputStale(0)).To(BeTrue())
 			Expect(target.InputStale(1)).To(BeFalse())
 
 			emit(a, 4, 5)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](4, 5))
-			Expect(target.Input(1)).To(telem.MatchSeriesDataV[float32](20))
+			Expect(target.Input(0)).To(MatchSeriesDataV[float32](4, 5))
+			Expect(target.Input(1)).To(MatchSeriesDataV[float32](20))
 			Expect(target.InputStale(0)).To(BeFalse())
 			Expect(target.InputStale(1)).To(BeTrue())
 			Expect(target.InputStale(-1)).To(BeFalse())
@@ -396,10 +397,10 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.RefreshInputs()).To(BeTrue())
 			Expect(
 				target.Input(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
+			).To(MatchSeries(telem.NewSeriesV[float32](1.0)))
 			Expect(
 				target.Input(1),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			).To(MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
 		It("Should select earliest timestamp as trigger", func(ctx SpecContext) {
@@ -461,7 +462,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.RefreshInputs()).To(BeTrue())
 			Expect(
 				target.InputTime(0),
-			).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100)))
+			).To(MatchSeries(telem.NewSeriesSecondsTSV(100)))
 		})
 
 		It(
@@ -516,7 +517,7 @@ var _ = Describe("ProgramState", func() {
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 				source.MarkFresh(0)
 				Expect(sink.RefreshInputs()).To(BeTrue())
-				Expect(sink.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+				Expect(sink.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](2)))
 			},
 		)
 
@@ -583,10 +584,10 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.RefreshInputs()).To(BeTrue())
 			Expect(
 				target.Input(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](3.0)))
+			).To(MatchSeries(telem.NewSeriesV[float32](3.0)))
 			Expect(
 				target.Input(1),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			).To(MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
 		It("Should prune old series after watermark update", func(ctx SpecContext) {
@@ -637,7 +638,7 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](30)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int64](30)))
 		})
 
 		Describe("Watermark Regression Tests", func() {
@@ -1081,10 +1082,10 @@ var _ = Describe("ProgramState", func() {
 				Expect(processor.RefreshInputs()).To(BeTrue())
 				Expect(
 					processor.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[float32](5.0)))
+				).To(MatchSeries(telem.NewSeriesV[float32](5.0)))
 				Expect(
 					processor.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+				).To(MatchSeries(telem.NewSeriesV[float32](2.0)))
 			},
 		)
 
@@ -1143,7 +1144,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(windowed.RefreshInputs()).To(BeTrue())
 				Expect(
 					windowed.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
+				).To(MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
 			},
 		)
 
@@ -1217,10 +1218,10 @@ var _ = Describe("ProgramState", func() {
 				Expect(processor.RefreshInputs()).To(BeTrue())
 				Expect(
 					processor.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[int32](100)))
+				).To(MatchSeries(telem.NewSeriesV[int32](100)))
 				Expect(
 					processor.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+				).To(MatchSeries(telem.NewSeriesV[int32](3)))
 			},
 		)
 
@@ -1281,9 +1282,9 @@ var _ = Describe("ProgramState", func() {
 				Expect(calculator.RefreshInputs()).To(BeTrue())
 				Expect(
 					calculator.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV(10.0)))
-				Expect(calculator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV(5.0)))
-				Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV(2.5)))
+				).To(MatchSeries(telem.NewSeriesV(10.0)))
+				Expect(calculator.Input(1)).To(MatchSeries(telem.NewSeriesV(5.0)))
+				Expect(calculator.Input(2)).To(MatchSeries(telem.NewSeriesV(2.5)))
 			},
 		)
 
@@ -1359,13 +1360,13 @@ var _ = Describe("ProgramState", func() {
 				Expect(combiner.RefreshInputs()).To(BeTrue())
 				Expect(
 					combiner.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[int64](100)))
+				).To(MatchSeries(telem.NewSeriesV[int64](100)))
 				Expect(
 					combiner.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[int64](20)))
+				).To(MatchSeries(telem.NewSeriesV[int64](20)))
 				Expect(
 					combiner.Input(2),
-				).To(telem.MatchSeries(telem.NewSeriesV[int64](300)))
+				).To(MatchSeries(telem.NewSeriesV[int64](300)))
 			},
 		)
 
@@ -1416,11 +1417,11 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.RefreshInputs()).To(BeTrue())
 			Expect(
 				processor.Input(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](42.5)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+			).To(MatchSeries(telem.NewSeriesV[float32](42.5)))
+			Expect(processor.Input(1)).To(MatchSeries(telem.NewSeriesV[uint8](1)))
 			Expect(
 				processor.Input(2),
-			).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
+			).To(MatchSeries(telem.NewSeriesV[int32](50)))
 		})
 
 		It(
@@ -1476,10 +1477,10 @@ var _ = Describe("ProgramState", func() {
 				Expect(processor.RefreshInputs()).To(BeTrue())
 				Expect(
 					processor.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](10)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](10)))
 				Expect(
 					processor.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](100)))
 				// Second execution with new data at t=10 - default should persist
 				*source.Output(0) = telem.NewSeriesV[uint32](20)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
@@ -1487,10 +1488,10 @@ var _ = Describe("ProgramState", func() {
 				Expect(processor.RefreshInputs()).To(BeTrue())
 				Expect(
 					processor.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](20)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](20)))
 				Expect(
 					processor.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](100)))
 				// Third execution with new data at t=15 - default should still persist
 				*source.Output(0) = telem.NewSeriesV[uint32](30)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
@@ -1498,10 +1499,10 @@ var _ = Describe("ProgramState", func() {
 				Expect(processor.RefreshInputs()).To(BeTrue())
 				Expect(
 					processor.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](30)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](30)))
 				Expect(
 					processor.Input(1),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](100)))
 				// No new data - should not trigger
 				Expect(processor.RefreshInputs()).To(BeFalse())
 			},
@@ -1558,8 +1559,8 @@ var _ = Describe("ProgramState", func() {
 				Expect(adder.RefreshInputs()).To(BeTrue())
 				Expect(
 					adder.Input(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
-				Expect(adder.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](0)))
+				).To(MatchSeries(telem.NewSeriesV[int32](50)))
+				Expect(adder.Input(1)).To(MatchSeries(telem.NewSeriesV[int32](0)))
 			},
 		)
 
@@ -1592,8 +1593,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(generator.RefreshInputs()).To(BeTrue())
 			Expect(
 				generator.Input(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
-			Expect(generator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int64](7)))
+			).To(MatchSeries(telem.NewSeriesV[int64](42)))
+			Expect(generator.Input(1)).To(MatchSeries(telem.NewSeriesV[int64](7)))
 		})
 	})
 
@@ -2269,10 +2270,10 @@ var _ = Describe("ProgramState", func() {
 				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 				src.MarkFresh(0)
 				Expect(dst.RefreshInputs()).To(BeTrue())
-				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+				Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](3)))
 				Expect(
 					dst.InputTime(0),
-				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10)))
+				).To(MatchSeries(telem.NewSeriesSecondsTSV(10)))
 			},
 		)
 	})
@@ -2294,7 +2295,7 @@ var _ = Describe("ProgramState", func() {
 				*reg.Output(0) = telem.NewSeriesV[uint32](7)
 				Expect(
 					reader.RefInput(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[uint32](7)))
+				).To(MatchSeries(telem.NewSeriesV[uint32](7)))
 			},
 		)
 
@@ -2343,7 +2344,7 @@ var _ = Describe("ProgramState", func() {
 				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 				src.MarkFresh(0)
 				Expect(dst.RefreshInputs()).To(BeTrue())
-				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+				Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](2)))
 			},
 		)
 
@@ -2386,14 +2387,14 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			src.MarkFresh(0)
 			Expect(MustBeOk(dst.ConsumeInput(0))).
-				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+				To(MatchSeries(telem.NewSeriesV[int32](1)))
 			_, ok := dst.ConsumeInput(0)
 			Expect(ok).To(BeFalse())
 			*src.Output(0) = telem.NewSeriesV[int32](2)
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 			src.MarkFresh(0)
 			Expect(MustBeOk(dst.ConsumeInput(0))).
-				To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+				To(MatchSeries(telem.NewSeriesV[int32](2)))
 		})
 
 		It(
@@ -2405,7 +2406,7 @@ var _ = Describe("ProgramState", func() {
 				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 				src.MarkFresh(0)
 				Expect(MustBeOk(dst.ConsumeInput(0))).
-					To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+					To(MatchSeries(telem.NewSeriesV[int32](1)))
 				Expect(dst.RefreshInputs()).To(BeFalse())
 			},
 		)
@@ -2447,9 +2448,9 @@ var _ = Describe("ProgramState", func() {
 				*b.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 				b.MarkFresh(0)
 				Expect(MustBeOk(target.LastChanged())).
-					To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+					To(MatchSeries(telem.NewSeriesV[int32](2)))
 				Expect(MustBeOk(target.LastChanged())).
-					To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+					To(MatchSeries(telem.NewSeriesV[int32](1)))
 				_, ok := target.LastChanged()
 				Expect(ok).To(BeFalse())
 			},
@@ -2469,7 +2470,7 @@ var _ = Describe("ProgramState", func() {
 			reg.MarkFresh(0)
 			// Only the defaulted data input is eligible; the reference never is.
 			Expect(MustBeOk(reader.LastChanged())).
-				To(telem.MatchSeries(telem.NewSeriesV[float32](0)))
+				To(MatchSeries(telem.NewSeriesV[float32](0)))
 			_, ok := reader.LastChanged()
 			Expect(ok).To(BeFalse())
 		})
@@ -2606,7 +2607,7 @@ var _ = Describe("ProgramState", func() {
 			*sink.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			sink.StampCycle(node.Context{Now: 1234 * telem.SecondTS}, 0)
 			Expect(*sink.OutputTime(0)).
-				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+				To(MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 		})
 	})
 
@@ -2630,7 +2631,7 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](1)))
 		})
 
 		It("Should wake the reader through the scheduler callback", func(
@@ -2662,12 +2663,12 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](1)))
 			*src.Output(0) = telem.NewSeriesV[int32](2)
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](2)))
 		})
 
 		It("Should not re-fire the reader without a second publish", func(
@@ -2690,7 +2691,7 @@ var _ = Describe("ProgramState", func() {
 			*src.Output(0) = telem.NewSeriesV[int32](5)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](5)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](5)))
 		})
 
 		It("Should reach a reader when the new batch stamps earlier", func(
@@ -2706,7 +2707,7 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			src.MarkFresh(0)
 			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+			Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](2)))
 		})
 	})
 
@@ -2722,7 +2723,7 @@ var _ = Describe("ProgramState", func() {
 					telem.NewSeriesSecondsTSV(5),
 				)
 				Expect(dst.RefreshInputs()).To(BeTrue())
-				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](7)))
+				Expect(dst.Input(0)).To(MatchSeries(telem.NewSeriesV[int32](7)))
 			},
 		)
 
