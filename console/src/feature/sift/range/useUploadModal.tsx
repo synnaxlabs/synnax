@@ -28,6 +28,7 @@ import { Channel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Asset } from "@/feature/sift/asset";
 import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import {
   SCAN_SCHEMAS,
@@ -66,8 +67,6 @@ const CHANNEL_QUERY: Channel.ListQuery = {
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
 };
-
-const ASSET_INPUT_PROPS = { placeholder: "Test stand 1" } as const;
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
@@ -137,11 +136,7 @@ const Upload = ({
             Upload {rangeName} to Sift
           </Text.Text>
           <SelectDevice />
-          <Form.TextField
-            path={path.config.asset}
-            label="Asset"
-            inputProps={ASSET_INPUT_PROPS}
-          />
+          <Asset.Field path={path.config.asset} devicePath={path.config.device} />
           <Form.Field path={path.config.channels} label="Channels">
             {({ value, onChange }) => (
               <Channel.SelectMultiple
