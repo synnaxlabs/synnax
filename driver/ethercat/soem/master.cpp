@@ -251,11 +251,15 @@ x::errors::Error Master::activate(
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
     this->activated = true;
+    // A slave can stop its process data task for good when the master reads its inputs
+    // while it moves to SAFE-OP.
+    this->process_data_held.store(true, std::memory_order_release);
     start_cycle();
     if (auto err = this->start_dc()) return err;
 
     const int timeout = micros(this->cfg.state_change_timeout);
     if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
+    this->process_data_held.store(false, std::memory_order_release);
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
@@ -297,6 +301,11 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
+    if (this->last_send_held)
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "no process data passes the slaves until they reach SAFE-OP"
+        );
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
@@ -317,6 +326,17 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
+    this->last_send_held = this->process_data_held.load(std::memory_order_acquire);
+    if (this->last_send_held) {
+        if (!this->has_dc) return x::errors::NIL;
+        if (this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0)
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "reference clock frame failed"
+            );
+        this->frames.fetch_add(1, std::memory_order_release);
+        return x::errors::NIL;
+    }
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
