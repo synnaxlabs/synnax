@@ -1026,6 +1026,32 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenTheDCModeCannotRunAtThePeriod) {
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
 
+/// @brief it should fail activation before it writes a DC register when the SYNC0
+/// events of the slaves do not line up with the bus cycle, and name each slave with its
+/// SYNC0 cycle.
+TEST_F(SOEMMasterTest, ActivateFailsWhenSYNC0EventsDoNotLineUpWithTheBusCycle) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.hasdc = true;
+    slave.name = "16xAO";
+    this->add_slave(slave);
+    slave.name = "16xLV";
+    this->add_slave(slave);
+    this->set_op_modes(
+        {{.name = "DC", .assign_activate = 0x0300, .sync0_cycle = 150'000}}
+    );
+    ASSERT_NIL(this->master->initialize());
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "SYNC0 events do not line up with the bus cycle of 1ms: slave 1 (16xAO) every "
+        "150us, slave 2 (16xLV) every 150us. Change the bus rate or the SYNC0 cycles "
+        "so that a span of 100us or more divides the bus cycle and each SYNC0 cycle."
+    );
+    EXPECT_TRUE(this->mock->register_writes.empty());
+}
+
 /// @brief it should write only 0x0980 on a slave whose mode gives the sync unit to the
 /// PDI.
 TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
@@ -1044,6 +1070,15 @@ TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
             .mapped = true
         })
     );
+}
+
+/// @brief it should leave a sync unit that the PDI owns out of the SYNC0 line-up check,
+/// since the master does not start its SYNC0 events.
+TEST_F(SOEMMasterTest, ActivateIgnoresTheSYNC0CycleOfASyncUnitThePDIOwns) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_cycle = 150'000}}
+    );
+    ASSERT_NIL(this->activate());
 }
 
 /// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
@@ -1132,6 +1167,44 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
         {.slave = 2, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should report the DC registers of each slave whose SYNC0 events it starts,
+/// until it stops the bus.
+TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    this->set_op_modes({DC_SECOND});
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->outputs_wkc = 2;
+    this->mock->inputs_wkc = 2;
+    this->mock->receive_return = 6;
+    ASSERT_NIL(this->activate());
+    const auto regs = dc::resolve(DC_SECOND, PERIOD).first;
+    EXPECT_EQ(this->master->dc_sync(), (std::vector{regs, regs}));
+    this->master->deactivate();
+    EXPECT_TRUE(this->master->dc_sync().empty());
+}
+
+/// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
+TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
+    );
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->master->dc_sync().empty());
+}
+
+/// @brief it should report no DC sync when the slave runs in an SM mode.
+TEST_F(SOEMMasterTest, DCSyncIsEmptyInSMMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->master->dc_sync().empty());
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.

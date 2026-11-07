@@ -23,6 +23,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/rt/rt.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::engine {
@@ -44,6 +45,8 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief the clocks the bus cycle waits on and stamps frames with.
+    HostClock host_clock;
 
     Config() = default;
 };

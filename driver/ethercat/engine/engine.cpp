@@ -220,7 +220,7 @@ void Engine::run() {
     };
 
     const auto send = [&] {
-        sent_at = x::telem::TimeStamp::now();
+        sent_at = this->config.host_clock.now();
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
                 LOG(WARNING) << "[ethercat] send failed on " << iface << ": "
@@ -247,8 +247,19 @@ void Engine::run() {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
-                timer = x::loop::Timer(sched->rate.period());
-                phase.emplace(sched->rate.period(), master::DC_EPOCH);
+                timer = this->config.host_clock.timer(sched->rate.period());
+                std::vector<PhaseLock::Sync0> syncs;
+                for (const auto &regs: this->master->dc_sync())
+                    if (regs.marks_data())
+                        syncs.push_back({
+                            .cycle = x::telem::TimeSpan(regs.sync0_cycle),
+                            .event = master::DC_EPOCH +
+                                     x::telem::TimeSpan(regs.sync0_shift),
+                        });
+                if (syncs.empty())
+                    phase.reset();
+                else
+                    phase.emplace(sched->rate, syncs);
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -277,8 +288,8 @@ void Engine::run() {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
                 LOG(WARNING) << "[ethercat] cycles on " << iface
-                             << " run late: a frame passed the reference clock within "
-                                "a quarter period of SYNC0";
+                             << " run late: a frame passed the reference clock near "
+                                "a SYNC0 event";
         }
         if (!err) {
             if (dc) latched_at = clock.map(*dc, sent_at);
@@ -317,7 +328,7 @@ void Engine::run() {
                      << err.message();
     if (late_frames > 0)
         LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << iface
-                     << " passed the reference clock within a quarter period of SYNC0";
+                     << " passed the reference clock near a SYNC0 event";
     LOG(INFO) << "[ethercat] bus stopped on " << iface;
 }
 
