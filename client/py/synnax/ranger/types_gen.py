@@ -11,15 +11,17 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
+from typing import override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
 from synnax.ontology.payload import ID
 from x import color as color_
-from x import telem
+from x import filter, telem
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -48,11 +50,113 @@ class Payload(BaseModel):
     labels: list[label.Label] | None = None
     parent: Payload | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
+class Where(BaseModel):
+    """Is a filter that selects ranges.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        overlaps: Matches ranges whose time range overlaps the given range.
+        labels: Matches ranges that have any of the given labels.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    overlaps: telem.TimeRange | None = None
+    labels: list[label.Key] | None = None
+
+    @field_validator("labels", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "overlaps": telem.TimeRange,
+        "labels": label.Key | list[label.Key],
+    },
+    total=False,
+)
+
+
+class KeyRef(BaseModel):
+    """Is a range saved in the Core."""
+
+    variant: Literal["key"] = "key"
+    key: Key
+
+
+class WindowRef(BaseModel):
+    """Is a window carried inline: rolling or fixed."""
+
+    variant: Literal["window"] = "window"
+    window: telem.Window
+
+
+# Is the range a visualization shows: a range saved in the Core, or an inline
+# window.
+Ref = Annotated[
+    KeyRef | WindowRef,
+    Field(discriminator="variant"),
+]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the ranges a RetrieveRequest selects.
+
+    Attributes:
+        ranges: Are the ranges the request selects.
+    """
+
+    ranges: list[Payload] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve ranges.
+
+    Attributes:
+        where: Selects the ranges to retrieve. An absent where selects all of them.
+        search_term: Keeps the ranges that match the term, closest match first.
+        limit: Is the most ranges to return.
+        offset: Is the number of matching ranges to skip.
+        include_labels: Includes the labels of each record.
+        include_parent: Includes the parent of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_labels: bool = False
+    include_parent: bool = False
+
+
 Payload.model_rebuild()
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="range")

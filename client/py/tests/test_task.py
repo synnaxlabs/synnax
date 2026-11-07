@@ -8,15 +8,23 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from collections.abc import Callable
-from typing import Any, assert_type, cast
+from typing import Any, assert_type
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel, Field
 
 import synnax as sy
+from synnax import task
+from x import filter
 from x.testutil import assert_eventually
+
+
+def _device(rack: int) -> sy.Device:
+    key = str(uuid4())
+    return sy.Device(
+        key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
+    )
 
 
 @pytest.mark.task
@@ -108,7 +116,7 @@ class TestTaskClient:
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when a key, name, or type is given."""
+        """Should return one task when a key or name is given."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         by_key = client.tasks.retrieve(key=task.key, include_status=True)
@@ -117,9 +125,19 @@ class TestTaskClient:
         by_name = client.tasks.retrieve(name=name, include_status=True)
         assert_type(by_name, sy.Task)
         assert by_name.key == task.key
-        by_type = client.tasks.retrieve(type="pagerduty_alert", include_status=True)
-        assert_type(by_type, sy.Task)
-        assert by_type.type == "pagerduty_alert"
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one task has the name or type."""
+        name = str(uuid4())
+        for _ in range(2):
+            client.tasks.create(name=name, type="pagerduty_alert")
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=rf"Expected one task where .*{name}.*, but found 2",
+        ):
+            client.tasks.retrieve(name=name)
+        with pytest.raises(sy.MultipleFoundError):
+            client.tasks.retrieve(type="pagerduty_alert", one=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every task when no filter is given."""
@@ -128,13 +146,39 @@ class TestTaskClient:
         assert_type(res, list[sy.Task])
         assert task.key in {t.key for t in res}
 
-    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when singular selectors are mixed with others."""
-        retrieve = cast(Callable[..., object], client.tasks.retrieve)
-        with pytest.raises(ValueError, match="cannot be combined"):
-            retrieve(name="test", rack=1)
-        with pytest.raises(ValueError, match="only one of"):
-            retrieve(name="test", type="pagerduty_alert")
+    def test_retrieve_type(self, client: sy.Synnax) -> None:
+        """Should return a list for a plain type, and one task with one set."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key)
+        assert_type(res, list[sy.Task])
+        assert [t.key for t in res] == [task.key]
+        found = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key, one=True)
+        assert_type(found, sy.Task)
+        assert found.key == task.key
+
+    def test_retrieve_plain_name_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one task for a plain name beside other fields."""
+        rack = client.racks.create(name=str(uuid4()))
+        name = str(uuid4())
+        task = client.tasks.create(name=name, type="pagerduty_alert", rack=rack.key)
+        assert client.tasks.retrieve(name=name, rack=rack.key).key == task.key
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(name=name, type="other")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should keep the tasks that match any filter in or_."""
+        rack = client.racks.create(name=str(uuid4()))
+        a = client.tasks.create(name="a", type="pagerduty_alert", rack=rack.key)
+        b = client.tasks.create(name="b", type="pagerduty_alert", rack=rack.key)
+        client.tasks.create(name="c", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(rack=rack.key, or_=[{"name": "a"}, {"key": b.key}])
+        assert {t.key for t in res} == {a.key, b.key}
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every task."""
+        with pytest.raises(sy.ValidationError, match="rack is None"):
+            client.tasks.retrieve(rack=None)  # type: ignore[call-overload]
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""
@@ -144,6 +188,33 @@ class TestTaskClient:
         assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
         res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
         assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match a filter tree and the other filters."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(3)
+        ]
+        where = task.Where(
+            or_=[
+                task.Where(name=filter.String(eq="t0")),
+                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+            ]
+        )
+        res = client.tasks.retrieve(where=where, rack=rack.key)
+        assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve."""
+        t = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(keys=[t.key, uuid4()])
+        assert [x.key for x in res] == [t.key]
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when a single task is requested and none matches."""
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(uuid4())
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the tasks on a rack."""
@@ -315,6 +386,47 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.config["routing_key"] == "rk-2"
+
+    def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
+        """Should configure a task with no rack onto the rack of its device."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
+        client.tasks.configure(tsk)
+        assert tsk.rack == rack.key
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_puts_task_without_device_on_embedded_rack(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task whose config names no device onto the embedded
+        rack."""
+        tsk = sy.Task(
+            name="test", type="pagerduty_alert", config={"routing_key": "rk-e"}
+        )
+        client.tasks.configure(tsk)
+        assert tsk.rack == client.racks.retrieve_embedded_rack().key
+
+    def test_configure_keeps_set_rack(self, client: sy.Synnax) -> None:
+        """Should keep a rack set on the task over the rack of its device."""
+        dev = client.devices.create(_device(client.racks.create(name="a").key))
+        rack = client.racks.create(name=str(uuid4()))
+        tsk = sy.Task(
+            name="test",
+            type="modbus_read",
+            rack=rack.key,
+            config={"device": dev.key},
+        )
+        client.tasks.configure(tsk)
+        assert tsk.rack == rack.key
+
+    def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
+        """Should raise when the config names a device that does not exist."""
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": "missing"})
+        with pytest.raises(
+            sy.NotFoundError, match='Found no device where key = "missing"'
+        ):
+            client.tasks.configure(tsk)
 
     def test_list_tasks(self, client: sy.Synnax) -> None:
         """Should list all tasks on the default rack."""

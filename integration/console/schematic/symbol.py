@@ -10,12 +10,39 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TypedDict
 
 from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from x.control import Authority
+from x.notation import Notation
+
+
+class Properties(TypedDict, total=False):
+    """The values a schematic or one of its symbols shows in its Console forms. Forms
+    show channels by name, not by key."""
+
+    channel: str
+    state_channel: str
+    command_channel: str
+    activation_delay: float
+    show_control_chip: bool
+    mode: sy.schematic.ButtonMode
+    notation: Notation
+    precision: int
+    averaging_window: int
+    stale_color: str
+    stale_timeout: int
+    control_authority: Authority
+    show_control_legend: bool
+
+
+def option_text(value: float) -> str:
+    """Return the text of an option value, with no digits lost and no trailing ".0"."""
+    return repr(value).removesuffix(".0")
+
 
 """ Symbol Box helpers """
 
@@ -154,24 +181,6 @@ class Symbol(ABC):
         self.layout.fill_input_field("Label", label)
         self.label = label
 
-    @abstractmethod
-    def set_properties(
-        self,
-        *,
-        channel_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """
-        Set symbol properties. Must be implemented by all child classes.
-
-        Args:
-            channel_name: Optional channel name to set
-            **kwargs: Additional properties specific to each symbol type
-
-        Returns:
-            Dictionary of applied properties
-        """
-
     def channel_trigger(self, section: str) -> Locator:
         """The channel select in the form section with the given title."""
         return self.layout.form_section(section).locator(".pluto-channel__trigger")
@@ -254,7 +263,7 @@ class Symbol(ABC):
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, *, tab: str = "Symbols") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Symbols") -> Properties:
         """
         Get the current properties of the symbol.
 

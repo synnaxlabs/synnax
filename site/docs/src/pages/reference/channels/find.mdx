@@ -92,22 +92,24 @@ Store keys in programs that run for a long time.
 
 ### By pattern
 
-A name that is not a valid [channel name](/reference/channels#names) is a regular
-expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The pattern
-must match the full name, unless it starts with `^` or ends with `$`. For example,
-`tank_.*` matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`.
+A `name` filter with a `regex` matches names with a regular expression, in
+[Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The expression can match any
+part of the name, so start it with `^` to match from the start. For example, `^tank_`
+matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`. A plain name, as in
+the section above, always matches exactly.
 
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-# Returns list[sy.Channel]
-tank_channels = client.channels.retrieve(["tank_.*"])
-```
+import synnax as sy
 
-Put the pattern in a list. With a pattern that is not in a list, `retrieve` raises
-`sy.MultipleFoundError` when more than one channel matches.
+# Returns list[sy.Channel]
+tank_channels = client.channels.retrieve(
+    where=sy.channel.Where(name=sy.filter.String(regex="^tank_"))
+)
+```
 
   </Fragment>
 
@@ -115,11 +117,10 @@ Put the pattern in a list. With a pattern that is not in a list, `retrieve` rais
 
 ```typescript
 // Returns Channel[]
-const tankChannels = await client.channels.retrieve(["tank_.*"]);
+const tankChannels = await client.channels.retrieve({
+  where: { name: { regex: "^tank_" } },
+});
 ```
-
-Put the pattern in an array. With a pattern that is not in an array, `retrieve` throws a
-`MultipleFoundError` when more than one channel matches.
 
   </Fragment>
 
@@ -162,23 +163,20 @@ const matches = await client.channels.retrieve({
 
 // All float32 data channels
 const floats = await client.channels.retrieve({
-  dataTypes: [DataType.FLOAT32],
-  isIndex: false,
+  where: { dataType: { eq: DataType.FLOAT32 }, isIndex: { eq: false } },
 });
 ```
 
-| Filter         | Returns channels that                                             |
-| -------------- | ----------------------------------------------------------------- |
-| `searchTerm`   | Have a name that is similar to the term.                          |
-| `dataTypes`    | Have one of these data types.                                     |
-| `notDataTypes` | Do not have any of these data types.                              |
-| `isIndex`      | Are index channels (`true`) or are not (`false`).                 |
-| `virtual`      | Are virtual channels. Calculated channels are not in the results. |
-| `internal`     | Are channels that Synnax uses for itself (`true`) or are not.     |
-| `limit`        | Are in the first `limit` results.                                 |
-| `offset`       | Come after the first `offset` results.                            |
+| Filter       | Returns channels that                    |
+| ------------ | ---------------------------------------- |
+| `searchTerm` | Have a name that is similar to the term. |
+| `where`      | Match the filter.                        |
+| `limit`      | Are in the first `limit` results.        |
+| `offset`     | Come after the first `offset` results.   |
 
-Synnax returns only the channels that match all of the filters.
+A `where` filter matches the properties of a channel: `key`, `name`, `dataType`,
+`isIndex`, `virtual`, `internal`, and `leaseholder`. Use `and`, `or`, and `not` to
+combine filters. Synnax returns only the channels that match all of the filters.
 
   </Fragment>
 

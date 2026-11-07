@@ -23,8 +23,6 @@ const fromSource = process.env.VITEST == null;
 const desktop = process.env.VITE_DESKTOP === "true";
 // Builds a Desktop release in CI.
 const release = process.env.VITE_RELEASE === "true";
-// Turns on every flag in src/flags.ts, so dark code runs in Desktop and in specs.
-const flagsOn = isDev || desktop || process.env.VITEST != null;
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 
@@ -141,7 +139,6 @@ export default defineConfig({
     IS_DEV: isDev,
     DESKTOP: desktop,
     RELEASE: release,
-    FLAGS_ON: flagsOn,
     CORE_PORT: Number(process.env.SYNNAX_PORT ?? 9090),
   },
   worker: {
@@ -155,6 +152,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
+    // Specs cover the work that flags hide, as the integration build does.
+    env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
     projects: [
       {

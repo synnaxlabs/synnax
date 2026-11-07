@@ -33,7 +33,7 @@ inline Header Header::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Header::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["name"] = this->name;
     j["value"] = this->value;
     return j;
@@ -47,7 +47,7 @@ inline QueryParam QueryParam::parse(x::json::Parser parser) {
 }
 
 inline x::json::json QueryParam::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["parameter"] = this->parameter;
     j["value"] = this->value;
     return j;
@@ -61,7 +61,7 @@ inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
 }
 
 inline x::json::json EnumEntry::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["label"] = this->label;
     j["value"] = this->value;
     return j;
@@ -72,6 +72,8 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
+        .optional = parser.field<bool>("optional", false),
+        .fill_value = parser.field<std::optional<x::json::json>>("fill_value"),
         .channel = parser.field<::synnax::channel::Key>(
             "channel",
             ::synnax::channel::Key(0)
@@ -90,10 +92,12 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
+    j["optional"] = this->optional;
+    if (this->fill_value.has_value()) j["fill_value"] = *this->fill_value;
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;
@@ -122,7 +126,7 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadEndpoint::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["method"] = this->method;
     j["path"] = this->path;
@@ -150,9 +154,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::PersistConfig::to_json();
+        parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["rate"] = this->rate;
     j["endpoints"] = x::json::to_array(this->endpoints);
@@ -182,7 +187,7 @@ inline ChannelField ChannelField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ChannelField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["pointer"] = this->pointer;
     j["json_type"] = this->json_type;
     j["channel"] = this->channel;
@@ -201,7 +206,7 @@ inline BaseWriteField BaseWriteField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseWriteField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["pointer"] = this->pointer;
     return j;
@@ -218,7 +223,7 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
             "query_params",
             std::vector<QueryParam>{}
         ),
-        .channel = parser.field<ChannelField>("channel"),
+        .channel = parser.field<ChannelField>("channel", ChannelField{}),
         .fields = [&] {
             std::vector<WriteField> result;
             if (parser.has("fields"))
@@ -231,7 +236,7 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteEndpoint::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["disabled"] = this->disabled;
     j["method"] = this->method;
@@ -262,9 +267,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::StartConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::StartConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
     return j;
@@ -279,9 +284,9 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -295,9 +300,9 @@ inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StaticWriteField::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
     j["json_type"] = this->json_type;
     j["value"] = this->value;
     j["type"] = this->type;
@@ -314,9 +319,9 @@ inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json GeneratedWriteField::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
     j["generator"] = this->generator;
     if (this->time_format.has_value()) j["time_format"] = *this->time_format;
     j["type"] = this->type;

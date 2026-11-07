@@ -29,22 +29,6 @@ const (
 	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
 )
 
-// minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
-// precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/synnax/log.oracle.
-const (
-	minTimestampPrecision int32 = 0
-	maxTimestampPrecision int32 = 3
-)
-
-// minChannelPrecision and maxChannelPrecision bound a channel entry's display
-// precision. They mirror the @validate constraints on ChannelEntry.precision in
-// schemas/synnax/log.oracle.
-const (
-	minChannelPrecision int32 = 0
-	maxChannelPrecision int32 = 17
-)
-
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // log.
 func (CreatePayload) Handle(Log) (Log, error) {
@@ -110,20 +94,8 @@ func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle sets the display precision of the entry referencing the channel, or clears it
-// when the payload carries none. It returns validate.ErrValidation when the precision
-// is outside the inclusive range [0, 17], and is a no-op when no entry references the
-// channel.
+// when the payload carries none. No-op when no entry references the channel.
 func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.Precision != nil &&
-		(*p.Precision < minChannelPrecision || *p.Precision > maxChannelPrecision) {
-		return Log{}, errors.Wrapf(
-			validate.ErrValidation,
-			"channel precision %d out of range [%d, %d]",
-			*p.Precision,
-			minChannelPrecision,
-			maxChannelPrecision,
-		)
-	}
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
 		state.Channels[i].Precision = p.Precision
 	}
@@ -164,27 +136,20 @@ func (p SetChannelsPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle repoints the entry referencing From at To in place, preserving the entry's
-// position and display configuration. No-op when no entry references From.
+// position and display configuration. No-op when no entry references From or an entry
+// already references To.
 func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if channelEntryIndex(state.Channels, p.To) != -1 {
+		return state, nil
+	}
 	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
 		state.Channels[i].Channel = p.To
 	}
 	return state, nil
 }
 
-// Handle sets the log-level timestamp precision. It returns validate.ErrValidation
-// when the precision is outside the inclusive range [0, 3].
+// Handle sets the log-level timestamp precision.
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.TimestampPrecision < minTimestampPrecision ||
-		p.TimestampPrecision > maxTimestampPrecision {
-		return Log{}, errors.Wrapf(
-			validate.ErrValidation,
-			"timestamp precision %d out of range [%d, %d]",
-			p.TimestampPrecision,
-			minTimestampPrecision,
-			maxTimestampPrecision,
-		)
-	}
 	state.TimestampPrecision = p.TimestampPrecision
 	return state, nil
 }
@@ -196,8 +161,14 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle controls whether the receipt timestamp column is hidden.
-func (p SetReceiptTimestampHiddenPayload) Handle(state Log) (Log, error) {
-	state.ReceiptTimestampHidden = p.ReceiptTimestampHidden
+func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
+	state.TimestampsHidden = p.TimestampsHidden
+	return state, nil
+}
+
+// Handle sets the time zone of the line times and day rows.
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 

@@ -15,6 +15,7 @@ cc_library(
     hdrs = ["slave.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/dc",
         "//driver/ethercat/pdo",
         "//driver/ethercat/telem",
         "//x/cpp/json",

@@ -11,6 +11,7 @@ import asyncio
 import threading
 import time
 from collections.abc import Iterator
+from typing import override
 from uuid import uuid4
 
 import pytest
@@ -29,7 +30,7 @@ from freighter.websocket import (
     WebsocketClient,
 )
 from freighter.websocket import Message as WebsocketMessage
-from x.codec import Codec, JSONCodec, MessagePackCodec
+from x.codec import Codec, JSONCodec
 
 from .interface import Error, Message, create_registry
 
@@ -39,14 +40,17 @@ class MyVerySpecialCustomCodec(Codec):
 
     base = JSONCodec()
 
+    @override
     def content_type(self) -> str:
         return "application/json"
 
+    @override
     def encode(self, data: BaseModel) -> bytes:
         if isinstance(data, WebsocketMessage):
             data.payload = Message(id=4200, message="the key to the universe")
         return self.base.encode(data)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return self.base.decode(data, pld_t)
 
@@ -55,7 +59,7 @@ class MyVerySpecialCustomCodec(Codec):
 def async_client(endpoint: URL) -> AsyncWebsocketClient:
     ws_endpoint = endpoint.child("stream")
     return AsyncWebsocketClient(
-        encoder=MessagePackCodec(), registry=create_registry(), base_url=ws_endpoint
+        encoder=JSONCodec(), registry=create_registry(), base_url=ws_endpoint
     )
 
 
@@ -63,7 +67,7 @@ def async_client(endpoint: URL) -> AsyncWebsocketClient:
 def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
     return WebsocketClient(
-        encoder=MessagePackCodec(), registry=create_registry(), base_url=ws_endpoint
+        encoder=JSONCodec(), registry=create_registry(), base_url=ws_endpoint
     )
 
 

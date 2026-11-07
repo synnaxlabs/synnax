@@ -11,11 +11,11 @@ import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
-import { record } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
-import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
@@ -60,12 +60,12 @@ import {
 } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
 
-interface FormProps {
-  prefix: string;
+type Variant<K extends AIChannelType> = Extract<AIChannel, { type: K }>;
+interface FormProps<K extends AIChannelType = AIChannelType> {
+  path: deep.Path<Variant<K>>;
 }
 
 const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
-  fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
     resourceName: "terminal configuration",
@@ -89,13 +89,17 @@ const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) 
     );
   });
 
-const TerminalConfigField = ({ path }: { path: string }) => {
+const TerminalConfigField = ({
+  path,
+}: {
+  path: deep.Path<{ terminalConfig: TerminalConfig; device: string; port: number }>;
+}) => {
   const port = useAnalogInputPort(path);
-  const current = Form.useFieldValue<TerminalConfig>(`${path}.terminalConfig`);
-  if (port == null) return <SelectTerminalConfigField path={path} />;
+  const current = Form.useFieldValue(path.terminalConfig);
+  if (port == null) return <SelectTerminalConfigField path={path.terminalConfig} />;
   return (
     <SelectTerminalConfigField
-      path={path}
+      path={path.terminalConfig}
       inputProps={{ children: terminalConfigItems(port, current) }}
     />
   );
@@ -108,7 +112,6 @@ const ACCEL_UNITS_NAMES = {
 } as const satisfies Record<AccelUnits, string>;
 
 const AccelUnitsField = Form.buildSelectField<AccelUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Acceleration units" },
   inputProps: {
     resourceName: "acceleration units",
@@ -123,7 +126,6 @@ const ACCEL_SENSITIVITY_UNITS_NAMES = {
 } as const satisfies Record<AccelSensitivityUnits, string>;
 
 const AccelSensitivityUnitsField = Form.buildSelectField<AccelSensitivityUnits>({
-  fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
@@ -140,7 +142,6 @@ const ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES = {
 
 const AccelChargeSensitivityUnitsField =
   Form.buildSelectField<AccelChargeSensitivityUnits>({
-    fieldKey: "sensitivityUnits",
     fieldProps: { label: "Sensitivity units" },
     inputProps: {
       resourceName: "sensitivity units",
@@ -156,7 +157,6 @@ const EXCIT_SOURCE_NAMES = {
 } as const satisfies Record<ExcitationSource, string>;
 
 const ExcitSourceField = Form.buildSelectField<ExcitationSource>({
-  fieldKey: "excitSource",
   fieldProps: { label: "Excitation source" },
   inputProps: {
     resourceName: "excitation source",
@@ -172,7 +172,6 @@ const BRIDGE_CONFIG_NAMES = {
 } as const satisfies Record<BridgeConfig, string>;
 
 const BridgeConfigField = Form.buildSelectField<BridgeConfig>({
-  fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge configuration" },
   inputProps: {
     resourceName: "bridge configuration",
@@ -188,7 +187,6 @@ const SHUNT_RESISTOR_LOC_NAMES = {
 } as const satisfies Record<ShuntResistorLoc, string>;
 
 const ShuntResistorLocField = Form.buildSelectField<ShuntResistorLoc>({
-  fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt resistor location" },
   inputProps: {
     resourceName: "shunt resistor location",
@@ -204,7 +202,6 @@ const RESISTANCE_CONFIG_NAMES = {
 } as const satisfies Record<ResistanceConfig, string>;
 
 const ResistanceConfigField = Form.buildSelectField<ResistanceConfig>({
-  fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance configuration" },
   inputProps: {
     resourceName: "resistance configuration",
@@ -224,7 +221,6 @@ const STRAIN_CONFIG_NAMES = {
 } as const satisfies Record<StrainConfig, string>;
 
 const StrainConfigField = Form.buildSelectField<StrainConfig>({
-  fieldKey: "strainConfig",
   fieldProps: { label: "Strain configuration" },
   inputProps: {
     resourceName: "strain configuration",
@@ -234,7 +230,6 @@ const StrainConfigField = Form.buildSelectField<StrainConfig>({
 });
 
 const SensitivityField = Form.buildNumericField({
-  fieldKey: "sensitivity",
   fieldProps: { label: "Sensitivity" },
   inputProps: {},
 });
@@ -248,7 +243,6 @@ const FORCE_UNITS_NAMES = {
 const IEPE_FORCE_UNITS_NAMES = record.omit(FORCE_UNITS_NAMES, "KilogramForce");
 
 const ForceUnitsField = Form.buildSelectField<ForceUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Force units" },
   inputProps: {
     resourceName: "force units",
@@ -262,7 +256,6 @@ const ELECTRICAL_UNITS_NAMES = {
 } as const satisfies Record<ElectricalUnits, string>;
 
 const ElectricalUnitsField = Form.buildSelectField<ElectricalUnits>({
-  fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical units" },
   inputProps: {
     resourceName: "electrical units",
@@ -277,7 +270,6 @@ const CHARGE_UNITS_NAMES = {
 } as const satisfies Record<ChargeUnits, string>;
 
 const ChargeUnitsField = Form.buildSelectField<ChargeUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Charge units" },
   inputProps: {
     resourceName: "charge units",
@@ -292,7 +284,6 @@ const PRESSURE_UNITS_NAMES = {
 } as const satisfies Record<PressureUnits, string>;
 
 const PressureUnitsField = Form.buildSelectField<PressureUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Pressure units" },
   inputProps: {
     resourceName: "pressure units",
@@ -316,7 +307,6 @@ const TEMPERATURE_UNIT_SYMBOLS = {
 } as const satisfies Record<TemperatureUnits, string>;
 
 const TemperatureUnitsField = Form.buildSelectField<TemperatureUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
@@ -337,7 +327,6 @@ const THERMOCOUPLE_TYPE_NAMES = {
 } as const satisfies Record<ThermocoupleType, string>;
 
 const ThermocoupleTypeField = Form.buildSelectField<ThermocoupleType>({
-  fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
@@ -354,7 +343,6 @@ const TORQUE_UNITS_NAMES = {
 } as const satisfies Record<TorqueUnits, string>;
 
 const TorqueUnitsField = Form.buildSelectField<TorqueUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Torque units" },
   inputProps: {
     resourceName: "torque units",
@@ -368,7 +356,6 @@ const FORCE_SENSITIVITY_UNITS_NAMES = {
 } as const satisfies Record<ForceSensitivityUnits, string>;
 
 const ForceSensitivityUnitsField = Form.buildSelectField<ForceSensitivityUnits>({
-  fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
@@ -387,7 +374,6 @@ const R_T_D_TYPE_NAMES = {
 } as const satisfies Record<RTDType, string>;
 
 const RTDTypeField = Form.buildSelectField<RTDType>({
-  fieldKey: "rtdType",
   fieldProps: { label: "RTD type" },
   inputProps: {
     resourceName: "RTD type",
@@ -401,15 +387,8 @@ const ZERO_CJCS: Record<CJCType, CJC> = {
   chan: { source: "chan", port: 0 },
 };
 
-const CJCSourceField = Form.buildSelectField<CJCType>({
-  fieldKey: "cjc.source",
-  fieldProps: {
-    label: "CJC source",
-    onChange: (value, { get, set, path }) => {
-      if (get<CJCType>(path).value === value) return;
-      set(path.slice(0, path.lastIndexOf(".")), ZERO_CJCS[value]);
-    },
-  },
+const SelectCJCSource = Form.buildSelectField<CJCType>({
+  fieldProps: { label: "CJC source" },
   inputProps: {
     resourceName: "CJC source",
     children: (
@@ -431,13 +410,22 @@ const CJCSourceField = Form.buildSelectField<CJCType>({
   },
 });
 
+const CJCSourceField = ({ path }: { path: deep.Path<CJC> }) => (
+  <SelectCJCSource
+    path={path.source}
+    onChange={(value, { get, set }) => {
+      if (get(path.source).value === value) return;
+      set(path, ZERO_CJCS[value]);
+    }}
+  />
+);
+
 const VELOCITY_UNITS_NAMES = {
   MetersPerSecond: "m/s",
   InchesPerSecond: "in/s",
 } as const satisfies Record<VelocityUnits, string>;
 
 const VelocityUnitsField = Form.buildSelectField<VelocityUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Velocity units" },
   inputProps: {
     resourceName: "velocity units",
@@ -452,7 +440,6 @@ const VELOCITY_SENSITIVITY_UNITS_NAMES = {
 } as const satisfies Record<VelocitySensitivityUnits, string>;
 
 const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityUnits>({
-  fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
@@ -461,45 +448,51 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
   },
 });
 
-const ThermocoupleForm: FC<FormProps> = ({ prefix }) => {
-  const cjcSource = Form.useFieldValue<CJCType>(`${prefix}.cjc.source`, {
+const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
+  const cjcSource = Form.useFieldValue(path.cjc.source, {
     optional: true,
   });
-  const units = Form.useFieldValue<TemperatureUnits>(`${prefix}.units`, {
+  const units = Form.useFieldValue(path.units, {
     optional: true,
   });
   return (
     <>
-      <ThermocoupleTypeField path={prefix} />
-      <CJCSourceField path={prefix} />
+      <ThermocoupleTypeField path={path.thermocoupleType} />
+      <CJCSourceField path={path.cjc} />
       {cjcSource === "const_val" && (
-        <Form.NumericField path={`${prefix}.cjc.val`} label="CJC value" />
+        <Form.NumericField
+          path={deep.variant(path.cjc, "source", "const_val").val}
+          label="CJC value"
+        />
       )}
       {cjcSource === "chan" && (
-        <Form.NumericField path={`${prefix}.cjc.port`} label="CJC port" />
+        <Form.NumericField
+          path={deep.variant(path.cjc, "source", "chan").port}
+          label="CJC port"
+        />
       )}
-      <TemperatureUnitsField path={prefix} />
+      <TemperatureUnitsField path={path.units} />
       <MinMaxValueFields
-        path={prefix}
+        path={path}
         units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
       />
     </>
   );
 };
 
-const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
-  ai_accel: ({ prefix }) => (
+const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
+  ai_accel: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <AccelUnitsField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <AccelUnitsField path={path.units} />
       <SensitivityField
-        path={prefix}
+        path={path.sensitivity}
         inputProps={{
           showDragHandle: false,
           children: (
             <AccelSensitivityUnitsField
-              path={prefix}
+              path={path.sensitivityUnits}
               showLabel={false}
               showHelpText={false}
             />
@@ -507,28 +500,24 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         }}
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
+        path={path.currentExcitSource}
         label="Current excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
     </>
   ),
-  ai_accel_4_wire_dc_voltage: ({ prefix }) => (
+  ai_accel_4_wire_dc_voltage: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <AccelUnitsField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <AccelUnitsField path={path.units} />
       <SensitivityField
-        path={prefix}
+        path={path.sensitivity}
         inputProps={{
           showDragHandle: false,
           children: (
             <AccelSensitivityUnitsField
-              path={prefix}
+              path={path.sensitivityUnits}
               showLabel={false}
               showHelpText={false}
             />
@@ -536,32 +525,28 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         }}
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <Form.CheckboxField
-        path={`${prefix}.scaledByExcitation`}
+        path={path.scaledByExcitation}
         label="Use excitation for scaling"
       />
     </>
   ),
-  ai_accel_charge: ({ prefix }) => (
+  ai_accel_charge: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <AccelUnitsField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <AccelUnitsField path={path.units} />
       <SensitivityField
-        path={prefix}
+        path={path.sensitivity}
         inputProps={{
           showDragHandle: false,
           children: (
             <AccelChargeSensitivityUnitsField
-              path={prefix}
+              path={path.sensitivityUnits}
               showLabel={false}
               showHelpText={false}
             />
@@ -570,159 +555,119 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       />
     </>
   ),
-  ai_bridge: ({ prefix }) => (
+  ai_bridge: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <ElectricalUnitsField path={prefix} fieldKey="units" />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <ElectricalUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
     </>
   ),
-  ai_charge: ({ prefix }) => (
+  ai_charge: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <ChargeUnitsField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <ChargeUnitsField path={path.units} />
     </>
   ),
-  ai_current: ({ prefix }) => (
+  ai_current: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <ShuntResistorLocField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.extShuntResistorVal`}
-        label="Shunt resistance"
-      />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <ShuntResistorLocField path={path.shuntResistorLoc} />
+      <Form.NumericField path={path.extShuntResistorVal} label="Shunt resistance" />
     </>
   ),
-  ai_current_rms: ({ prefix }) => (
+  ai_current_rms: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <ShuntResistorLocField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.extShuntResistorVal`}
-        label="Shunt resistance"
-      />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <ShuntResistorLocField path={path.shuntResistorLoc} />
+      <Form.NumericField path={path.extShuntResistorVal} label="Shunt resistance" />
     </>
   ),
-  ai_force_bridge_polynomial: ({ prefix }) => (
+  ai_force_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <ForceUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <ForceUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
-      <CoefficientsField
-        path={`${prefix}.forwardCoeffs`}
-        label="Forward coefficients"
-      />
-      <CoefficientsField
-        path={`${prefix}.reverseCoeffs`}
-        label="Reverse coefficients"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <ForceUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
-  ai_force_bridge_table: ({ prefix }) => (
+  ai_force_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <ForceUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <ForceUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <ForceUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
     </>
   ),
-  ai_force_bridge_two_point_lin: ({ prefix }) => (
+  ai_force_bridge_two_point_lin: ({ path }) => (
     <>
-      <ForceUnitsField path={prefix} />
-      <MinMaxValueFields path={prefix} />
+      <ForceUnitsField path={path.units} />
+      <MinMaxValueFields path={path} />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <BridgeConfigField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
-      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.firstPhysicalVal`}
-        label="Physical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondPhysicalVal`}
-        label="Physical value two"
-      />
-      <Form.NumericField
-        path={`${prefix}.firstElectricalVal`}
-        label="Electrical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondElectricalVal`}
-        label="Electrical value two"
-      />
+      <ForceUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Form.NumericField path={path.firstPhysicalVal} label="Physical value one" />
+      <Form.NumericField path={path.secondPhysicalVal} label="Physical value two" />
+      <Form.NumericField path={path.firstElectricalVal} label="Electrical value one" />
+      <Form.NumericField path={path.secondElectricalVal} label="Electrical value two" />
     </>
   ),
-  ai_force_iepe: ({ prefix }) => (
+  ai_force_iepe: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
       <ForceUnitsField
-        path={prefix}
+        path={path.units}
         inputProps={{ children: Task.selectItems(IEPE_FORCE_UNITS_NAMES) }}
       />
       <SensitivityField
-        path={prefix}
+        path={path.sensitivity}
         inputProps={{
           children: (
             <ForceSensitivityUnitsField
-              path={prefix}
+              path={path.sensitivityUnits}
               showLabel={false}
               showHelpText={false}
             />
@@ -730,357 +675,257 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         }}
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
+        path={path.currentExcitSource}
         label="Current excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
     </>
   ),
 
-  ai_freq_voltage: ({ prefix }) => (
+  ai_freq_voltage: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <Form.NumericField path={`${prefix}.thresholdLevel`} label="Threshold level" />
-      <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" />
+      <MinMaxValueFields path={path} />
+      <Form.NumericField path={path.thresholdLevel} label="Threshold level" />
+      <Form.NumericField path={path.hysteresis} label="Hysteresis" />
     </>
   ),
-  ai_microphone: ({ prefix }) => (
+  ai_microphone: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
+      <TerminalConfigField path={path} />
+      <Form.NumericField path={path.micSensitivity} label="Microphone sensitivity" />
       <Form.NumericField
-        path={`${prefix}.micSensitivity`}
-        label="Microphone sensitivity"
-      />
-      <Form.NumericField
-        path={`${prefix}.maxSndPressLevel`}
+        path={path.maxSndPressLevel}
         label="Max sound pressure level"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
+        path={path.currentExcitSource}
         label="Current excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
     </>
   ),
-  ai_pressure_bridge_polynomial: ({ prefix }) => (
+  ai_pressure_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <PressureUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <PressureUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <PressureUnitsField
-        path={prefix}
-        fieldKey="physicalUnits"
-        label="Physical units"
-      />
-      <ElectricalUnitsField path={prefix} />
-      <CoefficientsField
-        path={`${prefix}.forwardCoeffs`}
-        label="Forward coefficients"
-      />
-      <CoefficientsField
-        path={`${prefix}.reverseCoeffs`}
-        label="Reverse coefficients"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <PressureUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
-  ai_pressure_bridge_table: ({ prefix }) => (
+  ai_pressure_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <PressureUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <PressureUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
-      <PressureUnitsField
-        path={prefix}
-        fieldKey="physicalUnits"
-        label="Physical units"
-      />
-      <ElectricalUnitsField path={prefix} />
+      <PressureUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
     </>
   ),
-  ai_pressure_bridge_two_point_lin: ({ prefix }) => (
+  ai_pressure_bridge_two_point_lin: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <PressureUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <PressureUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
+        label="Voltage excitation source"
+      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <PressureUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Form.NumericField path={path.firstPhysicalVal} label="Physical value one" />
+      <Form.NumericField path={path.secondPhysicalVal} label="Physical value two" />
+      <Form.NumericField path={path.firstElectricalVal} label="Electrical value one" />
+      <Form.NumericField path={path.secondElectricalVal} label="Electrical value two" />
+    </>
+  ),
+  ai_resistance: ({ path }) => (
+    <>
+      <MinMaxValueFields path={path} />
+      <ResistanceConfigField path={path.resistanceConfig} />
+      <ExcitSourceField
+        path={path.currentExcitSource}
+        label="Current excitation source"
+      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
+    </>
+  ),
+  ai_rtd: ({ path }) => (
+    <>
+      <MinMaxValueFields path={path} />
+      <TemperatureUnitsField path={path.units} />
+      <RTDTypeField path={path.rtdType} />
+      <ResistanceConfigField path={path.resistanceConfig} />
+      <ExcitSourceField
+        path={path.currentExcitSource}
+        label="Current excitation source"
+      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
+      <Form.NumericField path={path.r0} label="R0 resistance" />
+    </>
+  ),
+  ai_strain_gauge: ({ path }) => (
+    <>
+      <StrainConfigField path={path.strainConfig} />
+      <ExcitSourceField
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
       <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <PressureUnitsField
-        path={prefix}
-        fieldKey="physicalUnits"
-        label="Physical units"
-      />
-      <ElectricalUnitsField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.firstPhysicalVal`}
-        label="Physical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondPhysicalVal`}
-        label="Physical value two"
-      />
-      <Form.NumericField
-        path={`${prefix}.firstElectricalVal`}
-        label="Electrical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondElectricalVal`}
-        label="Electrical value two"
-      />
-    </>
-  ),
-  ai_resistance: ({ prefix }) => (
-    <>
-      <MinMaxValueFields path={prefix} />
-      <ResistanceConfigField path={prefix} />
-      <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
-        label="Current excitation source"
-      />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
-    </>
-  ),
-  ai_rtd: ({ prefix }) => (
-    <>
-      <MinMaxValueFields path={prefix} />
-      <TemperatureUnitsField path={prefix} />
-      <RTDTypeField path={prefix} />
-      <ResistanceConfigField path={prefix} />
-      <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
-        label="Current excitation source"
-      />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
-      <Form.NumericField path={`${prefix}.r0`} label="R0 resistance" />
-    </>
-  ),
-  ai_strain_gauge: ({ prefix }) => (
-    <>
-      <StrainConfigField path={prefix} />
-      <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
-        label="Voltage excitation source"
-      />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
+        path={path.voltageExcitVal}
         label="Voltage excitation value"
         inputProps={{ endContent: "V" }}
       />
-      <Form.NumericField path={`${prefix}.gageFactor`} label="Gage factor" />
+      <Form.NumericField path={path.gageFactor} label="Gage factor" />
       <Form.NumericField
-        path={`${prefix}.nominalGageResistance`}
+        path={path.nominalGageResistance}
         label="Nominal gage resistance"
         inputProps={{ endContent: "Ω" }}
       />
-      <Form.NumericField path={`${prefix}.poissonRatio`} label="Poisson's ratio" />
+      <Form.NumericField path={path.poissonRatio} label="Poisson's ratio" />
       <Form.NumericField
-        path={`${prefix}.leadWireResistance`}
+        path={path.leadWireResistance}
         label="Lead wire resistance"
         inputProps={{ endContent: "Ω" }}
       />
       <Form.NumericField
-        path={`${prefix}.initialBridgeVoltage`}
+        path={path.initialBridgeVoltage}
         label="Initial bridge voltage"
         inputProps={{ endContent: "V" }}
       />
-      <MinMaxValueFields path={prefix} units="strain" />
+      <MinMaxValueFields path={path} units="strain" />
     </>
   ),
-  ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
-  ai_thermistor_iex: ({ prefix }) => (
+  ai_temp_builtin: ({ path }) => <TemperatureUnitsField path={path.units} />,
+  ai_thermistor_iex: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TemperatureUnitsField path={prefix} />
-      <ResistanceConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TemperatureUnitsField path={path.units} />
+      <ResistanceConfigField path={path.resistanceConfig} />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
+        path={path.currentExcitSource}
         label="Current excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
-      <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" />
-      <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" />
-      <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
+      <Form.NumericField path={path.a} label="Steinhart-Hart A" />
+      <Form.NumericField path={path.b} label="Steinhart-Hart B" />
+      <Form.NumericField path={path.c} label="Steinhart-Hart C" />
     </>
   ),
-  ai_thermistor_vex: ({ prefix }) => (
+  ai_thermistor_vex: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TemperatureUnitsField path={prefix} />
-      <ResistanceConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TemperatureUnitsField path={path.units} />
+      <ResistanceConfigField path={path.resistanceConfig} />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" />
-      <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" />
-      <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" />
-      <Form.NumericField path={`${prefix}.r1`} label="Reference resistor" />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <Form.NumericField path={path.a} label="Steinhart-Hart A" />
+      <Form.NumericField path={path.b} label="Steinhart-Hart B" />
+      <Form.NumericField path={path.c} label="Steinhart-Hart C" />
+      <Form.NumericField path={path.r1} label="Reference resistor" />
     </>
   ),
   ai_thermocouple: ThermocoupleForm,
-  ai_torque_bridge_polynomial: ({ prefix }) => (
+  ai_torque_bridge_polynomial: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TorqueUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TorqueUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
-      <CoefficientsField
-        path={`${prefix}.forwardCoeffs`}
-        label="Forward coefficients"
-      />
-      <CoefficientsField
-        path={`${prefix}.reverseCoeffs`}
-        label="Reverse coefficients"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <TorqueUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
-  ai_torque_bridge_table: ({ prefix }) => (
+  ai_torque_bridge_table: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TorqueUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TorqueUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <TorqueUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
     </>
   ),
-  ai_torque_bridge_two_point_lin: ({ prefix }) => (
+  ai_torque_bridge_two_point_lin: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TorqueUnitsField path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TorqueUnitsField path={path.units} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <Form.NumericField
-        path={`${prefix}.nominalBridgeResistance`}
+        path={path.nominalBridgeResistance}
         label="Nominal bridge resistance"
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
-      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
-      <ElectricalUnitsField path={prefix} />
-      <Form.NumericField
-        path={`${prefix}.firstPhysicalVal`}
-        label="Physical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondPhysicalVal`}
-        label="Physical value two"
-      />
-      <Form.NumericField
-        path={`${prefix}.firstElectricalVal`}
-        label="Electrical value one"
-      />
-      <Form.NumericField
-        path={`${prefix}.secondElectricalVal`}
-        label="Electrical value two"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
+      <TorqueUnitsField path={path.physicalUnits} label="Physical units" />
+      <ElectricalUnitsField path={path.electricalUnits} />
+      <Form.NumericField path={path.firstPhysicalVal} label="Physical value one" />
+      <Form.NumericField path={path.secondPhysicalVal} label="Physical value two" />
+      <Form.NumericField path={path.firstElectricalVal} label="Electrical value one" />
+      <Form.NumericField path={path.secondElectricalVal} label="Electrical value two" />
     </>
   ),
-  ai_velocity_iepe: ({ prefix }) => (
+  ai_velocity_iepe: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <VelocityUnitsField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <VelocityUnitsField path={path.units} />
       <Form.NumericField
-        path={`${prefix}.sensitivity`}
+        path={path.sensitivity}
         label="Sensitivity"
         inputProps={{
           children: (
             <VelocitySensitivityUnitsField
-              path={prefix}
+              path={path.sensitivityUnits}
               showLabel={false}
               showHelpText={false}
               inputProps={{
@@ -1093,73 +938,66 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         }}
       />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="currentExcitSource"
+        path={path.currentExcitSource}
         label="Current excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.currentExcitVal`}
-        label="Current excitation value"
-      />
+      <Form.NumericField path={path.currentExcitVal} label="Current excitation value" />
     </>
   ),
-  ai_voltage: ({ prefix }) => (
+  ai_voltage: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
     </>
   ),
-  ai_voltage_rms: ({ prefix }) => (
+  ai_voltage_rms: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
     </>
   ),
-  ai_voltage_with_excit: ({ prefix }) => (
+  ai_voltage_with_excit: ({ path }) => (
     <>
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <BridgeConfigField path={prefix} />
+      <TerminalConfigField path={path} />
+      <MinMaxValueFields path={path} />
+      <BridgeConfigField path={path.bridgeConfig} />
       <ExcitSourceField
-        path={prefix}
-        fieldKey="voltageExcitSource"
+        path={path.voltageExcitSource}
         label="Voltage excitation source"
       />
-      <Form.NumericField
-        path={`${prefix}.voltageExcitVal`}
-        label="Voltage excitation value"
-      />
+      <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <Form.CheckboxField
-        path={`${prefix}.scaledByExcitation`}
+        path={path.scaledByExcitation}
         label="Use excitation for scaling"
       />
     </>
   ),
 };
 
+const AI_CHANNEL_TYPES = record.keys(AI_CHANNEL_TYPE_NAMES);
+const PORTLESS_TYPES: AIChannelType[] = ["ai_temp_builtin"];
+const deviceOf = (c: AIChannel) => c.device;
 export interface AIChannelFormProps {
   type: AIChannelType;
-  prefix: string;
+  path: deep.Path<AIChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<AIChannel[]>;
 }
 
-const AI_CHANNEL_TYPES = record.keys(AI_CHANNEL_TYPE_NAMES);
+const TypeFields = createTypeFields<AIChannel>(CHANNEL_FORMS);
 
-const PORTLESS_TYPES: AIChannelType[] = ["ai_temp_builtin"];
-
-const deviceOf = (c: AIChannel) => c.device;
-
-export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
-  const TypeForm = CHANNEL_FORMS[type];
-  const device = useChannelDevice(prefix);
-  const port = useAnalogInputPort(prefix);
+export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) => {
+  const device = useChannelDevice(path);
+  const port = useAnalogInputPort(path);
   const types = allowedTypes(AI_CHANNEL_TYPES, type, port, PORTLESS_TYPES);
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <Select path={`${prefix}.device`} />
+        <Select path={path.device} />
         {type !== "ai_temp_builtin" && (
           <PortField
-            path={prefix}
+            path={deep.variant(path, "type", type)}
+            channelsPath={channelsPath}
             device={device}
             kind={ANALOG_INPUT}
             deviceOf={deviceOf}
@@ -1168,12 +1006,12 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
       </Form.Section>
       <Form.Section title="Signal">
         <SelectAIChannelTypeField
-          path={prefix}
+          path={path}
           inputProps={{ allowNone: false, children: channelTypeItems(types) }}
         />
-        <TypeForm prefix={prefix} />
+        <TypeFields type={type} path={path} />
       </Form.Section>
-      <CustomScaleSection prefix={prefix} />
+      <CustomScaleSection path={path} />
     </Form.Sections>
   );
 };

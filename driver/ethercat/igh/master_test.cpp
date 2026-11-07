@@ -21,6 +21,13 @@
 #include "driver/ethercat/igh/mock_api.h"
 
 namespace driver::ethercat::igh {
+namespace {
+/// @brief the bus cycle the specs activate the master with.
+const auto PERIOD = x::telem::MILLISECOND;
+
+/// @brief a bus cycle that sends nothing. The mock API needs no process data.
+void no_cycle() {}
+}
 
 class IGHMasterTest : public ::testing::Test {
 protected:
@@ -52,7 +59,7 @@ protected:
     void activate_with_domains(size_t output_sz = 16, size_t input_sz = 16) {
         this->mock_api->set_output_domain_size(output_sz);
         this->mock_api->set_input_domain_size(input_sz);
-        ASSERT_NIL(this->master_instance->activate());
+        ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     }
 };
 
@@ -160,7 +167,96 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(1, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
+/// @brief it should not configure a left-out slave, should return why the bus started
+/// without it for an entry on it, and should report it with the reason.
+TEST_F(IGHMasterTest, ActivateLeavesOutASlave) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->leave_out(
+        {{1, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+    const auto res = this->master_instance->pdo_offset(
+        pdo::Entry(1, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (S1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+    const auto health = this->master_instance->check(this->brk);
+    ASSERT_EQ(health.size(), 2);
+    EXPECT_EQ(
+        health[1].refusal,
+        slave::Refusal{.reason = "refused SAFE-OP: Inconsistent settings"}
+    );
+}
+
+/// @brief it should disable a slave the replacement configs disable and enable one they
+/// leave out.
+TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->replace_slave_configs({{0, {.enabled = false}}});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
+/// @brief it should fail activation on a chosen DC mode, as the IgH master does not run
+/// DC sync.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}}
+    );
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) cannot use its chosen mode: the IgH master does not run "
+        "DC sync"
+    );
+}
+
+/// @brief it should fail activation on a chosen cycle for an SM mode, as the SOEM
+/// master does.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs({{
+        0,
+        {.op_mode = dc::Choice{
+             .index = 0,
+             .assign_activate = 0,
+             .cycles = {.sync0 = x::telem::MILLISECOND},
+         }},
+    }});
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) cannot use its chosen mode: mode (AssignActivate 0x0000) "
+        "does not run SYNC0, so it cannot use a SYNC0 cycle of 1ms"
+    );
+    EXPECT_EQ(this->mock_api->slave_config_count(), 0u);
+}
+
+/// @brief it should run a slave in a chosen SM mode.
+TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 0, .assign_activate = 0}}}}
+    );
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
@@ -170,7 +266,7 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
 TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {
     this->initialize_with_slave();
     this->mock_api->set_slave_config_fails(true);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "failed to configure slave 0 (TestSlave)");
 }
@@ -187,20 +283,36 @@ const slave::StartupParameter FILTER{
 /// the slave.
 TEST_F(IGHMasterTest, ActivateWritesAndConfiguresStartupParameters) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {FILTER}}}}
+    );
     this->activate_with_domains();
     const std::vector<MockAPI::SDOWrite> expected{{0, 0x8000, 0x15, {0x03, 0x00}}};
     EXPECT_EQ(this->mock_api->sdo_downloads, expected);
     EXPECT_EQ(this->mock_api->config_sdos, expected);
 }
 
+/// @brief it should write nothing to a slave left out of the replacement configs.
+TEST_F(IGHMasterTest, ActivateWritesNothingToSlaveLeftOutOfReplacement) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {FILTER}}}}
+    );
+    this->master_instance->replace_slave_configs({});
+    this->activate_with_domains();
+    EXPECT_TRUE(this->mock_api->sdo_downloads.empty());
+    EXPECT_TRUE(this->mock_api->config_sdos.empty());
+}
+
 /// @brief it should fail activation with a startup parameter error that names the
 /// parameter and the abort reason.
 TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {FILTER}}}}
+    );
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0x06090031);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -214,9 +326,11 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
 /// parameter write.
 TEST_F(IGHMasterTest, ActivateFailsWhenSlaveDoesNotAnswerStartupParameter) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {FILTER}}}}
+    );
     this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
@@ -228,9 +342,11 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveDoesNotAnswerStartupParameter) {
 /// the slave's config.
 TEST_F(IGHMasterTest, ActivateFailsWhenStartupParameterCannotBeConfigured) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs(
+        {{0, {.startup_parameters = {FILTER}}}}
+    );
     this->mock_api->set_config_sdo_fails(true);
-    const auto err = this->master_instance->activate();
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
@@ -241,9 +357,8 @@ TEST_F(IGHMasterTest, ActivateFailsWhenStartupParameterCannotBeConfigured) {
 /// @brief it should not write the startup parameters of a disabled slave.
 TEST_F(IGHMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(
-        0,
-        {.enabled = false, .startup_parameters = {FILTER}}
+    this->master_instance->replace_slave_configs(
+        {{0, {.enabled = false, .startup_parameters = {FILTER}}}}
     );
     this->activate_with_domains();
     EXPECT_TRUE(this->mock_api->sdo_downloads.empty());
@@ -253,44 +368,63 @@ TEST_F(IGHMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);
     this->mock_api->set_input_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
+}
+
+/// @brief it should start the bus cycle once send() works.
+TEST_F(IGHMasterTest, ActivateStartsTheCycleOnceSendWorks) {
+    this->initialize_with_slave();
+    this->mock_api->set_output_domain_size(8);
+    this->mock_api->set_input_domain_size(8);
+    bool started = false;
+    ASSERT_NIL(this->master_instance->activate(PERIOD, [&] {
+        ASSERT_NIL(this->master_instance->send());
+        started = true;
+    }));
+    EXPECT_TRUE(started);
 }
 
 TEST_F(IGHMasterTest, ActivateNotInitializedFails) {
-    ASSERT_OCCURRED_AS(this->master_instance->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master_instance->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(IGHMasterTest, ActivateIdempotent) {
     this->initialize_with_slave();
     this->activate_with_domains();
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateMasterActivateFails) {
     this->initialize_with_slave();
     this->mock_api->set_activate_result(-1);
-    ASSERT_OCCURRED_AS(this->master_instance->activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        this->master_instance->activate(PERIOD, no_cycle),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST_F(IGHMasterTest, ActivateOutputDomainDataNullWithNonzeroSize) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(0);
     this->mock_api->set_input_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateInputDomainDataNullWithNonzeroSize) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);
     this->mock_api->set_input_domain_size(0);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ActivateZeroDomainSizesSucceeds) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(0);
     this->mock_api->set_input_domain_size(0);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
 }
 
 TEST_F(IGHMasterTest, ReceiveNotActivatedFails) {
@@ -396,7 +530,7 @@ TEST_F(IGHMasterTest, InputDataAfterActivation) {
     this->initialize_with_slave();
     this->mock_api->set_input_domain_size(8);
     this->mock_api->set_output_domain_size(8);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     auto data = this->master_instance->input_data();
     EXPECT_EQ(data.size(), 8u);
 }
@@ -405,7 +539,7 @@ TEST_F(IGHMasterTest, OutputDataAfterActivation) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(4);
     this->mock_api->set_input_domain_size(4);
-    ASSERT_NIL(this->master_instance->activate());
+    ASSERT_NIL(this->master_instance->activate(PERIOD, no_cycle));
     auto data = this->master_instance->output_data();
     EXPECT_EQ(data.size(), 4u);
 }
@@ -456,7 +590,7 @@ TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(1, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_with_domains();
     const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
@@ -495,15 +629,6 @@ TEST_F(IGHMasterTest, DeactivateCallsMasterDeactivate) {
     this->activate_with_domains();
     this->master_instance->deactivate();
     EXPECT_TRUE(this->mock_api->master_deactivate_called());
-}
-
-TEST_F(IGHMasterTest, SetSlaveEnabledReEnable) {
-    this->add_default_slave();
-    ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(0, {.enabled = false});
-    this->master_instance->set_slave_config(0, {});
-    this->activate_with_domains();
-    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
 /// @brief it should discover padding entries but not register them with the master.

@@ -9,7 +9,7 @@
 
 import { group, ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -56,6 +56,28 @@ describe("queries", () => {
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(task1.key);
       expect(result.current.data).toContain(task2.key);
+    });
+
+    it("should leave out internal tasks unless the query asks for them", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const internal = await rack.createTask({
+        name: "internal",
+        type: "pagerduty_alert",
+        config: {},
+        internal: true,
+      });
+      const { result } = renderHook(() => Task.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ where: { rack: { eq: rack.key } } });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).not.toContain(internal.key);
+      act(() => {
+        result.current.retrieve({
+          where: { rack: { eq: rack.key }, internal: { eq: true } },
+        });
+      });
+      await waitFor(() => expect(result.current.data).toEqual([internal.key]));
     });
 
     it("should get individual tasks using getItem", async () => {
@@ -603,7 +625,7 @@ describe("queries", () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
         const snapshots = await client.tasks.retrieve({
-          names: [firstSnapshotName, secondSnapshotName],
+          where: { name: { in: [firstSnapshotName, secondSnapshotName] } },
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
         const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
@@ -699,7 +721,8 @@ describe("queries", () => {
       const type = "pagerduty_alert";
       const first = await rack.createTask({ name: "first", type, config: {} });
       const { result } = await renderHookSuspended(
-        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        () =>
+          Task.useMultiple({ where: { rack: { eq: rack.key }, type: { in: [type] } } }),
         { wrapper },
       );
       await waitFor(() =>
@@ -792,13 +815,13 @@ describe("queries", () => {
   describe("createForm", async () => {
     const testRack = await client.racks.create({ name: "testRack" });
     const statusData = z.object({ errorCode: z.number().optional() });
-    const useForm = Task.createForm({
-      schemas: {
-        type: z.literal("pagerduty_alert"),
-        config: z.object({ routingKey: z.string() }),
-        statusData: statusData.nullish(),
-      },
-    });
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({ routingKey: z.string() }),
+      statusData: statusData.nullish(),
+    };
+    const useForm = Task.createForm({ schemas });
+    const path = deep.path<z.infer<Task.FormSchema<typeof schemas>>>();
 
     const createTask = async (): Promise<task.Task> =>
       await testRack.createTask({
@@ -827,7 +850,7 @@ describe("queries", () => {
     it("should show the config hash of an edit once the Core applies it", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set("config.routingKey", "cat"));
+      act(() => result.current.form.set(path.config.routingKey, "cat"));
       await act(async () => {
         expect(await result.current.flush()).toBe(true);
         await client.tasks.settled(t.key);
@@ -835,7 +858,7 @@ describe("queries", () => {
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.config).toMatchObject({ routingKey: "cat" });
       expect(stored.configHash).not.toBe(t.configHash);
-      expect(result.current.form.get("configHash").value).toBe(stored.configHash);
+      expect(result.current.form.get(path.configHash).value).toBe(stored.configHash);
     });
 
     it("should show a status update without touching a field", async () => {
@@ -859,13 +882,12 @@ describe("queries", () => {
         await client.statuses.set(taskStatus);
       });
       await waitFor(() => {
-        const s =
-          result.current.form.get<task.Status<typeof statusData>>("status").value;
+        const s = result.current.form.get(path.status).value;
         expect(s?.variant).toEqual("error");
         expect(s?.message).toEqual("Task error");
         expect(s?.details.data?.errorCode).toEqual(500);
       });
-      expect(result.current.form.get("status").touched).toBe(false);
+      expect(result.current.form.get(path.status).touched).toBe(false);
     });
 
     it("should show a task that another client writes whole", async () => {
@@ -879,23 +901,23 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("written");
-        expect(result.current.form.get("config.routingKey").value).toEqual("remote");
+        expect(result.current.form.get(path.name).value).toEqual("written");
+        expect(result.current.form.get(path.config.routingKey).value).toEqual("remote");
       });
-      expect(result.current.form.get("name").touched).toBe(false);
+      expect(result.current.form.get(path.name).touched).toBe(false);
     });
 
     it("should keep a local edit over a whole write from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set("config.routingKey", "local"));
+      act(() => result.current.form.set(path.config.routingKey, "local"));
       await act(async () => {
         await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
       });
       await waitFor(() =>
-        expect(result.current.form.get("name").value).toEqual("renamed"),
+        expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
-      expect(result.current.form.get("config.routingKey").value).toEqual("local");
+      expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");

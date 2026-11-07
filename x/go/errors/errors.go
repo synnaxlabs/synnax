@@ -11,7 +11,9 @@ package errors
 
 import (
 	stderrors "errors"
+	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 )
@@ -29,6 +31,10 @@ const (
 	// the errors package, and is used mostly for Go-to-Go communication.
 	TypeRoach = "roach"
 )
+
+// ErrUnsupported is the errors.ErrUnsupported value of the standard library, so Is
+// matches it against either name.
+var ErrUnsupported = stderrors.ErrUnsupported
 
 // Is determines whether one of the causes of the given error or any of its causes is
 // equivalent to some reference error.
@@ -61,6 +67,11 @@ func IsAny(err error, refs ...error) bool {
 // Wrap wraps an error with a message prefix. A stack trace is retained
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
+// Mark returns err marked so that Is matches it against reference, with the message of
+// err unchanged. Is still matches err against its own causes. Mark returns nil for a
+// nil err.
+func Mark(err, reference error) error { return errors.Mark(err, reference) }
+
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
 // processed for reportable strings
@@ -92,12 +103,51 @@ func Join(errs ...error) error {
 			members = append(members, unwrapJoin(err)...)
 		}
 	}
-	return errors.Join(members...)
+	return WithStackDepth(&joinError{members: members}, 1)
+}
+
+// joinError caches its message. A cockroachdb wrapper formats its cause through a
+// formatter that also visits every member, so without the cache a join under a wrapper
+// under a join costs 2^depth to format.
+type joinError struct {
+	members []error
+	once    sync.Once
+	message string
+}
+
+func (e *joinError) Error() string {
+	e.once.Do(func() { e.message = fmt.Sprint(joinText(e.members)) })
+	return e.message
+}
+
+func (e *joinError) Unwrap() []error { return e.members }
+
+// SafeFormatError returns nil so that the formatter elides the members it visited.
+func (e *joinError) SafeFormatError(p errors.Printer) error {
+	p.Print(e.Error())
+	return nil
+}
+
+// joinText renders the message of a joinError through the formatter, which recovers a
+// panic in a member. It hides its members from the formatter, so it visits each once.
+type joinText []error
+
+func (t joinText) Error() string { return fmt.Sprint(t) }
+
+func (t joinText) Format(s fmt.State, verb rune) { errors.FormatError(t, s, verb) }
+
+func (t joinText) SafeFormatError(p errors.Printer) error {
+	for i, member := range t {
+		if i > 0 {
+			p.Print("\n")
+		}
+		p.Print(member)
+	}
+	return nil
 }
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
-	joinType       = reflect.TypeOf(errors.UnwrapOnce(errors.Join(errors.New(""))))
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
@@ -108,7 +158,10 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	if t := reflect.TypeOf(bare); t == joinType || t == stdlibJoinType {
+	if join, ok := bare.(*joinError); ok {
+		return join.members
+	}
+	if reflect.TypeOf(bare) == stdlibJoinType {
 		return bare.(multiCause).Unwrap()
 	}
 	return []error{err}

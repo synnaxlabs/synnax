@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
-import { array, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -27,10 +27,7 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
-export type ListParams = Pick<
-  project.RetrieveRequest,
-  "keys" | "offset" | "limit" | "searchTerm"
->;
+export type ListParams = project.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
@@ -72,20 +69,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  ontology.ID | undefined
->({
-  name: "project group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Projects")?.id;
-  },
-});
-
 export const formSchema = project.projectZ.partial({ key: true });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -102,7 +88,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
-    set("key", res.key);
+    set(formPath.key, res.key);
   },
 });
 
@@ -141,11 +127,12 @@ const findProjectAncestor = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
   resourceID: ontology.ID,
 ): Promise<ontology.ID | null> => {
-  const parents = await client.ontology.parents.retrieve({ ids: resourceID });
-  for (const parent of parents) {
-    if (parent.id.type === "project") return parent.id;
-    if (parent.id.type === "group") return await findProjectAncestor(client, parent.id);
-  }
+  const { paths } = await client.ontology.ancestors.retrieve({ ids: resourceID });
+  for (const path of paths[ontology.idToString(resourceID)] ?? [])
+    for (const id of path.toReversed()) {
+      if (id.type === "project") return id;
+      if (id.type !== "group") break;
+    }
   return null;
 };
 

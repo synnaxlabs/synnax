@@ -9,9 +9,11 @@
 
 import "schemas/synnax/ontology"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
+@py output "client/py/synnax/panel"
 @ts output "client/ts/src/panel"
 
 TabKey = uuid {
@@ -277,4 +279,11 @@ Panel struct {
     @go migrate
     @ontology type "panel"
     @retrieve
+}
+
+Where filter Panel {
+    key
+
+    @doc value         "is a filter that selects panels."
+    @go request_output "core/pkg/api/panel"
 }

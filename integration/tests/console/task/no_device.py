@@ -13,6 +13,7 @@ import uuid
 import synnax as sy
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
+from console.task.channels import analog_input
 from framework.hardware_case import HardwareCase
 
 
@@ -61,17 +62,14 @@ class NoDevice(HardwareCase, ConsoleCase):
     def initial_assertion(self, ni_ai: AnalogRead) -> None:
         """Initial assertion of task status"""
         status = ni_ai.status()
-        msg = status["msg"]
-        level = status["level"]
+        variant_expected = "disabled"
+        message_expected = "Task not deployed"
 
-        level_expected = "disabled"
-        msg_expected = "Task not deployed"
-
-        assert level_expected == level, (
-            f"Task status level <{level}> should be <{level_expected}>"
+        assert variant_expected == status.variant, (
+            f"Task status variant <{status.variant}> should be <{variant_expected}>"
         )
-        assert msg_expected == msg, (
-            f"Task status msg <{msg}> should be <{msg_expected}>"
+        assert message_expected == status.message, (
+            f"Task status message <{status.message}> should be <{message_expected}>"
         )
 
     def configure_without_device(self, ni_ai: AnalogRead) -> None:
@@ -94,7 +92,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         # Add channel
         ni_ai.add_channel(
             name="new_channel",
-            chan_type="Voltage",
+            chan_type=analog_input.Voltage,
             device=dev_name,
             dev_name="usb_6000",
         )
@@ -105,9 +103,11 @@ class NoDevice(HardwareCase, ConsoleCase):
         # No Driver answers a start command on this rack, so the Console stands the
         # rack's own problem in for a wait that would never end. The Core stamps a
         # "status unknown" placeholder while the task saves, so the wait keys on the
-        # message rather than on the level.
+        # message rather than on the variant.
         ni_ai.wait_for_status("Driver not running")
 
-        level = ni_ai.status()["level"]
-        level_expected = "warning"
-        assert level_expected == level, f"<{level}> should be <{level_expected}>"
+        variant = ni_ai.status().variant
+        variant_expected = "warning"
+        assert variant_expected == variant, (
+            f"<{variant}> should be <{variant_expected}>"
+        )

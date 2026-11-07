@@ -13,6 +13,11 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
+import {
+  MENU_PROPS,
+  Option,
+  SHADOW_TRIGGER_PROPS,
+} from "@/feature/modbus/device/Option";
 import { type Channel, type ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
@@ -70,36 +75,12 @@ export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
   );
 };
 
-/** Lets a menu grow to fit the descriptions beside the option names. */
-export const MENU_PROPS = { className: CSS.BE("modbus", "menu") };
-
-/** A quiet trigger that shows a picked option without its description. */
-export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  variant: "shadow",
-  className: CSS.BE("modbus", "trigger"),
-};
-
-export interface OptionProps {
-  glyph: ReactElement;
-  name: string;
-  description: string;
-}
-
-/** A menu option: a glyph, a name, and a description that the trigger hides. */
-export const Option = ({ glyph, name, description }: OptionProps): ReactElement => (
-  <>
-    {glyph}
-    <span>{name}</span>
-    <span className={CSS.BE("modbus", "option-description")}>{description}</span>
-  </>
-);
-
 /** The schema of each register type that a task's channels can take. */
 export type ChannelSchemas<C extends Channel> = Record<C["type"], z.ZodType<C>>;
 
 export interface RegisterFieldProps<C extends Channel> {
   /** The channel's form path. */
-  path: string;
+  path: deep.Target<C>;
   schemas: ChannelSchemas<C>;
 }
 
@@ -111,9 +92,9 @@ export const RegisterField = <C extends Channel>({
   path,
   schemas,
 }: RegisterFieldProps<C>): ReactElement | null => {
-  const field = Form.useField<C["type"]>(`${path}.type`, {
+  const field = Form.useField(deep.widen<{ type: C["type"] }>(path).type, {
     onChange: (value, { get, set }) => {
-      const prev = get<C>(path).value;
+      const prev = get(path).value;
       if (prev.type === value) return;
       const schema: z.ZodType<C> = schemas[value];
       const next = schema.parse({ type: value });

@@ -7,20 +7,53 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import tempfile
-from typing import Any
+from typing import Annotated, Literal, TypeAlias
 
+from pydantic import BaseModel, Field, TypeAdapter
+
+import synnax as sy
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
 from framework.utils import get_fixture_path, resolve_channel_placeholders
+from x.spatial import Direction
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
+
+
+class _ResourceTab(sy.panel.TabBase):
+    """A resource tab of an exported panel. Its resource is a member path, not an
+    ontology ID."""
+
+    variant: Literal["resource"] = "resource"
+    resource: str
+
+
+class _Leaf(BaseModel):
+    variant: Literal["leaf"] = "leaf"
+    tabs: list[
+        Annotated[_ResourceTab | sy.panel.ViewTab, Field(discriminator="variant")]
+    ]
+
+
+class _Split(BaseModel):
+    variant: Literal["split"] = "split"
+    direction: Direction
+    size: float
+    first: _Node
+    last: _Node
+
+
+_Node: TypeAlias = Annotated[_Leaf | _Split, Field(discriminator="variant")]
+_NODE: TypeAdapter[_Leaf | _Split] = TypeAdapter(_Node)
 
 
 class Project(ConsoleCase):
@@ -260,16 +293,14 @@ class Project(ConsoleCase):
         assert manifest["version"] == 1, f"Unexpected manifest: {manifest}"
         assert manifest["name"] == "ImportSpace", f"Unexpected manifest: {manifest}"
 
-        def collect_references(node: dict[str, Any], out: list[str]) -> None:
-            if node["variant"] == "leaf":
+        def collect_references(node: _Leaf | _Split, out: list[str]) -> None:
+            if isinstance(node, _Leaf):
                 out.extend(
-                    tab["resource"]
-                    for tab in node["tabs"]
-                    if tab["variant"] == "resource"
+                    tab.resource for tab in node.tabs if isinstance(tab, _ResourceTab)
                 )
                 return
-            collect_references(node["first"], out)
-            collect_references(node["last"], out)
+            collect_references(node.first, out)
+            collect_references(node.last, out)
 
         referenced: list[str] = []
         for entry in os.listdir(self._export_dir):
@@ -278,7 +309,7 @@ class Project(ConsoleCase):
             with open(os.path.join(self._export_dir, entry), encoding="utf-8") as f:
                 envelope = json.load(f)
             if envelope.get("type") == "panel":
-                collect_references(envelope["root"], referenced)
+                collect_references(_NODE.validate_python(envelope["root"]), referenced)
 
         expected = {
             "Metrics Plot": "lineplot",

@@ -22,6 +22,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -198,12 +199,16 @@ private:
     }
 };
 
-/// @brief the settings the master applies to a slave each time the bus starts.
+/// @brief the settings the master applies to a slave when the bus starts.
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP.
     std::vector<StartupParameter> startup_parameters;
+
+    bool operator==(const Config &) const = default;
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
@@ -230,6 +235,10 @@ struct Properties {
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
+    /// @brief synchronization modes the slave lists in its SII, in SII order.
+    std::vector<dc::OpMode> op_modes;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
@@ -242,7 +251,8 @@ struct Properties {
     [[nodiscard]] Config config() const {
         return {
             .enabled = this->enabled,
-            .startup_parameters = this->startup_parameters
+            .op_mode = this->op_mode,
+            .startup_parameters = this->startup_parameters,
         };
     }
 
@@ -272,6 +282,8 @@ struct Properties {
         props.network = parser.field<std::string>("network", "");
         props.position = static_cast<uint16_t>(parser.field<int>("position"));
         props.enabled = parser.field<bool>("enabled");
+        props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
+        props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
         if (parser.has("startup_parameters"))
             parser.iter("startup_parameters", [&props](x::json::Parser &param) {
                 props.startup_parameters.push_back(StartupParameter::parse(param));
@@ -303,6 +315,12 @@ struct Properties {
         props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
         props["enabled"] = this->enabled;
 
+        nlohmann::json op_modes = nlohmann::json::array();
+        for (const auto &mode: this->op_modes)
+            op_modes.push_back(mode.to_json());
+        props["op_modes"] = op_modes;
+        if (this->op_mode) props["op_mode"] = this->op_mode->to_json();
+
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
             if (!pdo.is_padding()) inputs.push_back(pdo.to_json());
@@ -326,21 +344,39 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief why the bus started without a slave that refused a state.
+struct Refusal {
+    /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
+    /// Inconsistent settings".
+    std::string reason;
+    /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
+    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    bool dc_sync_invalid = false;
+
+    bool operator==(const Refusal &) const = default;
+};
+
 /// @brief the condition of a slave on a running bus.
 struct Health {
     /// @brief position of the slave on the bus.
     uint16_t position = 0;
     /// @brief application layer state the slave reports.
     State state = State::UNKNOWN;
-    /// @brief true when the slave set the error flag of its AL status or rejected a
-    /// startup parameter.
+    /// @brief true when the slave set the error flag of its AL status, rejected a
+    /// startup parameter, or the master could not restore its distributed clock.
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
-    /// @brief why the slave is faulted: the description of its AL status code, or why
-    /// it rejected a startup parameter. Empty when it reports neither or the master
-    /// cannot read it.
-    std::string fault;
+    /// @brief description of the slave's AL status code, empty when it reports none or
+    /// the master cannot read it.
+    std::string al_status;
+    /// @brief why the master could not restore the slave's distributed clock, or empty.
+    std::string dc_restore_error;
+    /// @brief why the slave rejected a startup parameter, or empty.
+    std::string startup_error;
+    /// @brief why the bus started without the slave, or nullopt when the slave is on
+    /// the bus.
+    std::optional<Refusal> refusal;
 
     bool operator==(const Health &) const = default;
 
@@ -355,7 +391,11 @@ struct Health {
         if (this->lost) return "not responding";
         std::string desc = slave_state_to_string(this->state);
         if (this->faulted) desc += " + ERROR";
-        if (!this->fault.empty()) desc += ": " + this->fault;
+        if (!this->al_status.empty()) desc += ": " + this->al_status;
+        if (!this->dc_restore_error.empty())
+            desc += ": failed to restore the distributed clock: " +
+                    this->dc_restore_error;
+        if (!this->startup_error.empty()) desc += ": " + this->startup_error;
         return desc;
     }
 };

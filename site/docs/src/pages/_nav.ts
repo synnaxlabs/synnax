@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { firstPages, labels, type PageNavNode } from "@/components/nav/tree";
+import { Nav } from "@/components/nav";
 import { FLAGS } from "@/flags";
 import { ALARMS_NAV } from "@/pages/reference/alarms/_nav";
 import { CHANNELS_NAV } from "@/pages/reference/channels/_nav";
@@ -21,14 +21,14 @@ import { RANGES_NAV } from "@/pages/reference/ranges/_nav";
 import { VISUALIZE_NAV } from "@/pages/reference/visualize/_nav";
 import { normalizeRoute } from "@/util/route";
 
-const visible = (nodes: PageNavNode[]): PageNavNode[] =>
+const visible = (nodes: Nav.PageNavNode[]): Nav.PageNavNode[] =>
   nodes
     .filter(({ flag }) => flag == null || FLAGS[flag])
     .map((node) =>
       node.children == null ? node : { ...node, children: visible(node.children) },
     );
 
-export const REFERENCE_PAGES: PageNavNode[] = visible([
+export const REFERENCE_PAGES: Nav.PageNavNode[] = visible([
   GET_STARTED_NAV,
   CHANNELS_NAV,
   HARDWARE_NAV,
@@ -41,7 +41,7 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   ENTERPRISE_NAV,
 ]);
 
-const LABELS = labels(REFERENCE_PAGES);
+const LABELS = Nav.labels(REFERENCE_PAGES);
 
 /**
  * Returns the nav name of a route. A route that the pages of a group share, such as the
@@ -51,4 +51,4 @@ export const labelOf = (route: string): string | undefined =>
   LABELS.get(normalizeRoute(route));
 
 /** Maps the route of each reference group without a page to the group's first page. */
-export const FIRST_PAGES = firstPages(REFERENCE_PAGES, "/reference");
+export const FIRST_PAGES = Nav.firstPages(REFERENCE_PAGES, "/reference");

@@ -11,22 +11,17 @@ import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
 
-import {
-  SLAVE_SCHEMAS,
-  type SlaveDevice,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { use: useSlave, useResult: useResultSlave } =
-  Device.createRetrieve(SLAVE_SCHEMAS);
+export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
-  useResultSlaves(keys.length === 0 ? null : { keys }).data;
+  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
 export interface EnabledState {
   allEnabled: boolean;
@@ -38,7 +33,7 @@ export interface EnabledStateParams {
 }
 
 export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
-  const slaves = useSlaves({ keys });
+  const slaves = useSlaves({ where: { key: { in: keys } } });
   const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
   return {
     allDisabled: disabledCount === slaves.length,
@@ -70,7 +65,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     const keys = array.toArray(data.keys);
 
     const devices = await client.devices.retrieve({
-      keys,
+      key: keys,
       includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });
@@ -85,25 +80,5 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     return await client.devices.create(updated, SLAVE_SCHEMAS, {
       onOptimistic: async () => await onOptimisticComplete(updated),
     });
-  },
-});
-
-export interface UpdateStartupParametersParams {
-  key: device.Key;
-  startupParameters: StartupParameter[];
-}
-
-export const { useUpdate: useUpdateStartupParameters } = Flux.createUpdate<
-  UpdateStartupParametersParams,
-  SlaveDevice
->({
-  name: "startup parameters",
-  verbs: verbs.UPDATE,
-  update: async ({ data: { key, startupParameters }, client }) => {
-    const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-    return await client.devices.create(
-      { ...slave, properties: { ...slave.properties, startupParameters } },
-      SLAVE_SCHEMAS,
-    );
   },
 });

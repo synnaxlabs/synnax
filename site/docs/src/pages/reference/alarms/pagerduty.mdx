@@ -151,7 +151,9 @@ await client.statuses.set({
   message: "Running",
 });
 
-const [rack] = await client.racks.retrieve({ integration: "pagerduty" });
+const [rack] = await client.racks.retrieve({
+  where: { integrations: { any: ["pagerduty"] } },
+});
 const alertTask = await client.tasks.create({
   name: "Engine alerts",
   rack: rack.key,

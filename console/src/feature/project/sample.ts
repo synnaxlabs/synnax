@@ -13,6 +13,7 @@ import {
   DataType,
   lineplot,
   NotFoundError,
+  ontology,
   project,
   schematic,
   status,
@@ -175,7 +176,7 @@ const createLinePlot = (ch: Channels): lineplot.New => ({
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
-    integration: "arc",
+    integrations: "arc",
     embedded: true,
     hostIsNode: true,
   });
@@ -191,10 +192,7 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {
-  const found = await client.projects.retrieve({
-    keys: [KEYS.project],
-    ignoreNotFoundError: true,
-  });
+  const found = await client.projects.retrieve({ key: { eq: KEYS.project } });
   return found.length > 0;
 };
 
@@ -216,25 +214,33 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
   await client.lineplots.create(KEYS.project, createLinePlot(ch));
-  // Overwriting an existing schematic or line plot does not link it to the project,
-  // which matters after the user deletes the project.
-  await client.ontology.addChildren(
-    project.ontologyID(KEYS.project),
+  // Overwriting an existing schematic or line plot does not link it to the project, and
+  // the user can have moved either one. Both go back under the project alone. The link
+  // comes first, so a failed reset cannot leave a view with no parent.
+  const projectID = project.ontologyID(KEYS.project);
+  const ids = [
     schematic.ontologyID(KEYS.schematic),
     lineplot.ontologyID(KEYS.linePlot),
-  );
+  ];
+  await client.ontology.addChildren(projectID, ...ids);
+  for (const id of ids) {
+    const parents = await client.ontology.parents.retrieve({ ids: id });
+    for (const { id: parent } of parents)
+      if (!ontology.idsEqual(parent, projectID))
+        await client.ontology.removeChildren(parent, id);
+  }
   await client.arcs.create([
     {
       key: KEYS.simulator,
       name: "Tank simulator",
-      mode: "text",
-      text: { raw: programs.simulator },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.simulator } },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
-      mode: "text",
-      text: { raw: programs.sequence },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.sequence } },
     },
   ]);
   await deploy(client, KEYS.simulator);

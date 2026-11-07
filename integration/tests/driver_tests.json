@@ -2,43 +2,70 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Driver Task Lifecycle",
+      "sequence_name": "NI",
       "tests": [
-        { "case": "driver/opcua_status_spam" },
-        { "case": "driver/disconnect_task" },
-        { "case": "driver/modbus_read" },
-        { "case": "driver/modbus_write" },
-        { "case": "driver/modbus_invalid" },
-        { "case": "driver/modbus_units" },
-        { "case": "driver/opcua_read" },
-        { "case": "driver/opcua_write" },
-        { "case": "driver/opcua_invalid" },
         { "case": "driver/ni_read" },
         { "case": "driver/ni_write" },
         { "case": "driver/ni_disconnect" },
         { "case": "driver/ni_invalid" },
-        { "case": "driver/opcua_driver_responsiveness" },
-        { "case": "driver/http_read" },
-        { "case": "driver/http_write" },
-        { "case": "driver/http_invalid" },
-        { "case": "driver/http_deploy" },
         { "case": "driver/grand_finale" }
       ]
     },
     {
-      "sequence_name": "Console Configuration",
+      "sequence_name": "Modbus",
       "tests": [
-        { "case": "console/task/opcua_read_task" },
-        { "case": "console/task/opcua_write_task" },
-        { "case": "console/task/opcua_invalid" },
         { "case": "console/task/modbus_read_task" },
         { "case": "console/task/modbus_write_task" },
         { "case": "console/task/modbus_invalid" },
         { "case": "console/device/connect_network" },
         { "case": "console/device/connect_gateway" },
         { "case": "console/device/connect_serial" },
-        { "case": "console/device/connect_opcua" },
+        { "case": "driver/modbus_read" },
+        { "case": "driver/modbus_write" },
+        { "case": "driver/modbus_invalid" },
+        { "case": "driver/modbus_units" }
+      ]
+    },
+    {
+      "sequence_name": "OPC UA",
+      "tests": [
+        { "case": "driver/opcua_status_spam" },
+        { "case": "driver/opcua_read" },
+        { "case": "driver/opcua_write" },
+        { "case": "driver/opcua_invalid" },
+        { "case": "console/task/opcua_read_task" },
+        { "case": "console/task/opcua_write_task" },
+        { "case": "console/task/opcua_invalid" },
+        { "case": "console/device/connect_opcua" }
+      ]
+    },
+    {
+      "sequence_name": "MQTT",
+      "tests": [
+        { "case": "driver/mqtt_read" },
+        { "case": "driver/mqtt_write" },
+        { "case": "driver/mqtt_edge" },
+        { "case": "console/task/mqtt_read_task" },
+        { "case": "console/task/mqtt_write_task" },
+        { "case": "console/task/mqtt_edge_task" },
+        { "case": "console/task/mqtt_invalid" }
+      ]
+    },
+    {
+      "sequence_name": "HTTP",
+      "tests": [
+        { "case": "driver/http_read" },
+        { "case": "driver/http_write" },
+        { "case": "driver/http_invalid" },
+        { "case": "driver/http_deploy" },
         { "case": "console/device/http_legacy_device" }
+      ]
+    },
+    {
+      "sequence_name": "OPC UA and Modbus",
+      "tests": [
+        { "case": "driver/disconnect_task" },
+        { "case": "driver/opcua_driver_responsiveness" }
       ]
     },
     {

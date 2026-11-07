@@ -17,32 +17,66 @@ import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 type ResourceType = versions.ResourceType
 
 const (
-	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = versions.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = versions.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = versions.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = versions.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = versions.ResourceTypeLog
-	ResourceTypeNode            ResourceType = versions.ResourceTypeNode
-	ResourceTypePanel           ResourceType = versions.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = versions.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = versions.ResourceTypeProject
-	ResourceTypeRack            ResourceType = versions.ResourceTypeRack
-	ResourceTypeRange           ResourceType = versions.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = versions.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = versions.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = versions.ResourceTypeSchematic
+	// ResourceTypeArc identifies an Arc module.
+	ResourceTypeArc ResourceType = versions.ResourceTypeArc
+	// ResourceTypeBuiltin identifies a resource that the Core defines.
+	ResourceTypeBuiltin ResourceType = versions.ResourceTypeBuiltin
+	// ResourceTypeChannel identifies a channel.
+	ResourceTypeChannel ResourceType = versions.ResourceTypeChannel
+	// ResourceTypeDevice identifies a device.
+	ResourceTypeDevice ResourceType = versions.ResourceTypeDevice
+	// ResourceTypeFramer identifies the telemetry of a channel.
+	ResourceTypeFramer ResourceType = versions.ResourceTypeFramer
+	// ResourceTypeGroup identifies a group of resources.
+	ResourceTypeGroup ResourceType = versions.ResourceTypeGroup
+	// ResourceTypeLabel identifies a label.
+	ResourceTypeLabel ResourceType = versions.ResourceTypeLabel
+	// ResourceTypeLineplot identifies a line plot.
+	ResourceTypeLineplot ResourceType = versions.ResourceTypeLineplot
+	// ResourceTypeLog identifies a log.
+	ResourceTypeLog ResourceType = versions.ResourceTypeLog
+	// ResourceTypeNode identifies a node of a cluster.
+	ResourceTypeNode ResourceType = versions.ResourceTypeNode
+	// ResourceTypePanel identifies a panel.
+	ResourceTypePanel ResourceType = versions.ResourceTypePanel
+	// ResourceTypePolicy identifies an access control policy.
+	ResourceTypePolicy ResourceType = versions.ResourceTypePolicy
+	// ResourceTypeProject identifies a project.
+	ResourceTypeProject ResourceType = versions.ResourceTypeProject
+	// ResourceTypeRack identifies a rack.
+	ResourceTypeRack ResourceType = versions.ResourceTypeRack
+	// ResourceTypeRange identifies a range.
+	ResourceTypeRange ResourceType = versions.ResourceTypeRange
+	// ResourceTypeRangeAlias identifies an alias of a channel on a range.
+	ResourceTypeRangeAlias ResourceType = versions.ResourceTypeRangeAlias
+	// ResourceTypeRole identifies an access control role.
+	ResourceTypeRole ResourceType = versions.ResourceTypeRole
+	// ResourceTypeSchematic identifies a schematic.
+	ResourceTypeSchematic ResourceType = versions.ResourceTypeSchematic
+	// ResourceTypeSchematicSymbol identifies a schematic symbol.
 	ResourceTypeSchematicSymbol ResourceType = versions.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = versions.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = versions.ResourceTypeTable
-	ResourceTypeTask            ResourceType = versions.ResourceTypeTask
-	ResourceTypeUser            ResourceType = versions.ResourceTypeUser
-	ResourceTypeView            ResourceType = versions.ResourceTypeView
+	// ResourceTypeStatus identifies a status.
+	ResourceTypeStatus ResourceType = versions.ResourceTypeStatus
+	// ResourceTypeTable identifies a table.
+	ResourceTypeTable ResourceType = versions.ResourceTypeTable
+	// ResourceTypeTask identifies a task.
+	ResourceTypeTask ResourceType = versions.ResourceTypeTask
+	// ResourceTypeUser identifies a user.
+	ResourceTypeUser ResourceType = versions.ResourceTypeUser
+	// ResourceTypeView identifies a view.
+	ResourceTypeView           ResourceType = versions.ResourceTypeView
+	ResourceTypeEthercatMaster ResourceType = versions.ResourceTypeEthercatMaster
+	ResourceTypeEthercatSlave  ResourceType = versions.ResourceTypeEthercatSlave
+	ResourceTypeHTTPServer     ResourceType = versions.ResourceTypeHTTPServer
+	ResourceTypeLabjackDevice  ResourceType = versions.ResourceTypeLabjackDevice
+	ResourceTypeModbusServer   ResourceType = versions.ResourceTypeModbusServer
+	ResourceTypeNiChassis      ResourceType = versions.ResourceTypeNiChassis
+	ResourceTypeNiDevice       ResourceType = versions.ResourceTypeNiDevice
+	ResourceTypeOpcuaServer    ResourceType = versions.ResourceTypeOpcuaServer
+	ResourceTypeArcDirectory   ResourceType = versions.ResourceTypeArcDirectory
 )
 
+// RelationshipType is the kind of link between two resources.
 type RelationshipType = versions.RelationshipType
 
 // ID is a unique identifier for a Resource. An example:

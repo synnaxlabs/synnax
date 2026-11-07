@@ -21,11 +21,13 @@ cc_library(
     hdrs = [
         "clock.h",
         "engine.h",
+        "phase_lock.h",
         "pool.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//driver/ethercat/telem",
@@ -49,6 +51,15 @@ cc_test(
 )
 
 cc_test(
+    name = "phase_lock_test",
+    srcs = ["phase_lock_test.cpp"],
+    deps = [
+        "//driver/ethercat/engine",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "engine_test",
     srcs = ["engine_test.cpp"],
     visibility = ["//visibility:public"],
@@ -56,6 +67,7 @@ cc_test(
         "//driver/ethercat/engine",
         "//driver/ethercat/testutil",
         "//x/cpp/defer",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

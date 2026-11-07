@@ -13,10 +13,19 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
-import { useStartupParametersModal } from "@/feature/ethercat/device/useStartupParametersModal";
 import { Task } from "@/feature/ethercat/task";
-import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
+
+interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
+  deviceKey: device.Key;
+}
+
+const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
+  <Menu.Item itemKey="ethercat.configure" onClick={() => onConfigure(deviceKey)}>
+    <Icon.Hardware />
+    Configure
+  </Menu.Item>
+);
 
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
@@ -30,20 +39,6 @@ const TASK_CONTEXT_MENU_ITEMS = [
     useCreate: Task.useCreateWrite,
   }),
 ];
-
-interface StartupParametersItemProps {
-  deviceKey: device.Key;
-}
-
-const StartupParametersItem = ({ deviceKey }: StartupParametersItemProps) => {
-  const open = useStartupParametersModal();
-  return (
-    <Menu.Item itemKey="ethercat.startupParameters" onClick={() => open({ deviceKey })}>
-      <Icon.Edit />
-      Edit startup parameters
-    </Menu.Item>
-  );
-};
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
@@ -62,14 +57,12 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      {hasUpdatePermission && keys.length === 1 && (
+        <ConfigureItem deviceKey={keys[0]} onConfigure={props.onConfigure} />
+      )}
       <Menu.Divider />
       <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
       <Menu.Divider />
-      {FLAGS.ethercatStartupParameters && hasUpdatePermission && keys.length === 1 && (
-        <StartupParametersItem deviceKey={keys[0]} />
-      )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />

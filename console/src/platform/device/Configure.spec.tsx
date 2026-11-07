@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
-import { createTestDevice } from "@/platform/device/testutil";
+import { createTestDevice, setTestDeviceStatus } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -38,16 +38,22 @@ const HARDWARE: Device.Hardware = {
   make: "acme",
   scanType: "acme_scan",
   checks: [],
-  zeroProperties: { vendor: "acme" },
+  Configure: Device.createConfigure({
+    icon: <Icon.Hardware />,
+    zeroProperties: { vendor: "acme" },
+  }),
 };
+
+const Configure = Device.createConfigure({
+  icon: <Icon.Hardware />,
+  zeroProperties: {},
+});
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ({ deviceKey, close }) => (
-    <Device.Configure
+    <Configure
       deviceKey={deviceKey}
       close={close}
-      icon={<Icon.Hardware />}
-      initialProperties={{}}
       onCreateTask={onCreateTask}
       onBack={onBack}
     />
@@ -95,12 +101,7 @@ describe("device Configure", () => {
   it("should not render the form while the device has not been retrieved", async () => {
     await renderWithConsole(
       <Errors.SuspenseBoundary>
-        <Device.Configure
-          deviceKey={id.create()}
-          close={vi.fn()}
-          icon={<Icon.Hardware />}
-          initialProperties={{}}
-        />
+        <Configure deviceKey={id.create()} close={vi.fn()} />
       </Errors.SuspenseBoundary>,
       { onCaughtError: () => {} },
     );
@@ -124,6 +125,22 @@ describe("device Configure", () => {
     expect(screen.getByText(HINT)).toBeTruthy();
     const unchanged = await client.devices.retrieve(dev.key);
     expect(unchanged.configured).toBe(false);
+  });
+
+  it("should not send the device's status or parent on a rename", async () => {
+    const { dev } = await setup();
+    await setTestDeviceStatus(client, dev);
+    const create = vi.spyOn(client.devices, "create");
+    const newName = uniqueName("renamed_sensor");
+    fireEvent.change(nameInput(), { target: { value: newName } });
+    fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+    await save();
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const sent = create.mock.lastCall?.[0];
+    create.mockRestore();
+    expect(sent).toMatchObject({ name: newName, configured: true });
+    expect(sent).not.toHaveProperty("status");
+    expect(sent).not.toHaveProperty("parent");
   });
 
   it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {

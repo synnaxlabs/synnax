@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import math
-from typing import Literal
 
 from playwright.sync_api import FloatRect
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import (
+    AlignmentType,
+    DistributionType,
     Schematic,
     Setpoint,
     Symbol,
@@ -30,12 +31,9 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.spatial import AngularDirection
 
 CHANNEL_NAME = "alignment_command_channel"
-
-AlignmentType = Literal["vertical", "horizontal", "left", "right", "top", "bottom"]
-DistributionType = Literal["horizontal", "vertical"]
-RotationType = Literal["clockwise", "counterclockwise"]
 
 ALIGNMENT_EXTRACTORS = {
     "left": box_left,
@@ -147,7 +145,7 @@ def assert_rotation(
     symbols: list[Symbol],
     *,
     initial_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     group: bool = False,
     tolerance: float = 5.0,
 ) -> None:
@@ -192,7 +190,7 @@ def assert_rotation(
             symbols, initial_positions, current_positions, direction, tolerance
         )
     else:
-        _assert_individual_rotation_ordering(
+        _assert_individual_rotation_anchors(
             symbols, initial_positions, current_positions
         )
 
@@ -251,78 +249,36 @@ def _assert_individual_rotation_dimensions(
             )
 
 
-def _assert_individual_rotation_ordering(
+def _assert_individual_rotation_anchors(
     symbols: list[Symbol],
     initial_positions: list[FloatRect],
     current_positions: list[FloatRect],
 ) -> None:
-    """Assert that relative ordering is preserved after individual rotation.
+    """Assert that individual rotation leaves the top left of each symbol in place.
 
-    Only checks ordering for symbols that are clearly separated (>15px). Symbols close
-    together are allowed to swap due to center position shifts during rotation.
+    Rotation swaps width and height around that corner, so a symbol's center moves by
+    half the change in size. Centers can therefore change order, but corners cannot.
     """
-    ordering_separation_threshold = 15.0  # pixels
+    anchor_tolerance = 1.0  # pixels
 
-    def check_axis_ordering(alignment: AlignmentType) -> None:
-        extractor = ALIGNMENT_EXTRACTORS[alignment]
-        violations: list[dict[str, int | float]] = []
-        for i in range(len(symbols)):
-            for j in range(i + 1, len(symbols)):
-                initial_i_val = extractor(initial_positions[i])
-                initial_j_val = extractor(initial_positions[j])
-                current_i_val = extractor(current_positions[i])
-                current_j_val = extractor(current_positions[j])
-
-                initial_diff = initial_j_val - initial_i_val
-                current_diff = current_j_val - current_i_val
-
-                if abs(initial_diff) > ordering_separation_threshold and (
-                    (initial_diff > 0 and current_diff < 0)
-                    or (initial_diff < 0 and current_diff > 0)
-                ):
-                    violations.append(
-                        {
-                            "i": i,
-                            "j": j,
-                            "initial_i": initial_i_val,
-                            "initial_j": initial_j_val,
-                            "current_i": current_i_val,
-                            "current_j": current_j_val,
-                        }
-                    )
-
-        if violations:
-            msg = (
-                f"{alignment.capitalize()} ordering changed for well-separated "
-                "symbols!\n"
-            )
-            for v in violations:
-                i_idx = int(v["i"])
-                j_idx = int(v["j"])
-                i_name = type(symbols[i_idx]).__name__
-                j_name = type(symbols[j_idx]).__name__
-                initial_diff = abs(float(v["initial_j"]) - float(v["initial_i"]))
-                current_diff = abs(float(v["current_j"]) - float(v["current_i"]))
-                msg += f"  Symbols {i_idx} ({i_name}) and {j_idx} ({j_name}) swapped:\n"
-                msg += (
-                    f"    Initial: {v['initial_i']:.1f} vs {v['initial_j']:.1f} "
-                    f"(diff: {initial_diff:.1f}px)\n"
-                )
-                msg += (
-                    f"    Current: {v['current_i']:.1f} vs {v['current_j']:.1f} "
-                    f"(diff: {current_diff:.1f}px)\n"
-                )
-            raise AssertionError(msg)
-
-    check_axis_ordering("horizontal")
-    check_axis_ordering("vertical")
+    for i, symbol in enumerate(symbols):
+        x_diff = abs(current_positions[i]["x"] - initial_positions[i]["x"])
+        y_diff = abs(current_positions[i]["y"] - initial_positions[i]["y"])
+        assert x_diff <= anchor_tolerance and y_diff <= anchor_tolerance, (
+            f"Symbol {i} ({type(symbol).__name__}) moved during rotation!\n"
+            f"Initial: x={initial_positions[i]['x']:.1f}, "
+            f"y={initial_positions[i]['y']:.1f}\n"
+            f"Current: x={current_positions[i]['x']:.1f}, "
+            f"y={current_positions[i]['y']:.1f}\n"
+            f"Tolerance: {anchor_tolerance}px"
+        )
 
 
 def _assert_group_rotation_transform(
     symbols: list[Symbol],
     initial_positions: list[FloatRect],
     current_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     tolerance: float,
 ) -> None:
     """Assert that group rotation correctly transformed symbol positions.

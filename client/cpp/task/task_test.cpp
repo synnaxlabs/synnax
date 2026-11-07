@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -88,9 +90,40 @@ TEST(TaskTests, testRetrieveTaskByType) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
+    const auto t2 = ASSERT_NIL_P(
+        r.tasks.retrieve({.type = "pagerduty_alert"}, x::filter::one)
+    );
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
+}
+
+/// @brief it should reject a type that more than one task on the rack has.
+TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto *name: {"first", "second"}) {
+        auto t = Task{
+            .name = name,
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    ASSERT_OCCURRED_AS_P(
+        r.tasks.retrieve({.type = "pagerduty_alert"}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should name the filter in the error when no task matches it.
+TEST(TaskTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, R"(Found no task where type = "missing_type")");
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -104,11 +137,47 @@ TEST(TaskTests, testListTasks) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(m));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list());
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(Where{}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(tasks[0].rack, r.key);
     ASSERT_FALSE(tasks[0].key.is_nil());
+}
+
+/// @brief it should retrieve the tasks on the client's rack that match any branch of
+/// an or.
+TEST(TaskTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<Task> tasks;
+    for (int i = 0; i < 3; ++i) {
+        auto t = Task{
+            .name = "where_task_" + std::to_string(i),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+        tasks.push_back(t);
+    }
+    auto other = rack::Rack{.name = "other_rack"};
+    ASSERT_NIL(client.racks.create(other));
+    auto off_rack = Task{
+        .name = tasks[0].name,
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
+    ASSERT_NIL(other.tasks.create(off_rack));
+    const auto retrieved = ASSERT_NIL_P(
+        r.tasks.retrieve(Where{.name = tasks[0].name} || Where{.key = tasks[1].key})
+    );
+    std::set<std::string> keys;
+    for (const auto &t: retrieved)
+        keys.insert(t.key.to_string());
+    ASSERT_EQ(
+        keys,
+        (std::set<std::string>{tasks[0].key.to_string(), tasks[1].key.to_string()})
+    );
 }
 
 /// @brief it should correctly delete a task from the rack.
@@ -148,7 +217,11 @@ TEST(TaskTests, testCreateTaskWithStatus) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
-            .details = task::StatusDetails{.running = true, .cmd = "start"}
+            .details = task::StatusDetails{
+                .running = true,
+                .cmd = "start",
+                .config_hash = "abc123",
+            }
         }
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -159,6 +232,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     ASSERT_EQ(t2.status.value().message, "Task is running");
     ASSERT_EQ(t2.status.value().details.running, true);
     ASSERT_EQ(t2.status.value().details.cmd, "start");
+    ASSERT_EQ(t2.status.value().details.config_hash, "abc123");
 }
 
 /// @brief it should correctly retrieve a task with status by name.
@@ -203,7 +277,9 @@ TEST(TaskTests, testListTasksWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
+    const auto tasks = ASSERT_NIL_P(
+        r.tasks.retrieve(Where{}, {.include_status = true})
+    );
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
     ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
@@ -239,6 +315,62 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     ASSERT_TRUE(found1);
     ASSERT_TRUE(found2);
 }
+/// @brief it should apply the limit of the options to a retrieve by names.
+TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<std::string> names;
+    for (int i = 0; i < 2; i++) {
+        auto t = Task{
+            .name = std::to_string(gen_rand_task()),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+        names.push_back(t.name);
+    }
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(names, {.limit = 1}));
+    ASSERT_EQ(tasks.size(), 1);
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one task.
+TEST(TaskTests, testRetrieveTaskRejectsPage) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        const auto [_, err] = r.tasks.retrieve("test_module", options);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit or offset, since a page could "
+            "hide a second match"
+        );
+    }
+}
+
+/// @brief it should page a retrieve of the tasks on a rack that a filter matches.
+TEST(TaskTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (int i = 0; i < 3; i++) {
+        auto t = Task{
+            .name = std::to_string(gen_rand_task()),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    const auto where = Where{.type = "pagerduty_alert"};
+    const auto first = ASSERT_NIL_P(r.tasks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(r.tasks.retrieve(where, {.offset = 2}));
+    ASSERT_EQ(rest.size(), 1);
+}
+
 /// @brief it should retrieve multiple tasks by their types.
 TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
@@ -259,7 +391,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> types = {type1, type2};
-    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve_by_type(types));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve({.type = types}));
     ASSERT_EQ(tasks.size(), 2);
     bool found1 = false, found2 = false;
     for (const auto &t: tasks) {

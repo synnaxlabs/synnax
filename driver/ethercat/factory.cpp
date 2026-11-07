@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <format>
+#include <map>
+#include <string>
+
 #include "absl/log/log.h"
 
 #include "x/cpp/lib/lib.h"
@@ -67,31 +72,40 @@ std::unique_ptr<master::Manager> default_manager() {
 }
 
 namespace {
-/// @brief acquires the engine for the network and passes it the settings of each slave
-/// saved on the rack for that network. A task can start the bus before the scanner
-/// first runs. Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has
-/// invalid properties, since the bus starts every slave on it.
-std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
-    engine::Pool &pool,
+/// @brief returns the settings saved for each slave on the network, keyed by position.
+/// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
+/// properties, since the bus starts every slave on it, or when two devices at one
+/// position have different settings.
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
     const std::string &network
 ) {
-    auto [eng, err] = pool.acquire(network);
-    if (err) return {nullptr, err};
-    synnax::device::RetrieveRequest req;
-    req.makes = {DEVICE_MAKE};
-    req.models = {SLAVE_DEVICE_MODEL};
-    req.racks = {rack};
-    auto [devices, dev_err] = client->devices.retrieve(req);
-    if (dev_err) return {nullptr, dev_err};
+    auto [devices, dev_err] = client->devices.retrieve(
+        synnax::device::Where{
+            .make = DEVICE_MAKE,
+            .model = SLAVE_DEVICE_MODEL,
+            .rack = rack,
+        }
+    );
+    if (dev_err)
+        return {
+            {},
+            x::errors::Error(
+                dev_err,
+                "The Driver could not read the slave settings for " + network +
+                    " from the Core: " + dev_err.data
+            )
+        };
+    std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, std::string> labels;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
         if (props.network != network) continue;
         if (parser.error())
             return {
-                nullptr,
+                {},
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     dev.name + " has invalid properties. Every slave on " + network +
@@ -100,20 +114,59 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
                         common::config_err_description(parser.error())
                 )
             };
-        eng->set_slave_config(props.position, props.config());
+        const auto label = props.serial == 0
+                             ? dev.name
+                             : std::format("{} (serial {})", dev.name, props.serial);
+        const auto config = props.config();
+        const auto [it, added] = configs.emplace(props.position, config);
+        if (added) {
+            labels[props.position] = label;
+            continue;
+        }
+        if (it->second == config) continue;
+        const auto [first, second] = std::minmax(labels[props.position], label);
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved at position {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    props.position,
+                    network
+                )
+            )
+        };
     }
-    return {eng, x::errors::NIL};
+    return {configs, x::errors::NIL};
 }
 }
 
-Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
-    pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
+Factory::Factory(
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
+):
+    Factory(default_manager(), std::move(client), rack, std::move(rt_manager)) {}
 
 Factory::Factory(
     std::unique_ptr<master::Manager> manager,
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
     std::shared_ptr<x::thread::rt::Manager> rt_manager
 ):
-    pool(std::make_shared<engine::Pool>(std::move(manager), std::move(rt_manager))) {}
+    pool(
+        std::make_shared<engine::Pool>(
+            std::move(manager),
+            [client = std::move(client), rack](const std::string &network) {
+                return slave_configs(client, rack, network);
+            },
+            std::move(rt_manager)
+        )
+    ) {}
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -122,23 +175,14 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = acquire_engine(
-        *this->pool,
-        ctx->client,
-        task.rack,
-        cfg.interface_name
-    );
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     // The bus recovers a lost device without a limit, so the task waits for it.
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::Config{
-            .name = task.name,
-            .max_retries = x::breaker::RETRY_INFINITELY,
-            .max_interval = 5 * x::telem::SECOND,
-        },
+        common::unlimited_retry_config(task.name),
         std::make_unique<ReadTaskSource>(eng, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -151,12 +195,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = acquire_engine(
-        *this->pool,
-        ctx->client,
-        task.rack,
-        cfg.interface_name
-    );
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(

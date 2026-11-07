@@ -20,6 +20,7 @@
 
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"
@@ -149,12 +150,10 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        synnax::device::RetrieveRequest req;
-        req.makes = {make};
-        req.racks = {rack};
-        req.include_status = true;
-        req.include_parent = true;
-        return this->client->devices.retrieve(req);
+        return this->client->devices.retrieve(
+            synnax::device::Where{.make = make, .rack = rack},
+            {.include_status = true, .include_parent = true}
+        );
     }
 
     std::pair<synnax::device::Device, x::errors::Error>
@@ -448,6 +447,15 @@ public:
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
     }
 
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->status.details.running = false;
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to scan for devices",
+            err.data
+        );
+    }
+
     void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
@@ -536,6 +544,12 @@ public:
                     needs_update = true;
                 }
 
+                if (dev.model != remote_dev.model) {
+                    LOG(INFO) << this->log_prefix << "device model changed from "
+                              << remote_dev.model << " to " << dev.model;
+                    needs_update = true;
+                }
+
                 if (dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
@@ -581,6 +595,7 @@ public:
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
                 dev.status->description = "";
+                dev.status->details.connected = false;
             }
 
             statuses.reserve(this->dev_states.size());

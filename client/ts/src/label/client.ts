@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -21,7 +21,24 @@ import {
 } from "@/label/actions.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
-import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
+import {
+  type Key,
+  keyZ,
+  type Label,
+  labelZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
+} from "@/label/types.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -44,25 +61,31 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  for: ontology.idZ.optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
+
+/** @returns the resources that the for lines of where name. */
+const forIDs = (where: Where): ontology.ID[] => [
+  ...(where.for != null ? [where.for] : []),
+  ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
+  ...(where.not != null ? forIDs(where.not) : []),
+];
+
+/** @returns the resource whose labels a request selects, and nothing else, or null. */
+const labelsOf = ({ where, ...rest }: RetrieveRequest): ontology.ID | null => {
+  if (where?.for == null || Object.values(rest).some((v) => v != null)) return null;
+  const { for: id, ...others } = where;
+  return Object.values(others).every((v) => v == null) ? id : null;
+};
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
 /** Everything a multi-label retrieval can filter on, including the resource labeled. */
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
@@ -85,10 +108,24 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
     const { relationships } = ontologyClient.cache;
+    // Resources whose every label the relationship table holds. A change stream gap
+    // can hide a removal, so a new epoch forgets them.
+    const labelSets = new Set<string>();
+    cache.onEpoch(() => labelSets.clear());
+    // Null when the client neither saw the relationship nor holds every label of id.
+    const labeledBy = (id: ontology.ID, key: Key): boolean | null => {
+      const status = relationships.status(
+        ontology.relationshipToString(labeledByRel(id, key)),
+      );
+      if (status === "present") return true;
+      if (status === "tombstoned" || labelSets.has(ontology.idToString(id)))
+        return false;
+      return null;
+    };
+    const lines: Lines = { for: (l, id) => labeledBy(id, l.key) === true };
     const store = cache.createTable<Key, Label>({
       name: "labels",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     // Every write to a label reaches the client as actions.
@@ -105,18 +142,54 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     super(cache, {
       name: "label",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (label, req) => this.requestFilter(req)(label),
+        fetch: async (req) => {
+          const id = labelsOf(req);
+          const { epoch } = cache;
+          const since = relationships.stamp();
+          const labels = await this.execRetrieve(req);
+          // A response from before a reconnect can miss a change that the gap hid.
+          if (id == null || cache.epoch !== epoch) return labels;
+          // The response holds every label of id, so it replaces the cached set.
+          const fetched = new Map(
+            labels.map((l) => {
+              const rel = labeledByRel(id, l.key);
+              return [ontology.relationshipToString(rel), rel];
+            }),
+          );
+          const vanished = ontologyClient.cache
+            .relationshipsFrom(id)
+            .filter((r) => matchLabeledBy(r, id))
+            .map(ontology.relationshipToString)
+            .filter((key) => !fetched.has(key));
+          relationships.batch(() => {
+            relationships.ingestDeletes(vanished, since);
+            fetched.forEach((rel, key) => relationships.ingest(key, rel, { since }));
+          });
+          labelSets.add(ontology.idToString(id));
+          return labels;
+        },
+        matches: (l, req) => {
+          if (
+            req.where != null &&
+            forIDs(req.where).some((id) => labeledBy(id, l.key) == null)
+          )
+            return null;
+          return matches(lines, l, req.where);
+        },
+        serverComputed: (req) => serverComputed(lines, req.where),
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
-            if (req.for == null) return null;
+            if (req.where == null) return null;
+            const ids = forIDs(req.where);
+            if (ids.length === 0) return null;
             const rel =
               event.variant === "set"
                 ? event.value
                 : ontology.relationshipZ.parse(event.key);
-            if (!matchLabeledBy(rel, req.for)) return null;
+            if (!ids.some((id) => matchLabeledBy(rel, id))) return null;
             return [rel.to.key];
           }),
         ],
@@ -247,7 +320,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     drop();
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Label[]> {
     const res = await this.cfg.unary.send(
       "/label/retrieve",
       params,
@@ -256,31 +329,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     );
     return res.labels;
   }
-
-  /**
-   * Client-side matching for a request: key sets, names, and labeled-entity
-   * membership via the relationship table. Server-computed shapes (search,
-   * limit/offset) never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (l: Label) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-    return (l) => {
-      if (keySet != null && !keySet.has(l.key)) return false;
-      if (nameSet != null && !nameSet.has(l.name)) return false;
-      if (req.for != null && !this.isLabelOf(req.for, l.key)) return false;
-      return true;
-    };
-  }
-
-  private isLabelOf(id: ontology.ID, key: Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString(labeledByRel(id, key)),
-    );
-  }
 }
-
-const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
 const labeledByRel = (id: ontology.ID, key: Key): ontology.Relationship => ({
   from: id,

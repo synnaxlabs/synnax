@@ -85,6 +85,64 @@ describe("Select.Simple", () => {
     expect(c.getByPlaceholderText("Search Test Items...")).toBeTruthy();
   });
 
+  it("should leave out the search box when the search is hidden", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="Level"
+        searchHidden
+      >
+        <Select.Item itemKey="low">Low</Select.Item>
+        <Select.Item itemKey="high">High</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByText("Level"));
+    expect(c.getByText("High")).toBeTruthy();
+    expect(c.queryByPlaceholderText("Search levels...")).toBeNull();
+  });
+
+  describe("footer", () => {
+    const renderFooter = (onChange = vi.fn()) =>
+      render(
+        <Select.Simple<string>
+          value=""
+          onChange={onChange}
+          resourceName="Mode"
+          footer={<Select.Item itemKey="auto">Auto mode</Select.Item>}
+        >
+          <Select.Item itemKey="sm">Frame sync</Select.Item>
+          <Select.Item itemKey="dc">Clock sync</Select.Item>
+        </Select.Simple>,
+      );
+
+    it("should pin the footer outside the scrolling list", () => {
+      const c = renderFooter();
+      fireEvent.click(c.getByText("Mode"));
+      const scroll = c.baseElement.querySelector(".lyra-list__scroll");
+      expect(scroll?.contains(c.getByText("Frame sync"))).toBe(true);
+      expect(scroll?.contains(c.getByText("Auto mode"))).toBe(false);
+    });
+
+    it("should select an option in the footer", () => {
+      const onChange = vi.fn();
+      const c = renderFooter(onChange);
+      fireEvent.click(c.getByText("Mode"));
+      fireEvent.click(c.getByText("Auto mode"));
+      expect(onChange).toHaveBeenCalledWith("auto", expect.anything());
+    });
+
+    it("should keep an option in the footer when the search hides the rest", () => {
+      const c = renderFooter();
+      fireEvent.click(c.getByText("Mode"));
+      fireEvent.change(c.getByPlaceholderText("Search Modes..."), {
+        target: { value: "nothing" },
+      });
+      expect(c.getByText("Auto mode").closest("[hidden]")).toBeNull();
+      expect(c.getByText("Frame sync").closest("[hidden]")).not.toBeNull();
+    });
+  });
+
   it("should filter the list when the search box is typed into", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
