@@ -100,7 +100,7 @@ class TestProject:
         """Should return one project for a plain key beside other fields."""
         a = client.projects.create(name="A")
         assert client.projects.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Project matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no project where .+"):
             client.projects.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:

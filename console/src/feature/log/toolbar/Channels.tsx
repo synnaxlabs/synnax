@@ -138,7 +138,7 @@ const ChannelRow = ({
               value={precision}
               onChange={handlePrecisionChange}
               onClear={() => handlePrecisionChange()}
-              endContent={precision == null ? <Input.AutoChip /> : undefined}
+              endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
