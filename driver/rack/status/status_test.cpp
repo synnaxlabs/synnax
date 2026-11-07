@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <mutex>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -56,21 +57,21 @@ public:
 /// @brief a status set transport that fails the first lost task status writes, and
 /// echoes every other write.
 class LostTaskWriteSetClient final : public synnax::status::SetClient {
-    const std::string rack_key;
+    const synnax::resource::ID rack;
     const int lost;
 
 public:
     std::atomic<int> beats = 0;
     std::atomic<int> task_writes = 0;
 
-    explicit LostTaskWriteSetClient(std::string rack_key, const int lost = 1):
-        rack_key(std::move(rack_key)), lost(lost) {}
+    explicit LostTaskWriteSetClient(synnax::resource::ID rack, const int lost = 1):
+        rack(std::move(rack)), lost(lost) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
-        if (req.statuses(0).key() == this->rack_key)
+        if (owns(this->rack, req.statuses(0)))
             this->beats++;
         else if (this->task_writes++ < this->lost)
             return {{}, freighter::UNREACHABLE};
@@ -102,6 +103,40 @@ public:
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
         return {res, x::errors::NIL};
+    }
+};
+
+/// @brief a status set transport that keeps the last rack heartbeat and echoes every
+/// write.
+class BeatRecorder final : public synnax::status::SetClient {
+    const synnax::resource::ID rack;
+    mutable std::mutex mu;
+    synnax::rack::Status last;
+
+public:
+    std::atomic<int> beats = 0;
+
+    explicit BeatRecorder(synnax::resource::ID rack): rack(std::move(rack)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (owns(this->rack, req.statuses(0))) {
+            auto [stat, err] = synnax::rack::Status::from_proto(req.statuses(0));
+            if (err) return {{}, err};
+            std::lock_guard lock(this->mu);
+            this->last = std::move(stat);
+            this->beats++;
+        }
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+
+    [[nodiscard]] synnax::rack::Status last_beat() const {
+        std::lock_guard lock(this->mu);
+        return this->last;
     }
 };
 
@@ -324,7 +359,7 @@ TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<LostTaskWriteSetClient>(
-        synnax::rack::resource_id(rack.key).string()
+        synnax::rack::resource_id(rack.key)
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
@@ -354,7 +389,7 @@ TEST(stateTests, RetriesAFailedResend) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<LostTaskWriteSetClient>(
-        synnax::rack::resource_id(rack.key).string(),
+        synnax::rack::resource_id(rack.key),
         2
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
@@ -377,5 +412,42 @@ TEST(stateTests, RetriesAFailedResend) {
         std::chrono::milliseconds(10)
     );
     EXPECT_EQ(transport->task_writes.load(), 3);
+}
+
+/// @brief it should report the variant, message, and description of its health in each
+/// heartbeat.
+TEST(stateTests, ReportsHealth) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::resource_id(rack.key)
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx,
+        Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+            .description = "Install the Driver release that matches the Core.",
+        }
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto beat = transport->last_beat();
+    EXPECT_EQ(beat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(beat.message, "Driver 0.59.3 cannot work with Core 0.60.1");
+    EXPECT_EQ(beat.description, "Install the Driver release that matches the Core.");
+    EXPECT_EQ(beat.owner, synnax::rack::resource_id(rack.key));
 }
 }

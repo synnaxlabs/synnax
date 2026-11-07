@@ -234,7 +234,7 @@ class TestChannel:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
+        with pytest.raises(sy.NotFoundError, match="Found no channel where key = 1234"):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
@@ -953,7 +953,9 @@ class TestChannelRetriever:
             client.channels.create(
                 data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
             )
-        with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
+        ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")
 
 

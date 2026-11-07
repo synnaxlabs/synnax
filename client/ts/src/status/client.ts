@@ -170,7 +170,12 @@ export class Client extends query.Retriever<
     if (detailsSchema != null) {
       const request = query.dropOne(rest);
       const statuses = await this.execRetrieve(request, detailsSchema);
-      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
+      checkForMultipleOrNoResults(
+        "status",
+        retrieveParamsZ.parse(request),
+        statuses,
+        isSingle,
+      );
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;

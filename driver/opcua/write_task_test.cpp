@@ -275,14 +275,7 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
@@ -471,12 +464,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
 
     // Restart the server and wait for it to be ready
     server->start();
-    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(conn_cfg, {}, "test"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
-    UA_Client_disconnect(test_client.get());
+    ASSERT_TRUE(server->wait_until_ready());
 
     // Write after server restart - should trigger reconnect and succeed
     auto fr3 = ::x::telem::Frame(1);

@@ -609,7 +609,7 @@ class Client:
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         tasks = self.sugar(res.tasks)
-        return sole("Task", fields, tasks) if single else tasks
+        return sole("task", req, tasks) if single else tasks
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [
