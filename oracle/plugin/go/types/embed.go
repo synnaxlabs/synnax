@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -136,4 +137,38 @@ func resolvedAndDealiased(
 		out = append(out, t)
 	}
 	return out
+}
+
+// checkHeldEmbedded returns an error when field holds an embedded type that has
+// defaults in a slice, a map value, or an optional field. An embedded type takes no
+// decode hooks, so a decode leaves the defaults of such a value unset.
+func checkHeldEmbedded(owner string, field resolution.Field, data *templateData) error {
+	for _, ref := range heldRefs(field.Type, field.Optional) {
+		for _, t := range resolvedAndDealiased(ref, data.table) {
+			key := embedKey(output.GetPath(t, "go"), naming.GetGoName(t))
+			if data.embedded.Contains(key) &&
+				typeSetsDefaults(ref, data, set.New[string]()) {
+				return errors.Newf(
+					"%s.%s: %s has defaults and another struct embeds it, so it "+
+						"cannot be held in a slice, a map, or an optional field",
+					owner, field.Name, t.Name,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// heldRefs returns the types that ref holds in slices and map values, and ref itself
+// when the field is optional.
+func heldRefs(ref resolution.TypeRef, optional bool) []resolution.TypeRef {
+	switch {
+	case ref.Name == "Array" && len(ref.TypeArgs) == 1:
+		return heldRefs(ref.TypeArgs[0], true)
+	case ref.Name == "Map" && len(ref.TypeArgs) == 2:
+		return heldRefs(ref.TypeArgs[1], true)
+	case optional:
+		return []resolution.TypeRef{ref}
+	}
+	return nil
 }

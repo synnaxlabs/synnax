@@ -188,10 +188,25 @@ const mean = (
   return float && n !== size ? q * (size / n) : q;
 };
 
+// The points that a complete series of a pair holds room for at least.
+const MIN_CAPACITY = 64;
+
+// The reduced x and y series of a pair.
+interface Reduced {
+  x: Series;
+  y: Series;
+}
+
+const releaseReduced = (r: Reduced | null): void => {
+  r?.x.release();
+  r?.y.release();
+};
+
 // The reduced form of one full-resolution op. The op draws each group that starts in
 // it, reading past its end into the ops that continue it. With no op before it, it also
-// draws the group it starts inside. Complete groups reduce once. Only a trailing
-// partial group reduces again.
+// draws the group it starts inside. Complete groups reduce once and append to series
+// that grow, so only new groups upload. A trailing partial group reduces again into a
+// separate tail, which starts at the last complete point so the two draw as one line.
 class Pair {
   private readonly x: Series;
   private readonly y: Series;
@@ -205,10 +220,13 @@ class Pair {
   private next: number;
   // The op index where the last complete group ends.
   private reach = 0;
-  private complete: Points = { xs: [], ys: [] };
+  private complete: Reduced | null = null;
+  // The last point of complete, as GL values.
+  private last: { x: number; y: number } | null = null;
+  private tail: Reduced | null = null;
   private count = 0;
   private available = 0;
-  private drawn: Drawn | null = null;
+  private drawn: Drawn[] | null = null;
 
   constructor(
     op: DrawOperation,
@@ -228,8 +246,9 @@ class Pair {
    * @param chain - The op, then the ops that continue it, up to groupSize samples past
    * its end where they exist.
    * @param preceded - Whether an op that the op continues ends where it starts.
+   * @returns the complete groups, then the partial group, leaving out an empty one.
    */
-  update(chain: DrawOperation[], preceded: boolean): Drawn {
+  update(chain: DrawOperation[], preceded: boolean): Drawn[] {
     const { groupSize } = this;
     const { count } = chain[0];
     const origin = this.originOf(preceded);
@@ -248,31 +267,46 @@ class Pair {
       return this.drawn;
     if (origin !== this.origin || available < this.reach) this.reset(origin);
     const links = chain.map((op) => link(op, chain[0]));
+    const complete: Points = { xs: [], ys: [] };
     while (this.next < count && this.next + groupSize <= available) {
-      this.reduceGroup(
-        links,
-        Math.max(this.next, 0),
-        this.next + groupSize,
-        this.complete,
-      );
+      this.reduceGroup(links, Math.max(this.next, 0), this.next + groupSize, complete);
       this.next += groupSize;
       this.reach = this.next;
     }
-    const partial: Points = { xs: [], ys: [] };
-    if (this.next < count)
+    if (complete.xs.length > 0) {
+      this.complete = {
+        x: this.append(this.complete?.x, this.x, complete.xs),
+        y: this.append(this.complete?.y, this.y, complete.ys),
+      };
+      const i = complete.xs.length - 1;
+      this.last = { x: complete.xs[i], y: complete.ys[i] };
+    }
+    releaseReduced(this.tail);
+    this.tail = null;
+    if (this.next < count) {
+      const partial: Points =
+        this.last == null
+          ? { xs: [], ys: [] }
+          : { xs: [this.last.x], ys: [this.last.y] };
       this.reduceGroup(links, Math.max(this.next, 0), available, partial);
-    this.release();
-    const x = this.series(this.x, this.complete.xs, partial.xs);
-    const y = this.series(this.y, this.complete.ys, partial.ys);
+      this.tail = {
+        x: this.series(this.x, partial.xs),
+        y: this.series(this.y, partial.ys),
+      };
+    }
     this.count = count;
     this.available = available;
-    this.drawn = { x, y, xOffset: 0, yOffset: 0, count: x.length };
+    this.drawn = [this.complete, this.tail]
+      .filter((r) => r != null)
+      .map(({ x, y }) => ({ x, y, xOffset: 0, yOffset: 0, count: x.length }));
     return this.drawn;
   }
 
   release(): void {
-    this.drawn?.x.release();
-    this.drawn?.y.release();
+    releaseReduced(this.complete);
+    releaseReduced(this.tail);
+    this.complete = null;
+    this.tail = null;
     this.drawn = null;
   }
 
@@ -285,7 +319,9 @@ class Pair {
     this.origin = origin;
     this.next = origin;
     this.reach = 0;
-    this.complete = { xs: [], ys: [] };
+    releaseReduced(this.complete);
+    this.complete = null;
+    this.last = null;
   }
 
   // Appends the points the aggregation keeps from chain samples [lo, hi), where lo lies
@@ -342,22 +378,47 @@ class Pair {
     }
   }
 
-  private series(source: Series, complete: number[], partial: number[]): Series {
-    const { glDataType } = source;
-    const data = new glDataType.Array(complete.length + partial.length) as NumberArray;
-    data.set(complete);
-    data.set(partial, complete.length);
-    const { aggregation, groupSize } = this;
-    const s = new Series({
-      data,
-      dataType: glDataType,
-      timeRange: source.timeRange,
-      sampleOffset: source.glOffset,
-      alignment: this.start + BigInt(this.origin),
-      alignmentMultiple: BigInt(aggregation === "min_max" ? groupSize / 2 : groupSize),
-    });
+  // Appends values to the complete series s, moving its points to a series with twice
+  // the room when s is full.
+  private append(s: Series | undefined, source: Series, values: number[]): Series {
+    const length = (s?.length ?? 0) + values.length;
+    if (s == null || length > s.capacity) {
+      const capacity = Math.max(2 ** Math.ceil(Math.log2(length)), MIN_CAPACITY);
+      const grown = Series.alloc({ capacity, ...this.props(source, this.origin) });
+      grown.acquire();
+      if (s != null) {
+        grown.write(s);
+        s.release();
+      }
+      s = grown;
+    }
+    s.write(new Series({ data: values, dataType: source.glDataType }));
+    return s;
+  }
+
+  private series(source: Series, values: number[]): Series {
+    const at = this.last == null ? this.next : this.next - this.step;
+    const s = new Series({ data: values, ...this.props(source, at) });
     s.acquire();
     return s;
+  }
+
+  // Returns the series props of reduced points of source whose first group starts at op
+  // index at.
+  private props(source: Series, at: number) {
+    return {
+      dataType: source.glDataType,
+      timeRange: source.timeRange,
+      sampleOffset: source.glOffset,
+      alignment: this.start + BigInt(at),
+      alignmentMultiple: BigInt(this.step),
+    };
+  }
+
+  // The op samples between two reduced points.
+  private get step(): number {
+    const { aggregation, groupSize } = this;
+    return aggregation === "min_max" ? groupSize / 2 : groupSize;
   }
 }
 
@@ -408,9 +469,10 @@ export class Reducer {
   /**
    * @param groupSize - The samples per group. It must be even for min_max. An average
    * of an integer series rounds down, as the Core does.
-   * @returns the ops with each full-resolution op replaced by its reduced pair, or left
-   * out when it draws no group. Ops of reduced series stay the same, and so does every
-   * op when groupSize is below 2. The pairs of ops not in the list are released.
+   * @returns the ops with each full-resolution op replaced by the op of its complete
+   * groups, then the op of its partial group, or left out when it draws no group. Ops
+   * of reduced series stay the same, and so does every op when groupSize is below 2.
+   * The pairs of ops not in the list are released.
    */
   reduce(
     ops: DrawOperation[],
@@ -454,7 +516,7 @@ export class Reducer {
       drawn.add(pair);
       const reduced = pair.update(chainOf(op, after, groupSize), preceded);
       const last = out.at(-1);
-      if (reduced.count > 0) out.push({ ...reduced, span: op.span });
+      if (reduced.length > 0) reduced.forEach((r) => out.push({ ...r, span: op.span }));
       else if (last != null && touching(last, op))
         out[out.length - 1] = {
           ...last,

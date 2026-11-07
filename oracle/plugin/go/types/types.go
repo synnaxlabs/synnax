@@ -830,6 +830,9 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		)
 	}
 	for _, field := range fields {
+		if err := checkHeldEmbedded(entry.Name, field, data); err != nil {
+			return structData{}, err
+		}
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
