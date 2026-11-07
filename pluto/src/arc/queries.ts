@@ -304,6 +304,26 @@ export interface UseTaskControlsReturn {
   taskStatus: status.Status;
 }
 
+const { useResult: useResultModuleStatus } = Flux.createRetrieve<
+  RetrieveQuery,
+  status.Status | null
+>({
+  name: "Arc status",
+  retrieve: async ({ client, query }) => await client.arcs.status.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.arcs.status.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.arcs.status.getCached(query.key),
+});
+
+/**
+ * The stored compile status of the module with the given key, or the read status
+ * until it loads.
+ */
+export const useModuleStatus = (key: arc.Key): status.Status => {
+  const { data, variant, status: readStatus } = useResultModuleStatus({ key });
+  return variant !== "success" || data == null ? readStatus : data;
+};
+
 const notDeployed = (name: string) =>
   status.create({ name, variant: "disabled", message: "Task not deployed" });
 

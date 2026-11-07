@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -82,6 +83,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .offset = parser.field<std::uint32_t>("offset", 0),
         .include_program = parser.field<bool>("include_program", false),
+        .include_status = parser.field<bool>("include_status", false),
     };
 }
 
@@ -92,6 +94,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
     j["include_program"] = this->include_program;
+    j["include_status"] = this->include_status;
     return j;
 }
 
@@ -166,6 +169,7 @@ inline x::json::json AutomationArc::to_json() const {
 inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
     ModuleArc result;
     static_cast<Base &>(result) = Base::parse(parser);
+    result.status = parser.field<std::optional<Status>>("status");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -173,6 +177,7 @@ inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
 inline x::json::json ModuleArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     j["type"] = this->type;
     return j;
 }

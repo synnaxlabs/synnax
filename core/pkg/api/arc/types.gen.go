@@ -25,6 +25,8 @@ type RetrieveRequest struct {
 	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeProgram includes the program of each record.
 	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

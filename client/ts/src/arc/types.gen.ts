@@ -16,6 +16,7 @@ import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { resource } from "@/resource";
+import { status } from "@/status";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
@@ -27,6 +28,9 @@ export type Type = z.infer<typeof typeZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
 
 /** TextSource is Arc source code written as text. */
 export const textSourceZ = z.object({
@@ -110,6 +114,8 @@ export const retrieveRequestZ = z.strictObject({
   offset: z.uint32().optional(),
   /** includeProgram includes the program of each record. */
   includeProgram: z.boolean().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -124,6 +130,8 @@ export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 /** ModuleArc is an Arc that holds code for other Arcs to import. */
 export const moduleArcZ = baseZ.extend({
   type: z.literal("module"),
+  /** status is the result of the module's last compile on the Core. */
+  status: statusZ.optional(),
 });
 export interface ModuleArc extends z.infer<typeof moduleArcZ> {}
 

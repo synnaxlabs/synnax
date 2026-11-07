@@ -11,6 +11,7 @@ import "schemas/arc/graph"
 import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
+import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -94,6 +95,12 @@ Arc union on type Type extends Base {
         @doc value "is an Arc that runs on a rack as a task."
     }
     module {
+        status Status? {
+            @doc value  "is the result of the module's last compile on the Core."
+            @go marshal omit
+            @include
+        }
+
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
@@ -242,6 +249,8 @@ Arc union on type Type extends Base {
     @resource type "arc"
     @retrieve
 }
+
+Status = status.Status<nil>
 
 Type enum {
     automation = "automation"

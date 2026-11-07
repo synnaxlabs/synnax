@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -208,6 +209,8 @@ func (b Base) Validate() error {
 	return v.Error()
 }
 
+type Status = status.Status[struct{}]
+
 // ArcVariant is implemented by every Arc variant.
 type ArcVariant interface {
 	isArcVariant()
@@ -238,6 +241,8 @@ func (a AutomationArc) Validate() error {
 // ModuleArc is an Arc that holds code for other Arcs to import.
 type ModuleArc struct {
 	Base
+	// Status is the result of the module's last compile on the Core.
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 func (ModuleArc) isArcVariant() {}

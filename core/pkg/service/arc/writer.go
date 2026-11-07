@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -53,6 +54,8 @@ type Writer struct {
 	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
 	editedModules       *gorp.Attachment[Key]
 	compile             func(context.Context, gorp.Snapshot, AutomationArc) (arc.Program, error)
+	analyze             func(context.Context, gorp.Snapshot, ModuleArc) error
+	now                 func() telem.TimeStamp
 	parser              parser.Config
 }
 
@@ -137,21 +140,15 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
+	if !exists || existing.Base().Name != b.Name {
 		if err = w.resyncImporting(ctx); err != nil {
 			return err
 		}
-	} else {
-		if err = w.syncTask(ctx, *a); err != nil {
-			return err
-		}
-		if existing.Base().Name != b.Name {
-			if err = w.resyncImporting(ctx); err != nil {
-				return err
-			}
-		} else if module {
-			w.editedModules.Add(w.tx, b.Key)
-		}
+	} else if module {
+		w.editedModules.Add(w.tx, b.Key)
+	}
+	if err = w.sync(ctx, *a); err != nil {
+		return err
 	}
 	w.dispatcher.Attach(
 		w.tx,
@@ -301,6 +298,32 @@ func (w Writer) hash(ctx context.Context, a Arc) (string, error) {
 		}
 	}
 	return Hash(a.Base())
+}
+
+// sync rewrites an automation's task config or a module's compile status from its
+// content.
+func (w Writer) sync(ctx context.Context, a Arc) error {
+	if module, ok := a.Variant.(ModuleArc); ok {
+		return w.syncStatus(ctx, module)
+	}
+	return w.syncTask(ctx, a)
+}
+
+// syncStatus compiles the module and stores the result as its status.
+func (w Writer) syncStatus(ctx context.Context, module ModuleArc) error {
+	stat := Status{
+		Owner:   new(ResourceID(module.Key)),
+		Name:    module.Name,
+		Variant: status.VariantSuccess,
+		Message: "Compiled",
+		Time:    w.now(),
+	}
+	if err := w.analyze(ctx, w.tx, module); err != nil {
+		stat.Variant = status.VariantError
+		stat.Message = "Failed to compile"
+		stat.Description = err.Error()
+	}
+	return w.status.NewWriter(w.tx).Set(ctx, &stat)
 }
 
 // writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the

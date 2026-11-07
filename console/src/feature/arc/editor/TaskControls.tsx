@@ -28,10 +28,23 @@ const RACK_TRIGGER_PROPS = {
 };
 const RACK_DIALOG_PROPS = { className: CSS.BE("rack-select", "dialog") };
 
-export const TaskControls = () => {
+/** The compile status of a module, which has no task to control. */
+const ModuleControls = () => {
+  const key = Arc.useKey();
+  const stat = Arc.useModuleStatus(key);
+  return (
+    <Task.Controls.Bar
+      className={CSS.BE("arc-editor", "controls")}
+      status={stat}
+      running={false}
+      hideActions
+    />
+  );
+};
+
+const AutomationControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
-  const type = Arc.useType();
   const captureDeploy = PlatformArc.useCaptureDeploy();
   const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
@@ -39,8 +52,6 @@ export const TaskControls = () => {
   const canControl = Framer.useCanCommand();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
-  if (type === "module") return null;
-
   const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
   const handlePerformanceChange = (performance: arc.task.Performance) =>
     updateTask({ key, performance });
@@ -77,3 +88,6 @@ export const TaskControls = () => {
     />
   );
 };
+
+export const TaskControls = () =>
+  Arc.useType() === "module" ? <ModuleControls /> : <AutomationControls />;

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "client/cpp/resource/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -46,6 +47,8 @@ constexpr const char *TYPE_AUTOMATION = "automation";
 constexpr const char *TYPE_MODULE = "module";
 
 using Key = x::uuid::UUID;
+
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Where is a filter that selects Arcs.
 struct Where {
@@ -149,6 +152,8 @@ struct RetrieveOptions {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve arcs.
@@ -163,6 +168,8 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_program includes the program of each record.
     bool include_program = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -172,6 +179,7 @@ struct RetrieveRequest {
             .limit = options.limit,
             .offset = options.offset,
             .include_program = options.include_program,
+            .include_status = options.include_status,
         };
     }
 
@@ -226,6 +234,8 @@ struct AutomationArc : public Base {
 /// @brief ModuleArc is an Arc that holds code for other Arcs to import.
 struct ModuleArc : public Base {
     std::string type = TYPE_MODULE;
+    /// @brief status is the result of the module's last compile on the Core.
+    std::optional<Status> status;
 
     static ModuleArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

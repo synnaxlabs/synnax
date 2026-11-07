@@ -93,6 +93,41 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
+		It("Should include a module's compile status", func(ctx SpecContext) {
+			module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+				Name: "status_m",
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: "export func f() i64 { return 1 }"},
+				}},
+			}}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Create(ctx, &module)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Delete(ctx, module.Base().Key)
+				})).To(Succeed())
+			})
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				access.ActionRetrieve,
+				module.ResourceID(),
+			)
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{module.Base().Key}},
+				},
+			}
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
+			req.IncludeStatus = true
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+			Expect(stat).ToNot(BeNil())
+			Expect(stat.Message).To(Equal("Compiled"))
+		})
+
 		It(
 			"Should compile the graph of a graph-mode automation",
 			func(ctx SpecContext) {

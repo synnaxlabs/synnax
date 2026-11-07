@@ -161,6 +161,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_status: bool = ...,
         one: bool = ...,
     ) -> Arc: ...
 
@@ -177,6 +178,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_status: bool = ...,
         one: bool = ...,
     ) -> Arc: ...
 
@@ -195,6 +197,7 @@ class Client:
         names: list[str] | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_status: bool = ...,
         one: Literal[True],
     ) -> Arc: ...
 
@@ -215,6 +218,7 @@ class Client:
         limit: int | None = ...,
         offset: int = ...,
         include_program: bool = ...,
+        include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Arc]: ...
 
@@ -228,6 +232,7 @@ class Client:
         limit: int | None = None,
         offset: int = 0,
         include_program: bool = False,
+        include_status: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Arc | list[Arc]:
@@ -250,6 +255,7 @@ class Client:
         :param offset: The number of Arcs to skip.
         :param include_program: Whether the Core compiles each automation and sets
             its program. The Core raises an error if any automation fails to compile.
+        :param include_status: Whether the Core sets each module's compile status.
         :param one: Returns one Arc for any filter.
         :returns: One Arc for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of Arcs. The list leaves out keys that do not exist.
@@ -269,6 +275,7 @@ class Client:
             limit=limit,
             offset=offset,
             include_program=include_program,
+            include_status=include_status,
         )
         res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)

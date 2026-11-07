@@ -29,6 +29,8 @@ message RetrieveRequest {
   uint32 offset = 4;
   // include_program includes the program of each record.
   bool include_program = 5;
+  // include_status includes the status of each record.
+  bool include_status = 6;
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

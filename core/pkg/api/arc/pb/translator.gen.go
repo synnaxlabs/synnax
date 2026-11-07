@@ -22,6 +22,7 @@ func RetrieveRequestToPB(r arc.RetrieveRequest) (*RetrieveRequest, error) {
 		SearchTerm:     r.SearchTerm,
 		Offset:         r.Offset,
 		IncludeProgram: r.IncludeProgram,
+		IncludeStatus:  r.IncludeStatus,
 	}
 	if r.Where != nil {
 		var err error
@@ -45,6 +46,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
 	r.IncludeProgram = pb.IncludeProgram
+	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := arcpb.WhereFromPB(pb.Where)
 		if err != nil {

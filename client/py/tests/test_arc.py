@@ -176,6 +176,20 @@ class TestArc:
         assert retrieved.program is not None
         assert retrieved.program.wasm.startswith(b"\x00asm")
 
+    def test_retrieve_module_status(self, client: sy.Synnax) -> None:
+        """Should return a module's compile status when include_status is True."""
+        created = client.arcs.create(
+            name=f"test_module_{uuid4().hex}",
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func f() i64 { return 1 }"),
+        )
+        assert isinstance(client.arcs.retrieve(key=created.key), sy.arc.Module)
+        retrieved = client.arcs.retrieve(key=created.key, include_status=True)
+        assert isinstance(retrieved, sy.arc.Module)
+        assert retrieved.status is not None
+        assert retrieved.status.message == "Compiled"
+
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when include_program is not set."""
         created = client.arcs.create(

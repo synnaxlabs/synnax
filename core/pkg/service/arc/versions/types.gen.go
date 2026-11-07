@@ -53,6 +53,7 @@ type AutomationArc = v4.AutomationArc
 
 // ModuleArc is an Arc that holds code for other Arcs to import.
 type ModuleArc = v4.ModuleArc
+type Status = v4.Status
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.

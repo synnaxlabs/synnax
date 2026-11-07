@@ -169,26 +169,26 @@ describe("TaskControls", () => {
     });
   });
 
-  it("should show no controls for a module", async () => {
+  it("should show a module's compile status and no actions", async () => {
     const a = await client.arcs.create({
       name: uniqueName("mod"),
       type: "module",
-      source: { mode: "text" },
+      source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { container } = await renderSuspended(
-      <Analytics.Provider sink={Analytics.NOOP}>
-        <Suspense fallback={null}>
-          <Arc.Suspended arcKey={a.key}>
-            <TaskControls />
-            <p>module loaded</p>
-          </Arc.Suspended>
-        </Suspense>
-      </Analytics.Provider>,
-      { wrapper },
-    );
-    await screen.findByText("module loaded");
-    expect(container.querySelector(".console-arc-editor__controls")).toBeNull();
+    const { container } = await renderControls(a.key);
+    await screen.findByText("Compiled");
+    expect(queryIconButton(container, "play")).toBeNull();
+    expect(queryIcon(container, "refresh")).toBeNull();
+  });
+
+  it("should show why a module failed to compile", async () => {
+    const a = await client.arcs.create({
+      name: uniqueName("mod"),
+      type: "module",
+      source: { mode: "text", text: { raw: "export func f() i64 { return x }" } },
+    });
+    await renderControls(a.key);
+    await screen.findByText("Failed to compile");
   });
 
   describe("performance", () => {

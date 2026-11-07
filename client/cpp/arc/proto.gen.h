@@ -19,6 +19,8 @@
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
@@ -248,6 +250,7 @@ RetrieveRequest::to_proto() const {
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_offset(this->offset);
     pb.set_include_program(this->include_program);
+    pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
 
@@ -263,6 +266,7 @@ RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.offset = pb.offset();
     cpp.include_program = pb.include_program();
+    cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }
 
@@ -357,12 +361,22 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
 inline std::pair<::service::arc::pb::ArcModulePayload, x::errors::Error>
 ModuleArc::to_proto() const {
     ::service::arc::pb::ArcModulePayload pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<ModuleArc, x::errors::Error>
 ModuleArc::from_proto(const ::service::arc::pb::ArcModulePayload &pb) {
     ModuleArc cpp;
+    if (pb.has_status()) {
+        auto [v, err] = Status::from_proto(pb.status());
+        if (err) return {{}, err};
+        cpp.status = v;
+    }
     return {cpp, x::errors::NIL};
 }
 

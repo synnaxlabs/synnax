@@ -109,16 +109,16 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	}
 }
 
-// resyncTask rewrites the Arc's task config from its current content. It runs on the
-// task-sync debouncer.
-func (s *Service) resyncTask(ctx context.Context, key Key) {
-	s.resync(ctx, key, "failed to sync arc task", Writer.syncTask)
+// resync rewrites an automation's task config or a module's compile status from its
+// content. It runs on the task-sync debouncer.
+func (s *Service) resync(ctx context.Context, key Key) {
+	s.withArc(ctx, key, "failed to resync arc", Writer.sync)
 }
 
-// resyncImporters schedules a task resync for every importer of the module with key.
-// It runs on the importer-sync debouncer.
+// resyncImporters schedules a resync of every importer of the module with key. It
+// runs on the importer-sync debouncer.
 func (s *Service) resyncImporters(ctx context.Context, key Key) {
-	s.resync(ctx, key, "failed to resync arc importers", func(
+	s.withArc(ctx, key, "failed to resync arc importers", func(
 		w Writer,
 		ctx context.Context,
 		a Arc,
@@ -136,10 +136,10 @@ func (s *Service) resyncImporters(ctx context.Context, key Key) {
 	})
 }
 
-// resync runs fn on the Arc with key in its own transaction. A debouncer callback has
-// no caller to return errors to, so resync logs them under msg. A cancelled context
+// withArc runs fn on the Arc with key in its own transaction. A debouncer callback has
+// no caller to return errors to, so withArc logs them under msg. A cancelled context
 // (the service closed) and a deleted Arc are not errors.
-func (s *Service) resync(
+func (s *Service) withArc(
 	ctx context.Context,
 	key Key,
 	msg string,

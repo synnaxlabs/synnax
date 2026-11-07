@@ -57,6 +57,7 @@ type AutomationArc = versions.AutomationArc
 
 // ModuleArc is an Arc that holds code for other Arcs to import.
 type ModuleArc = versions.ModuleArc
+type Status = versions.Status
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.

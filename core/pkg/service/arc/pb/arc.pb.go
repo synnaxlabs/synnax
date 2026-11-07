@@ -21,6 +21,7 @@ import (
 	pb2 "github.com/synnaxlabs/arc/graph/pb"
 	pb3 "github.com/synnaxlabs/arc/program/pb"
 	pb1 "github.com/synnaxlabs/arc/text/pb"
+	pb4 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	pb "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -575,7 +576,9 @@ func (x *ArcAutomationPayload) GetProgram() *pb3.Program {
 }
 
 type ArcModulePayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// status is the result of the module's last compile on the Core.
+	Status        *pb4.Status `protobuf:"bytes,1,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -608,6 +611,13 @@ func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ArcModulePayload.ProtoReflect.Descriptor instead.
 func (*ArcModulePayload) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ArcModulePayload) GetStatus() *pb4.Status {
+	if x != nil {
+		return x.Status
+	}
+	return nil
 }
 
 // Source is the source code of an Arc. The mode selects text or a graph.
@@ -789,7 +799,7 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x8d\x01\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x8d\x01\n" +
 	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
@@ -822,8 +832,10 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\x14ArcAutomationPayload\x126\n" +
 	"\aprogram\x18\x01 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01B\n" +
 	"\n" +
-	"\b_program\"\x12\n" +
-	"\x10ArcModulePayload\"\x88\x01\n" +
+	"\b_program\"U\n" +
+	"\x10ArcModulePayload\x126\n" +
+	"\x06status\x18\x01 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_status\"\x88\x01\n" +
 	"\x06Source\x127\n" +
 	"\x04text\x18\x01 \x01(\v2!.service.arc.pb.SourceTextPayloadH\x00R\x04text\x12:\n" +
 	"\x05graph\x18\x02 \x01(\v2\".service.arc.pb.SourceGraphPayloadH\x00R\x05graphB\t\n" +
@@ -876,6 +888,7 @@ var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
 	(*pb1.Text)(nil),             // 14: arc.text.pb.Text
 	(*pb2.Graph)(nil),            // 15: arc.graph.pb.Graph
 	(*pb3.Program)(nil),          // 16: arc.program.pb.Program
+	(*pb4.Status)(nil),           // 17: service.status.pb.Status
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	11, // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
@@ -890,16 +903,17 @@ var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	14, // 9: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
 	15, // 10: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
 	16, // 11: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
-	7,  // 12: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
-	8,  // 13: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
-	2,  // 14: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
-	9,  // 15: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
-	10, // 16: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	17, // 12: service.arc.pb.ArcModulePayload.status:type_name -> service.status.pb.Status
+	7,  // 13: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
+	8,  // 14: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
+	2,  // 15: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
+	9,  // 16: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
+	10, // 17: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -911,6 +925,7 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[3].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[8].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[9].OneofWrappers = []any{
 		(*Source_Text)(nil),
 		(*Source_Graph)(nil),

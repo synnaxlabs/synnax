@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -304,6 +305,75 @@ var _ = Describe("Change propagation", Ordered, func() {
 			before := configHash(ctx, key)()
 			createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+		})
+	})
+
+	Describe("Module status", func() {
+		moduleStatus := func(ctx SpecContext, key arc.Key) func() arc.Status {
+			return func() arc.Status {
+				var stat arc.Status
+				if err := statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](arc.ResourceID(key))).
+					Entry(&stat).
+					Exec(ctx, db); err != nil {
+					return arc.Status{}
+				}
+				return stat
+			}
+		}
+
+		It("Should store a success status for a module that compiles", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			stat := moduleStatus(ctx, m.Base().Key)()
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Compiled"))
+			Expect(stat.Name).To(Equal("pt_m"))
+		})
+
+		It("Should store an error status for a module that does not compile", func(
+			ctx SpecContext,
+		) {
+			m := createArc(
+				ctx,
+				arc.TypeModule,
+				"pt_m",
+				"export func f() i64 { return x }",
+			)
+			stat := moduleStatus(ctx, m.Base().Key)()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to compile"))
+			Expect(stat.Description).To(ContainSubstring("x"))
+		})
+
+		It("Should update the status when an imported module breaks", func(
+			ctx SpecContext,
+		) {
+			inner := createArc(ctx, arc.TypeModule, "pt_inner", moduleV1)
+			m := createArc(
+				ctx,
+				arc.TypeModule,
+				"pt_m",
+				"import pt_inner\n\nexport func f() {t u8} i64 { return pt_inner.f(t) }",
+			)
+			Expect(moduleStatus(ctx, m.Base().Key)().Variant).
+				To(Equal(status.VariantSuccess))
+			overwrite(ctx, inner, "export func g() i64 { return 1 }")
+			Eventually(func() status.Variant {
+				return moduleStatus(ctx, m.Base().Key)().Variant
+			}).Should(Equal(status.VariantError))
+		})
+
+		It("Should delete the status with the module", func(ctx SpecContext) {
+			m := newModule(arc.Base{Name: "pt_m", Source: textSource(moduleV1)})
+			Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &m) })).
+				To(Succeed())
+			Expect(moduleStatus(ctx, m.Base().Key)().Key).ToNot(BeEmpty())
+			Expect(write(ctx, func(w arc.Writer) error {
+				return w.Delete(ctx, m.Base().Key)
+			})).To(Succeed())
+			Expect(moduleStatus(ctx, m.Base().Key)().Key).To(BeEmpty())
 		})
 	})
 

@@ -10,6 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
+import "schemas/synnax/status"
 
 Key = v1.Key
 
@@ -64,6 +65,8 @@ Base struct {
     @go marshal
 }
 
+Status = status.Status<nil>
+
 Arc union on type Type extends Base {
     automation {
         program program.Program? {
@@ -76,6 +79,11 @@ Arc union on type Type extends Base {
         @doc value "is an Arc that runs on a rack as a task."
     }
     module {
+        status Status? {
+            @doc value  "is the result of the module's last compile on the Core."
+            @go marshal omit
+        }
+
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 

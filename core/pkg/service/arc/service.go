@@ -356,17 +356,21 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 	return automation, nil
 }
 
+// snapshotRoot builds an analysis root that reads snap.
+func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
+	return s.newRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
+		s.moduleSource(snap),
+	)
+}
+
 // compile compiles the automation's source against a root that reads snap.
 func (s *Service) compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	automation AutomationArc,
 ) (arc.Program, error) {
-	root := s.newRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
-		s.moduleSource(snap),
-	)
-	return s.compileWith(ctx, root, automation)
+	return s.compileWith(ctx, s.snapshotRoot(snap), automation)
 }
 
 // compileWith compiles the automation's source against root.
@@ -383,6 +387,30 @@ func (s *Service) compileWith(
 		return arc.CompileGraph(ctx, src.Graph, root, opt)
 	}
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
+}
+
+// analyzeModule checks the module's source under the module rules against a root that
+// reads snap. A module links no code of its own, so analysis is its whole compile.
+func (s *Service) analyzeModule(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	module ModuleArc,
+) error {
+	src, ok := module.Source.Variant.(TextSource)
+	if !ok {
+		return errors.New("a module must be written as text")
+	}
+	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
+	parsed, diag := arctext.Parse(src.Text.Materialize(), cfg)
+	if diag != nil && !diag.Ok() {
+		return diag
+	}
+	if _, diag = arctext.AnalyzeModule(
+		ctx, parsed, s.snapshotRoot(snap), cfg,
+	); diag != nil && !diag.Ok() {
+		return diag
+	}
+	return nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -424,7 +452,7 @@ func OpenService(
 	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resyncTask,
+		Callback: s.resync,
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
@@ -520,6 +548,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		deletes:             s.deletes,
 		editedModules:       s.editedModules,
 		compile:             s.compile,
+		analyze:             s.analyzeModule,
+		now:                 s.cfg.Now,
 		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}
 }

@@ -35,8 +35,9 @@ export interface BarProps extends Flex.BoxProps {
   extraActions?: ReactNode;
   /** The task's settings, first in the action row. They show when the actions hide. */
   settings?: ReactNode;
-  onDeploy: () => void;
-  onStop: () => void;
+  /** Unused when the actions hide. */
+  onDeploy?: () => void;
+  onStop?: () => void;
 }
 
 /**
@@ -60,7 +61,7 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  const handleStartStop = () => (running ? onStop() : onDeploy());
+  const handleStartStop = () => (running ? onStop?.() : onDeploy?.());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status
@@ -77,7 +78,7 @@ export const Bar = ({
               {extraActions}
               <RedeployButton
                 visible={drifted}
-                onClick={onDeploy}
+                onClick={() => onDeploy?.()}
                 disabled={disabled || startStopVariant === "loading"}
               />
               <StartStopButton

@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import status as status_
 from synnax.arc import graph as graph_, program as program_, text as text_
 from synnax.resource import ID
 from x import filter
@@ -36,6 +37,8 @@ TYPE_MODULE: Literal["module"] = "module"
 Type = Literal["automation", "module"]
 
 Key: TypeAlias = UUID
+
+Status: TypeAlias = status_.Status
 
 
 class TextSource(BaseModel):
@@ -131,6 +134,7 @@ class RetrieveRequest(BaseModel):
         limit: Is the most arcs to return.
         offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
+        include_status: Includes the status of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -140,6 +144,7 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
+    include_status: bool = False
 
 
 class AutomationPayload(Base):
@@ -153,6 +158,7 @@ class ModulePayload(Base):
     """Is an Arc that holds code for other Arcs to import."""
 
     type: Literal["module"] = "module"
+    status: Status | None = None
 
 
 # Is an Arc module combining visual graph representation and text-based source

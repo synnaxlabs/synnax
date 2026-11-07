@@ -19,6 +19,7 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -460,6 +461,13 @@ func AutomationArcsFromPB(pbs []*ArcAutomationPayload) ([]arc.AutomationArc, err
 // ModuleArcToPB converts ModuleArc to ArcModulePayload.
 func ModuleArcToPB(r arc.ModuleArc) (*ArcModulePayload, error) {
 	pb := &ArcModulePayload{}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -468,6 +476,13 @@ func ModuleArcFromPB(pb *ArcModulePayload) (arc.ModuleArc, error) {
 	var r arc.ModuleArc
 	if pb == nil {
 		return r, nil
+	}
+	if pb.Status != nil {
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
+		if err != nil {
+			return arc.ModuleArc{}, err
+		}
+		r.Status = &val
 	}
 	return r, nil
 }
