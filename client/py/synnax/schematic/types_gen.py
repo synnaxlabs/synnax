@@ -718,6 +718,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
 
 
 class SwitchNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for switch symbols."""
+
     variant: Literal["switch"] = "switch"
 
 
@@ -752,98 +754,146 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
 
 class AgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for agitator symbols."""
+
     variant: Literal["agitator"] = "agitator"
 
 
 class CrossBeamAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cross beam agitator symbols."""
+
     variant: Literal["cross_beam_agitator"] = "cross_beam_agitator"
 
 
 class FlatBladeAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for flat blade agitator symbols."""
+
     variant: Literal["flat_blade_agitator"] = "flat_blade_agitator"
 
 
 class HeatExchangerGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_general"] = "heat_exchanger_general"
 
 
 class HeatExchangerMNodeConfig(StaticSymbolConfig):
+    """Is the configuration for M-type heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_m"] = "heat_exchanger_m"
 
 
 class HeatExchangerStraightTubeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for straight tube heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_straight_tube"] = "heat_exchanger_straight_tube"
 
 
 class HelicalAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for helical agitator symbols."""
+
     variant: Literal["helical_agitator"] = "helical_agitator"
 
 
 class PaddleAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for paddle agitator symbols."""
+
     variant: Literal["paddle_agitator"] = "paddle_agitator"
 
 
 class PropellerAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for propeller agitator symbols."""
+
     variant: Literal["propeller_agitator"] = "propeller_agitator"
 
 
 class RotaryMixerNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for rotary mixer symbols."""
+
     variant: Literal["rotary_mixer"] = "rotary_mixer"
 
 
 class StaticMixerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for static mixer symbols."""
+
     variant: Literal["static_mixer"] = "static_mixer"
 
 
 class CavityPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cavity pump symbols."""
+
     variant: Literal["cavity_pump"] = "cavity_pump"
 
 
 class CentrifugalCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for centrifugal compressor symbols."""
+
     variant: Literal["centrifugal_compressor"] = "centrifugal_compressor"
 
 
 class CompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for compressor symbols."""
+
     variant: Literal["compressor"] = "compressor"
 
 
 class DiaphragmPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for diaphragm pump symbols."""
+
     variant: Literal["diaphragm_pump"] = "diaphragm_pump"
 
 
 class EjectionPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejection pump symbols."""
+
     variant: Literal["ejection_pump"] = "ejection_pump"
 
 
 class EjectorCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejector compressor symbols."""
+
     variant: Literal["ejector_compressor"] = "ejector_compressor"
 
 
 class LiquidRingCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for liquid ring compressor symbols."""
+
     variant: Literal["liquid_ring_compressor"] = "liquid_ring_compressor"
 
 
 class PistonPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for piston pump symbols."""
+
     variant: Literal["piston_pump"] = "piston_pump"
 
 
 class PumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for pump symbols."""
+
     variant: Literal["pump"] = "pump"
 
 
 class RollerVaneCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for roller vane compressor symbols."""
+
     variant: Literal["roller_vane_compressor"] = "roller_vane_compressor"
 
 
 class ScrewPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for screw pump symbols."""
+
     variant: Literal["screw_pump"] = "screw_pump"
 
 
 class TurboCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for turbo compressor symbols."""
+
     variant: Literal["turbo_compressor"] = "turbo_compressor"
 
 
 class VacuumPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for vacuum pump symbols."""
+
     variant: Literal["vacuum_pump"] = "vacuum_pump"
 
 
@@ -1453,6 +1503,8 @@ class StringDisplayElementConfig(LabeledConfig, StalenessConfig):
 
 
 class SwitchElementConfig(ToggleSymbolConfig):
+    """Is the configuration for switch symbols."""
+
     variant: Literal["switch"] = "switch"
 
 
@@ -1487,98 +1539,146 @@ class ValueElementConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
 
 class AgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for agitator symbols."""
+
     variant: Literal["agitator"] = "agitator"
 
 
 class CrossBeamAgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for cross beam agitator symbols."""
+
     variant: Literal["cross_beam_agitator"] = "cross_beam_agitator"
 
 
 class FlatBladeAgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for flat blade agitator symbols."""
+
     variant: Literal["flat_blade_agitator"] = "flat_blade_agitator"
 
 
 class HeatExchangerGeneralElementConfig(StaticSymbolConfig):
+    """Is the configuration for general heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_general"] = "heat_exchanger_general"
 
 
 class HeatExchangerMElementConfig(StaticSymbolConfig):
+    """Is the configuration for M-type heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_m"] = "heat_exchanger_m"
 
 
 class HeatExchangerStraightTubeElementConfig(StaticSymbolConfig):
+    """Is the configuration for straight tube heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_straight_tube"] = "heat_exchanger_straight_tube"
 
 
 class HelicalAgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for helical agitator symbols."""
+
     variant: Literal["helical_agitator"] = "helical_agitator"
 
 
 class PaddleAgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for paddle agitator symbols."""
+
     variant: Literal["paddle_agitator"] = "paddle_agitator"
 
 
 class PropellerAgitatorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for propeller agitator symbols."""
+
     variant: Literal["propeller_agitator"] = "propeller_agitator"
 
 
 class RotaryMixerElementConfig(ToggleSymbolConfig):
+    """Is the configuration for rotary mixer symbols."""
+
     variant: Literal["rotary_mixer"] = "rotary_mixer"
 
 
 class StaticMixerElementConfig(StaticSymbolConfig):
+    """Is the configuration for static mixer symbols."""
+
     variant: Literal["static_mixer"] = "static_mixer"
 
 
 class CavityPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for cavity pump symbols."""
+
     variant: Literal["cavity_pump"] = "cavity_pump"
 
 
 class CentrifugalCompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for centrifugal compressor symbols."""
+
     variant: Literal["centrifugal_compressor"] = "centrifugal_compressor"
 
 
 class CompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for compressor symbols."""
+
     variant: Literal["compressor"] = "compressor"
 
 
 class DiaphragmPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for diaphragm pump symbols."""
+
     variant: Literal["diaphragm_pump"] = "diaphragm_pump"
 
 
 class EjectionPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for ejection pump symbols."""
+
     variant: Literal["ejection_pump"] = "ejection_pump"
 
 
 class EjectorCompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for ejector compressor symbols."""
+
     variant: Literal["ejector_compressor"] = "ejector_compressor"
 
 
 class LiquidRingCompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for liquid ring compressor symbols."""
+
     variant: Literal["liquid_ring_compressor"] = "liquid_ring_compressor"
 
 
 class PistonPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for piston pump symbols."""
+
     variant: Literal["piston_pump"] = "piston_pump"
 
 
 class PumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for pump symbols."""
+
     variant: Literal["pump"] = "pump"
 
 
 class RollerVaneCompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for roller vane compressor symbols."""
+
     variant: Literal["roller_vane_compressor"] = "roller_vane_compressor"
 
 
 class ScrewPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for screw pump symbols."""
+
     variant: Literal["screw_pump"] = "screw_pump"
 
 
 class TurboCompressorElementConfig(ToggleSymbolConfig):
+    """Is the configuration for turbo compressor symbols."""
+
     variant: Literal["turbo_compressor"] = "turbo_compressor"
 
 
 class VacuumPumpElementConfig(ToggleSymbolConfig):
+    """Is the configuration for vacuum pump symbols."""
+
     variant: Literal["vacuum_pump"] = "vacuum_pump"
 
 
