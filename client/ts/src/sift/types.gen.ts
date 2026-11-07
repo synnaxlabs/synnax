@@ -60,7 +60,10 @@ export interface Position extends z.infer<typeof positionZ> {}
 export const uploadDetailsZ = z.object({
   /** device is the key of the Sift device the upload sends to. */
   device: device.keyZ,
-  /** range is the key of the range whose data the upload sends. */
+  /**
+   * range is the key of the range whose data the upload sends, or zero for an upload of
+   * a plain time span.
+   */
   range: ranger.keyZ,
   /** timeRange is the span of data the upload sends. */
   timeRange: telem.timeRangeZ,
