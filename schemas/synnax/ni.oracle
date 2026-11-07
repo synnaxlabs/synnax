@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port int32 = 0 {
+        port uint16 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -674,7 +674,7 @@ BaseAIChannel struct {
     channel  channel.Key = 0 {
         @doc value "is the Synnax channel that raw samples are written to."
     }
-    port     int32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
@@ -1192,7 +1192,7 @@ BaseCIChannel struct {
     channel  channel.Key = 0 {
         @doc value "is the Synnax channel that raw samples are written to."
     }
-    port     int32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
@@ -1511,7 +1511,7 @@ BaseAOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1564,10 +1564,10 @@ DIChannel struct {
     channel  channel.Key = 0 {
         @doc value "is the Synnax channel that raw samples are written to."
     }
-    port     int32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
-    line     int32 = 0 {
+    line     uint8 = 0 {
         @doc value "is the digital line within the port the channel reads from."
     }
 
@@ -1595,10 +1595,10 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
-    line               int32 = 0 {
+    line               uint8 = 0 {
         @doc value "is the digital line within the port the channel writes to."
     }
 

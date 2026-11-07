@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -23,7 +24,8 @@ var _ = Describe("Service", func() {
 	var svc *ni.Service
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db,
+			DB:       db,
+			Ontology: MustOpen(ontology.Open(ctx, ontology.Config{DB: db})),
 		}))
 	})
 
@@ -31,6 +33,10 @@ var _ = Describe("Service", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
 			Expect(ni.OpenService(ctx, ni.ServiceConfig{})).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+		It("Should reject a config missing the ontology", func(ctx SpecContext) {
+			Expect(ni.OpenService(ctx, ni.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("ontology: must be non-nil")))
 		})
 	})
 

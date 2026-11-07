@@ -354,7 +354,7 @@ export const baseAIChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical port the channel reads from. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
   /** device is the key of the device the channel belongs to. */
   device: device.keyZ.default(""),
 });
@@ -384,7 +384,7 @@ export const baseCIChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical counter the channel uses. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
   /** device is the key of the device the counter belongs to. */
   device: device.keyZ.default(""),
 });
@@ -405,7 +405,7 @@ export const baseAOChannelZ = z.object({
   /** stateChannelName is the human-readable name of the state channel. */
   stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
 });
 export interface BaseAOChannel extends z.infer<typeof baseAOChannelZ> {}
 
@@ -420,9 +420,9 @@ export const diChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical port the channel reads from. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
   /** line is the digital line within the port the channel reads from. */
-  line: z.int32().default(0),
+  line: zod.uint8.default(0),
 });
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 
@@ -441,9 +441,9 @@ export const doChannelZ = z.object({
   /** stateChannelName is the human-readable name of the state channel. */
   stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
   /** line is the digital line within the port the channel writes to. */
-  line: z.int32().default(0),
+  line: zod.uint8.default(0),
 });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
@@ -537,7 +537,7 @@ export interface ConstValCJC extends z.infer<typeof constValCJCZ> {}
 export const chanCJCZ = z.object({
   source: z.literal("chan"),
   /** port is the port of the channel that measures the reference. */
-  port: z.int32().default(0),
+  port: zod.uint16.default(0),
 });
 export interface ChanCJC extends z.infer<typeof chanCJCZ> {}
 

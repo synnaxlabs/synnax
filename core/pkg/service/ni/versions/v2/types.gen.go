@@ -3611,6 +3611,12 @@ func (CIFrequencyChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIFrequencyChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 2
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 100
+	}
 	if c.Units == "" {
 		c.Units = CIFreqUnitsHz
 	}
@@ -3625,10 +3631,6 @@ func (c *CIFrequencyChannel) ApplyDefaults() {
 	}
 	if c.Divisor == 0 {
 		c.Divisor = 4
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 2
-		c.MaxVal = 100
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3702,6 +3704,12 @@ func (CIPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPeriodChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3716,10 +3724,6 @@ func (c *CIPeriodChannel) ApplyDefaults() {
 	}
 	if c.Divisor == 0 {
 		c.Divisor = 4
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 1e-06
-		c.MaxVal = 0.1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3753,15 +3757,17 @@ func (CIPulseWidthChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPulseWidthChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
 	if c.StartingEdge == "" {
 		c.StartingEdge = CIEdgeRising
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 1e-06
-		c.MaxVal = 0.1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3792,12 +3798,14 @@ func (CISemiPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CISemiPeriodChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 1e-06
-		c.MaxVal = 0.1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3833,6 +3841,12 @@ func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CITwoEdgeSepChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3841,10 +3855,6 @@ func (c *CITwoEdgeSepChannel) ApplyDefaults() {
 	}
 	if c.SecondEdge == "" {
 		c.SecondEdge = CIEdgeFalling
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 1e-06
-		c.MaxVal = 1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3882,6 +3892,9 @@ func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityLinearChannel) ApplyDefaults() {
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	if c.Units == "" {
 		c.Units = CILinearVelocityUnitsMPerS
 	}
@@ -3890,9 +3903,6 @@ func (c *CIVelocityLinearChannel) ApplyDefaults() {
 	}
 	if c.DistPerPulse == 0 {
 		c.DistPerPulse = 0.001
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MaxVal = 1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -3929,6 +3939,9 @@ func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityAngularChannel) ApplyDefaults() {
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	if c.Units == "" {
 		c.Units = CIAngularVelocityUnitsRpm
 	}
@@ -3937,9 +3950,6 @@ func (c *CIVelocityAngularChannel) ApplyDefaults() {
 	}
 	if c.PulsesPerRev == 0 {
 		c.PulsesPerRev = 24
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MaxVal = 1
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
@@ -4064,12 +4074,14 @@ func (CIDutyCycleChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIDutyCycleChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 2
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 10000
+	}
 	if c.ActiveEdge == "" {
 		c.ActiveEdge = CIEdgeRising
-	}
-	if c.MinVal == 0 && c.MaxVal == 0 {
-		c.MinVal = 2
-		c.MaxVal = 10000
 	}
 	c.CustomScale.ApplyDefaults()
 	c.MinMaxVal.ApplyDefaults()
