@@ -2,8 +2,7 @@
 
 ## Project
 
-Synnax is a horizontally-scalable observability and control platform for hardware
-telemetry. Monorepo:
+Synnax is an observability and control platform for hardware telemetry. Monorepo:
 
 - **TypeScript** (pnpm + Turbo): Console (Tauri app), Pluto (viz), Client, Drift
   (multi-window state), Freighter, X

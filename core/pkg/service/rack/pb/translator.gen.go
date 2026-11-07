@@ -275,9 +275,6 @@ func WhereToPB(r rack.Where) (*Where, error) {
 			return nil, err
 		}
 	}
-	if r.HostIsNode != nil {
-		pb.HostIsNode = r.HostIsNode
-	}
 	if r.Groups != nil {
 		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
@@ -341,9 +338,6 @@ func WhereFromPB(pb *Where) (rack.Where, error) {
 			return rack.Where{}, err
 		}
 		r.Integrations = &val
-	}
-	if pb.HostIsNode != nil {
-		r.HostIsNode = pb.HostIsNode
 	}
 	if pb.Groups != nil {
 		vals, err := func() ([]group.Key, error) {

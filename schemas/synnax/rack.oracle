@@ -98,12 +98,6 @@ Where filter Rack {
     name
     embedded
     integrations
-    host_is_node bool        {
-        @doc value """
-            matches racks on the Core that serves the request, or racks on other Cores
-            when false.
-        """
-    }
     groups       group.Key[] {
         @cpp omit
         @doc value "matches the racks in any of the given groups."

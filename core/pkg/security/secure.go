@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// secureProvider implements the Provider interface for use in a secure cluster.
+// secureProvider implements the Provider interface for a Core that serves TLS.
 type secureProvider struct {
 	loader   *cert.Loader
 	tls      *tls.Certificate
@@ -73,10 +73,6 @@ var defaultCipherSuites = []uint16{
 
 func (p *secureProvider) TLSConfigFor(src cert.Source) *tls.Config {
 	return p.baseTLSConfig(src.GetCertificate)
-}
-
-func (p *secureProvider) NodeClientConfig() *tls.Config {
-	return p.baseTLSConfig(p.getNodeCert)
 }
 
 func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
@@ -140,10 +136,6 @@ func (p *secureProvider) baseTLSConfig(
 		MinVersion:           tls.VersionTLS13,
 		NextProtos:           []string{"http/1.1", "h2"},
 	}
-}
-
-func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return p.tls, nil
 }
 
 func (p *secureProvider) getClientCert(

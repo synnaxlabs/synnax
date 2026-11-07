@@ -85,11 +85,8 @@ message Where {
   optional .x.filter.pb.Bool embedded = 6;
   // integrations selects by integrations.
   optional StringContains integrations = 7;
-  // host_is_node matches racks on the Core that serves the request, or racks on other
-  // Cores when false.
-  optional bool host_is_node = 8;
   // groups matches the racks in any of the given groups.
-  GroupKeyList groups = 9;
+  GroupKeyList groups = 8;
   // grouped matches the racks in a group, or in no group when false.
-  optional bool grouped = 10;
+  optional bool grouped = 9;
 }

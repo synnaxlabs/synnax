@@ -29,7 +29,6 @@ export type Where = {
   name?: filter.String;
   embedded?: filter.Bool;
   integrations?: filter.Contains<z.ZodString>;
-  hostIsNode?: boolean;
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -54,11 +53,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   embedded: filter.boolZ.optional(),
   /** integrations selects by integrations. */
   integrations: filter.containsZ(z.string()).optional(),
-  /**
-   * hostIsNode matches racks on the Core that serves the request, or racks on other
-   * Cores when false.
-   */
-  hostIsNode: z.boolean().optional(),
   /** groups matches the racks in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the racks in a group, or in no group when false. */

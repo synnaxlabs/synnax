@@ -82,10 +82,10 @@ func (i *Iterator) Error() error {
 }
 
 // Close closes the Iterator, ensuring that all in-progress reads complete before
-// closing the Source outlet. It returns the error that stopped the iterator on any
-// node, unless a seek or SetBounds has cleared it since. Closing a closed iterator
-// returns nil, every other method returns false, and Error returns ErrClosed. All
-// iterators must be Closed, or the distribution layer will panic.
+// closing the Source outlet. It returns the error that stopped the iterator, unless a
+// seek or SetBounds has cleared it since. Closing a closed iterator returns nil, every
+// other method returns false, and Error returns ErrClosed. All iterators must be
+// Closed, or the distribution layer will panic.
 func (i *Iterator) Close() error { return i.pipeline.Close() }
 
 // SetBounds sets the lower and upper bounds of the Iterator.

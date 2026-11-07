@@ -328,7 +328,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Node, err = node.NewService(node.ServiceConfig{
 		Instrumentation: cfg.Child("node"),
-		Host:            cfg.Distribution.Host.Node,
+		Host:            cfg.Distribution.Host,
 	}); !ok(err, nil) {
 		return nil, err
 	}

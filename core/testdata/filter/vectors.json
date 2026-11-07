@@ -776,22 +776,6 @@
         "expected": []
       },
       {
-        "name": "host is node",
-        "where": {
-          "host_is_node": true
-        },
-        "expected": ["a", "b"],
-        "server_computed": true
-      },
-      {
-        "name": "host is not node",
-        "where": {
-          "host_is_node": false
-        },
-        "expected": ["c", "d"],
-        "server_computed": true
-      },
-      {
         "name": "the slots on one node are ANDed",
         "where": {
           "key": {

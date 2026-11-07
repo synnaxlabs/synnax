@@ -12,8 +12,8 @@ package testutil
 import (
 	"context"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	transporttestutil "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/address"
@@ -28,16 +28,16 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer of the node.
 	Storage *storage.Layer
-	stores  *storagetestutil.Cluster
 }
 
 // Close closes the distribution layer and then the storage layer. It shadows the
 // embedded Layer.Close.
-func (n Node) Close() error { return errors.Join(n.Layer.Close(), n.stores.Close()) }
+func (n Node) Close() error { return errors.Join(n.Layer.Close(), n.Storage.Close()) }
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
 // called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
 func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	ginkgo.GinkgoHelper()
 	return testutil.DeferClose(OpenNode(ctx, overrides...))
 }
 
@@ -45,15 +45,11 @@ func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 // distribution.LayerConfig, so a caller can pass its own storage layer. The caller
 // closes the returned Node.
 func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	ginkgo.GinkgoHelper()
 	var (
-		addr   = address.Address("localhost:0")
-		stores = storagetestutil.NewCluster()
-		n      = Node{Storage: stores.Provision(ctx), stores: stores}
-		cfg    = distribution.LayerConfig{
-			Storage:          n.Storage,
-			Transport:        transporttestutil.NewNetwork().New(addr, 1),
-			AdvertiseAddress: addr,
-		}
+		addr = address.Address("localhost:0")
+		n    = Node{Storage: storagetestutil.OpenLayer(ctx)}
+		cfg  = distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
 	)
 	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
 	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))

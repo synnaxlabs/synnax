@@ -264,7 +264,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		indexes: s.indexes,
 		baseTX:  s.DB,
 		gorp:    s.table.NewRetrieve(),
-		hostKey: s.HostKey,
 	}
 }
 

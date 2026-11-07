@@ -28,7 +28,7 @@ var _ = Describe("Delete", Ordered, func() {
 		n = testutil.NewNode(ctx)
 	})
 
-	It("Should delete the storage channel for a gateway key", func(ctx SpecContext) {
+	It("Should delete the storage channel for a host key", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "to-delete", DataType: telem.TimestampT, IsIndex: true},
 		}))
@@ -50,14 +50,4 @@ var _ = Describe("Delete", Ordered, func() {
 		key := out[0].Key()
 		Expect(n.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
 	})
-	It(
-		"Should return an error when a key's leaseholder is not in the cluster",
-		func(ctx SpecContext) {
-			Expect(
-				n.Channel.Delete(ctx, channel.Keys{channel.NewKey(node.Key(99), 1)}),
-			).To(
-				MatchError(query.ErrNotFound),
-			)
-		},
-	)
 })

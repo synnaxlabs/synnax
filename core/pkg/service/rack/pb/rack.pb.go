@@ -442,13 +442,10 @@ type Where struct {
 	Embedded *pb1.Bool `protobuf:"bytes,6,opt,name=embedded,proto3,oneof" json:"embedded,omitempty"`
 	// integrations selects by integrations.
 	Integrations *StringContains `protobuf:"bytes,7,opt,name=integrations,proto3,oneof" json:"integrations,omitempty"`
-	// host_is_node matches racks on the Core that serves the request, or racks on other
-	// Cores when false.
-	HostIsNode *bool `protobuf:"varint,8,opt,name=host_is_node,json=hostIsNode,proto3,oneof" json:"host_is_node,omitempty"`
 	// groups matches the racks in any of the given groups.
-	Groups *GroupKeyList `protobuf:"bytes,9,opt,name=groups,proto3" json:"groups,omitempty"`
+	Groups *GroupKeyList `protobuf:"bytes,8,opt,name=groups,proto3" json:"groups,omitempty"`
 	// grouped matches the racks in a group, or in no group when false.
-	Grouped       *bool `protobuf:"varint,10,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
+	Grouped       *bool `protobuf:"varint,9,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -532,13 +529,6 @@ func (x *Where) GetIntegrations() *StringContains {
 	return nil
 }
 
-func (x *Where) GetHostIsNode() bool {
-	if x != nil && x.HostIsNode != nil {
-		return *x.HostIsNode
-	}
-	return false
-}
-
 func (x *Where) GetGroups() *GroupKeyList {
 	if x != nil {
 		return x.Groups
@@ -585,7 +575,7 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x0eStringContains\x12-\n" +
 	"\x03any\x18\x01 \x01(\v2\x1b.service.rack.pb.StringListR\x03any\"&\n" +
 	"\fGroupKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xbd\x04\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x85\x04\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.rack.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.rack.pb.WhereListR\x02or\x12-\n" +
@@ -593,18 +583,14 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x03key\x18\x04 \x01(\v2\x17.service.rack.pb.KeySetH\x01R\x03key\x88\x01\x01\x12,\n" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x122\n" +
 	"\bembedded\x18\x06 \x01(\v2\x11.x.filter.pb.BoolH\x03R\bembedded\x88\x01\x01\x12H\n" +
-	"\fintegrations\x18\a \x01(\v2\x1f.service.rack.pb.StringContainsH\x04R\fintegrations\x88\x01\x01\x12%\n" +
-	"\fhost_is_node\x18\b \x01(\bH\x05R\n" +
-	"hostIsNode\x88\x01\x01\x125\n" +
-	"\x06groups\x18\t \x01(\v2\x1d.service.rack.pb.GroupKeyListR\x06groups\x12\x1d\n" +
-	"\agrouped\x18\n" +
-	" \x01(\bH\x06R\agrouped\x88\x01\x01B\x06\n" +
+	"\fintegrations\x18\a \x01(\v2\x1f.service.rack.pb.StringContainsH\x04R\fintegrations\x88\x01\x01\x125\n" +
+	"\x06groups\x18\b \x01(\v2\x1d.service.rack.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\t \x01(\bH\x05R\agrouped\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\v\n" +
 	"\t_embeddedB\x0f\n" +
-	"\r_integrationsB\x0f\n" +
-	"\r_host_is_nodeB\n" +
+	"\r_integrationsB\n" +
 	"\n" +
 	"\b_groupedB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"

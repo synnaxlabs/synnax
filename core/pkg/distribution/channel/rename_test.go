@@ -28,7 +28,7 @@ var _ = Describe("Rename", Ordered, func() {
 		n = testutil.NewNode(ctx)
 	})
 
-	It("Should rename the storage channel for a gateway key", func(ctx SpecContext) {
+	It("Should rename the storage channel for a host key", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "old-name", DataType: telem.TimestampT, IsIndex: true},
 		}))
@@ -57,7 +57,7 @@ var _ = Describe("Rename", Ordered, func() {
 		)
 	})
 	It(
-		"Should return an error when a key's leaseholder is not in the cluster",
+		"Should return an error when a key's leaseholder is not the host node",
 		func(ctx SpecContext) {
 			Expect(n.Channel.Rename(
 				ctx,

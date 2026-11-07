@@ -35,9 +35,6 @@ const (
 // Free returns true if the key is KeyFree.
 func (k Key) Free() bool { return k == KeyFree }
 
-// IsBootstrapper returns true if the key is KeyBootstrapper.
-func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
-
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 

@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Deleter", Ordered, func() {
 	scenarios := []func(context.Context) scenario{
-		gatewayOnlyScenario,
+		storageScenario,
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
@@ -54,13 +54,9 @@ var _ = Describe("Deleter", Ordered, func() {
 					))).To(BeTrue())
 					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
-
-					// Use context.Background() because the iterator must survive
-					// beyond BeforeEach into It/AfterEach. SpecContext is cancelled
-					// when BeforeEach exits, which kills peer streams and deadlocks.
 					i = MustSucceed(
 						s.dist.Framer.OpenIterator(
-							context.Background(),
+							ctx,
 							iterator.Config{
 								Keys:   s.keys,
 								Bounds: telem.TimeRangeMax,
@@ -181,7 +177,7 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario(ctx context.Context) scenario {
+func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
@@ -189,7 +185,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:     "Gateway Only",
+		name:     "Storage",
 		keys:     keys,
 		channels: channels,
 		names:    names,
