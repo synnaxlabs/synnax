@@ -1117,6 +1117,55 @@ Doc struct {
 }
 `),
 	)
+	It("Should keep a shared enum that a later frozen version uses", func() {
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/synnax/versions/doc/v0.oracle": `
+Side enum {
+	left = "left"
+}
+
+Doc struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+Side = v0.Side
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v2.oracle": sharedSide,
+			"schemas/synnax/doc.oracle":             liveSide,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")).
+			To(ContainSubstring("type Side string"))
+		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")).
+			To(ContainSubstring("Side = v0.Side"))
+	})
 	It("Should drop a shared enum that no frozen declaration uses", func() {
 		frozen := frozenV0(`
 Side enum {
@@ -1262,6 +1311,7 @@ Doc struct {
 			)
 			Expect(frozen).To(ContainSubstring("Mode color.Mode"))
 			Expect(frozen).To(ContainSubstring("= color.ModeLight"))
+			Expect(frozen).To(ContainSubstring(".Mode.IsValid()"))
 		},
 		Entry("on a struct", "", `mode color.Mode = light {
 		@go marshal omit
@@ -1488,6 +1538,59 @@ Doc struct {
 
 	@go fields  "AST parser.IProgramContext ` + "`json:\\\"-\\\"`" + `"
 	@go imports "github.com/synnaxlabs/arc/parser"
+}
+`,
+			}, "schemas/synnax/doc"),
+		Entry("when an omitted variant field holds a declaration with a live rule",
+			docV0, "schemas/synnax/versions/doc/v1.oracle", `
+Note = v0.Note
+
+Shape = v0.Shape
+
+Doc = v0.Doc
+`, map[string]string{
+				"schemas/synnax/versions/doc/v0.oracle": `
+Note struct {
+	name string
+}
+
+Shape union on kind {
+	circle {
+		preview Note {
+			@go marshal omit
+		}
+	}
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`,
+				"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Note struct {
+	name string {
+		@validate required
+	}
+}
+
+Shape union on kind {
+	circle {
+		preview Note {
+			@go marshal omit
+		}
+	}
+}
+
+Doc struct {
+	key uuid @key
+	shape Shape
 }
 `,
 			}, "schemas/synnax/doc"),
