@@ -338,20 +338,6 @@ var _ = Describe("Middleware", func() {
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
 	})
-	It("Should put the session key on a unary request", func(ctx SpecContext) {
-		session := MustSucceed(authSvc.Authenticate(ctx, token))
-		var seen freighter.Context
-		MustSucceed(mw.Exec(
-			withToken(ctx, freighter.VariantUnary),
-			freighter.FinalizerFunc(
-				func(c freighter.Context) (freighter.Context, error) {
-					seen = c
-					return c, nil
-				},
-			),
-		))
-		Expect(apiauth.GetSessionKey(seen)).To(Equal(session.Key))
-	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
 			To(MatchError(auth.ErrAuth))

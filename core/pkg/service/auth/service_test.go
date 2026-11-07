@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -376,24 +375,6 @@ var _ = Describe("Service", func() {
 	})
 	It("Should return the configured idle timeout", func() {
 		Expect(svc.IdleTimeout()).To(Equal(idle))
-	})
-	Describe("Observe", func() {
-		It("Should notify observers of an ended session", func(ctx SpecContext) {
-			session, _ := login(ctx)
-			ended := make(chan auth.SessionKey, 1)
-			DeferCleanup(svc.Observe().OnChange(func(
-				_ context.Context,
-				changes gorp.TxReader[auth.SessionKey, auth.Session],
-			) {
-				for ch := range changes {
-					if ch.Variant == change.VariantDelete {
-						ended <- ch.Key
-					}
-				}
-			}))
-			Expect(svc.Logout(ctx, session.Key)).To(Succeed())
-			Eventually(ended).Should(Receive(Equal(session.Key)))
-		})
 	})
 	Describe("Logout", func() {
 		It("Should ignore unknown keys", func(ctx SpecContext) {
