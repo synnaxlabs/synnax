@@ -119,8 +119,7 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 	)
 	sw.InFrom(requests)
 	sw.OutTo(responses)
-	// A routine never starts under a canceled context, and then never closes its
-	// outlets. The writer runs apart from ctx, and every wait on it selects on ctx.
+	// The writer runs apart from ctx, and every wait on it selects on ctx.
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
 	sw.Flow(

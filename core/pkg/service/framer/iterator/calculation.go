@@ -72,34 +72,41 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 				if !ok {
 					return nil
 				}
-				t.processResponse(ctx, res)
+				if err := t.processResponse(ctx, res); err != nil {
+					return err
+				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
+func (t *calculationTransform) processResponse(
+	ctx context.Context,
+	res Response,
+) error {
 	switch {
 	case res.Command == CommandError:
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
 	case res.Variant == ResponseVariantData && t.buffered:
 		t.pending = append(t.pending, res.Frame)
-		return
+		return nil
 	case res.Variant == ResponseVariantData:
 		res.Frame = t.calculate(ctx, res.Frame)
 		if res.Frame.Count() == 0 {
-			return
+			return nil
 		}
 	case res.Variant == ResponseVariantAck:
 		if len(t.pending) > 0 {
 			fr := t.calculate(ctx, frame.Merge(t.pending))
 			t.pending = nil
 			if fr.Count() > 0 {
-				t.Out.Inlet() <- Response{
+				if err := signal.SendUnderContext(ctx, t.Out.Inlet(), Response{
 					Variant: ResponseVariantData,
 					Command: res.Command,
 					SeqNum:  res.SeqNum,
 					Frame:   fr,
+				}); err != nil {
+					return err
 				}
 			}
 		}
@@ -107,7 +114,7 @@ func (t *calculationTransform) processResponse(ctx context.Context, res Response
 			res.Ack = false
 		}
 	}
-	t.Out.Inlet() <- res
+	return signal.SendUnderContext(ctx, t.Out.Inlet(), res)
 }
 
 func (t *calculationTransform) calculate(

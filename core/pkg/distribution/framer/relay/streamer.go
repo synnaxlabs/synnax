@@ -97,6 +97,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
+		// A canceled request can outlive the relay, whose closed demands would panic.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		s.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these

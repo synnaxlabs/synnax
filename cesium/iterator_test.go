@@ -10,8 +10,11 @@
 package cesium_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +30,41 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// sendFailContext cancels once for the first send that finds full true, and cancels
+// nothing before or after that send. failed closes when the next send starts.
+type sendFailContext struct {
+	context.Context
+	full     func() bool
+	canceled atomic.Bool
+	failed   chan struct{}
+	report   sync.Once
+}
+
+func newSendFailContext(ctx context.Context, full func() bool) *sendFailContext {
+	return &sendFailContext{Context: ctx, full: full, failed: make(chan struct{})}
+}
+
+func (c *sendFailContext) Done() <-chan struct{} {
+	if c.canceled.Load() {
+		c.report.Do(func() { close(c.failed) })
+		return nil
+	}
+	if !c.full() {
+		return nil
+	}
+	c.canceled.Store(true)
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
+func (c *sendFailContext) Err() error {
+	if c.canceled.Load() {
+		return context.Canceled
+	}
+	return nil
+}
 
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
@@ -1567,6 +1605,131 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.Close()).To(Succeed())
 					}
 				})
+
+				It(
+					"Should release its channels when it flows in a canceled context",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Nansen",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						sCtx, cancel := signal.Isolated()
+						cancel()
+						iter.InFrom(confluence.NewStream[cesium.IteratorRequest]())
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should exit on cancel when nothing reads its responses",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Shackleton",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							sCtx, cancel = signal.Isolated()
+							requests     = confluence.NewStream[cesium.IteratorRequest]()
+						)
+						iter.InFrom(requests)
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						// The ack of the seek has no reader.
+						cancel()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
+				DescribeTable(
+					"Should not acknowledge a read whose data it failed to send",
+					func(ctx SpecContext, span telem.TimeSpan) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Scott",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							requests  = confluence.NewStream[cesium.IteratorRequest](2)
+							responses = confluence.NewStream[cesium.IteratorResponse](1)
+						)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandNext,
+							Span:    span,
+						}
+						// The ack of the seek fills responses for the data of the read.
+						failCtx := newSendFailContext(ctx, func() bool {
+							return len(requests.Outlet()) == 0 &&
+								len(responses.Outlet()) == cap(responses.Outlet())
+						})
+						sCtx := signal.Wrap(failCtx)
+						iter.InFrom(requests)
+						iter.OutTo(responses)
+						iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						Eventually(failCtx.failed).Should(BeClosed())
+						Eventually(responses.Outlet()).Should(Receive(
+							HaveField("Command", cesium.IteratorCommandSeekFirst),
+						))
+						var ack cesium.IteratorResponse
+						Eventually(responses.Outlet()).Should(Receive(&ack))
+						Expect(ack.Variant).To(Equal(cesium.IteratorResponseVariantAck))
+						Expect(ack.Err).To(MatchError(context.Canceled))
+						Expect(ack.Ack).To(BeFalse())
+						requests.Close()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+					},
+					Entry("automatic span", cesium.AutoSpan),
+					Entry("fixed span", telem.Second),
+				)
 
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
