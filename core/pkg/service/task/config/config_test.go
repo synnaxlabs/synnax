@@ -20,12 +20,16 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	arclegacy "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -490,6 +494,100 @@ var _ = Describe("Service", func() {
 				"",
 			),
 		)
+
+		DescribeTable("Should default the omitted members of a lifted nested record",
+			func(ctx SpecContext, in msgpack.EncodedJSON, valuePointer, format string) {
+				lifted := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[kafka.WriteConfig]{
+						DB:          db,
+						Type:        "lifted_record_test",
+						SetEntryKey: (*kafka.WriteConfig).SetKey,
+						Ladder: imex.Ladder[kafka.WriteConfig]{
+							First:  1,
+							Latest: 2,
+							Decode: func(
+								_ context.Context,
+								_ imex.Version,
+								data msgpack.EncodedJSON,
+							) (kafka.WriteConfig, error) {
+								record, _ := data["record"].(map[string]any)
+								pointer, _ := record["value_pointer"].(string)
+								timeFormat, _ := record["time_format"].(string)
+								return kafka.WriteConfig{
+									Topic: "t",
+									Record: kafka.Record{
+										ValuePointer: pointer,
+										TimeFormat:   http.TimeFormat(timeFormat),
+									},
+								}, nil
+							},
+						},
+					},
+				))
+				out := MustSucceed(lifted.Normalize(ctx, 1, in))
+				Expect(out["record"]).To(SatisfyAll(
+					HaveKeyWithValue("value_pointer", valuePointer),
+					HaveKeyWithValue("time_format", format),
+				))
+			},
+			Entry(
+				"an omitted record takes its defaults",
+				msgpack.EncodedJSON{},
+				"/value",
+				string(http.TimeFormatUnixNs),
+			),
+			Entry(
+				"an explicit zero stays beside an omitted member",
+				msgpack.EncodedJSON{"record": map[string]any{"value_pointer": ""}},
+				"",
+				string(http.TimeFormatUnixNs),
+			),
+		)
+
+		It("Should default the omitted members of each lifted channel", func(
+			ctx SpecContext,
+		) {
+			lifted := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[opcua.ReadConfig]{
+					DB:          db,
+					Type:        "lifted_channels_test",
+					SetEntryKey: (*opcua.ReadConfig).SetKey,
+					Ladder: imex.Ladder[opcua.ReadConfig]{
+						First:  1,
+						Latest: 2,
+						Decode: func(
+							_ context.Context,
+							_ imex.Version,
+							data msgpack.EncodedJSON,
+						) (opcua.ReadConfig, error) {
+							var cfg opcua.ReadConfig
+							for _, raw := range data["channels"].([]any) {
+								ch := raw.(map[string]any)
+								key, _ := ch["key"].(string)
+								dataType, _ := ch["data_type"].(string)
+								var rc opcua.ReadChannel
+								rc.Key = key
+								rc.DataType = telem.DataType(dataType)
+								cfg.Channels = append(cfg.Channels, rc)
+							}
+							return cfg, nil
+						},
+					},
+				},
+			))
+			out := MustSucceed(lifted.Normalize(ctx, 1, msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "omitted"},
+					map[string]any{"key": "explicit", "data_type": ""},
+				},
+			}))
+			Expect(out["channels"]).To(HaveExactElements(
+				HaveKeyWithValue("data_type", "float32"),
+				HaveKeyWithValue("data_type", ""),
+			))
+		})
 
 		It(
 			"Should give a legacy Arc config without an execution mode the default",
