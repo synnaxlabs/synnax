@@ -46,7 +46,6 @@ TEST(ErrorsTest, NotFoundErrorWithName) {
     );
 }
 
-/// @brief it should create a multiple results error for channels.
 /// @brief it should accept exactly one record.
 TEST(ErrorsTest, CheckOneFound) {
     ASSERT_NIL(check_one("range", x::json::json{{"key", {{"eq", 12}}}}, 1));
@@ -81,6 +80,7 @@ TEST(ErrorsTest, CheckOneMultipleFound) {
     );
 }
 
+/// @brief it should match only the errors that clear without a restart.
 TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));
