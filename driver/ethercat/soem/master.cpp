@@ -337,11 +337,12 @@ x::errors::Error Master::receive() {
         );
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
-    // reference clock gives a frozen time, and a reset one goes back.
+    // reference clock gives a frozen time, and a reset one goes back. The frame read
+    // the time as it went out, which can be a bus period before this receive.
     if (const int64_t dc = this->api->dc_time();
         this->has_dc && dc > this->last_dc_time) {
         this->last_dc_time = dc;
-        this->host_dc_offset.store(dc - steady_now(), std::memory_order_relaxed);
+        this->host_dc_offset.store(dc - this->sent_at, std::memory_order_relaxed);
     }
     return x::errors::NIL;
 }
@@ -350,11 +351,12 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
+    const int64_t sent_at = steady_now();
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
-
+    this->sent_at = sent_at;
     return x::errors::NIL;
 }
 
@@ -1266,12 +1268,12 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 }
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
+    const int64_t latched_at = steady_now();
     if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no slave latched its receive time"
         );
-    const int64_t latched_at = steady_now();
     std::array<uint8_t, 8> local{};
     if (auto err = this->read_dc_register(pos, ECT_REG_DCSOF, local)) return err;
     for (int i = 1; i <= this->api->slave_count(); ++i) {

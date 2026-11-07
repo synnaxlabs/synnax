@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <map>
@@ -141,8 +142,14 @@ public:
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
+    /// @brief when set, each send_processdata sets dc_time_value to the host steady
+    /// clock time plus this, in nanoseconds, like a reference clock that runs on.
+    std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
+    /// @brief the host steady clock time of the last latch_receive_times call, in
+    /// nanoseconds.
+    int64_t latched_at = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
     /// @brief PO2SOconfig hooks keyed by slave. reconfig_slave runs them.
@@ -150,6 +157,13 @@ public:
 
 private:
     uint8_t *iomap_ptr = nullptr;
+
+    static int64_t now() {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch()
+        )
+            .count();
+    }
 
 public:
     x::errors::Error check_socket(const char *) override {
@@ -187,6 +201,7 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
+        if (this->host_dc_offset) this->dc_time_value = now() + *this->host_dc_offset;
         this->send_count++;
         this->processdata_groups.push_back(group);
         return this->send_return;
@@ -232,6 +247,7 @@ public:
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
     int latch_receive_times(int) override {
+        this->latched_at = now();
         this->latch_count++;
         return this->latch_return;
     }

@@ -68,6 +68,8 @@ protected:
     x::breaker::Breaker brk;
     /// @brief the bus cycle that activate() starts the master with.
     x::telem::TimeSpan period = PERIOD;
+    /// @brief the time from the send of a frame to its receive in cycle.
+    std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
         auto api = std::make_unique<MockAPI>();
@@ -154,12 +156,13 @@ protected:
         this->mock->state_change_requests.clear();
     }
 
-    /// @brief exchanges process data until cycling turns false.
+    /// @brief exchanges process data until cycling turns false. Like the engine, it
+    /// receives each frame cycle_gap after it sends it.
     void cycle(const std::atomic<bool> &cycling) {
         while (cycling.load()) {
-            static_cast<void>(this->master->receive());
             static_cast<void>(this->master->send());
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for(this->cycle_gap);
+            static_cast<void>(this->master->receive());
         }
     }
 
@@ -1326,19 +1329,20 @@ TEST_F(SOEMMasterTest, CheckRestoresTheReferenceClockFromTheNextDCSlave) {
 }
 
 /// @brief it should set the clock of the only DC slave, when it comes back from a power
-/// loss, to the DC time of the latest good frame plus the host time since.
+/// loss, to the DC time of the latest good frame plus the host time since its send.
 TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->mock->hasdc = true;
-    this->mock->dc_time_value = 7'000'000'000;
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->cycle_gap = std::chrono::milliseconds(10);
     this->activate_master();
     this->mock->register_writes.clear();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = bytes<int64_t>(2'000);
     this->check_while_cycling();
-    // The mock DC time stands still, and a frame can come back after the latch.
-    const auto error = this->written_offset(1) - (7'000'000'000 - 2'000);
-    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::MILLISECOND.nanoseconds());
     EXPECT_EQ(
         this->mock->register_writes.back(),
         (RegisterWrite{.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true})
