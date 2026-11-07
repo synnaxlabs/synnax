@@ -189,11 +189,13 @@ protected:
         MockSlaveInfo pending;
         pending.state = EC_STATE_PRE_OP;
         pending.name = "PendingSlave";
+        pending.Ibits = 16;
         this->add_slave(pending);
         MockSlaveInfo refusing;
         refusing.state = EC_STATE_PRE_OP;
         refusing.name = "RefusingSlave";
         refusing.ALstatuscode = code;
+        refusing.Ibits = 16;
         this->add_slave(refusing);
         ASSERT_NIL(this->master->initialize());
         this->mock->obytes = 2;
@@ -673,6 +675,30 @@ TEST_F(SOEMMasterTest, ActivateRecordsNoRefusalsWhenEverySlaveRefuses) {
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
                                                          EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+    EXPECT_TRUE(this->master->refusals().empty());
+}
+
+/// @brief it should record no refusals when every enabled slave with process data
+/// refuses a state, so the bus does not start with only a coupler.
+TEST_F(SOEMMasterTest, ActivateRecordsNoRefusalsWhenOnlyACouplerIsLeft) {
+    MockSlaveInfo coupler;
+    coupler.state = EC_STATE_PRE_OP;
+    coupler.name = "Coupler";
+    this->add_slave(coupler);
+    for (const auto *name: {"FirstIO", "SecondIO"}) {
+        MockSlaveInfo io;
+        io.state = EC_STATE_PRE_OP;
+        io.name = name;
+        io.ALstatuscode = 0x001D;
+        io.Ibits = 16;
+        this->add_slave(io);
+    }
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                         EC_STATE_ERROR;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     EXPECT_TRUE(this->master->refusals().empty());
 }

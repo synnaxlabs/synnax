@@ -1395,12 +1395,17 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
-    std::size_t enabled = 0;
-    for (int i = 1; i <= this->api->slave_count(); ++i)
-        enabled += this->api->slave_group(i) == ENABLED_GROUP ? 1 : 0;
+    // A slave with no process data, such as a coupler, gives a task nothing to run.
+    bool io_left = false;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        io_left |= this->api->slave_group(pos) == ENABLED_GROUP &&
+                   !refusing.contains(pos) &&
+                   (this->api->slave_Ibits(pos) > 0 || this->api->slave_Obits(pos) > 0);
+    }
     {
         std::lock_guard lock(this->mu);
-        if (refusing.size() < enabled) this->start_refusals = refusing;
+        if (io_left) this->start_refusals = refusing;
         this->start_dc_sync_refused = dc_sync_refused;
     }
     return x::errors::Error(

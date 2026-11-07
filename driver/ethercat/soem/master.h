@@ -261,9 +261,9 @@ private:
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
-    /// cannot clear. Records each such slave for refusals() unless every enabled slave
-    /// refused, and records for dc_sync_refused() whether a failed slave reports
-    /// "Invalid DC SYNC configuration".
+    /// cannot clear. Records each such slave for refusals() unless no other enabled
+    /// slave has process data, and records for dc_sync_refused() whether a failed slave
+    /// reports "Invalid DC SYNC configuration".
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 
