@@ -1,0 +1,17 @@
+{
+  "version": 10,
+  "type": "schematic",
+  "name": "Zero Scale",
+  "nodes": [
+    {
+      "key": "v1"
+    }
+  ],
+  "edges": [],
+  "configs": {
+    "v1": {
+      "variant": "valve",
+      "scale": 0
+    }
+  }
+}

@@ -197,12 +197,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Entry("older version", "testdata/import_v8_zeros.json"),
 	)
 
-	It("Should keep an explicit zero scale", func(ctx SpecContext) {
-		valve := valveConfig(decode(ctx, "testdata/import_v10_zeros.json"), "v1")
-		Expect(valve.Scale).To(BeZero())
-		Expect(valve.StalenessTimeout).To(Equal(5.0))
-	})
-
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))
 	})

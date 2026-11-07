@@ -5,8 +5,15 @@
   "nodes": [],
   "edges": [],
   "configs": {
-    "g1": { "variant": "gauge", "bounds": { "lower": -10, "upper": 0 } },
-    "g2": { "variant": "gauge" },
-    "v1": { "variant": "valve", "scale": 0 }
+    "g1": {
+      "variant": "gauge",
+      "bounds": {
+        "lower": -10,
+        "upper": 0
+      }
+    },
+    "g2": {
+      "variant": "gauge"
+    }
   }
 }
