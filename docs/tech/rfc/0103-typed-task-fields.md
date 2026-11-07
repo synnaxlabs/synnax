@@ -104,13 +104,14 @@ takes the three texts.
 JSON numbers parse exactly today in Go and C++. Phase 3 fixes the three inexact places:
 `xjson.Enum.Value` and `x::json::EnumMap` hold a float, `Encoder.Append` compares enums
 through `n.float()`, and `x::json::from_timestamp` goes through `double`. Each entry
-becomes one encoded sample, compared exactly. An `"Infinity"` or `"-Infinity"` entry
-matches its infinity. A `"NaN"` entry matches any NaN sample by `isnan`, not `==`, so
-its payload bits do not matter. On read, its label decodes to NaN. On write, entries
-match before the non-finite rule in §5, so a matched sample writes its label. Phase 3
-does this in both runtimes. Phase 3 also adds string and boolean write enums:
-`Encoder.Append` quotes a string sample and writes a boolean with no lookup, and
-`from_sample_value` checks enums only for a numeric value written as a string.
+becomes one encoded sample. Integer, unsigned, string, and boolean entries compare by
+exact value. A float entry compares by numeric equality, so `-0.0` matches `0` and an
+infinity matches itself, but a `"NaN"` entry matches any NaN sample by `isnan`. On read,
+a `"NaN"` entry's label decodes to NaN. On write, entries match before the non-finite
+rule in §5, so a matched sample writes its label. Phase 3 does this in both runtimes.
+Phase 3 also adds string and boolean write enums: `Encoder.Append` quotes a string
+sample and writes a boolean with no lookup, and `from_sample_value` checks enums only
+for a numeric value written as a string.
 
 ## 3 Bytes
 
@@ -152,10 +153,11 @@ function that each service builds, as `slavesOf` does. It skips disabled fields,
 does not allow, a fill or entry that does not fit the channel's width, and a fill on an
 index channel. It clears `data_type`.
 
-**Core config**, in `ValidateEntry`: Labels and channel field values are unique, `json`
-and `bytes` text is valid, a raw `bytes` field is alone, and a static `float` is finite.
-Fills and entries are never JSON numbers. Kafka and MQTT check kinds at task configure
-and gain fill (Kafka skips an absent value today, `read_task.go:767`).
+**Core config**, in `ValidateEntry`: Labels are unique, and channel field values are
+unique under the match rule in §2, so two `"NaN"` entries, or `0` and `-0.0`, collide.
+`json` and `bytes` text is valid, a raw `bytes` field is alone, and a static `float` is
+finite. Fills and entries are never JSON numbers. Kafka and MQTT check kinds at task
+configure and gain fill (Kafka skips an absent value today, `read_task.go:767`).
 
 **Non-finite samples**, when no entry matches: A `float` channel field fails the write.
 A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
