@@ -9,16 +9,28 @@
 
 import asyncio
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
-from freighter import EOF, Stream, WebsocketClient
+from freighter import EOF, WebsocketClient
+from freighter.mock import MockUnaryClient
+from synnax.channel.retrieve import Retriever
+from synnax.exceptions import create_registry
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from synnax.framer.writer import (
+    Writer,
+    WriterCommand,
+    WriterRequest,
+    WriterResponse,
+)
 from tests.channel import RetrieveCounter
+from x.codec import Codec
+from x.exceptions import ExceptionPayload
 from x.strings import random_name
 from x.telem import CrudeSeries, seconds_linspace
 
@@ -545,48 +557,15 @@ class TestWriter:
             assert granted.authorized
             assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
 
-    def test_commit_result_stream_ended_during_commit(
-        self,
-        client: sy.Synnax,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        ended = False
-        original = WebsocketClient.stream
-
-        class _EndableStream:
-            """Wraps a writer stream so that the spec can end it as the Core would."""
-
-            def __init__(self, stream: Stream[Any, Any]) -> None:
-                self._stream = stream
-
-            def send(self, req: Any) -> None:
-                self._stream.send(req)
-
-            def receive(self, timeout: float | None = None) -> Any:
-                if ended:
-                    raise EOF()
-                return self._stream.receive(timeout=timeout)
-
-            def received(self) -> bool:
-                return self._stream.received()
-
-            def close_send(self) -> None:
-                self._stream.close_send()
-
-        def stream(self: WebsocketClient, *args: Any, **kwargs: Any) -> Any:
-            return _EndableStream(original(self, *args, **kwargs))
-
-        monkeypatch.setattr(WebsocketClient, "stream", stream)
-        writer = client.open_writer(start=sy.TimeSpan.SECOND, channels=indexed_pair)
-        ended = True
+    def test_commit_result_stream_ended_during_commit(self) -> None:
+        transport = _EndableTransport()
+        writer = _open_endable(transport)
+        transport.stream_.ended = True
         with pytest.raises(EOF):
             writer.commit_result()
 
-    def test_commit_result_writer_closed(
-        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
-    ) -> None:
-        writer = client.open_writer(start=sy.TimeSpan.SECOND, channels=indexed_pair)
+    def test_commit_result_writer_closed(self) -> None:
+        writer = _open_endable(_EndableTransport())
         writer.close()
         with pytest.raises(sy.WriterClosed):
             writer.commit_result()
@@ -983,3 +962,50 @@ class TestWriter:
             w.commit()
         f = client.read(sy.TimeRange.MAX, data.key)
         assert list(f) == ["line1\nline2", "no newline"]
+
+
+class _EndableStream:
+    """A writer stream that a spec can end as the Core would."""
+
+    ended = False
+    send_closed = False
+
+    def send(self, req: WriterRequest) -> None: ...
+
+    def receive(self, timeout: float | None = None) -> WriterResponse:
+        if self.ended or self.send_closed:
+            raise EOF()
+        return WriterResponse(
+            command=WriterCommand.OPEN,
+            end=None,
+            err=ExceptionPayload(type=None, data=None),
+            authorized=True,
+        )
+
+    def received(self) -> bool:
+        return False
+
+    def close_send(self) -> None:
+        self.send_closed = True
+
+
+class _EndableTransport:
+    """A stream transport whose writer stream a spec can end."""
+
+    def __init__(self) -> None:
+        self.stream_ = _EndableStream()
+
+    def with_codec(self, codec: Codec) -> "_EndableTransport":
+        return self
+
+    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
+        return self.stream_
+
+
+def _open_endable(transport: _EndableTransport) -> Writer:
+    return Writer(
+        start=None,
+        client=cast(WebsocketClient, transport),
+        registry=create_registry(),
+        adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
+    )
