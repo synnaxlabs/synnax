@@ -73,13 +73,19 @@ const followTabs = <D extends record.Keyed<string>>(
     if (typeof target === "string")
       return records.onChange(target, handler as query.ChangeHandler<D>);
     let latest = 0;
-    return client.panels.onChange(target.panel, (pan) => {
+    const release = client.panels.onChange(target.panel, (pan) => {
       if (!query.isLive(pan)) return;
       const call = ++latest;
-      void list(pan).then((listed) => {
-        if (call === latest) (handler as query.ChangeHandler<D[]>)(listed);
-      });
+      list(pan)
+        .then((listed) => {
+          if (call === latest) (handler as query.ChangeHandler<D[]>)(listed);
+        })
+        .catch(console.error);
     });
+    return () => {
+      latest++;
+      release();
+    };
   }
   function getCached(key: string): query.Cached<D> | undefined;
   function getCached(tabs: TabsQuery): query.Cached<D[]> | undefined;

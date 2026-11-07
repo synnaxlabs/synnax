@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, panel, project } from "@synnaxlabs/client";
+import { DisconnectedError, lineplot, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { Panel } from "@/feature/panel";
@@ -102,5 +102,40 @@ describe("panel ontology", () => {
     await findTreeRow(pan.name);
     expandTreeRow(pan.name);
     expect(await findTreeRow(plot.name)).toBeDefined();
+  });
+
+  it("should keep the listed tabs when a tab list fails", async () => {
+    const { key } = await client.projects.create({ name: uniqueName("project") });
+    const [shown, added] = await Promise.all(
+      ["shown", "added"].map(
+        async (name) =>
+          await client.lineplots.create({ name: uniqueName(name), project: key }),
+      ),
+    );
+    const tab = (plot: lineplot.LinePlot): panel.Tab => ({
+      variant: "resource",
+      key: uuid.create(),
+      resource: lineplot.resourceID(plot.key),
+    });
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      project: key,
+      root: { variant: "leaf", tabs: [tab(shown)] },
+    });
+    const viewer = createTestClient();
+    await renderOntologyTree({
+      client: viewer,
+      projectClient: client,
+      root: panel.resourceID(pan.key),
+      items: { ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
+    });
+    await findTreeRow(shown.name);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await viewer.panels.dispatch(pan.key, panel.insertTabs({ tabs: [tab(added)] }));
+    // The new tab starts a list of the plots, and the close fails it.
+    await viewer.close();
+    await waitFor(() => expect(error).toHaveBeenCalledOnce());
+    expect(DisconnectedError.matches(error.mock.calls[0][0])).toBe(true);
+    expect(await findTreeRow(shown.name)).toBeDefined();
   });
 });
