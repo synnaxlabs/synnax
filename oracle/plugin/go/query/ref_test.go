@@ -817,6 +817,29 @@ var _ = Describe("@ref", func() {
 		)
 
 		It(
+			"Should check cycles through a nested reference to its own type",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, device(`
+				inner Inner
+			`)+`
+				Inner struct {
+					parent Key? {
+						@ref {
+							on_delete cascade
+							acyclic
+						}
+					}
+				}
+			`, "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					`Name:     "inner.parent",`,
+					`Table:    "device",`,
+					"Acyclic:  true,",
+				)
+			},
+		)
+
+		It(
 			"Should store a nested reference on a type that generates a Retrieve",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, device(`

@@ -613,7 +613,7 @@ func extractRetrieveInfo(
 			return strings.Contains(ref.path, ".")
 		})
 		if nested, err = renderNestedRefs(
-			typ, walked, keyType, name+anyArgs, rt, table, r, ctx,
+			typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
 		); err != nil {
 			return nil, err
 		}
@@ -1159,6 +1159,9 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			OnDelete: gorp.{{.OnDelete}},
 {{- if .Unique}}
 			Unique:   true,
+{{- end}}
+{{- if .Acyclic}}
+			Acyclic:  true,
 {{- end}}
 			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
 				{{.TargetsBody}}

@@ -699,7 +699,7 @@ func sameReference(a, b refInfo) bool {
 func renderNestedRefs(
 	typ resolution.Type,
 	walked []*walkedRef,
-	keyType, entryType string,
+	ownTable, keyType, entryType string,
 	rt resourceTypes,
 	table *resolution.Table,
 	r *resolver.Resolver,
@@ -724,14 +724,14 @@ func renderNestedRefs(
 			ref.sites,
 			func(s refSite) bool { return !s.inArray() },
 		)
-		info, err := extractRef(typ, named, "", inArray, rt, table, r, ctx)
+		info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
 		if err != nil {
 			return nil, err
 		}
 		for _, s := range ref.sites[1:] {
 			other := s.field
 			other.Name = ref.path
-			o, err := extractRef(typ, other, "", inArray, rt, table, r, ctx)
+			o, err := extractRef(typ, other, ownTable, inArray, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -824,7 +824,10 @@ func extractReferencesInfo(
 	}
 	goName := naming.GetGoName(typ)
 	keyType := r.ResolveTypeRef(keyField.Type, ctx)
-	refs, err := renderNestedRefs(typ, walked, keyType, goName, rt, table, r, ctx)
+	ownTable := plugindomain.GetStringFromType(typ, resourceDomain, "type")
+	refs, err := renderNestedRefs(
+		typ, walked, ownTable, keyType, goName, rt, table, r, ctx,
+	)
 	if err != nil {
 		return referencesInfo{}, err
 	}
