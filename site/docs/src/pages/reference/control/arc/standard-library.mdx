@@ -46,8 +46,7 @@ Built-in functions need no `import`.
 | `ge`, `gt`, `le`, `lt`, `eq`, `ne`                         | `T -> gt(b) -> bool`                | Compare the trigger `a` with `b`. Same as `>=`, `>`, `<=`, `<`, `==`, `!=`. |
 | [`len`](/reference/control/arc/reference/functions#len)    | `len(x) -> i64`                     | Get the length of a series or a string. Only in a function body.            |
 
-`on` and `write` are the nodes that the graph editor shows as **Telemetry source** and
-**Telemetry sink**. In text, a channel name does the same work:
+A channel name does the same work as `on` and `write`:
 
 ```arc channels="tank_pt, tank_pt_copy"
 on(channel=tank_pt) -> tank_pt_copy

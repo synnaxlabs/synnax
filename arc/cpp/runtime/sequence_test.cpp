@@ -343,6 +343,42 @@ TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
     EXPECT_TRUE(run<double>("v != v", x::telem::FLOAT64_T));
 }
 
+namespace empty_series {
+/// @brief runs a program that declares, measures, and reassigns an empty series of
+/// element, and returns the length it wrote.
+std::int64_t run(const std::string &element) {
+    Sequence h(
+        "func check() {v i64} i64 {\n    y series " + element +
+            " := []\n    n := len(y)\n    y = []\n    return n + len(y)\n}\n"
+            "%x% -> check() -> %out%\n",
+        {{"x", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+    h.push("x", x::telem::Series(std::int64_t(1)));
+    return last<std::int64_t>(h.flush(), h.key("out"));
+}
+}
+
+/// @brief it should load an empty series of every element type and read its length.
+TEST(EmptySeriesTest, LoadsEveryElementType) {
+    for (const std::string element:
+         {"str",
+          "bool",
+          "f32",
+          "f64",
+          "i8",
+          "i16",
+          "i32",
+          "i64",
+          "u8",
+          "u16",
+          "u32",
+          "u64",
+          "i64 ns"}) {
+        SCOPED_TRACE(element);
+        EXPECT_EQ(empty_series::run(element), 0);
+    }
+}
+
 TEST(ReactiveReExpressionTest, JumpsToAReExpressionReachedBySkippingEarlierStages) {
     using namespace reactive_re_expression;
     auto h = new_h();
