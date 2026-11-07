@@ -11,18 +11,11 @@ package driver_test
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
-	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,50 +70,25 @@ var _ = Describe("Discover", func() {
 			},
 		)
 
-		It("Should not trust a certificate that the roots do not sign",
+		It("Should not verify a certificate that the roots do not sign",
 			func(ctx SpecContext) {
-				expectFailure(handshake(ctx, server, nil), "Certificate not trusted")
+				expectFailure(handshake(ctx, server, nil), "Certificate not verified")
 			},
 		)
 
-		It("Should not trust a certificate that fails verification for another reason",
+		It("Should not verify a certificate with an unhandled critical extension",
 			func(ctx SpecContext) {
-				key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-				template := &x509.Certificate{
-					SerialNumber: big.NewInt(1),
-					NotBefore:    time.Now().Add(-time.Hour),
-					NotAfter:     time.Now().Add(time.Hour),
-					IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1)},
-					ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-					ExtraExtensions: []pkix.Extension{{
-						Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 1},
-						Critical: true,
-						Value:    []byte{0x05, 0x00},
-					}},
-				}
-				der := MustSucceed(
-					x509.CreateCertificate(
-						rand.Reader,
-						template,
-						template,
-						&key.PublicKey,
-						key,
-					),
-				)
+				pair := MustSucceed(tls.LoadX509KeyPair(
+					"testdata/critical_extension_cert.pem",
+					"testdata/critical_extension_key.pem",
+				))
 				critical := httptest.NewUnstartedServer(noop)
-				critical.TLS = &tls.Config{Certificates: []tls.Certificate{
-					{Certificate: [][]byte{der}, PrivateKey: key},
-				}}
+				critical.TLS = &tls.Config{Certificates: []tls.Certificate{pair}}
 				critical.StartTLS()
 				DeferCleanup(critical.Close)
-				roots := x509.NewCertPool()
-				roots.AddCert(MustSucceed(x509.ParseCertificate(der)))
 				expectFailure(
-					handshake(ctx, critical, &tls.Config{
-						MinVersion: tls.VersionTLS12,
-						RootCAs:    roots,
-					}),
-					"Certificate not trusted",
+					handshake(ctx, critical, trusting(critical)),
+					"Certificate not verified",
 				)
 			},
 		)

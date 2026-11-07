@@ -467,7 +467,7 @@ var _ = Describe("Scan task", func() {
 					stat := testConnection(ctx, msgpack.EncodedJSON{
 						"port": broker.port, "secure": true,
 					})
-					expectFailure(stat, "Certificate not trusted")
+					expectFailure(stat, "Certificate not verified")
 					Expect(stat.Description).
 						To(ContainSubstring("failed to verify certificate"))
 				},

@@ -69,13 +69,14 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 				err,
 			),
 		}
-	// The macOS verifier reports some chains it does not trust with an error of no
-	// x509 type.
+	// The macOS verifier reports an untrusted chain with an error of no x509 type, so
+	// an untrusted chain and other verification failures share one message.
 	case errors.As(err, &verification):
 		return Failure{
-			Message: "Certificate not trusted",
+			Message: "Certificate not verified",
 			Description: fmt.Sprintf(
-				"%s. Set the CA certificate that signed the certificate of the server.",
+				"%s. Check that the CA certificate signed the certificate of the "+
+					"server, and that the client supports that certificate.",
 				err,
 			),
 		}

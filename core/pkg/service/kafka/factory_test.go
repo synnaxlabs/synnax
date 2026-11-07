@@ -370,7 +370,7 @@ var _ = Describe("Factory", func() {
 							ctx,
 							kafka.Properties{Brokers: brokers, TLS: true},
 						),
-						"Certificate not trusted",
+						"Certificate not verified",
 					)
 				},
 			)
