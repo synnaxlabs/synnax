@@ -51,6 +51,7 @@ enum ResourceType {
   RESOURCE_TYPE_OPCUA_SERVER = 31;
   RESOURCE_TYPE_ARC_DIRECTORY = 32;
   RESOURCE_TYPE_SECRET = 33;
+  RESOURCE_TYPE_CERTIFICATE = 34;
 }
 
 // ID is a unique identifier for a Resource. An example:

@@ -91,7 +91,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:         []gorp.Migration{v2.NewReadMigration(slaves)},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
+			ResolveEntry: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				_ string,
+				c *ReadConfig,
+			) error {
 				return v2.ResolveReadConfig(ctx, tx, slaves, c)
 			},
 		},
@@ -109,7 +114,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
+			ResolveEntry: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				_ string,
+				c *WriteConfig,
+			) error {
 				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
 			},
 		},

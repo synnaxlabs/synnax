@@ -12,6 +12,7 @@
 import { id } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { secret } from "@/secret";
 import { status } from "@/status";
 import { task } from "@/task";
 
@@ -35,7 +36,7 @@ export const alertZ = z.object({
 export interface Alert extends z.infer<typeof alertZ> {}
 
 export const taskConfigZ = task.startConfigZ.extend({
-  routingKey: z.string().default(""),
+  routingKey: secret.keyZ.optional(),
   alerts: alertZ.array().default(() => []),
 });
 export interface TaskConfig extends z.infer<typeof taskConfigZ> {}

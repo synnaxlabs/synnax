@@ -109,6 +109,8 @@ var _ = Describe("Rename", func() {
 })
 
 var _ = Describe("Dispatch", func() {
+	// routingKey is a secret key for the routing key of an alert config.
+	const routingKey = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 	createDraft := func(ctx SpecContext) task.Task {
 		GinkgoHelper()
 		t := task.Task{
@@ -121,7 +123,7 @@ var _ = Describe("Dispatch", func() {
 	}
 	setRoutingKey := []task.Action{task.NewSetAction(task.SetPayload{
 		Path:  []string{"config", "routing_key"},
-		Value: "rk-2",
+		Value: routingKey,
 	})}
 	It("Should apply the actions and return the ones the Core added", func(
 		ctx SpecContext,
@@ -140,7 +142,7 @@ var _ = Describe("Dispatch", func() {
 			},
 		))
 		stored := retrieveTask(ctx, t.Key)
-		Expect(stored.Config["routing_key"]).To(Equal("rk-2"))
+		Expect(stored.Config["routing_key"]).To(Equal(routingKey))
 		Expect(stored.ConfigHash).ToNot(Equal(t.ConfigHash))
 		Expect(res.Actions).To(Equal([]task.Action{task.NewSetAction(task.SetPayload{
 			Path:  []string{"config_hash"},
@@ -163,7 +165,7 @@ var _ = Describe("Dispatch", func() {
 			},
 		))
 		Expect(res.Actions).To(BeEmpty())
-		Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).To(Equal("rk-2"))
+		Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).To(Equal(routingKey))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)

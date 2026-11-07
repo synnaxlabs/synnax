@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid, zod } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { project } from "@/project";
@@ -112,6 +112,7 @@ describe("Imex", () => {
 
     it("should migrate a legacy task config", async () => {
       // A legacy Console task export: the camelCase config with only a type marker.
+      // Its plain routing key moves into a new secret.
       const legacy = {
         type: "pagerduty_alert",
         routingKey: "R016395AF23B4E62B7A2BF7B24C1EF31",
@@ -128,13 +129,19 @@ describe("Imex", () => {
         key: oid.key,
         schemas: {
           type: z.literal("pagerduty_alert"),
-          config: z.looseObject({ routingKey: z.string(), autoStart: z.boolean() }),
+          config: z.looseObject({ routingKey: z.uuid(), autoStart: z.boolean() }),
           statusData: z.unknown(),
         },
       });
+      const routingKey = await client.secrets.retrieve(created.config.routingKey);
+      onTestFinished(async () => {
+        await client.tasks.delete(created.key);
+        await client.secrets.delete(routingKey.key);
+      });
       expect(created.name).toEqual(fileName);
       expect(created.rack).toBe(0);
-      expect(created.config.routingKey).toBe("R016395AF23B4E62B7A2BF7B24C1EF31");
+      expect(routingKey.name).toBe(`${fileName} routing key`);
+      expect(routingKey.source).toBe("stored");
       expect(created.config.autoStart).toBe(true);
     });
 
