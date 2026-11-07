@@ -16,7 +16,7 @@ Timer::ImplPtr Timer::make_impl() {
     return {nullptr, [](Impl *) {}};
 }
 
-void Timer::step() {
-    std::this_thread::sleep_for(RESOLUTION.chrono());
+void Timer::sleep(const telem::TimeSpan &dur) {
+    std::this_thread::sleep_for(dur.chrono());
 }
 }
