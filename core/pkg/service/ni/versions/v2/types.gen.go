@@ -3619,6 +3619,7 @@ func (CIVelocityLinearChannel) isCIChannelVariant() {}
 func (c *CIVelocityLinearChannel) SetDefaults() {
 	c.CustomScale.SetDefaults()
 	c.MinMaxVal.SetDefaults()
+	c.MinVal = 0
 	c.MaxVal = 1
 	c.Units = CILinearVelocityUnitsMPerS
 	c.DecodingType = CIDecodingTypeX4
@@ -3658,6 +3659,7 @@ func (CIVelocityAngularChannel) isCIChannelVariant() {}
 func (c *CIVelocityAngularChannel) SetDefaults() {
 	c.CustomScale.SetDefaults()
 	c.MinMaxVal.SetDefaults()
+	c.MinVal = 0
 	c.MaxVal = 1
 	c.Units = CIAngularVelocityUnitsRpm
 	c.DecodingType = CIDecodingTypeX4

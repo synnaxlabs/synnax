@@ -103,13 +103,6 @@ type ReadField struct {
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
@@ -153,16 +146,6 @@ type ReadEndpoint struct {
 	// Index is the key of the field whose channel indexes the others. Empty when the
 	// task stamps samples on arrival.
 	Index string `json:"index" msgpack:"index"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadEndpoint) ApplyDefaults() {
-	if r.Method == "" {
-		r.Method = MethodGet
-	}
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -211,16 +194,6 @@ type ReadConfig struct {
 	// written as NaN. When false, the task skips every field that shares the endpoint
 	// and index channel with it.
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.Rate == 0 {
-		r.Rate = 1
-	}
-	for i := range r.Endpoints {
-		r.Endpoints[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
