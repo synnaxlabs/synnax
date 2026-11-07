@@ -168,6 +168,11 @@ type LimitReduction struct {
 
 func (LimitReduction) isReductionVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LimitReduction) SetDefaults() {
+	l.Aggregation = AggregationMinMax
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LimitReduction) ApplyDefaults() {
 	if l.Aggregation == "" {
@@ -243,6 +248,7 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReductionType `json:"variant"`
 			LimitReduction
 		}
+		v.LimitReduction.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}

@@ -105,10 +105,24 @@ type unionVariantData struct {
 	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
 	// filled as a unit.
 	DefaultGroups []defaultGroupData
+	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
+	// the variant's SetDefaults. The wrapper decodes a variant over them.
+	SetSteps []recurseStepData
+	SetFills []defaultFillData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
 	NeedsValidate      bool
+}
+
+// SetDefaultsView returns the view of the variant's SetDefaults method.
+func (v unionVariantData) SetDefaultsView() setDefaultsView {
+	return setDefaultsView{
+		Receiver: v.Receiver,
+		Name:     v.TypeName,
+		Steps:    v.SetSteps,
+		Fills:    v.SetFills,
+	}
 }
 
 // interfaceDoc returns the documentation comment of a union's variant interface.
@@ -212,6 +226,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
 		"ApplyDefaults",
+		"SetDefaults",
 		"Validate",
 	)
 	if ud.Base != "" {
@@ -252,10 +267,11 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
 					if defaultGroupName(f) == "" {
-						vd.DefaultFills = append(
-							vd.DefaultFills,
-							goDefaultFills(f, data)...,
-						)
+						fills := goDefaultFills(f, data)
+						if defaultOnly.Contains(f.Name) {
+							fills = overrideFills(f, data)
+						}
+						vd.DefaultFills = append(vd.DefaultFills, fills...)
 					}
 					if validateSkip(f, data) {
 						continue
@@ -289,6 +305,9 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			defaultsHasOwn,
 			neverSkip,
 		)
+		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
+		vd.SetFills = allFills(vd.DefaultFills, vd.DefaultGroups)
+		vd.DefaultFills = applyFills(vd.DefaultFills)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,

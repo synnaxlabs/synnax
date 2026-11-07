@@ -126,6 +126,12 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.SampleRate = 10
+	r.StreamRate = 5
+}
+
 // WriteConfig carries the configuration fields shared by hardware control tasks.
 type WriteConfig struct {
 	PersistConfig
@@ -147,6 +153,11 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.Rate == 0 {
 		s.Rate = 0.2
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.Rate = 0.2
 }
 
 // ScaleType is the "type" value that selects a variant of Scale.
@@ -182,6 +193,11 @@ type LinearScale struct {
 
 func (LinearScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
 	if l.Slope == 0 {
@@ -202,6 +218,12 @@ type MapScale struct {
 }
 
 func (MapScale) isScaleVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *MapScale) SetDefaults() {
+	m.PreScaledMax = 1
+	m.ScaledMax = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
@@ -306,6 +328,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			LinearScale
 		}
+		v.LinearScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -315,6 +338,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
+		v.MapScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}

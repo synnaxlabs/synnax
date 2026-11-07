@@ -10,7 +10,11 @@
 package types
 
 import (
+	"strings"
+
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -69,4 +73,67 @@ func promotedGoNames(parent resolution.Type, table *resolution.Table) []string {
 		}
 	}
 	return names
+}
+
+// embedKey identifies a generated Go type across every version of its package, so a
+// type embedded in one version counts as embedded in all of them.
+func embedKey(outputPath, goName string) string {
+	if root, dir, ok := strings.Cut(outputPath, "/versions/"); ok &&
+		!strings.Contains(dir, "/") {
+		outputPath = root
+	}
+	return outputPath + "." + goName
+}
+
+// embeddedTypes returns the embedKey of every struct that a generated Go struct embeds
+// in any of tables: struct parents, union bases, and union variant payloads. JSON
+// rejects an embedded type with decode methods, and msgpack stops flattening it, so
+// these types take no decode hooks.
+func embeddedTypes(tables ...*resolution.Table) set.Set[string] {
+	out := make(set.Set[string])
+	for _, table := range tables {
+		add := func(refs ...resolution.TypeRef) {
+			for _, ref := range refs {
+				// An alias names the same Go type as its target.
+				for _, t := range resolvedAndDealiased(ref, table) {
+					out.Add(embedKey(output.GetPath(t, "go"), naming.GetGoName(t)))
+				}
+			}
+		}
+		for _, t := range table.Types {
+			if omit.IsSkipped(t, "go") {
+				continue
+			}
+			switch form := t.Form.(type) {
+			case resolution.StructForm:
+				if len(form.Extends) > 0 && CanEmbed(form, table) {
+					add(form.Extends...)
+				}
+			case resolution.UnionForm:
+				add(form.Extends...)
+				for _, v := range form.Variants {
+					inherited, _ := resolver.VariantBases(form, v, "go", table)
+					add(inherited...)
+					if !v.Inline {
+						add(v.Type)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func resolvedAndDealiased(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) []resolution.Type {
+	var out []resolution.Type
+	if t, ok := ref.Resolve(table); ok {
+		out = append(out, t)
+	}
+	if t, _, ok := resolution.Dealias(ref, table); ok {
+		out = append(out, t)
+	}
+	return out
 }
