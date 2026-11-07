@@ -279,13 +279,14 @@ type GrantCreateResponse struct {
 }
 
 // CreateGrant creates a grant that lets the subject read the secrets once, within a
-// minute. Only a user with create access on devices may call it.
+// minute. Only a user with create access on devices and retrieve access on each secret
+// may call it.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
 	req GrantCreateRequest,
 ) (GrantCreateResponse, error) {
-	if err := s.enforceGrant(ctx, tx); err != nil {
+	if err := s.enforceGrant(ctx, tx, req.Secrets); err != nil {
 		return GrantCreateResponse{}, err
 	}
 	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Secrets...)
@@ -297,15 +298,23 @@ func (s *Service) CreateGrant(
 
 var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secrets")
 
-func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
+func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
 	subject := auth.GetSubject(ctx)
 	if subject.Type != ontology.ResourceTypeUser {
 		return errGrantSubject
 	}
-	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+	}); err != nil {
+		return err
+	}
+	return enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: secret.OntologyIDs(keys),
 	})
 }
 
