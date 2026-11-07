@@ -251,21 +251,22 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
+					fd := data.forField(f)
 					if defaultGroupName(f) == "" {
 						vd.DefaultFills = append(
 							vd.DefaultFills,
-							goDefaultFills(f, data)...,
+							goDefaultFills(f, fd)...,
 						)
 					}
-					if validateSkip(f, data) {
+					if validateSkip(f, fd) {
 						continue
 					}
-					if chk, ok := goEnumCheck(f, data); ok {
+					if chk, ok := goEnumCheck(f, fd); ok {
 						vd.EnumChecks = append(vd.EnumChecks, chk)
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, data)...,
+						goConstraintChecks(f, fd)...,
 					)
 				}
 				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
@@ -347,10 +348,11 @@ func embedRecurseSteps(
 		}
 	}
 	for _, f := range inlineFields {
-		if skip(f, data) {
+		fd := data.forField(f)
+		if skip(f, fd) {
 			continue
 		}
-		if step, ok := goRecurseStep(f, data, hasOwn, skip); ok {
+		if step, ok := goRecurseStep(f, fd, hasOwn, skip); ok {
 			steps = append(steps, step)
 		}
 	}
