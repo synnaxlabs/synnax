@@ -571,8 +571,10 @@ var _ = Describe("Edge task", func() {
 					values[i] = float64(i)
 					host.sendCommand(commandMetric("setpoint", 0, values[i]))
 				}
-				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
-					Should(BeNumerically(">", 0))
+				// The client takes messages in order, so the second birth comes after
+				// it took every command.
+				host.sendRebirth()
+				Eventually(host.births).Should(HaveLen(2))
 				// No reconnect follows, so a held command is written now or never.
 				broker.stop()
 				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
@@ -598,9 +600,13 @@ var _ = Describe("Edge task", func() {
 				Expect(configured.Exec(
 					startCtx,
 					task.Command{Type: "start", Key: "start"},
-				)).To(MatchError(ContainSubstring(
+				)).To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
 					"the broker refused the subscription to spBv1.0/plant/NCMD/line1",
-				)))
+				))
 			},
 		)
 

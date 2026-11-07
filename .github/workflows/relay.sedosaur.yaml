@@ -49,12 +49,10 @@ jobs:
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
     steps:
-      # Only `@sedosaur review` reviews a head again after a review of it succeeded.
+      # A comment never asks for a repeat, so a head with a review gets no other one.
       # No retry through gh_api.sh: a dispatch that fails with a 5xx can still start a
-      # run, and a repeat review is billed. A member can ask again with a comment.
+      # run. When the dispatch is lost, a member can ask again with a comment.
       - name: Start Review - Sedosaur
-        env:
-          REPEAT: ${{ contains(github.event.comment.body, '@sedosaur review') }}
         run: |
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-            -f comment="$COMMENT" -f repeat="$REPEAT"
+            -f comment="$COMMENT"

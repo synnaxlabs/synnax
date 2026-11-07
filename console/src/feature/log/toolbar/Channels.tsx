@@ -103,9 +103,7 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
-        {/* The select reads its query once, so the key refreshes it. */}
         <Channel.SelectSingle
-          key={otherChannels.join()}
           value={channel}
           onChange={handleChannelChange}
           allowNone
