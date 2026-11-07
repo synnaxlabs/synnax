@@ -26,6 +26,42 @@ export const SizeField = (
 
 const selectSize = Component.renderProp(Component.SelectSize);
 
+/**
+ * A size field for symbols that store a text level beside their size. Picking a size
+ * also sets the level, so the text matches the other symbols at that size.
+ */
+export const ScaledSizeField = (
+  props: Partial<Form.FieldProps<Component.Size>>,
+): ReactElement => (
+  <Form.Field
+    path={path.size}
+    label="Size"
+    padHelpText={false}
+    onChange={(size, { set }) => set(path.level, SIZE_LEVELS[size])}
+    {...props}
+  >
+    {selectScaledSize}
+  </Form.Field>
+);
+
+// A click on the selected size reports null. It must still apply the level, because a
+// saved symbol's level can differ from the one its size gives.
+const SelectScaledSize = ({
+  value,
+  onChange,
+}: {
+  value: Component.Size;
+  onChange: (size: Component.Size) => void;
+}): ReactElement => (
+  <Component.SelectSize
+    allowNone
+    value={value}
+    onChange={(size: Component.Size | null) => onChange(size ?? value)}
+  />
+);
+
+const selectScaledSize = Component.renderProp(SelectScaledSize);
+
 /** A size field for symbols that store a text level instead of a size. */
 export const LevelSizeField = (
   props: Partial<Form.FieldProps<text.Level>>,

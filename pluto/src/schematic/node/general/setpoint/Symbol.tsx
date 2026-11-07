@@ -11,7 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { box, type color, xy } from "@synnaxlabs/x";
+import { box, type color, type text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -32,6 +32,7 @@ interface ReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
+  level: text.Level;
   units?: string;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
@@ -44,12 +45,13 @@ const Readback = ({
   position,
   channel,
   size,
+  level: fieldLevel,
   units,
   stalenessColor,
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
   const theme = Theming.use();
-  const level = Primitive.readoutLevel(size);
+  const level = Primitive.readoutLevel(size, fieldLevel);
   const fontHeight = theme.typography[level].size * theme.sizes.base;
   const textInset = 6 + fontHeight * 0.75;
   const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
@@ -75,7 +77,14 @@ const Readback = ({
     stalenessColor,
     stalenessTimeout,
   });
-  return <Primitive.Readout size={size} units={units} valueRef={valueRef} />;
+  return (
+    <Primitive.Readout
+      size={size}
+      level={fieldLevel}
+      units={units}
+      valueRef={valueRef}
+    />
+  );
 };
 
 export const Symbol = ({
@@ -94,6 +103,7 @@ export const Symbol = ({
     stalenessTimeout,
     fillColor,
     size,
+    level,
     disabled,
     onClickDelay,
     inlineSize,
@@ -121,6 +131,7 @@ export const Symbol = ({
         orientation={orientation}
         disabled={disabled}
         size={size}
+        level={level}
         onClickDelay={onClickDelay}
         inlineSize={inlineSize}
         readback={
@@ -131,6 +142,7 @@ export const Symbol = ({
               position={position}
               channel={stateChannel}
               size={size}
+              level={level}
               units={units}
               stalenessColor={stalenessColor}
               stalenessTimeout={stalenessTimeout}

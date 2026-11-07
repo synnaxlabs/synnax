@@ -29,6 +29,21 @@ var _ = Describe("DecodeWithDefaults", func() {
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 
+	It("Should leave a wrap width the config omits absent", func() {
+		cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
+			"variant": "button",
+		})).Variant.(v11.ButtonElementConfig)
+		Expect(cfg.Label.MaxInlineSize).To(BeNil())
+	})
+
+	It("Should keep a wrap width of 0", func() {
+		cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
+			"variant": "button",
+			"label":   map[string]any{"max_inline_size": 0.0},
+		})).Variant.(v11.ButtonElementConfig)
+		Expect(cfg.Label.MaxInlineSize).To(HaveValue(BeZero()))
+	})
+
 	It("Should keep a carried value, zero included", func() {
 		cfg := MustSucceed(v11.DecodeWithDefaults(msgpack.EncodedJSON{
 			"variant": "line",

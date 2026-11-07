@@ -89,8 +89,9 @@ export const labelConfigZ = z.object({
   direction: spatial.directionZ.default("x"),
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
+   * Absent uses the default of 150. 0 means the label does not wrap.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: z.number().optional(),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -569,7 +570,7 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
   /** level is the typography level of the button text. */
-  level: text.levelZ.optional(),
+  level: text.levelZ.default("h4"),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** commandChannel is the channel button presses are written to. */
@@ -627,6 +628,8 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
   size: componentSizeZ.default("medium"),
+  /** level is the typography level of the input text. */
+  level: text.levelZ.default("h4"),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the value the device holds. */
@@ -729,6 +732,8 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
   size: componentSizeZ.default("medium"),
+  /** level is the typography level of the select text. */
+  level: text.levelZ.default("h4"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the state the device holds. */
@@ -775,6 +780,8 @@ export const setpointNodeConfigZ = labeledConfigZ
     variant: z.literal("setpoint"),
     /** size is the rendered size preset of the setpoint. */
     size: componentSizeZ.default("medium"),
+    /** level is the typography level of the setpoint text. */
+    level: text.levelZ.default("h4"),
     /** commandChannel is the channel submitted setpoints are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */
@@ -1974,7 +1981,7 @@ export const buttonElementConfigZ = labeledConfigZ.extend({
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
   /** level is the typography level of the button text. */
-  level: text.levelZ.optional(),
+  level: text.levelZ.default("h4"),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** commandChannel is the channel button presses are written to. */
@@ -2034,6 +2041,8 @@ export const inputElementConfigZ = labeledConfigZ
     variant: z.literal("input"),
     /** size is the rendered size preset of the input. */
     size: componentSizeZ.default("medium"),
+    /** level is the typography level of the input text. */
+    level: text.levelZ.default("h4"),
     /** commandChannel is the channel submitted values are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */
@@ -2140,6 +2149,8 @@ export const selectElementConfigZ = labeledConfigZ
     variant: z.literal("select"),
     /** size is the rendered size preset of the select. */
     size: componentSizeZ.default("medium"),
+    /** level is the typography level of the select text. */
+    level: text.levelZ.default("h4"),
     /** commandChannel is the channel the selected value is written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the state the device holds. */
@@ -2186,6 +2197,8 @@ export const setpointElementConfigZ = labeledConfigZ
     variant: z.literal("setpoint"),
     /** size is the rendered size preset of the setpoint. */
     size: componentSizeZ.default("medium"),
+    /** level is the typography level of the setpoint text. */
+    level: text.levelZ.default("h4"),
     /** commandChannel is the channel submitted setpoints are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */

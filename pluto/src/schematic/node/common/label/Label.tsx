@@ -20,6 +20,25 @@ import { type NodeProps } from "@/schematic/node/spec";
 export const configZ = schematic.labelConfigZ;
 export type Config = schematic.LabelConfig;
 
+/** The wrap width in pixels of a label that stores none. */
+export const DEFAULT_MAX_INLINE_SIZE = 150;
+
+/** The stored wrap width of a label that does not wrap. */
+export const NO_WRAP = 0;
+
+/**
+ * @param size - The stored wrap width.
+ * @returns the CSS max-inline-size of a label: undefined when it does not wrap.
+ */
+export const resolveMaxInlineSize = (size?: number): number | undefined => {
+  const resolved = size ?? DEFAULT_MAX_INLINE_SIZE;
+  return resolved === NO_WRAP ? undefined : resolved;
+};
+
+/** The CSS text-align of each label alignment. Stretch sets none. */
+export const TEXT_ALIGNS: Record<schematic.FlexAlignment, CSSProperties["textAlign"]> =
+  { start: "start", center: "center", end: "end", stretch: undefined };
+
 export interface LabelProps {
   config: Config;
   onChange?: (next: { label: Config }) => void;
@@ -35,8 +54,8 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
   const handleLabelChange = (value: string) =>
     onChange?.({ label: { ...config, label: value } });
   const style = {
-    textAlign: align as CSSProperties["textAlign"],
-    maxInlineSize,
+    textAlign: TEXT_ALIGNS[align],
+    maxInlineSize: resolveMaxInlineSize(maxInlineSize),
     ...baseStyle,
   };
   return (

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 // stored decodes a v10 config the way the v10 Core persists it.
@@ -164,6 +165,54 @@ var _ = Describe("Migration", func() {
 		)
 	})
 
+	It(
+		"Should set a stored button's level and stop its wrapping",
+		func(ctx SpecContext) {
+			Expect(migrateStored(ctx, stored(msgpack.EncodedJSON{
+				"variant": "button",
+				"size":    "large",
+				"label":   map[string]any{"max_inline_size": 80.0},
+			}))).To(SatisfyAll(
+				HaveField("Level", Equal(text.LevelH5)),
+				HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeZero())),
+			))
+		},
+	)
+
+	It("Should keep a button's 0 through a defaults fill", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+			Configs: map[string]v10.ElementConfig{
+				"n1": stored(msgpack.EncodedJSON{"variant": "button"}),
+			},
+		}))
+		out.ApplyDefaults()
+		Expect(out.Configs["n1"].Variant).To(
+			HaveField("LabeledConfig.Label.MaxInlineSize", HaveValue(BeZero())),
+		)
+	})
+
+	It("Should keep a level that a stored button holds", func(ctx SpecContext) {
+		Expect(migrateStored(ctx, stored(msgpack.EncodedJSON{
+			"variant": "button",
+			"size":    "large",
+			"level":   "h3",
+		}))).To(HaveField("Level", Equal(text.LevelH3)))
+	})
+
+	It("Should keep the wrap width of a stored field", func(ctx SpecContext) {
+		Expect(migrateStored(ctx, stored(msgpack.EncodedJSON{
+			"variant": "setpoint",
+			"size":    "small",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		}))).To(SatisfyAll(
+			HaveField("Level", Equal(text.LevelSmall)),
+			HaveField(
+				"LabeledConfig.Label.MaxInlineSize",
+				HaveValue(BeEquivalentTo(80)),
+			),
+		))
+	})
+
 	It("Should keep a stored default as a set value", func(ctx SpecContext) {
 		box := migrateStored(ctx, stored(msgpack.EncodedJSON{"variant": "box"}))
 		Expect(box).To(SatisfyAll(
@@ -195,6 +244,86 @@ var _ = Describe("Migration", func() {
 		)
 	})
 
+	DescribeTable("Should stop the wrapping of a saved button",
+		func(ctx SpecContext, label map[string]any) {
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"n1": stored(msgpack.EncodedJSON{
+						"variant": "button",
+						"label":   label,
+					}),
+				},
+			}))
+			button := out.Configs["n1"].Variant.(v11.ButtonElementConfig)
+			Expect(button.Label.MaxInlineSize).To(HaveValue(BeZero()))
+			Expect(button.Label.Label).To(Equal("Open"))
+		},
+		Entry("with the default", map[string]any{"label": "Open"}),
+		Entry("with a chosen width", map[string]any{
+			"label":           "Open",
+			"max_inline_size": 80.0,
+		}),
+	)
+
+	DescribeTable("Should keep the wrap width of a symbol that is not a button",
+		func(ctx SpecContext, label map[string]any, width float64) {
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"n1": stored(
+						msgpack.EncodedJSON{"variant": "value", "label": label},
+					),
+				},
+			}))
+			value := out.Configs["n1"].Variant.(v11.ValueElementConfig)
+			Expect(value.Label.MaxInlineSize).To(HaveValue(BeEquivalentTo(width)))
+		},
+		Entry("with the default", map[string]any{"label": "P1"}, 150.0),
+		Entry("with a chosen width", map[string]any{
+			"label":           "P1",
+			"max_inline_size": 80.0,
+		}, 80.0),
+	)
+
+	DescribeTable("Should keep the rendered text size of a saved symbol",
+		func(ctx SpecContext, size string, level text.Level) {
+			sized := func(variant string) v10.ElementConfig {
+				return stored(msgpack.EncodedJSON{"variant": variant, "size": size})
+			}
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"button":   sized("button"),
+					"input":    sized("input"),
+					"select":   sized("select"),
+					"setpoint": sized("setpoint"),
+				},
+			}))
+			c := out.Configs
+			Expect(c["button"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["input"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["select"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["setpoint"].Variant).To(HaveField("Level", Equal(level)))
+		},
+		Entry("tiny", "tiny", text.LevelTiny),
+		Entry("small", "small", text.LevelSmall),
+		Entry("medium", "medium", text.LevelP),
+		Entry("large", "large", text.LevelH5),
+		Entry("huge", "huge", text.LevelH2),
+	)
+
+	It("Should keep a level that a saved button stores", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+			Configs: map[string]v10.ElementConfig{
+				"n1": stored(msgpack.EncodedJSON{
+					"variant": "button",
+					"size":    "large",
+					"level":   "h3",
+				}),
+			},
+		}))
+		button := out.Configs["n1"].Variant.(v11.ButtonElementConfig)
+		Expect(button.Level).To(Equal(text.LevelH3))
+	})
+
 	It("Should keep the schematic's identity", func(ctx SpecContext) {
 		key := uuid.New()
 		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
@@ -218,6 +347,17 @@ var _ = Describe("Migration", func() {
 		out := MustSucceed(v11.MigrateNumericTelemConfig(ctx, v10.NumericTelemConfig{}))
 		Expect(out.Precision).To(HaveValue(BeZero()))
 	})
+
+	DescribeTable("Should keep the wrap width of a label config",
+		func(ctx SpecContext, width float64) {
+			out := MustSucceed(v11.MigrateLabelConfig(
+				ctx, v10.LabelConfig{MaxInlineSize: width},
+			))
+			Expect(out.MaxInlineSize).To(HaveValue(Equal(width)))
+		},
+		Entry("No wrapping", 0.0),
+		Entry("A set width", 220.0),
+	)
 
 	DescribeTable("Should round a stored precision into a byte",
 		func(ctx SpecContext, stored float64, want uint8) {

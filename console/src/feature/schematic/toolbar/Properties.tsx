@@ -531,8 +531,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
         <Form.Section title="Label">
           <Input.Item label="Wrap width">
             <Input.Numeric
-              value={firstNodeLabel?.maxInlineSize ?? 150}
+              value={
+                firstNodeLabel?.maxInlineSize ??
+                Schematic.Node.Label.DEFAULT_MAX_INLINE_SIZE
+              }
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
+              emptyValue={Schematic.Node.Label.NO_WRAP}
+              placeholder="No wrapping"
               endContent="px"
             />
           </Input.Item>
