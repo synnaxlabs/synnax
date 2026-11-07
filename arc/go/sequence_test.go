@@ -6119,6 +6119,111 @@ var _ = Describe("Sequence", func() {
 			Expect(got).To(HaveLen(1))
 			Expect(got[0]).To(BeNumerically(">", startedAt))
 		})
+
+		Describe("Reactive variable inputs", func() {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 99},
+				"raw":  {types.I64(), 100},
+				"out":  {types.I64(), 102},
+			})
+			digests := []channels.Digest{
+				{Key: 100, DataType: telem.Int64T},
+				{Key: 102, DataType: telem.Int64T},
+			}
+			const funcs = `
+				func f(v i64) {} i64 {
+				    return v
+				}
+				func g(a i64, b i64) {} i64 {
+				    return a + b
+				}
+				`
+			// sendRaw ingests each value into raw on its own cycle and returns what
+			// the program wrote to out.
+			sendRaw := func(h *runtimeHarness, ctx SpecContext, values ...int64) []int64 {
+				advance(h, ctx, telem.Millisecond)
+				for _, v := range values {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				return drainI64(out, 102)
+			}
+
+			DescribeTable(
+				"Fires an untriggered call on each raw sample",
+				func(ctx SpecContext, program string, expected []int64) {
+					h := newRuntimeHarness(ctx, funcs+program, resolver, digests...)
+					defer h.Close(ctx)
+					Expect(sendRaw(h, ctx, 5, 7)).To(Equal(expected))
+				},
+				Entry("an expression over a reactive variable", `
+				s := raw * 2
+				f(s + 1) -> out`, []int64{11, 15}),
+				Entry("a bare reactive variable", `
+				s := raw * 2
+				f(s) -> out`, []int64{10, 14}),
+				Entry("a reactive variable derived from another", `
+				s := raw * 2
+				u := s + 1
+				f(u) -> out`, []int64{11, 15}),
+				Entry("a named input", `
+				s := raw * 2
+				f(v=s + 1) -> out`, []int64{11, 15}),
+				Entry("one of several inputs", `
+				s := raw * 2
+				g(s, 1) -> out`, []int64{11, 15}),
+				Entry("an expression head", `
+				s := raw * 2
+				s + 1 -> out`, []int64{11, 15}),
+				Entry("an inline channel read", `
+				f(raw * 2 + 1) -> out`, []int64{11, 15}),
+				Entry("a later function that reads the channel", `
+				f(rd() + 1) -> out
+				func rd() i64 {
+				    return raw
+				}`, []int64{6, 8}),
+				Entry("a channel alias", `
+				a := raw
+				f(a * 2 + 1) -> out`, []int64{11, 15}),
+			)
+
+			It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				s := raw * 2
+				trig -> f(s + 1) -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				Expect(sendRaw(h, ctx, 5)).To(BeEmpty(), "raw alone must not fire f")
+				trigger(h, ctx, 99)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{11}))
+			})
+
+			It("Fires from a reactive variable in a stage", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				sequence main {
+				    stage run {
+				        s := raw * 2
+				        f(s + 1) -> out
+				    }
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 99)
+				Expect(sendRaw(h, ctx, 5, 7)).To(Equal([]int64{11, 15}))
+			})
+
+			It("Runs a call over a non-reactive variable once", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				k := 2
+				f(k + 1) -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				Expect(sendRaw(h, ctx, 5, 7)).To(Equal([]int64{3}))
+			})
+		})
 	})
 
 	Describe("Variable initialization on declaration", func() {

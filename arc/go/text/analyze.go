@@ -1794,17 +1794,12 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 // in an expression when that expression is the first node in a flow statement.
 // This enables the shorthand syntax: `ox_pt_1 > 20 => do_something()`
 // which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something()`. A call's
-// computed inputs count too, so `f(count * 2)` expands to `count -> f(count * 2)`.
+// computed inputs count too, so `f(count * 2)` expands to `count -> f(count * 2)`,
+// and so does a reactive variable they read.
 func (p *flowChainProcessor) injectImplicitTriggers(
 	head antlr.ParserRuleContext,
 ) bool {
-	reads := p.headChannelReads(head)
-	if len(reads) == 0 {
-		return true
-	}
-
-	// Create trigger node for each channel
-	for _, chName := range reads {
+	for _, chName := range p.headChannelReads(head) {
 		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
 		if err != nil {
 			continue
@@ -1817,15 +1812,44 @@ func (p *flowChainProcessor) injectImplicitTriggers(
 			bindReadToAlias(p.shell, e.register, &result.node, chanSym)
 		}
 		p.nodes = append(p.nodes, result.node)
-
-		if p.prevNode == nil {
-			p.prevOutput = result.output
-			p.prevNode = &result.node
-		} else {
-			p.additionalTriggers = append(p.additionalTriggers, result)
-		}
+		p.addTrigger(result)
+	}
+	for _, vn := range p.headVarReads(head) {
+		p.addTrigger(varReadRef(vn))
 	}
 	return true
+}
+
+// addTrigger makes result the head's trigger, or an extra one if it has one.
+func (p *flowChainProcessor) addTrigger(result nodeResult) {
+	if p.prevNode == nil {
+		p.prevOutput = result.output
+		p.prevNode = &result.node
+		return
+	}
+	p.additionalTriggers = append(p.additionalTriggers, result)
+}
+
+// headVarReads returns the nodes of the reactive variables a call's inputs read.
+func (p *flowChainProcessor) headVarReads(head antlr.ParserRuleContext) []*ir.Node {
+	fn, ok := head.(parser.IFunctionContext)
+	if !ok {
+		return nil
+	}
+	var nodes []*ir.Node
+	for _, arg := range symbol.FunctionArguments(fn) {
+		for _, name := range parser.CollectIdentifiers(arg.Expr) {
+			sym, err := p.ctx.Scope.Resolve(p.ctx, name)
+			if err != nil || !isExprReadVar(sym) {
+				continue
+			}
+			rn := p.shell.varNodes[sym].readNode(sym)
+			if rn != nil && !slices.Contains(nodes, rn) {
+				nodes = append(nodes, rn)
+			}
+		}
+	}
+	return nodes
 }
 
 // headChannelReads returns the channels a flow head reads, through its own
