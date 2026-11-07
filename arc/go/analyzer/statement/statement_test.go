@@ -552,6 +552,11 @@ var _ = Describe("Statement", func() {
 			Entry("a float after a typed write", "x := 0\nx = v\nx = 1.5", ""),
 			Entry("a typed write after a float", "x := 0.0\nx = 1.0\nx = v", ""),
 			Entry(
+				"a typed element after a float bound an open element",
+				"n i32 := 1\ne := []\ny := [e[0], 1.5, n]",
+				"float is not compatible with i32",
+			),
+			Entry(
 				"a series of literals added to a series",
 				"y := [1.5, 2.5]\ny += [1, 2]\nw series f64 := y",
 				"",

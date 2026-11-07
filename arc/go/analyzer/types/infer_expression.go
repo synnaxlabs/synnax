@@ -646,9 +646,8 @@ func bindOnRead(
 	if def.Kind == types.KindVariable {
 		return resolved
 	}
-	if err := cs.AddEquality(resolved, def, source, "variable type"); err != nil {
-		zap.S().DPanicf("unexpected error binding an unbound variable: %v", err)
-	}
+	// An unbound variable always unifies with its own default.
+	lo.Must0(cs.AddEquality(resolved, def, source, "variable type"))
 	return def
 }
 
