@@ -17,7 +17,7 @@ from typing import override as _override
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 Key: TypeAlias = int
@@ -158,8 +158,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="rack")
+TYPE_RESOURCE_ID = ID(type="rack")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="rack", key=str(key))

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
@@ -67,7 +68,7 @@ func (failEncoder) Extension() string { return xjson.Codec.Extension() }
 // ExportGroup reads committed data, so every fixture below is created outside the
 // per-spec tx and deleted afterwards to keep the shared DB's counts intact.
 var _ = Describe("ExportGroup", func() {
-	createGroup := func(ctx SpecContext, name string, parent ontology.ID) group.Group {
+	createGroup := func(ctx SpecContext, name string, parent resource.ID) group.Group {
 		GinkgoHelper()
 		g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, parent))
 		DeferCleanup(func(ctx SpecContext) {
@@ -77,7 +78,7 @@ var _ = Describe("ExportGroup", func() {
 	}
 	createRoot := func(ctx SpecContext, name string) group.Group {
 		GinkgoHelper()
-		return createGroup(ctx, name, proj.OntologyID())
+		return createGroup(ctx, name, proj.ResourceID())
 	}
 	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 		GinkgoHelper()
@@ -85,7 +86,7 @@ var _ = Describe("ExportGroup", func() {
 			Name: name,
 			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, &sym, g.ResourceID())).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 		})
@@ -123,7 +124,7 @@ var _ = Describe("ExportGroup", func() {
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
+		env := MustSucceed(svc.Export(ctx, symbol.ResourceID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
 			To(MatchJSON(MustSucceed(xjson.Codec.Encode(ctx, env))))
 	})
@@ -131,7 +132,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
 		_, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
-		Expect(members).To(ConsistOf(symbol.OntologyID(sym.Key)))
+		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	It("Should export an empty group as a manifest alone", func(ctx SpecContext) {
 		g := createRoot(ctx, "Empty")
@@ -171,11 +172,11 @@ var _ = Describe("ExportGroup", func() {
 	})
 	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
-		createGroup(ctx, "Nested", g.OntologyID())
+		createGroup(ctx, "Nested", g.ResourceID())
 		sym := createSymbol(ctx, g, "Ball Valve")
 		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json", "Ball Valve.json"))
-		Expect(members).To(ConsistOf(symbol.OntologyID(sym.Key)))
+		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	DescribeTable("Should suffix the second of two symbols taking one file name",
 		func(ctx SpecContext, first, second, firstFile, secondFile string) {
@@ -246,7 +247,7 @@ var _ = Describe("ImportGroup", func() {
 		GinkgoHelper()
 		return MustSucceed(svc.ImportGroup(ctx, tx, files))
 	}
-	childrenOf := func(ctx SpecContext, id ontology.ID) []ontology.Resource {
+	childrenOf := func(ctx SpecContext, id resource.ID) []ontology.Resource {
 		GinkgoHelper()
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
@@ -258,10 +259,10 @@ var _ = Describe("ImportGroup", func() {
 	}
 	childNames := func(ctx SpecContext, g group.Group) []string {
 		GinkgoHelper()
-		children := childrenOf(ctx, g.OntologyID())
+		children := childrenOf(ctx, g.ResourceID())
 		names := make([]string, len(children))
 		for i, child := range children {
-			Expect(child.ID.Type).To(Equal(ontology.ResourceTypeSchematicSymbol))
+			Expect(child.ID.Type).To(Equal(resource.TypeSchematicSymbol))
 			names[i] = child.Name
 		}
 		return names
@@ -272,8 +273,8 @@ var _ = Describe("ImportGroup", func() {
 	) {
 		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Valves")})
 		Expect(g.Name).To(Equal("Valves"))
-		Expect(childrenOf(ctx, svc.Group().OntologyID())).
-			To(ContainElement(HaveField("ID", g.OntologyID())))
+		Expect(childrenOf(ctx, svc.Group().ResourceID())).
+			To(ContainElement(HaveField("ID", g.ResourceID())))
 	})
 	It("Should import every member into the created group", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{
@@ -287,7 +288,7 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		src := MustSucceed(
-			groupSvc.NewWriter(nil).Create(ctx, "Valves", proj.OntologyID()),
+			groupSvc.NewWriter(nil).Create(ctx, "Valves", proj.ResourceID()),
 		)
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
@@ -296,7 +297,7 @@ var _ = Describe("ImportGroup", func() {
 			Name: "Inlet",
 			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.OntologyID())).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.ResourceID())).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 		})
@@ -337,7 +338,7 @@ var _ = Describe("ImportGroup", func() {
 	})
 	It("Should import a manifest alone as an empty group", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Empty")})
-		Expect(childrenOf(ctx, g.OntologyID())).To(BeEmpty())
+		Expect(childrenOf(ctx, g.ResourceID())).To(BeEmpty())
 	})
 
 	Describe("Legacy version 1 manifests", func() {

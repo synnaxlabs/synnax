@@ -170,9 +170,9 @@ Channel struct {
     @go marshal
     @go migrate
     @go output     "core/pkg/service/channel"
-    @ontology type "channel"
     @pb
     @py hand
+    @resource type "channel"
     @retrieve
     @retrieve key  "Key"
     @ts hand
@@ -266,9 +266,9 @@ APIChannel struct {
     """
     @go name       "Channel"
     @go output     "core/pkg/api/channel"
-    @ontology type "channel"
     @pb name       "Channel"
     @py name       "Payload"
+    @resource type "channel"
     @ts name       "Payload"
 }
 

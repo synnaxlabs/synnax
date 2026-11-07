@@ -280,7 +280,7 @@ void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
 
 void Master::deactivate() {
     if (this->activated) {
-        this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
+        this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;

@@ -9,8 +9,8 @@
 
 import {
   type access,
-  type ontology,
   query,
+  type resource,
   type Synnax,
   user,
 } from "@synnaxlabs/client";
@@ -21,17 +21,17 @@ import { Flux } from "@/flux";
 const PERMISSION_PLURAL_RESOURCE_NAME = "permissions";
 
 export type PermissionsQuery = {
-  objects: ontology.ID | ontology.ID[];
+  objects: resource.ID | resource.ID[];
   action: access.Action;
 };
 
-const subjectOf = (client: Synnax): ontology.ID | null => {
+const subjectOf = (client: Synnax): resource.ID | null => {
   const u = client.users.current.getCached();
-  return query.isLive(u) ? user.ontologyID(u.key) : null;
+  return query.isLive(u) ? user.resourceID(u.key) : null;
 };
 
-const retrieveSubject = async (client: Synnax): Promise<ontology.ID> =>
-  user.ontologyID((await client.users.current.retrieve()).key);
+const retrieveSubject = async (client: Synnax): Promise<resource.ID> =>
+  user.resourceID((await client.users.current.retrieve()).key);
 
 /**
  * Subscribes for the signed-in user, and moves the subscription each time a different
@@ -39,7 +39,7 @@ const retrieveSubject = async (client: Synnax): Promise<ontology.ID> =>
  */
 const subscribeForCurrent = (
   client: Synnax,
-  subscribe: (subject: ontology.ID) => destructor.Destructor,
+  subscribe: (subject: resource.ID) => destructor.Destructor,
   onSwitch: () => void,
 ): destructor.Destructor => {
   let subject = subjectOf(client);
@@ -95,20 +95,20 @@ const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, bo
 export const useGranted = (query: PermissionsQuery): boolean =>
   useResultGranted(query).data ?? false;
 
-export const useRetrieveGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+export const useRetrieveGranted = (id: resource.ID | resource.ID[]): boolean =>
   useGranted({ objects: id, action: "retrieve" });
 
-export const useUpdateGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+export const useUpdateGranted = (id: resource.ID | resource.ID[]): boolean =>
   useGranted({ objects: id, action: "update" });
 
-export const useDeleteGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+export const useDeleteGranted = (id: resource.ID | resource.ID[]): boolean =>
   useGranted({ objects: id, action: "delete" });
 
-export const useCreateGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+export const useCreateGranted = (id: resource.ID | resource.ID[]): boolean =>
   useGranted({ objects: id, action: "create" });
 
 export interface GrantedParams extends Omit<IsGrantedParams, "query"> {
-  id: ontology.ID | ontology.ID[];
+  id: resource.ID | resource.ID[];
 }
 
 export const viewGranted = ({ id, ...rest }: GrantedParams): boolean =>

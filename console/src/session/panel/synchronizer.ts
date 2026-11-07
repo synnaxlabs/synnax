@@ -87,7 +87,7 @@ const repairMembership = async (params: Params): Promise<void> => {
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
   const panels = await client.panels.retrieve({
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
   });
   if (store.getState().project.selected !== projectKey) return;
   applyMembership(params, panels);
@@ -112,7 +112,7 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
       removeQuery = undefined;
       if (projectKey == null) return;
       removeQuery = client.panels.onChange(
-        { parent: project.ontologyID(projectKey) },
+        { parent: project.resourceID(projectKey) },
         (result) => {
           if (!query.isLive(result)) return repair();
           applyMembership(params, result);

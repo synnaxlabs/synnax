@@ -141,7 +141,7 @@ func MatchVariants[D any](variants ...Variant) Filter[D] {
 // MatchLabels returns a filter for statuses that have any of the provided labels.
 func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 	return Match(func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, s.OntologyID(), ctx.Tx)
+		labels, err := r.label.RetrieveFor(ctx, s.ResourceID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}

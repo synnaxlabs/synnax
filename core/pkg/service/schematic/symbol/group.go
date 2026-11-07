@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +28,7 @@ func (s *Service) retrieveGroup(
 	key group.Key,
 ) (root ontology.Resource, children []ontology.Resource, err error) {
 	if err = s.cfg.Ontology.NewRetrieve().
-		WhereIDs(group.OntologyID(key)).
+		WhereIDs(group.ResourceID(key)).
 		Entry(&root).
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
@@ -37,7 +38,7 @@ func (s *Service) retrieveGroup(
 	return root, children, nil
 }
 
-// RetrieveGroupSymbols returns the ontology ID of every symbol in the group identified
+// RetrieveGroupSymbols returns the resource ID of every symbol in the group identified
 // by key, reading through tx. Children that are not schematic symbols are skipped and
 // logged as a warning. It returns query.ErrNotFound if no group has key.
 //
@@ -47,14 +48,14 @@ func (s *Service) RetrieveGroupSymbols(
 	ctx context.Context,
 	tx gorp.Tx,
 	key group.Key,
-) ([]ontology.ID, error) {
+) ([]resource.ID, error) {
 	root, children, err := s.retrieveGroup(ctx, tx, key)
 	if err != nil {
 		return nil, err
 	}
 	symbols, skipped := partitionSymbols(children)
 	s.warnSkipped(root.Name, skipped)
-	return lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
+	return lo.Map(symbols, func(r ontology.Resource, _ int) resource.ID {
 		return r.ID
 	}), nil
 }
@@ -71,9 +72,9 @@ func (s *Service) DeleteGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	key group.Key,
-	ids []ontology.ID,
+	ids []resource.ID,
 ) error {
-	keys, err := KeysFromOntologyIDs(ids)
+	keys, err := KeysFromResourceIDs(ids)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (s *Service) DeleteGroup(
 // rescueStrays moves any children the delete skipped to the permanent symbol group, so
 // the children survive the delete and the group service's no-children rule passes.
 func (s *Service) rescueStrays(ctx context.Context, tx gorp.Tx, key group.Key) error {
-	groupID := group.OntologyID(key)
+	groupID := group.ResourceID(key)
 	var strays []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(groupID).
@@ -102,9 +103,9 @@ func (s *Service) rescueStrays(ctx context.Context, tx gorp.Tx, key group.Key) e
 	if len(strays) == 0 {
 		return nil
 	}
-	ids := lo.Map(strays, func(r ontology.Resource, _ int) ontology.ID { return r.ID })
+	ids := lo.Map(strays, func(r ontology.Resource, _ int) resource.ID { return r.ID })
 	w := s.cfg.Ontology.NewWriter(tx)
-	rels := lo.Map(ids, func(id ontology.ID, _ int) ontology.Relationship {
+	rels := lo.Map(ids, func(id resource.ID, _ int) ontology.Relationship {
 		return ontology.Relationship{
 			From: groupID,
 			Type: ontology.RelationshipTypeParentOf,
@@ -115,7 +116,7 @@ func (s *Service) rescueStrays(ctx context.Context, tx gorp.Tx, key group.Key) e
 		return err
 	}
 	return w.DefineRelationships(
-		ctx, s.group.OntologyID(), ontology.RelationshipTypeParentOf, ids...,
+		ctx, s.group.ResourceID(), ontology.RelationshipTypeParentOf, ids...,
 	)
 }
 
@@ -123,9 +124,9 @@ func (s *Service) rescueStrays(ctx context.Context, tx gorp.Tx, key group.Key) e
 // any other type.
 func partitionSymbols(
 	children []ontology.Resource,
-) (symbols []ontology.Resource, skipped []ontology.ID) {
+) (symbols []ontology.Resource, skipped []resource.ID) {
 	for _, child := range children {
-		if child.ID.Type == ontology.ResourceTypeSchematicSymbol {
+		if child.ID.Type == resource.TypeSchematicSymbol {
 			symbols = append(symbols, child)
 		} else {
 			skipped = append(skipped, child.ID)
@@ -136,7 +137,7 @@ func partitionSymbols(
 
 // warnSkipped logs the children a group operation ignored because they are not
 // schematic symbols.
-func (s *Service) warnSkipped(groupName string, skipped []ontology.ID) {
+func (s *Service) warnSkipped(groupName string, skipped []resource.ID) {
 	if len(skipped) == 0 {
 		return
 	}

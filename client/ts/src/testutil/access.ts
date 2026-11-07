@@ -44,7 +44,7 @@ const connectAs = async (
 ) => {
   const client = createTestClient({ username, password: "test", onInternalError });
   try {
-    await client.access.policies.retrieveForSubject(user.ontologyID(key));
+    await client.access.policies.retrieveForSubject(user.resourceID(key));
   } catch (err) {
     if (!isDenial(err)) throw errors.fromUnknown(err);
   }
@@ -82,8 +82,8 @@ export const createTestClientWithPolicy = async (
     description: "test",
   });
   await client.ontology.addChildren(
-    role.ontologyID(r.key),
-    ...policies.map(({ key }) => policy.ontologyID(key)),
+    role.resourceID(r.key),
+    ...policies.map(({ key }) => policy.resourceID(key)),
   );
   await client.access.roles.assign({ user: u.key, role: r.key });
   return await connectAs(u.username, u.key, onInternalError);

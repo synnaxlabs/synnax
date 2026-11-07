@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -28,65 +29,65 @@ import (
 )
 
 var _ = Describe("Ontology", func() {
-	Describe("OntologyID", func() {
+	Describe("ResourceID", func() {
 		It(
-			"Should build an ontology ID with the project resource type and the key",
+			"Should build a resource ID with the project resource type and the key",
 			func() {
 				key := uuid.New()
-				id := project.OntologyID(key)
-				Expect(id.Type).To(Equal(ontology.ResourceTypeProject))
+				id := project.ResourceID(key)
+				Expect(id.Type).To(Equal(resource.TypeProject))
 				Expect(id.Key).To(Equal(key.String()))
 			},
 		)
 	})
-	Describe("OntologyIDs", func() {
-		It("Should map a slice of keys to ontology IDs", func() {
+	Describe("ResourceIDs", func() {
+		It("Should map a slice of keys to resource IDs", func() {
 			a, b := uuid.New(), uuid.New()
-			Expect(project.OntologyIDs([]project.Key{a, b})).
-				To(ConsistOf(project.OntologyID(a), project.OntologyID(b)))
+			Expect(project.ResourceIDs([]project.Key{a, b})).
+				To(ConsistOf(project.ResourceID(a), project.ResourceID(b)))
 		})
 	})
-	Describe("OntologyIDsFromProjects", func() {
-		It("Should map a slice of projects to ontology IDs", func() {
+	Describe("ResourceIDsFromProjects", func() {
+		It("Should map a slice of projects to resource IDs", func() {
 			a := project.Project{Key: uuid.New(), Name: "a"}
 			b := project.Project{Key: uuid.New(), Name: "b"}
-			Expect(project.OntologyIDsFromProjects([]project.Project{a, b})).
-				To(ConsistOf(a.OntologyID(), b.OntologyID()))
+			Expect(project.ResourceIDsFromProjects([]project.Project{a, b})).
+				To(ConsistOf(a.ResourceID(), b.ResourceID()))
 		})
 	})
-	Describe("Project.OntologyID", func() {
-		It("Should return an ontology ID populated from the project's key", func() {
+	Describe("Project.ResourceID", func() {
+		It("Should return a resource ID populated from the project's key", func() {
 			p := project.Project{Key: uuid.New(), Name: "x"}
-			Expect(p.OntologyID()).To(Equal(p.OntologyID()))
+			Expect(p.ResourceID()).To(Equal(p.ResourceID()))
 		})
 	})
-	Describe("KeyFromOntologyID", func() {
+	Describe("KeyFromResourceID", func() {
 		It("Should return the key of a project ID", func() {
 			key := uuid.New()
-			Expect(project.KeyFromOntologyID(project.OntologyID(key))).To(Equal(key))
+			Expect(project.KeyFromResourceID(project.ResourceID(key))).To(Equal(key))
 		})
 		DescribeTable("Should reject an ID that is not a project",
-			func(id ontology.ID, msg string) {
-				Expect(project.KeyFromOntologyID(id)).Error().To(SatisfyAll(
+			func(id resource.ID, msg string) {
+				Expect(project.KeyFromResourceID(id)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(msg)),
 				))
 			},
 			Entry("a group",
-				ontology.ID{Type: ontology.ResourceTypeGroup, Key: uuid.New().String()},
+				resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()},
 				`must be a project, got "group"`),
-			Entry("a zero ID", ontology.ID{}, `must be a project, got ""`),
+			Entry("a zero ID", resource.ID{}, `must be a project, got ""`),
 			Entry("a project whose key is not a UUID",
-				ontology.ID{Type: ontology.ResourceTypeProject, Key: "not-a-uuid"},
+				resource.ID{Type: resource.TypeProject, Key: "not-a-uuid"},
 				`invalid project key "not-a-uuid"`),
 			Entry("a project with an empty key",
-				ontology.ID{Type: ontology.ResourceTypeProject},
+				resource.ID{Type: resource.TypeProject},
 				`invalid project key ""`),
 		)
 	})
 	Describe("Type", func() {
 		It("Should return the project resource type", func() {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypeProject))
+			Expect(svc.Type()).To(Equal(resource.TypeProject))
 		})
 	})
 	Describe("RetrieveResource", func() {
@@ -94,7 +95,7 @@ var _ = Describe("Ontology", func() {
 			p := project.Project{Key: uuid.New(), Name: "resource"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			resource := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(resource.ID).To(Equal(p.OntologyID()))
+			Expect(resource.ID).To(Equal(p.ResourceID()))
 			Expect(resource.Name).To(Equal("resource"))
 		})
 		It(
@@ -131,7 +132,7 @@ var _ = Describe("Ontology", func() {
 
 				p := project.Project{Key: uuid.New(), Name: "observed"}
 				Expect(writer.Create(ctx, &p)).To(Succeed())
-				expectedID := p.OntologyID().String()
+				expectedID := p.ResourceID().String()
 
 				Eventually(func(g Gomega) {
 					mu.Lock()
@@ -164,12 +165,12 @@ var _ = Describe("Ontology", func() {
 				b := project.Project{Key: uuid.New(), Name: "turbopump"}
 				Expect(writer.Create(ctx, &a)).To(Succeed())
 				Expect(writer.Create(ctx, &b)).To(Succeed())
-				q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(Equal([]ontology.ID{b.OntologyID(), a.OntologyID()}))
+					To(Equal([]resource.ID{b.ResourceID(), a.ResourceID()}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(Equal([]ontology.ID{b.OntologyID()}))
+					To(Equal([]resource.ID{b.ResourceID()}))
 			},
 		)
 	})

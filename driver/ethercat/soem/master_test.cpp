@@ -89,6 +89,7 @@ protected:
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
                 .state_change_timeout = x::telem::MILLISECOND * 100,
+                .init_timeout = x::telem::MILLISECOND * 100,
                 .dc_settle_timeout = dc_settle_timeout,
             }
         );
@@ -2049,6 +2050,28 @@ TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
     for (const auto &[pos, state]: this->mock->state_change_requests)
         if (state == EC_STATE_INIT) found_init = true;
     EXPECT_TRUE(found_init);
+}
+
+/// @brief it should give the slaves init_timeout, not state_change_timeout, to return
+/// to INIT.
+TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
+    auto api = std::make_unique<MockAPI>();
+    this->mock = api.get();
+    this->master = std::make_unique<Master>(
+        std::move(api),
+        "eth0",
+        Config{
+            .pre_op_timeout = x::telem::MILLISECOND * 100,
+            .state_change_timeout = x::telem::MILLISECOND * 100,
+            .init_timeout = x::telem::MILLISECOND * 300,
+        }
+    );
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
+    const auto start = std::chrono::steady_clock::now();
+    this->master->deactivate();
+    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in
