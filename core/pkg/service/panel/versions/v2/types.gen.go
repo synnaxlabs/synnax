@@ -136,7 +136,7 @@ func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(p))
 }
 
-// DecodeMsgpack decodes the input over p, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Panel
 	if reflect.ValueOf(*p).IsZero() {

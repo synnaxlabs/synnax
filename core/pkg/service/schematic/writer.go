@@ -12,7 +12,6 @@ package schematic
 import (
 	"context"
 	"encoding/json/v2"
-	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -191,33 +190,52 @@ func (w Writer) Delete(
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-// validateScales returns an error wrapping validate.ErrValidation when a config that
-// next adds or changes from prev carries a scale that is not positive. A zero scale
-// sizes a symbol to nothing. A config left as stored passes, so a stored zero does not
-// block an unrelated edit.
+// validateScales returns an error wrapping validate.ErrValidation when a config of
+// next carries a scale that is not positive and differs from the scale prev stores for
+// it. A zero scale sizes a symbol to nothing. A stored scale that the write keeps
+// passes, so a stored zero does not block an edit to another field.
 func validateScales(prev, next Schematic) error {
 	for key, cfg := range next.Configs {
-		if old, ok := prev.Configs[key]; ok && reflect.DeepEqual(old, cfg) {
-			continue
-		}
-		b, err := json.Marshal(cfg)
+		scale, ok, err := scaleOf(cfg)
 		if err != nil {
 			return err
 		}
-		var scaled struct {
-			Scale *float64 `json:"scale"`
+		if !ok || scale > 0 {
+			continue
 		}
-		if err = json.Unmarshal(b, &scaled); err != nil {
-			return err
+		if old, stored := prev.Configs[key]; stored {
+			oldScale, hadScale, err := scaleOf(old)
+			if err != nil {
+				return err
+			}
+			if hadScale && oldScale == scale {
+				continue
+			}
 		}
-		if scaled.Scale != nil && *scaled.Scale <= 0 {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"configs.%s.scale: must be positive, got %v",
-				key,
-				*scaled.Scale,
-			)
-		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"configs.%s.scale: must be positive, got %v",
+			key,
+			scale,
+		)
 	}
 	return nil
+}
+
+// scaleOf returns the scale that cfg carries, and false when its variant has none.
+func scaleOf(cfg ElementConfig) (float64, bool, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return 0, false, err
+	}
+	var scaled struct {
+		Scale *float64 `json:"scale"`
+	}
+	if err = json.Unmarshal(b, &scaled); err != nil {
+		return 0, false, err
+	}
+	if scaled.Scale == nil {
+		return 0, false, nil
+	}
+	return *scaled.Scale, true, nil
 }
