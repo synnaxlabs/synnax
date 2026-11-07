@@ -420,6 +420,10 @@ const std::vector<std::string> SOURCES = {
     "sequence main {\n    limit T $= V\n    stage a {\n        limit -> %out%\n    }\n"
     "}\n%x% => main\n",
     "func f(a T) {v T} T { return a }\n%x% -> f(a=V) -> %out%\n",
+    "sequence main {\n    limit T := V\n    stage a {\n        limit -> %out%\n    }\n"
+    "    stage b {\n        %x% -> limit\n    }\n}\n%x% => main\n",
+    "sequence main {\n    limit T $= V\n    stage a {\n        limit -> %out%\n    }\n"
+    "    stage b {\n        %x% -> limit\n    }\n}\n%x% => main\n",
 };
 
 std::string replace(std::string s, const std::string &from, const std::string &to) {

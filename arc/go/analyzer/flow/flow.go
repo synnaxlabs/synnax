@@ -359,14 +359,6 @@ func constantType[T antlr.ParserRuleContext](
 		return t
 	}
 	t := types.Freshen(sym.Type, ctx.ScopedKey("const", id))
-	if err := ctx.Constraints.AddEquality(
-		t,
-		t,
-		id,
-		"constant type variable",
-	); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, id))
-	}
 	ctx.TypeMap[id] = t
 	return t
 }

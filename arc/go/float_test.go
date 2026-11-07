@@ -606,6 +606,28 @@ var _ = Describe("NaN and infinity", func() {
 				}
 			}
 			x => main`},
+			{"a reassigned variable in a sequence", `
+			sequence main {
+				limit T := V
+				stage a {
+					limit -> out
+				}
+				stage b {
+					x -> limit
+				}
+			}
+			x => main`},
+			{"a reassigned stateful variable in a sequence", `
+			sequence main {
+				limit T $= V
+				stage a {
+					limit -> out
+				}
+				stage b {
+					x -> limit
+				}
+			}
+			x => main`},
 			{"a function input value", `
 			func f(a T) {v T} T { return a }
 			x -> f(a=V) -> out`},
