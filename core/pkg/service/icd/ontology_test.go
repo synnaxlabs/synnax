@@ -10,6 +10,8 @@
 package icd_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -17,6 +19,23 @@ import (
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Ontology IDs", func() {
+	It("Should build an ontology ID of the ICD type", func() {
+		key := uuid.New()
+		Expect(icd.OntologyID(key)).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeICD,
+			Key:  key.String(),
+		}))
+	})
+
+	It("Should map keys and ICDs to ontology IDs", func() {
+		a, b := uuid.New(), uuid.New()
+		ids := []ontology.ID{icd.OntologyID(a), icd.OntologyID(b)}
+		Expect(icd.OntologyIDs([]icd.Key{a, b})).To(Equal(ids))
+		Expect(icd.OntologyIDsFromICDs([]icd.ICD{{Key: a}, {Key: b}})).To(Equal(ids))
+	})
+})
 
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {

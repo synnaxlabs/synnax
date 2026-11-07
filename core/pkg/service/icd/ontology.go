@@ -39,13 +39,6 @@ func OntologyIDsFromICDs(ics []ICD) []ontology.ID {
 	return lo.Map(ics, func(ic ICD, _ int) ontology.ID { return ic.OntologyID() })
 }
 
-// KeysFromOntologyIDs returns the ICD keys of the given ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
-	})
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),
