@@ -366,188 +366,188 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero LinePlot: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		case ActionTypeSetTitleVisible:
 			if a.SetTitleVisible == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTitleVisible.Handle(state)
 		case ActionTypeSetTitleLevel:
 			if a.SetTitleLevel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTitleLevel.Handle(state)
 		case ActionTypeSetLegendHidden:
 			if a.SetLegendHidden == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLegendHidden.Handle(state)
 		case ActionTypeSetLegendPosition:
 			if a.SetLegendPosition == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLegendPosition.Handle(state)
 		case ActionTypeAddChannel:
 			if a.AddChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddChannel.Handle(state)
 		case ActionTypeRemoveChannel:
 			if a.RemoveChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveChannel.Handle(state)
 		case ActionTypeSetChannels:
 			if a.SetChannels == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannels.Handle(state)
 		case ActionTypeSetXChannel:
 			if a.SetXChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetXChannel.Handle(state)
 		case ActionTypeAddRange:
 			if a.AddRange == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddRange.Handle(state)
 		case ActionTypeRemoveRange:
 			if a.RemoveRange == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveRange.Handle(state)
 		case ActionTypeSetRanges:
 			if a.SetRanges == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisLabel.Handle(state)
 		case ActionTypeSetAxisLabelDirection:
 			if a.SetAxisLabelDirection == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisLabelDirection.Handle(state)
 		case ActionTypeSetAxisLabelLevel:
 			if a.SetAxisLabelLevel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisLabelLevel.Handle(state)
 		case ActionTypeSetAxisBounds:
 			if a.SetAxisBounds == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisBounds.Handle(state)
 		case ActionTypeSetAxisTickSpacing:
 			if a.SetAxisTickSpacing == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisTickSpacing.Handle(state)
 		case ActionTypeSetAxisType:
 			if a.SetAxisType == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisType.Handle(state)
 		case ActionTypeSetLineLabel:
 			if a.SetLineLabel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineLabel.Handle(state)
 		case ActionTypeSetLineColor:
 			if a.SetLineColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineColor.Handle(state)
 		case ActionTypeSetLineStrokeWidth:
 			if a.SetLineStrokeWidth == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineStrokeWidth.Handle(state)
 		case ActionTypeSetLineAggregation:
 			if a.SetLineAggregation == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineAggregation.Handle(state)
 		case ActionTypeSetLineDetail:
 			if a.SetLineDetail == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineDetail.Handle(state)
 		case ActionTypeSetLine:
 			if a.SetLine == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLine.Handle(state)
 		case ActionTypeSetRule:
 			if a.SetRule == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRule.Handle(state)
 		case ActionTypeSetRuleLabel:
 			if a.SetRuleLabel == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleLabel.Handle(state)
 		case ActionTypeSetRuleColor:
 			if a.SetRuleColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleColor.Handle(state)
 		case ActionTypeSetRuleAxis:
 			if a.SetRuleAxis == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleAxis.Handle(state)
 		case ActionTypeSetRuleLineWidth:
 			if a.SetRuleLineWidth == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleLineWidth.Handle(state)
 		case ActionTypeSetRuleLineDash:
 			if a.SetRuleLineDash == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleLineDash.Handle(state)
 		case ActionTypeSetRuleUnits:
 			if a.SetRuleUnits == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRuleUnits.Handle(state)
 		case ActionTypeSetRulePosition:
 			if a.SetRulePosition == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRulePosition.Handle(state)
 		case ActionTypeRemoveRule:
 			if a.RemoveRule == nil {
-				return state, union.MissingPayload(a.Type)
+				return LinePlot{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveRule.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return LinePlot{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return LinePlot{}, err
 		}
 	}
 	return state, nil

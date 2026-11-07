@@ -94,6 +94,9 @@ var _ = Describe("Go Actions Plugin", func() {
 					"type RenamePayload struct {",
 					"func Reduce(state Shape, actions ...Action) (Shape, error) {",
 					"state, err = a.Rename.Handle(state)",
+					"return Shape{}, union.MissingPayload(a.Type)",
+					"return Shape{}, union.UnknownVariant(a.Type)",
+					"return Shape{}, err",
 					"func NewRenameAction(p RenamePayload) Action {",
 				)
 			})
@@ -164,8 +167,8 @@ var _ = Describe("Go Actions Plugin", func() {
 					"Increment *IncrementPayload",
 					"func Reduce(state Counter, actions ...Action) (Counter, error) {",
 					"case ActionTypeSetValue:",
-					`return state, union.MissingPayload(a.Type)`,
-					`return state, union.UnknownVariant(a.Type)`,
+					`return Counter{}, union.MissingPayload(a.Type)`,
+					`return Counter{}, union.UnknownVariant(a.Type)`,
 					"state, err = a.SetValue.Handle(state)",
 					"case ActionTypeIncrement:",
 					"state, err = a.Increment.Handle(state)",
