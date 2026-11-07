@@ -421,7 +421,7 @@ describe("queries", () => {
           const { result } = renderHook(
             () =>
               Label.useList({
-                initialQuery: { where: { key: { in: labels.map((l) => l.key) } } },
+                query: { where: { key: { in: labels.map((l) => l.key) } } },
               }),
             { wrapper },
           );

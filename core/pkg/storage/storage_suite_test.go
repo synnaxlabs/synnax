@@ -21,3 +21,5 @@ func TestStorage(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Storage Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
