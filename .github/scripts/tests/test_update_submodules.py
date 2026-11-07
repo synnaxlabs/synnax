@@ -113,6 +113,19 @@ def kill_move(work: Path, path: str) -> None:
     (work / path / "later.txt").write_text("partial")
 
 
+def journal(work: Path) -> Path:
+    return Path(git(work, "rev-parse", "--absolute-git-dir")) / "unfinished-submodules"
+
+
+def kill_delete(work: Path, path: str) -> None:
+    """Leaves the submodule as a delete killed partway: the journal lists it, its
+    worktree is gone, and its gitdir has lost HEAD."""
+    directory = gitdir(work, path)
+    journal(work).write_text(f"{work / path}\t{directory}\n")
+    shutil.rmtree(work / path)
+    (directory / "HEAD").unlink()
+
+
 @pytest.fixture
 def work(tmp_path: Path) -> Path:
     """A clone of a superproject with two submodules, one of which nests a third. The
@@ -186,6 +199,16 @@ class TestUpdateSubmodules:
         assert "::warning::" not in result.stdout
         assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
         assert git(work / "vendor/plain", "status", "--porcelain") == ""
+
+    def test_should_finish_the_deletes_of_a_cancelled_run(self, work: Path) -> None:
+        recorded = git(work, "rev-parse", "HEAD:vendor/plain")
+        kill_delete(work, "vendor/plain")
+        assert "not a git repository" in update(work).stderr
+        result = run(work)
+        assert result.returncode == 0, result.stderr
+        assert "::warning::Deleting unfinished submodule" in result.stdout
+        assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
+        assert not journal(work).exists()
 
     def test_should_clone_an_unfinished_nested_submodule_again(
         self, work: Path

@@ -16,6 +16,20 @@
 
 set -euo pipefail
 
+# The scan cannot see a half-deleted submodule, so the deletes go through a journal. A
+# job cancelled during them leaves the journal, and the next run finishes them first.
+journal="$(git rev-parse --absolute-git-dir)/unfinished-submodules"
+
+delete_unfinished() {
+    [ -f "$journal" ] || return 0
+    while IFS=$'\t' read -r worktree gitdir; do
+        echo "::warning::Deleting unfinished submodule $worktree"
+        rm -rf "$worktree" "$gitdir"
+    done < "$journal"
+    rm -f "$journal"
+}
+
+delete_unfinished
 # A clone killed in its fetch leaves a HEAD that does not resolve, and a checkout killed
 # with no time to clean up leaves a stale index.lock. Those are cloned again. foreach
 # enters each submodule after running its command, so the deletes wait for the list.
@@ -27,10 +41,9 @@ unfinished=$(git submodule foreach --recursive --quiet '
         printf "%s\t%s\n" "$toplevel/$sm_path" "$gitdir"
     fi')
 if [ -n "$unfinished" ]; then
-    while IFS=$'\t' read -r worktree gitdir; do
-        echo "::warning::Deleting unfinished submodule $worktree"
-        rm -rf "$worktree" "$gitdir"
-    done <<< "$unfinished"
+    printf '%s\n' "$unfinished" > "$journal.tmp"
+    mv "$journal.tmp" "$journal"
+    delete_unfinished
 fi
 # --force checks out with -f, which overwrites the files a killed checkout left behind.
 git submodule update --init --recursive --force
