@@ -18,6 +18,20 @@ import { Task } from "@/feature/ethercat/task";
 import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 
+interface SyncModeItemProps {
+  deviceKey: device.Key;
+}
+
+const SyncModeItem = ({ deviceKey }: SyncModeItemProps) => {
+  const openSyncMode = useSyncModeModal();
+  return (
+    <Menu.Item itemKey="ethercat.syncMode" onClick={() => openSyncMode({ deviceKey })}>
+      <Icon.Time />
+      Set sync mode
+    </Menu.Item>
+  );
+};
+
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
@@ -37,7 +51,6 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const openSyncMode = useSyncModeModal();
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -52,13 +65,7 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       <Device.ConfigureMenuItem {...props} />
       <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       {FLAGS.ethercatSyncMode && hasUpdatePermission && keys.length === 1 && (
-        <Menu.Item
-          itemKey="ethercat.syncMode"
-          onClick={() => openSyncMode({ deviceKey: keys[0] })}
-        >
-          <Icon.Time />
-          Set sync mode
-        </Menu.Item>
+        <SyncModeItem deviceKey={keys[0]} />
       )}
       <Menu.Divider />
       <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />

@@ -159,11 +159,13 @@ const ModeSelect = ({
   );
 };
 
+type Problem = "error" | "warning";
+
 interface CycleFieldProps {
   label: string;
   value: number;
   onChange: (ns: number) => void;
-  error?: boolean;
+  problem?: Problem;
 }
 
 /** A cycle in nanoseconds, where 0 is the mode's own cycle. */
@@ -171,7 +173,7 @@ const CycleField = ({
   label,
   value,
   onChange,
-  error,
+  problem,
 }: CycleFieldProps): ReactElement => {
   const auto = value === 0;
   return (
@@ -184,7 +186,7 @@ const CycleField = ({
         onChange={onChange}
         onClear={() => onChange(0)}
         placeholder=""
-        status={error === true ? "error" : undefined}
+        status={problem}
         aria-label={label}
         className={CSS.BE("ethercat-sync", "cycle")}
         endContent={auto ? <Input.AutoBadge /> : undefined}
@@ -211,15 +213,11 @@ const withCycle = (
 
 interface HelpProps {
   text: string;
-  error?: boolean;
+  problem?: Problem;
 }
 
-const Help = ({ text, error }: HelpProps): ReactElement => (
-  <Text.Text
-    level="small"
-    color={error === true ? undefined : 9}
-    status={error === true ? "error" : undefined}
-  >
+const Help = ({ text, problem }: HelpProps): ReactElement => (
+  <Text.Text level="small" color={problem == null ? 9 : undefined} status={problem}>
     {text}
   </Text.Text>
 );
@@ -239,16 +237,22 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   const index = choice == null ? autoIndex(modes) : choice.index;
   let mode: OpMode | null = null;
   if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
-  const sync0Problem = mode == null ? null : sync0Error(mode, choice);
+  const noSync0 = mode == null ? null : sync0Error(mode, choice);
   const sync1Problem = mode == null ? null : sync1Error(mode, choice);
-  const cycleError = sync0Problem ?? sync1Problem;
+  // Auto fails the start too, but Save must still remove the choice.
+  const sync0Problem: Problem = choice == null ? "warning" : "error";
+  const cycleError = (choice == null ? null : noSync0) ?? sync1Problem;
   const handleSave = () => {
     if (stale || cycleError != null) return;
-    update({ key: slave.key, opMode: choice ?? undefined });
+    // A mode that takes no cycles fails the start with any cycle.
+    if (choice != null && mode == null)
+      update({ key: slave.key, opMode: choose(modes, choice.index) });
+    else update({ key: slave.key, opMode: choice ?? undefined });
   };
   let help: HelpProps;
-  if (stale) help = { text: STALE_ERROR, error: true };
-  else if (cycleError != null) help = { text: cycleError, error: true };
+  if (stale) help = { text: STALE_ERROR, problem: "error" };
+  else if (cycleError != null) help = { text: cycleError, problem: "error" };
+  else if (noSync0 != null) help = { text: noSync0, problem: "warning" };
   else if (mode != null) help = { text: describeTicks(mode, choice) };
   else if (choice == null) help = { text: autoDescription(modes) };
   else help = { text: describeMode(modes[choice.index]) };
@@ -275,7 +279,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC0 cycle"
                 value={choice == null ? 0 : choice.sync0Cycle}
-                error={sync0Problem != null}
+                problem={noSync0 == null ? undefined : sync0Problem}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
                 }
@@ -283,7 +287,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC1 cycle"
                 value={choice == null ? 0 : choice.sync1Cycle}
-                error={sync1Problem != null}
+                problem={sync1Problem == null ? undefined : "error"}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
                 }
