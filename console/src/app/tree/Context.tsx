@@ -23,10 +23,12 @@ import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
+import { Secret } from "@/feature/secret";
 import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
+import { FLAGS } from "@/flags";
 import { Tree } from "@/platform/tree";
 
 const TREE_ITEMS: Tree.Items = {
@@ -44,6 +46,7 @@ const TREE_ITEMS: Tree.Items = {
   ...Rack.TREE_ITEMS,
   ...Range.TREE_ITEMS,
   ...Schematic.TREE_ITEMS,
+  ...(FLAGS.credentials ? Secret.TREE_ITEMS : {}),
   ...Status.TREE_ITEMS,
   ...Table.TREE_ITEMS,
   ...Task.TREE_ITEMS,
