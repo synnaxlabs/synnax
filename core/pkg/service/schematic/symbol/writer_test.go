@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
@@ -87,6 +88,22 @@ var _ = Describe("Writer", func() {
 				Expect(res.Data.Scale).To(Equal(1.0))
 			},
 		)
+
+		It("Should accept a create that keeps a stored zero scale", func(
+			ctx SpecContext,
+		) {
+			sym := symbol.Symbol{
+				Key:  uuid.New(),
+				Name: "stored",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			}
+			Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().
+				Entry(&sym).
+				Exec(ctx, tx)).To(Succeed())
+			sym.Name = "overwritten"
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+				To(Succeed())
+		})
 
 		It("Should reject a decoded symbol with a zero scale", func(ctx SpecContext) {
 			var sym symbol.Symbol

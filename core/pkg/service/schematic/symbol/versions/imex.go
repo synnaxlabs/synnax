@@ -50,6 +50,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	if env.Version <= legacy.LastVersion {
 		sym = defaults.Fill(sym)
 	}
+	// A zero scale draws the symbol at size zero, so an import takes the default.
+	if sym.Data.Scale <= 0 {
+		sym.Data.Scale = 1
+	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
 	sym.Key = uuid.Nil()

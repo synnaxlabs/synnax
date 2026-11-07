@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -164,6 +165,34 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("test"))
 			},
 		)
+		Describe("A schematic that stores a zero scale", func() {
+			var stored schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				stored = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"stored","nodes":[{"key":"v1"}],`+
+						`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+				), &stored)).To(Succeed())
+				stored.Key = uuid.New()
+				Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+			})
+
+			It("Should accept an unrelated dispatch", func(ctx SpecContext) {
+				Expect(svc.Dispatch(ctx, stored.Key, "session-1", []schematic.Action{
+					schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed"}),
+				})).To(Succeed())
+			})
+
+			It("Should accept a create that keeps the stored config", func(
+				ctx SpecContext,
+			) {
+				stored.Name = "overwritten"
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &stored)).To(Succeed())
+			})
+		})
+
 		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(

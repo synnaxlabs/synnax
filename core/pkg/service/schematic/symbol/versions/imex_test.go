@@ -75,6 +75,11 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		})))
 	})
 
+	It("Should import a zero scale as the default", func(ctx SpecContext) {
+		Expect(decode(ctx, "testdata/import_v2_zero_scale.json").Data.Scale).
+			To(Equal(1.0))
+	})
+
 	It("Should give a Console export without a scale the default", func(
 		ctx SpecContext,
 	) {
