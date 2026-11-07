@@ -48,20 +48,12 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 		return nil
 	}
 	var (
-		authority x509.UnknownAuthorityError
-		hostname  x509.HostnameError
-		invalid   x509.CertificateInvalidError
-		header    tls.RecordHeaderError
+		hostname     x509.HostnameError
+		invalid      x509.CertificateInvalidError
+		verification *tls.CertificateVerificationError
+		header       tls.RecordHeaderError
 	)
 	switch {
-	case errors.As(err, &authority):
-		return Failure{
-			Message: "Certificate not trusted",
-			Description: fmt.Sprintf(
-				"%s. Set the CA certificate that signed the certificate of the server.",
-				err,
-			),
-		}
 	case errors.As(err, &hostname):
 		return Failure{
 			Message: "Certificate does not match the address",
@@ -74,6 +66,16 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 			Message: "Certificate not valid",
 			Description: fmt.Sprintf(
 				"%s. Check the dates and the usage of the certificate of the server.",
+				err,
+			),
+		}
+	// The macOS verifier reports some chains it does not trust with an error of no
+	// x509 type.
+	case errors.As(err, &verification):
+		return Failure{
+			Message: "Certificate not trusted",
+			Description: fmt.Sprintf(
+				"%s. Set the CA certificate that signed the certificate of the server.",
 				err,
 			),
 		}
