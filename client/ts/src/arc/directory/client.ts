@@ -20,7 +20,12 @@ import {
   retrieveResponseZ,
 } from "@/arc/directory/types.gen";
 import { LINES } from "@/arc/directory/where";
-import { matches, retrieveInputZ, serverComputed } from "@/arc/directory/where.gen";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/arc/directory/where.gen";
 import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -84,6 +89,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc directory",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

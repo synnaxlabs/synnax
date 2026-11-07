@@ -55,6 +55,16 @@ describe("arc.directory", () => {
     expect(res.name).toBe(name);
   });
 
+  it("should retrieve a directory by name", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const d = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const res = await client.arcs.directories.retrieve(d.name);
+    expect(res.key).toBe(d.key);
+  });
+
   it("should delete a directory", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
