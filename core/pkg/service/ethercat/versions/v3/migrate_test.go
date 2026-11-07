@@ -149,7 +149,9 @@ var _ = Describe("Migrate", func() {
 				v2.NewReadMigration(findSlaves),
 				v3.ReadMigration,
 			}
-			Expect(retrieve[v3.ReadConfig](ctx, db, old.Key, migrations...).Channels).To(Equal(
+			Expect(
+				retrieve[v3.ReadConfig](ctx, db, old.Key, migrations...).Channels,
+			).To(Equal(
 				[]v3.ReadChannel{{Variant: v3.EntryReadChannel{
 					BaseReadChannel: readBase,
 					Index:           0x6000,
@@ -246,7 +248,9 @@ var _ = Describe("Migrate", func() {
 				v2.NewWriteMigration(findSlaves),
 				v3.WriteMigration,
 			}
-			Expect(retrieve[v3.WriteConfig](ctx, db, old.Key, migrations...).Channels).To(Equal(
+			Expect(
+				retrieve[v3.WriteConfig](ctx, db, old.Key, migrations...).Channels,
+			).To(Equal(
 				[]v3.WriteChannel{{Variant: v3.EntryWriteChannel{
 					BaseWriteChannel: writeBase,
 					Index:            0x7000,
@@ -259,7 +263,9 @@ var _ = Describe("Migrate", func() {
 
 	Describe("ResolveWriteConfig", func() {
 		It("Should address a unique output entry name", func(ctx SpecContext) {
-			cfg := v3.WriteConfig{Channels: []v3.WriteChannel{unresolvedWrite("Output")}}
+			cfg := v3.WriteConfig{
+				Channels: []v3.WriteChannel{unresolvedWrite("Output")},
+			}
 			Expect(v3.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0].Variant).To(Equal(v3.EntryWriteChannel{
 				BaseWriteChannel: writeBase,
@@ -272,13 +278,17 @@ var _ = Describe("Migrate", func() {
 		It("Should leave a name at several addresses unresolved", func(
 			ctx SpecContext,
 		) {
-			cfg := v3.WriteConfig{Channels: []v3.WriteChannel{unresolvedWrite("Repeated")}}
+			cfg := v3.WriteConfig{
+				Channels: []v3.WriteChannel{unresolvedWrite("Repeated")},
+			}
 			Expect(v3.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0]).To(Equal(unresolvedWrite("Repeated")))
 		})
 
 		It("Should return the error of the device lookup", func(ctx SpecContext) {
-			cfg := v3.WriteConfig{Channels: []v3.WriteChannel{unresolvedWrite("Output")}}
+			cfg := v3.WriteConfig{
+				Channels: []v3.WriteChannel{unresolvedWrite("Output")},
+			}
 			Expect(v3.ResolveWriteConfig(ctx, nil, failLookup, &cfg)).
 				To(MatchError("lookup failed"))
 		})
