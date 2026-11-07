@@ -227,8 +227,10 @@ class TestLoad:
         (home / "prompt.md").write_text("Review it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
-    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
-        assert load(ROOT).lenses == []
+    def test_should_load_the_lenses_of_the_repository(self) -> None:
+        lenses = load(ROOT).lenses
+        assert lenses
+        assert all(lens.focus.strip() for lens in lenses)
 
     def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
         home = tmp_path / ".sedosaur"
@@ -417,6 +419,10 @@ class TestLenses:
         calls = claude.calls.values()
         assert len({c.flag("--append-system-prompt-file") for c in calls}) == 1
         assert all(c.system.startswith("Review the pull request.") for c in calls)
+
+    def test_should_skip_the_lenses_on_a_later_review(self) -> None:
+        claude, _ = self.lenses(pr=pull(reviewed=True))
+        assert list(claude.calls) == ["Rules"]
 
     def test_should_give_the_rules_only_to_the_pass_without_a_lens(self) -> None:
         claude, _ = self.lenses()
@@ -798,9 +804,9 @@ class TestMain:
         assert json.loads(out.read_text())["review"]["score"] == 5
 
     @staticmethod
-    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+    def review_after_reviews_of(tmp_path: Path, *commits: str) -> dict[str, Any]:
         """Runs a review whose pull request body says that Sedosaur reviewed the
-        commits, newest first, and returns the section of new commits in the prompt."""
+        commits, newest first, and returns its record."""
         edits = "".join(
             json.dumps(
                 {
@@ -819,7 +825,15 @@ class TestMain:
             "elif any('userContentEdits' in a for a in sys.argv):\n"
             f"    print({edits!r}, end='')\n",
         )
-        main(["run", str(tmp_path / "review.json")])
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        record: dict[str, Any] = json.loads(out.read_text())
+        return record
+
+    def prompt_after_reviews_of(self, tmp_path: Path, *commits: str) -> str:
+        """Runs a review after reviews of the commits, newest first, and returns the
+        section of new commits in the prompt."""
+        self.review_after_reviews_of(tmp_path, *commits)
         text = (tmp_path / "prompt.txt").read_text()
         _, found, new = text.partition("# Commits since your last review")
         return new.split("# Rules")[0] if found else ""
@@ -847,3 +861,33 @@ class TestMain:
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
         assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""
+
+    def lenses_after_reviews_of(self, tmp_path: Path, *commits: str) -> list[str]:
+        """Runs a review with one lens after reviews of the commits, newest first, and
+        returns the lens of each pass."""
+        config = tmp_path / "policy" / ".sedosaur" / "config.toml"
+        with config.open("a") as f:
+            f.write('[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n')
+        record = self.review_after_reviews_of(tmp_path, *commits)
+        return [p["lens"] for p in record["passes"]]
+
+    def test_should_run_the_lenses_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path) == [None, "Races"]
+
+    def test_should_run_the_lenses_after_a_review_of_the_head_alone(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        lenses = self.lenses_after_reviews_of(tmp_path, env["HEAD_SHA"])
+        assert lenses == [None, "Races"]
+
+    def test_should_run_the_lenses_after_a_review_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path, "d" * 40) == [None, "Races"]
+
+    def test_should_skip_the_lenses_after_a_review_of_an_earlier_commit(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path, env["BASE_SHA"]) == [None]

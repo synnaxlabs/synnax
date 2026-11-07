@@ -130,6 +130,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         # A replay of an old commit must not see the threads that came after it.
         open=set() if replay else open_findings(target, gh),
         new=new,
+        reviewed=since is not None,
     )
     with tempfile.TemporaryDirectory() as workdir:
         result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))

@@ -46,7 +46,7 @@ const makeStream = (): LSPStream & {
   closeSend: ReturnType<typeof vi.fn<() => void>>;
 } => ({
   receive: () => new Promise<LSPMessage>(() => {}),
-  send: vi.fn(),
+  send: vi.fn(async () => {}),
   closeSend: vi.fn<() => void>(),
 });
 
