@@ -153,6 +153,20 @@ describe("Resource", () => {
         .toEqual(`${token} renamed`);
     });
 
+    it("should add a held resource to a subscribed search that its rename makes it match", async () => {
+      const token = randomToken();
+      const other = randomToken();
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create({ project: proj.key, name: token });
+      await awaitIndexed(token, 1);
+      const id = lineplot.resourceID(plot.key);
+      await client.resources.retrieve(id);
+      const read = await subscribe({ searchTerm: other, types: ["lineplot"] });
+      expect(read()).toEqual([]);
+      await client.lineplots.rename(plot.key, `${other} plot`);
+      await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(id);
+    });
+
     // Two seconds stays inside the five second grace window after an unsubscribe.
     const GRACE_POLL = { timeout: 2_000 };
 
