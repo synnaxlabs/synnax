@@ -1708,8 +1708,10 @@ var _ = Describe("Compiler", func() {
 			`, body), nil))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				_, err := mod.ExportedFunction("guard").Call(ctx)
-				Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
+				Expect(
+					mod.ExportedFunction("guard").Call(ctx),
+				).Error().
+					To(MatchError(ContainSubstring("integer divide by zero")))
 			},
 			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
 			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),

@@ -160,11 +160,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(roles[0].Key)).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -179,11 +178,10 @@ var _ = Describe("Writer", func() {
 				Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
 				var retrieved role.Role
-				err := svc.NewRetrieve().
+				Expect(svc.NewRetrieve().
 					Where(role.MatchKeys(r.Key)).
 					Entry(&retrieved).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -340,11 +338,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(uuid.New())).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -360,11 +357,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchNames("nonexistent")).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

@@ -141,12 +141,11 @@ var _ = Describe("Retrieve", func() {
 				"Should return a query.ErrNotFound error if ANY key is not found",
 				func(ctx SpecContext) {
 					var res []entry
-					err := gorp.NewRetrieve[int32, entry]().
+					Expect(gorp.NewRetrieve[int32, entry]().
 						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
 						Entries(&res).
-						Exec(ctx, tx)
+						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 					By("Returning the correct error")
-					Expect(err).To(MatchError(query.ErrNotFound))
 					By("Still retrieving as many entries as possible")
 					Expect(res).To(HaveLen(1))
 				},
@@ -1035,14 +1034,13 @@ var _ = Describe("Retrieve", func() {
 			"Should preserve ErrNotFound when WhereKeys partial-match also triggers a validator error",
 			func(ctx SpecContext) {
 				var res []entry
-				err := gorp.NewRetrieve[int32, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Where(gorp.MatchKeys[int32, entry](0, 1, 999)).
 					Validate(func(_ gorp.Context, _ []entry) error {
 						return errors.New("partial validator failure")
 					}).
-					Exec(ctx, tx)
-				Expect(err).To(SatisfyAll(
+					Exec(ctx, tx)).To(SatisfyAll(
 					MatchError(query.ErrNotFound),
 					MatchError(ContainSubstring("partial validator failure")),
 				))

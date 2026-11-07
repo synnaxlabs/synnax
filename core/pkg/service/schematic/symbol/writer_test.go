@@ -258,11 +258,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 
 			var res symbol.Symbol
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(symbol.MatchKeys(sym.Key)).
 				Entry(&res).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple Symbols", func(ctx SpecContext) {

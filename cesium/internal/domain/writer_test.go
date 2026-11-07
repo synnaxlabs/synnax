@@ -109,11 +109,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not allow opening a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 			})
@@ -137,10 +136,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-						_, err := db.OpenWriter(ctx, domain.WriterConfig{
+						Expect(db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
-						})
-						Expect(err).To(MatchError(domain.ErrWriteConflict))
+						})).Error().To(MatchError(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -1002,11 +1000,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not open a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 

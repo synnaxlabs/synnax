@@ -98,8 +98,9 @@ var _ = Describe("AlertTask", func() {
 				}
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
-				err := tsk.Exec(ctx, task.Command{Type: "restart"})
-				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
+				Expect(
+					tsk.Exec(ctx, task.Command{Type: "restart"}),
+				).To(MatchError(driver.ErrUnsupportedCommand))
 			},
 		)
 

@@ -1691,13 +1691,12 @@ var _ = Describe("Iterator Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.OpenIterator(
+						Expect(subDB.OpenIterator(
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -1716,13 +1715,12 @@ var _ = Describe("Iterator Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.NewStreamIterator(
+						Expect(subDB.NewStreamIterator(
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -1739,8 +1737,10 @@ var _ = Describe("Iterator Behavior", func() {
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
+					Expect(
+						subDB.Read(ctx, telem.TimeRangeMax, key),
+					).Error().
+						To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

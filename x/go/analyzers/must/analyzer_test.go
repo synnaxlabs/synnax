@@ -154,6 +154,28 @@ var _ = Describe("Analyzer", func() {
 		},
 	)
 
+	It("Should assert a captured error inline", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, must.Analyzer, "example",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElements(
+			"Expect(returnsValErr()).Error().To(MatchError(errSentinel))",
+			"Expect(returnsErr()).Should(Equal(errSentinel))",
+			"Expect(returnsErr()).To(Succeed())",
+		))
+	})
+
 	It("Should remove LHS and assignment when all LHS vars are blank", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(

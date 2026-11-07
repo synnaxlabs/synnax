@@ -193,11 +193,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(policies[0].Key)).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple policies", func(ctx SpecContext) {
@@ -326,11 +325,10 @@ var _ = Describe("Retriever", func() {
 
 		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(uuid.New())).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

@@ -985,16 +985,20 @@ var _ = Describe("Domain", func() {
 							Expect(
 								MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true)),
 							).To(Equal(index.Exactly(35 * telem.SecondTS)))
-							_, err := idx.Stamp(ctx, 25*telem.SecondTS, 9, true)
-							Expect(err).To(MatchError(index.ErrDiscontinuous))
+							Expect(
+								idx.Stamp(ctx, 25*telem.SecondTS, 9, true),
+							).Error().
+								To(MatchError(index.ErrDiscontinuous))
 							approx := MustSucceed(
 								idx.Stamp(ctx, 24*telem.SecondTS, 8, true),
 							)
 							Expect(
 								approx,
 							).To(Equal(index.Between(34*telem.SecondTS, 35*telem.SecondTS)))
-							_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
-							Expect(err).To(MatchError(index.ErrDiscontinuous))
+							Expect(
+								idx.Stamp(ctx, 24*telem.SecondTS, 9, true),
+							).Error().
+								To(MatchError(index.ErrDiscontinuous))
 						},
 					)
 

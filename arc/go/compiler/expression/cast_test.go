@@ -434,16 +434,20 @@ var _ = Describe("Type Cast Compilation", func() {
 		// Test that non-exact float-to-int conversions are rejected
 		expr := MustSucceed(parser.ParseExpression("i32(3.14)"))
 		ctx := NewContext(bCtx)
-		_, err := expression.Compile(ctx.Child(expr))
-		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
+		Expect(
+			expression.Compile(ctx.Child(expr)),
+		).Error().
+			To(MatchError(ContainSubstring("cannot convert non-integer float")))
 	})
 
 	It("Should propagate overflow errors from literals", func(bCtx SpecContext) {
 		// Test that overflow validation is enforced
 		expr := MustSucceed(parser.ParseExpression("i8(128)"))
 		ctx := NewContext(bCtx)
-		_, err := expression.Compile(ctx.Child(expr))
-		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))
+		Expect(
+			expression.Compile(ctx.Child(expr)),
+		).Error().
+			To(MatchError(ContainSubstring("out of range for i8")))
 	})
 })
 

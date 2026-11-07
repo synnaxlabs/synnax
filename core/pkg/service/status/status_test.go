@@ -276,11 +276,10 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
-				err := svc.NewRetrieve[any]().
+				Expect(svc.NewRetrieve[any]().
 					Where(status.MatchKeys[any]("delete-key")).
 					Entry(&status.Status[any]{}).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func(ctx SpecContext) {

@@ -518,7 +518,7 @@ var _ = Describe("Service", func() {
 				// wraps the multi- envelope batch in db.WithTx. This test exercises
 				// that contract: the bad envelope causes the tx callback to return
 				// early, so the good envelope's write is rolled back along with it.
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					if _, err := svc.Import(
 						ctx,
 						tx,
@@ -533,8 +533,7 @@ var _ = Describe("Service", func() {
 						Name:    "Bad Type",
 					}, imex.ImportOptions{Parent: newParent(ctx)})
 					return err
-				})
-				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
+				})).To(MatchError(ContainSubstring("no importer registered")))
 				Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
 					MatchError(query.ErrNotFound),
 				)
@@ -681,15 +680,14 @@ var _ = Describe("Service", func() {
 			It(
 				"Should roll back the import when the parent does not exist",
 				func(ctx SpecContext) {
-					err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						_, err := svc.Import(
 							ctx, tx,
 							sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
 							imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
 						)
 						return err
-					})
-					Expect(err).To(MatchError(query.ErrNotFound))
+					})).To(MatchError(query.ErrNotFound))
 					Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
 						MatchError(query.ErrNotFound),
 					)

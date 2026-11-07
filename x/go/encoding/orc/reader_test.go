@@ -108,8 +108,7 @@ var _ = Describe("Reader", func() {
 		w := orc.NewWriter(0)
 		w.WriteWithLen([]byte{1, 2, 3})
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		_, err := r.ReadWithLen()
-		Expect(err).To(MatchError(orc.ErrExceedCollectionLen))
+		Expect(r.ReadWithLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
 	})
 
 	It("Should read length-prefixed strings", func() {

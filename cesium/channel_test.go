@@ -142,15 +142,14 @@ var _ = Describe("Channel", Ordered, func() {
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
-						err := subDB.CreateChannel(
+						Expect(subDB.CreateChannel(
 							ctx,
 							cesium.Channel{
 								Key:      key,
 								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})

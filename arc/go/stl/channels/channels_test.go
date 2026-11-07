@@ -46,8 +46,7 @@ var _ = Describe("Channel", func() {
 				{Key: 4, DataType: telem.BooleanT},
 			})
 			ss = strings.NewProgramState()
-			_, err := channels.NewHost(ctx, rt.Underlying(), cs, ss)
-			Expect(err).To(Succeed())
+			MustSucceed(channels.NewHost(ctx, rt.Underlying(), cs, ss))
 			rt.Passthrough(ctx, "channels")
 		})
 

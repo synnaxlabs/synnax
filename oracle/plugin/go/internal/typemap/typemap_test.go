@@ -583,8 +583,10 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			},
 		}
 		Expect(table.Add(distinct)).To(Succeed())
-		_, _, err := typemap.ResolveLeafPrimitive(distinct, table, goTypeName)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve distinct base")))
+		Expect(
+			typemap.ResolveLeafPrimitive(distinct, table, goTypeName),
+		).Error().
+			To(MatchError(ContainSubstring("cannot resolve distinct base")))
 	})
 
 	It("should error when alias target is unresolvable", func() {
@@ -597,8 +599,10 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			},
 		}
 		Expect(table.Add(alias)).To(Succeed())
-		_, _, err := typemap.ResolveLeafPrimitive(alias, table, goTypeName)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve alias target")))
+		Expect(
+			typemap.ResolveLeafPrimitive(alias, table, goTypeName),
+		).Error().
+			To(MatchError(ContainSubstring("cannot resolve alias target")))
 	})
 
 	It("should resolve an alias to a distinct type with a cast", func() {

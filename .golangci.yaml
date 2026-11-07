@@ -63,8 +63,8 @@ linters:
       must:
         type: "module"
         description: >
-          Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
-          MustSucceed.
+          Detects errors that a test captures in a variable before it asserts on them,
+          which MustSucceed or Expect(f()).Error() replace.
       set:
         type: "module"
         description: >

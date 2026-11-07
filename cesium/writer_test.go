@@ -4206,14 +4206,13 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Open Errors", func() {
 				Specify("Channel that does not exist", func(ctx SpecContext) {
-					_, err := db.OpenWriter(
+					Expect(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{55000},
 							Start:    10 * telem.SecondTS,
 						},
-					)
-					Expect(err).To(MatchError(channel.ErrNotFound))
+					)).Error().To(MatchError(channel.ErrNotFound))
 				})
 				Specify(
 					"Encounters channel that does not exist after already successfully creating some writers",
@@ -4237,14 +4236,13 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)).To(Succeed())
 
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, 88888},
 								Start:    10 * telem.SecondTS,
 							},
-						)
-						Expect(err).To(MatchError(channel.ErrNotFound))
+						)).Error().To(MatchError(channel.ErrNotFound))
 					},
 				)
 			})
@@ -4551,8 +4549,10 @@ var _ = Describe("Writer Behavior", func() {
 								telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 							},
 						)))
-						_, err := w.Commit()
-						Expect(err).To(MatchError(index.ErrDiscontinuous))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(index.ErrDiscontinuous))
 						Expect(w.Close()).To(MatchError(index.ErrDiscontinuous))
 					})
 					Specify("Index not defined at all", func(ctx SpecContext) {
@@ -5163,14 +5163,13 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.OpenWriter(
+						Expect(subDB.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
 								Start:    0,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
@@ -5194,14 +5193,13 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						_, err := subDB.NewStreamWriter(
+						Expect(subDB.NewStreamWriter(
 							ctx,
 							cesium.WriterConfig{
 								Start:    0,
 								Channels: []cesium.ChannelKey{key},
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
 				)
@@ -5222,22 +5220,20 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					err := subDB.Write(
+					Expect(subDB.Write(
 						ctx,
 						0,
 						telem.MultiFrame(
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 						),
-					)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
-					err = subDB.WriteSeries(
+					)).To(MatchError(cesium.ErrDBClosed))
+					Expect(subDB.WriteSeries(
 						ctx,
 						key,
 						0,
 						telem.NewSeriesV[int64](1, 2, 3),
-					)
-					Expect(err).To(MatchError(cesium.ErrDBClosed))
+					)).To(MatchError(cesium.ErrDBClosed))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})

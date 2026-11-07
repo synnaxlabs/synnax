@@ -1272,8 +1272,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 			}
 		`
 			req := MustGenerateRequest(ctx, source, "ni", loader)
-			_, err := p.Generate(req)
-			Expect(err).To(MatchError(ContainSubstring(
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
 			)))
 		},

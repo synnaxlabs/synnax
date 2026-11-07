@@ -84,11 +84,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when symbol not found", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(symbol.MatchKeys(uuid.New())).
 				Entry(&retrieved).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

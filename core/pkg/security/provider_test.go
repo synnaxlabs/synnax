@@ -129,11 +129,10 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should return an error if the node certificate is not found", func() {
 				fs := xfs.NewMem()
-				_, err := security.NewProvider(security.ProviderConfig{
+				Expect(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
-				})
-				Expect(err).To(MatchError(os.ErrNotExist))
+				})).Error().To(MatchError(os.ErrNotExist))
 			})
 		})
 		Describe("VerifyCertHost", func() {

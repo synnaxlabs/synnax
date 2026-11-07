@@ -77,8 +77,7 @@ var _ = Describe("Table", func() {
 				Namespace:     "auth",
 				Form:          resolution.StructForm{Fields: []resolution.Field{}},
 			}
-			err := table.Add(typ)
-			Expect(err).To(Succeed())
+			Expect(table.Add(typ)).To(Succeed())
 
 			retrieved, ok := table.Get("auth.User")
 			Expect(ok).To(BeTrue())

@@ -18,13 +18,24 @@ func Consistently(args ...any) {}
 
 type Assertion struct{}
 
-func (Assertion) ToNot(any) {}
-func (Assertion) NotTo(any) {}
-func (Assertion) To(any)    {}
+func (Assertion) ToNot(any)  {}
+func (Assertion) NotTo(any)  {}
+func (Assertion) To(any)     {}
+func (Assertion) Should(any) {}
+
+func MatchError(any) any { return nil }
+func Equal(any) any      { return nil }
+
+type testErr struct{}
+
+func (testErr) Error() string { return "" }
+
+var errSentinel error = testErr{}
 
 func returnsValErr() (int, error)            { return 0, nil }
 func returnsErr() error                      { return nil }
 func returnsTwoValErr() (int, string, error) { return 0, "", nil }
+func returnsValBool() (int, bool)            { return 0, false }
 
 func example() {
 	var err error
@@ -113,4 +124,36 @@ func example() {
 		err = returnsErr()
 		Expect(err).ToNot(HaveOccurred())
 	})
+
+	// Pattern I: err := f(); Expect(err).To(Succeed()) → Expect(f()).To(Succeed())
+	err = returnsErr() // want "can be replaced with Expect"
+	Expect(err).To(Succeed())
+
+	// Pattern J: _, err := f(); Expect(err).To(MatchError(e)) →
+	// Expect(f()).Error().To(MatchError(e))
+	_, mErr := returnsValErr() // want "assert the error inline"
+	Expect(mErr).To(MatchError(errSentinel))
+
+	// Pattern K: err := f(); Expect(err).Should(Equal(e)) →
+	// Expect(f()).Should(Equal(e))
+	kErr := returnsErr() // want "assert the error inline"
+	Expect(kErr).Should(Equal(errSentinel))
+
+	// Should NOT match: a named result stays bound for a later assertion.
+	v3, nErr := returnsValErr()
+	Expect(nErr).To(MatchError(errSentinel))
+	_ = v3
+
+	// Should NOT match: the error is used after the assertion.
+	_, uErr := returnsValErr()
+	Expect(uErr).To(MatchError(errSentinel))
+	_ = uErr
+
+	// Should NOT match: the captured value is not an error.
+	_, okv := returnsValBool()
+	Expect(okv).To(Equal(true))
+
+	// Should NOT match: Equal(nil) passes on a nil error.
+	_, nilErr := returnsValErr()
+	Expect(nilErr).To(Equal(nil))
 }

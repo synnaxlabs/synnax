@@ -148,8 +148,10 @@ var _ = Describe("DB", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())
-				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(MatchError(domain.ErrDBClosed))
+				Expect(
+					db.HasDataFor(ctx, telem.TimeRange{}),
+				).Error().
+					To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})

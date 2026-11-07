@@ -95,8 +95,7 @@ var _ = Describe("Select", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("select"),
 			}
-			_, err := factory.Create(cfg)
-			Expect(err).To(Equal(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("select.Next", func() {

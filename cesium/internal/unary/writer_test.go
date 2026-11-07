@@ -691,30 +691,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should not allow opening a writer if the specified end timestamp is before the start",
 						func(ctx SpecContext) {
-							_, _, err := db.OpenWriter(
+							Expect(db.OpenWriter(
 								ctx,
 								unary.WriterConfig{
 									Start:   10,
 									End:     3,
 									Subject: control.Subject{Key: "foo"},
 								},
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("end timestamp must be after")))
+							)).Error().To(MatchError(ContainSubstring("end timestamp must be after")))
 						},
 					)
 
 					It(
 						"Should not allow opening a writer without a subject key",
 						func(ctx SpecContext) {
-							_, _, err := db.OpenWriter(
+							Expect(db.OpenWriter(
 								ctx,
 								unary.WriterConfig{Start: 3, End: 10},
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("subject.key: required")))
+							)).Error().To(MatchError(ContainSubstring("subject.key: required")))
 						},
 					)
 				})
@@ -1447,8 +1441,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(a).To(Equal(telem.Alignment(0)))
-						_, err = w1.Commit(ctx)
-						Expect(err).To(MatchError(control.ErrUnauthorized))
+						Expect(
+							w1.Commit(ctx),
+						).Error().
+							To(MatchError(control.ErrUnauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(

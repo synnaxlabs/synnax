@@ -175,8 +175,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							domain.WriterConfig{Start: 50 * telem.SecondTS},
 						),
 					)
-					_, err := w2.Write([]byte{50, 51, 52})
-					Expect(err).To(Succeed())
+					MustSucceed(w2.Write([]byte{50, 51, 52}))
 					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(9)))
 					Expect(w2.Commit(ctx, 52*telem.SecondTS+1)).To(Succeed())
 					Expect(w2.Close()).To(Succeed())
