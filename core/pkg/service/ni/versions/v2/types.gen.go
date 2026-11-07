@@ -797,7 +797,8 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (m *MapScale) SetDefaults() {
 	m.SetUngroupedDefaults()
 	m.DefaultGroups()
@@ -810,8 +811,9 @@ func (m *MapScale) SetUngroupedDefaults() {
 	m.ScaledUnits = "Volts"
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (m *MapScale) DefaultGroups() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
@@ -1052,7 +1054,8 @@ type MinMaxVal struct {
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 }
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (m *MinMaxVal) SetDefaults() {
 	m.SetUngroupedDefaults()
 	m.DefaultGroups()
@@ -1063,8 +1066,9 @@ func (m *MinMaxVal) SetDefaults() {
 func (m *MinMaxVal) SetUngroupedDefaults() {
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (m *MinMaxVal) DefaultGroups() {
 	if m.MinVal == 0 && m.MaxVal == 0 {
 		m.MaxVal = 1
@@ -1240,7 +1244,8 @@ type TwoPointLin struct {
 	SecondPhysicalVal float64 `json:"second_physical_val" msgpack:"second_physical_val"`
 }
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (t *TwoPointLin) SetDefaults() {
 	t.SetUngroupedDefaults()
 	t.DefaultGroups()
@@ -1252,8 +1257,9 @@ func (t *TwoPointLin) SetUngroupedDefaults() {
 	t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (t *TwoPointLin) DefaultGroups() {
 	if t.FirstElectricalVal == 0 && t.SecondElectricalVal == 0 {
 		t.SecondElectricalVal = 1
@@ -1396,7 +1402,8 @@ type AIVoltageChannel struct {
 
 func (AIVoltageChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIVoltageChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1410,8 +1417,9 @@ func (a *AIVoltageChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIVoltageChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1441,7 +1449,8 @@ type AIAccelChannel struct {
 
 func (AIAccelChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIAccelChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1458,8 +1467,9 @@ func (a *AIAccelChannel) SetUngroupedDefaults() {
 	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIAccelChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1489,7 +1499,8 @@ type AIBridgeChannel struct {
 
 func (AIBridgeChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIBridgeChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1505,8 +1516,9 @@ func (a *AIBridgeChannel) SetUngroupedDefaults() {
 	a.Units = ElectricalUnitsMVoltsPerVolt
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIBridgeChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1536,7 +1548,8 @@ type AICurrentChannel struct {
 
 func (AICurrentChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AICurrentChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1552,8 +1565,9 @@ func (a *AICurrentChannel) SetUngroupedDefaults() {
 	a.ExtShuntResistorVal = 1
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AICurrentChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1584,7 +1598,8 @@ type AIForceBridgeTableChannel struct {
 
 func (AIForceBridgeTableChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIForceBridgeTableChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1602,8 +1617,9 @@ func (a *AIForceBridgeTableChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = ForceUnitsNewtons
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIForceBridgeTableChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1638,7 +1654,8 @@ type AIForceBridgeTwoPointLinChannel struct {
 
 func (AIForceBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIForceBridgeTwoPointLinChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1656,8 +1673,9 @@ func (a *AIForceBridgeTwoPointLinChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = ForceUnitsNewtons
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIForceBridgeTwoPointLinChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 	a.TwoPointLin.DefaultGroups()
@@ -1692,7 +1710,8 @@ type AIForceIEPEChannel struct {
 
 func (AIForceIEPEChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIForceIEPEChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1709,8 +1728,9 @@ func (a *AIForceIEPEChannel) SetUngroupedDefaults() {
 	a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIForceIEPEChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1774,7 +1794,8 @@ type AIPressureBridgeTableChannel struct {
 
 func (AIPressureBridgeTableChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIPressureBridgeTableChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1792,8 +1813,9 @@ func (a *AIPressureBridgeTableChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIPressureBridgeTableChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1828,7 +1850,8 @@ type AIPressureBridgeTwoPointLinChannel struct {
 
 func (AIPressureBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIPressureBridgeTwoPointLinChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1846,8 +1869,9 @@ func (a *AIPressureBridgeTwoPointLinChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIPressureBridgeTwoPointLinChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 	a.TwoPointLin.DefaultGroups()
@@ -1877,7 +1901,8 @@ type AIResistanceChannel struct {
 
 func (AIResistanceChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIResistanceChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1892,8 +1917,9 @@ func (a *AIResistanceChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIResistanceChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1924,7 +1950,8 @@ type AIRTDChannel struct {
 
 func (AIRTDChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIRTDChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1940,8 +1967,9 @@ func (a *AIRTDChannel) SetUngroupedDefaults() {
 	a.RtdType = RTDTypePt3750
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIRTDChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -1979,7 +2007,8 @@ type AIStrainGaugeChannel struct {
 
 func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIStrainGaugeChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -1994,8 +2023,9 @@ func (a *AIStrainGaugeChannel) SetUngroupedDefaults() {
 	a.StrainConfig = StrainConfigFullBridgeI
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIStrainGaugeChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2055,7 +2085,8 @@ type AIThermocoupleChannel struct {
 
 func (AIThermocoupleChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIThermocoupleChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2070,8 +2101,9 @@ func (a *AIThermocoupleChannel) SetUngroupedDefaults() {
 	a.Cjc.Variant = BuiltInCJC{}
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIThermocoupleChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2101,7 +2133,8 @@ type AITorqueBridgeTableChannel struct {
 
 func (AITorqueBridgeTableChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AITorqueBridgeTableChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2119,8 +2152,9 @@ func (a *AITorqueBridgeTableChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = TorqueUnitsNewtonMeters
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AITorqueBridgeTableChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2155,7 +2189,8 @@ type AITorqueBridgeTwoPointLinChannel struct {
 
 func (AITorqueBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AITorqueBridgeTwoPointLinChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2173,8 +2208,9 @@ func (a *AITorqueBridgeTwoPointLinChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = TorqueUnitsNewtonMeters
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AITorqueBridgeTwoPointLinChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 	a.TwoPointLin.DefaultGroups()
@@ -2209,7 +2245,8 @@ type AIVelocityIEPEChannel struct {
 
 func (AIVelocityIEPEChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIVelocityIEPEChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2226,8 +2263,9 @@ func (a *AIVelocityIEPEChannel) SetUngroupedDefaults() {
 	a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIVelocityIEPEChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2264,7 +2302,8 @@ type AIAccel4WireDCVoltageChannel struct {
 
 func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIAccel4WireDCVoltageChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2281,8 +2320,9 @@ func (a *AIAccel4WireDCVoltageChannel) SetUngroupedDefaults() {
 	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIAccel4WireDCVoltageChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2314,7 +2354,8 @@ type AIAccelChargeChannel struct {
 
 func (AIAccelChargeChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIAccelChargeChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2330,8 +2371,9 @@ func (a *AIAccelChargeChannel) SetUngroupedDefaults() {
 	a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIAccelChargeChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2359,7 +2401,8 @@ type AIChargeChannel struct {
 
 func (AIChargeChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIChargeChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2374,8 +2417,9 @@ func (a *AIChargeChannel) SetUngroupedDefaults() {
 	a.Units = ChargeUnitsCoulombs
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIChargeChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2404,7 +2448,8 @@ type AICurrentRMSChannel struct {
 
 func (AICurrentRMSChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AICurrentRMSChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2420,8 +2465,9 @@ func (a *AICurrentRMSChannel) SetUngroupedDefaults() {
 	a.ExtShuntResistorVal = 1
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AICurrentRMSChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2452,7 +2498,8 @@ type AIForceBridgePolynomialChannel struct {
 
 func (AIForceBridgePolynomialChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIForceBridgePolynomialChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2470,8 +2517,9 @@ func (a *AIForceBridgePolynomialChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = ForceUnitsNewtons
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIForceBridgePolynomialChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2502,7 +2550,8 @@ type AIFreqVoltageChannel struct {
 
 func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIFreqVoltageChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2515,8 +2564,9 @@ func (a *AIFreqVoltageChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIFreqVoltageChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2546,7 +2596,8 @@ type AIPressureBridgePolynomialChannel struct {
 
 func (AIPressureBridgePolynomialChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIPressureBridgePolynomialChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2564,8 +2615,9 @@ func (a *AIPressureBridgePolynomialChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIPressureBridgePolynomialChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2601,7 +2653,8 @@ type AIThermistorIexChannel struct {
 
 func (AIThermistorIexChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIThermistorIexChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2616,8 +2669,9 @@ func (a *AIThermistorIexChannel) SetUngroupedDefaults() {
 	a.Units = TemperatureUnitsDegC
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIThermistorIexChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2652,7 +2706,8 @@ type AIThermistorVexChannel struct {
 
 func (AIThermistorVexChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIThermistorVexChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2667,8 +2722,9 @@ func (a *AIThermistorVexChannel) SetUngroupedDefaults() {
 	a.Units = TemperatureUnitsDegC
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIThermistorVexChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2700,7 +2756,8 @@ type AITorqueBridgePolynomialChannel struct {
 
 func (AITorqueBridgePolynomialChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AITorqueBridgePolynomialChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2718,8 +2775,9 @@ func (a *AITorqueBridgePolynomialChannel) SetUngroupedDefaults() {
 	a.PhysicalUnits = TorqueUnitsNewtonMeters
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AITorqueBridgePolynomialChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2747,7 +2805,8 @@ type AIVoltageRMSChannel struct {
 
 func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIVoltageRMSChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2761,8 +2820,9 @@ func (a *AIVoltageRMSChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIVoltageRMSChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -2792,7 +2852,8 @@ type AIVoltageWithExcitChannel struct {
 
 func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AIVoltageWithExcitChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -2808,8 +2869,9 @@ func (a *AIVoltageWithExcitChannel) SetUngroupedDefaults() {
 	a.BridgeConfig = BridgeConfigFullBridge
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AIVoltageWithExcitChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -3832,7 +3894,8 @@ type CIFrequencyChannel struct {
 
 func (CIFrequencyChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIFrequencyChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -3850,8 +3913,9 @@ func (c *CIFrequencyChannel) SetUngroupedDefaults() {
 	c.Divisor = 4
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIFrequencyChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 2
@@ -3922,7 +3986,8 @@ type CIPeriodChannel struct {
 
 func (CIPeriodChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIPeriodChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -3940,8 +4005,9 @@ func (c *CIPeriodChannel) SetUngroupedDefaults() {
 	c.Divisor = 4
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIPeriodChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
@@ -3976,7 +4042,8 @@ type CIPulseWidthChannel struct {
 
 func (CIPulseWidthChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIPulseWidthChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -3991,8 +4058,9 @@ func (c *CIPulseWidthChannel) SetUngroupedDefaults() {
 	c.StartingEdge = CIEdgeRising
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIPulseWidthChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
@@ -4024,7 +4092,8 @@ type CISemiPeriodChannel struct {
 
 func (CISemiPeriodChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CISemiPeriodChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -4038,8 +4107,9 @@ func (c *CISemiPeriodChannel) SetUngroupedDefaults() {
 	c.Units = CITimeUnitsSeconds
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CISemiPeriodChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
@@ -4076,7 +4146,8 @@ type CITwoEdgeSepChannel struct {
 
 func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CITwoEdgeSepChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -4092,8 +4163,9 @@ func (c *CITwoEdgeSepChannel) SetUngroupedDefaults() {
 	c.SecondEdge = CIEdgeFalling
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CITwoEdgeSepChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
@@ -4132,7 +4204,8 @@ type CIVelocityLinearChannel struct {
 
 func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIVelocityLinearChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -4148,8 +4221,9 @@ func (c *CIVelocityLinearChannel) SetUngroupedDefaults() {
 	c.DistPerPulse = 0.001
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIVelocityLinearChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MaxVal = 1
@@ -4186,7 +4260,8 @@ type CIVelocityAngularChannel struct {
 
 func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIVelocityAngularChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -4202,8 +4277,9 @@ func (c *CIVelocityAngularChannel) SetUngroupedDefaults() {
 	c.PulsesPerRev = 24
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIVelocityAngularChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MaxVal = 1
@@ -4316,7 +4392,8 @@ type CIDutyCycleChannel struct {
 
 func (CIDutyCycleChannel) isCIChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (c *CIDutyCycleChannel) SetDefaults() {
 	c.SetUngroupedDefaults()
 	c.DefaultGroups()
@@ -4330,8 +4407,9 @@ func (c *CIDutyCycleChannel) SetUngroupedDefaults() {
 	c.ActiveEdge = CIEdgeRising
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (c *CIDutyCycleChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 2
@@ -4766,7 +4844,8 @@ type AOCurrentChannel struct {
 
 func (AOCurrentChannel) isAOChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AOCurrentChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -4779,8 +4858,9 @@ func (a *AOCurrentChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AOCurrentChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
@@ -4830,7 +4910,8 @@ type AOVoltageChannel struct {
 
 func (AOVoltageChannel) isAOChannelVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (a *AOVoltageChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
@@ -4843,8 +4924,9 @@ func (a *AOVoltageChannel) SetUngroupedDefaults() {
 	a.CustomScale.SetDefaults()
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (a *AOVoltageChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }

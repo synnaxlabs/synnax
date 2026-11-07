@@ -1319,6 +1319,29 @@ var _ = Describe("Decode-time default generation", func() {
 			},
 		)
 
+		It("Should document the group rule on every grouped method", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"// SetDefaults sets every field outside a default group to its "+
+					"schema default. Each\n// default group takes its defaults only "+
+					"when all of its members are zero.\nfunc (c *Cfg) SetDefaults() {",
+				"// DefaultGroups sets the defaults of each default group whose "+
+					"members are all zero, in\n// this type and in the types it "+
+					"embeds or holds. A group with a non-zero member keeps\n// its "+
+					"values.\nfunc (c *Cfg) DefaultGroups() {",
+			)
+		})
+
 		It(
 			"Should set the groups of a decoded value only when it started zero",
 			func(ctx SpecContext) {

@@ -195,7 +195,8 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func (m *MapScale) SetDefaults() {
 	m.SetUngroupedDefaults()
 	m.DefaultGroups()
@@ -206,8 +207,9 @@ func (m *MapScale) SetDefaults() {
 func (m *MapScale) SetUngroupedDefaults() {
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func (m *MapScale) DefaultGroups() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
