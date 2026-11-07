@@ -1156,7 +1156,7 @@ func analyzeIndexedCompoundAssignment(
 			)
 			return
 		}
-	} else if !elemType.IsNumeric() {
+	} else if !atypes.Numeric(ctx.Constraints, elemType, ctx.AST) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"compound assignment requires numeric element type, got %s",
@@ -1218,7 +1218,7 @@ func analyzeSeriesCompoundAssignment(
 			)
 			return
 		}
-	} else if !elemType.IsNumeric() {
+	} else if !atypes.Numeric(ctx.Constraints, elemType, ctx.AST) {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,

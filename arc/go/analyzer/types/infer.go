@@ -249,3 +249,27 @@ func LiteralAssignmentCompatible(
 	}
 	return variableType.IsFloat() && literalType.IsNumeric()
 }
+
+// Numeric reports whether t, or the element of t, is numeric. An unconstrained type
+// variable, such as the element of an empty series literal, is bound to a numeric type
+// in cs and passes.
+func Numeric(
+	cs *constraints.System,
+	t types.Type,
+	source antlr.ParserRuleContext,
+) bool {
+	if t.IsNumeric() {
+		return true
+	}
+	elem := t.Unwrap()
+	if elem.Kind != types.KindVariable || elem.Constraint != nil {
+		return false
+	}
+	numeric := types.NumericConstraint()
+	return cs.AddCompatible(
+		elem,
+		types.Variable(elem.Name+"_numeric", &numeric),
+		source,
+		"numeric operand",
+	) == nil
+}

@@ -960,6 +960,34 @@ var _ = Describe("Type Inference", func() {
 		)
 	})
 
+	Describe("Numeric", func() {
+		DescribeTable(
+			"Should report whether a type is numeric",
+			func(t types.Type, expected bool) {
+				Expect(atypes.Numeric(constraints.New(), t, nil)).To(Equal(expected))
+			},
+			Entry("a number", types.F32(), true),
+			Entry("a numeric series", types.Series(types.I64()), true),
+			Entry("a bool", types.Bool(), false),
+			Entry("a string series", types.Series(types.String()), false),
+			Entry("an unconstrained variable", types.Variable("A", nil), true),
+			Entry(
+				"an untyped empty series",
+				types.Series(types.Variable("A", nil)),
+				true,
+			),
+		)
+
+		It("Should bind an unconstrained variable to a number", func() {
+			system := constraints.New()
+			elem := types.Variable("A", nil)
+			Expect(atypes.Numeric(system, types.Series(elem), nil)).To(BeTrue())
+			Expect(
+				system.AddCompatible(elem, types.Bool(), nil, "test"),
+			).ToNot(Succeed())
+		})
+	})
+
 	Describe("LiteralAssignmentCompatible", func() {
 		DescribeTable("literal assignment",
 			func(varType, litType types.Type, expected bool) {

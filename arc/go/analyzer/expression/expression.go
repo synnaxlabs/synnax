@@ -408,7 +408,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		analyzeUnary(childCtx)
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
-			if !operandType.IsNumeric() {
+			if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,

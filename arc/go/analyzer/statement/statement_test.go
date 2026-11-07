@@ -476,6 +476,16 @@ var _ = Describe("Statement", func() {
 			Entry("timestamp", "i64 ns"),
 		)
 
+		DescribeTable("Should use an untyped empty series as numeric",
+			func(specCtx SpecContext, code string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("compound assignment", "y := []\ny += v"),
+			Entry("indexed compound assignment", "y := []\ny[0] += v"),
+			Entry("negation", "y := []\nz := -y"),
+		)
+
 		DescribeTable("Should reject an empty series in non-numeric arithmetic",
 			func(specCtx SpecContext, code, message string) {
 				ctx := analyze(specCtx, code)
