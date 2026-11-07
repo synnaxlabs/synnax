@@ -2972,3 +2972,42 @@ x => main`))
 		Entry("a stateful variable", "$="),
 	)
 })
+
+var _ = Describe("Flow variables from module constants", func() {
+	DescribeTable(
+		"Should check the initializer",
+		func(bCtx SpecContext, source, message string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\n" + source))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			if message == "" {
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				return
+			}
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+		},
+		Entry("a constant", "limit := math.inf", ""),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
+			"",
+		),
+		Entry(
+			"an expression on a constant",
+			"limit := math.inf * 2.0",
+			"'limit' cannot be initialized from math.inf*2.0 outside a function",
+		),
+		Entry("a channel read", "limit := x * math.inf", ""),
+		Entry(
+			"a function",
+			"func f() {v f64} f64 {\n limit := math.inf\n return limit\n}",
+			"",
+		),
+	)
+})
