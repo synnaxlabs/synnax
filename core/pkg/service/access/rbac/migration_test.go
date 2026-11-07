@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -156,10 +155,10 @@ var _ = Describe("Migration chain", func() {
 			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       statuses,
-			DriverRole:   roles.Builtin.DriverKey,
+			DB:         db,
+			HostKey:    1,
+			Status:     statuses,
+			DriverRole: roles.Builtin.DriverKey,
 		}))
 		svc := MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
 			DB:    db,

@@ -45,8 +45,8 @@ var _ = Describe("Check", func() {
 	check := func(ctx SpecContext, lic *license.Service) connectivity.CheckResponse {
 		GinkgoHelper()
 		svc := MustSucceed(connectivity.NewService(connectivity.ServiceConfig{
-			Cluster: node.Cluster,
-			License: lic,
+			Identity: node.Identity,
+			License:  lic,
 		}))
 		return MustSucceed(svc.Check(ctx, struct{}{}))
 	}

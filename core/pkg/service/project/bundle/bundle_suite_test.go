@@ -95,10 +95,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		Status:       statusSvc,
-		HostProvider: node.Cluster,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         db,
+		Status:     statusSvc,
+		HostKey:    node.Identity.HostKey,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -116,10 +116,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	testRack = rack.Rack{Name: "Project Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,

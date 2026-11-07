@@ -11,7 +11,20 @@
 // The node domain type itself lives in pkg/distribution/node.
 package cluster
 
-import "github.com/synnaxlabs/aspen"
+import (
+	"uuid"
+
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+)
+
+// Identity names a Core: the cluster it belongs to and its own node in that cluster.
+type Identity struct {
+	// Key is the key of the cluster. Clients use it to tell Cores apart.
+	Key uuid.UUID
+	// HostKey is the key of the host node. Channel, rack, and task keys embed it.
+	HostKey node.Key
+}
 
 type (
 	// Cluster is the cluster-membership view as observed by the host node. It resolves
@@ -24,9 +37,6 @@ type (
 	// Resolver maps a node key to the network address at which that node can be
 	// reached.
 	Resolver = aspen.Resolver
-	// HostProvider exposes information about the host node — its key and full node
-	// record — without performing remote resolution.
-	HostProvider = aspen.HostProvider
 	// HostResolver is a Resolver that also exposes information about the host node it
 	// is running on (its key and full node record).
 	HostResolver = aspen.HostResolver

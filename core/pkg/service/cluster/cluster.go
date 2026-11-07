@@ -19,7 +19,7 @@ type (
 	Cluster = cluster.Cluster
 	// Change is a batch of node-level changes emitted by Cluster.OnChange.
 	Change = cluster.Change
-	// HostProvider exposes information about the host node without performing remote
-	// resolution.
-	HostProvider = cluster.HostProvider
+	// Identity names a Core: the cluster it belongs to and its own node in that
+	// cluster.
+	Identity = cluster.Identity
 )

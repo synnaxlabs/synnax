@@ -80,6 +80,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:     userSvc,
 		Rack:     rackSvc,
 		RBAC:     rbacSvc,
-		Cluster:  node.Cluster,
+		Identity: node.Identity,
 	}))
 })

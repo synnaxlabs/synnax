@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -61,10 +60,10 @@ var _ = Describe("Device", func() {
 			DB: db,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			HostProvider: testutil.NewStaticHostProvider(1),
-			Status:       stat,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
@@ -1229,10 +1228,10 @@ var _ = Describe("Device", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:         db,
+				HostKey:    1,
+				Status:     stat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:     db,
@@ -1278,7 +1277,7 @@ var _ = Describe("Device", func() {
 				}))
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
-					HostProvider:        testutil.NewStaticHostProvider(1),
+					HostKey:             1,
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
 					DriverRole: MustSucceed(
@@ -1451,10 +1450,10 @@ var _ = Describe("Writer with no transaction", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:         db,
+				HostKey:    1,
+				Status:     stat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 				DB:     db,

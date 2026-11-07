@@ -10,6 +10,8 @@
 package auth_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -30,7 +32,7 @@ var _ = Describe("ServiceConfig", func() {
 			Rack:     &rack.Service{},
 			User:     &user.Service{},
 			RBAC:     &rbac.Service{},
-			Cluster:  node.Cluster,
+			Identity: node.Identity,
 		}
 	}
 
@@ -77,9 +79,14 @@ var _ = Describe("ServiceConfig", func() {
 				"rbac: must be non-nil",
 			),
 			Entry(
-				"cluster",
-				func(c *apiauth.ServiceConfig) { c.Cluster = nil },
-				"cluster: must be non-nil",
+				"identity key",
+				func(c *apiauth.ServiceConfig) { c.Identity.Key = uuid.Nil() },
+				"identity.key: must be set",
+			),
+			Entry(
+				"identity host key",
+				func(c *apiauth.ServiceConfig) { c.Identity.HostKey = 0 },
+				"identity.host_key: must be non-zero",
 			),
 		)
 	})
@@ -91,7 +98,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -100,7 +107,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 		})
 	})
 })

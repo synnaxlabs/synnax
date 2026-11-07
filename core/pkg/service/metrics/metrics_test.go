@@ -36,7 +36,7 @@ var _ = Describe("Metrics", func() {
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				DB:                 dist.DB,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				Storage:            dist.Storage,
 				CollectionInterval: 5 * time.Second,
 			}))
@@ -44,38 +44,38 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Channel service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      channelSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Channel: channelSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
-		It("Should fail with missing HostProvider", func(ctx SpecContext) {
+		It("Should fail with a missing host key", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Storage: dist.Storage,
-			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
+			})).Error().To(MatchError(ContainSubstring("host_key: must be non-zero")))
 		})
 		It("Should fail with missing Storage", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      channelSvc,
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func(ctx SpecContext) {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
-				Channel:      channelSvc,
-				Framer:       framerSvc,
-				HostProvider: dist.Cluster,
-				Storage:      dist.Storage,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
 			})
 			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
@@ -93,7 +93,7 @@ var _ = Describe("Metrics", func() {
 					Channel:            channelSvc,
 					Group:              groupSvc,
 					Framer:             framerSvc,
-					HostProvider:       dist.Cluster,
+					HostKey:            dist.Identity.HostKey,
 					DB:                 dist.DB,
 					Storage:            dist.Storage,
 					CollectionInterval: 100 * time.Millisecond,
@@ -184,7 +184,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -207,7 +207,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -257,7 +257,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
@@ -319,7 +319,7 @@ var _ = Describe("Metrics", func() {
 				Group:              groupSvc,
 				DB:                 dist.DB,
 				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
+				HostKey:            dist.Identity.HostKey,
 				Storage:            dist.Storage,
 				CollectionInterval: 50 * time.Millisecond,
 			}))
