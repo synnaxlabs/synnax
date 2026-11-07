@@ -73,10 +73,12 @@ func (d *BitTimingDef) parseFrom(p *parser) {
 	p.token(':')
 	d.BaudRate = p.optionalUint()
 	if p.peekToken().typ == ':' {
-		d.BTR1 = p.optionalUint()
+		p.token(':')
+		d.BTR1 = p.uint()
 	}
 	if p.peekToken().typ == ',' {
-		d.BTR2 = p.optionalUint()
+		p.token(',')
+		d.BTR2 = p.uint()
 	}
 }
 

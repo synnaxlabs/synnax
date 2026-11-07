@@ -267,6 +267,13 @@ SIG_VALTYPE_ 256 Temp : 1;
 		Expect(defs[3]).To(HaveField("NodeNames", []dbc.Identifier{"Ecu", "Gateway"}))
 	})
 
+	It("Should parse the bit timing registers", func() {
+		def := parseOne[*dbc.BitTimingDef]("BS_: 500:12,34\n")
+		Expect(def.BaudRate).To(Equal(uint64(500)))
+		Expect(def.BTR1).To(Equal(uint64(12)))
+		Expect(def.BTR2).To(Equal(uint64(34)))
+	})
+
 	It("Should parse new symbols indented with spaces", func() {
 		defs := MustSucceed(dbc.Parse([]byte(
 			"NS_ :\n    CM_\n    BA_DEF_\n    BA_\n\nBS_:\n",
