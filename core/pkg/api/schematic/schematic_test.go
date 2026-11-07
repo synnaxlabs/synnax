@@ -607,6 +607,56 @@ var _ = Describe("Create in a group", func() {
 		))
 		Expect(retrieveSchematic(ctx, res.Schematics[0].Key).Group).To(Equal(&g.Key))
 	})
+	Context("Under another project", func() {
+		var (
+			u    user.User
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				access.ActionCreate,
+				resource.ID{Type: resource.TypeSchematic},
+			)
+			grantUpdateOn(ctx, u.ResourceID(), proj.ResourceID())
+			dest = project.Project{Name: "Create destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		create := func(ctx SpecContext, carried *project.Key) (apischematic.CreateResponse, error) {
+			return apiSvc.Create(AuthedCtx(ctx, u), db, apischematic.CreateRequest{
+				Schematics: []schematic.Schematic{
+					{Project: carried, Name: "Elsewhere", Group: &g.Key},
+				},
+			})
+		}
+		DescribeTable(
+			"Should refuse a create in a group without update on the group's project",
+			func(ctx SpecContext, carried func() *project.Key) {
+				grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
+				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+			},
+			Entry(
+				"with the project it carries",
+				func() *project.Key { return &proj.Key },
+			),
+			Entry("with no project", func() *project.Key { return nil }),
+		)
+		It(
+			"Should create the schematic with update on the group's project",
+			func(ctx SpecContext) {
+				grantUpdateOn(ctx, u.ResourceID(), g.ResourceID(), dest.ResourceID())
+				res := MustSucceed(create(ctx, nil))
+				Expect(
+					retrieveSchematic(ctx, res.Schematics[0].Key).Project,
+				).To(Equal(&dest.Key))
+			},
+		)
+	})
 })
 
 var _ = Describe("Owner access", func() {

@@ -114,7 +114,21 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypeTable,
+		req.Tables,
+		stored,
+		func(e table.Table) *group.Key { return e.Group },
+		func(e table.Table) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		},
+	)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: slices.Concat(
@@ -123,13 +137,7 @@ func (s *Service) Create(
 				stored,
 				func(e table.Table) *group.Key { return e.Group },
 			),
-			project.CreateObjects(
-				req.Tables,
-				stored,
-				func(e table.Table) *resource.ID {
-					return project.OwnerID(e.Project, e.Range)
-				},
-			),
+			owners,
 		),
 	}); err != nil {
 		return CreateResponse{}, err

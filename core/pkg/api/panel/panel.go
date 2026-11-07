@@ -123,6 +123,20 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return res, err
 	}
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypePanel,
+		req.Panels,
+		stored,
+		func(p panel.Panel) *group.Key { return p.Group },
+		func(p panel.Panel) *resource.ID {
+			return project.OwnerID(p.Project, p.Range)
+		},
+	)
+	if err != nil {
+		return res, err
+	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -132,13 +146,7 @@ func (s *Service) Create(
 				stored,
 				func(p panel.Panel) *group.Key { return p.Group },
 			),
-			project.CreateObjects(
-				req.Panels,
-				stored,
-				func(p panel.Panel) *resource.ID {
-					return project.OwnerID(p.Project, p.Range)
-				},
-			),
+			owners,
 		),
 	}); err != nil {
 		return res, err
