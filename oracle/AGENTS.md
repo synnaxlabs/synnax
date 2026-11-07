@@ -91,15 +91,15 @@ or generator logic and schemas disagree.
   package's alias is the frozen type. A mint leaves the demoted package's generated
   files byte-identical: current and frozen packages keep the version file's declaration
   order, declare every member it records even when the live file marks it `@go omit`,
-  and use root references for `@go marshal omit` fields. The one exception is a live
-  rule on a type the new version redeclares, because that type stops being the live one.
-  To keep the rule, restate the field with its `@doc` and `@validate` in the version
-  file that defines the type. Hand-written frozen definer files are marked `@go hand` in
-  their version file; hand-ness is version-local — an aliased member whose definer is an
-  older version still generates in the current package as a backward alias.
-  `migrate.gen.go` is a pure function of the two adjacent version files; hand-written
-  transforms live in `migrate.go` (renames and cross-resource moves have no generated
-  counterpart).
+  and use root references for `@go marshal omit` fields. The one exception is a type the
+  new version redeclares: it stops being the live one, so the demoted package loses the
+  type's live `@validate` and `@default` rules, `@go fields`, `@go imports`, and
+  `@go to_any`. To keep them, restate them in the version file that defines the type.
+  Hand-written frozen definer files are marked `@go hand` in their version file;
+  hand-ness is version-local — an aliased member whose definer is an older version still
+  generates in the current package as a backward alias. `migrate.gen.go` is a pure
+  function of the two adjacent version files; hand-written transforms live in
+  `migrate.go` (renames and cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
