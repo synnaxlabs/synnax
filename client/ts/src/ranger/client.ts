@@ -419,12 +419,18 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
+    // The Core keeps the stored labels on the create of an existing range.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,
         async (dispatchKey) => await this.writer.create(news, dispatchKey),
       ),
-    );
+    ).map((r) => {
+      const cached = this.store.get(r.key);
+      return cached == null
+        ? r
+        : this.sugarOne({ ...r.payload, labels: cached.labels });
+    });
     this.store.set(res);
     return single ? res[0] : res;
   }
