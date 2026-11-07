@@ -320,7 +320,7 @@ export class Dynamic {
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
     if (this.totalWrites < MAX_DEF_WRITES) return Math.min(DEF_SIZE, maxBufferSize);
     const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
-    return Math.round(Math.max(Math.min(size, maxBufferSize), MIN_SIZE));
+    return Math.round(Math.min(Math.max(size, MIN_SIZE), maxBufferSize));
   }
 
   /**
