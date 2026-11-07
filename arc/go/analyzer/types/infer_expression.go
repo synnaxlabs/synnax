@@ -639,6 +639,9 @@ func bindOnRead(
 	if constrainedTo(resolved, types.KindNumericConstant) {
 		return resolved
 	}
+	if resolved.Kind != types.KindVariable {
+		return resolved
+	}
 	def := resolveLiteralConstraint(resolved)
 	if def.Kind == types.KindVariable {
 		return resolved

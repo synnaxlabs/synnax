@@ -245,9 +245,10 @@ func LiteralAssignmentCompatible(
 	if variableType.String() == literalType.String() {
 		return true
 	}
-	// A typed series element, such as a variable read, is stored without conversion.
+	// A typed series element, such as a variable read, is stored without conversion,
+	// so it takes the scalar rule for a typed value: the same kind, units aside.
 	if series {
-		return false
+		return Compatible(variableType, literalType)
 	}
 	if variableType.IsInteger() && literalType.IsSignedInteger() {
 		return true

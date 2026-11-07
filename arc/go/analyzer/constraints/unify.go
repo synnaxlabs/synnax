@@ -255,8 +255,10 @@ func (s *System) unifyTypeVariableWithVisited(
 			return nil
 		} else if tv.Constraint != nil && other.Constraint != nil &&
 			tv.Constraint.Kind == types.KindFloatConstant &&
-			other.Constraint.Kind == types.KindIntegerConstant {
-			// An integer literal in a float position takes the float's type.
+			(other.Constraint.Kind == types.KindIntegerConstant ||
+				other.Constraint.Kind == types.KindExactIntegerFloatConstant) {
+			// An integer literal, or a float literal with an integer value such as
+			// 2.0, in a float position takes the float's type.
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {

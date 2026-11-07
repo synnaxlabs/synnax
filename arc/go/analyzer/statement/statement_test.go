@@ -558,6 +558,25 @@ var _ = Describe("Statement", func() {
 			),
 		)
 
+		DescribeTable("Should store a typed series element at its kind",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a unit on the element", "p f32 psi := v\ny series f32 := [p]", ""),
+			Entry("a unit on the series", "y series f32 psi := [v]", ""),
+			Entry("another kind", "p f64 := 1.5\ny series f32 := [p]", "cannot assign"),
+			Entry(
+				"a float after an exact float into an integer",
+				"n i32 := 1\ny := [2.0, 1.5]\ny[0] = n",
+				"i32 is not compatible with float",
+			),
+		)
+
 		DescribeTable(
 			"Should keep an untyped integer variable an integer",
 			func(specCtx SpecContext, code, message string) {

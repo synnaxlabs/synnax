@@ -68,6 +68,18 @@ var _ = Describe("Module constants", func() {
 		return ctx
 	}
 
+	It(
+		"Should add no constraint for a read of a typed variable",
+		func(bCtx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("x + x"))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "x", Kind: symbol.KindVariable, Type: types.F32(),
+			}))
+			Expect(atypes.InferFromExpression(ctx)).To(Equal(types.F32()))
+			Expect(ctx.Constraints.Constraints).To(BeEmpty())
+		},
+	)
+
 	It("Should infer a float type variable", func(bCtx SpecContext) {
 		ctx := infer(bCtx, "math.inf")
 		t := atypes.InferFromExpression(ctx)
