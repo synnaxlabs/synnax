@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from synnax import resource
+from synnax.user.types_gen import Key
 
 
 class New(BaseModel):
@@ -35,5 +36,5 @@ class User(BaseModel):
 _RESOURCE_TYPE = resource.ID(type="user")
 
 
-def _resource_id(key: UUID) -> resource.ID:
+def _resource_id(key: Key) -> resource.ID:
     return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))
