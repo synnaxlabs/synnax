@@ -35,6 +35,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// routingKey1 and routingKey2 are secret keys for the routing keys of alert configs.
+const (
+	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
+	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
+)
+
 var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		GinkgoHelper()
@@ -420,7 +426,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
@@ -442,7 +448,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 				Expect(stopCount.Load()).To(BeZero())
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
+				t.Config = map[string]any{"routing_key": routingKey2}
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
 				writeCommand(
@@ -485,7 +491,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
@@ -1222,7 +1228,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				countBeforeCreate := configCount.Load()
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -1235,7 +1241,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(BeNumerically(">", countBeforeCreate))
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
+				t.Config = map[string]any{"routing_key": routingKey2}
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 				writeCommand(
 					ctx,

@@ -194,8 +194,8 @@ func (s *Service) retrieveReplaced(
 	return replaced, nil
 }
 
-// Retrieve returns the secrets the request selects. It requires retrieve access on each
-// of them.
+// Retrieve returns the secrets the request selects, with their uses when the request
+// asks for them. It requires retrieve access on each of them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -215,7 +215,50 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, res.Secrets); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each secret, leaving out the resources the caller cannot
+// read. A secret with no readable uses gets empty uses, so the response tells it apart
+// from a secret whose uses were not asked for.
+func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
+	keys := make([]Key, len(secrets))
+	resources := make(map[Key][]ontology.ID, len(secrets))
+	for i, sec := range secrets {
+		keys[i] = sec.Base().Key
+		resources[keys[i]] = []ontology.ID{}
+	}
+	uses, err := s.internal.Uses(ctx, nil, keys...)
+	if err != nil {
+		return err
+	}
+	enforcer := s.access.NewEnforcer(nil)
+	subject := auth.GetSubject(ctx)
+	for _, use := range uses {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{use.Resource},
+		})
+		if errors.Is(err, access.ErrDenied) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		resources[use.Secret] = append(resources[use.Secret], use.Resource)
+	}
+	for i := range secrets {
+		base := secrets[i].Base()
+		base.Uses = resources[base.Key]
+		secrets[i].SetBase(base)
+	}
+	return nil
 }
 
 // RenameRequest names the secret to rename and its new name.
@@ -279,13 +322,14 @@ type GrantCreateResponse struct {
 }
 
 // CreateGrant creates a grant that lets the subject read the secrets once, within a
-// minute. Only a user with create access on devices may call it.
+// minute. Only a user with create access on devices and retrieve access on each secret
+// may call it.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
 	req GrantCreateRequest,
 ) (GrantCreateResponse, error) {
-	if err := s.enforceGrant(ctx, tx); err != nil {
+	if err := s.enforceGrant(ctx, tx, req.Secrets); err != nil {
 		return GrantCreateResponse{}, err
 	}
 	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Secrets...)
@@ -297,24 +341,30 @@ func (s *Service) CreateGrant(
 
 var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secrets")
 
-func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
+func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
 	subject := auth.GetSubject(ctx)
 	if subject.Type != ontology.ResourceTypeUser {
 		return errGrantSubject
 	}
-	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+	}); err != nil {
+		return err
+	}
+	return enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: secret.OntologyIDs(keys),
 	})
 }
 
 // ResolveRequest selects the secrets to resolve.
 type ResolveRequest struct {
-	// Grant is the key of an optional grant for the calling rack. A request with a
-	// grant reads only the secrets that the grant names, and spends the grant. A zero
-	// key names
-	// no grant.
+	// Grant is the key of a grant for the calling rack. The request reads only the
+	// secrets that the grant names, and spends the grant.
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 	// Keys selects the secrets to resolve.
 	Keys []Key `json:"keys" msgpack:"keys"`
@@ -336,8 +386,7 @@ type ResolveResponse struct {
 var errResolveSubject = errors.Wrap(access.ErrDenied, "only a rack can resolve secrets")
 
 // Resolve returns the plain text values of the secrets. Only a rack may call it, and
-// only for secrets that the grant names, or with no grant, that something on the rack
-// uses.
+// only for secrets that the grant names.
 func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,

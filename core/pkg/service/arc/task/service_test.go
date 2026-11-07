@@ -53,7 +53,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key, arcKey := uuid.New(), uuid.New()
-			MustSucceed(svc.Config.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Config.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
 			}))
@@ -65,7 +65,7 @@ var _ = Describe("Service", func() {
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Config.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Config.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
@@ -77,7 +77,7 @@ var _ = Describe("Service", func() {
 			func(
 				ctx SpecContext,
 			) {
-				Expect(svc.Config.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Config.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
 				})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))

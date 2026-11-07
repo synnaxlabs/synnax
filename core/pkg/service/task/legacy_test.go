@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -91,6 +94,12 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
+}
+
+// legacySecrets maps each task type whose import moves a plain value into a new secret
+// to the config field that holds the secret's key and the field the value came in.
+var legacySecrets = map[string]struct{ key, plain string }{
+	"pagerduty_alert": {key: "routing_key", plain: "plain_routing_key"},
 }
 
 // legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
@@ -305,9 +314,10 @@ func expectSubset(path string, expected, actual any) {
 
 var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
-		svc     *task.Service
-		imexSvc *imex.Service
-		configs config.Registry
+		svc       *task.Service
+		imexSvc   *imex.Service
+		configs   config.Registry
+		secretSvc *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -344,6 +354,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Status:   statusSvc,
 			Rack:     rackSvc,
 		}))
+		secretSvc = secrettestutil.OpenService(
+			ctx,
+			db,
+			otg,
+			groupSvc,
+			pagerduty.FindSecretUses,
+		)
 		var stores []config.Store
 		stores = append(
 			stores,
@@ -376,7 +393,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		stores = append(
 			stores,
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-				DB: db,
+				DB:     db,
+				Secret: secretSvc,
 			})).Stores()...,
 		)
 		stores = append(
@@ -467,6 +485,23 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		return env, imported
 	}
 
+	// reveal returns the config of imported with the key of each secret it holds
+	// swapped for the value the import read.
+	reveal := func(ctx context.Context, imported task.Task) map[string]any {
+		GinkgoHelper()
+		config := maps.Clone(map[string]any(imported.Config))
+		fields, ok := legacySecrets[imported.Type]
+		if !ok {
+			return config
+		}
+		Expect(config[fields.key]).To(BeAssignableToTypeOf(""))
+		key := uuid.MustParse(config[fields.key].(string))
+		values := MustSucceed(secretSvc.Reveal(ctx, nil, key))
+		delete(config, fields.key)
+		config[fields.plain] = string(values[key])
+		return config
+	}
+
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := MustSucceed(os.ReadFile(
@@ -496,16 +531,17 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			expectSubset(
-				"config",
-				map[string]any(expected),
-				map[string]any(imported.Config),
-			)
+			revealed := reveal(ctx, imported)
+			expectSubset("config", map[string]any(expected), revealed)
 
-			// The rewrite and the ladder must leave their own output unchanged.
-			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
+			// The rewrite and the ladder must leave their own output unchanged. An
+			// unversioned copy of a config reads each secret key as a plain value.
+			reimportErr, unreadable := legacyReimportErrors[env.Type]
+			if unreadable {
 				Expect(store.Normalize(ctx, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
+			}
+			if _, moved := legacySecrets[env.Type]; unreadable || moved {
 				Expect(store.Normalize(ctx, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
@@ -518,8 +554,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// field passes the subset check above (the expected side loses the field
 			// too) but diffs here. Regenerate deliberately with
 			// UPDATE_LEGACY_GOLDENS=1 after reviewing the diff.
-			canonical := make(map[string]any, len(imported.Config))
-			for k, v := range imported.Config {
+			canonical := make(map[string]any, len(revealed))
+			for k, v := range revealed {
 				if k != "key" {
 					canonical[k] = v
 				}
@@ -586,7 +622,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				filepath.Join("testdata", "released", release, fixture+".json"),
 			))
 			_, imported := importFile(ctx, raw, fixture)
-			config := map[string]any(imported.Config)
+			config := reveal(ctx, imported)
 			delete(config, "key")
 			golden := MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "legacy", "expected", fixture+".json"),

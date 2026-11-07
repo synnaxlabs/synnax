@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import ontology
 from synnax.ontology.payload import ID
 from x import filter, telem
 
@@ -37,11 +38,14 @@ class Base(BaseModel):
         key: Is the unique identifier for this secret.
         name: Is a human-readable name for the secret.
         updated: Is when the value or path of the secret last changed.
+        uses: Are the resources that use the secret and that the caller can read, filled
+            only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     updated: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+    uses: list[ontology.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -109,6 +113,7 @@ class RetrieveRequest(BaseModel):
         search_term: Keeps the secrets that match the term, closest match first.
         limit: Is the most secrets to return.
         offset: Is the number of matching secrets to skip.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -117,6 +122,7 @@ class RetrieveRequest(BaseModel):
     search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
+    include_uses: bool = False
 
 
 class RetrieveResponse(BaseModel):

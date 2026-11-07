@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -241,6 +242,11 @@ type Transport struct {
 	SecretDelete      freighter.UnaryServer[secret.DeleteRequest, struct{}]
 	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
 	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
+	// CERTIFICATE
+	CertificateCreate   freighter.UnaryServer[certificate.CreateRequest, certificate.CreateResponse]
+	CertificateRetrieve freighter.UnaryServer[certificate.RetrieveRequest, certificate.RetrieveResponse]
+	CertificateRename   freighter.UnaryServer[certificate.RenameRequest, struct{}]
+	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -268,6 +274,7 @@ type Layer struct {
 	Symbol       *symbol.Service
 	View         *view.Service
 	Secret       *secret.Service
+	Certificate  *certificate.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -493,6 +500,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.SecretDelete,
 		t.SecretGrantCreate,
 		t.SecretResolve,
+
+		// CERTIFICATE
+		t.CertificateCreate,
+		t.CertificateRetrieve,
+		t.CertificateRename,
+		t.CertificateDelete,
 
 		// ARC
 		t.ArcCreate,
@@ -735,6 +748,18 @@ func (l *Layer) BindTo(t Transport) {
 	)
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
+	// CERTIFICATE
+	t.CertificateCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Certificate.Create),
+	)
+	t.CertificateRetrieve.BindHandler(l.Certificate.Retrieve)
+	t.CertificateRename.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Certificate.Rename),
+	)
+	t.CertificateDelete.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Certificate.Delete),
+	)
+
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
@@ -963,6 +988,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
 		Secret: cfg.Service.Secret,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.NewService(certificate.ServiceConfig{
+		Certificate: cfg.Service.Certificate,
+		RBAC:        cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

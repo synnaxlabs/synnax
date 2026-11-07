@@ -16,6 +16,7 @@ from freighter.exceptions import Unreachable
 from synnax import (
     arc,
     auth,
+    certificate,
     channel,
     connection,
     device,
@@ -96,6 +97,7 @@ class Synnax(framer.Client):
     labels: label.Client
     views: view.Client
     secrets: secret.Client
+    certificates: certificate.Client
     imex: ImexClient
     projects: project.Client
     tables: table.Client
@@ -236,6 +238,7 @@ class Synnax(framer.Client):
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
         self.secrets = secret.Client(client=self._transport.unary)
+        self.certificates = certificate.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,

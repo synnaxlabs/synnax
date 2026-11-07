@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -206,6 +207,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
 	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
+
+	// CERTIFICATE
+	t.CertificateCreate = noop.UnaryServer[apicertificate.CreateRequest, apicertificate.CreateResponse]{}
+	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
+	t.CertificateRename = noop.UnaryServer[apicertificate.RenameRequest, struct{}]{}
+	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

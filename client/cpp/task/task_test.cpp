@@ -23,6 +23,9 @@ std::mt19937 gen_rand_task = random_generator("Task Tests");
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 namespace synnax::task {
+/// @brief a secret key, the shape of a PagerDuty routing key. No test resolves it.
+constexpr auto ROUTING_KEY = "6f1c2a8e-3b4d-4c5e-9f60-718293a4b5c6";
+
 /// @brief it should correctly create a module on the rack.
 TEST(TaskTests, testCreateTask) {
     auto client = new_test_client();
@@ -31,7 +34,7 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = x::json::json{{"routing_key", "rk"}},
+        .config = x::json::json{{"routing_key", ROUTING_KEY}},
         .internal = false,
         .snapshot = true
     };
@@ -50,7 +53,7 @@ TEST(TaskTests, testRetrieveTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"routing_key", ROUTING_KEY}},
         .internal = false,
         .snapshot = true
     };
@@ -71,7 +74,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
@@ -87,7 +90,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
@@ -104,7 +107,7 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
         auto t = Task{
             .name = name,
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"routing_key", ROUTING_KEY}}
         };
         ASSERT_NIL(r.tasks.create(t));
     }
@@ -122,7 +125,7 @@ TEST(TaskTests, testListTasks) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
@@ -143,7 +146,7 @@ TEST(TaskTests, testRetrieveWhere) {
         auto t = Task{
             .name = "where_task_" + std::to_string(i),
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"routing_key", ROUTING_KEY}}
         };
         ASSERT_NIL(r.tasks.create(t));
         tasks.push_back(t);
@@ -153,7 +156,7 @@ TEST(TaskTests, testRetrieveWhere) {
     auto off_rack = Task{
         .name = tasks[0].name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(other.tasks.create(off_rack));
     const auto retrieved = ASSERT_NIL_P(r.tasks.retrieve(
@@ -183,7 +186,7 @@ TEST(TaskTests, testDeleteTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
@@ -206,7 +209,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     auto t = Task{
         .name = "test_task_with_status",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"routing_key", ROUTING_KEY}},
         .status = Status{
             .key = "task-status-key",
             .variant = synnax::status::VARIANT_SUCCESS,
@@ -239,7 +242,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"routing_key", ROUTING_KEY}},
         .status = Status{
             .key = "task-status-by-name",
             .variant = synnax::status::VARIANT_WARNING,
@@ -263,7 +266,7 @@ TEST(TaskTests, testListTasksWithStatus) {
     auto t = Task{
         .name = "test_task_list_status",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"routing_key", ROUTING_KEY}},
         .status = Status{
             .key = "task-list-status",
             .variant = synnax::status::VARIANT_INFO,
@@ -288,12 +291,12 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     auto t1 = Task{
         .name = rand1,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk-1"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     auto t2 = Task{
         .name = rand2,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk-2"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -318,12 +321,12 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     auto t1 = Task{
         .name = "task_by_type_1",
         .type = type1,
-        .config = {{"routing_key", "rk-1"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     auto t2 = Task{
         .name = "task_by_type_2",
         .type = type2,
-        .config = {{"routing_key", "rk-2"}}
+        .config = {{"routing_key", ROUTING_KEY}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));

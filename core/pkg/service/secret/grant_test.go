@@ -81,31 +81,10 @@ var _ = Describe("Grants", func() {
 	})
 
 	Describe("Resolve", func() {
-		It("Should let a rack read a secret that something on the rack uses",
-			func(ctx SpecContext) {
-				e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk}}}
-				Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), key)).
-					To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
-			},
-		)
-		It("Should read only what the grant names, even a secret that the rack uses",
-			func(ctx SpecContext) {
-				e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk}}}
-				other := e.createStored(ctx, "Token", "t")
-				g := MustSucceed(e.svc.Grant(ctx, nil, rk, other.Base().Key))
-				Expect(e.svc.Resolve(ctx, nil, rk, g, key)).Error().To(SatisfyAll(
-					MatchError(access.ErrDenied),
-					MatchError(
-						ContainSubstring(`rack:1 cannot read secret "Password"`),
-					),
-				))
-			},
-		)
-		It("Should deny a secret that nothing on the rack uses", func(ctx SpecContext) {
-			e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk2}}}
+		It("Should deny a rack with no grant", func(ctx SpecContext) {
 			Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), key)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring(`rack:1 cannot read secret "Password"`)),
+				MatchError(ContainSubstring("has ended or does not exist")),
 			))
 		})
 		It("Should deny a secret the grant does not name", func(ctx SpecContext) {
@@ -151,6 +130,30 @@ var _ = Describe("Grants", func() {
 			g := MustSucceed(e.svc.Grant(ctx, nil, rk, other.Base().Key))
 			Expect(e.svc.Resolve(ctx, nil, rk, g, other.Base().Key)).Error().
 				To(MatchError(ContainSubstring(`decrypt secret "Token"`)))
+		})
+	})
+
+	Describe("Reveal", func() {
+		It("Should read a secret that no rack uses or holds a grant for", func(
+			ctx SpecContext,
+		) {
+			Expect(e.svc.Reveal(ctx, nil, key)).
+				To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
+		})
+		It("Should return not found for a missing secret", func(ctx SpecContext) {
+			Expect(e.svc.Reveal(ctx, nil, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should refuse to reveal a file secret", func(ctx SpecContext) {
+			s := secret.Secret{Variant: secret.FileSecret{
+				Base: secret.Base{Name: "Client key"},
+				Path: "/k.pem",
+			}}
+			Expect(e.svc.NewWriter(nil).Create(ctx, &s, nil)).To(Succeed())
+			Expect(e.svc.Reveal(ctx, nil, s.Base().Key)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`secret "Client key" is a file`)),
+			))
 		})
 	})
 })
