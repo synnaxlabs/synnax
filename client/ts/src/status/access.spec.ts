@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { channel } from "@/channel";
+import { AccessDeniedError, DataType, NotFoundError } from "@/index";
 import { label } from "@/label";
 import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
@@ -142,6 +143,42 @@ describe("status", () => {
       await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(
         AccessDeniedError.matches,
       );
+    });
+
+    it("should settle each owned fetch on its own when one status is denied", async () => {
+      const owners = await Promise.all(
+        [0, 1].map(async () =>
+          channel.resourceID(
+            (
+              await client.channels.create({
+                name: `owner_${id.create()}`,
+                dataType: DataType.FLOAT32,
+                virtual: true,
+              })
+            ).key,
+          ),
+        ),
+      );
+      const [granted] = await Promise.all(
+        owners.map(
+          async (owner) =>
+            await client.statuses.set({ owner, variant: "info", message: "a" }),
+        ),
+      );
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [status.resourceID(granted.key)],
+        actions: ["retrieve"],
+      });
+      const [first, second] = await Promise.allSettled(
+        owners.map(async (owner) => await userClient.statuses.retrieveOwned([owner])),
+      );
+      expect(first.status).toBe("fulfilled");
+      if (first.status === "fulfilled")
+        expect(first.value.map(({ key }) => key)).toEqual([granted.key]);
+      expect(second.status).toBe("rejected");
+      if (second.status === "rejected")
+        expect(AccessDeniedError.matches(second.reason)).toBe(true);
     });
   });
 });

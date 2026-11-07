@@ -55,6 +55,8 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
+// resolveStatus returns the status to persist for r. The owner selects the status, so a
+// provided key is ignored.
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
@@ -66,6 +68,7 @@ func resolveStatus(r *Rack) *Status {
 		}
 	}
 	stat := *r.Status
+	stat.Key = ""
 	stat.Owner = new(r.ResourceID())
 	stat.Name = r.Name
 	return &stat
