@@ -361,7 +361,8 @@ jobs:
       # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        run: git submodule update --init --recursive
+        shell: bash
+        run: .github/scripts/update_submodules.sh
 
       - name: Install deps on Ubuntu
         # Dependencies should already be installed on the machine.
