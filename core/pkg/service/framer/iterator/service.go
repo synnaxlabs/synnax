@@ -128,7 +128,6 @@ func (s *Service) NewStream(
 	ctx context.Context,
 	cfg Config,
 ) (_ StreamIterator, err error) {
-	cfg.Reduction.ApplyDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}

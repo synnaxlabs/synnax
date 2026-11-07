@@ -119,7 +119,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}

@@ -55,6 +55,13 @@ var _ = Describe("Properties", func() {
 			To(MatchError(ContainSubstring(`unknown mechanism "kerberos"`)))
 	})
 
+	It("Should default an omitted SASL mechanism to none on decode", func() {
+		var props kafka.Properties
+		Expect(json.Unmarshal([]byte(`{"brokers":["localhost:9092"]}`), &props)).
+			To(Succeed())
+		Expect(props.Sasl.Variant).To(Equal(kafka.NoneSASL{}))
+	})
+
 	Describe("ApplyDefaults", func() {
 		It("Should default the SASL mechanism to none", func() {
 			props := kafka.Properties{Brokers: []string{"localhost:9092"}}
