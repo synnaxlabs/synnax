@@ -602,7 +602,6 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		rejectTransitionIntoBranch(ctx.Child(entry))
-		warnNumericTransitions(ctx.Child(entry))
 	}
 
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
@@ -614,6 +613,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 			ctx.AST,
 			"routing table must have associated flow nodes",
 		))
+	}
+	// An entry's types are known once the table's flow nodes are analyzed.
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		warnNumericTransitions(ctx.Child(entry))
 	}
 }
 

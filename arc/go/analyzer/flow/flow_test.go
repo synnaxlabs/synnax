@@ -3459,6 +3459,22 @@ sequence main {
 				sequence main { stage first {} }`,
 				1,
 			),
+			Entry(
+				"numeric expression in a routing entry",
+				`func split() {v u8} (a u8, b u8) {
+					a = v
+					b = v
+				}
+				sequence main {
+					stage first {
+						u8_gate -> split() -> {
+							a: u8_gate * 2 => next
+						}
+					}
+					stage second {}
+				}`,
+				1,
+			),
 		)
 	})
 })
