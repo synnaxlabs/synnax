@@ -311,6 +311,19 @@ var _ = Describe("NaN and infinity", func() {
 			root,
 		)).Error().To(MatchError(ContainSubstring("math.inf is not a channel")))
 	})
+	It(
+		"Should fail to compile a float check with no float argument",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			Expect(arc.CompileText(
+				ctx,
+				arc.Text{
+					Raw: "import math\nfunc f() str {\n    return f\"{math.is_nan(3)}\"\n}",
+				},
+				root,
+			)).Error().To(MatchError(ContainSubstring("float check requires an f32 or f64")))
+		},
+	)
 
 	Describe("Mixed float and integer literals", func() {
 		run := func(ctx SpecContext, dt types.Type, expr string) telem.Series {
