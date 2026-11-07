@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -63,7 +63,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
 		Domain:          "py",
 		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &pyFileGenerator{},
+		FileGenerator:   &pyFileGenerator{fileNamePattern: p.Options.FileNamePattern},
 		MergeByName:     true,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
@@ -73,12 +73,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // pyFileGenerator implements framework.FileGenerator for Python code generation.
-type pyFileGenerator struct{}
+type pyFileGenerator struct{ fileNamePattern string }
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(
 		ctx.Namespace,
 		ctx.OutputPath,
+		g.fileNamePattern,
 		ctx.Structs,
 		ctx.Enums,
 		ctx.TypeDefs,
@@ -94,6 +95,7 @@ func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 func generatePyFile(
 	namespace string,
 	outputPath string,
+	fileNamePattern string,
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
@@ -101,13 +103,14 @@ func generatePyFile(
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:   namespace,
-		OutputPath:  outputPath,
-		Structs:     make([]structData, 0, len(structs)),
-		Enums:       make([]enumData, 0, len(enums)),
-		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
-		SortedDecls: make([]sortedDeclData, 0),
-		imports:     newImportManager(),
+		Namespace:       namespace,
+		OutputPath:      outputPath,
+		GeneratedModule: strings.TrimSuffix(fileNamePattern, ".py"),
+		Structs:         make([]structData, 0, len(structs)),
+		Enums:           make([]enumData, 0, len(enums)),
+		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
+		SortedDecls:     make([]sortedDeclData, 0),
+		imports:         newImportManager(),
 
 		missingIncludes: make(set.Set[string]),
 	}
@@ -123,18 +126,21 @@ func generatePyFile(
 	}
 	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
-	data.Ontology = extractOntology(
+	data.Resource = extractResource(
 		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
 		allRawKeyFields,
 		nil,
 		table,
 	)
-	if data.Ontology != nil {
-		data.imports.addOntology("ID")
+	if data.Resource != nil {
+		data.imports.addResource("ID")
 	}
 
-	// Pre-collect the field and TypeVar names, so a module import that one would shadow
-	// takes an alias.
+	// Pre-collect the declared, field and TypeVar names, so a module import that one
+	// would shadow takes an alias.
+	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
+		data.imports.reserve(getPyName(typ))
+	}
 	for _, typ := range slices.Concat(structs, typeDefs) {
 		for _, tp := range resolution.NonDefaultedTypeParams(
 			resolution.TypeParams(typ.Form),
@@ -302,17 +308,17 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 	return result
 }
 
-func extractOntology(
+func extractResource(
 	types []resolution.Type,
 	rawFields []key.Field,
-	skip ontology.SkipFunc,
+	skip resource.SkipFunc,
 	table *resolution.Table,
-) *ontologyData {
-	data := ontology.Extract(types, rawFields, skip, table)
+) *resourceData {
+	data := resource.Extract(types, rawFields, skip, table)
 	if data == nil {
 		return nil
 	}
-	return &ontologyData{
+	return &resourceData{
 		TypeName:   data.TypeName,
 		KeyType:    "Key",
 		StructName: data.StructName,
@@ -550,7 +556,7 @@ func constraintToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(resolved, modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 	}
@@ -562,7 +568,7 @@ func constraintToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(resolved, modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 	}
@@ -910,6 +916,7 @@ func buildExtendsExpr(
 			outputPath = parent.Namespace
 		}
 		baseName = addCrossNamespaceImport(
+			parent,
 			toPythonModulePath(outputPath),
 			baseName,
 			data,
@@ -1402,6 +1409,7 @@ func pyStructLiteral(
 			outputPath = resolved.Namespace
 		}
 		className = addCrossNamespaceImport(
+			resolved,
 			toPythonModulePath(outputPath),
 			className,
 			data,
@@ -1510,7 +1518,7 @@ func enumVariantToPython(
 			outputPath = ev.Type.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		qualifiedEnum := addCrossNamespaceImport(modulePath, enumName, data)
+		qualifiedEnum := addCrossNamespaceImport(ev.Type, modulePath, enumName, data)
 		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
 	}
 	return variantRef
@@ -1531,7 +1539,12 @@ func unionVariantToPython(
 	if outputPath == "" {
 		outputPath = uv.Type.Namespace
 	}
-	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
+	return addCrossNamespaceImport(
+		uv.Type,
+		toPythonModulePath(outputPath),
+		variantName,
+		data,
+	)
 }
 
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
@@ -1597,7 +1610,23 @@ func importLocalHand(typ resolution.Type, name string, data *templateData) strin
 	return data.imports.addModuleImport(toPythonModulePath(module), name)
 }
 
-func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
+func addCrossNamespaceImport(
+	typ resolution.Type,
+	modulePath, typeName string,
+	data *templateData,
+) string {
+	// An ancestor package imports this module before it binds its own names, so a child
+	// reads the module that declares the type: the generated module, or the `@py
+	// include` module of a hand-written type.
+	if strings.HasPrefix(toPythonModulePath(data.OutputPath)+".", modulePath+".") {
+		if !omit.IsSkipped(typ, "py") {
+			alias := data.imports.addModuleImport(modulePath, data.GeneratedModule)
+			return fmt.Sprintf("%s.%s", alias, typeName)
+		}
+		if module := domain.GetStringFromType(typ, "py", "include"); module != "" {
+			return data.imports.addModuleImport(toPythonModulePath(module), typeName)
+		}
+	}
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
 		parentPath := strings.Join(parts[:len(parts)-1], ".")
@@ -1673,7 +1702,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
@@ -1684,7 +1713,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1695,7 +1724,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1720,7 +1749,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1731,7 +1760,7 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1781,7 +1810,7 @@ func typeRefToPythonAlias(
 			outputPath = resolved.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		baseName = addCrossNamespaceImport(modulePath, pyName, data)
+		baseName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
 	} else {
 		baseName = pyName
 	}
@@ -1886,8 +1915,8 @@ type importManager struct {
 	enum           []string
 	pydantic       []string
 	synnax         []string
-	// ontology holds imports from synnax.ontology.payload.
-	ontology []string
+	// resource holds imports from synnax.resource.
+	resource []string
 	// codec holds imports from x.codec.
 	codec []string
 	// namespaces maps alias to path.
@@ -1943,9 +1972,9 @@ func (m *importManager) addCodec(name string) {
 	}
 }
 
-func (m *importManager) addOntology(name string) {
-	if !lo.Contains(m.ontology, name) {
-		m.ontology = append(m.ontology, name)
+func (m *importManager) addResource(name string) {
+	if !lo.Contains(m.resource, name) {
+		m.resource = append(m.resource, name)
 	}
 }
 
@@ -1962,7 +1991,7 @@ func (m *importManager) addNamespace(alias, path string) {
 }
 
 // generatedImportNames holds every name the generator itself imports from typing,
-// pydantic, uuid, enum, the ontology and x.codec. A module import never binds one of
+// pydantic, uuid, enum, the resource ID and x.codec. A module import never binds one of
 // them, because the generator may add that import later in the same file.
 var generatedImportNames = set.New(
 	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
@@ -1976,7 +2005,7 @@ func (m *importManager) bound(name string) bool {
 		return true
 	}
 	for _, names := range [][]string{
-		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.ontology, m.codec,
+		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.resource, m.codec,
 	} {
 		if lo.Contains(names, name) {
 			return true
@@ -2026,8 +2055,8 @@ func (m *importManager) AddImport(category, path, name string) {
 		m.addPydantic(name)
 	case "synnax":
 		m.addSynnax(name)
-	case "ontology":
-		m.addOntology(name)
+	case "resource":
+		m.addResource(name)
 	case "internal":
 		// For cross-namespace imports, use module imports
 		// Note: the alias is returned but not used here; type references
@@ -2037,16 +2066,18 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	imports       *importManager
-	Ontology      *ontologyData
-	Namespace     string
-	OutputPath    string
-	Structs       []structData
-	Enums         []enumData
-	TypeDefs      []typeDefData
-	SortedDecls   []sortedDeclData
-	TypeVars      []typeVarData
-	RebuildModels []string
+	imports    *importManager
+	Resource   *resourceData
+	Namespace  string
+	OutputPath string
+	// GeneratedModule is the module name of each generated file.
+	GeneratedModule string
+	Structs         []structData
+	Enums           []enumData
+	TypeDefs        []typeDefData
+	SortedDecls     []sortedDeclData
+	TypeVars        []typeVarData
+	RebuildModels   []string
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no @py include module, so generation fails.
 	missingIncludes set.Set[string]
@@ -2071,7 +2102,7 @@ type typeDefData struct {
 	IsDistinct bool
 }
 
-type ontologyData struct {
+type resourceData struct {
 	TypeName   string
 	KeyType    string
 	StructName string
@@ -2087,7 +2118,7 @@ func (d *templateData) TypingImports() []string {
 func (d *templateData) EnumImports() []string     { return d.imports.enum }
 func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
-func (d *templateData) OntologyImports() []string { return d.imports.ontology }
+func (d *templateData) ResourceImports() []string { return d.imports.resource }
 func (d *templateData) CodecImports() []string    { return d.imports.codec }
 
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
@@ -2311,8 +2342,8 @@ from pydantic import {{ join .PydanticImports ", " }}
 {{- if .SynnaxImports }}
 from synnax.telem import {{ join .SynnaxImports ", " }}
 {{- end }}
-{{- if .OntologyImports }}
-from synnax.ontology.payload import {{ join .OntologyImports ", " }}
+{{- if .ResourceImports }}
+from synnax.resource import {{ join .ResourceImports ", " }}
 {{- end }}
 {{- if .CodecImports }}
 from x.codec import {{ join .CodecImports ", " }}
@@ -2491,14 +2522,14 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ . }}.model_rebuild()
 {{- end }}
 {{- end }}
-{{- if .Ontology }}
+{{- if .Resource }}
 
 
-ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
+TYPE_RESOURCE_ID = ID(type="{{ .Resource.TypeName }}")
 
 
-def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
-    return ID(type="{{ .Ontology.TypeName }}", key=str(key))
+def resource_id(key: {{ .Resource.KeyType }}) -> ID:
+    return ID(type="{{ .Resource.TypeName }}", key=str(key))
 {{- end }}
 `),
 )

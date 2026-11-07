@@ -83,4 +83,12 @@ if [ "$os" = Darwin ]; then
     set -- "${args[@]}"
 fi
 
-exec @CLANG_TIDY@ "$@"
+# The aspect runs --verify-config before each lint. clang-tidy 23 reports every custom
+# check as unknown there (llvm/llvm-project#192260), so drop those warnings only.
+if [[ " $* " == *" --verify-config "* ]]; then
+    output=$(@CLANG_TIDY@ --experimental-custom-checks "$@" 2>&1)
+    if grep -v "'custom-" <<< "$output" | grep -E "warning:|error:" >&2; then exit 1; fi
+    exit 0
+fi
+
+exec @CLANG_TIDY@ --experimental-custom-checks "$@"

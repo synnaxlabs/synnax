@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,26 +27,26 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeProject, Key: k.String()}
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeProject, Key: k.String()}
 }
 
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-func OntologyIDsFromProjects(projects []Project) []ontology.ID {
-	return lo.Map(projects, func(p Project, _ int) ontology.ID {
-		return p.OntologyID()
+func ResourceIDsFromProjects(projects []Project) []resource.ID {
+	return lo.Map(projects, func(p Project, _ int) resource.ID {
+		return p.ResourceID()
 	})
 }
 
-// KeyFromOntologyID converts id to the Key of the project it identifies. It returns an
+// KeyFromResourceID converts id to the Key of the project it identifies. It returns an
 // error wrapping validate.ErrValidation if id is not a project or its key is not a
 // valid UUID. Callers that resolve a caller-supplied field scope the returned error to
 // that field with validate.PathedError.
-func KeyFromOntologyID(id ontology.ID) (Key, error) {
-	if id.Type != ontology.ResourceTypeProject {
+func KeyFromResourceID(id resource.ID) (Key, error) {
+	if id.Type != resource.TypeProject {
 		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "must be a project, got %q", id.Type,
 		)
@@ -65,14 +66,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Project) ontology.Resource {
-	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
+	return ontology.NewResource(schema, p.ResourceID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Project]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeProject }
+func (s *Service) Type() resource.Type { return resource.TypeProject }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -94,7 +95,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -113,7 +114,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

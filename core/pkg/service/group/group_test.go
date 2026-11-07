@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -62,7 +63,7 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should create a nested group", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent", ontology.RootID))
 
-			child := MustSucceed(w.Create(ctx, "child", parent.OntologyID()))
+			child := MustSucceed(w.Create(ctx, "child", parent.ResourceID()))
 			Expect(child.Name).To(Equal("child"))
 		})
 
@@ -143,7 +144,7 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should not delete a group with children", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-to-keep", ontology.RootID))
 
-			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", parent.OntologyID()))
+			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", parent.ResourceID()))
 
 			err := w.Delete(ctx, parent.Key)
 			Expect(
@@ -172,7 +173,7 @@ var _ = Describe("Group", Ordered, func() {
 			parent := MustSucceed(w.Create(ctx, "parent-for-deletion", ontology.RootID))
 
 			child := MustSucceed(
-				w.Create(ctx, "child-for-deletion", parent.OntologyID()),
+				w.Create(ctx, "child-for-deletion", parent.ResourceID()),
 			)
 
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
@@ -191,11 +192,11 @@ var _ = Describe("Group", Ordered, func() {
 				)
 
 				child1 := MustSucceed(
-					w.Create(ctx, "child1-batch-delete", parent.OntologyID()),
+					w.Create(ctx, "child1-batch-delete", parent.ResourceID()),
 				)
 
 				child2 := MustSucceed(
-					w.Create(ctx, "child2-batch-delete", parent.OntologyID()),
+					w.Create(ctx, "child2-batch-delete", parent.ResourceID()),
 				)
 
 				Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
@@ -216,12 +217,12 @@ var _ = Describe("Group", Ordered, func() {
 			"Should allow deleting nested hierarchy when ordered leaf to root",
 			func(ctx SpecContext) {
 				root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
-				level1 := MustSucceed(w.Create(ctx, "level1-nested", root.OntologyID()))
+				level1 := MustSucceed(w.Create(ctx, "level1-nested", root.ResourceID()))
 				level2 := MustSucceed(
-					w.Create(ctx, "level2-nested", level1.OntologyID()),
+					w.Create(ctx, "level2-nested", level1.ResourceID()),
 				)
 				level3 := MustSucceed(
-					w.Create(ctx, "level3-nested", level2.OntologyID()),
+					w.Create(ctx, "level3-nested", level2.ResourceID()),
 				)
 
 				Expect(
@@ -259,10 +260,10 @@ var _ = Describe("Group", Ordered, func() {
 	Describe("Search", func() {
 		var tx gorp.Tx
 		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			return MustSucceed(svc.NewWriter(tx).Create(ctx, name, ontology.RootID)).
-				OntologyID()
+				ResourceID()
 		}
 
 		It(
@@ -270,12 +271,12 @@ var _ = Describe("Group", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -283,7 +284,7 @@ var _ = Describe("Group", Ordered, func() {
 			"Should not match a staged group outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)

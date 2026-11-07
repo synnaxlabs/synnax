@@ -20,8 +20,6 @@ import { node } from "@/node";
  */
 export interface Lines {
   virtual: ((record: Payload, value: NonNullable<Where["virtual"]>) => boolean) | null;
-  namePatterns:
-    ((record: Payload, value: NonNullable<Where["namePatterns"]>) => boolean) | null;
 }
 
 /**
@@ -53,11 +51,6 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.virtual == null) throw new Error("only the Core can check virtual");
     if (!lines.virtual(record, where.virtual)) return false;
   }
-  if (where.namePatterns != null) {
-    if (lines.namePatterns == null)
-      throw new Error("only the Core can check namePatterns");
-    if (!lines.namePatterns(record, where.namePatterns)) return false;
-  }
   return true;
 };
 
@@ -71,8 +64,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
-    (where.virtual != null && lines.virtual == null) ||
-    (where.namePatterns != null && lines.namePatterns == null));
+    (where.virtual != null && lines.virtual == null));
 
 const inputs = {
   /** key selects by key. */
@@ -92,12 +84,6 @@ const inputs = {
    * when false.
    */
   virtual: z.boolean().exactOptional(),
-  /**
-   * namePatterns matches channels whose name matches any of the given patterns. A valid
-   * channel name matches exactly, and any other pattern is a regular expression,
-   * anchored when unanchored.
-   */
-  namePatterns: filter.listInputZ(z.string()).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -146,6 +132,19 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "isIndex",
         "internal",
         "virtual",
-        "namePatterns",
       ]),
     );
+
+/**
+ * shortcutZ reads a key, a name, or a list of either into a request whose where holds
+ * it. A list reads as keys only when every member is a key.
+ */
+export const shortcutZ = z.union([
+  keyZ.transform((key) => ({ where: { key: { eq: key } } })),
+  z.string().transform((name) => ({ where: { name: { eq: name } } })),
+  keyZ.array().transform((keys) => ({ where: { key: { in: keys } } })),
+  z
+    .string()
+    .array()
+    .transform((names) => ({ where: { name: { in: names } } })),
+]);

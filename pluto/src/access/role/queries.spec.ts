@@ -441,7 +441,7 @@ describe("queries", () => {
 
       // Verify role changed via direct API call
       const parents = await client.ontology.parents.retrieve({
-        ids: user.ontologyID(testUser.key),
+        ids: user.resourceID(testUser.key),
         types: ["role"],
       });
       expect(parents.length).toEqual(1);
@@ -477,7 +477,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const parents = await client.ontology.parents.retrieve({
-        ids: user.ontologyID(testUser.key),
+        ids: user.resourceID(testUser.key),
         types: ["role"],
       });
       expect(parents.length).toEqual(1);

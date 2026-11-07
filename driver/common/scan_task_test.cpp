@@ -130,7 +130,7 @@ class MockClusterAPI : public ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::device::Device>> remote;
     std::shared_ptr<std::vector<synnax::device::Device>> created;
-    std::shared_ptr<std::vector<synnax::ontology::ID>> created_parents;
+    std::shared_ptr<std::vector<synnax::resource::ID>> created_parents;
     std::vector<std::vector<synnax::device::Status>> propagated_statuses;
     std::shared_ptr<pipeline::testutil::StreamerFactory> streamer_factory;
     std::vector<synnax::channel::Channel> signal_channels;
@@ -144,7 +144,7 @@ public:
     ):
         remote(remote_),
         created(created_),
-        created_parents(std::make_shared<std::vector<synnax::ontology::ID>>()) {}
+        created_parents(std::make_shared<std::vector<synnax::resource::ID>>()) {}
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
@@ -168,7 +168,7 @@ public:
             if (const auto err = this->create_errors[this->create_count++]) return err;
         for (auto &dev: devs) {
             created->push_back(dev);
-            created_parents->push_back(dev.parent.value_or(synnax::ontology::ID{}));
+            created_parents->push_back(dev.parent.value_or(synnax::resource::ID{}));
         }
         return x::errors::NIL;
     }
@@ -855,6 +855,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.status->variant = synnax::status::VARIANT_WARNING;
     dev2.status->description = "Sync manager watchdog";
     dev2.status->details.rack = 2;
+    dev2.status->details.connected = true;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -922,6 +923,7 @@ TEST(TestScanTask, TestStatePropagation) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
+            ASSERT_FALSE(status.details.connected);
             ASSERT_EQ(status.description, "");
         } else
             FAIL() << "Unexpected device key: " << status.key;
@@ -964,6 +966,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     EXPECT_EQ(status.name, "Device 1");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Device disconnected");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "");
 }
 
@@ -1221,9 +1224,9 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     dev1.location = "slot-1";
 
     synnax::device::Device dev1_with_parent = dev1;
-    dev1_with_parent.parent = synnax::device::ontology_id("chassis-1");
+    dev1_with_parent.parent = synnax::device::resource_id("chassis-1");
 
-    // Scanner returns the device with a parent ontology ID
+    // Scanner returns the device with a parent resource ID
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_with_parent}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -1268,7 +1271,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     ASSERT_EQ(cluster_api_ptr->created_parents->size(), 1);
     EXPECT_EQ(
         cluster_api_ptr->created_parents->at(0),
-        synnax::device::ontology_id("chassis-1")
+        synnax::device::resource_id("chassis-1")
     );
 }
 
@@ -1285,7 +1288,7 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     dev1_scanned.properties = x::json::json::object();
     dev1_scanned.configured = false;
 
-    const auto parent_id = synnax::device::ontology_id("chassis-1");
+    const auto parent_id = synnax::device::resource_id("chassis-1");
     dev1_scanned.parent = parent_id;
 
     // Two scans: first establishes parent state, second should see no change
@@ -1347,7 +1350,7 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
     scanned.location = "slot-1";
 
     synnax::device::Device remote = scanned;
-    remote.parent = synnax::rack::ontology_id(1);
+    remote.parent = synnax::rack::resource_id(1);
 
     auto scanner = std::make_unique<MockScanner>(
         std::vector<std::vector<synnax::device::Device>>{{scanned}},

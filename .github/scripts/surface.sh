@@ -33,6 +33,11 @@ report() {
             (cd oracle && go build -buildvcs=false -o "$1/.oracle-surface" .) >&2 \
                 && ./.oracle-surface surface
             ;;
+        console-state)
+            pnpm install --frozen-lockfile >&2 \
+                && pnpm exec turbo build --filter='@synnaxlabs/console^...' >&2 \
+                && console/scripts/surface.sh
+            ;;
         client-ts)
             pnpm install --frozen-lockfile >&2 \
                 && pnpm exec turbo build --filter='@synnaxlabs/client^...' >&2 \

@@ -48,7 +48,7 @@ Role struct {
     """
     @go marshal
     @go migrate
-    @ontology type "role"
+    @resource type "role"
     @retrieve
 }
 

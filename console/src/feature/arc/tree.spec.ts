@@ -39,13 +39,13 @@ const createArcInDirectory = async () => {
     parent: arcsID.key,
     name: uniqueName("dir"),
   });
-  const root = clientArc.directory.ontologyID(dir.key);
+  const root = clientArc.directory.resourceID(dir.key);
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
     type: "automation",
     source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
-  await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(arc.key));
+  await client.arcs.directories.move(arcsID, root, clientArc.resourceID(arc.key));
   return { arc, root, arcsID };
 };
 
@@ -72,14 +72,14 @@ describe("arc/ontology", () => {
         parent: root.key,
         name: uniqueName("sub"),
       });
-      const subID = clientArc.directory.ontologyID(sub.key);
+      const subID = clientArc.directory.resourceID(sub.key);
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       await findTreeRow(sub.name);
       fireEvent.dragStart(await findTreeRow(arc.name));
       fireEvent.drop(getTreeRow(sub.name));
       await waitFor(async () => {
         const parents = await client.ontology.parents.retrieve({
-          ids: clientArc.ontologyID(arc.key),
+          ids: clientArc.resourceID(arc.key),
         });
         expect(parents.map((p) => p.id)).toEqual([subID]);
       });
@@ -115,7 +115,7 @@ describe("arc/ontology", () => {
         type: "module",
         source: { mode: "text" },
       });
-      await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(other.key));
+      await client.arcs.directories.move(arcsID, root, clientArc.resourceID(other.key));
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       fireEvent.click(await findTreeRow(arc.name));
       withControlHeld(() => fireEvent.click(getTreeRow(other.name)));

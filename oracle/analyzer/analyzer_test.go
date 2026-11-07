@@ -48,6 +48,73 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
+	Describe("Qualified type references", func() {
+		It("Should reject a namespace the file does not import", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					channel channel.Key
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
+		})
+
+		It("Should reject a name that a loaded import does not hold", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = `
+				Gradient struct {
+					stops int32
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+
+		It("Should not bind a filter name to a local type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					key filter.Key
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := entry.Form.(resolution.StructForm).Fields[0]
+			Expect(field.Type.Name).To(Equal("filter.Key"))
+		})
+
+		It("Should keep a warning for an import with no loaded types", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = ""
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+	})
+
 	Describe("Retired version tag", func() {
 		It("Should reject a file-level @go version", func(ctx SpecContext) {
 			source := `

@@ -82,8 +82,4 @@ type Where struct {
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
-	// NamePatterns matches channels whose name matches any of the given patterns. A
-	// valid channel name matches exactly, and any other pattern is a regular
-	// expression, anchored when unanchored.
-	NamePatterns []string `json:"name_patterns,omitzero" msgpack:"name_patterns,omitempty"`
 }

@@ -13,8 +13,8 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
@@ -30,6 +30,9 @@ type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device is the device identifier.
 	Device Key `json:"device" msgpack:"device"`
+	// Connected is true while the Driver confirms that it can reach the device. A
+	// device whose state is unknown is not connected.
+	Connected bool `json:"connected" msgpack:"connected"`
 	// Data contains device-specific status data.
 	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
 }
@@ -64,7 +67,7 @@ type Device struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -73,6 +73,8 @@ export const useIsHidingTimestamps = Scope.bindHook(
   createSelector(({ timestampsHidden }) => timestampsHidden),
 );
 
+export const useTimeZone = Scope.bindHook(createSelector(({ timeZone }) => timeZone));
+
 export const {
   useDispatch,
   useUndo: useUndoBase,

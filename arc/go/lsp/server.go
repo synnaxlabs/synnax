@@ -404,10 +404,10 @@ func (s *Server) runAnalysis(
 
 	s.mu.RLock()
 	content := doc.Content
-	isBlock := doc.metadata.isFunctionBlock
+	meta := *doc.metadata
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, meta)
 	if ctx.Err() != nil {
 		return
 	}
@@ -452,7 +452,7 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 func (s *Server) analyze(
 	ctx context.Context,
 	content string,
-	isBlock bool,
+	meta documentMetadata,
 ) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
 	s.cfg.L.Debug("analyzing program")
 	var (
@@ -462,7 +462,7 @@ func (s *Server) analyze(
 		cfg          = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 	)
 
-	if isBlock {
+	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
@@ -479,7 +479,11 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
+			analyze := text.Analyze
+			if meta.isModule {
+				analyze = text.AnalyzeModule
+			}
+			analyzedIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
@@ -503,10 +507,10 @@ func (s *Server) publishDiagnostics(
 		s.mu.RUnlock()
 		return
 	}
-	isBlock := doc.metadata.isFunctionBlock
+	meta := *doc.metadata
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, meta)
 
 	s.mu.Lock()
 	if _, stillOpen := s.documents[docURI]; stillOpen {

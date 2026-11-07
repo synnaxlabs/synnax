@@ -67,10 +67,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
-          <Label.Form
-            path={path.label}
-            omit={["align", "maxInlineSize", "level", "direction"]}
-          />
+          <Label.Form path={path.label} omit={["level", "direction"]} multiline />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />

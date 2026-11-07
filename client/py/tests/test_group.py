@@ -29,10 +29,10 @@ class TestGroupClient:
     def test_create_nested(self, client: sy.Synnax) -> None:
         """Should create a group nested under another group."""
         parent = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        child = client.groups.create(sy.group.ontology_id(parent.key), str(uuid4()))
+        child = client.groups.create(sy.group.resource_id(parent.key), str(uuid4()))
         assert child.key is not None
-        children = client.ontology.retrieve_children(sy.group.ontology_id(parent.key))
-        assert children == [sy.group.ontology_id(child.key)]
+        children = client.ontology.retrieve_children(sy.group.resource_id(parent.key))
+        assert children == [sy.group.resource_id(child.key)]
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""
@@ -58,6 +58,26 @@ class TestGroupClient:
         """Should raise NotFoundError when the group does not exist."""
         with pytest.raises(sy.NotFoundError):
             client.groups.retrieve(uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        res = client.groups.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one group for a plain key beside other fields."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        assert client.groups.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(sy.NotFoundError, match=r"Found no group where .+"):
+            client.groups.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the groups that match any filter in or_."""
+        a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        b = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        res = client.groups.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename an existing group."""

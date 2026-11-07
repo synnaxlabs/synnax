@@ -100,9 +100,9 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Name: "with-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: proj.OntologyID(),
+					From: proj.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   l.OntologyID(),
+					To:   l.ResourceID(),
 				})).To(BeTrue())
 			},
 		)
@@ -113,9 +113,9 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Name: "no-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: proj.OntologyID(),
+					From: proj.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   l.OntologyID(),
+					To:   l.ResourceID(),
 				})).To(BeFalse())
 			},
 		)
@@ -127,10 +127,10 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				var resource ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(l.OntologyID()).
+					WhereIDs(l.ResourceID()).
 					Entry(&resource).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(resource.ID).To(Equal(l.OntologyID()))
+				Expect(resource.ID).To(Equal(l.ResourceID()))
 			},
 		)
 
@@ -218,7 +218,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(l.OntologyID()).
+				WhereIDs(l.ResourceID()).
 				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -627,6 +627,26 @@ var _ = Describe("Writer", func() {
 					"channels.0.timestamp",
 				),
 			)
+
+			It("Should set the time zone via SetTimeZone", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneLocal))
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetTimeZoneAction(
+						log.SetTimeZonePayload{TimeZone: telem.TimeZoneUTC},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneUTC))
+			})
+
+			It("Should reject an invalid time zone", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetTimeZoneAction(log.SetTimeZonePayload{TimeZone: "Mars"}),
+				})).To(MatchError(ContainSubstring("time_zone")))
+			})
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}

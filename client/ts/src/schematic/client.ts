@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -29,7 +29,7 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -51,8 +51,10 @@ const copyReqZ = z.object({
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
@@ -173,7 +175,7 @@ export class Client extends query.Retriever<
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
         resource();
@@ -248,7 +250,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteRelationships(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({

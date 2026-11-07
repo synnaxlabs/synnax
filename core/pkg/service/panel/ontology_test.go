@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/search"
@@ -28,49 +29,49 @@ import (
 
 var _ = Describe("Ontology", func() {
 	Describe("ID helpers", func() {
-		It("Should build an ontology ID of the panel type", func() {
+		It("Should build a resource ID of the panel type", func() {
 			key := uuid.New()
-			id := panel.OntologyID(key)
-			Expect(id.Type).To(Equal(ontology.ResourceTypePanel))
+			id := panel.ResourceID(key)
+			Expect(id.Type).To(Equal(resource.TypePanel))
 			Expect(id.Key).To(Equal(key.String()))
 		})
 
-		It("Should map keys and panels to ontology IDs", func() {
+		It("Should map keys and panels to resource IDs", func() {
 			a, b := uuid.New(), uuid.New()
-			Expect(panel.OntologyIDs([]panel.Key{a, b})).To(Equal([]ontology.ID{
-				panel.OntologyID(a), panel.OntologyID(b),
+			Expect(panel.ResourceIDs([]panel.Key{a, b})).To(Equal([]resource.ID{
+				panel.ResourceID(a), panel.ResourceID(b),
 			}))
 			Expect(
-				panel.OntologyIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
+				panel.ResourceIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
 			).To(Equal(
-				[]ontology.ID{panel.OntologyID(a), panel.OntologyID(b)},
+				[]resource.ID{panel.ResourceID(a), panel.ResourceID(b)},
 			))
 		})
 
-		It("Should round-trip ontology IDs back to keys", func() {
+		It("Should round-trip resource IDs back to keys", func() {
 			a, b := uuid.New(), uuid.New()
-			Expect(panel.KeysFromOntologyIDs([]ontology.ID{
-				panel.OntologyID(a), panel.OntologyID(b),
+			Expect(panel.KeysFromResourceIDs([]resource.ID{
+				panel.ResourceID(a), panel.ResourceID(b),
 			})).To(Equal([]panel.Key{a, b}))
 		})
 
-		It("Should error when an ontology ID key is not a UUID", func() {
-			Expect(panel.KeysFromOntologyIDs([]ontology.ID{{
-				Type: ontology.ResourceTypePanel, Key: "not-a-uuid",
+		It("Should error when a resource ID key is not a UUID", func() {
+			Expect(panel.KeysFromResourceIDs([]resource.ID{{
+				Type: resource.TypePanel, Key: "not-a-uuid",
 			}})).Error().To(MatchError(ContainSubstring("invalid uuid")))
 		})
 	})
 
 	Describe("Service interface", func() {
 		It("Should report the panel resource type", func() {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypePanel))
+			Expect(svc.Type()).To(Equal(resource.TypePanel))
 		})
 
 		It("Should retrieve a panel as an ontology resource", func(ctx SpecContext) {
 			p := panel.Panel{Name: "resource", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(res.ID).To(Equal(p.OntologyID()))
+			Expect(res.ID).To(Equal(p.ResourceID()))
 			Expect(res.Name).To(Equal("resource"))
 		})
 
@@ -126,7 +127,7 @@ var _ = Describe("Ontology", func() {
 				defer mu.Unlock()
 				g.Expect(changes).To(ContainElement(SatisfyAll(
 					HaveField("Variant", Equal(change.VariantSet)),
-					HaveField("Key", Equal(p.OntologyID().String())),
+					HaveField("Key", Equal(p.ResourceID().String())),
 					HaveField("Value.Name", Equal("observed")),
 				)))
 			}).Should(Succeed())
@@ -138,9 +139,9 @@ var _ = Describe("Ontology", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+			q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-				To(Equal([]ontology.ID{p.OntologyID()}))
+				To(Equal([]resource.ID{p.ResourceID()}))
 		})
 	})
 })

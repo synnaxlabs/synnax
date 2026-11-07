@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type ontology,
   project,
+  type resource,
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -130,7 +130,7 @@ export const renderSchematic = async (
   await loadSchematic(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    schematic.ontologyID(created.key),
+    schematic.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // React counts a `use` read as a suspend even when it is cached. A sync act leaves
@@ -162,7 +162,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
     name: uniqueName("schematic"),
     ...overrides,
   });
-  const rootID = project.ontologyID(proj.key);
+  const rootID = project.resourceID(proj.key);
   const { wrapper: Console, store } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -238,5 +238,5 @@ export const createLegacySymbolFile = (name: string): string =>
   JSON.stringify({ version: 1, ...createSymbolPayload(name) });
 
 /** Returns the names of the resource's ontology children on the test Core. */
-export const childNames = async (id: ontology.ID): Promise<string[]> =>
+export const childNames = async (id: resource.ID): Promise<string[]> =>
   (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);

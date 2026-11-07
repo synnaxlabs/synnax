@@ -13,7 +13,7 @@ import { color, filter, notation, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
@@ -88,6 +88,8 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
+  /** timeZone is the time zone of the line times and day rows of the log. */
+  timeZone: telem.timeZoneZ.default("local"),
 });
 export interface Log extends z.infer<typeof logZ> {}
 
@@ -112,5 +114,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("log");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("log");
+export const TYPE_RESOURCE_ID = resourceID("");

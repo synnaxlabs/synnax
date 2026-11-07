@@ -68,7 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
-        range.ontologyID,
+        range.resourceID,
         labels.map((l) => LABELS[l].key),
       );
     const runs = await Promise.all(

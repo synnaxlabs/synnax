@@ -16,7 +16,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 import synnax as sy
 from synnax import group, schematic
 from synnax.exceptions import NotFoundError
-from synnax.ontology import ID
+from synnax.resource import ID
 from synnax.schematic import symbol
 from x import spatial
 from x.testutil import assert_eventually
@@ -84,11 +84,11 @@ class TestSchematic:
         s = schematic.Schematic(name="Tank")
         assert hash(s) == hash(s.key)
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a schematic."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a schematic."""
         key = uuid4()
-        id = schematic.ontology_id(key)
-        assert id.type == schematic.ONTOLOGY_TYPE.type == "schematic"
+        id = schematic.resource_id(key)
+        assert id.type == schematic.TYPE_RESOURCE_ID.type == "schematic"
         assert id.key == str(key)
 
 
@@ -193,11 +193,11 @@ class TestSymbol:
         with pytest.raises(ValidationError):
             symbol.Spec(svg="", variant="actuator")
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a symbol."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a symbol."""
         key = uuid4()
-        assert symbol.ontology_id(key).type == symbol.ONTOLOGY_TYPE.type
-        assert symbol.ontology_id(key).key == str(key)
+        assert symbol.resource_id(key).type == symbol.TYPE_RESOURCE_ID.type
+        assert symbol.resource_id(key).key == str(key)
 
 
 class TestBorderRadius:
@@ -292,6 +292,28 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.schematics.retrieve(key=uuid4())
 
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.schematics.create(project.key, name="A")
+        res = client.schematics.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one schematic for a plain key beside other fields."""
+        a = client.schematics.create(project.key, name="A")
+        assert client.schematics.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no schematic where .+"):
+            client.schematics.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the schematics that match any filter in or_."""
+        a = client.schematics.create(project.key, name="A")
+        b = client.schematics.create(project.key, name="B")
+        res = client.schematics.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a schematic."""
         s = client.schematics.create(project.key, name="Before Rename")
@@ -337,12 +359,12 @@ def _symbol(name: str) -> symbol.Symbol:
 @pytest.fixture
 def parent_group(client: sy.Synnax) -> group.Group:
     root = client.schematics.symbols.retrieve_group()
-    return client.groups.create(group.ontology_id(root.key), f"symbols-{uuid4()}")
+    return client.groups.create(group.resource_id(root.key), f"symbols-{uuid4()}")
 
 
 @pytest.fixture
 def parent(parent_group: group.Group) -> ID:
-    return group.ontology_id(parent_group.key)
+    return group.resource_id(parent_group.key)
 
 
 @pytest.mark.schematic
@@ -406,6 +428,29 @@ class TestSymbolClient:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):
             client.schematics.symbols.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, parent: ID) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
+        res = client.schematics.symbols.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, parent: ID
+    ) -> None:
+        """Should return one symbol for a plain key beside other fields."""
+        symbols = client.schematics.symbols
+        a = symbols.create(_symbol("A"), parent=parent)
+        assert symbols.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no symbol where .+"):
+            symbols.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, parent: ID) -> None:
+        """Should retrieve the symbols that match any filter in or_."""
+        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
+        b = client.schematics.symbols.create(_symbol("B"), parent=parent)
+        res = client.schematics.symbols.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, parent: ID) -> None:
         """Should rename a symbol."""

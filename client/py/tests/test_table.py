@@ -53,11 +53,11 @@ class TestTable:
         with pytest.raises(ValidationError):
             table.Row(size=0)
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a table."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a table."""
         key = uuid4()
-        assert table.ontology_id(key).type == table.ONTOLOGY_TYPE.type
-        assert table.ontology_id(key).key == str(key)
+        assert table.resource_id(key).type == table.TYPE_RESOURCE_ID.type
+        assert table.resource_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
 
@@ -118,6 +118,28 @@ class TestClient:
         """Should raise NotFoundError when a table does not exist."""
         with pytest.raises(NotFoundError):
             client.tables.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.tables.create(project.key, name="A")
+        res = client.tables.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one table for a plain key beside other fields."""
+        a = client.tables.create(project.key, name="A")
+        assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no table where .+"):
+            client.tables.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the tables that match any filter in or_."""
+        a = client.tables.create(project.key, name="A")
+        b = client.tables.create(project.key, name="B")
+        res = client.tables.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a table."""

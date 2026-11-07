@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -20,6 +21,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::loop {
@@ -276,5 +278,98 @@ TEST(LoopTest, testWaitOverrunNoCatchUp) {
     const auto next = telem::TimeSpan(hs_clock::now() - start);
     EXPECT_GT(next, telem::MILLISECOND * 15);
     EXPECT_LT(next, telem::MILLISECOND * 60);
+}
+
+/// @brief it should move the end of the next wait by the shift.
+TEST(LoopTest, testShiftMovesTheNextWait) {
+    Timer timer{telem::Rate(20)};
+    timer.wait();
+    timer.shift(telem::MILLISECOND * 30);
+    auto start = hs_clock::now();
+    timer.wait();
+    EXPECT_GT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 70);
+    timer.shift(telem::MILLISECOND * -30);
+    start = hs_clock::now();
+    timer.wait();
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 35);
+}
+
+/// @brief it should wait each interval on the given clock, with the shift, and not on
+/// the host clock.
+TEST(LoopTest, testWaitSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND * 10);
+    const auto start = clock.steady();
+    const auto host_start = hs_clock::now();
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 10);
+    timer.shift(telem::SECOND * 3);
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 23);
+    timer.shift(telem::SECOND * -4);
+    timer.wait();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 29);
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
+}
+
+/// @brief it should wait on the given clock when the wait takes a breaker.
+TEST(LoopTest, testWaitBreakerSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND * 10);
+    const auto start = clock.steady();
+    breaker::Breaker brk;
+    brk.start();
+    timer.wait(brk);
+    timer.wait(brk);
+    brk.stop();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 20);
+}
+
+/// @brief it should sleep a precise sleep on the given clock while the breaker runs.
+TEST(LoopTest, testPreciseSleepSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND);
+    const auto start = clock.steady();
+    breaker::Breaker brk;
+    brk.start();
+    EXPECT_TRUE(timer.precise_sleep(telem::SECOND * 5, brk));
+    brk.stop();
+    EXPECT_FALSE(timer.precise_sleep(telem::SECOND * 5, brk));
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 5);
+}
+
+/// @brief it should read the host's wall time by default.
+TEST(HostClock, testReadsTheHostWallTimeByDefault) {
+    const HostClock clock;
+    const auto before = telem::TimeStamp::now();
+    const auto now = clock.now();
+    EXPECT_GE(now, before);
+    EXPECT_LE(now, telem::TimeStamp::now());
+}
+
+/// @brief it should read and sleep on the host's steady clock by default.
+TEST(HostClock, testSleepsOnTheHostSteadyClockByDefault) {
+    const HostClock clock;
+    const auto start = clock.steady();
+    clock.sleep(telem::MILLISECOND * 5);
+    EXPECT_GE(clock.steady() - start, std::chrono::milliseconds(5));
+}
+
+/// @brief it should move the wall time and the steady time with its source.
+TEST(HostClock, testMovesBothTimesWithItsSource) {
+    const auto clock = fake_clock();
+    const auto wall = clock.now();
+    const auto steady = clock.steady();
+    clock.sleep(telem::SECOND * 5);
+    EXPECT_EQ(clock.now() - wall, telem::SECOND * 5);
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - steady), telem::SECOND * 5);
+}
+
+/// @brief it should share one time between the copies of a fake clock on any thread.
+TEST(FakeClock, testSharesItsTimeBetweenCopies) {
+    const auto clock = fake_clock();
+    const auto start = clock.steady();
+    std::thread([copy = clock] { copy.sleep(telem::SECOND); }).join();
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND);
 }
 }

@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -37,11 +37,11 @@ var _ = Describe("Log", func() {
 			Expect(v3.Log{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the log ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
 			k := uuid.New()
-			Expect(v3.Log{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog, Key: k.String(),
+			Expect(v3.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
 			}))
 		})
 	})
@@ -176,8 +176,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 83 bytes", func() {
-			Expect(encode()).To(HaveLen(83))
+		It("Should encode the truncation fixture in 87 bytes", func() {
+			Expect(encode()).To(HaveLen(87))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -204,6 +204,7 @@ var _ = Describe("Log", func() {
 			Entry("timestamp precision", 80),
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
+			Entry("time zone", 85),
 		)
 	})
 })

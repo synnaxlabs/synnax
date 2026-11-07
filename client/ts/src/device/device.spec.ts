@@ -52,7 +52,7 @@ describe("Device", async () => {
         message: "Custom device status",
         description: "Device is connected",
         time: TimeStamp.now(),
-        details: { rack: 0, device: "" },
+        details: { rack: 0, device: "", connected: true },
       };
       const d = await client.devices.create({
         rack: testRack.key,
@@ -115,7 +115,7 @@ describe("Device", async () => {
           key: device.statusKey(d.key),
           variant: "success",
           message: "Device is running",
-          details: { rack: d.rack, device: d.key },
+          details: { rack: d.rack, device: d.key, connected: true },
         }),
       );
       const created = await local.devices.create(d);

@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -32,7 +32,7 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -52,10 +52,10 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   cachedRequestZ,
   retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
-]);
+);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -110,7 +110,7 @@ export interface UpdateTaskParams {
 
 const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
   ontology.matchRelationship(rel, {
-    from: ontologyID(arcKey),
+    from: resourceID(arcKey),
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "task" },
   });
@@ -211,9 +211,9 @@ export class Client extends query.Retriever<
       matches: (t, q) =>
         this.cfg.ontology.cache.relationships.has(
           ontology.relationshipToString({
-            from: ontologyID(q),
+            from: resourceID(q),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: task.ontologyID(t.key),
+            to: task.resourceID(t.key),
           }),
         ),
       watch: [
@@ -409,8 +409,9 @@ export class Client extends query.Retriever<
   // copy is only as fresh as the streamer. Fetches always hit the network; only the
   // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
-    const arcs = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    const { where } = singleRetrieveParamsZ.parse(q);
+    const arcs = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 
@@ -444,7 +445,7 @@ export class Client extends query.Retriever<
     let children: ontology.Resource[];
     try {
       children = await this.cfg.ontology.children.retrieve({
-        ids: ontologyID(arcKey),
+        ids: resourceID(arcKey),
         types: ["task"],
       });
     } catch (e) {

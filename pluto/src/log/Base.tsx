@@ -78,6 +78,7 @@ export const Base = ({
   channelNamesHidden,
   timestampsHidden,
   timestampPrecision,
+  timeZone,
   channels,
   emptyContent = EMPTY_CONTENT,
   color,
@@ -87,6 +88,8 @@ export const Base = ({
   enableTriggers,
   hold,
   onHold,
+  position,
+  onLeave,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -97,11 +100,14 @@ export const Base = ({
     channelNamesHidden,
     timestampsHidden,
     timestampPrecision,
+    timeZone,
     channels,
     color,
     telem,
     hold,
     onHold,
+    position,
+    onLeave,
   });
 
   const {

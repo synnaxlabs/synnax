@@ -37,7 +37,7 @@ const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
 
 const roleResource = (key: string, name: string, internal: boolean) =>
-  createResource(access.role.ontologyID(key), name, { internal });
+  createResource(access.role.resourceID(key), name, { internal });
 
 describe("role ontology service", () => {
   it("should expose rename and delete for a non-internal role", async () => {
@@ -140,7 +140,7 @@ describe("role ontology service", () => {
       });
       await client.access.roles.assign({ user: u.key, role: from.key });
       const [rolesGroup] = await client.ontology.parents.retrieve({
-        ids: access.role.ontologyID(from.key),
+        ids: access.role.resourceID(from.key),
       });
       await renderOntologyTree({
         client,
@@ -153,8 +153,8 @@ describe("role ontology service", () => {
       fireEvent.drop(await findTreeRow(to.name));
       await waitFor(async () => {
         const roles = await client.ontology.parents.retrieve({
-          ids: user.ontologyID(u.key),
-          types: [access.role.TYPE_ONTOLOGY_ID.type],
+          ids: user.resourceID(u.key),
+          types: [access.role.TYPE_RESOURCE_ID.type],
         });
         expect(roles.map(({ id }) => id.key)).toEqual([to.key]);
       });
@@ -164,7 +164,7 @@ describe("role ontology service", () => {
   it("should render each built-in role's icon and fall back for custom roles", async () => {
     const role = await createRole();
     const [rolesGroup] = await client.ontology.parents.retrieve({
-      ids: access.role.ontologyID(role.key),
+      ids: access.role.resourceID(role.key),
     });
     await renderOntologyTree({
       client,
@@ -188,7 +188,7 @@ describe("policy ontology service", () => {
   it("should stay hidden in the tree and declare no children", () => {
     expect(PolicyItem.type).toBe("policy");
     expect(
-      PolicyItem.visible?.(createResource(access.policy.ontologyID("p1"), "p1")),
+      PolicyItem.visible?.(createResource(access.policy.resourceID("p1"), "p1")),
     ).toBe(false);
     expect(PolicyItem.hasChildren).toBe(false);
   });

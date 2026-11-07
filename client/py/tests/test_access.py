@@ -26,16 +26,16 @@ class TestAccessClient:
                 sy.Policy(
                     name="Test Policy 1",
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
                 sy.Policy(
                     name="Test Policy 2",
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
@@ -53,8 +53,8 @@ class TestAccessClient:
         p = sy.Policy(
             name="Single Test Policy",
             objects=[
-                sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                sy.resource.ID(type="label", key=str(uuid.uuid4())),
             ],
             actions=["create"],
         )
@@ -67,7 +67,7 @@ class TestAccessClient:
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
         """Should return no policies for a subject that does not exist."""
         res = client.access.policies.retrieve(
-            subjects=[sy.ontology.ID(type="channel", key="hehe")]
+            subjects=[sy.resource.ID(type="channel", key="hehe")]
         )
         assert res == []
 
@@ -81,11 +81,11 @@ class TestAccessClient:
         )
         role = client.access.roles.create(sy.Role(name="holder", description=""))
         client.ontology.add_children(
-            sy.access.role.ontology_id(role.key), sy.access.policy.ontology_id(held.key)
+            sy.access.role.resource_id(role.key), sy.access.policy.resource_id(held.key)
         )
         user = client.users.create(username=str(uuid.uuid4()), password="test")
         client.access.roles.assign(user=user.key, role=role.key)
-        subjects = [user.ontology_id]
+        subjects = [user.resource_id]
         keys = [held.key, other.key]
         matched = client.access.policies.retrieve(subjects=subjects, keys=keys)
         assert [p.key for p in matched] == [held.key]
@@ -96,6 +96,31 @@ class TestAccessClient:
             keys=keys,
         )
         assert [p.key for p in unmatched] == [other.key]
+
+    def test_retrieve_key_operator(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the policies whose key matches an operator."""
+        keys = [p.key for p in two_policies]
+        res = client.access.policies.retrieve(key={"in": keys})
+        assert {p.key for p in res} == set(keys)
+
+    def test_retrieve_plain_key_beside_fields(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should return one policy for a plain key beside other fields."""
+        key = two_policies[0].key
+        assert client.access.policies.retrieve(key=key, internal=False).key == key
+        with pytest.raises(sy.NotFoundError, match=r"Found no policy where .+"):
+            client.access.policies.retrieve(key=key, internal=True)
+
+    def test_retrieve_or(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the policies that match any filter in or_."""
+        a, b = two_policies
+        res = client.access.policies.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {p.key for p in res} == {a.key, b.key}
 
     def test_delete_by_key(
         self, two_policies: list[sy.Policy], client: sy.Synnax
@@ -111,7 +136,7 @@ class TestAccessClient:
         created = client.access.policies.create(
             sy.Policy(
                 name="Test Non-Internal Policy",
-                objects=[sy.ontology.ID(type="channel", key=str(uuid.uuid4()))],
+                objects=[sy.resource.ID(type="channel", key=str(uuid.uuid4()))],
                 actions=["retrieve"],
             )
         )
@@ -177,6 +202,36 @@ class TestRoleClient:
         )
         assert [r.key for r in roles] == [two_roles[1].key]
 
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one role for a plain name."""
+        role = client.access.roles.create(sy.Role(name=str(uuid.uuid4())))
+        assert client.access.roles.retrieve(name=role.name).key == role.key
+
+    def test_retrieve_key_operator(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should retrieve the roles whose key matches an operator."""
+        keys = [r.key for r in two_roles]
+        roles = client.access.roles.retrieve(key={"in": keys})
+        assert {r.key for r in roles} == set(keys)
+
+    def test_retrieve_plain_key_beside_fields(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should return one role for a plain key beside other fields."""
+        key = two_roles[0].key
+        assert client.access.roles.retrieve(key=key, internal=False).key == key
+        with pytest.raises(sy.NotFoundError, match=r"Found no role where .+"):
+            client.access.roles.retrieve(key=key, internal=True)
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the roles that match any filter in or_."""
+        a, b = client.access.roles.create(
+            [sy.Role(name=str(uuid.uuid4())), sy.Role(name=str(uuid.uuid4()))]
+        )
+        roles = client.access.roles.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in roles} == {a.key, b.key}
+
     def test_retrieve_multiple(
         self, two_roles: list[sy.Role], client: sy.Synnax
     ) -> None:
@@ -192,7 +247,7 @@ class TestRoleClient:
         assert role.key is not None
         client.access.roles.delete(role.key)
         with pytest.raises(
-            sy.NotFoundError, match=f"Role matching {role.key} not found"
+            sy.NotFoundError, match=rf"Found no role where .*{role.key}"
         ):
             client.access.roles.retrieve(role.key)
 

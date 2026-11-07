@@ -37,12 +37,12 @@ export const Explorer: Panel.Content = () => (
 
 const Internal = () => {
   const listProps = Ranger.useList({
-    initialQuery: { where: View.useContext().getInitialView().where },
+    query: { where: View.useContext().getInitialView().where },
     sort: Ranger.sortByStage,
   });
   const openCreate = Range.useCreateModal();
   const handleCreate = () => openCreate();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <View.Form {...listProps}>
       <View.Toolbar>

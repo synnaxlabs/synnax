@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
@@ -116,7 +116,7 @@ type (
 	// ImportRequest is the request type for the Import endpoint.
 	ImportRequest = imex.Envelope
 	// ImportResponse is the response type for the Import endpoint.
-	ImportResponse = ontology.ID
+	ImportResponse = resource.ID
 )
 
 // Import imports a resource from an envelope.
@@ -144,14 +144,14 @@ func (s *Service) Import(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
+		Objects: []resource.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{opts.Parent},
+		Objects: []resource.ID{opts.Parent},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -199,7 +199,7 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			"parent",
 		)
 	}
-	parent, err := ontology.ParseID(params.Parent)
+	parent, err := resource.ParseID(params.Parent)
 	if err != nil {
 		return imex.ImportOptions{}, validate.PathedError(err, "parent")
 	}
@@ -214,7 +214,7 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 
 type (
 	// ExportRequest is the request type for the Export endpoint.
-	ExportRequest = ontology.ID
+	ExportRequest = resource.ID
 	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
@@ -227,7 +227,7 @@ func (s *Service) Export(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{req},
+		Objects: []resource.ID{req},
 	}); err != nil {
 		return ExportResponse{}, err
 	}

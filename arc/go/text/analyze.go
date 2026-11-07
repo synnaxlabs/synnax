@@ -470,8 +470,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	name := parser.IdentifierName(ctx.AST)
+	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -1052,6 +1052,10 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
 //
+// An imported X is keyed by its qualified name, so no local scope binds it. Inside
+// a top-level scope the jump survives as a transition. At the top level it is
+// rejected until Phase 3 compiles module scopes into the importer.
+//
 // This rule makes sequences behave as black boxes from the outside: you can
 // jump around inside your own nesting, you can call a top-level neighbor at
 // its front door, but you cannot reach across a structural boundary to land
@@ -1061,6 +1065,22 @@ func analyzeNamedRef(
 	sym *symbol.Symbol,
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
+	if sym.Root() != ctx.Scope.Root() {
+		key := parser.IdentifierName(ctx.AST)
+		if shell.jumps == nil {
+			// Phase 3 compiles module scopes into the importer. Until then a
+			// top-level activation has no scope to bind to, so it is rejected
+			// instead of dropped.
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"'%s' belongs to an imported module and cannot be activated from "+
+					"the top level yet",
+				key,
+			))
+			return transitionIntent{}, false
+		}
+		return transitionIntent{activateKey: key}, true
+	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
 	}
@@ -1437,9 +1457,31 @@ func Analyze(
 	root *symbol.Symbol,
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, false, cfgs)
+}
+
+// AnalyzeModule is Analyze under the module rules.
+func AnalyzeModule(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	cfgs ...parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, true, cfgs)
+}
+
+func analyze(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	module bool,
+	cfgs []parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root).WithConfig(parser.ConfigOf(cfgs...))
-		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
+		aCtx = acontext.NewRoot(ctx, t.AST, root).
+			WithConfig(parser.ConfigOf(cfgs...)).
+			WithModule(module)
+		i = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 
 	analyzer.AnalyzeProgram(aCtx)

@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	pb2 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -44,8 +44,11 @@ type StatusDetails struct {
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	// device is the device identifier.
 	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	// connected is true while the Driver confirms that it can reach the device. A device
+	// whose state is unknown is not connected.
+	Connected bool `protobuf:"varint,3,opt,name=connected,proto3" json:"connected,omitempty"`
 	// data contains device-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -92,6 +95,13 @@ func (x *StatusDetails) GetDevice() string {
 		return x.Device
 	}
 	return ""
+}
+
+func (x *StatusDetails) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
 }
 
 func (x *StatusDetails) GetData() *structpb.Struct {
@@ -599,11 +609,12 @@ var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescrip
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"v\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x94\x01\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\x120\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\x12\x1c\n" +
+	"\tconnected\x18\x03 \x01(\bR\tconnected\x120\n" +
+	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
 	"\x05_data\"\xe5\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
@@ -620,7 +631,7 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"properties\x126\n" +
 	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x124\n" +
 	"\x06parent\x18\n" +
-	" \x01(\v2\x17.service.ontology.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
+	" \x01(\v2\x17.service.resource.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
 	"\a_statusB\t\n" +
 	"\a_parent\"=\n" +
 	"\tWhereList\x120\n" +
@@ -682,14 +693,14 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*Where)(nil),           // 7: service.device.pb.Where
 	(*structpb.Struct)(nil), // 8: google.protobuf.Struct
 	(*pb.Status)(nil),       // 9: service.status.pb.Status
-	(*pb1.ID)(nil),          // 10: service.ontology.pb.ID
+	(*pb1.ID)(nil),          // 10: service.resource.pb.ID
 	(*pb2.String)(nil),      // 11: x.filter.pb.String
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	8,  // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
 	8,  // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
 	9,  // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	10, // 3: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
+	10, // 3: service.device.pb.Device.parent:type_name -> service.resource.pb.ID
 	7,  // 4: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
 	3,  // 5: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
 	5,  // 6: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList

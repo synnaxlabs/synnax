@@ -13,7 +13,7 @@ import { control, filter, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { node } from "@/node";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32().or(
@@ -64,7 +64,6 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
-  namePatterns?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -96,12 +95,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
-  /**
-   * namePatterns matches channels whose name matches any of the given patterns. A valid
-   * channel name matches exactly, and any other pattern is a regular expression,
-   * anchored when unanchored.
-   */
-  namePatterns: zod.nullToUndefined(z.string().array()),
 });
 
 export const nameZ = z.string().min(1, "Name is required");
@@ -195,5 +188,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("channel");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("channel");
+export const TYPE_RESOURCE_ID = resourceID(0);

@@ -10,7 +10,7 @@
 import { type arc, query, type Synnax as Client } from "@synnaxlabs/client";
 
 import { NAME } from "@/arc/language";
-import { useHasText, useSingleDispatch } from "@/arc/queries";
+import { useHasText, useSingleDispatch, useType } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
@@ -33,6 +33,7 @@ const bootstrap = (client: Client | null, key: arc.Key): CollabText | null => {
 export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const resourceKey = useKey();
   const client = Synnax.use();
+  const isModule = useType() === "module";
   const dispatch = useSingleDispatch();
   const hasText = useHasText();
 
@@ -66,6 +67,7 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
       initialValue={value}
       onEdit={handleEdit}
       language={NAME}
+      isModule={isModule}
       background={0}
       placeholder={PLACEHOLDER}
       autoFocus={autoFocus && value.length === 0}

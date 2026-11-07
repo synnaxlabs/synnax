@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  filter,
+  primitive,
+  type record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,14 +25,15 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -56,12 +64,9 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
 
@@ -91,11 +96,7 @@ const singleRetrieveParamsZ = z
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([
-  singleRetrieveParamsZ,
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -263,9 +264,9 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const request = query.dropOne(rest);
+      const request = retrieveParamsZ.parse(query.dropOne(rest));
       const devices = await this.fetchThrough(request, schemas);
-      checkForMultipleOrNoResults("Device", request, devices, isSingle);
+      checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -339,7 +340,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({
@@ -359,7 +360,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -429,13 +430,23 @@ export class Client extends query.Retriever<
     // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
       const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Device", q, devices, true);
+      checkForMultipleOrNoResults(
+        "device",
+        { where: { key: { eq: q.key } } },
+        devices,
+        true,
+      );
       return devices[0];
     }
     const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Device", q, devices, true);
+    checkForMultipleOrNoResults(
+      "device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
     return devices[0];
   }
 }
 
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

@@ -392,9 +392,6 @@ func WhereToPB(r channel.Where) (*Where, error) {
 	if r.Virtual != nil {
 		pb.Virtual = r.Virtual
 	}
-	if r.NamePatterns != nil {
-		pb.NamePatterns = &StringList{Values: r.NamePatterns}
-	}
 	return pb, nil
 }
 
@@ -469,9 +466,6 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 	}
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual
-	}
-	if pb.NamePatterns != nil {
-		r.NamePatterns = xpb.ListValues(pb.NamePatterns.Values)
 	}
 	return r, nil
 }
