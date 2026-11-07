@@ -81,6 +81,8 @@ RESOURCE_TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
 
 RESOURCE_TYPE_SECRET: Literal["secret"] = "secret"
 
+RESOURCE_TYPE_CERTIFICATE: Literal["certificate"] = "certificate"
+
 
 ResourceType = Literal[
     "arc",
@@ -117,4 +119,5 @@ ResourceType = Literal[
     "opcua_server",
     "arc_directory",
     "secret",
+    "certificate",
 ]

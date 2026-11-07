@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -266,6 +267,8 @@ type Layer struct {
 	Grant *grant.Service
 	// Secret stores the hidden values that devices and tasks connect with.
 	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology.
@@ -646,6 +649,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Signals:         l.Signals,
+		Channel:         l.Channel,
+		Uses: secret.MultiFinder(
+			certificate.FindSecretUses,
+			pdruntime.FindSecretUses,
+			sift.SecretUses(l.Device),
+		),
+		Grant:         l.Grant,
+		EncryptionKey: cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
@@ -704,6 +730,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -782,23 +809,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
-	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
-		Instrumentation: cfg.Child("grant"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Grant) {
-		return nil, err
-	}
-	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
-		Instrumentation: cfg.Child("secret"),
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
 		Group:           l.Group,
+		Secret:          l.Secret,
+		Status:          l.Status,
 		Signals:         l.Signals,
-		Channel:         l.Channel,
-		Uses:            sift.SecretUses(l.Device),
-		Grant:           l.Grant,
-		EncryptionKey:   cfg.SecretsKey,
-	}); !ok(err, l.Secret) {
+	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
 	if l.Metrics, err = metrics.OpenService(
@@ -845,6 +864,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
 	})
 	if !ok(err, nil) {
 		return nil, err

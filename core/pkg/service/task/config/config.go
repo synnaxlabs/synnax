@@ -31,13 +31,14 @@ type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
 	// Write decodes data into the store's record type, validates it, and stores it
-	// under key, creating or overwriting the record. It returns the stored record as
-	// Read returns it, or an error wrapping validate.ErrValidation when data does not
-	// decode or fails validation.
+	// under key, creating or overwriting the record. name is the name of the task that
+	// owns the record. It returns the stored record as Read returns it, or an error
+	// wrapping validate.ErrValidation when data does not decode or fails validation.
 	Write(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
+		name string,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
 	// WriteStrict is Write, except that it also rejects data holding a member that the
@@ -46,6 +47,7 @@ type Store interface {
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
+		name string,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
 	// Read returns the record stored under key, or an error wrapping
@@ -99,10 +101,11 @@ type ServiceConfig[E any] struct {
 	// ApplyEntryDefaults fills absent fields of a decoded entry.
 	// [OPTIONAL] - nil when the entry type has no defaults.
 	ApplyEntryDefaults func(*E)
-	// ResolveEntry fills fields of a decoded entry from other resources, read through
-	// tx, before the entry is validated and stored.
+	// ResolveEntry fills fields of a decoded entry from other resources, read and
+	// written through tx, before the entry is validated and stored. name is the name of
+	// the task that owns the entry.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
-	ResolveEntry func(ctx context.Context, tx gorp.Tx, e *E) error
+	ResolveEntry func(ctx context.Context, tx gorp.Tx, name string, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
@@ -177,9 +180,10 @@ func (s *Service[E]) Write(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
+	name string,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(false))
+	return s.write(ctx, tx, key, name, data, json.RejectUnknownMembers(false))
 }
 
 // WriteStrict implements Store.
@@ -187,15 +191,17 @@ func (s *Service[E]) WriteStrict(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
+	name string,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
-	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(true))
+	return s.write(ctx, tx, key, name, data, json.RejectUnknownMembers(true))
 }
 
 func (s *Service[E]) write(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
+	name string,
 	data msgpack.EncodedJSON,
 	opts json.Options,
 ) (msgpack.EncodedJSON, error) {
@@ -219,6 +225,7 @@ func (s *Service[E]) write(
 		if err := s.cfg.ResolveEntry(
 			ctx,
 			gorp.OverrideTx(s.cfg.DB, tx),
+			name,
 			&e,
 		); err != nil {
 			return nil, err

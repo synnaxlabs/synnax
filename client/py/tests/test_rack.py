@@ -117,7 +117,7 @@ class TestRackClient:
             name="test",
             rack=rack.key,
             type="pagerduty_alert",
-            config={"routing_key": "rk"},
+            config={"routing_key": str(uuid4())},
         )
         with pytest.raises(sy.ValidationError, match="tasks are still attached"):
             client.racks.delete([rack.key])

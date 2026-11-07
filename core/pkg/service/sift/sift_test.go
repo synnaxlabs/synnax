@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -34,7 +33,6 @@ var _ = Describe("SecretUses", func() {
 		Expect(uses).To(HaveExactElements(secret.Use{
 			Resource: device.OntologyID(dev.Key),
 			Name:     dev.Name,
-			Racks:    []ontology.ID{rackSvc.EmbeddedKey.OntologyID()},
 			Secret:   key,
 		}))
 	})
@@ -52,18 +50,5 @@ var _ = Describe("SecretUses", func() {
 		}
 		Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
 		Expect(sift.SecretUses(deviceSvc)(ctx, nil, []secret.Key{key})).To(BeEmpty())
-	})
-
-	It("Should let the rack of a device read its API key", func(ctx SpecContext) {
-		key := createAPIKey(ctx, apiKey)
-		createDevice(ctx, sift.Properties{URI: "localhost:1", APIKey: key})
-		values := MustSucceed(secretSvc.Resolve(
-			ctx,
-			nil,
-			rackSvc.EmbeddedKey.OntologyID(),
-			uuid.Nil(),
-			key,
-		))
-		Expect(values).To(HaveKeyWithValue(key, []byte(apiKey)))
 	})
 })

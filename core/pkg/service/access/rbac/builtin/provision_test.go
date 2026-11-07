@@ -69,7 +69,7 @@ var _ = Describe("Provision", func() {
 	})
 
 	DescribeTable(
-		"Should grant access to secrets",
+		"Should grant access to secrets and certificates",
 		func(
 			ctx SpecContext,
 			name string,
@@ -87,9 +87,21 @@ var _ = Describe("Provision", func() {
 		},
 		Entry("Owner secrets", "Owner", ontology.ResourceTypeSecret, access.AllActions),
 		Entry(
+			"Engineer certificates",
+			"Engineer Edit Access",
+			ontology.ResourceTypeCertificate,
+			access.AllActions,
+		),
+		Entry(
 			"Operator secrets",
 			"Operator View Access",
 			ontology.ResourceTypeSecret,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Viewer certificates",
+			"Viewer",
+			ontology.ResourceTypeCertificate,
 			[]access.Action{access.ActionRetrieve},
 		),
 		Entry(
@@ -97,6 +109,12 @@ var _ = Describe("Provision", func() {
 			"Driver Secret View Access",
 			ontology.ResourceTypeSecret,
 			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Driver certificates",
+			"Driver Certificate Access",
+			ontology.ResourceTypeCertificate,
+			[]access.Action{access.ActionCreate, access.ActionRetrieve},
 		),
 	)
 

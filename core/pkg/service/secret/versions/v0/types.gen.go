@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -24,7 +25,7 @@ import (
 // Key is a unique identifier for a secret.
 type Key = uuid.UUID
 
-// Source is where the value of a secret lives.
+// Source is where the value of a secret or certificate lives.
 type Source string
 
 const (
@@ -51,6 +52,9 @@ type Base struct {
 	Name string `json:"name" msgpack:"name"`
 	// Updated is when the value or path of the secret last changed.
 	Updated telem.TimeStamp `json:"updated" msgpack:"updated"`
+	// Uses are the resources that use the secret and that the caller can read, filled
+	// only when a retrieve request asks for them.
+	Uses []ontology.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
