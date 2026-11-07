@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -35,10 +35,10 @@ import { user } from "@/user";
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;

@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -52,10 +52,10 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   cachedRequestZ,
   retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
-]);
+);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 

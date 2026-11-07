@@ -60,6 +60,15 @@ func (t Type) String() string {
 	return "number"
 }
 
+// MarshalText implements encoding.TextMarshaler.
+func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (t *Type) UnmarshalText(text []byte) (err error) {
+	*t, err = ParseType(string(text))
+	return err
+}
+
 // Enum pairs a JSON string label with the value of a numeric sample.
 type Enum struct {
 	Label string
