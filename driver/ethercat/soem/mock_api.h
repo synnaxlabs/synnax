@@ -121,7 +121,7 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
-    /// @brief the state reconfig_slave returns.
+    /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
     /// @brief the value recover_slave returns.
@@ -141,7 +141,8 @@ public:
     /// order of register_writes.
     std::vector<size_t> requests_before_write;
     /// @brief the bytes read_register gives, keyed by slave and address. A register
-    /// missing from the map reads as zeros.
+    /// missing from the map reads as zeros. A write_register that reaches the slave
+    /// stores its bytes here.
     std::map<std::pair<uint16_t, uint16_t>, std::vector<uint8_t>> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
@@ -281,12 +282,15 @@ public:
         std::vector<uint8_t> data,
         int
     ) override {
+        this->requests_before_write.push_back(this->state_change_requests.size());
+        const int wkc = this->unwritable_slaves.contains(slave)
+                          ? 0
+                          : this->write_register_return;
+        if (wkc > 0) this->register_values[{slave, address}] = data;
         this->register_writes.push_back(
             {slave, address, std::move(data), this->mapped_group.has_value()}
         );
-        this->requests_before_write.push_back(this->state_change_requests.size());
-        if (this->unwritable_slaves.contains(slave)) return 0;
-        return this->write_register_return;
+        return wkc;
     }
 
     int read_register(
@@ -306,12 +310,17 @@ public:
         return this->read_register_return;
     }
 
-    /// @brief like ecx_reconfig_slave, runs the slave's PO2SOconfig hook in PRE-OP.
+    /// @brief like ecx_reconfig_slave, runs the slave's PO2SOconfig hook in PRE-OP and
+    /// leaves the slave in the state it returns.
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
         if (const auto it = this->po2so_configs.find(slave);
             it != this->po2so_configs.end())
             it->second(slave);
+        if (slave > 0 && slave <= this->slave_infos.size())
+            this->slave_infos[slave - 1].state = static_cast<uint16_t>(
+                this->reconfig_return
+            );
         return this->reconfig_return;
     }
 

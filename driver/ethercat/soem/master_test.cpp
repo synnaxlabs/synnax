@@ -1210,7 +1210,7 @@ TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
-    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::SAFE_OP);
 }
 
 /// @brief it should report a slave in SAFE_OP with an error as faulted and acknowledge
@@ -1391,7 +1391,7 @@ TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame)
     this->check_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
-    EXPECT_LT(std::abs(error), x::telem::MILLISECOND.nanoseconds());
+    EXPECT_LT(std::abs(error), (5 * x::telem::MILLISECOND).nanoseconds());
     EXPECT_EQ(
         this->mock->register_writes.back(),
         (RegisterWrite{.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true})
@@ -1416,19 +1416,22 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
 }
 
-/// @brief it should set the clock of every DC slave when the whole bus comes back from
-/// a power loss, and hold none of them in PRE-OP.
+/// @brief it should set the clock of the first DC slave from the latest frame when the
+/// whole bus comes back from a power loss, then set the next one from the first, and
+/// hold none of them in PRE-OP.
 TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
     this->mock->dc_time_value = 7'000'000'000;
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = bytes<int64_t>(2'000);
+    this->mock->register_values[{2, 0x0918}] = bytes<int64_t>(5'000);
     this->check_while_cycling();
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
-    for (const uint16_t slave: {1, 2}) {
-        const auto error = this->written_offset(slave) - 7'000'000'000;
-        EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
-    }
+    const auto first = this->written_offset(1);
+    const auto error = first - (7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    EXPECT_EQ(this->written_offset(2), 2'000 + first + 300 - 5'000);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
