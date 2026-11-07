@@ -545,6 +545,15 @@ TEST(RateTests, testContructor) {
     ASSERT_EQ(r.hz(), 5);
 }
 
+/// @brief it should hold a rate with double precision.
+TEST(RateTests, testDoublePrecision) {
+    ASSERT_EQ(Rate(0.1).hz(), 0.1);
+    ASSERT_EQ(Rate(16777217.0).hz(), 16777217.0);
+    x::json::json j = Rate(0.1);
+    ASSERT_EQ(j.get<double>(), 0.1);
+    ASSERT_EQ(j.get<Rate>().hz(), 0.1);
+}
+
 /// @brief it should add two rates together.
 TEST(RateTests, testAddition) {
     const auto r = Rate(5);

@@ -667,21 +667,18 @@ public:
 };
 
 class Rate {
-    float value;
+    double value;
 
 public:
-    [[nodiscard]] float hz() const { return this->value; }
+    [[nodiscard]] double hz() const { return this->value; }
 
     Rate() = default;
 
-    explicit Rate(const float i): value(i) {}
+    explicit Rate(const int i): value(i) {}
 
-    explicit Rate(const int i): value(static_cast<float>(i)) {}
+    explicit Rate(const double i): value(i) {}
 
-    explicit Rate(const double i): value(static_cast<float>(i)) {}
-
-    explicit Rate(const TimeSpan period):
-        value(static_cast<float>(1 / period.seconds())) {}
+    explicit Rate(const TimeSpan period): value(1 / period.seconds()) {}
 
     bool operator==(const Rate &other) const { return value == other.value; }
 
@@ -705,31 +702,31 @@ public:
         return static_cast<size_t>(value / other.value);
     }
 
-    friend Rate operator+(const float &lhs, const Rate &rhs) {
+    friend Rate operator+(const double &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
-    Rate operator+(const float &other) const { return Rate(value + other); }
+    Rate operator+(const double &other) const { return Rate(value + other); }
 
-    friend Rate operator-(const float &lhs, const Rate &rhs) {
+    friend Rate operator-(const double &lhs, const Rate &rhs) {
         return Rate(lhs - rhs.value);
     }
 
-    Rate operator-(const float &other) const { return Rate(value - other); }
+    Rate operator-(const double &other) const { return Rate(value - other); }
 
-    friend Rate operator*(const float &lhs, const Rate &rhs) {
+    friend Rate operator*(const double &lhs, const Rate &rhs) {
         return Rate(lhs * rhs.value);
     }
 
-    Rate operator*(const float &other) const { return Rate(value * other); }
+    Rate operator*(const double &other) const { return Rate(value * other); }
 
-    Rate operator/(const float &other) const { return Rate(value / other); }
+    Rate operator/(const double &other) const { return Rate(value / other); }
 
     Rate operator/(const int &other) const {
-        return Rate(value / static_cast<float>(other));
+        return Rate(value / static_cast<double>(other));
     }
 
     Rate operator/(const size_t &other) const {
-        return Rate(value / static_cast<float>(other));
+        return Rate(value / static_cast<double>(other));
     }
 
     [[nodiscard]] TimeSpan period() const {
