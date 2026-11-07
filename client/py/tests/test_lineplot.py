@@ -176,7 +176,7 @@ class TestClient:
         """Should return one line plot for a plain key beside other fields."""
         a = client.line_plots.create(project.key, name="A")
         assert client.line_plots.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Line plot matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no line plot where .+"):
             client.line_plots.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
