@@ -138,3 +138,40 @@ var _ = Describe("Fill", func() {
 		Expect(defaults.Fill(point{X: 1})).To(Equal(point{X: 1}))
 	})
 })
+
+var _ = Describe("Prefill", func() {
+	It("Should set the defaults outside the default groups", func() {
+		var b bounds
+		defaults.Prefill(&b)
+		Expect(b).To(Equal(bounds{Units: "volts"}))
+	})
+
+	It("Should set every default of a type without groups", func() {
+		var l leaf
+		defaults.Prefill(&l)
+		Expect(l).To(Equal(leaf{Size: 36}))
+	})
+
+	It("Should leave a type without defaults as it is", func() {
+		v := 3
+		defaults.Prefill(&v)
+		Expect(v).To(Equal(3))
+	})
+})
+
+var _ = Describe("FillGroups", func() {
+	DescribeTable("Should set a default group only when all of its members are zero",
+		func(in, expected bounds) {
+			defaults.FillGroups(&in)
+			Expect(in).To(Equal(expected))
+		},
+		Entry("all zero", bounds{}, bounds{Max: 1}),
+		Entry("one member set", bounds{Min: -10}, bounds{Min: -10}),
+	)
+
+	It("Should leave a type without groups as it is", func() {
+		l := leaf{Label: "x"}
+		defaults.FillGroups(&l)
+		Expect(l).To(Equal(leaf{Label: "x"}))
+	})
+})
