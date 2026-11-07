@@ -176,6 +176,11 @@ func pinnedDependencies(table *resolution.Table, ns string) []versions.Decl {
 		if !ok || t.Namespace == ns || reached.Contains(t.QualifiedName) {
 			continue
 		}
+		// Only a pinned version's declaration is fixed by version files. A live one,
+		// such as an ended chain's hand-owned schema, is not, so it stays out.
+		if _, _, pinned := versions.ParseDepNS(t.Namespace); !pinned {
+			continue
+		}
 		reached.Add(t.QualifiedName)
 		queue = append(queue, formRefs(t.Form)...)
 	}
@@ -203,6 +208,8 @@ func formRefs(form resolution.TypeForm) []resolution.TypeRef {
 		for _, v := range f.Variants {
 			refs = append(refs, v.Type)
 		}
+	case resolution.EnumForm:
+		refs = append(refs, f.Extends...)
 	case resolution.AliasForm:
 		refs = append(refs, f.Target)
 	case resolution.DistinctForm:

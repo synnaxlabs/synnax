@@ -209,6 +209,84 @@ Doc struct {
 					"Stop struct {\n\tx uint8\n\ty uint8\n}\n", false),
 		)
 
+		It("Should change the schema sum when a pinned parent enum changes",
+			func(ctx SpecContext) {
+				doc := `
+import "schemas/x/versions/color/v0"
+
+Side enum extends color.Shade {}
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`
+				write("schemas/synnax/versions/doc/v0.oracle", doc)
+				write("schemas/synnax/doc.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Side enum extends color.Shade {}
+
+Doc struct {
+	key uuid @key
+	side Side
+
+	@go marshal
+}
+`)
+				shade := "Shade enum {\n\tdark = \"dark\"\n}\n"
+				write("schemas/x/versions/color/v0.oracle", shade)
+				write("schemas/x/color.oracle", "@go output \"x/go/color\"\n\n"+shade)
+				before := compute(ctx, v0File, v1File).Sums[0].Schema
+				write("schemas/x/versions/color/v0.oracle",
+					"Shade enum {\n\tdark = \"dark\"\n\tlight = \"light\"\n}\n")
+				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
+					ToNot(Equal(before))
+			},
+		)
+
+		It("Should keep the schema sum when a live dependency changes",
+			func(ctx SpecContext) {
+				doc := `
+import "schemas/x/paint"
+
+Doc struct {
+	key uuid @key
+	tint paint.Paint {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`
+				write("schemas/synnax/versions/doc/v0.oracle", doc)
+				write("schemas/synnax/doc.oracle", `
+import "schemas/x/paint"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint paint.Paint {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+				write("schemas/x/paint.oracle",
+					"@go output \"x/go/paint\"\n\nPaint struct {\n\tr uint8\n}\n")
+				before := compute(ctx, v0File, v1File).Sums[0].Schema
+				write("schemas/x/paint.oracle", "@go output \"x/go/paint\"\n\n"+
+					"Paint struct {\n\tr uint8\n\tg uint8\n}\n")
+				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).To(Equal(before))
+			},
+		)
+
 		It("Should change the schema sum when declarations reorder",
 			func(ctx SpecContext) {
 				note := "Note struct {\n\ttext string\n}\n"
