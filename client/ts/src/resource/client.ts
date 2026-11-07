@@ -56,8 +56,6 @@ const normalize = ({ searchTerm, types, limit, offset }: SearchParams): Search =
   ...(offset != null && offset !== 0 && { offset }),
 });
 
-const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
-
 const retrieveReqZ = z.object({ ids: idZ.array() });
 const resZ = z.object({ resources: resourceZ.array().default(() => []) });
 
@@ -105,6 +103,7 @@ export class Client {
         .entries(channels)
         .flatMap(([type, ch]) => (ch == null ? [] : this.listeners(type, ch))),
     });
+    // The Core hides records that a Resource cannot show, so it answers every search.
     this.searches = cache.queries<Search, Resource[], string, Resource>({
       name: "resources",
       table: this.table,
@@ -115,8 +114,6 @@ export class Client {
         return resources.map((r) => r.key);
       },
       compose: (records) => records,
-      matches: (r, q) => q.types == null || q.types.includes(r.id.type),
-      serverFields: SERVER_FIELDS,
     });
     this.byKey = cache.queries<string, Resource, string, Resource>({
       name: "Resource",

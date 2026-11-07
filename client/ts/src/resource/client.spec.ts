@@ -9,6 +9,7 @@
 
 import { describe, expect, it, onTestFinished } from "vitest";
 
+import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { group } from "@/group";
 import { label } from "@/label";
@@ -135,6 +136,15 @@ describe("Resource", () => {
         )
         .toEqual(count);
     };
+
+    it("should leave a retrieved internal channel out of a subscribed list", async () => {
+      const read = await subscribe({ searchTerm: "", types: ["channel"], limit: 1000 });
+      expect(read()?.length).toBeLessThan(1000);
+      const internal = await client.channels.retrieve(channel.SET_CHANNEL_NAME);
+      const id = channel.resourceID(internal.key);
+      await client.resources.retrieve(id);
+      expect(read()?.map((r) => r.id)).not.toContainEqual(id);
+    });
 
     it("should rename a resource in a subscribed search", async () => {
       const token = randomToken();
