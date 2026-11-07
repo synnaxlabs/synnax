@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	arclegacy "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -29,8 +31,7 @@ import (
 )
 
 // testType is the task type the suite registers its store under. The record type
-// is the Arc task config, picked because it exercises both the ApplyDefaults and
-// Validate hooks.
+// is the Arc task config, picked because it has both schema defaults and validation.
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
@@ -39,12 +40,11 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+				DB:            db,
+				Type:          testType,
+				Ladder:        arcversions.ConfigLadder,
+				SetEntryKey:   (*arctask.Config).SetKey,
+				ValidateEntry: (*arctask.Config).Validate,
 			},
 		))
 	})
@@ -126,6 +126,15 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["performance"]).To(Equal("auto"))
+		})
+
+		It("Should keep an explicit empty field instead of defaulting it", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "",
+			})).Error().To(MatchError(ContainSubstring("invalid performance")))
 		})
 
 		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
@@ -437,6 +446,85 @@ var _ = Describe("Service", func() {
 				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			))
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
+		})
+
+		DescribeTable("Should default only the members a lifted config omits",
+			func(ctx SpecContext, in msgpack.EncodedJSON, performance string) {
+				// The lift builds the entry in Go, as a ladder migration step does.
+				lifted := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          db,
+						Type:        "lifted_test",
+						SetEntryKey: (*arctask.Config).SetKey,
+						Ladder: imex.Ladder[arctask.Config]{
+							First:  1,
+							Latest: 2,
+							Decode: func(
+								_ context.Context,
+								_ imex.Version,
+								data msgpack.EncodedJSON,
+							) (arctask.Config, error) {
+								p, _ := data["performance"].(string)
+								return arctask.Config{
+									ArcKey: uuid.MustParse(
+										data["arc_key"].(string),
+									),
+									Performance: arctask.Performance(p),
+								}, nil
+							},
+						},
+					},
+				))
+				out := MustSucceed(lifted.Normalize(ctx, 1, in))
+				Expect(out).To(HaveKeyWithValue("performance", performance))
+			},
+			Entry(
+				"an omitted member takes its default",
+				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				"auto",
+			),
+			Entry(
+				"an explicit zero stays",
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+				"",
+			),
+		)
+
+		It(
+			"Should give a legacy Arc config without an execution mode the default",
+			func(
+				ctx SpecContext,
+			) {
+				arcLegacy := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:            db,
+						Type:          "arc_legacy_test",
+						Ladder:        arcversions.ConfigLadder,
+						LegacyVersion: arclegacy.LastVersion,
+						Legacy:        &arclegacy.Config,
+						SetEntryKey:   (*arctask.Config).SetKey,
+					},
+				))
+				out := MustSucceed(arcLegacy.Normalize(ctx, 0, msgpack.EncodedJSON{
+					"arc_key":        uuid.New().String(),
+					"execution_mode": "",
+				}))
+				Expect(out).To(HaveKeyWithValue("performance", "auto"))
+			},
+		)
+
+		It("Should keep an explicit zero in a latest-version config", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(
+				svc.Normalize(ctx, arcversions.Latest, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "",
+				}),
+			)
+			Expect(out).To(HaveKeyWithValue("performance", ""))
 		})
 
 		It("Should run the legacy rewrite on a version below the ladder's first", func(

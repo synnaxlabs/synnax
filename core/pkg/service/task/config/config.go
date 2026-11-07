@@ -96,9 +96,6 @@ type ServiceConfig[E any] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
-	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// tx, before the entry is validated and stored.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
@@ -120,7 +117,6 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -211,9 +207,6 @@ func (s *Service[E]) write(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
-	}
 	s.cfg.SetEntryKey(&e, key)
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(
@@ -301,10 +294,82 @@ func (s *Service[E]) Normalize(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
+	if version == ladder.Latest {
+		return encode(e)
 	}
-	return encode(e)
+	return withInputDefaults(e, data)
+}
+
+// withInputDefaults returns the encoding of e, an entry that a ladder lifted from the
+// input blob in, with the schema default in every member that in omits. A lift builds
+// a member its source version lacks as a zero, while a member that in carries keeps
+// the value the lift gave it, zero or not.
+func withInputDefaults[E any](
+	e E,
+	in msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error) {
+	out, err := encode(e)
+	if err != nil {
+		return nil, err
+	}
+	dropOmittedZeros(out, in)
+	b, err := json.Marshal(out)
+	if err != nil {
+		return nil, err
+	}
+	var filled E
+	if err = json.Unmarshal(b, &filled); err != nil {
+		return nil, err
+	}
+	return encode(filled)
+}
+
+// dropOmittedZeros deletes from out every member, at any object depth, that in omits
+// and that holds a zero JSON value, so a decode of out gives it its default.
+func dropOmittedZeros(out, in map[string]any) {
+	for key, value := range out {
+		given, ok := in[key]
+		if obj, isObj := value.(map[string]any); isObj {
+			inObj, _ := given.(map[string]any)
+			dropOmittedZeros(obj, inObj)
+			if !ok && len(obj) == 0 {
+				delete(out, key)
+			}
+			continue
+		}
+		if arr, isArr := value.([]any); isArr && ok {
+			if inArr, sameLen := given.([]any); sameLen && len(inArr) == len(arr) {
+				for i := range arr {
+					obj, isObj := arr[i].(map[string]any)
+					inObj, inIsObj := inArr[i].(map[string]any)
+					if isObj && inIsObj {
+						dropOmittedZeros(obj, inObj)
+					}
+				}
+			}
+			continue
+		}
+		if !ok && isZeroJSON(value) {
+			delete(out, key)
+		}
+	}
+}
+
+// isZeroJSON reports whether v is the JSON encoding of a zero Go value.
+func isZeroJSON(v any) bool {
+	switch v := v.(type) {
+	case nil:
+		return true
+	case bool:
+		return !v
+	case float64:
+		return v == 0
+	case string:
+		return v == ""
+	case []any:
+		return len(v) == 0
+	}
+	return false
 }
 
 // Version implements Store.

@@ -707,7 +707,7 @@ describe("Task", async () => {
       expect(
         await client.tasks.dispatch(
           t.key,
-          task.set({ path: ["config", "performance"], value: "" }),
+          task.remove({ path: ["config"], key: "performance" }),
         ),
       ).toBe(true);
       await client.tasks.settled(t.key);

@@ -82,15 +82,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.NewReadMigration(slaves)},
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			Migrations:      []gorp.Migration{v2.NewReadMigration(slaves)},
+			SetEntryKey:     (*ReadConfig).SetKey,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
 				return v2.ResolveReadConfig(ctx, tx, slaves, c)
 			},
@@ -100,15 +99,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations:      []gorp.Migration{v2.NewWriteMigration(slaves)},
+			SetEntryKey:     (*WriteConfig).SetKey,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
 				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
 			},
@@ -118,14 +116,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

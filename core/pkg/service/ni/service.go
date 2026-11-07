@@ -79,88 +79,82 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogReadConfigLadder,
-			Legacy:             &legacy.AnalogRead,
-			SetEntryKey:        (*AnalogReadConfig).SetKey,
-			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogReadConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogReadConfigLadder,
+			Legacy:          &legacy.AnalogRead,
+			SetEntryKey:     (*AnalogReadConfig).SetKey,
+			ValidateEntry:   (*AnalogReadConfig).Validate,
 		},
 	); !ok(err, s.AnalogRead) {
 		return nil, err
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogWriteConfigLadder,
-			Legacy:             &legacy.AnalogWrite,
-			SetEntryKey:        (*AnalogWriteConfig).SetKey,
-			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogWriteConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogWriteConfigLadder,
+			Legacy:          &legacy.AnalogWrite,
+			SetEntryKey:     (*AnalogWriteConfig).SetKey,
+			ValidateEntry:   (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
 		return nil, err
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_counter_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.CounterReadConfigLadder,
-			Legacy:             &legacy.CounterRead,
-			SetEntryKey:        (*CounterReadConfig).SetKey,
-			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
-			ValidateEntry:      (*CounterReadConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_counter_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.CounterReadConfigLadder,
+			Legacy:          &legacy.CounterRead,
+			SetEntryKey:     (*CounterReadConfig).SetKey,
+			ValidateEntry:   (*CounterReadConfig).Validate,
 		},
 	); !ok(err, s.CounterRead) {
 		return nil, err
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalReadConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalReadConfig).SetKey,
-			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalReadConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalReadConfig).SetKey,
 		},
 	); !ok(err, s.DigitalRead) {
 		return nil, err
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalWriteConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalWriteConfig).SetKey,
-			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalWriteConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalWriteConfig).SetKey,
 		},
 	); !ok(err, s.DigitalWrite) {
 		return nil, err
 	}
 	if s.Scanner, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_scanner",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scanner,
-			Migrations:         []gorp.Migration{v3.ScanMigration},
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_scanner",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scanner,
+			Migrations:      []gorp.Migration{v3.ScanMigration},
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scanner) {
 		return nil, err

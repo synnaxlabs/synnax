@@ -73,46 +73,43 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "modbus_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.ReadMigration},
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "modbus_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			Migrations:      []gorp.Migration{v2.ReadMigration},
+			SetEntryKey:     (*ReadConfig).SetKey,
+			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "modbus_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.WriteMigration},
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "modbus_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations:      []gorp.Migration{v2.WriteMigration},
+			SetEntryKey:     (*WriteConfig).SetKey,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "modbus_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "modbus_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

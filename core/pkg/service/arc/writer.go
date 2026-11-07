@@ -274,6 +274,8 @@ func (w Writer) UpdateTask(
 			validate.ErrValidation,
 			"cannot set the performance of an arc with no rack",
 		)
+	} else {
+		cfg.SetDefaults()
 	}
 	if update.Rack != nil {
 		tsk.Rack = *update.Rack

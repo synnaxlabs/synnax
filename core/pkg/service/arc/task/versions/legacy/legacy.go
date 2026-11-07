@@ -31,5 +31,8 @@ var Config = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 		return
 	}
 	delete(config, "execution_mode")
-	config["performance"] = string(v4.PerformanceOf(v3.ExecutionMode(mode)))
+	// An empty mode was never chosen, so the performance takes its default.
+	if mode != "" {
+		config["performance"] = string(v4.PerformanceOf(v3.ExecutionMode(mode)))
+	}
 }}
