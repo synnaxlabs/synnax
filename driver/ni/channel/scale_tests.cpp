@@ -25,9 +25,8 @@ parse_test_scale(x::json::Parser &p) {
 TEST(Scale, None) {
     const x::json::json j = {{"scale", {{"type", "none"}}}};
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_TRUE(scale->is_none());
 }
@@ -42,9 +41,8 @@ TEST(Scale, Linear) {
           {"scaled_units", "Pascals"}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
@@ -68,9 +66,8 @@ TEST(Scale, Map) {
           {"scaled_units", "Pascals"}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     EXPECT_FALSE(scale->is_none());
 
     auto *map_scale = dynamic_cast<channel::MapScale *>(scale.get());
@@ -93,9 +90,8 @@ TEST(Scale, Polynomial) {
           {"scaled_units", "Pascals"}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
@@ -121,8 +117,7 @@ TEST(Scale, PolynomialMissingReverseCoeffs) {
           {"scaled_units", "Pascals"}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
-    ASSERT_OCCURRED_AS(scale_err, x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(parse_test_scale(p), x::errors::VALIDATION);
 }
 
 TEST(Scale, Table) {
@@ -135,9 +130,8 @@ TEST(Scale, Table) {
           {"scaled_units", "Pascals"}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
@@ -168,9 +162,8 @@ TEST(Scale, DefaultUnits) {
         {"scale", {{"type", "linear"}, {"slope", 2.0}, {"y_intercept", 1.0}}}
     };
     x::json::Parser p(j);
-    auto [scale, scale_err] = parse_test_scale(p);
+    const auto scale = ASSERT_NIL_P(parse_test_scale(p));
     ASSERT_NIL(p.error());
-    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 

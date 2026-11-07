@@ -52,6 +52,15 @@ const followTabs = <D extends record.Keyed<string>>(
     const keys = keysOf(pan);
     return keys.length === 0 ? [] : await records.retrieve(query.keysRequest(keys));
   };
+  const handlers = new Set<query.ChangeHandler<D[]>>();
+  let latest = 0;
+  // The tree drops what retrieve returns, so each list reaches the subscribers.
+  const publish = async (pan: panel.Panel): Promise<D[]> => {
+    const call = ++latest;
+    const listed = await list(pan);
+    if (call === latest) handlers.forEach((h) => h(listed));
+    return listed;
+  };
   function onChange(
     key: string,
     handler: query.ChangeHandler<D>,
@@ -66,18 +75,13 @@ const followTabs = <D extends record.Keyed<string>>(
   ): destructor.Destructor {
     if (typeof target === "string")
       return records.onChange(target, handler as query.ChangeHandler<D>);
-    let latest = 0;
+    const listHandler = handler as query.ChangeHandler<D[]>;
+    handlers.add(listHandler);
     const release = client.panels.onChange(target.panel, (pan) => {
-      if (!query.isLive(pan)) return;
-      const call = ++latest;
-      list(pan)
-        .then((listed) => {
-          if (call === latest) (handler as query.ChangeHandler<D[]>)(listed);
-        })
-        .catch(console.error);
+      if (query.isLive(pan)) publish(pan).catch(console.error);
     });
     return () => {
-      latest++;
+      handlers.delete(listHandler);
       release();
     };
   }
@@ -98,7 +102,8 @@ const followTabs = <D extends record.Keyed<string>>(
     return listed;
   }
   return {
-    retrieve: async ({ panel: key }) => await list(await client.panels.retrieve(key)),
+    retrieve: async ({ panel: key }) =>
+      await publish(await client.panels.retrieve(key)),
     onChange,
     getCached,
   };

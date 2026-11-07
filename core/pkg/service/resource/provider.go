@@ -140,16 +140,20 @@ func (p *TableProvider[K, E]) Retrieve(
 	ids []ID,
 ) ([]Resource, error) {
 	keys, err := lo.MapErr(ids, func(id ID, _ int) (K, error) {
+		var zero K
 		k, err := p.cfg.Key(id)
-		if err == nil && p.cfg.ID(k) != id {
-			return k, errors.Wrapf(
+		if err != nil {
+			return zero, err
+		}
+		if p.cfg.ID(k) != id {
+			return zero, errors.Wrapf(
 				validate.ErrValidation,
 				"invalid %s key %q",
 				id.Type,
 				id.Key,
 			)
 		}
-		return k, err
+		return k, nil
 	})
 	if err != nil {
 		return nil, err

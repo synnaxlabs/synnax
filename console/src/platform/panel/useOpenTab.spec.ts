@@ -34,7 +34,6 @@ import {
 
 const client = createTestClient();
 
-// The Core refuses a panel tab whose resource it does not hold.
 const createRangeID = async () => {
   const start = TimeStamp.now();
   const { key } = await client.ranges.create({

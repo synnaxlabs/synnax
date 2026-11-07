@@ -30,7 +30,9 @@ import (
 
 // Config is the configuration for [Open].
 type Config struct {
-	DB   *gorp.DB
+	// DB holds the roles, policies, users, and racks.
+	DB *gorp.DB
+	// User is the user service that holds the roles of each user.
 	User *user.Service
 	// Status is the status service that racks write to.
 	Status *status.Service
@@ -38,6 +40,7 @@ type Config struct {
 
 // Services holds the services that [Open] opens.
 type Services struct {
+	// RBAC enforces access by the roles of users and racks.
 	RBAC *rbac.Service
 	// Rack holds the roles of racks.
 	Rack   *rack.Service

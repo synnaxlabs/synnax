@@ -327,7 +327,8 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the schematics with the given keys out of their group and into a
-// project. It requires update access on the schematics, their owners, and the project.
+// project. It requires update access on the schematics, their groups, their owners, and
+// the project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -343,12 +344,17 @@ func (s *Service) SetProject(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: project.MoveObjects(
-			schematic.ResourceIDs(req.Keys),
-			lo.Map(stored, func(e schematic.Schematic, _ int) *resource.ID {
-				return project.OwnerID(e.Project, e.Range)
+		Objects: group.MoveObjects(
+			project.MoveObjects(
+				schematic.ResourceIDs(req.Keys),
+				lo.Map(stored, func(e schematic.Schematic, _ int) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				}),
+				new(project.ResourceID(req.Project)),
+			),
+			lo.Map(stored, func(e schematic.Schematic, _ int) *group.Key {
+				return e.Group
 			}),
-			new(project.ResourceID(req.Project)),
 		),
 	}); err != nil {
 		return struct{}{}, err

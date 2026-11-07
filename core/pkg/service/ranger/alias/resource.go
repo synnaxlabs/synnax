@@ -18,8 +18,10 @@ func (s *Service) Resources() *resource.TableProvider[string, Alias] {
 		Search: s.search,
 		ID:     resourceID,
 		Key: func(id resource.ID) (string, error) {
-			_, _, err := parseGorpKey(id.Key)
-			return id.Key, err
+			if _, _, err := parseGorpKey(id.Key); err != nil {
+				return "", err
+			}
+			return id.Key, nil
 		},
 		Name: func(a *Alias) string { return a.Alias },
 	})

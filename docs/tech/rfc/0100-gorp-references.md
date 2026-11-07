@@ -114,9 +114,8 @@ Oracle also walks the arrays, optional structs, and unions of a `@retrieve` type
 puts each nested `@ref` in the same `indexes` struct, with no filter. A type that a
 generic table stores (a task config) uses `@retrieve references`, which generates only
 an unexported `<type>References()` function. The same zero and detach rules hold at
-every depth. Line plot channels and panel tabs keep hand-written references, because
-their detach rebuilds the record. `channel.index` does too, because an index channel
-holds no target.
+every depth. Line plot channels keep a hand-written reference, because their detach
+rebuilds the record. `channel.index` does too, because an index channel holds no target.
 
 ### 4.1 Gorp
 
@@ -205,14 +204,15 @@ within one node (§8).
 | task config channel and device | restrict         | nothing                   |
 | `channel.index channel.Key`    | restrict         | Cesium check              |
 | line plot and log channels     | detach           | nothing                   |
-| `panel` tabs                   | detach           | `parent` edge             |
+| `panel` tabs                   | none             | `parent` edge             |
 | PagerDuty `status` key         | detach           | nothing                   |
 
 `<labeled>` is a range or a status, and `<subject>` is a user or a rack. `<vis>` is each
 visualization: schematic, line plot, log, table, and panel. A visualization holds
 exactly one of `project` and `range`, and one shared validator checks it. Alias and
 key-value pairs keep their composite keys, which Oracle derives from the `@key` fields.
-A task config refuses the delete of a channel or device it reads or writes, so a running
+A panel tab holds no reference, so the tab of a deleted resource stays in its panel. A
+task config refuses the delete of a channel or device it reads or writes, so a running
 task never loses one. The `arc_key` reference sits on the config record, where a cascade
 would delete only the config, so the Arc writer deletes the tasks of an Arc first. A
 detach from a line plot also clears the lines of that channel.
@@ -313,9 +313,8 @@ a Core that ran it cannot go back to a release that reads the ontology.
 
 Phase 1 is a mechanical rename, and Phase 2 adds the engine with no Core table on it.
 The ontology serves each domain that has not moved, and Phase 10 deletes it. Phase 9
-adds references inside a record (line plot and log channels, task config keys, panel
-tabs, the PagerDuty `status` key) and `channel.index`. Each phase stacks on the one
-before it.
+adds references inside a record (line plot and log channels, task config keys, the
+PagerDuty `status` key) and `channel.index`. Each phase stacks on the one before it.
 
 | Phase | Scope                                                     | Touches                                                                                                                                                                                                  | Depends on |
 | ----- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |

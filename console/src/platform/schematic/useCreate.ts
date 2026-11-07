@@ -34,7 +34,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Schematic.create({ key, editable: true }));
     },
-    // The Core refuses a panel tab for a schematic it does not hold yet.
+    // A refused create must not leave a tab for a schematic that does not exist.
     afterSuccess: ({ data: { key } }) => {
       openTab({
         variant: "resource",

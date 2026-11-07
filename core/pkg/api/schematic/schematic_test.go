@@ -187,6 +187,31 @@ var _ = Describe("Service", func() {
 				Entry(&res).Exec(ctx, nil)).To(Succeed())
 			Expect(res.Project).To(HaveValue(Equal(dest.Key)))
 		})
+
+		It(
+			"Should refuse a move out of a group the subject cannot update",
+			func(ctx SpecContext) {
+				s := createSchematic(ctx, "grouped")
+				g := createGroup(ctx, "grouped")
+				Expect(schematicSvc.NewWriter(nil).SetGroup(ctx, &g.Key, s.Key)).
+					To(Succeed())
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					s.ResourceID(),
+					project.ResourceID(proj.Key),
+				)
+				Expect(apiSvc.SetProject(
+					AuthedCtx(ctx, author),
+					nil,
+					apischematic.SetProjectRequest{
+						Project: proj.Key,
+						Keys:    []schematic.Key{s.Key},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveSchematic(ctx, s.Key).Group).To(Equal(&g.Key))
+			},
+		)
 	})
 
 	Describe("Dispatch", func() {

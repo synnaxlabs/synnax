@@ -288,6 +288,28 @@ var _ = Describe("Service", func() {
 			)).Error().To(Succeed())
 			Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&dest.Key))
 		})
+
+		It(
+			"Should refuse a move out of a group the subject cannot update",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				p := createPanel(ctx, "grouped")
+				g := createGroup(ctx, "grouped")
+				Expect(panelSvc.NewWriter(nil).SetGroup(ctx, &g.Key, p.Key)).
+					To(Succeed())
+				grant(ctx, u.ResourceID(), access.ActionUpdate,
+					p.ResourceID(), proj.ResourceID())
+				Expect(apiSvc.SetProject(
+					AuthedCtx(ctx, u),
+					nil,
+					apipanel.SetProjectRequest{
+						Project: proj.Key,
+						Keys:    []panel.Key{p.Key},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
+			},
+		)
 	})
 
 	Describe("Dispatch", func() {

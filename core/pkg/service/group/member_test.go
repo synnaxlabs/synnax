@@ -303,6 +303,60 @@ var _ = Describe("Member", func() {
 		})
 	})
 
+	Describe("SetParentObjects", func() {
+		underRack := func(ctx context.Context, key string) group.Group {
+			GinkgoHelper()
+			return create(ctx, resource.TypeDevice, new(rackID(key)))
+		}
+
+		It(
+			"Should add nothing for a move under the same top parent",
+			func(ctx SpecContext) {
+				a, b := underRack(ctx, "r1"), underRack(ctx, "r1")
+				dest := underRack(ctx, "r1")
+				Expect(group.SetParentObjects(
+					ctx, db, []group.Group{a, b}, new(dest.ResourceID()),
+				)).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should add the top parent a group leaves and the one it joins",
+			func(ctx SpecContext) {
+				g := underRack(ctx, "r1")
+				Expect(group.SetParentObjects(
+					ctx, db, []group.Group{g}, new(rackID("r2")),
+				)).To(Equal([]resource.ID{rackID("r1"), rackID("r2")}))
+			},
+		)
+
+		It("Should add each top parent once", func(ctx SpecContext) {
+			a, b := underRack(ctx, "r1"), underRack(ctx, "r1")
+			Expect(group.SetParentObjects(
+				ctx, db, []group.Group{a, b}, new(rackID("r2")),
+			)).To(Equal([]resource.ID{rackID("r1"), rackID("r2")}))
+		})
+
+		It(
+			"Should add only the joined top parent of a group with no parent",
+			func(ctx SpecContext) {
+				g := create(ctx, resource.TypeDevice, nil)
+				Expect(group.SetParentObjects(
+					ctx, db, []group.Group{g}, new(rackID("r1")),
+				)).To(Equal([]resource.ID{rackID("r1")}))
+			},
+		)
+
+		It("Should fail on a parent group that does not exist", func(ctx SpecContext) {
+			k := uuid.New()
+			Expect(group.SetParentObjects(
+				ctx, db, []group.Group{underRack(ctx, "r1")}, new(group.ResourceID(k)),
+			)).Error().To(MatchError(
+				"parent: group " + k.String() + " does not exist: validation error",
+			))
+		})
+	})
+
 	Describe("MoveObjects", func() {
 		It(
 			"Should add each distinct source group and the destination",

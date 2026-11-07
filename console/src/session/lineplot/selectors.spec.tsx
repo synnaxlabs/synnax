@@ -144,7 +144,6 @@ describe("lineplot selector stability under dispatch", () => {
 describe("focused line plot", () => {
   const client = createTestClient();
 
-  // The Core refuses a panel tab whose resource it does not hold.
   const createPlotID = async () =>
     lineplot.resourceID(
       (
