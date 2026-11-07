@@ -13,9 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax.access import role
 from synnax.exceptions import ValidationError
 from synnax.user.payload import New, User
-from synnax.user.types_gen import RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Key, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -49,9 +50,9 @@ class _ChangeNameRequest(BaseModel):
 
 
 class _SetRolesRequest(BaseModel):
-    keys: list[UUID]
-    add: list[UUID]
-    remove: list[UUID]
+    keys: list[Key]
+    add: list[role.Key]
+    remove: list[role.Key]
 
 
 class Client:
@@ -68,7 +69,7 @@ class Client:
         password: str,
         name: str = "",
         key: UUID | None = None,
-        roles: list[UUID] | None = None,
+        roles: list[role.Key] | None = None,
     ) -> User: ...
 
     @overload
@@ -85,7 +86,7 @@ class Client:
         password: str | None = None,
         name: str = "",
         key: UUID | None = None,
-        roles: list[UUID] | None = None,
+        roles: list[role.Key] | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
@@ -123,10 +124,10 @@ class Client:
 
     def set_roles(
         self,
-        keys: UUID | list[UUID],
+        keys: Key | list[Key],
         *,
-        add: list[UUID] | None = None,
-        remove: list[UUID] | None = None,
+        add: list[role.Key] | None = None,
+        remove: list[role.Key] | None = None,
     ) -> None:
         """Removes roles from the users with the given keys, then adds roles to them.
         The Core applies both in one transaction, and a role in both lists is held
@@ -149,7 +150,7 @@ class Client:
         *,
         key: UUID,
         usernames: str | list[str] = ...,
-        roles: UUID | list[UUID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -165,7 +166,7 @@ class Client:
         key: filter.SetInput[UUID] = ...,
         username: str,
         usernames: str | list[str] = ...,
-        roles: UUID | list[UUID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -180,7 +181,7 @@ class Client:
         *,
         key: filter.SetInput[UUID] = ...,
         usernames: str | list[str] = ...,
-        roles: UUID | list[UUID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -196,7 +197,7 @@ class Client:
         *,
         key: list[UUID] | filter.SetDict[UUID] | filter.Set[UUID] = ...,
         usernames: str | list[str] = ...,
-        roles: UUID | list[UUID] = ...,
+        roles: role.Key | list[role.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,

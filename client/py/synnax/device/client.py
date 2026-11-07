@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel, JsonValue
 from pydantic_core import to_jsonable_python
@@ -48,7 +47,7 @@ class _DeleteRequest(BaseModel):
 
 class _SetGroupRequest(BaseModel):
     keys: list[Key]
-    group: UUID | None = None
+    group: group_.Key | None = None
 
 
 class Client:

@@ -8,13 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import group
+from synnax import group as group_
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
@@ -45,7 +44,7 @@ class _RetrieveResponse(BaseModel):
 
 class _SetGroupRequest(BaseModel):
     keys: list[Key]
-    group: UUID | None = None
+    group: group_.Key | None = None
 
 
 class Client:
@@ -64,7 +63,7 @@ class Client:
 
     @overload
     def create(
-        self, *, key: int = 0, name: str = "", group: group.Key | None = None
+        self, *, key: int = 0, name: str = "", group: group_.Key | None = None
     ) -> Rack: ...
 
     @overload
@@ -79,7 +78,7 @@ class Client:
         *,
         key: int = 0,
         name: str = "",
-        group: group.Key | None = None,
+        group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
@@ -109,7 +108,7 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
-    def set_group(self, keys: Key | list[Key], group: group.Key | None = None) -> None:
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
         """Moves racks into a group, or out of their group when group is None.
 
         :param keys: The key of the rack to move, or a list of keys.
@@ -130,7 +129,7 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
-        groups: group.Key | list[group.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -150,7 +149,7 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
-        groups: group.Key | list[group.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -170,7 +169,7 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
-        groups: group.Key | list[group.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -193,7 +192,7 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
-        groups: group.Key | list[group.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
