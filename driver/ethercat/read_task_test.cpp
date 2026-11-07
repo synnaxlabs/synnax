@@ -191,9 +191,9 @@ protected:
         cfg["channels"].push_back(ch);
         auto parser = x::json::Parser(cfg);
         ReadTaskConfig task_cfg(client, parser);
-        EXPECT_FALSE(parser.error()) << parser.error().message();
+        EXPECT_NIL(parser.error());
         auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
-        EXPECT_FALSE(source->start());
+        EXPECT_NIL(source->start());
         return source;
     }
 
