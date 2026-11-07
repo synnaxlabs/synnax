@@ -142,13 +142,19 @@ export const parseTimeStamp = (text: string, anchors: Anchors): ParseResult => {
 };
 
 /**
- * Rounds a form value (nanoseconds as a float64) to the microsecond: a float holds
- * about 0.25 us at today's epoch, so finer digits are noise.
+ * Rounds a form value (nanoseconds as a float64) to the nearest step. The step
+ * defaults to the microsecond: a float holds about 0.25 us at today's epoch, so finer
+ * digits of an instant are noise.
  */
-export const roundNumeric = (value: number): bigint => {
+export const roundNumeric = (
+  value: number,
+  step: TimeSpan = TimeSpan.MICROSECOND,
+): bigint => {
   const ns = BigInt(Math.trunc(value));
+  const size = step.valueOf();
+  const half = size / 2n;
   // bigint division truncates toward zero, so the half step takes the value's sign.
-  return ((ns + (ns < 0n ? -500n : 500n)) / 1000n) * 1000n;
+  return ((ns + (ns < 0n ? -half : half)) / size) * size;
 };
 
 /** Converts a form value to an instant, rounded by {@link roundNumeric}. */

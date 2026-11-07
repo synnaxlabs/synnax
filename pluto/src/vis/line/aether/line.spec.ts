@@ -561,6 +561,62 @@ describe("line", () => {
       });
     });
 
+    describe("view", () => {
+      const N = 100_000;
+      const RANGE = { start: 0, end: 100 };
+      const ramp = () =>
+        series(
+          Array.from({ length: N }, (_, i) => i),
+          0n,
+          RANGE,
+        );
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      const mountSorted = (sorted: boolean) => {
+        const m = mount([ramp()], [ramp()]);
+        m.xSource.sorted = sorted;
+        return m;
+      };
+      // The sample each draw's x attribute starts at.
+      const firstSamples = (m: ReturnType<typeof mount>): number[] =>
+        m.calls
+          .filter((c) => c.op === "vertexAttribPointer" && c.args[1] === 1)
+          .filter((_, i) => i % 2 === 0)
+          .map((c) => Number(c.args[5]) / 4);
+
+      it("should draw only the samples in view of an ascending x", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, 1024]]);
+        expect(firstSamples(m)).toEqual([49_152]);
+      });
+
+      it("should draw more samples as the view widens", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(50_000, 50_700));
+        expect(m.strips().at(-1)).toEqual([0, 2048]);
+      });
+
+      it("should move the samples it draws as the view pans", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(60_000, 60_100));
+        expect(m.strips().at(-1)).toEqual([0, 1024]);
+        expect(firstSamples(m).at(-1)).toBe(59_392);
+      });
+
+      it("should draw every sample of an x not known to ascend", () => {
+        const m = mountSorted(false);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, N]]);
+      });
+    });
+
     describe("findByXValue", () => {
       const X = series(
         Array.from({ length: 30 }, (_, i) => i),

@@ -11,4 +11,5 @@
 
 package start
 
-func disablePermissionBits() {}
+// DisablePermissionBits does nothing on Windows.
+func DisablePermissionBits() {}

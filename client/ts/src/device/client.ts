@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  filter,
+  primitive,
+  type record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -56,12 +63,9 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
 
@@ -91,11 +95,7 @@ const singleRetrieveParamsZ = z
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([
-  singleRetrieveParamsZ,
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -263,9 +263,9 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const request = query.dropOne(rest);
+      const request = retrieveParamsZ.parse(query.dropOne(rest));
       const devices = await this.fetchThrough(request, schemas);
-      checkForMultipleOrNoResults("Device", request, devices, isSingle);
+      checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -429,11 +429,21 @@ export class Client extends query.Retriever<
     // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
       const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Device", q, devices, true);
+      checkForMultipleOrNoResults(
+        "device",
+        { where: { key: { eq: q.key } } },
+        devices,
+        true,
+      );
       return devices[0];
     }
     const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Device", q, devices, true);
+    checkForMultipleOrNoResults(
+      "device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
     return devices[0];
   }
 }

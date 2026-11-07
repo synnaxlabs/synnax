@@ -51,7 +51,7 @@ jobs:
     steps:
       # Only `@sedosaur review` reviews a head again after a review of it succeeded.
       # No retry through gh_api.sh: a dispatch that fails with a 5xx can still start a
-      # run, and each review is billed. A member can ask again with a comment.
+      # run, and a repeat review is billed. A member can ask again with a comment.
       - name: Start Review - Sedosaur
         env:
           REPEAT: ${{ contains(github.event.comment.body, '@sedosaur review') }}
