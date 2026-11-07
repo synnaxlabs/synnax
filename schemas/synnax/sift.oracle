@@ -16,6 +16,7 @@ import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/sift"
+@ts output "client/ts/src/sift"
 
 Properties struct {
     uri     string = "" {
@@ -116,6 +117,7 @@ UploadDetails struct {
     }
     samples    int64 = 0 {
         @doc value "is the number of values Sift has confirmed."
+        @ts type   "number"
     }
 
     @doc value "is the state of an upload to Sift, held in the details of its status."
