@@ -203,8 +203,8 @@ Each phase is one PR into `main`. Phases 2 to 4 stack on PR #4410 until it merge
 Phase 5 uses the Console secret field from the same work. Nothing here has shipped, so
 no format owes a migration.
 
-The phases landed as smaller stacked PRs. The Console work sits on PR #4505, which made
-secrets grant-only.
+The phases landed as one linear stack of smaller PRs on PR #4505, the top of the secret
+stack, which made secrets grant-only.
 
 - **Phase 1**: #4836.
 - **Phase 2**: #4837.
