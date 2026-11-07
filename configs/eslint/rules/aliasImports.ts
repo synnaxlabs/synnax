@@ -18,17 +18,9 @@ const RELATIVE = /^\.\.?\//;
 // the alias.
 const TS_EXTENSION = /\.tsx?$/;
 
-const aliased = new Map<string, boolean>();
-
 const hasAlias = (src: string): boolean => {
-  let has = aliased.get(src);
-  if (has == null) {
-    const tsconfig = path.join(path.dirname(src), "tsconfig.json");
-    has =
-      fs.existsSync(tsconfig) && fs.readFileSync(tsconfig, "utf8").includes('"@/*"');
-    aliased.set(src, has);
-  }
-  return has;
+  const tsconfig = path.join(path.dirname(src), "tsconfig.json");
+  return fs.existsSync(tsconfig) && fs.readFileSync(tsconfig, "utf8").includes('"@/*"');
 };
 
 export const aliasImports: Rule.RuleModule = {
