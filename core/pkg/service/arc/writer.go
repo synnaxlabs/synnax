@@ -96,7 +96,6 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 		exists = err == nil
 	}
-	b.ApplyDefaults()
 	if src, ok := b.Source.Variant.(TextSource); ok &&
 		len(src.Text.Doc.Inserts) == 0 && src.Text.Raw != "" {
 		src.Text.Doc = text.Create(src.Text.Raw)

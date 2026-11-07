@@ -606,12 +606,7 @@ func defaultConfig(stored msgpack.EncodedJSON) (ElementConfig, error) {
 	if _, ok := stored["control"].(map[string]any); ok {
 		probe["control"] = map[string]any{}
 	}
-	cfg, err := DecodeElementConfig(probe)
-	if err != nil {
-		return ElementConfig{}, err
-	}
-	cfg.ApplyDefaults()
-	return cfg, nil
+	return DecodeElementConfig(probe)
 }
 
 // mergeFields writes every field of src into dst, merging nested objects by field.

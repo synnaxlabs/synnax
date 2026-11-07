@@ -179,6 +179,23 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
 	})
 
+	It("Should keep an explicit zero and default an omitted field", func(
+		ctx SpecContext,
+	) {
+		sch := decode(ctx, "testdata/import_v10_zeros.json")
+		gauge := func(node string) versions.GaugeElementConfig {
+			GinkgoHelper()
+			cfg, ok := sch.Configs[node].Variant.(versions.GaugeElementConfig)
+			Expect(ok).To(BeTrue())
+			return cfg
+		}
+		Expect(gauge("g1").Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		Expect(gauge("g2").Bounds).To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
+		valve := valveConfig(sch, "v1")
+		Expect(valve.Scale).To(BeZero())
+		Expect(valve.StalenessTimeout).To(Equal(5.0))
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))
 	})

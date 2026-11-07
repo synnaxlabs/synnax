@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,22 +65,25 @@ var _ = Describe("Writer", func() {
 			}, "invalid orientation"),
 		)
 
-		It("Should apply schema defaults for omitted fields", func(ctx SpecContext) {
-			sym := symbol.Symbol{
-				Name: "defaults",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
-			// Defaults are stamped on the caller's struct.
-			Expect(sym.Data.Scale).To(Equal(1.0))
-
-			var res symbol.Symbol
-			Expect(svc.NewRetrieve().
-				Where(symbol.MatchKeys(sym.Key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Data.Scale).To(Equal(1.0))
-		})
+		DescribeTable("Should keep the scale that a decoded symbol carries",
+			func(ctx SpecContext, scale string, expected float64) {
+				var sym symbol.Symbol
+				Expect(json.Unmarshal([]byte(
+					`{"name":"scaled","data":{"svg":"<svg/>","variant":"valve"`+
+						scale+`}}`,
+				), &sym)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+					To(Succeed())
+				var res symbol.Symbol
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(sym.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Data.Scale).To(Equal(expected))
+			},
+			Entry("omitted scale takes the default", "", 1.0),
+			Entry("explicit zero scale stays", `,"scale":0`, 0.0),
+		)
 
 		It("Should create a Symbol with a predefined key", func(ctx SpecContext) {
 			key := uuid.New()
