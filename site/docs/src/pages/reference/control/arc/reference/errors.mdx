@@ -32,12 +32,14 @@ In the messages below, `<name>` stands for a value that changes.
   code="ARC2004"
   severity="warning"
   message={[
-    "== with math.nan is always false, use math.is_nan instead",
-    "!= with math.nan is always true, use math.is_nan instead",
+    "== with <name> is always false, use <check> instead",
+    "!= with <name> is always true, use <check> instead",
   ]}
 >
   <Problem.Cause>
-    The code compares a value to `math.nan`. NaN is not equal to any value.
+    The code compares a value to a NaN constant, such as `math.nan`. NaN is not equal to
+    any value. `<name>` is the constant as the code writes it, and `<check>` is the
+    `is_nan` of its module, or `is_nan from the math module`.
   </Problem.Cause>
   <Problem.Fix>Use `math.is_nan(x)`.</Problem.Fix>
 </Problem.Item>
