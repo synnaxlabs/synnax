@@ -40,7 +40,8 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "catalog:"
   },
   "peerDependenciesMeta": {
     "vitest": {
@@ -53,10 +54,12 @@
     "@synnaxlabs/vite-plugin": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
+    "@types/ws": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "catalog:"
   },
   "type": "module",
   "files": [
