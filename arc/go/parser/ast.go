@@ -291,13 +291,16 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	return postfix.PrimaryExpression()
 }
 
-// SoleOperand returns the primary expression node reduces to after removing parentheses
-// and unary minus, and whether the minus signs negate it. Returns nil if node contains
-// any other operator.
+// SoleOperand returns the primary expression node reduces to after removing
+// parentheses, f32 and f64 casts, and unary minus, and whether the minus signs negate
+// it. Returns nil if node contains any other operator.
 func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
 	if primary, ok := node.(IPrimaryExpressionContext); ok {
 		if primary.LPAREN() != nil && primary.Expression() != nil {
 			return SoleOperand(primary.Expression())
+		}
+		if cast := primary.TypeCast(); cast != nil && isFloatType(cast.Type_()) {
+			return SoleOperand(cast.Expression())
 		}
 		return primary, false
 	}
@@ -323,6 +326,14 @@ func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
 		negated = !negated
 	}
 	return primary, negated
+}
+
+func isFloatType(t ITypeContext) bool {
+	primitive := t.PrimitiveType()
+	if primitive == nil || primitive.NumericType() == nil {
+		return false
+	}
+	return primitive.NumericType().FloatType() != nil
 }
 
 // QualifiedNameParts returns the head and tail of a qualified identifier

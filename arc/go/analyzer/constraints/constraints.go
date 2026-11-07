@@ -134,6 +134,12 @@ func (s *System) AddCompatible(
 	return nil
 }
 
+// AddVariable records the type variables in t, so Unify resolves each one, with its
+// default when no other constraint binds it.
+func (s *System) AddVariable(t types.Type) {
+	s.recordTypeVars(t)
+}
+
 func (s *System) recordTypeVars(toRecord ...types.Type) {
 	for _, t := range toRecord {
 		if t.Kind == types.KindVariable {

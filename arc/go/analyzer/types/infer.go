@@ -210,9 +210,11 @@ func AssignmentCompatible(varType, exprType types.Type) bool {
 }
 
 // untypedFits reports whether an untyped value of type variable t, such as a literal or
-// a constant, fits a target of type target. A float one does not fit an integer.
+// a constant, fits a target of type target. A float one does not fit an integer, or an
+// untyped integer.
 func untypedFits(target, t types.Type) bool {
-	return !target.IsInteger() || !constrainedTo(t, types.KindFloatConstant)
+	integer := target.IsInteger() || constrainedTo(target, types.KindIntegerConstant)
+	return !integer || !constrainedTo(t, types.KindFloatConstant)
 }
 
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned

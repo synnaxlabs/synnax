@@ -315,6 +315,18 @@ TEST(FloatFlowTest, SendsF64Constants) {
     float_flow::expect_values<double>(x::telem::FLOAT64_T);
 }
 
+/// @brief it should run a stage transition fed by a constant alone.
+TEST(FloatFlowTest, TransitionsOnAConstant) {
+    Sequence h(
+        "import math\nsequence main {\n    stage a {\n        %x% -> math.inf => b\n    }\n"
+        "    stage b {\n        1 -> %out%\n    }\n}\n%x% => main\n",
+        {{"x", x::telem::FLOAT64_T}, {"out", x::telem::UINT8_T}}
+    );
+    for (int i = 0; i < 5; i++)
+        h.push("x", x::telem::Series(1.5));
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("out")), 1);
+}
+
 namespace float_check {
 /// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
 /// for each value on x, and returns the codes in order.
@@ -413,13 +425,22 @@ TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
 }
 
 namespace stored_float {
+/// @brief wraps decl in a sequence whose first stage writes limit to out. A stage b
+/// that writes limit makes it a reassigned variable.
+std::string sequence(const std::string &decl, const bool reassigned) {
+    const std::string b = reassigned ? "    stage b {\n        %x% -> limit\n    }\n"
+                                     : "";
+    return "sequence main {\n    " + decl +
+           "\n    stage a {\n        limit -> %out%\n    }\n" + b + "}\n%x% => main\n";
+}
+
 const std::vector<std::string> SOURCES = {
     "limit T := V\nfunc f() {v T} T { return limit }\n%x% -> f() -> %out%\n",
-    "sequence main {\n    limit T := V\n    stage a {\n        limit -> %out%\n    }\n"
-    "}\n%x% => main\n",
-    "sequence main {\n    limit T $= V\n    stage a {\n        limit -> %out%\n    }\n"
-    "}\n%x% => main\n",
+    sequence("limit T := V", false),
+    sequence("limit T $= V", false),
     "func f(a T) {v T} T { return a }\n%x% -> f(a=V) -> %out%\n",
+    sequence("limit T := V", true),
+    sequence("limit T $= V", true),
 };
 
 std::string replace(std::string s, const std::string &from, const std::string &to) {
