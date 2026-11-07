@@ -33,15 +33,6 @@ const auto PERIOD = x::telem::MILLISECOND;
 /// OP.
 void no_cycle() {}
 
-/// @brief returns the little-endian bytes of value.
-template<typename T>
-std::vector<uint8_t> bytes(const T value) {
-    std::vector<uint8_t> out(sizeof(T));
-    for (size_t i = 0; i < sizeof(T); ++i)
-        out[i] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * i));
-    return out;
-}
-
 /// @brief the only mode of a module that runs in DC mode alone: SYNC0 of 1 us and SYNC1
 /// of 1000 bus cycles.
 const dc::OpMode DC_ONLY{
@@ -142,7 +133,7 @@ protected:
         slave.name = "16xAO";
         this->add_slave(slave);
         this->set_op_modes(modes);
-        this->mock->register_values[{1, 0x0910}] = bytes<uint64_t>(5'000'000'000);
+        this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
         ASSERT_NIL(this->master->initialize());
         this->mock->obytes = 2;
         this->mock->ibytes = 4;
@@ -839,8 +830,8 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}},
-        {.slave = 1, .address = 0x0981, .data = {0}},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }
@@ -868,19 +859,21 @@ TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
     this->initialize_with_dc_slave({DC_ONLY});
     ASSERT_NIL(this->activate());
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}},
-        {.slave = 1, .address = 0x0981, .data = {0}},
-        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
-        {.slave = 1, .address = 0x09A0, .data = bytes<uint32_t>(1000), .mapped = true},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x09A0, .value = 1000, .size = 4, .mapped = true},
         {.slave = 1,
          .address = 0x09A4,
-         .data = bytes<uint32_t>(999'999'000),
+         .value = 999'999'000,
+         .size = 4,
          .mapped = true},
         {.slave = 1,
          .address = 0x0990,
-         .data = bytes<uint64_t>(5'100'001'000),
+         .value = 5'100'001'000,
+         .size = 8,
          .mapped = true},
-        {.slave = 1, .address = 0x0981, .data = {0x07}, .mapped = true},
+        {.slave = 1, .address = 0x0981, .value = 0x07, .size = 1, .mapped = true},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
     EXPECT_EQ(this->mock->requests_before_write, std::vector<size_t>(7, 0));
@@ -893,7 +886,7 @@ TEST_F(SOEMMasterTest, ActivateShiftsTheFirstSYNC0Event) {
     this->initialize_with_dc_slave({mode});
     ASSERT_NIL(this->activate());
     ASSERT_EQ(this->mock->register_writes.size(), 7);
-    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(6'000'250'000));
+    EXPECT_EQ(this->mock->register_writes[5].value, 6'000'250'000);
 }
 
 /// @brief it should put the first SYNC0 event at least 100 ms after the system time of
@@ -907,7 +900,7 @@ TEST_F(SOEMMasterTest, ActivateKeepsTheFirstSYNC0EventAheadWithANegativeShift) {
     }});
     ASSERT_NIL(this->activate());
     ASSERT_EQ(this->mock->register_writes.size(), 7);
-    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(5'101'000'000));
+    EXPECT_EQ(this->mock->register_writes[5].value, 5'101'000'000);
 }
 
 /// @brief it should start the cyclic unit 100 ms after the system time of the slave
@@ -916,9 +909,9 @@ TEST_F(SOEMMasterTest, ActivateStartsTheCyclicUnitOfAModeWithSYNC0Off) {
     this->initialize_with_dc_slave({{.name = "DC", .assign_activate = 0x0100}});
     ASSERT_NIL(this->activate());
     ASSERT_EQ(this->mock->register_writes.size(), 7);
-    EXPECT_EQ(this->mock->register_writes[3].data, bytes<uint32_t>(0));
-    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(5'100'000'000));
-    EXPECT_EQ(this->mock->register_writes[6].data, std::vector<uint8_t>{0x01});
+    EXPECT_EQ(this->mock->register_writes[3].value, 0);
+    EXPECT_EQ(this->mock->register_writes[5].value, 5'100'000'000);
+    EXPECT_EQ(this->mock->register_writes[6].value, 0x01);
 }
 
 /// @brief it should leave DC sync off on a slave that lists an SM mode.
@@ -926,8 +919,8 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
     this->initialize_with_dc_slave({SM, DC_SECOND});
     ASSERT_NIL(this->activate());
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}},
-        {.slave = 1, .address = 0x0981, .data = {0}},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }
@@ -1027,7 +1020,13 @@ TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
     ASSERT_EQ(this->mock->register_writes.size(), 3);
     EXPECT_EQ(
         this->mock->register_writes[2],
-        (RegisterWrite{.slave = 1, .address = 0x0980, .data = {0x01}, .mapped = true})
+        (RegisterWrite{
+            .slave = 1,
+            .address = 0x0980,
+            .value = 0x01,
+            .size = 1,
+            .mapped = true
+        })
     );
 }
 
@@ -1044,7 +1043,7 @@ TEST_F(SOEMMasterTest, ActivateIgnoresTheSYNC0CycleOfASyncUnitThePDIOwns) {
 /// the clock of a slave stays more than 10 us off the reference clock.
 TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->mock->register_values[{1, 0x092C}] = bytes<uint32_t>(20'000);
+    this->mock->register_values[{1, 0x092C}] = 20'000;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
@@ -1077,7 +1076,7 @@ TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
 /// @brief it should read bit 31 of the system time difference as its sign.
 TEST_F(SOEMMasterTest, ActivateReadsTheSignOfTheClockDifference) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->mock->register_values[{1, 0x092C}] = bytes<uint32_t>(0x80000000 | 5'000);
+    this->mock->register_values[{1, 0x092C}] = 0x80000000 | 5'000;
     ASSERT_NIL(this->activate());
     EXPECT_EQ(this->mock->register_writes.size(), 7);
 }
@@ -1099,8 +1098,8 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
     this->mock->register_writes.clear();
     this->master->deactivate();
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
-        {.slave = 1, .address = 0x0981, .data = {0}, .mapped = true},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }
@@ -1121,9 +1120,9 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
     this->mock->unwritable_slaves = {1};
     this->master->deactivate();
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}, .mapped = true},
-        {.slave = 2, .address = 0x0980, .data = {0}, .mapped = true},
-        {.slave = 2, .address = 0x0981, .data = {0}, .mapped = true},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }
