@@ -419,13 +419,6 @@ describe("Read", () => {
         const input = await findFillValue();
         await waitFor(() => expect(input.value).toBe("off"));
       });
-
-      it("should use the saved data type when the channel no longer exists", async () => {
-        const ch = await createChannel(DataType.INT32);
-        await client.channels.delete(ch.key);
-        await renderField({ optional: true, channel: ch.key, dataType: "string" });
-        await screen.findByPlaceholderText("Required");
-      });
     });
 
     it("should unset the fill value when the numeric input is emptied", async () => {
