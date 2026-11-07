@@ -66,6 +66,7 @@ from synnax.exceptions import (
 )
 from synnax.framer import (
     AUTO_SPAN,
+    CommitResult,
     Frame,
     Iterator,
     Streamer,
@@ -138,6 +139,7 @@ __all__ = [
     "Bounds",
     "Channel",
     "Color",
+    "CommitResult",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
