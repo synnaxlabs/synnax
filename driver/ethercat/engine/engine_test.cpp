@@ -861,6 +861,80 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     EXPECT_GE(span, x::telem::MILLISECOND * 20);
 }
 
+/// @brief it should refuse a task that needs another bus rate while a slave runs DC
+/// sync, until every task on the port stops.
+TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+    reader.reset();
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(250))
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
+}
+
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
+/// while a slave runs DC sync.
+TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
+/// @brief it should keep the bus rate when a faster task closes and when a slower task
+/// opens while a slave runs DC sync.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(1000))
+    );
+    const auto slow = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    writer.reset();
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+}
+
+/// @brief it should keep the bus rate while a slave runs a SYNC0 too fast to mark
+/// process data, since its SYNC1 cycle comes from the bus period.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
+    this->master->set_dc_sync(
+        {{.assign_activate = 0x0700, .sync0_cycle = 1'000, .sync1_cycle = 9'999'000}}
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should report the health of each enabled slave and leave out disabled
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
