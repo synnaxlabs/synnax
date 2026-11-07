@@ -33,6 +33,10 @@ variable holds depends on its value:
 | A channel name                    | `vlv := press_vlv_cmd`   | Is a second name for the channel. It reads and writes the channel.    |
 | An expression that reads channels | `kpa := tank_pt * 6.895` | Is read-only. It gets a new value each time one of the channels does. |
 
+Outside a function, a value that reads a module constant such as `math.inf` must also
+read a channel, as `scaled := raw * math.inf` does. `limit := math.inf` fails with
+`'limit' cannot be initialized from math.inf outside a function`.
+
 ### Where you can declare
 
 | Place     | `:=`                                | `$=` | `=` | `+=` and `x[i] =` |
