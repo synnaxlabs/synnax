@@ -104,8 +104,12 @@ takes the three texts.
 JSON numbers parse exactly today in Go and C++. Phase 3 fixes the three inexact places:
 `xjson.Enum.Value` and `x::json::EnumMap` hold a float, `Encoder.Append` compares enums
 through `n.float()`, and `x::json::from_timestamp` goes through `double`. Each entry
-becomes one encoded sample, compared exactly. Phase 3 also adds string and boolean write
-enums: `Encoder.Append` quotes a string sample and writes a boolean with no lookup, and
+becomes one encoded sample, compared exactly. An `"Infinity"` or `"-Infinity"` entry
+matches its infinity. A `"NaN"` entry matches any NaN sample by `isnan`, not `==`, so
+its payload bits do not matter. On read, its label decodes to NaN. On write, entries
+match before the non-finite rule in §5, so a matched sample writes its label. Phase 3
+does this in both runtimes. Phase 3 also adds string and boolean write enums:
+`Encoder.Append` quotes a string sample and writes a boolean with no lookup, and
 `from_sample_value` checks enums only for a numeric value written as a string.
 
 ## 3 Bytes
@@ -153,10 +157,11 @@ and `bytes` text is valid, a raw `bytes` field is alone, and a static `float` is
 Fills and entries are never JSON numbers. Kafka and MQTT check kinds at task configure
 and gain fill (Kafka skips an absent value today, `read_task.go:767`).
 
-**Non-finite samples**: A `float` channel field fails the write. A `string` one writes
-`NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A `boolean` one fails on
-NaN. Phase 3 aligns this: today Go errors, writes `+Inf`, and writes `true`
-(`field.go:318`), and C++ writes `null`, `inf`, and `true` (`convert.cpp:430`).
+**Non-finite samples**, when no entry matches: A `float` channel field fails the write.
+A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
+`boolean` one fails on NaN. Phase 3 aligns this: today Go errors, writes `+Inf`, and
+writes `true` (`field.go:318`), and C++ writes `null`, `inf`, and `true`
+(`convert.cpp:430`).
 
 **Driver**: It keeps the kind against `ch.data_type`, a float for a non-finite fill, the
 index rule, and `check_from_sample_value`, because channels drift. It removes time
