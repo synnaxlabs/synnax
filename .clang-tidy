@@ -133,8 +133,8 @@ CheckOptions:
 CustomChecks:
     # Tests check an x::errors::Error with ASSERT_NIL, EXPECT_NIL, or
     # ASSERT_OCCURRED_AS, which print the error on failure. GoogleTest's boolean and
-    # equality assertions do not. An error from a std::pair takes the _P form, which
-    # also returns the value, unless the test reads the error again.
+    # equality assertions do not. An error in a std::pair that a call returns takes the
+    # _P form, which also returns the value, unless the test reads the error again.
     - Name: error-assertion
       Query: |
           let errorType hasType(hasUnqualifiedDesugaredType(recordType(
