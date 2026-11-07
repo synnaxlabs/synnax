@@ -29,7 +29,7 @@ export interface LSPMessage {
  * `Stream<lspMessageZ, lspMessageZ>` satisfies it without code depending on the schema. */
 export interface LSPStream {
   receive: () => Promise<LSPMessage>;
-  send: (req: LSPMessage) => void;
+  send: (req: LSPMessage) => Promise<void>;
   closeSend: () => void;
 }
 
@@ -99,7 +99,7 @@ const createFreighterTransport = ({
   const writer: MessageWriter = {
     write: async (message) => {
       if (isClosed) throw new Error("Stream is closed");
-      stream.send({ content: JSON.stringify(message) });
+      await stream.send({ content: JSON.stringify(message) });
     },
     dispose: () => (isClosed = true),
     onError: (callback) => {

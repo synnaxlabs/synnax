@@ -66,6 +66,10 @@ or embeds a large generated table, takes `tags = ["no-clang-tidy"]`. In a test, 
 optional with `.value()`: the lint cannot see that `ASSERT_TRUE(opt.has_value())` makes
 `*opt` safe.
 
+Repo-specific rules live under `CustomChecks` in `.clang-tidy` as clang-query AST
+matchers, and run as `custom-<Name>`. Match on types and AST shape, not on names. Test a
+new matcher with `clang-query` on one file before adding it.
+
 ## Memory
 
 RAII for all resources. `std::unique_ptr` (exclusive), `std::shared_ptr` (shared),
@@ -88,9 +92,12 @@ if (err) return {nullptr, err.wrap("failed to perform operation")};
 mock via interface implementations. Utilities from `x/cpp/testutil/testutil.h`:
 
 - Async assertions: `ASSERT_EVENTUALLY_EQ/GE/LE/TRUE/FALSE/NIL`.
+- `Error` success path: `ASSERT_NIL(fn());`, or `EXPECT_NIL(fn());` in a helper that
+  returns a value, where an `ASSERT_*` macro does not compile.
 - `pair<T, Error>` success path: `const auto val = ASSERT_NIL_P(fn());`
-- `pair<T, Error>` error path: `ASSERT_OCCURRED_AS_P(fn(), EXPECTED_ERR);` — never
-  structured bindings + `ASSERT_OCCURRED_AS`, which is only for bare `Error` values.
+- `pair<T, Error>` error path: `ASSERT_OCCURRED_AS_P(fn(), EXPECTED_ERR);`. Use
+  structured bindings and `ASSERT_OCCURRED_AS` only when the test then checks the
+  error's message.
 - Always verify the specific error type, never just that an error occurred.
 
 ## Gotchas

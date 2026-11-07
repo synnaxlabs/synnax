@@ -542,8 +542,10 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
 TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_iv_");
-    auto [res, err] = client.statuses.set_by_key_or_name(name, "x", "bogus");
-    EXPECT_FALSE(err.ok());
+    const auto res = ASSERT_OCCURRED_AS_P(
+        client.statuses.set_by_key_or_name(name, "x", "bogus"),
+        x::errors::VALIDATION
+    );
     EXPECT_TRUE(res.key.empty());
 }
 

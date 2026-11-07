@@ -39,6 +39,9 @@ type IteratorConfig struct {
 	// Under a limit, AutoChunkSize counts points, auto spans end on group boundaries,
 	// and a fixed span clips groups at the view edges.
 	Reduction telem.Reduction
+	// Cache memoizes the iterator's index lookups. Iterators that share it resolve each
+	// lookup on a shared index once. The caller resets it before each read.
+	Cache *index.Cache
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -50,6 +53,7 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
 	i.Reduction.Variant = override.Nil(i.Reduction.Variant, other.Reduction.Variant)
+	i.Cache = override.Nil(i.Cache, other.Cache)
 	return i
 }
 
@@ -453,7 +457,7 @@ func (i *Iterator) stampSample(
 	start telem.TimeStamp,
 	offset int64,
 ) (telem.TimeStamp, error) {
-	approx, err := i.idx.Stamp(ctx, start, offset, index.AllowDiscontinuous)
+	approx, err := i.Cache.Stamp(ctx, i.idx, start, offset, index.AllowDiscontinuous)
 	return approx.Upper, err
 }
 
@@ -555,8 +559,9 @@ func (i *Iterator) loadSegments(ctx context.Context, start, end int64) (err erro
 		})
 		return nil
 	}
-	i.segments, err = i.idx.AppendSegments(
+	i.segments, err = i.Cache.AppendSegments(
 		ctx,
+		i.idx,
 		i.segments[:0],
 		i.internal.TimeRange().Start,
 		start,
@@ -740,7 +745,7 @@ func (i *Iterator) resolveGroupSize(ctx context.Context) error {
 		i.groupSize = 1
 		return nil
 	}
-	approx, err := i.idx.Distance(ctx, i.bounds, index.AllowDiscontinuous)
+	approx, err := i.Cache.Distance(ctx, i.idx, i.bounds, index.AllowDiscontinuous)
 	if errors.Is(err, index.ErrDiscontinuous) {
 		i.groupSize = 1
 		return nil
@@ -1183,7 +1188,7 @@ func (i *Iterator) approximateStart(
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target.End = i.view.Start
 	}
-	return i.idx.Distance(ctx, target, index.MustBeContinuous)
+	return i.Cache.Distance(ctx, i.idx, target, index.MustBeContinuous)
 }
 
 // approximateEnd approximates the number of samples between the start of the current
@@ -1200,7 +1205,7 @@ func (i *Iterator) approximateEnd(
 	endApprox.Approximation = index.Exactly(total)
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
+		endApprox, err = i.Cache.Distance(ctx, i.idx, target, index.MustBeContinuous)
 	}
 	return endApprox, err
 }

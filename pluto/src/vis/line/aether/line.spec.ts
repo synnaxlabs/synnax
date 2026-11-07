@@ -438,14 +438,17 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
-      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
+      // Series upload as static draws or sub data, and the stroke and bridge buffers as
+      // dynamic draws. A growing series first sizes its buffer with a static draw.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter(
-            (c) =>
-              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
-          )
-          .map((c) => Array.from(c.args[1] as Float32Array));
+          .flatMap((c) => {
+            if (c.op === "bufferSubData") return [c.args[2]];
+            const sized = typeof c.args[1] === "number";
+            const isStatic = c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW;
+            return c.op === "bufferData" && isStatic && !sized ? [c.args[1]] : [];
+          })
+          .map((data) => Array.from(data as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -493,7 +496,7 @@ describe("line", () => {
         ]);
       });
 
-      it("should follow a growing buffer and not reduce complete groups again", () => {
+      it("should upload only the groups that a growing buffer adds", () => {
         const createGrowing = () =>
           Series.alloc({
             capacity: N,
@@ -511,16 +514,31 @@ describe("line", () => {
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
         expect(m.strips()).toEqual([[0, N / 32]]);
-        // A complete group reduced again would draw the change.
+        const before = uploads(m).length;
+        // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
         write(x, indexes(N / 2, N / 2 + 10));
         const tail = indexes(N / 2, N / 2 + 9).map(wave);
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
-        const drawn = uploads(m).at(-1);
-        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
-        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        expect(m.strips().slice(-2)).toEqual([
+          [0, N / 32],
+          [0, 3],
+        ]);
+        const top = N / 2 + tail.indexOf(Math.max(...tail));
+        const [xs, ys] = uploads(m).slice(before);
+        // The tail starts at the last complete point.
+        expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
+        expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        write(x, indexes(N / 2 + 10, N / 2 + 32));
+        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        const grown = uploads(m).length;
+        m.line.render(showing(0, N - 1));
+        expect(
+          uploads(m)
+            .slice(grown)
+            .map((u) => u.length),
+        ).toEqual([2, 2]);
       });
 
       it("should release its reduced series when deleted", () => {

@@ -97,6 +97,8 @@ class _NITaskMixin(TaskCase[TaskT]):
     """
 
     device_locations: list[str] = []
+    # False for real devices, whose machine must keep its NI MAX configuration.
+    simulated: bool = True
     devices: dict[str, sy.Device]
 
     @classmethod
@@ -114,7 +116,8 @@ class _NITaskMixin(TaskCase[TaskT]):
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
-        _ensure_ni_max_config(self.log)
+        if self.simulated:
+            _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.
         # Resolve all locations upfront so concrete tests can use
         # devices[location] in create_channels without additional retrieves.
