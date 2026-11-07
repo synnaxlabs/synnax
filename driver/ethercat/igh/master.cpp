@@ -111,18 +111,6 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
-void Master::set_slave_config(const uint16_t position, slave::Config config) {
-    std::lock_guard lock(this->mu);
-    if (config.enabled)
-        this->disabled_slaves.erase(position);
-    else
-        this->disabled_slaves.insert(position);
-    if (config.op_mode)
-        this->chosen_modes[position] = *config.op_mode;
-    else
-        this->chosen_modes.erase(position);
-}
-
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();

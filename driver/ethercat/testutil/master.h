@@ -262,18 +262,6 @@ public:
         this->bus_slaves = count;
     }
 
-    void set_slave_config(const uint16_t position, slave::Config config) override {
-        std::lock_guard lock(this->mu);
-        if (config.enabled)
-            this->disabled_slaves.erase(position);
-        else
-            this->disabled_slaves.insert(position);
-        if (config.op_mode)
-            this->chosen_modes[position] = *config.op_mode;
-        else
-            this->chosen_modes.erase(position);
-    }
-
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
         std::lock_guard lock(this->mu);
         this->disabled_slaves.clear();

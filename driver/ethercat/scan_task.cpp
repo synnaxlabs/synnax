@@ -39,9 +39,10 @@ bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
     return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
 }
 
-/// @brief sets the variant, message, and description of status from the condition of an
-/// enabled slave on a running bus.
+/// @brief sets the variant, message, description, and connection of status from the
+/// condition of an enabled slave on a running bus.
 void set_live_status(const slave::Health &health, synnax::device::Status &status) {
+    status.details.connected = !health.lost;
     if (health.operational()) {
         status.variant = synnax::status::VARIANT_SUCCESS;
         status.message = "Operational";
@@ -207,7 +208,7 @@ synnax::device::Device Scanner::create_slave_device(
         .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
     };
     const auto live = std::ranges::find(
         health,
@@ -265,23 +266,17 @@ std::string Scanner::generate_slave_key(
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
 
-std::pair<slave::Properties, x::errors::Error>
-Scanner::configure_slave(const synnax::device::Device &dev) const {
-    auto [props, props_err] = parse_properties(dev.properties);
-    if (props_err) return {props, props_err};
-    auto [engine, err] = this->pool->acquire(props.network);
-    if (!err) engine->set_slave_config(props.position, props.config());
-    return {props, err};
-}
-
 void Scanner::on_device_set(const synnax::device::Device &dev) {
     if (dev.model != SLAVE_DEVICE_MODEL) return;
-    const auto [props, err] = this->configure_slave(dev);
-    if (err && !err.matches(x::errors::VALIDATION)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure " << dev.name << ": "
-                     << err;
-        return;
-    }
+    const auto [props, err] = parse_properties(dev.properties);
+    const auto health = this->pool->health(props.network);
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
+    const bool connected = !err && props.enabled &&
+                           (live == health.end() || !live->lost);
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
@@ -289,34 +284,16 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key},
+        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
     if (err) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Invalid device properties";
         status.description = common::config_err_description(err);
-    } else
-        LOG(INFO) << SCAN_LOG_PREFIX << "set slave " << props.position << " on "
-                  << props.network << " enabled=" << (props.enabled ? "true" : "false");
+    }
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
                      << "failed to update device status: " << status_err;
-}
-
-void Scanner::on_device_delete(const synnax::device::Device &dev) {
-    if (dev.model != SLAVE_DEVICE_MODEL) return;
-    // A deleted device's other properties can be invalid. Only its network matters.
-    const auto network = parse_properties(dev.properties).first.network;
-    if (network.empty()) return;
-    if (const auto [eng, err] = acquire_engine(
-            *this->pool,
-            this->ctx->client,
-            this->task.rack,
-            network
-        );
-        err)
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to drop the settings of " << dev.name
-                     << ": " << err;
 }
 
 void Scanner::test_interface(const synnax::task::Command &cmd) const {

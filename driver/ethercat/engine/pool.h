@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -26,18 +28,29 @@ const LibraryInfo PCAP_LIBRARY_INFO = {
     "https://npcap.com/#download"
 };
 
+/// @brief returns the settings of each slave on a network, keyed by position.
+using SlaveConfigs = std::function<
+    std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>(const std::string
+                                                                       &network)>;
+
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
     std::unique_ptr<master::Manager> manager;
     std::shared_ptr<x::thread::rt::Manager> rt_manager;
+    SlaveConfigs slave_configs;
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Engine>> engines;
 
 public:
-    /// @brief constructs a pool with the given manager and optional RT manager.
+    /// @brief constructs a pool with the given manager and optional RT manager. Each
+    /// engine reads its slave settings from slave_configs when its bus starts. The
+    /// default gives every slave the defaults of slave::Config.
     explicit Pool(
         std::unique_ptr<master::Manager> manager,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        SlaveConfigs slave_configs = [](const std::string &) {
+            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        }
     );
 
     /// @brief returns all available EtherCAT masters discovered by the manager.

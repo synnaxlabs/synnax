@@ -45,8 +45,13 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES, serverComputed } from "@/channel/where";
-import { matches, retrieveInputZ } from "@/channel/where.gen";
+import { LINES } from "@/channel/where";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -245,6 +250,11 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
 
+type OneParams = query.OneInput<typeof retrieveParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
+
 /** Aliases and statuses are composed from their stores on read. */
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
   rest;
@@ -263,15 +273,15 @@ const singleParamsZ = z
   .transform(normalizeSingle);
 
 /**
- * @returns the name patterns of a request whose where selects by name patterns and
- * nothing else, with no other field of the request set. Returns null for any other
- * request.
+ * @returns the names of a request whose where selects a list of names and nothing
+ * else, with no other field of the request set. Returns null for any other request.
  */
-const onlyNamePatterns = ({ where, ...rest }: RetrieveRequest): string[] | null => {
+const onlyNames = ({ where, ...rest }: RetrieveRequest): string[] | null => {
   if (!Object.values(rest).every((v) => v == null) || where == null) return null;
-  const { namePatterns, ...others } = where;
-  if (namePatterns == null || Object.values(others).some((v) => v != null)) return null;
-  return namePatterns;
+  const { name, ...others } = where;
+  if (name?.in == null || Object.values(others).some((v) => v != null)) return null;
+  const { in: names, ...ops } = name;
+  return Object.values(ops).some((v) => v != null) ? null : names;
 };
 
 const affectedChannelKeys = (
@@ -376,7 +386,7 @@ export class Client extends query.Retriever<
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
@@ -487,8 +497,7 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
-   * @param params - The key or the name of the channel to retrieve. A name that is not
-   * a valid channel name is a regular expression, anchored when unanchored.
+   * @param params - The key or the name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.rangeKey - Attaches the channel's alias in the range.
    * @returns The retrieved channel.
@@ -509,8 +518,8 @@ export class Client extends query.Retriever<
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    * @param params - The keys or the names of the channels to retrieve. Note that this
-   * method does not support mixing keys and names in the same call. A name that is not
-   * a valid channel name is a regular expression, anchored when unanchored.
+   * method does not support mixing keys and names in the same call. A name matches
+   * exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.rangeKey - Attaches each channel's alias in the range.
    */
@@ -519,7 +528,7 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
+  async retrieve(params: RetrieveSingleParams | OneParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
   async retrieve(
@@ -531,11 +540,15 @@ export class Client extends query.Retriever<
       | PrimitiveParams
       | Payload[]
       | RetrieveSingleParams
+      | OneParams
       | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    if (typeof params === "object" && !Array.isArray(params))
+    if (typeof params === "object" && !Array.isArray(params)) {
+      // The branches narrow params onto different base overloads.
+      if (isOneParams(params)) return await super.retrieve(params);
       return await super.retrieve(params);
+    }
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
@@ -547,10 +560,7 @@ export class Client extends query.Retriever<
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const where =
-      variant === "keys"
-        ? { key: { in: normalized as Key[] } }
-        : { namePatterns: normalized as string[] };
+    const { where } = shortcutZ.parse(normalized);
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
@@ -721,8 +731,7 @@ export class Client extends query.Retriever<
 
   /**
    * Resolves names through the record store. Returns null when a name matches no
-   * stored channel or more than one, so the Core answers the whole request. Assumes
-   * the Core validates names, so a stored name holds no regular expression character.
+   * stored channel or more than one, so the Core answers the whole request.
    */
   private resolveNames(names: string[]): Channel[] | null {
     const resolved: Channel[] = [];
@@ -751,7 +760,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
-    const names = onlyNamePatterns(req);
+    const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));

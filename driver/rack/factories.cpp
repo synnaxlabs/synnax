@@ -74,13 +74,20 @@ void configure_arc(
 void configure_ethercat(
     const Config &config,
     FactoryList &factories,
+    const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
 ) {
     configure_integration(
         config,
         factories,
         ethercat::INTEGRATION_NAME,
-        [&rt_manager]() { return std::make_unique<ethercat::Factory>(rt_manager); }
+        [&config, &client, &rt_manager]() {
+            return std::make_unique<ethercat::Factory>(
+                client,
+                config.rack.key,
+                rt_manager
+            );
+        }
     );
 }
 
@@ -90,15 +97,17 @@ void configure_http(const Config &config, FactoryList &factories) {
     });
 }
 
-std::unique_ptr<task::Factory>
-Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
+std::unique_ptr<task::Factory> Config::new_factory(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+) const {
     FactoryList factories;
     configure_state(factories);
     configure_opcua(*this, factories);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories, rt_manager);
-    configure_ethercat(*this, factories, rt_manager);
+    configure_ethercat(*this, factories, client, rt_manager);
     configure_http(*this, factories);
     configure_modbus(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));

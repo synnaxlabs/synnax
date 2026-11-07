@@ -50,10 +50,6 @@ public:
     /// state. Valid between initialize() and deactivate().
     [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
 
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
-    /// activate().
-    virtual void set_slave_config(uint16_t position, slave::Config config) = 0;
-
     /// @brief replaces the settings of every slave. A slave missing from configs goes
     /// back to the defaults of slave::Config. Takes effect at the next activate().
     virtual void replace_slave_configs(std::map<uint16_t, slave::Config> configs) = 0;
