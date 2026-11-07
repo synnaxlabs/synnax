@@ -103,7 +103,7 @@ func checkChain(
 		}
 	}
 
-	// Import placement: stored references pin, resolved references float.
+	// Import placement: every versioned dependency is pinned.
 	for _, k := range chain.Numbers {
 		fk, err := resolver.File(ctx, livePath, k)
 		if err != nil {
@@ -114,7 +114,14 @@ func checkChain(
 			})
 			return
 		}
-		checkImportPlacement(r, resolver, chain, fk)
+		if err := checkImportPlacement(ctx, r, resolver, chain, fk); err != nil {
+			r.fail(Finding{
+				Path:     chain.FilePath(k) + ".oracle",
+				Severity: SeverityError,
+				Message:  err.Error(),
+			})
+			return
+		}
 	}
 
 	// Pin currency: every pin the current surface's stored reference graph crosses must
@@ -250,71 +257,55 @@ func (r *GateReport) fail(f Finding) {
 	r.Status = StatusFail
 }
 
-// checkImportPlacement verifies one version file's imports against the persistence
-// boundary: a dependency reached by any stored reference must be pinned; a dependency
-// reached only by resolved references must float on its live schema.
+// checkImportPlacement verifies that one version file pins every versioned dependency
+// it references. A version package renders each reference against the pinned version,
+// so a live import would let the dependency's next version move the package.
 func checkImportPlacement(
+	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
 	f *versions.File,
-) {
-	stored, referenced := classifyDeps(f)
+) error {
+	_, referenced := classifyDeps(f)
 	path := chain.FilePath(f.N) + ".oracle"
 	live := make(map[string]string, len(f.Live))
 	for i, ns := range f.Live {
 		live[ns] = f.LivePaths[i]
 	}
-	pinned := make(map[string]string, len(f.Pins))
-	for depLive := range f.Pins {
-		pinned[filepath.Base(depLive)] = depLive
-	}
-	for _, ns := range slices.Sorted(maps.Keys(stored)) {
+	for _, ns := range slices.Sorted(maps.Keys(referenced)) {
 		depLive, isLive := live[ns]
 		if !isLive {
 			continue
 		}
-		// A chainless dependency has no version file to pin: its live schema is the one
-		// shape, and the stored reference rides it (arc v0's Program). The exposure is
-		// the dependency's, not this file's.
+		// A chainless dependency has no version file to pin, and an ended chain's live
+		// schema is hand-owned: either way the live schema is the one shape (arc's
+		// Program).
 		if _, versioned := resolver.Chains()[depLive]; !versioned {
+			continue
+		}
+		ended, err := resolver.Ended(ctx, depLive)
+		if err != nil {
+			return err
+		}
+		if ended {
 			continue
 		}
 		r.fail(Finding{
 			Path:     path,
 			Severity: SeverityError,
 			Message: fmt.Sprintf(
-				"%s v%d stores %s but imports its live schema",
+				"%s v%d references %s but imports its live schema",
 				chain.LivePath(), f.N, ns,
 			),
 			FixHint: fmt.Sprintf(
-				"stored references resolve against the dependency's shape at "+
-					"a fixed version; import a %s/%s version file",
+				"a version package resolves every reference at a fixed version; "+
+					"import a %s/%s version file",
 				depLive, "versions",
 			),
 		})
 	}
-	for _, ns := range slices.Sorted(maps.Keys(referenced)) {
-		if stored.Contains(ns) {
-			continue
-		}
-		depLive, isPinned := pinned[ns]
-		if !isPinned {
-			continue
-		}
-		r.fail(Finding{
-			Path:     path,
-			Severity: SeverityError,
-			Message: fmt.Sprintf(
-				"%s v%d only resolves %s at read time but pins it",
-				chain.LivePath(), f.N, ns,
-			),
-			FixHint: fmt.Sprintf(
-				"resolved references always materialize the current shape; "+
-					"import the live schema %q", depLive,
-			),
-		})
-	}
+	return nil
 }
 
 // classifyDeps splits a version file's foreign dependency namespaces along the

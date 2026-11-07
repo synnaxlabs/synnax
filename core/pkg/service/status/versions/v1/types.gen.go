@@ -12,8 +12,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -95,5 +94,5 @@ type Where struct {
 	// Variant selects by variant.
 	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
 	// Labels matches statuses that have any of the given labels.
-	Labels []labelv0.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }

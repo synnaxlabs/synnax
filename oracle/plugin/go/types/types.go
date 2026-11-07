@@ -120,7 +120,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
-			members:  members,
 			pins:     pins,
 		},
 		PathFilter:      currentPaths.Contains,
@@ -157,7 +156,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
 		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern, closure,
+			context.Background(), req, p.Options.FileNamePattern,
 		)
 		if err != nil {
 			return nil, err
@@ -177,7 +176,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
-			members:  members,
 		},
 		PathFilter: pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
@@ -236,7 +234,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
 	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern, closure,
+		context.Background(), req, p.Options.FileNamePattern,
 	)
 	if err != nil {
 		return nil, err
@@ -288,8 +286,6 @@ type goFileGenerator struct {
 	// closure is the persisted closure of the whole table; declarations outside it at
 	// marshal-rooted paths are transient.
 	closure set.Set[string]
-	// members holds the qualified names of every chain's current-surface members.
-	members set.Set[string]
 	// pins resolves a stored reference to the dependency version its version file
 	// imports.
 	pins versioning.Pins
@@ -308,7 +304,7 @@ func fileLivePath(ctx *framework.GenerateContext) string {
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	latest := latestTable(g.original, g.pathMap, g.members, ctx.OutputPath)
+	latest := latestTable(g.original, g.pathMap, ctx.OutputPath)
 	_, transient := g.pathMap[ctx.OutputPath]
 	// Every declaration a current package renders belongs to its schema's current
 	// version file, so that file's pins resolve the package's stored references.
@@ -327,30 +323,16 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	return string(content), nil
 }
 
-// latestTable returns the latest-resolution table for a current version path: the
-// original table with only this path rewritten to its version directory, so local
-// references stay in-package while dependency references resolve to the root re-export.
-// For a versioned root path (the transient pass) the original table already resolves
-// this way: versioned siblings stay local and dependencies hit their root re-exports.
-// Nil when original is nil or the path is not versioned.
+// latestTable returns the latest-resolution table for a versioned root path (the
+// transient pass): the original table, where versioned siblings stay local and
+// dependencies hit their root re-exports. A version package gets nil, so every
+// reference it renders resolves to the dependency version its version file pins, as a
+// frozen package does.
 func latestTable(
-	original *resolution.Table,
-	pathMap map[string]string,
-	members set.Set[string],
-	outputPath string,
+	original *resolution.Table, pathMap map[string]string, outputPath string,
 ) *resolution.Table {
-	if original == nil {
-		return nil
-	}
-	if _, ok := pathMap[outputPath]; ok {
+	if _, root := pathMap[outputPath]; root {
 		return original
-	}
-	for orig, current := range pathMap {
-		if current == outputPath {
-			return versioning.RewriteOutputPaths(
-				original, map[string]string{orig: outputPath}, members,
-			)
-		}
 	}
 	return nil
 }

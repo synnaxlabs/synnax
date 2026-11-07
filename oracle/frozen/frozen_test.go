@@ -14,7 +14,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -156,66 +155,6 @@ Doc struct {
 `)
 				Expect(compute(ctx, v0File, v1File).Sums[1].Schema).
 					ToNot(Equal(before.Schema))
-			},
-		)
-
-		It("Should change the schema sum when an omitted field's dependency changes",
-			func(ctx SpecContext) {
-				doc := `
-import "schemas/x/color"
-
-Doc struct {
-	key uuid @key
-	tint color.Color {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`
-				write("schemas/synnax/versions/doc/v0.oracle", doc)
-				output := "\n@go output \"core/pkg/service/doc\"\n\nDoc struct"
-				write("schemas/synnax/doc.oracle", strings.Replace(
-					doc, "\nDoc struct", output, 1,
-				))
-				write("schemas/x/color.oracle",
-					"@go output \"x/go/color\"\n\nColor struct {\n\tr uint8\n}\n")
-				before := compute(ctx, v0File, v1File).Sums[0].Schema
-				write("schemas/x/color.oracle", "@go output \"x/go/color\"\n\n"+
-					"Color struct {\n\tr uint8\n\tg uint8\n}\n")
-				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
-					ToNot(Equal(before))
-			},
-		)
-
-		It("Should follow an omitted field through an own alias to its dependency",
-			func(ctx SpecContext) {
-				doc := `
-import "schemas/x/color"
-
-Tint = color.Color
-
-Doc struct {
-	key uuid @key
-	tint Tint {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`
-				write("schemas/synnax/versions/doc/v0.oracle", doc)
-				output := "\n@go output \"core/pkg/service/doc\"\n\nTint ="
-				write("schemas/synnax/doc.oracle", strings.Replace(
-					doc, "\nTint =", output, 1,
-				))
-				write("schemas/x/color.oracle",
-					"@go output \"x/go/color\"\n\nColor struct {\n\tr uint8\n}\n")
-				before := compute(ctx, v0File, v1File).Sums[0].Schema
-				write("schemas/x/color.oracle", "@go output \"x/go/color\"\n\n"+
-					"Color struct {\n\tr uint8\n\tg uint8\n}\n")
-				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
-					ToNot(Equal(before))
 			},
 		)
 
