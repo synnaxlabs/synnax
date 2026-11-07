@@ -11,8 +11,8 @@
 # Runs only under disk pressure so the Bazel output tree stays warm and builds stay
 # incremental:
 # - If free space >= MinFreeGB, nothing is cleaned.
-# - Otherwise: `bazel clean` first (largest consumer) when the output base is on C:,
-#   then oldest Go/binary files until MinFreeGB is available.
+# - Otherwise: `bazel clean` first (largest consumer) when the drive of its output base
+#   is under MinFreeGB, then oldest Go/binary files until C: has MinFreeGB free.
 #
 # Usage: CleanBuildCaches.ps1 [-MinFreeGB 30]
 
@@ -55,8 +55,14 @@ Write-Output "=== Build Cache Cleanup (target: ${MinFreeGB} GB free) ==="
 Write-Output "  Current free space: ${freeGB} GB (target: ${MinFreeGB} GB)"
 Write-Output ""
 
+# The Bazel output base can sit on a drive other than C:, such as the NVMe D:.
+$lowDrives = @([System.IO.DriveInfo]::GetDrives() | Where-Object {
+        $_.DriveType -eq "Fixed" -and $_.IsReady -and
+        $_.AvailableFreeSpace -lt $minFreeBytes
+    } | ForEach-Object { $_.Name.Substring(0, 2) })
+
 # --- Above threshold: Keep Bazel cache warm ---
-if (Test-EnoughSpace) {
+if ($lowDrives.Count -eq 0) {
     Write-Output "Free space ${freeGB} GB >= target ${MinFreeGB} GB - keeping caches warm (no clean)."
     Write-Output ""
     $diskAfter = Get-DiskUsedGB
@@ -71,8 +77,6 @@ if (Test-EnoughSpace) {
 }
 
 # --- Below threshold: Bazel is the largest consumer, so clean it first ---
-# A bot that keeps the output base on another drive, such as its NVMe D:, frees
-# nothing on C: by cleaning it.
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $outputBase = $null
@@ -83,13 +87,17 @@ if (Test-Path $repoRoot) {
 }
 if (-not (Test-Path $repoRoot)) {
     Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
-} elseif ($outputBase -and -not $outputBase.StartsWith(
-        $drive.Name.Substring(0, 2), [System.StringComparison]::OrdinalIgnoreCase)) {
-    Write-Output ("  {0,-35} skipped (not on {1})" -f $outputBase, $drive.Name)
+} elseif (-not $outputBase) {
+    Write-Output ("  {0,-35} skipped (no output base)" -f "bazel clean")
+} elseif ($lowDrives -notcontains $outputBase.Substring(0, 2)) {
+    Write-Output ("  {0,-35} skipped (its drive has {1} GB free)" -f `
+        $outputBase, [math]::Round(
+            [System.IO.DriveInfo]::new($outputBase.Substring(0, 1)).AvailableFreeSpace /
+            1GB, 1))
 } else {
     Push-Location $repoRoot
     $before = 0
-    if ($outputBase -and (Test-Path $outputBase)) {
+    if (Test-Path $outputBase) {
         $before = [math]::Round(
             ((Get-ChildItem -Recurse -File $outputBase -ErrorAction SilentlyContinue |
                 Measure-Object -Property Length -Sum).Sum / 1MB), 0)
@@ -100,15 +108,14 @@ if (-not (Test-Path $repoRoot)) {
     }
     Pop-Location
     $after = 0
-    if ($outputBase -and (Test-Path $outputBase)) {
+    if (Test-Path $outputBase) {
         $after = [math]::Round(
             ((Get-ChildItem -Recurse -File $outputBase -ErrorAction SilentlyContinue |
                 Measure-Object -Property Length -Sum).Sum / 1MB), 0)
     }
-    $label = if ($outputBase) { $outputBase } else { "output_base" }
     $script:totalFreed += ($before - $after)
     Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f `
-        $label, $before, $after, ($before - $after))
+        $outputBase, $before, $after, ($before - $after))
 }
 Write-Output ""
 
