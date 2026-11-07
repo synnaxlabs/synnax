@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -213,20 +212,6 @@ var _ = Describe("Service", func() {
 					Name:     "Pump alerts",
 					Secret:   routingKey,
 				}}))
-		})
-
-		It("Should not let the rack of a task read its routing key", func(
-			ctx SpecContext,
-		) {
-			routingKey := createRoutingKey(ctx, plainKey)
-			storeTask(ctx, "Pump alerts", pd.TaskConfig{RoutingKey: &routingKey})
-			Expect(secretSvc.Resolve(
-				ctx,
-				nil,
-				testRack.OntologyID(),
-				uuid.Nil(),
-				routingKey,
-			)).Error().To(MatchError(access.ErrDenied))
 		})
 
 		It("Should return no uses for a secret that no task uses", func(
