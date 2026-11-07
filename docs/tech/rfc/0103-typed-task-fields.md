@@ -148,14 +148,15 @@ function that each service builds, as `slavesOf` does. It skips disabled fields,
 does not allow, a fill or entry that does not fit the channel's width, and a fill on an
 index channel. It clears `data_type`.
 
-**Core config**, in `ValidateEntry`: Labels and channel field values are unique. `json`
-and `bytes` text is valid. A raw `bytes` field is the only one enabled. A static `float`
-value is finite, because JSON has no NaN; fills and entries are never written as
-numbers. A non-finite `float` channel sample fails its write with an error: Go's encoder
-does this today, and C++ `from_sample_value`, which writes `null`, gains the same check.
+**Core config**, in `ValidateEntry`: Labels and channel field values are unique, `json`
+and `bytes` text is valid, a raw `bytes` field is alone, and a static `float` is finite.
+Fills and entries are never JSON numbers. Kafka and MQTT check kinds at task configure
+and gain fill (Kafka skips an absent value today, `read_task.go:767`).
 
-**Kafka and MQTT** run in the Core. The `ch.DataType` check at task configure becomes a
-kind check. Both gain fill: Kafka skips an absent value today (`read_task.go:767`).
+**Non-finite samples**: A `float` channel field fails the write. A `string` one writes
+`NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A `boolean` one fails on
+NaN. Phase 3 aligns this: today Go errors, writes `+Inf`, and writes `true`
+(`field.go:318`), and C++ writes `null`, `inf`, and `true` (`convert.cpp:430`).
 
 **Driver**: It keeps the kind against `ch.data_type`, a float for a non-finite fill, the
 index rule, and `check_from_sample_value`, because channels drift. It removes time
@@ -198,8 +199,8 @@ channel.
   (`layer.go:339`). `http_write` gets its first migration.
 - **Import and the task migration**: `Normalize` gets `tx` (`task/imex.go:116`,
   `task/versions/v3/migrate.go:137`). A new `ReconcileEntry` hook runs in it at each
-  version. Without it, the `Write` that follows rejects a mismatch, and the task
-  migration quarantines the task. Client writes do not reconcile.
+  version. Without it, the task migration quarantines a mismatch. Client writes do not
+  reconcile.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
