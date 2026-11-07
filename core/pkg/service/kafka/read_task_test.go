@@ -733,10 +733,60 @@ var _ = Describe("Read task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("no committed offset")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("no committed offset"))
 			Expect(stat.Details.Running).To(BeFalse())
+		},
+	)
+
+	It("Should return the error from Exec for a start it could not answer",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(kafka.ReadTaskType, kafka.ReadConfig{
+				Device:      dev.Key,
+				Topic:       newTopic(),
+				StartOffset: kafka.StartOffsetEarliest,
+				Records:     single(stampedFields(index, data)),
+			})
+			unwritable := newFactory(
+				kafka.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
+			)
+			dt := MustSucceed(unwritable.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(MatchError(errCommit))
+		},
+	)
+
+	It("Should return no error from Exec for a start answered before ctx ended",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(kafka.ReadTaskType, kafka.ReadConfig{
+				Device:      dev.Key,
+				Topic:       newTopic(),
+				StartOffset: kafka.StartOffsetNone,
+				Records:     single(stampedFields(index, data)),
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			canceling := newFactory(
+				kafka.FactoryConfig{
+					DB: gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
+				},
+			)
+			dt := MustSucceed(canceling.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(cmdCtx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Failed to start task"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)
 
