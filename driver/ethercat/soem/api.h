@@ -99,6 +99,11 @@ public:
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
 
+    /// @brief sends a frame that carries only the reference clock time to the slaves of
+    /// a group and waits up to timeout microseconds for it. Returns the working
+    /// counter, or a value below 1 when the frame does not come back.
+    virtual int sync_dc(uint8_t group, int timeout) = 0;
+
     /// @brief writes data to a register of a slave with a timeout in microseconds,
     /// returning the working counter, which is 1 when the slave took the write.
     virtual int write_register(
@@ -290,6 +295,21 @@ public:
     bool configdc() override { return ecx_configdc(&this->context); }
 
     [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
+
+    int sync_dc(uint8_t group, int timeout) override {
+        const auto ref = this->context.grouplist[group].DCnext;
+        int64_t time = 0;
+        const int wkc = ecx_FRMW(
+            &this->context.port,
+            this->context.slavelist[ref].configadr,
+            ECT_REG_DCSYSTIME,
+            sizeof(time),
+            &time,
+            timeout
+        );
+        if (wkc > 0) this->context.DCtime = etohll(time);
+        return wkc;
+    }
 
     int write_register(
         uint16_t slave,
