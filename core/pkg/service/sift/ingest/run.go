@@ -12,17 +12,20 @@ package ingest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/telem"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Run is a span of the data of an asset that Sift groups and names.
 type Run struct {
-	// Key identifies the run across calls to CreateRun.
+	// Key identifies the run across calls to SetRun.
 	Key string
 	// Name is the name of the run in Sift.
 	Name string
@@ -32,16 +35,17 @@ type Run struct {
 	Tags []string
 }
 
-// CreateRun makes r an ad hoc run of the asset in Sift and returns its ID. When a run
-// with the key of r exists, CreateRun returns its ID and changes nothing. CreateRun
-// retries temporary failures as Upload does.
-func (e *Engine) CreateRun(ctx context.Context, r Run) (string, error) {
+// SetRun makes r an ad hoc run of the asset in Sift and returns its ID. When a run
+// with the key of r exists, SetRun updates its name, span, and tags to match r. SetRun
+// retries temporary failures as Upload does. It is safe to call while Upload or Stream
+// runs.
+func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
 	if err != nil {
 		return "", err
 	}
 	for {
-		id, err := e.createRun(ctx, r)
+		id, err := e.setRun(ctx, r)
 		if err == nil {
 			return id, nil
 		}
@@ -59,7 +63,7 @@ func (e *Engine) CreateRun(ctx context.Context, r Run) (string, error) {
 	}
 }
 
-func (e *Engine) createRun(ctx context.Context, r Run) (string, error) {
+func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
 		PageSize: 1,
 		Filter:   fmt.Sprintf("client_key == %q", r.Key),
@@ -67,17 +71,42 @@ func (e *Engine) createRun(ctx context.Context, r Run) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	start := timestamppb.New(time.Unix(0, int64(r.TimeRange.Start)))
+	stop := timestamppb.New(time.Unix(0, int64(r.TimeRange.End)))
 	if len(res.Runs) > 0 {
-		return res.Runs[0].RunId, nil
+		existing := res.Runs[0]
+		if existing.Name == r.Name &&
+			proto.Equal(existing.StartTime, start) &&
+			proto.Equal(existing.StopTime, stop) &&
+			slices.Equal(
+				slices.Sorted(slices.Values(existing.Tags)),
+				slices.Sorted(slices.Values(r.Tags)),
+			) {
+			return existing.RunId, nil
+		}
+		_, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+			Run: &runsv2.Run{
+				RunId:     existing.RunId,
+				Name:      r.Name,
+				StartTime: start,
+				StopTime:  stop,
+				Tags:      r.Tags,
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{
+				Paths: []string{"name", "start_time", "stop_time", "tags"},
+			},
+		})
+		return existing.RunId, err
 	}
-	if _, err = e.ingestionConfig(ctx); err != nil {
+	assetID, err := e.asset(ctx)
+	if err != nil {
 		return "", err
 	}
 	created, err := e.runs.CreateAdhocRun(ctx, &runsv2.CreateAdhocRunRequest{
 		Name:      r.Name,
-		StartTime: timestamppb.New(time.Unix(0, int64(r.TimeRange.Start))),
-		StopTime:  timestamppb.New(time.Unix(0, int64(r.TimeRange.End))),
-		AssetIds:  []string{e.assetID},
+		StartTime: start,
+		StopTime:  stop,
+		AssetIds:  []string{assetID},
 		Tags:      r.Tags,
 		ClientKey: &r.Key,
 	})
