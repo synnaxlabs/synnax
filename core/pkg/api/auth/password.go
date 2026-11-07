@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -25,7 +25,7 @@ import (
 // PasswordSetRequest sets a user's password.
 type PasswordSetRequest struct {
 	// Subject is the user whose password to set. Empty means the caller.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Password is the new password.
 	Password string `json:"password" msgpack:"password"`
 	// CurrentPassword is required when the caller changes its own password.
@@ -57,7 +57,7 @@ func (s *Service) SetPassword(
 ) (PasswordSetResponse, error) {
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
-	if subject.Type != ontology.ResourceTypeUser {
+	if subject.Type != resource.TypeUser {
 		return PasswordSetResponse{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %s has no password",
@@ -68,7 +68,7 @@ func (s *Service) SetPassword(
 		ctx,
 		caller,
 		access.ActionUpdate,
-		[]ontology.ID{subject},
+		[]resource.ID{subject},
 	); err != nil {
 		return PasswordSetResponse{}, err
 	}

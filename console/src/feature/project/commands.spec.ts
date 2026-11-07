@@ -46,11 +46,11 @@ const createProjectWithPanel = async (): Promise<{
         {
           variant: "resource",
           key: uuid.create(),
-          resource: log.ontologyID(createdLog.key),
+          resource: log.resourceID(createdLog.key),
         },
       ],
     },
-    parent: project.ontologyID(proj.key),
+    parent: project.resourceID(proj.key),
   });
   return { proj, logName };
 };
@@ -131,7 +131,7 @@ describe("Project Commands", () => {
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(name);
     const children = await client.ontology.retrieveChildren(
-      project.ontologyID(imported),
+      project.resourceID(imported),
     );
     expect(children).toHaveLength(1);
     expect(children[0].name).toEqual("Propulsion");

@@ -10,8 +10,6 @@
 import { array, type destructor } from "@synnaxlabs/x";
 
 import {
-  type ID,
-  idToString,
   PARENT_OF_RELATIONSHIP_TYPE,
   type Relationship,
   relationshipToString,
@@ -19,6 +17,7 @@ import {
   ROOT_ID,
 } from "@/ontology/payload";
 import { query } from "@/query";
+import { type ID, idToString } from "@/resource/payload";
 
 /** Channels the Core writes ontology changes to. */
 export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
@@ -63,7 +62,7 @@ export class Cache {
     return this.indexes.byFrom.get(idToString(id));
   }
 
-  /** Returns the cached parent ID of the given ontology ID, or null if unknown. */
+  /** Returns the cached parent ID of the given resource ID, or null if unknown. */
   parentID(id: ID): ID | null {
     return this.parentsOf(id)[0]?.from ?? null;
   }

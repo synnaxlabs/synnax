@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
@@ -22,7 +23,7 @@ import (
 var _ = Describe("Writer", func() {
 	var (
 		w  ontology.Writer
-		id ontology.ID
+		id resource.ID
 	)
 	BeforeEach(func() {
 		w = otg.NewWriter(tx)
@@ -41,7 +42,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						w.DefineResources(
 							ctx,
-							ontology.ID{Type: ontology.ResourceTypeChannel},
+							resource.ID{Type: resource.TypeChannel},
 						),
 					).
 						To(MatchError(ContainSubstring("key is required")))
@@ -53,7 +54,7 @@ var _ = Describe("Writer", func() {
 					Expect(
 						w.DefineResources(
 							ctx,
-							ontology.ID{Type: "not-a-type", Key: "foo"},
+							resource.ID{Type: "not-a-type", Key: "foo"},
 						),
 					).
 						To(MatchError(ContainSubstring("invalid type")))
@@ -61,7 +62,7 @@ var _ = Describe("Writer", func() {
 			)
 		})
 		It("Should define many resources by their names", func(ctx SpecContext) {
-			ids := []ontology.ID{id, newSampleType("bar")}
+			ids := []resource.ID{id, newSampleType("bar")}
 			Expect(w.DefineResources(ctx, ids...)).To(Succeed())
 			Expect(otg.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
 		})
@@ -83,7 +84,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Relationships", func() {
-		var idOne, idTwo ontology.ID
+		var idOne, idTwo resource.ID
 		BeforeEach(func(ctx SpecContext) {
 			idOne = newSampleType("foo")
 			idTwo = newSampleType("bar")
@@ -153,9 +154,9 @@ var _ = Describe("Writer", func() {
 						Expect(w.DefineRelationships(
 							ctx, idOne, ontology.RelationshipTypeParentOf, idTwo,
 						)).To(Succeed())
-						idThree := ontology.ID{
+						idThree := resource.ID{
 							Key:  "qux",
-							Type: ontology.ResourceTypeChannel,
+							Type: resource.TypeChannel,
 						}
 						Expect(w.DefineResources(ctx, idThree)).To(Succeed())
 						Expect(w.DefineRelationships(
@@ -278,7 +279,7 @@ var _ = Describe("Writer", func() {
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(HaveLen(2))
-					gotIDs := []ontology.ID{res[0].ID, res[1].ID}
+					gotIDs := []resource.ID{res[0].ID, res[1].ID}
 					Expect(gotIDs).To(ConsistOf(idTwo, idThree))
 				},
 			)

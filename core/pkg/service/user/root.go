@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
@@ -64,7 +64,7 @@ func ProvisionRoot(
 		if !changed {
 			return nil
 		}
-		return passwords.NewWriter(tx).Set(ctx, root.OntologyID(), creds)
+		return passwords.NewWriter(tx).Set(ctx, root.ResourceID(), creds)
 	}); err != nil {
 		return User{}, false, err
 	}
@@ -130,14 +130,14 @@ func (s *Service) resolveRoot(
 		return User{}, errors.Wrap(err, "look up configured root username")
 	}
 	for _, r := range roots {
-		if r.OntologyID() == p.Subject {
+		if r.ResourceID() == p.Subject {
 			return r, nil
 		}
 	}
-	if p.Subject.Type != ontology.ResourceTypeUser {
+	if p.Subject.Type != resource.TypeUser {
 		return User{}, errors.Newf("password %q is not held by a user", username)
 	}
-	key, err := KeyFromOntologyID(p.Subject)
+	key, err := KeyFromResourceID(p.Subject)
 	if err != nil {
 		return User{}, err
 	}

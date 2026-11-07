@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
@@ -59,9 +60,9 @@ func NewMigration(otg *ontology.Ontology) gorp.Migration {
 			if err = writer.Delete(ctx, deleted...); err != nil {
 				return err
 			}
-			ids := make([]ontology.ID, len(deleted))
+			ids := make([]resource.ID, len(deleted))
 			for i, k := range deleted {
-				ids[i] = ontology.ID{Type: ontology.ResourceTypeView, Key: k.String()}
+				ids[i] = resource.ID{Type: resource.TypeView, Key: k.String()}
 			}
 			return otg.NewWriter(tx).DeleteResources(ctx, ids...)
 		},

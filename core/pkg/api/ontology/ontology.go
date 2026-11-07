@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -77,18 +78,18 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string                  `json:"search_term"            msgpack:"search_term"`
-		IDs                 []ontology.ID           `json:"ids"                    msgpack:"ids"`
-		Types               []ontology.ResourceType `json:"types"                  msgpack:"types"`
-		Limit               int                     `json:"limit"                  msgpack:"limit"`
-		Offset              int                     `json:"offset"                 msgpack:"offset"`
-		Children            bool                    `json:"children"               msgpack:"children"`
-		Parents             bool                    `json:"parents"                msgpack:"parents"`
-		ExcludeFieldData    bool                    `json:"exclude_field_data"     msgpack:"exclude_field_data"`
-		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
+		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
+		IDs                 []resource.ID   `json:"ids"                    msgpack:"ids"`
+		Types               []resource.Type `json:"types"                  msgpack:"types"`
+		Limit               int             `json:"limit"                  msgpack:"limit"`
+		Offset              int             `json:"offset"                 msgpack:"offset"`
+		Children            bool            `json:"children"               msgpack:"children"`
+		Parents             bool            `json:"parents"                msgpack:"parents"`
+		ExcludeFieldData    bool            `json:"exclude_field_data"     msgpack:"exclude_field_data"`
+		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 		// Root limits a search to the descendants of Root, and ends the Ancestors walk
 		// at Root.
-		Root ontology.ID `json:"root" msgpack:"root"`
+		Root resource.ID `json:"root" msgpack:"root"`
 		// Ancestors adds the resources and parent relationships on every path from the
 		// retrieved resources up to Root, or up to the ontology root.
 		Ancestors bool `json:"ancestors" msgpack:"ancestors"`
@@ -194,8 +195,8 @@ func (s *Service) retrieveAncestors(
 	req RetrieveRequest,
 	rels []ontology.Relationship,
 ) ([]ontology.Resource, error) {
-	ids := make([]ontology.ID, 0, len(rels))
-	seen := make(set.Set[ontology.ID], len(rels))
+	ids := make([]resource.ID, 0, len(rels))
+	seen := make(set.Set[resource.ID], len(rels))
 	for _, rel := range rels {
 		if rel.From == req.Root || rel.From == ontology.RootID ||
 			seen.Contains(rel.From) {
@@ -219,8 +220,8 @@ func (s *Service) retrieveAncestors(
 }
 
 type AddChildrenRequest struct {
-	ID       ontology.ID   `json:"id"       msgpack:"id"`
-	Children []ontology.ID `json:"children" msgpack:"children"`
+	ID       resource.ID   `json:"id"       msgpack:"id"`
+	Children []resource.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) AddChildren(
@@ -247,8 +248,8 @@ func (s *Service) AddChildren(
 }
 
 type RemoveChildrenRequest struct {
-	ID       ontology.ID   `json:"id"       msgpack:"id"`
-	Children []ontology.ID `json:"children" msgpack:"children"`
+	ID       resource.ID   `json:"id"       msgpack:"id"`
+	Children []resource.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) RemoveChildren(
@@ -265,7 +266,7 @@ func (s *Service) RemoveChildren(
 	}
 	return struct{}{}, s.ontology.NewWriter(tx).DeleteRelationships(
 		ctx,
-		lo.Map(req.Children, func(child ontology.ID, _ int) ontology.Relationship {
+		lo.Map(req.Children, func(child resource.ID, _ int) ontology.Relationship {
 			return ontology.Relationship{
 				From: req.ID,
 				Type: ontology.RelationshipTypeParentOf,
@@ -276,9 +277,9 @@ func (s *Service) RemoveChildren(
 }
 
 type MoveChildrenRequest struct {
-	From     ontology.ID   `json:"from"     msgpack:"from"`
-	To       ontology.ID   `json:"to"       msgpack:"to"`
-	Children []ontology.ID `json:"children" msgpack:"children"`
+	From     resource.ID   `json:"from"     msgpack:"from"`
+	To       resource.ID   `json:"to"       msgpack:"to"`
+	Children []resource.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) MoveChildren(

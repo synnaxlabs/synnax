@@ -23,6 +23,7 @@ import (
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -57,8 +58,8 @@ var _ = Describe("NewMigration", func() {
 		GinkgoHelper()
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())
-		Expect(otg.NewWriter(nil).DefineResources(ctx, ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		Expect(otg.NewWriter(nil).DefineResources(ctx, resource.ID{
+			Type: resource.TypeTask,
 			Key:  t.Key.String(),
 		})).To(Succeed())
 	}
@@ -204,8 +205,8 @@ var _ = Describe("NewMigration", func() {
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
-		Expect(otg.NewRetrieve().WhereIDs(ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		Expect(otg.NewRetrieve().WhereIDs(resource.ID{
+			Type: resource.TypeTask,
 			Key:  key.String(),
 		}).Exists(ctx, nil)).To(BeFalse())
 		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
@@ -250,8 +251,8 @@ var _ = Describe("NewMigration", func() {
 			}
 			Expect(gorp.NewCreate[v2.Key, v2.Task]().
 				Entry(&t).Exec(ctx, legacyDB)).To(Succeed())
-			Expect(otg.NewWriter(nil).DefineResources(ctx, ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			Expect(otg.NewWriter(nil).DefineResources(ctx, resource.ID{
+				Type: resource.TypeTask,
 				Key:  key.String(),
 			})).To(Succeed())
 			run(ctx, openArcStore(ctx))

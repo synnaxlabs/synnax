@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
@@ -132,16 +133,16 @@ var _ = Describe("Status", Ordered, func() {
 						Time:    telem.Now(),
 					}
 					Expect(
-						w.SetWithParent(ctx, &child, parent.OntologyID()),
+						w.SetWithParent(ctx, &child, parent.ResourceID()),
 					).To(Succeed())
 
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(child.OntologyID()).
+						WhereIDs(child.ResourceID()).
 						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(parent.OntologyID()))
+					Expect(res.ID).To(Equal(parent.ResourceID()))
 				})
 			})
 		})
@@ -617,7 +618,7 @@ var _ = Describe("Status", Ordered, func() {
 					Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
 					Expect(
 						labelSvc.NewWriter(tx).
-							Label(ctx, s.OntologyID(), []label.Key{l.Key}),
+							Label(ctx, s.ResourceID(), []label.Key{l.Key}),
 					).To(Succeed())
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
@@ -838,7 +839,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, key, name string) ontology.ID {
+		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
 			s := status.Status[any]{
 				Key:     key,
@@ -847,7 +848,7 @@ var _ = Describe("Status", Ordered, func() {
 				Time:    telem.Now(),
 			}
 			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
-			return status.OntologyID(s.Key)
+			return status.ResourceID(s.Key)
 		}
 
 		It(
@@ -855,22 +856,22 @@ var _ = Describe("Status", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
 			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
-			q := search.Query[ontology.ID]{Term: "hydraulic"}
+			q := search.Query[resource.ID]{Term: "hydraulic"}
 			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-				To(Equal([]ontology.ID{id}))
-			q = search.Query[ontology.ID]{Term: "cryogenic"}
+				To(Equal([]resource.ID{id}))
+			q = search.Query[resource.ID]{Term: "cryogenic"}
 			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 				To(BeEmpty())
 		})

@@ -23,6 +23,7 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
 import {
   autoIndex,
   choose,
@@ -264,7 +265,10 @@ const NAME_INPUT_PROPS = {
   "aria-label": "Name",
 } as const;
 
-/** The form that sets the name, identifier, and sync mode of one EtherCAT slave. */
+/**
+ * The form that sets the name, identifier, sync mode, and startup parameters of one
+ * EtherCAT slave.
+ */
 export const Configure = ({
   deviceKey,
   close,
@@ -393,6 +397,9 @@ export const Configure = ({
                   {APPLY_NOTE}
                 </Text.Text>
               </Flex.Box>
+            </Form.Section>
+            <Form.Section title="Startup parameters">
+              <StartupParameters />
             </Form.Section>
           </Form.Sections>
         </Form.Form>

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -38,8 +39,8 @@ type changeService struct {
 
 var changeSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func newChangeID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
+func newChangeID(key string) resource.ID {
+	return resource.ID{Key: key, Type: resource.TypeChannel}
 }
 
 func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
@@ -55,11 +56,11 @@ func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 	return relationships, nil
 }
 
-func decodeIDs(ser []byte) ([]ontology.ID, error) {
+func decodeIDs(ser []byte) ([]resource.ID, error) {
 	samples := telem.Series{DataType: telem.StringT, Data: ser}.Unmarshal[string]()
-	ids := make([]ontology.ID, 0, len(samples))
+	ids := make([]resource.ID, 0, len(samples))
 	for _, s := range samples {
-		id, err := ontology.ParseID(s)
+		id, err := resource.ParseID(s)
 		if err != nil {
 			return nil, err
 		}
@@ -70,14 +71,14 @@ func decodeIDs(ser []byte) ([]ontology.ID, error) {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (s *changeService) Type() resource.Type { return resource.TypeChannel }
 
 func (*changeService) Search(
 	context.Context,
 	gorp.Tx,
-	search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return search.Result[ontology.ID]{}, nil
+	search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return search.Result[resource.ID]{}, nil
 }
 
 func (s *changeService) RetrieveResource(

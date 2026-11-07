@@ -184,7 +184,7 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	details.Cmd = cmdKey
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Key:         t.OntologyID().String(),
+			Key:         t.ResourceID().String(),
 			Name:        t.Name,
 			Time:        telem.Now(),
 			Variant:     status.VariantError,
