@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
+import { Sift } from "@/feature/sift";
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -171,6 +172,10 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               <Icon.Save />
               Save to Core
             </Menu.Item>
+          )}
+          <Menu.Divider />
+          {rng.variant === "persisted" && (
+            <Sift.Range.UploadMenuItem rangeKey={rng.key} rangeName={rng.name} />
           )}
           <Menu.Divider />
           {rng.variant === "persisted" && (

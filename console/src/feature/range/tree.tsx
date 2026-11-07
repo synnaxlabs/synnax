@@ -15,6 +15,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
+import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -124,6 +125,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         onFavorite={handleFavorite}
         onUnfavorite={handleUnfavorite}
       />
+      <Menu.Divider />
+      {singleResource && (
+        <Sift.Range.UploadMenuItem
+          rangeKey={firstID.key}
+          rangeName={getResource(firstID).name}
+        />
+      )}
       <Menu.Divider />
       {singleResource && (
         <Link.CopyContextMenuItem
