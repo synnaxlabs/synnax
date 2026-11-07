@@ -60,6 +60,7 @@ class Hold(TestCase):
         pass
 
     def execute(self) -> None:
+        self.metrics["hold_s"] = self.params["hold"]
         start = time.monotonic()
         time.sleep(self.params["hold"])
         span = {
@@ -70,7 +71,6 @@ class Hold(TestCase):
         }
         with open(self.params["record"], "a") as f:
             f.write(json.dumps(span) + "\\n")
-        self.metrics["hold_s"] = self.params["hold"]
         self._status = STATUS.PASSED
 """
 
@@ -199,6 +199,16 @@ class TestExecutionClient:
         execution, loaded, results = client(cases_dir, sequence("a", "plain", hold=0.1))
         execution.run(loaded)
         assert [t.metrics for t in results] == [{"hold_s": 0.1}]
+
+    def test_metrics_of_timeout(self, cases_dir: Path) -> None:
+        """Should keep the numbers that a test measured before it timed out."""
+        execution, loaded, results = client(
+            cases_dir, sequence("a", "plain", hold=2, timeout=0.1)
+        )
+        execution.run(loaded)
+        assert [(t.status, t.metrics) for t in results] == [
+            (STATUS.TIMEOUT, {"hold_s": 2})
+        ]
 
     def test_free_resources(self, cases_dir: Path) -> None:
         """Should run tests that hold nothing at the same time."""

@@ -57,12 +57,10 @@ class CRIORoundTrip(_ArcOnCRIO):
             for value in range(_WARMUP + _ROUND_TRIPS):
                 start = time.perf_counter()
                 writer.write("crio_rt_in", float(value))
-                while True:
-                    frame = streamer.read(timeout=_REPLY_TIMEOUT_S)
-                    if frame is None:
-                        self.fail(f"No reply to {value} in {_REPLY_TIMEOUT_S} s")
-                    if frame["crio_rt_out"].to_numpy()[-1] == value:
-                        break
+                if not latency.wait_for(
+                    streamer, "crio_rt_out", value, timeout_s=_REPLY_TIMEOUT_S
+                ):
+                    self.fail(f"No reply to {value} in {_REPLY_TIMEOUT_S} s")
                 round_trips_ms.append((time.perf_counter() - start) * 1000)
         latency.check(
             self,

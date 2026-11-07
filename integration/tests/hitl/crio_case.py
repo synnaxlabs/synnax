@@ -71,6 +71,9 @@ class CRIOCase(HardwareCase):
             f"mkdir -p {_DIR}"
         )
         self._scp([str(DRIVER), f"{HOST}:{_DIR}/synnax-driver"])
+        # wait_for_rack must find the new rack, not one that an abandoned run left.
+        if stale := self.client.racks.retrieve(names=[RACK_NAME]):
+            self.client.racks.delete([rack.key for rack in stale])
         self.start_driver()
         self.rack = self.wait_for_rack("success")
         self.track_test_racks([self.rack])
