@@ -132,12 +132,16 @@ not, whether the schema itself can tell.
   message, such as a channel data type. No schema can settle it, so absence is the
   honest encoding. On the wire, an absent field is left out of the JSON, never sent as
   `null`.
+- **`X = zero`, zero means "not applicable"**: as `X?`, but no valid value can equal the
+  type's zero value (`0`, `""`, the first enum member). A sample rate is never `0` Hz,
+  so `0` can mean "not supported". A client that leaves the field out sends "not
+  applicable", so use this only where that guess is harmless. The doc comment says what
+  zero means.
 
-Never fake absence with a value that can also be valid. No `none` enum member, no empty
-string meaning "not applicable" where an empty string is a real value. Such a sentinel
-claims the question was answered when it was not, and it makes the "did you forget"
-check impossible to write. A default that no valid value can equal may mean absence: a
-sample rate of `0`, or a port that is never `0`. Its doc comment says what it means.
+Outside that case, never fake absence with a value. No `none` enum member, no empty
+string meaning "not applicable", no `-1` meaning "inherit". A sentinel claims the
+question was answered when it was not, and it makes the "did you forget" check
+impossible to write. Never add a value to a type so that zero can mean absence.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
