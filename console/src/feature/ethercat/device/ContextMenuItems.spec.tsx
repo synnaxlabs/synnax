@@ -27,7 +27,12 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getIconButton,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -112,6 +117,38 @@ const DC_MODE = createMode("DC", 0x0300);
 const PDI_MODE = createMode("DC (PDI)", 0x0301);
 const NO_SYNC0_MODE = createMode("DC (no SYNC0)", 0x0100);
 const FIXED_MODE = createMode("DC (300 us)", 0x0300, 300_000);
+const MODE_TEXTS = [
+  {
+    name: "a fixed SYNC0 cycle",
+    mode: FIXED_MODE,
+    option: "Clock ticks: SYNC0 every 300μs.",
+    help: "SYNC0 ticks every 300μs. SYNC1 is off.",
+  },
+  {
+    name: "a negative SYNC0 factor",
+    mode: { ...DC_MODE, sync0Factor: -2 },
+    option: "Clock ticks: SYNC0 2 times each bus cycle.",
+    help: "SYNC0 ticks 2 times each bus cycle. SYNC1 is off.",
+  },
+  {
+    name: "a SYNC0 factor above 1",
+    mode: { ...DC_MODE, sync0Factor: 4 },
+    option: "Clock ticks: SYNC0 every 4 bus cycles.",
+    help: "SYNC0 ticks every 4 bus cycles. SYNC1 is off.",
+  },
+  {
+    name: "a SYNC1 factor above 1",
+    mode: { ...createMode("DC", 0x0700), sync1Factor: 3 },
+    option: "Clock ticks: SYNC0 each bus cycle, SYNC1 every 3 SYNC0 ticks.",
+    help: "SYNC0 ticks each bus cycle. SYNC1 ticks every 3 SYNC0 ticks.",
+  },
+  {
+    name: "a negative SYNC1 factor",
+    mode: { ...createMode("DC", 0x0700), sync1Factor: -2 },
+    option: "Clock ticks: SYNC0 each bus cycle, SYNC1 every 2 bus cycles.",
+    help: "SYNC0 ticks each bus cycle. SYNC1 ticks every 2 bus cycles.",
+  },
+];
 const STALE_CHOICE = { index: 1, assignActivate: 0x0700, sync0Cycle: 0, sync1Cycle: 0 };
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
@@ -277,6 +314,51 @@ describe("EtherCAT device ContextMenuItems", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect(await retrieveOpMode(slave.key)).toBeUndefined(),
+      );
+    });
+
+    it("should run the first mode in auto when the device lists no SM mode", async () => {
+      await openSyncMode({ opModes: [FIXED_MODE, DC_MODE] });
+      expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+      expect(
+        await screen.findByText(
+          "The Driver uses DC (300 us), the first mode, because the device lists no " +
+            "SM mode. Best for most needs.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it.each(MODE_TEXTS)(
+      "should describe the clock ticks of a mode with $name",
+      async ({ mode, option, help }) => {
+        await openSyncMode({ opModes: [mode] });
+        expect(screen.getByText(help)).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+        expect(await screen.findByText(option)).toBeTruthy();
+      },
+    );
+
+    it("should put a cycle back to the mode's own when Auto is clicked", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC0 cycle", "300");
+      expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
+      fireEvent.click(getIconButton(document.body, "auto"));
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toHaveProperty(
+        "value",
+        "",
+      );
+      expect(
+        screen.getByText("SYNC0 ticks each bus cycle. SYNC1 is off."),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 0,
+          assignActivate: 0x0300,
+          sync0Cycle: 0,
+          sync1Cycle: 0,
+        }),
       );
     });
 
