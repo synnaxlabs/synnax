@@ -353,10 +353,12 @@ describe("cached reads", () => {
       await fresh.labels.remove(itemID, [lbl.key]);
       expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
       await sleep.sleep(TimeSpan.milliseconds(250));
-      expect(send.mock.calls.map(([target]) => target)).toEqual([
-        "/label/set",
-        "/label/remove",
-      ]);
+      // Other specs on the shared Core make the client fetch labels they attach.
+      const own = send.mock.calls.filter(([, req]) => {
+        const body = JSON.stringify(req);
+        return body.includes(item.key) || body.includes(lbl.key);
+      });
+      expect(own.map(([target]) => target)).toEqual(["/label/set", "/label/remove"]);
     } finally {
       off();
     }

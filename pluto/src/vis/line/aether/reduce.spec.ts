@@ -17,7 +17,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type DrawOperation } from "@/vis/line/aether/draw";
-import { groupSize, Reducer } from "@/vis/line/aether/reduce";
+import { groupSize, inView, Reducer } from "@/vis/line/aether/reduce";
 
 const alignment = (domain: number, sample: number): bigint =>
   (BigInt(domain) << 32n) | BigInt(sample);
@@ -99,6 +99,65 @@ describe("groupSize", () => {
     expect(groupSize([op(flat, flat)], VIEW, 1 / 2)).toBe(1);
     expect(groupSize([dense], { ...VIEW, width: 0 }, 1 / 2)).toBe(1);
     expect(groupSize([], VIEW, 1 / 2)).toBe(1);
+  });
+});
+
+describe("inView", () => {
+  const N = 10_000;
+  const VIEW = { lower: 5000, upper: 5100 };
+  const offsets = (o: DrawOperation) => [o.xOffset, o.yOffset, o.count];
+
+  it("should cut an op to its samples in view, widened to the cut grid", () => {
+    expect(inView([op(ramp(N), ramp(N))], VIEW, 1).map(offsets)).toEqual([
+      [4096, 4096, 1024],
+    ]);
+    expect(inView([op(ramp(N), ramp(N))], VIEW, 2).map(offsets)).toEqual([
+      [4096, 4096, 2048],
+    ]);
+  });
+
+  it("should move the y offset with the x offset", () => {
+    const o = op(ramp(N), ramp(N - 10, 10n));
+    expect(inView([o], VIEW, 1).map(offsets)).toEqual([[4096, 4086, 1024]]);
+  });
+
+  it("should keep a sample past each side of the view", () => {
+    const view = { lower: 4097, upper: 5119 };
+    expect(inView([op(ramp(N), ramp(N))], view, 1).map(offsets)).toEqual([
+      [3072, 3072, 3072],
+    ]);
+  });
+
+  it("should leave an op that the cut grid holds whole unchanged", () => {
+    const o = op(ramp(N), ramp(N));
+    expect(inView([o], { lower: 0, upper: N }, 1)[0]).toBe(o);
+  });
+
+  it("should keep only the sample next to the view of the nearest op outside", () => {
+    const at = (domain: number) => {
+      const x = new Series({
+        data: new Float32Array(
+          Array.from({ length: 100 }, (_, i) => domain * 1000 + i),
+        ),
+        alignment: alignment(domain, 0),
+      });
+      return op(x, ramp(100, alignment(domain, 0)));
+    };
+    const ops = [at(0), at(1), at(2), at(3)];
+    const cut = inView(ops, { lower: 1500, upper: 1600 }, 1);
+    expect(cut.map((o) => [o.x, ...offsets(o)])).toEqual([
+      [ops[1].x, 99, 99, 1],
+      [ops[2].x, 0, 0, 1],
+    ]);
+  });
+
+  it("should leave ops of reduced series unchanged", () => {
+    const reduced = new Series({
+      data: new Float32Array(Array.from({ length: N }, (_, i) => i)),
+      alignmentMultiple: 2n,
+    });
+    const o = op(reduced, reduced);
+    expect(inView([o], VIEW, 1)[0]).toBe(o);
   });
 });
 
@@ -499,6 +558,38 @@ describe("Reducer", () => {
       const reducer = new Reducer();
       const first = reducer.reduce([op(x, y)], "min_max", 4)[0];
       expect(reducer.reduce([op(x, y)], "min_max", 4)[0].y).toBe(first.y);
+    });
+  });
+
+  describe("cut ops", () => {
+    const cutAt = (o: DrawOperation, lo: number, count: number): DrawOperation => ({
+      ...o,
+      xOffset: o.xOffset + lo,
+      yOffset: o.yOffset + lo,
+      count,
+    });
+
+    it("should reduce only the samples of a cut op", () => {
+      const r = reduceOne(cutAt(op(ramp(64), ramp(64)), 32, 8), "min_max", 4);
+      expect(Array.from(r.y)).toEqual([32, 35, 36, 39]);
+      expect(r.y.alignment).toBe(32n);
+    });
+
+    it("should keep its groups while a cut op keeps its start", () => {
+      const o = op(ramp(64), ramp(64));
+      const reducer = new Reducer();
+      const first = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
+      const second = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
+      expect(second.y).toBe(first.y);
+    });
+
+    it("should reduce from the new start of a cut op that moves", () => {
+      const o = op(ramp(64), ramp(64));
+      const reducer = new Reducer();
+      const first = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
+      const moved = reducer.reduce([cutAt(o, 40, 8)], "min_max", 4)[0];
+      expect(Array.from(moved.y)).toEqual([40, 43, 44, 47]);
+      expect(first.y.refCount).toBe(0);
     });
   });
 

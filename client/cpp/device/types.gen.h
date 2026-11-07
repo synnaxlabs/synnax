@@ -46,6 +46,9 @@ struct StatusDetails {
     ::synnax::rack::Key rack = 0;
     /// @brief device is the device identifier.
     Key device;
+    /// @brief connected is true while the Driver confirms that it can reach the device.
+    /// A device whose state is unknown is not connected.
+    bool connected = false;
     /// @brief data contains device-specific status data.
     std::optional<x::json::json::object_t> data;
 

@@ -128,7 +128,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return cfg.Channel.NewWriter(tx).DeleteManyByNamePatterns(
+		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
 			ctx,
 			legacyStatusChannels,
 			true,
