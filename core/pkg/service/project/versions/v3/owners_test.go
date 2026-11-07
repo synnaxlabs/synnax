@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
@@ -24,10 +25,14 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type vis struct {
 	Key     uuid.UUID
+	Name    string
 	Project *uuid.UUID
 	Range   *uuid.UUID
 }
@@ -59,6 +64,7 @@ func retrieveAll[K gorp.Key, E gorp.Entry[K]](ctx context.Context, db *gorp.DB) 
 var _ = Describe("OwnersMigration", func() {
 	var (
 		db       *gorp.DB
+		logs     *observer.ObservedLogs
 		proj     = uuid.New()
 		rng      = uuid.New()
 		projID   = resource.ID{Type: resource.TypeProject, Key: proj.String()}
@@ -81,10 +87,10 @@ var _ = Describe("OwnersMigration", func() {
 			{Key: owned},
 			{Key: snapshot},
 			{Key: both},
-			{Key: dangling},
+			{Key: dangling, Name: "Dangling"},
 			{Key: fallback},
-			{Key: lost},
-			{Key: orphan},
+			{Key: lost, Name: "Lost"},
+			{Key: orphan, Name: "Orphan"},
 		}
 		Expect(gorp.NewCreate[uuid.UUID, vis]().Entries(&entries).Exec(ctx, db)).
 			To(Succeed())
@@ -113,14 +119,21 @@ var _ = Describe("OwnersMigration", func() {
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
 			Entry(&ranger.Range{Key: rng, Name: "Range"}).
 			Exec(ctx, db)).To(Succeed())
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "vis",
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "vis",
 			Migrations: []gorp.Migration{
 				v3.NewOwnersMigration(v3.OwnersConfig[uuid.UUID, vis]{
-					Name:  "owners",
-					Type:  resource.TypeSchematic,
-					Owned: func(v vis) bool { return v.Project != nil || v.Range != nil },
+					Name:   "owners",
+					Type:   resource.TypeSchematic,
+					Owned:  func(v vis) bool { return v.Project != nil || v.Range != nil },
+					NameOf: func(v vis) string { return v.Name },
 					SetOwner: func(v *vis, p, r *uuid.UUID) {
 						v.Project, v.Range = p, r
 					},
@@ -161,6 +174,27 @@ var _ = Describe("OwnersMigration", func() {
 		Expect(byKey(ctx)).ToNot(HaveKey(orphan))
 		Expect(byKey(ctx)).ToNot(HaveKey(dangling))
 		Expect(byKey(ctx)).ToNot(HaveKey(lost))
+	})
+
+	It("Should log a warning for each deleted visualization", func(ctx SpecContext) {
+		deleted := func(k uuid.UUID, name string) map[string]any {
+			return map[string]any{
+				"type": string(resource.TypeSchematic),
+				"key":  k.String(),
+				"name": name,
+			}
+		}
+		var got []map[string]any
+		for _, e := range logs.FilterMessage(
+			"deleted a visualization with no project or range",
+		).All() {
+			got = append(got, e.ContextMap())
+		}
+		Expect(got).To(ConsistOf(
+			deleted(orphan, "Orphan"),
+			deleted(dangling, "Dangling"),
+			deleted(lost, "Lost"),
+		))
 	})
 
 	It("Should delete the ontology resource of a deleted visualization", func(
