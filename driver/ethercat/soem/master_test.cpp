@@ -542,16 +542,15 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    std::optional<x::errors::Error> err;
+    x::errors::Error err;
     int receives = -1;
     ASSERT_NIL(this->activate([&] {
         ASSERT_NIL(this->master->send());
         err = this->master->receive();
         receives = this->mock->receive_count;
     }));
-    ASSERT_TRUE(err.has_value());
-    ASSERT_OCCURRED_AS(*err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err->data, "no process data passes the slaves until they reach SAFE-OP");
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "no process data passes the slaves until they reach SAFE-OP");
     EXPECT_EQ(receives, 0);
 }
 
@@ -563,11 +562,10 @@ TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {
     this->mock->ibytes = 4;
     this->mock->hasdc = true;
     this->mock->sync_dc_return = 0;
-    std::optional<x::errors::Error> err;
+    x::errors::Error err;
     static_cast<void>(this->master->activate([&] { err = this->master->send(); }));
-    ASSERT_TRUE(err.has_value());
-    ASSERT_OCCURRED_AS(*err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err->data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "reference clock frame failed");
 }
 
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
