@@ -199,6 +199,9 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
 
     // The master requests SAFE-OP itself, once the bus cycles.
     this->api->set_manual_state_change(true);
+    // SOEM keeps the SII length of a sync manager whose PDO assignment is empty or that
+    // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
+    this->api->clear_process_data_sms(ENABLED_GROUP);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
