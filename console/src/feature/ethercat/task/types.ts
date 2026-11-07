@@ -120,7 +120,7 @@ export const addressKey = ({ index, subIndex }: Address): string =>
   `${index}_${subIndex}`;
 
 /** @returns whether the read channel scales its samples. */
-export const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
+const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
 
 /**
  * @returns the device properties key of the read channel's Synnax channel. A scaled

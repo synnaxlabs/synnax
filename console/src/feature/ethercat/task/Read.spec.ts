@@ -788,7 +788,9 @@ describe("Read", () => {
       await clickDeploy(container);
       await awaitStatus(
         statuses,
-        new RegExp(`A channel named ${name} already exists\\. Choose another name\\.`),
+        new RegExp(
+          `A channel named ${name} already exists\\. Give the channel another name\\.`,
+        ),
       );
     };
 
@@ -861,7 +863,9 @@ describe("Read", () => {
       expect(updated.properties.readIndex).toBe(0);
       expect(updated.properties.read.channels).toEqual({});
     }
-    expect(await client.channels.retrieve({ names: [name] })).toEqual([]);
+    expect(await client.channels.retrieve({ where: { name: { in: [name] } } })).toEqual(
+      [],
+    );
   });
 
   it("should deploy once the user fixes a rejected name", async () => {
@@ -1060,7 +1064,7 @@ describe("Read", () => {
       await clickDeploy(container);
       await awaitStatus(
         statuses,
-        new RegExp(`A channel named ${name} already exists\\.`),
+        new RegExp(`Two channels of the task use the name ${name}\\.`),
       );
     });
 

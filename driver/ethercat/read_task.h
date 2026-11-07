@@ -27,25 +27,6 @@
 #include "driver/transform/transform.h"
 
 namespace driver::ethercat {
-/// @brief registers the channel's scale on the scale transform. Registers nothing for
-/// an unscaled channel.
-inline void add_scale(transform::Scale &scales, const channel::Input &ch) {
-    const auto &dt = ch.ch.data_type;
-    if (const auto *l = std::get_if<::synnax::ethercat::LinearScale>(&ch.scale))
-        scales.add(ch.ch.key, transform::UnaryLinearScale(l->slope, l->offset, dt));
-    else if (const auto *m = std::get_if<::synnax::ethercat::MapScale>(&ch.scale))
-        scales.add(
-            ch.ch.key,
-            transform::UnaryMapScale(
-                m->pre_scaled_min,
-                m->pre_scaled_max,
-                m->scaled_min,
-                m->scaled_max,
-                dt
-            )
-        );
-}
-
 /// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief network interface name for the EtherCAT master.
@@ -127,6 +108,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::make_input(parsed, slave, ch);
             if (!channel_ptr->enabled) return;
+            transform::validate_scale(ch, "scale", channel_ptr->scale);
             claims.claim(*channel_ptr, slave, ch);
             this->channels.push_back(std::move(channel_ptr));
         });
@@ -173,7 +155,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 );
                 continue;
             }
-            add_scale(this->scales, ch);
+            this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
         }
     }
 

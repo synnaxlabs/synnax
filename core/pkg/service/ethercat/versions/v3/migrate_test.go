@@ -20,6 +20,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,7 +33,7 @@ var (
 		{Name: "Repeated", Index: 0x6020, SubIndex: 0x11, DataType: "int16"},
 	}}
 	base = v2.BaseReadChannel{Key: "a", Device: "el3102", Channel: 12}
-	none = v3.Scale{Variant: v3.NoneScale{}}
+	none = task.Scale{Variant: task.NoneScale{}}
 )
 
 func findSlaves(

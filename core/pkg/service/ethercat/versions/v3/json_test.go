@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,8 +28,8 @@ var _ = Describe("JSON", func() {
 				Index:           0x6000,
 				SubIndex:        1,
 				DataType:        telem.Int16T,
-				Scale: v3.Scale{
-					Variant: v3.LinearScale{Slope: 2, Offset: 1},
+				Scale: task.Scale{
+					Variant: task.LinearScale{Slope: 2, Offset: 1},
 				},
 			}},
 			{Variant: v3.UnresolvedReadChannel{

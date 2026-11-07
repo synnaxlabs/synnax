@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 )
 
 // ResolveReadConfig addresses each unresolved channel in cfg to the input entry its
@@ -49,7 +50,7 @@ func ResolveReadConfig(
 				Index:           e.Index,
 				SubIndex:        e.SubIndex,
 				DataType:        e.DataType,
-				Scale:           Scale{Variant: NoneScale{}},
+				Scale:           task.Scale{Variant: task.NoneScale{}},
 			}
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -51,7 +52,7 @@ var _ = Describe("Codec", func() {
 				Index:           2,
 				SubIndex:        3,
 				DataType:        telem.DataType("test_3"),
-				Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 5.5, Offset: 6.5}},
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
 			}}),
 			Entry("unresolved variant", v3.ReadChannel{Variant: v3.UnresolvedReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
@@ -82,7 +83,7 @@ var _ = Describe("Codec", func() {
 						Index:           8,
 						SubIndex:        9,
 						DataType:        telem.DataType("test_9"),
-						Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 11.5, Offset: 12.5}},
+						Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 					}},
 				},
 			}),
@@ -104,27 +105,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("Scale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v3.Scale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v3.Scale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("linear variant", v3.Scale{Variant: v3.LinearScale{Slope: 1.5, Offset: 2.5}}),
-			Entry("map variant", v3.Scale{Variant: v3.MapScale{
-				PreScaledMin: 1.5,
-				PreScaledMax: 2.5,
-				ScaledMin:    3.5,
-				ScaledMax:    4.5,
-			}}),
-			Entry("none variant", v3.Scale{Variant: v3.NoneScale{}}),
-		)
-	})
 })
 
 func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
@@ -133,7 +113,7 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 		Index:           2,
 		SubIndex:        3,
 		DataType:        telem.DataType("test_3"),
-		Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 5.5, Offset: 6.5}},
+		Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -163,7 +143,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Index:           8,
 				SubIndex:        9,
 				DataType:        telem.DataType("test_9"),
-				Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 11.5, Offset: 12.5}},
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 			}},
 		},
 	}
@@ -182,23 +162,6 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeScale(b *testing.B) {
-	seed := v3.Scale{Variant: v3.LinearScale{Slope: 1.5, Offset: 2.5}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v3.Scale
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v3.ReadChannel{Variant: v3.EntryReadChannel{
@@ -206,7 +169,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			Index:           2,
 			SubIndex:        3,
 			DataType:        telem.DataType("test_3"),
-			Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 5.5, Offset: 6.5}},
+			Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -261,7 +224,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Index:           8,
 					SubIndex:        9,
 					DataType:        telem.DataType("test_9"),
-					Scale:           v3.Scale{Variant: v3.LinearScale{Slope: 11.5, Offset: 12.5}},
+					Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
 				}},
 			},
 		}
@@ -313,58 +276,6 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v3.ReadConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeScale(f *testing.F) {
-	{
-		seed := v3.Scale{Variant: v3.LinearScale{Slope: 1.5, Offset: 2.5}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v3.Scale{Variant: v3.MapScale{
-			PreScaledMin: 1.5,
-			PreScaledMax: 2.5,
-			ScaledMin:    3.5,
-			ScaledMax:    4.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v3.Scale{Variant: v3.NoneScale{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v3.Scale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v3.Scale
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

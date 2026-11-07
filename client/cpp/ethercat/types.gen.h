@@ -27,8 +27,8 @@ namespace synnax::ethercat {
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
-struct WriteConfig;
 struct ReadConfig;
+struct WriteConfig;
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
@@ -77,47 +77,48 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief LinearScale maps raw values to engineering units with a slope and offset.
-struct LinearScale {
-    std::string type = "linear";
-    /// @brief slope is the multiplier applied to the raw value.
-    double slope = 1;
-    /// @brief offset is the offset added after scaling.
-    double offset = 0;
+/// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
+struct EntryReadChannel : public BaseReadChannel {
+    std::string type = "entry";
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::uint8_t sub_index = 0;
+    /// @brief data_type is the data type of the PDO entry.
+    ::x::telem::DataType data_type;
+    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
+    /// channel writes to a float Synnax channel.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
-    static LinearScale parse(x::json::Parser parser);
+    static EntryReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief MapScale maps a raw range linearly onto a scaled range.
-struct MapScale {
-    std::string type = "map";
-    /// @brief pre_scaled_min is the lower bound of the raw input range.
-    double pre_scaled_min = 0;
-    /// @brief pre_scaled_max is the upper bound of the raw input range.
-    double pre_scaled_max = 1;
-    /// @brief scaled_min is the lower bound of the scaled output range.
-    double scaled_min = 0;
-    /// @brief scaled_max is the upper bound of the scaled output range.
-    double scaled_max = 1;
+/// @brief UnresolvedReadChannel is a channel whose PDO entry name matched no single
+/// entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedReadChannel : public BaseReadChannel {
+    std::string type = "unresolved";
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::string pdo;
 
-    static MapScale parse(x::json::Parser parser);
+    static UnresolvedReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief NoneScale applies no scaling; the raw value is used directly.
-struct NoneScale {
-    std::string type = "none";
+/// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
+/// type field selects how the PDO entry is addressed.
+using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
 
-    static NoneScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+ReadChannel parse_read_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
-/// @brief Scale determines how raw PDO values are transformed to engineering units.
-using Scale = std::variant<LinearScale, MapScale, NoneScale>;
-
-Scale parse_scale(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Scale &value);
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
 
 /// @brief EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
 struct EntryWriteChannel : public BaseWriteChannel {
@@ -159,48 +160,15 @@ WriteChannel parse_write_channel(x::json::Parser parser);
     );
 }
 
-/// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
-struct EntryReadChannel : public BaseReadChannel {
-    std::string type = "entry";
-    /// @brief index is the CoE object dictionary index of the PDO entry.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
-    std::uint8_t sub_index = 0;
-    /// @brief data_type is the data type of the PDO entry.
-    ::x::telem::DataType data_type;
-    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
-    /// channel writes to a float Synnax channel.
-    Scale scale = NoneScale{};
+/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
+/// entry on its own slave; all slaves must share one network interface.
+struct ReadConfig : public ::synnax::task::ReadConfig {
+    /// @brief channels are the channels the task acquires.
+    std::vector<ReadChannel> channels;
 
-    static EntryReadChannel parse(x::json::Parser parser);
+    static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief UnresolvedReadChannel is a channel whose PDO entry name matched no single
-/// entry on its slave. It must be given an entry before the task runs.
-struct UnresolvedReadChannel : public BaseReadChannel {
-    std::string type = "unresolved";
-    /// @brief pdo is the entry name that matched no single entry on the slave.
-    std::string pdo;
-
-    static UnresolvedReadChannel parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
-/// type field selects how the PDO entry is addressed.
-using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
-
-ReadChannel parse_read_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const ReadChannel &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
-    return std::visit(
-        [](const auto &v) -> const BaseReadChannel & { return v; },
-        value
-    );
-}
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
@@ -215,16 +183,6 @@ struct WriteConfig : public ::synnax::task::PersistConfig {
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
-/// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::task::ReadConfig {
-    /// @brief channels are the channels the task acquires.
-    std::vector<ReadChannel> channels;
-
-    static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

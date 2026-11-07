@@ -721,7 +721,7 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
     const auto errors = parser.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_max");
-    EXPECT_EQ(errors[0]["message"], "must differ from the pre-scaled minimum");
+    EXPECT_EQ(errors[0]["message"], "Pre-scaled min and pre-scaled max must differ");
 }
 
 /// @brief it should skip the map scale check on a disabled channel.

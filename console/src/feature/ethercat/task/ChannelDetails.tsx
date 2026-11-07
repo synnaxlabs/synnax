@@ -80,10 +80,7 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
 }) => (
   <ChannelDetails path={path} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry}>
     <PForm.Section title="Scale">
-      <Task.ScaleForm
-        path={deep.variant(path, "type", "entry").scale}
-        schemas={ethercat.SCALE_SCHEMAS}
-      />
+      <Task.ScaleForm path={deep.variant(path, "type", "entry").scale} />
     </PForm.Section>
   </ChannelDetails>
 );

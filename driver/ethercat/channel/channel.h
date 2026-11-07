@@ -160,7 +160,7 @@ struct Input final : Channel {
     /// @brief the Synnax channel object (populated after remote lookup).
     synnax::channel::Channel ch;
     /// @brief the scale applied to raw samples after acquisition.
-    ::synnax::ethercat::Scale scale = ::synnax::ethercat::NoneScale{};
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     Input(
         const ::synnax::ethercat::EntryReadChannel &cfg,
@@ -172,12 +172,6 @@ struct Input final : Channel {
         synnax_key(cfg.channel),
         scale(cfg.scale) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
-        if (const auto *m = std::get_if<::synnax::ethercat::MapScale>(&this->scale);
-            this->enabled && m != nullptr && m->pre_scaled_min == m->pre_scaled_max)
-            parser.field_err(
-                path + "scale.pre_scaled_max",
-                "must differ from the pre-scaled minimum"
-            );
     }
 
     Input(
@@ -197,7 +191,7 @@ struct Input final : Channel {
 
     /// @brief whether the channel scales its raw samples.
     [[nodiscard]] bool scaled() const {
-        return !std::holds_alternative<::synnax::ethercat::NoneScale>(this->scale);
+        return !std::holds_alternative<::synnax::task::NoneScale>(this->scale);
     }
 };
 

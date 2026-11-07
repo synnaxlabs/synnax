@@ -218,11 +218,13 @@ A task from an earlier release can also hold an `unresolved` channel
 
 A scale converts the raw value of an entry into engineering units:
 
-| Scale type | Parameters                                                     | Result                                              |
-| ---------- | -------------------------------------------------------------- | --------------------------------------------------- |
-| `"none"`   | -                                                              | The raw value                                       |
-| `"linear"` | `slope`, `offset`                                              | `raw × slope + offset`                              |
-| `"map"`    | `pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max` | The raw range mapped linearly onto the scaled range |
+| Scale type     | Parameters                                                     | Result                                                |
+| -------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| `"none"`       | -                                                              | The raw value                                         |
+| `"linear"`     | `slope`, `offset`                                              | `raw × slope + offset`                                |
+| `"map"`        | `pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max` | The raw range mapped linearly onto the scaled range   |
+| `"polynomial"` | `coeffs`, from c0 up                                           | `c0 + c1 × raw + c2 × raw² + ...`                     |
+| `"table"`      | `pre_scaled_vals`, `scaled_vals`                               | Straight lines between the pairs, clipped at each end |
 
 A scaled channel writes float values, so its Synnax channel must be `float32` or
 `float64`. The Console creates a `float64` channel for it, apart from the raw channel.
@@ -238,7 +240,7 @@ ethercat.EntryReadChannel(
     data_type=sy.DataType.INT16,
     channel=volts.key,  # a float64 channel
     # Counts to volts for a ±10 V input
-    scale=ethercat.LinearScale(slope=10 / 32767, offset=0),
+    scale=sy.task.LinearScale(slope=10 / 32767, offset=0),
 )
 ```
 

@@ -79,30 +79,3 @@ type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v3.ScanConfig
-
-// Scale determines how raw PDO values are transformed to engineering units.
-type Scale = v3.Scale
-
-// ScaleVariant is implemented by every Scale variant.
-type ScaleVariant = v3.ScaleVariant
-
-// ScaleType is the "type" value that selects a variant of Scale.
-type ScaleType = v3.ScaleType
-
-const (
-	// LinearScaleType maps raw values to engineering units with a slope and offset.
-	LinearScaleType ScaleType = v3.LinearScaleType
-	// MapScaleType maps a raw range linearly onto a scaled range.
-	MapScaleType ScaleType = v3.MapScaleType
-	// NoneScaleType applies no scaling; the raw value is used directly.
-	NoneScaleType ScaleType = v3.NoneScaleType
-)
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = v3.LinearScale
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale = v3.MapScale
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = v3.NoneScale

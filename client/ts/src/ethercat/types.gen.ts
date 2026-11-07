@@ -55,54 +55,53 @@ export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** LinearScale maps raw values to engineering units with a slope and offset. */
-export const linearScaleZ = z.object({
-  type: z.literal("linear"),
-  /** slope is the multiplier applied to the raw value. */
-  slope: z.number().default(1),
-  /** offset is the offset added after scaling. */
-  offset: z.number().default(0),
+/** EntryReadChannel addresses a PDO entry by its CoE index and sub-index. */
+export const entryReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("entry"),
+  /** index is the CoE object dictionary index of the PDO entry. */
+  index: zod.uint16,
+  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
+  subIndex: zod.uint8,
+  /** dataType is the data type of the PDO entry. */
+  dataType: z.string(),
+  /**
+   * scale is the scale applied to raw samples after acquisition. A scaled channel
+   * writes to a float Synnax channel.
+   */
+  scale: task.scaleZ.prefault({ type: "none" }),
 });
-export interface LinearScale extends z.infer<typeof linearScaleZ> {}
+export interface EntryReadChannel extends z.infer<typeof entryReadChannelZ> {}
 
-/** MapScale maps a raw range linearly onto a scaled range. */
-export const mapScaleZ = z.object({
-  type: z.literal("map"),
-  /** preScaledMin is the lower bound of the raw input range. */
-  preScaledMin: z.number().default(0),
-  /** preScaledMax is the upper bound of the raw input range. */
-  preScaledMax: z.number().default(1),
-  /** scaledMin is the lower bound of the scaled output range. */
-  scaledMin: z.number().default(0),
-  /** scaledMax is the upper bound of the scaled output range. */
-  scaledMax: z.number().default(1),
+/**
+ * UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
+ * its slave. It must be given an entry before the task runs.
+ */
+export const unresolvedReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("unresolved"),
+  /** pdo is the entry name that matched no single entry on the slave. */
+  pdo: z.string(),
 });
-export interface MapScale extends z.infer<typeof mapScaleZ> {}
+export interface UnresolvedReadChannel extends z.infer<typeof unresolvedReadChannelZ> {}
 
-/** NoneScale applies no scaling; the raw value is used directly. */
-export const noneScaleZ = z.object({
-  type: z.literal("none"),
-});
-export interface NoneScale extends z.infer<typeof noneScaleZ> {}
+export const READ_CHANNEL_TYPES = ["entry", "unresolved"] as const;
+export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
+export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
-export const SCALE_TYPES = ["linear", "map", "none"] as const;
-export const scaleTypeZ = z.enum(SCALE_TYPES);
-export type ScaleType = z.infer<typeof scaleTypeZ>;
-
-/** Scale determines how raw PDO values are transformed to engineering units. */
-export const scaleZ = z.discriminatedUnion("type", [
-  linearScaleZ,
-  mapScaleZ,
-  noneScaleZ,
+/**
+ * ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
+ * field selects how the PDO entry is addressed.
+ */
+export const readChannelZ = z.discriminatedUnion("type", [
+  entryReadChannelZ,
+  unresolvedReadChannelZ,
 ]);
-export type Scale = LinearScale | MapScale | NoneScale;
+export type ReadChannel = EntryReadChannel | UnresolvedReadChannel;
 
-export const SCALE_SCHEMAS: {
-  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
+export const READ_CHANNEL_SCHEMAS: {
+  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  linear: linearScaleZ,
-  map: mapScaleZ,
-  none: noneScaleZ,
+  entry: entryReadChannelZ,
+  unresolved: unresolvedReadChannelZ,
 };
 
 /** EntryWriteChannel addresses a PDO entry by its CoE index and sub-index. */
@@ -151,54 +150,10 @@ export const WRITE_CHANNEL_SCHEMAS: {
   unresolved: unresolvedWriteChannelZ,
 };
 
-/** EntryReadChannel addresses a PDO entry by its CoE index and sub-index. */
-export const entryReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("entry"),
-  /** index is the CoE object dictionary index of the PDO entry. */
-  index: zod.uint16,
-  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
-  subIndex: zod.uint8,
-  /** dataType is the data type of the PDO entry. */
-  dataType: z.string(),
-  /**
-   * scale is the scale applied to raw samples after acquisition. A scaled channel
-   * writes to a float Synnax channel.
-   */
-  scale: scaleZ.prefault({ type: "none" }),
+export const readConfigZ = task.readConfigZ.extend({
+  channels: readChannelZ.array().default(() => []),
 });
-export interface EntryReadChannel extends z.infer<typeof entryReadChannelZ> {}
-
-/**
- * UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
- * its slave. It must be given an entry before the task runs.
- */
-export const unresolvedReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("unresolved"),
-  /** pdo is the entry name that matched no single entry on the slave. */
-  pdo: z.string(),
-});
-export interface UnresolvedReadChannel extends z.infer<typeof unresolvedReadChannelZ> {}
-
-export const READ_CHANNEL_TYPES = ["entry", "unresolved"] as const;
-export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
-export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
-
-/**
- * ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
- * field selects how the PDO entry is addressed.
- */
-export const readChannelZ = z.discriminatedUnion("type", [
-  entryReadChannelZ,
-  unresolvedReadChannelZ,
-]);
-export type ReadChannel = EntryReadChannel | UnresolvedReadChannel;
-
-export const READ_CHANNEL_SCHEMAS: {
-  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
-} = {
-  entry: entryReadChannelZ,
-  unresolved: unresolvedReadChannelZ,
-};
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.persistConfigZ.extend({
   stateRate: z.number().default(25),
@@ -206,8 +161,3 @@ export const writeConfigZ = task.persistConfigZ.extend({
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-export const readConfigZ = task.readConfigZ.extend({
-  channels: readChannelZ.array().default(() => []),
-});
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}

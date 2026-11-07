@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 )
 
 // MigrateReadChannel lifts a v2 read channel to v3. An entry channel applies no scale.
@@ -23,7 +24,7 @@ func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, e
 		return ReadChannel{}, err
 	}
 	if entry, ok := ch.Variant.(EntryReadChannel); ok {
-		entry.Scale = Scale{Variant: NoneScale{}}
+		entry.Scale = task.Scale{Variant: task.NoneScale{}}
 		ch.Variant = entry
 	}
 	return ch, nil

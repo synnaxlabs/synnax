@@ -144,12 +144,12 @@ class TestEtherCATReadTask:
         ch = sy.ethercat.EntryReadChannel(
             index=0x6000, sub_index=1, data_type=sy.DataType.INT16
         )
-        assert isinstance(ch.scale, sy.ethercat.NoneScale)
+        assert isinstance(ch.scale, sy.task.NoneScale)
 
     @pytest.mark.parametrize(
         ("scale", "cls"),
         [
-            ({"type": "linear", "slope": 2.5, "offset": -10}, sy.ethercat.LinearScale),
+            ({"type": "linear", "slope": 2.5, "offset": -10}, sy.task.LinearScale),
             (
                 {
                     "type": "map",
@@ -158,7 +158,7 @@ class TestEtherCATReadTask:
                     "scaled_min": 0,
                     "scaled_max": 100,
                 },
-                sy.ethercat.MapScale,
+                sy.task.MapScale,
             ),
         ],
     )
