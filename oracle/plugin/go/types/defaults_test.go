@@ -1465,6 +1465,80 @@ var _ = Describe("Decode-time default generation", func() {
 		},
 	)
 
+	It(
+		"Should set the defaults of a defaulted union variant in its own block",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct { depth int32 = 3 }
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (p *Panel) SetDefaults() {\n\t{\n\t\tv0 := LeafNode{}\n"+
+					"\t\tv0.SetDefaults()\n\t\tp.Root.Variant = v0\n\t}\n}",
+			)
+		},
+	)
+
+	It(
+		"Should give no decode hooks to a parent that another package embeds",
+		func(ctx SpecContext) {
+			loader.Add("schemas/task", `
+			@go output "core/pkg/service/task"
+
+			ReadConfig struct { sample_rate float64 = 10 }
+		`)
+			source := `
+			import "schemas/task"
+
+			@go output "core/pkg/service/ni"
+
+			Cfg struct extends task.ReadConfig { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "task/types.gen.go").
+				ToContain("func (r *ReadConfig) SetDefaults()").
+				ToNotContain(
+					"func (r *ReadConfig) UnmarshalJSONFrom(",
+					"func (r *ReadConfig) DecodeMsgpack(",
+				)
+		},
+	)
+
+	It(
+		"Should give no decode hooks to a type whose versioned copy is embedded",
+		func(ctx SpecContext) {
+			loader.Add("schemas/xv1", `
+			@go output "core/pkg/service/x/versions/v1"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+		`)
+			source := `
+			import "schemas/xv1"
+
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Doc struct { cfg xv1.Cfg }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "service/x/types.gen.go").
+				ToContain(
+					"func (b *Base) SetDefaults()",
+					"func (d *Doc) UnmarshalJSONFrom(",
+				).
+				ToNotContain("func (b *Base) UnmarshalJSONFrom(")
+		},
+	)
+
 	Describe("Union variants", func() {
 		const source = `
 			@go output "core/pkg/service/x"

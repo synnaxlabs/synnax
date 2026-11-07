@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -187,6 +188,9 @@ func unionLiteral(
 		variable + " := " +
 			casing.QualifiedVariantTypeName(unionType, variant.Name, ".") + "{}",
 	}
+	if variantSetsDefaults(form, variant, data) {
+		setup = append(setup, variable+".SetDefaults()")
+	}
 	for _, comp := range val.Fields {
 		if comp.Name == form.Discriminator {
 			continue
@@ -278,13 +282,21 @@ func literalAssignments(
 		return append(setup, selector+" = "+expr), true
 	}
 	if v.Kind == resolution.ValueKindIdent {
-		if expr, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
-			if optional {
-				return []string{
-					selector + " = &" + goType + "{Variant: " + expr + "}",
-				}, true
+		if expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
+			var lines []string
+			if defaulted {
+				variable := fmt.Sprintf("v%d", *next)
+				*next++
+				lines = []string{variable + " := " + expr, variable + ".SetDefaults()"}
+				expr = variable
 			}
-			return []string{selector + ".Variant = " + expr}, true
+			if optional {
+				return append(
+					lines,
+					selector+" = &"+goType+"{Variant: "+expr+"}",
+				), true
+			}
+			return append(lines, selector+".Variant = "+expr), true
 		}
 	}
 	lit, ok := goLiteral(typeRef, &v, data)
@@ -466,14 +478,15 @@ func scalarFill(
 			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
-		if expr, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
+		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			return defaultFillData{
-				GoName:  goName + ".Variant",
-				ZeroLit: "nil",
-				Expr:    expr,
-			}, true
+			fill := defaultFillData{GoName: goName + ".Variant", ZeroLit: "nil", Expr: expr}
+			if defaulted {
+				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
+				fill.Expr = "v0"
+			}
+			return fill, true
 		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
@@ -495,21 +508,22 @@ func scalarFill(
 }
 
 // emptyVariant renders the empty Go variant struct that a bare-name union default such
-// as `= const_val` selects. It returns ok=false when typeRef is not a union with that
-// variant.
+// as `= const_val` selects, and reports whether that struct has SetDefaults. It returns
+// ok=false when typeRef is not a union with that variant.
 func emptyVariant(
 	ident string,
 	typeRef resolution.TypeRef,
 	data *templateData,
-) (string, bool) {
+) (expr string, defaulted bool, ok bool) {
 	uv, ok := validation.ResolveUnionVariant(ident, typeRef, data.table)
 	if !ok {
-		return "", false
+		return "", false, false
 	}
 	// The variant structs live with the union, not with an alias of it.
 	_, unionRef, _ := resolution.Dealias(typeRef, data.table)
 	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
-	return casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}", true
+	expr = casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}"
+	return expr, variantSetsDefaults(uv.Union, uv.Variant, data), true
 }
 
 // enumConstRef renders the Go constant of the enum member ev that a value of type
@@ -924,6 +938,37 @@ func groupMember(
 		return defaultFillData{GoName: name, ZeroLit: `""`}, true
 	}
 	return defaultFillData{}, false
+}
+
+// variantSetsDefaults reports whether the Go struct of variant v of form emits
+// SetDefaults, by the rule the generated variant follows.
+func variantSetsDefaults(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	data *templateData,
+) bool {
+	if !v.Inline {
+		return typeSetsDefaults(v.Type, data, set.New[string]())
+	}
+	payload, ok := v.Type.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	inherited, declared := resolver.VariantBases(form, v, "go", data.table)
+	for _, ref := range inherited {
+		if typeSetsDefaults(ref, data, set.New[string]()) {
+			return true
+		}
+	}
+	pform, _ := payload.Form.(resolution.StructForm)
+	probe := probeData(data)
+	return lo.SomeBy(
+		slices.Concat(declared, pform.Fields),
+		func(f resolution.Field) bool {
+			return defaultsHasOwn(f, probe) ||
+				(!f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()))
+		},
+	)
 }
 
 // typeSetsDefaults reports whether ref names a struct that emits SetDefaults: one with
