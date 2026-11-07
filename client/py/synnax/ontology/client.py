@@ -10,7 +10,7 @@
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from x.lists import normalize
 
 

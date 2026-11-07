@@ -254,13 +254,15 @@ export const checkOrCreateIndex = async (
 
 /**
  * @returns the channels whose mapped Synnax channel is missing.
- * @throws {Error} if a mapped channel holds a different data type than its channel.
+ * @throws {Error} if a mapped channel holds a different data type than getDataType
+ * gives for its channel.
  */
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
   mapKey: (ch: C) => string = addressKey,
+  getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
@@ -277,7 +279,7 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
-    checkDataType(mapped, ch.dataType);
+    checkDataType(mapped, getDataType(ch));
   }
   return toCreate;
 };
@@ -312,6 +314,8 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
   /** the device's map of channel keys, which receives each bound channel. */
   map: Record<string, number>;
   mapKey?: (ch: C) => string;
+  /** @returns the data type the Synnax channel of the channel must hold. */
+  getDataType?: (ch: C) => string;
 }
 
 /**
@@ -331,6 +335,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   index,
   map,
   mapKey = addressKey,
+  getDataType = (ch) => ch.dataType,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
   if (existing.size === 0) return channels;
@@ -363,7 +368,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
       throw new Error(
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );
-    checkDataType(orphan, ch.dataType);
+    checkDataType(orphan, getDataType(ch));
     map[mapKey(ch)] = orphan.key;
     bound.add(orphan.key);
     return false;

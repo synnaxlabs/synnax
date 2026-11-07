@@ -12,6 +12,7 @@ import {
   NotFoundError,
   ontology,
   query,
+  resource,
   schematic,
 } from "@synnaxlabs/client";
 import { deep, verbs } from "@synnaxlabs/x";
@@ -82,7 +83,7 @@ export type FormQuery = {
 
 export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
-  .extend({ parent: ontology.idZ });
+  .extend({ parent: resource.idZ });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -117,7 +118,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     // latency the editor suspends for.
     const [symbol, parents] = await Promise.all([
       client.schematics.symbols.retrieve(key),
-      client.ontology.parents.retrieve({ ids: schematic.symbol.ontologyID(key) }),
+      client.ontology.parents.retrieve({ ids: schematic.symbol.resourceID(key) }),
     ]);
     return toFormValues(symbol, parents);
   },
@@ -125,7 +126,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     const symbol = client.schematics.symbols.getCached(key);
     if (!query.isLive(symbol)) return undefined;
     const parents = client.ontology.parents.getCached({
-      ids: schematic.symbol.ontologyID(key),
+      ids: schematic.symbol.resourceID(key),
     });
     if (!query.isLive(parents)) return undefined;
     return toFormValues(symbol, parents);

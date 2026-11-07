@@ -34,7 +34,7 @@ const SearchListItem: Search.ListItem = (props) => {
         const { id } = resource;
         const ranges = await client.ranges.retrieve([id.key]);
         store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-        openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
+        openTab({ variant: "resource", resource: ranger.resourceID(ranges[0].key) });
       },
       { message: "Failed to select range", name: resource?.name ?? "" },
     );

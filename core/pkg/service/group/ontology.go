@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,24 +27,24 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeGroup, Key: key.String()}
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeGroup, Key: key.String()}
 }
 
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-func OntologyIDsFromGroups(groups []Group) []ontology.ID {
-	return lo.Map(groups, func(g Group, _ int) ontology.ID { return g.OntologyID() })
+func ResourceIDsFromGroups(groups []Group) []resource.ID {
+	return lo.Map(groups, func(g Group, _ int) resource.ID { return g.ResourceID() })
 }
 
-// KeyFromOntologyID converts id to the Key of the group it identifies. It returns an
+// KeyFromResourceID converts id to the Key of the group it identifies. It returns an
 // error wrapping validate.ErrValidation if id is not a group or its key is not a valid
 // UUID. Callers that resolve a caller-supplied field scope the returned error to that
 // field with validate.PathedError.
-func KeyFromOntologyID(id ontology.ID) (Key, error) {
-	if id.Type != ontology.ResourceTypeGroup {
+func KeyFromResourceID(id resource.ID) (Key, error) {
+	if id.Type != resource.TypeGroup {
 		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "must be a group, got %q", id.Type,
 		)
@@ -63,14 +64,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(g Group) ontology.Resource {
-	return ontology.NewResource(schema, g.OntologyID(), g.Name, g)
+	return ontology.NewResource(schema, g.ResourceID(), g.Name, g)
 }
 
 type change = xchange.Change[Key, Group]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
+func (s *Service) Type() resource.Type { return resource.TypeGroup }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,
@@ -91,7 +92,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -109,7 +110,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

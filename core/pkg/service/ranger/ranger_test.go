@@ -151,7 +151,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
 			Expect(
-				labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []label.Key{l.Key}),
+				labelSvc.NewWriter(tx).Label(ctx, r1.ResourceID(), []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(
@@ -207,11 +207,11 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rNone)).To(Succeed())
 				Expect(
 					labelSvc.NewWriter(tx).
-						Label(ctx, rA.OntologyID(), []label.Key{la.Key}),
+						Label(ctx, rA.ResourceID(), []label.Key{la.Key}),
 				).To(Succeed())
 				Expect(
 					labelSvc.NewWriter(tx).
-						Label(ctx, rB.OntologyID(), []label.Key{lb.Key}),
+						Label(ctx, rB.ResourceID(), []label.Key{lb.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(
@@ -256,11 +256,11 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongLabel)).To(Succeed())
 				Expect(
 					labelSvc.NewWriter(tx).
-						Label(ctx, rHit.OntologyID(), []label.Key{l.Key}),
+						Label(ctx, rHit.ResourceID(), []label.Key{l.Key}),
 				).To(Succeed())
 				Expect(
 					labelSvc.NewWriter(tx).
-						Label(ctx, rWrongTime.OntologyID(), []label.Key{l.Key}),
+						Label(ctx, rWrongTime.ResourceID(), []label.Key{l.Key}),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.And(
@@ -333,7 +333,7 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, rPlain)).To(Succeed())
 			Expect(
 				labelSvc.NewWriter(tx).
-					Label(ctx, rLabeled.OntologyID(), []label.Key{l.Key}),
+					Label(ctx, rLabeled.ResourceID(), []label.Key{l.Key}),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(svc.NewRetrieve().Where(

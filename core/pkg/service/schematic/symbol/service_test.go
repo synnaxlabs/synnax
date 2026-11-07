@@ -128,7 +128,7 @@ var _ = Describe("Service", func() {
 						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 					}
 					Expect(
-						svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID()),
+						svc.NewWriter(nil).Create(ctx, &sym, proj.ResourceID()),
 					).To(Succeed())
 					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 				}

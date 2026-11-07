@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -19,9 +20,9 @@ import (
 // Ownership reserves parent_of relationships for one service. See [Ontology.Own].
 type Ownership struct {
 	// Children are the types whose parent relationships only the owner changes.
-	Children []ResourceType
+	Children []resource.Type
 	// Parents are the types whose child relationships only the owner changes.
-	Parents []ResourceType
+	Parents []resource.Type
 }
 
 // Owner opens the only writers that change the relationships of an [Ownership].
@@ -35,12 +36,12 @@ func (o *Owner) NewWriter(tx gorp.Tx) Writer {
 }
 
 // ownedTypes maps each owned type to its owner.
-type ownedTypes struct{ children, parents map[ResourceType]*Owner }
+type ownedTypes struct{ children, parents map[resource.Type]*Owner }
 
 func newOwnedTypes() ownedTypes {
 	return ownedTypes{
-		children: make(map[ResourceType]*Owner),
-		parents:  make(map[ResourceType]*Owner),
+		children: make(map[resource.Type]*Owner),
+		parents:  make(map[resource.Type]*Owner),
 	}
 }
 

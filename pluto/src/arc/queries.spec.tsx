@@ -462,7 +462,7 @@ describe("Arc queries", () => {
       });
       const createdArc = await client.arcs.retrieve({ name });
       const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(createdArc.key),
+        ids: arc.resourceID(createdArc.key),
       });
       const taskChildren = children.filter((c) => c.id.type === "task");
       expect(taskChildren).toHaveLength(0);
@@ -521,7 +521,7 @@ describe("Arc queries", () => {
       const moved = await client.tasks.retrieve(first.key);
       expect(moved.rack).toBe(rack2.key);
       const children = await client.ontology.children.retrieve({
-        ids: arc.ontologyID(created.key),
+        ids: arc.resourceID(created.key),
         types: ["task"],
       });
       expect(children).toHaveLength(1);
@@ -857,8 +857,8 @@ describe("Arc queries", () => {
       });
 
       await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
+        arc.resourceID(testArc.key),
+        task.resourceID(testTask.key),
       );
 
       const { result } = await renderHookSuspended(
@@ -896,8 +896,8 @@ describe("Arc queries", () => {
 
       await act(async () => {
         await client.ontology.addChildren(
-          arc.ontologyID(testArc.key),
-          task.ontologyID(testTask.key),
+          arc.resourceID(testArc.key),
+          task.resourceID(testTask.key),
         );
       });
 
@@ -927,8 +927,8 @@ describe("Arc queries", () => {
       });
 
       await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
+        arc.resourceID(testArc.key),
+        task.resourceID(testTask.key),
       );
 
       const { result } = await renderHookSuspended(
@@ -977,8 +977,8 @@ describe("Arc queries", () => {
       });
 
       await client.ontology.addChildren(
-        arc.ontologyID(testArc.key),
-        task.ontologyID(testTask.key),
+        arc.resourceID(testArc.key),
+        task.resourceID(testTask.key),
       );
 
       const { result } = await renderHookSuspended(

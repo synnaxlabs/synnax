@@ -27,14 +27,15 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
-  ontologyID as rackOntologyID,
+  resourceID as rackResourceID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
 import {
@@ -49,10 +50,10 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Payload,
   type PayloadSchemas as Schemas,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   type Status,
@@ -114,7 +115,7 @@ interface CommandDeadline {
 export const defaultStatusZ = statusZ();
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
+  const parents = await ontologyClient.parents.retrieve({ ids: resourceID(taskKey) });
   if (parents.length === 0) return null;
   return parents[0];
 };
@@ -244,8 +245,8 @@ export class Task<S extends Schemas = Schemas> {
     };
   }
 
-  get ontologyID(): ontology.ID {
-    return ontologyID(this.key);
+  get resourceID(): resource.ID {
+    return resourceID(this.key);
   }
 
   async executeCommand(params: TaskExecuteCommandParams): Promise<string> {
@@ -557,7 +558,7 @@ export class Client extends query.Retriever<
 
   private dropLocal(keys: Key[]): destructor.Destructor[] {
     return [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keys)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keys)),
       this.store.delete(keys),
       this.cfg.statuses.store.delete(keys.map((k) => statusKey(k))),
     ];
@@ -585,7 +586,7 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -706,10 +707,10 @@ export class Client extends query.Retriever<
   }
 
   // Every domain's statuses share one store, so a rack's status sits beside its
-  // tasks' under the rack's ontology ID.
+  // tasks' under the rack's resource ID.
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statuses.store.get(ontology.idToString(rackOntologyID(rack)));
+    const stat = this.cfg.statuses.store.get(resource.idToString(rackResourceID(rack)));
     if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
     return stat;
   }
@@ -984,7 +985,7 @@ export class Client extends query.Retriever<
 }
 
 /** @returns the key of the status that reports on the given task. */
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+export const statusKey = (key: Key): string => resource.idToString(resourceID(key));
 
 /**
  * @returns the key of the task the status reports on, or null when it names none.
@@ -1117,7 +1118,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const rackStatusKeys = new Set(
     racks
       .filter((r) => primitive.isNonZero(r))
-      .map((r) => ontology.idToString(rackOntologyID(r))),
+      .map((r) => resource.idToString(rackResourceID(r))),
   );
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });

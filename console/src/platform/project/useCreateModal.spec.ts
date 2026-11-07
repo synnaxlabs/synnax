@@ -69,12 +69,12 @@ describe("Project.useCreateModal", () => {
 
     await waitFor(async () => {
       const panels = await client.panels.retrieve({
-        parent: project.ontologyID(active),
+        parent: project.resourceID(active),
       });
       expect(panels).toHaveLength(1);
     });
     const [pan] = await client.panels.retrieve({
-      parent: project.ontologyID(active),
+      parent: project.resourceID(active),
     });
     expect(pan.name).toBe("New panel");
     if (pan.root.variant !== "leaf") throw new Error("expected a leaf root");

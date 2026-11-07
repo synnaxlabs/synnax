@@ -44,8 +44,8 @@ describe("ParentRangeButton", () => {
         timeRange: new TimeRange(1, 2),
       });
       await client.ontology.addChildren(
-        ranger.ontologyID(range.key),
-        task.ontologyID(tsk.key),
+        ranger.resourceID(range.key),
+        task.resourceID(tsk.key),
       );
       return { tsk, range };
     };
@@ -70,7 +70,7 @@ describe("ParentRangeButton", () => {
       fireEvent.click(await screen.findByText(range.name, {}));
       await waitFor(async () => {
         const doc = await client.panels.retrieve(panelKey);
-        const tab = panel.findTabByResource(doc.root, ranger.ontologyID(range.key));
+        const tab = panel.findTabByResource(doc.root, ranger.resourceID(range.key));
         assertDefined(tab, "range resource tab was not opened");
       });
     });

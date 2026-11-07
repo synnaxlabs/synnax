@@ -13,7 +13,7 @@ package label
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -39,7 +39,7 @@ type Where struct {
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// For matches the labels attached to the given resource.
-	For *ontology.ID `json:"for,omitzero" msgpack:"for,omitempty"`
+	For *resource.ID `json:"for,omitzero" msgpack:"for,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

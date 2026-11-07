@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -40,13 +40,13 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 	_ imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	a, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	if err = s.NewWriter(tx).Create(ctx, &a); err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	return a.OntologyID(), nil
+	return a.ResourceID(), nil
 }

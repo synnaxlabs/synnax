@@ -42,7 +42,7 @@ describe("Task.createCommand permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: Command.useVisible?.(),
-        loaded: Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(task.TYPE_RESOURCE_ID),
       }),
       { client: viewer },
     );

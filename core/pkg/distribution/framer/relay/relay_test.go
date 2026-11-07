@@ -175,6 +175,60 @@ var _ = Describe("Relay", func() {
 			},
 		)
 	})
+	Describe("Slow streamers", func() {
+		It("Should not delay other streamers", func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			channels := MustSucceed(node.Channel.Create(ctx, newChannelSet()))
+			keys := channel.KeysFromChannels(channels)
+			openStreamer := func() confluence.Outlet[relay.Response] {
+				GinkgoHelper()
+				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				req, res := confluence.Attach(reader, 1)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				return res
+			}
+			live := openStreamer()
+			w := MustOpen(node.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			openStreamer()
+			// The frames fill the stalled streamer's buffer three times over.
+			const batchSize = 50
+			batches := 3 * relay.DefaultConfig.StreamerBufferSize / batchSize
+			for range batches {
+				for range batchSize {
+					Expect(w.Write(frame.NewMulti(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesV[int64](1),
+							telem.NewSeriesV[int64](2),
+							telem.NewSeriesV[int64](3),
+						},
+					))).To(BeTrue())
+				}
+				received := 0
+				Eventually(func(g Gomega) {
+					for ; received < batchSize; received++ {
+						g.Expect(live.Outlet()).To(Receive())
+					}
+				}).
+					WithTimeout(500 * time.Millisecond).
+					WithPolling(time.Millisecond).
+					Should(Succeed())
+			}
+		})
+	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
 			"Should filter out frames from a matching group on gateway writes",

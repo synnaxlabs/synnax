@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -111,7 +113,7 @@ describe("Status", () => {
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
+      const parentResourceID = group.resourceID(parentGroup.key);
       const s = await client.statuses.set(
         {
           name: "Child Status",
@@ -120,13 +122,13 @@ describe("Status", () => {
           message: "Status with parent",
           time: TimeStamp.now(),
         },
-        { parent: parentOntologyID },
+        { parent: parentResourceID },
       );
 
       expect(s.key).toBe("child-status");
 
       const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
+        ids: parentResourceID,
       });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
@@ -561,7 +563,7 @@ describe("Status", () => {
         message: "Test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+      await client.labels.label(status.resourceID(stat.key), [label1.key, label2.key], {
         replace: true,
       });
 
@@ -593,20 +595,20 @@ describe("Status", () => {
           time: TimeStamp.now(),
         },
       ]);
-      await client.labels.label(status.ontologyID(member), [lbl.key]);
+      await client.labels.label(status.resourceID(member), [lbl.key]);
       const params = { where: { labels: [lbl.key] } };
       const off = client.statuses.onChange(params, () => {});
       try {
         const initial = await client.statuses.retrieve(params);
         expect(initial.map((s) => s.key)).toEqual([member]);
-        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await client.labels.label(status.resourceID(joiner), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);
             return query.isLive(cached) && cached.some((s) => s.key === joiner);
           })
           .toBe(true);
-        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await client.labels.remove(status.resourceID(member), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);
@@ -1191,5 +1193,61 @@ describe("toString", () => {
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
     );
+  });
+});
+
+describe("label backfill", () => {
+  // Labels a status with a label the client lacks, so the client fetches it through
+  // retrieveLabel.
+  const backfillLabel = (retrieveLabel: () => Promise<never>) => {
+    let fetched = (): void => {};
+    const fetching = new Promise<void>((resolve) => (fetched = resolve));
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        _req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/label/retrieve") return resZ.parse({});
+        fetched();
+        return await retrieveLabel();
+      },
+    };
+    const onError = vi.fn();
+    const cache = new query.Cache({ openStreamer: null, onError });
+    const ont = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ont });
+    new status.Client({ unary, cache, ontology: ont, labels });
+    const rel: ontology.Relationship = {
+      from: status.resourceID(uuid.create()),
+      type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+      to: label.resourceID(uuid.create()),
+    };
+    ont.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillLabel(
+      async () => await new Promise(() => {}),
+    );
+    await fetching;
+    await cache.close();
+    // Lets the rejection reach the error handler.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillLabel(async () => {
+      throw err;
+    });
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: err })),
+    );
+    await cache.close();
   });
 });
