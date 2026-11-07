@@ -295,13 +295,15 @@ export class Writer {
 
   /**
    * Commits like `commit`, and also reports whether the writer had control.
-   * @throws in the same cases as `commit`.
+   * @returns the result of the commit.
+   * @throws {WriterClosedError} if the writer is closed, or the Core closed it.
+   * @throws {ValidationError} if the Core rejects the commit.
    */
   async commitResult(): Promise<CommitResult> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
       await this.closeInternal(null);
-      return { end: TimeStamp.ZERO, authorized: false };
+      throw new WriterClosedError();
     }
     const { end, authorized } = await this.execute({ command: WriterCommand.Commit });
     return { end, authorized };
