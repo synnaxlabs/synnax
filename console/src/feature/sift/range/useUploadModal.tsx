@@ -14,9 +14,11 @@ import {
   DisconnectedError,
   type ranger,
   status,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -25,9 +27,10 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Asset } from "@/feature/sift/asset";
 import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import {
   SCAN_SCHEMAS,
@@ -54,8 +57,10 @@ const formSchema = z.object({
 const path = deep.path<z.infer<typeof formSchema>>();
 
 export interface UploadModalParams {
-  rangeKey: ranger.Key;
-  rangeName: string;
+  /** The name the modal and its statuses show. */
+  name: string;
+  /** The key of the range to upload, or a plain time range. */
+  source: ranger.Key | CrudeTimeRange;
 }
 
 // Sift stores only persisted data channels. The Core sends each index on its own.
@@ -67,13 +72,17 @@ const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
 };
 
-const ASSET_INPUT_PROPS = { placeholder: "Test stand 1" } as const;
+// Case conversion drops the JSON form of a TimeRange, so the span goes as bare values.
+const encodeTimeRange = (tr: CrudeTimeRange) => {
+  const { start, end } = new TimeRange(tr);
+  return { start: start.valueOf(), end: end.valueOf() };
+};
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
 }
 
-const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) => {
+const UploadButton = ({ name, source, onUploaded }: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
@@ -84,6 +93,10 @@ const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) =>
       async () => {
         if (client == null) throw new DisconnectedError();
         const { device, asset, channels } = get(path.config).value;
+        const data =
+          typeof source === "string"
+            ? { range: source }
+            : { timeRange: encodeTimeRange(source) };
         const dev = await client.devices.retrieve({ key: device });
         const scanTask = await client.tasks.retrieve({
           type: SCAN_TYPE,
@@ -94,17 +107,17 @@ const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) =>
         const res = await scanTask.executeCommandSync({
           type: UPLOAD_COMMAND_TYPE,
           timeout: UPLOAD_TIMEOUT,
-          args: { device, range: rangeKey, channels, asset },
+          args: { device, channels, asset, ...data },
         });
         if (res.variant === "error") throw status.toError(res);
         addStatus({
           variant: "success",
-          name: rangeName,
+          name,
           message: "Queued upload to Sift",
         });
         onUploaded();
       },
-      { message: "Failed to upload to Sift", name: rangeName },
+      { message: "Failed to upload to Sift", name },
     );
   };
   return (
@@ -120,8 +133,8 @@ const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) =>
 };
 
 const Upload = ({
-  rangeKey,
-  rangeName,
+  name,
+  source,
   close,
 }: Modals.ContentProps<UploadModalParams, void>) => {
   const form = Form.use<typeof formSchema>({
@@ -131,17 +144,20 @@ const Upload = ({
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
-        <Modal.Header icon={<Icon.Logo.Sift />}>{HEADER}</Modal.Header>
+        <Modal.Header icon={<Icon.Logo.Sift />}>
+          {typeof source === "string" ? RANGE_HEADER : SPAN_HEADER}
+        </Modal.Header>
         <Modal.Body gap="large">
-          <Text.Text level="h3" weight={450}>
-            Upload {rangeName} to Sift
-          </Text.Text>
+          <Flex.Box y gap="tiny">
+            <Text.Text level="h3" weight={450}>
+              Upload {name} to Sift
+            </Text.Text>
+            {typeof source !== "string" && (
+              <Text.Text color={9}>{new TimeRange(source).toPrettyString()}</Text.Text>
+            )}
+          </Flex.Box>
           <SelectDevice />
-          <Form.TextField
-            path={path.config.asset}
-            label="Asset"
-            inputProps={ASSET_INPUT_PROPS}
-          />
+          <Asset.Field path={path.config.asset} devicePath={path.config.device} />
           <Form.Field path={path.config.channels} label="Channels">
             {({ value, onChange }) => (
               <Channel.SelectMultiple
@@ -156,11 +172,7 @@ const Upload = ({
         </Modal.Body>
         <Modal.Footer>
           <Nav.Bar.End x align="center">
-            <UploadButton
-              rangeKey={rangeKey}
-              rangeName={rangeName}
-              onUploaded={close}
-            />
+            <UploadButton name={name} source={source} onUploaded={close} />
           </Nav.Bar.End>
         </Modal.Footer>
       </Modal.Frame>
@@ -168,6 +180,7 @@ const Upload = ({
   );
 };
 
-const HEADER = ["Range", "Upload to Sift"];
+const RANGE_HEADER = ["Range", "Upload to Sift"];
+const SPAN_HEADER = ["Time range", "Upload to Sift"];
 
 export const useUploadModal = Modals.create<UploadModalParams>(Upload);
