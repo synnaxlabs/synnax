@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -20,6 +21,8 @@
 #include <span>
 #include <string>
 #include <vector>
+
+#include "x/cpp/binary/binary.h"
 
 #include "driver/ethercat/soem/api.h"
 
@@ -55,7 +58,10 @@ struct MockSlaveInfo {
 struct RegisterWrite {
     uint16_t slave = 0;
     uint16_t address = 0;
-    std::vector<uint8_t> data;
+    /// @brief the value of the written bytes, read as a little-endian integer.
+    int64_t value = 0;
+    /// @brief the number of bytes written.
+    size_t size = 0;
     /// @brief true when the write came after config_map_group.
     bool mapped = false;
 
@@ -149,10 +155,10 @@ public:
     /// @brief the number of state change requests before each register write, in the
     /// order of register_writes.
     std::vector<size_t> requests_before_write;
-    /// @brief the bytes read_register gives, keyed by slave and address. A register
-    /// missing from the map reads as zeros. A write_register that reaches the slave
-    /// stores its bytes here.
-    std::map<std::pair<uint16_t, uint16_t>, std::vector<uint8_t>> register_values;
+    /// @brief the values read_register gives, keyed by slave and address. A register
+    /// missing from the map reads as zero. A write_register that reaches the slave
+    /// stores its value here.
+    std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
     int configdc_count = 0;
@@ -305,10 +311,17 @@ public:
         const int wkc = this->unwritable_slaves.contains(slave)
                           ? 0
                           : this->write_register_return;
-        if (wkc > 0) this->register_values[{slave, address}] = data;
-        this->register_writes.push_back(
-            {slave, address, std::move(data), this->mapped_group.has_value()}
-        );
+        std::array<uint8_t, sizeof(int64_t)> padded{};
+        std::ranges::copy(data, padded.begin());
+        const auto value = x::binary::from_little_endian<int64_t>(padded);
+        if (wkc > 0) this->register_values[{slave, address}] = value;
+        this->register_writes.push_back({
+            .slave = slave,
+            .address = address,
+            .value = value,
+            .size = data.size(),
+            .mapped = this->mapped_group.has_value(),
+        });
         return wkc;
     }
 
@@ -318,14 +331,11 @@ public:
         std::span<uint8_t> data,
         int
     ) override {
-        std::ranges::fill(data, 0);
         const auto it = this->register_values.find({slave, address});
-        if (it != this->register_values.end())
-            std::copy_n(
-                it->second.begin(),
-                std::min(it->second.size(), data.size()),
-                data.begin()
-            );
+        const auto bytes = x::binary::to_little_endian(
+            it == this->register_values.end() ? int64_t{0} : it->second
+        );
+        std::copy_n(bytes.begin(), data.size(), data.begin());
         return this->read_register_return;
     }
 

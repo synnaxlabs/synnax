@@ -87,7 +87,10 @@ cc_library(
     name = "soem_mock_api",
     hdrs = ["mock_api.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
-    deps = [":soem_api"],
+    deps = [
+        ":soem_api",
+        "//x/cpp/binary",
+    ],
 )
 
 cc_library(
@@ -104,6 +107,7 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
+        "//x/cpp/binary",
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/telem",
