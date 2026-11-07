@@ -78,6 +78,7 @@ export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
 export { secret } from "@/secret";
+export { sift } from "@/sift";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
