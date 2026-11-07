@@ -133,6 +133,22 @@ TEST(LoopTest, testWaitLowRate) {
     EXPECT_LT(deviation, telem::MILLISECOND * 10);
 }
 
+/// @brief it should end each wait of a precise timer on its deadline at an interval
+/// that otherwise sleeps.
+TEST(LoopTest, testPreciseWaitEndsOnDeadline) {
+    const auto interval = telem::MILLISECOND * 10;
+    Timer timer{interval, true};
+    auto deadline = hs_clock::now() + interval.chrono();
+    std::vector<telem::TimeSpan> lateness;
+    for (int i = 0; i < 100; i++) {
+        const auto [_, on_time] = timer.wait();
+        const auto now = hs_clock::now();
+        if (on_time) lateness.emplace_back(now - deadline);
+        deadline = (on_time ? deadline : now) + interval.chrono();
+    }
+    EXPECT_LT(median(lateness), telem::MICROSECOND * 20);
+}
+
 void runBreaker(breaker::Breaker &brk) {
     const auto rate = telem::HERTZ * 1;
     Timer timer{rate};
