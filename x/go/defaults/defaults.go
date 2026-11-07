@@ -16,9 +16,17 @@ import "reflect"
 
 type setter interface{ SetDefaults() }
 
-// Fill returns v with every zero field replaced by its schema default. Each value
-// whose type has a SetDefaults method, at any depth, starts from its defaults, and
-// every non-zero field of v replaces the default.
+// grouped is a type with a default group: a set of fields whose defaults apply only
+// when every member is zero.
+type grouped interface {
+	SetUngroupedDefaults()
+	DefaultGroups()
+}
+
+// Fill returns v with every zero field replaced by its schema default. Each value whose
+// type has a SetDefaults method, at any depth, starts from its defaults, and every
+// non-zero field of v replaces the default. A default group takes its defaults only
+// when all of its members are zero in v.
 func Fill[T any](v T) T {
 	out := reflect.New(reflect.TypeFor[T]()).Elem()
 	fillFresh(out, reflect.ValueOf(&v).Elem())
@@ -29,6 +37,12 @@ func Fill[T any](v T) T {
 // SetDefaults method sets the defaults of the nested structs too, so only a struct
 // without one fills its struct fields itself.
 func fillFresh(dst, src reflect.Value) {
+	if g, ok := reflect.TypeAssert[grouped](dst.Addr()); ok {
+		g.SetUngroupedDefaults()
+		overlay(dst, src)
+		g.DefaultGroups()
+		return
+	}
 	s, ok := reflect.TypeAssert[setter](dst.Addr())
 	if ok {
 		s.SetDefaults()
