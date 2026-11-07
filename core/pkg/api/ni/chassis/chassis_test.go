@@ -67,7 +67,6 @@ var _ = Describe("Service", func() {
 				cfg := apichassis.ServiceConfig{
 					Chassis: svc.NI.Chassis,
 					Status:  svc.Status,
-					Device:  svc.NI.Devices,
 					RBAC:    svc.RBAC,
 				}
 				unset(&cfg)
@@ -80,9 +79,6 @@ var _ = Describe("Service", func() {
 			Entry("status", "status", func(c *apichassis.ServiceConfig) {
 				c.Status = nil
 			}),
-			Entry("device", "device", func(c *apichassis.ServiceConfig) {
-				c.Device = nil
-			}),
 			Entry("rbac", "rbac", func(c *apichassis.ServiceConfig) { c.RBAC = nil }),
 		)
 
@@ -90,7 +86,6 @@ var _ = Describe("Service", func() {
 			base := apichassis.ServiceConfig{Chassis: svc.NI.Chassis}
 			Expect(apichassis.NewService(base, apichassis.ServiceConfig{
 				Status: svc.Status,
-				Device: svc.NI.Devices,
 				RBAC:   svc.RBAC,
 			})).ToNot(BeNil())
 		})

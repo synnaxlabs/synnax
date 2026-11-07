@@ -494,6 +494,38 @@ var _ = Describe("Service", func() {
 				Exists(ctx, tx)).To(BeFalse())
 		})
 
+		It("Should authorize the chassis and every module it removes", func(
+			ctx SpecContext,
+		) {
+			c := create(ctx)
+			d := createModule(ctx, c.Key)
+			var authorized []ontology.ID
+			Expect(svc.NewWriter(tx).DeleteAuthorized(
+				ctx,
+				func(_ context.Context, _ gorp.Tx, ids []ontology.ID) error {
+					authorized = ids
+					return nil
+				},
+				c.Key,
+			)).To(Succeed())
+			Expect(authorized).To(ConsistOf(c.OntologyID(), d.OntologyID()))
+		})
+
+		It("Should remove nothing when authorize fails", func(ctx SpecContext) {
+			c := create(ctx)
+			d := createModule(ctx, c.Key)
+			err := errors.New("denied")
+			Expect(svc.NewWriter(tx).DeleteAuthorized(
+				ctx,
+				func(context.Context, gorp.Tx, []ontology.ID) error { return err },
+				c.Key,
+			)).To(MatchError(err))
+			Expect(retrieve(ctx, c.Key).Key).To(Equal(c.Key))
+			Expect(devices.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Exists(ctx, tx)).To(BeTrue())
+		})
+
 		It("Should refuse a chassis with a referenced module", func(ctx SpecContext) {
 			c := create(ctx)
 			referenced.Add(createModule(ctx, c.Key).Key)

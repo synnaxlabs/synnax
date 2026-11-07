@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
-	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,9 +40,6 @@ type ServiceConfig struct {
 	// Status retrieves chassis statuses.
 	// [REQUIRED]
 	Status *status.Service
-	// Device retrieves the modules that a chassis delete removes.
-	// [REQUIRED]
-	Device *device.Service
 	// RBAC enforces access control on every request.
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -55,7 +51,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Chassis = override.Nil(c.Chassis, other.Chassis)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Device = override.Nil(c.Device, other.Device)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -65,7 +60,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ni.chassis")
 	v.NotNil("chassis", c.Chassis)
 	v.NotNil("status", c.Status)
-	v.NotNil("device", c.Device)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -313,25 +307,17 @@ type DeleteRequest struct {
 }
 
 // Delete removes the given chassis with their modules. It requires delete access on the
-// chassis and on each module.
+// chassis and on each module it removes.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	var modules []device.Device
-	if err := s.cfg.Device.NewRetrieve().
-		Where(device.MatchChassis(req.Keys...)).
-		Entries(&modules).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return struct{}{}, err
-	}
-	ids := chassis.OntologyIDs(req.Keys)
-	for _, d := range modules {
-		ids = append(ids, d.OntologyID())
-	}
-	if err := s.enforce(ctx, tx, access.ActionDelete, ids...); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.cfg.Chassis.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.cfg.Chassis.NewWriter(tx).DeleteAuthorized(
+		ctx,
+		func(ctx context.Context, tx gorp.Tx, ids []ontology.ID) error {
+			return s.enforce(ctx, tx, access.ActionDelete, ids...)
+		},
+		req.Keys...,
+	)
 }
