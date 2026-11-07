@@ -234,7 +234,7 @@ class TestChannel:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
+        with pytest.raises(sy.NotFoundError, match="Found no channel where key = 1234"):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
@@ -284,59 +284,17 @@ class TestChannel:
         result_channel = client.channels.retrieve(str(ch1.key))
         assert result_channel.name == ch1.name
 
-    def test_retrieve_single_multiple_found(
-        self,
-        client: sy.Synnax,
-    ) -> None:
-        """Should raise a MultipleFoundError when retrieving a single channel with
-        multiple matches"""
-        with pytest.raises(sy.MultipleFoundError):
-            prefix = channel_name()
-            client.channels.create(
-                name=f"{prefix}1",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
-            client.channels.create(
-                name=f"{prefix}2",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
-            client.channels.retrieve(f"{prefix}.*")
-
-    def test_retrieve_by_regex(self, client: sy.Synnax) -> None:
-        """Should retrieve channels test1 and test2 using a regex"""
+    def test_retrieve_names_exactly(self, client: sy.Synnax) -> None:
+        """Should match each name in a list exactly and never as a pattern"""
         prefix = channel_name()
-        client.channels.create(
+        a, _ = client.channels.create(
             [
-                sy.Channel(
-                    name=f"{prefix}1",
-                    virtual=True,
-                    data_type=sy.DataType.FLOAT64,
-                ),
-                sy.Channel(
-                    name=f"{prefix}2",
-                    virtual=True,
-                    data_type=sy.DataType.FLOAT64,
-                ),
+                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float32"),
             ]
         )
-        res_channels = client.channels.retrieve([f"^{prefix}.*"])
-        assert len(res_channels) >= 2
-
-    def test_retrieve_by_name_and_regex(self, client: sy.Synnax) -> None:
-        """Should retrieve the channels that a literal name or a regex selects"""
-        prefix = channel_name()
-        literal, a, b, _ = client.channels.create(
-            [
-                sy.Channel(name=f"{prefix}_literal", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_p_a", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_p_b", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_other", virtual=True, data_type="float32"),
-            ]
-        )
-        res = client.channels.retrieve([literal.name, f"{prefix}_p_.*"])
-        assert sorted(ch.key for ch in res) == sorted([literal.key, a.key, b.key])
+        res = client.channels.retrieve([a.name, f"{prefix}_.*"])
+        assert [ch.key for ch in res] == [a.key]
 
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should retrieve the channels that a where selects"""
@@ -445,9 +403,7 @@ class TestChannel:
         assert ch2.key != ch.key
         ch2_retrieved = client.channels.retrieve(name)
         assert ch2.key == ch2_retrieved.key
-        all_channels = client.channels.retrieve([".*"])
-        keys = [channel.key for channel in all_channels]
-        assert ch2.key in keys
+        assert [c.key for c in client.channels.retrieve([name])] == [ch2.key]
 
     def test_single_rename(self, client: sy.Synnax) -> None:
         """Should rename a single channel"""
@@ -990,15 +946,15 @@ class TestChannelRetriever:
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
 
-    def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
-        """Should raise MultipleFoundError when a pattern matches two channels."""
+    def test_retrieve_one_pattern(self, client: sy.Synnax) -> None:
+        """Should read a pattern as an exact name and find no channel."""
         prefix = channel_name()
         for suffix in ("a", "b"):
             client.channels.create(
                 data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
             )
         with pytest.raises(
-            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
         ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")
 

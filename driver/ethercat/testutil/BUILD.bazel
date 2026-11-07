@@ -22,6 +22,8 @@ cc_library(
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
     ],
 )
 

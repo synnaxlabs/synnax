@@ -153,8 +153,7 @@ class ScopedChannel(ArrayOperators):
     It's very important to note that if the property accessor matches multiple channels,
     this class will contain all of them, and, as a result, single channel operations
     will fail. However, you can use the __iter__ method to iterate over the channels
-    in the returned values. This is particularly relevant when using regex to match
-    multiple channels.
+    in the returned values.
     """
 
     _internal: list[_InternalScopedChannel]
@@ -452,8 +451,7 @@ class Range(Payload):
         corrected = {}
         for ch, alias in channel.items():
             if isinstance(ch, str):
-                res = self._channel_retriever.retrieve(ch)
-                corrected[sole("Channel", ch, res).key] = alias
+                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -832,7 +830,7 @@ class Client:
             include_parent=include_parent,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
-        return sole("Range", fields, ranges) if single else ranges
+        return sole("range", req, ranges) if single else ranges
 
     def delete(
         self,
