@@ -192,6 +192,19 @@ var _ = Describe("SetGroup", func() {
 		))
 		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
 	})
+
+	It("Should reject a client dispatch of a project change", func(ctx SpecContext) {
+		dest := createProject(ctx)
+		Expect(svc.Dispatch(ctx, target.Key, "d1", []lineplot.Action{
+			lineplot.NewSetProjectAction(lineplot.SetProjectPayload{Project: dest.Key}),
+		})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"only the Core dispatches a line plot project change",
+			)),
+		))
+		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
+	})
 })
 
 var _ = Describe("Writer with no transaction", func() {

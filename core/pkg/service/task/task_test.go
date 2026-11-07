@@ -863,12 +863,15 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should reject a create", func(ctx SpecContext) {
+			overwritten := *alerts
+			overwritten.Name = "Overwritten"
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				task.NewCreateAction(task.CreatePayload{Task: *alerts}),
+				task.NewCreateAction(task.CreatePayload{Task: overwritten}),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("only the Core dispatches a task create")),
 			))
+			expectUnchanged(ctx)
 		})
 
 		It("Should rename a snapshot, keeping its config", func(ctx SpecContext) {
