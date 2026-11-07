@@ -84,11 +84,10 @@ class Master final : public master::Master {
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
     /// @brief the latest DC time that moved forward, in nanoseconds.
     int64_t last_dc_time = NO_DC_FRAME;
-    /// @brief the host steady clock time of the last process data send, in
-    /// nanoseconds.
+    /// @brief the host steady clock time of the last process data send, in nanoseconds.
     int64_t sent_at = 0;
-    /// @brief the DC time minus the host steady clock time, in nanoseconds, at the
-    /// send of the frame that gave last_dc_time.
+    /// @brief the DC time minus the host steady clock time, in nanoseconds, at the send
+    /// of the frame that gave last_dc_time.
     std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
     /// @brief whether the cycle holds process data back. A frame then carries only the
     /// reference clock time.

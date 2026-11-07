@@ -188,7 +188,8 @@ struct Health {
     uint16_t position = 0;
     /// @brief application layer state the slave reports.
     State state = State::UNKNOWN;
-    /// @brief true when the slave set the error flag of its AL status.
+    /// @brief true when the slave set the error flag of its AL status, or the master
+    /// could not restore its distributed clock.
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
