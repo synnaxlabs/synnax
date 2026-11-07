@@ -13,6 +13,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
@@ -93,6 +94,18 @@ describe("device/ontology", () => {
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Configure"));
     expect(await screen.findByText("Save and create read task")).toBeTruthy();
+  });
+
+  it("should open the EtherCAT form from Configure on a configured slave", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, rack.key, { identifier });
+    const host = hostDevices(slave);
+    await renderDeviceTree(host);
+    await openTreeRowContextMenu(slave.name);
+    fireEvent.click(await screen.findByText("Configure"));
+    expect(await screen.findByDisplayValue(identifier)).toBeTruthy();
+    expect(screen.queryByText("Save and create read task")).toBeNull();
   });
 
   it("should open the connect form from Edit connection", async () => {

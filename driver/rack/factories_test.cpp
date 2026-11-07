@@ -28,7 +28,10 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
         {labjack::INTEGRATION_NAME, labjack::SCAN_TASK_TYPE},
     };
     const Config cfg{.integrations = {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME}};
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto built = built_integrations();
     for (const auto &[integration, type]: scanners) {
@@ -53,7 +56,10 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
 /// off, and name the integration.
 TEST(RackFactoriesTest, DisabledIntegrationNamesItself) {
     const Config cfg{.integrations = {}};
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     for (const auto &type: {std::string("modbus_read"), arc::TASK_TYPE}) {
         const auto [tsk, handled] = factory->configure_task(
@@ -85,7 +91,10 @@ TEST(RackFactoriesTest, DisabledIntegrationNamesItself) {
 /// manager.
 TEST(RackFactoriesTest, UnknownTypeIsNotHandled) {
     const Config cfg{.integrations = {}};
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -102,7 +111,10 @@ TEST(RackFactoriesTest, UnknownTypeIsNotHandled) {
 TEST(RackFactoriesTest, IncompatibleCoreRefusesEveryIntegration) {
     Config cfg{.integrations = built_integrations()};
     cfg.incompatible_core_version = "99.1.0";
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto built = built_integrations();
     for (const auto &integration: built) {
@@ -135,7 +147,10 @@ TEST(RackFactoriesTest, IncompatibleCoreRefusesEveryIntegration) {
 TEST(RackFactoriesTest, IncompatibleCoreStopsTasksAtBoot) {
     Config cfg{.integrations = built_integrations()};
     cfg.incompatible_core_version = "99.1.0";
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -160,7 +175,10 @@ TEST(RackFactoriesTest, IncompatibleCoreStopsTasksAtBoot) {
 /// configuration turns off.
 TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
     const Config cfg{.integrations = {}};
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,
