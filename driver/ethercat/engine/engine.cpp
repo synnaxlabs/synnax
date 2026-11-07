@@ -122,6 +122,26 @@ bool serves(
            });
 }
 
+/// @brief returns err, the error of the last pass of a failed start, with a sentence
+/// for each slave that the start left out. The error ends with master::DC_SYNC_ADVICE
+/// once when dc_sync_refused is true or a left-out slave needs the advice.
+x::errors::Error start_error(
+    x::errors::Error err,
+    const std::map<uint16_t, slave::Refusal> &left_out,
+    bool dc_sync_refused
+) {
+    for (const auto &[pos, refusal]: left_out) {
+        if (!err.data.ends_with('.')) err.data += '.';
+        err.data += " The Driver left out slave " + std::to_string(pos) +
+                    " because it " + refusal.reason + ".";
+        dc_sync_refused |= refusal.dc_sync_invalid;
+    }
+    if (!dc_sync_refused) return err;
+    if (!err.data.ends_with('.')) err.data += '.';
+    err.data.append(" ").append(master::DC_SYNC_ADVICE);
+    return err;
+}
+
 /// @brief looks up the offset of each entry in a process image of the given size.
 std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
     const master::Master &master,
@@ -354,6 +374,7 @@ void Engine::supervise() {
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
         for (const auto &h: health) {
+            if (h.refusal) continue;
             const auto prev = std::ranges::find(
                 last,
                 h.position,
@@ -394,26 +415,39 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         this->bus.start();
         this->cycle_thread = std::thread(&Engine::run, this);
     };
+    const auto iface = this->master->interface_name();
+    std::map<uint16_t, slave::Refusal> left_out;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
+        this->master->leave_out(left_out);
         auto err = this->master->initialize();
+        bool dc_sync_refused = false;
         if (!err) {
             err = this->master->activate(
                 x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
                 start_cycle
             );
             if (!err) break;
+            const auto refused = this->master->refusals();
+            dc_sync_refused = this->master->dc_sync_refused();
             if (this->bus.running())
                 this->stop_locked();
             else
                 this->master->deactivate();
+            if (!refused.empty()) {
+                for (const auto &[pos, refusal]: refused)
+                    LOG(WARNING) << "[ethercat] starting " << iface << " without slave "
+                                 << pos << ": it " << refusal.reason;
+                left_out.insert(refused.begin(), refused.end());
+                continue;
+            }
         }
         // A retry cannot clear a refused state or a slave config that cannot run.
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) || !retry.wait(err)) {
             retry.stop();
-            return err;
+            return start_error(err, left_out, dc_sync_refused);
         }
     }
     retry.stop();

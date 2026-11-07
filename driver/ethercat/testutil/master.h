@@ -16,9 +16,11 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <ranges>
 #include <set>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "driver/ethercat/errors/errors.h"
@@ -37,6 +39,11 @@ class Master final : public master::Master {
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
     std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why each slave that refuse() names refuses its state.
+    std::map<uint16_t, slave::Refusal> refusing;
+    std::map<uint16_t, slave::Refusal> left_out;
+    std::map<uint16_t, slave::Refusal> start_refusals;
+    bool start_dc_sync_refused{false};
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -115,10 +122,17 @@ public:
     }
 
     /// @brief makes activate() return err after the bus cycle starts, as when a slave
-    /// refuses SAFE-OP or OP.
+    /// refuses SAFE-OP or OP. A slave that refuse() names fails the start first.
     void inject_state_change_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_state_change_err = err;
+    }
+
+    /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
+    /// at position is on the bus, as when the slave refuses a state.
+    void refuse(const uint16_t position, slave::Refusal refusal) {
+        std::lock_guard lock(this->mu);
+        this->refusing[position] = std::move(refusal);
     }
 
     /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
@@ -156,9 +170,10 @@ public:
         this->stall_cv.notify_all();
     }
 
-    /// @brief clears all injected errors.
+    /// @brief clears all injected errors and the refusals that refuse() sets.
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
+        this->refusing.clear();
         this->inject_init_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
@@ -288,7 +303,8 @@ public:
     }
 
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
-    /// slaves with outputs need. Logs "op" when the slaves reach OP.
+    /// slaves with outputs need. Logs "op" when the slaves reach OP. Fails with
+    /// errors::STATE_CHANGE_REFUSED when a slave that refuse() names is on the bus.
     x::errors::Error activate(
         const x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
@@ -298,6 +314,8 @@ public:
             std::lock_guard lock(this->mu);
             this->calls.emplace_back("activate");
             this->period = period;
+            this->start_refusals.clear();
+            this->start_dc_sync_refused = false;
             if (this->inject_activate_err) return this->inject_activate_err;
             if (!this->initialized)
                 return x::errors::Error(
@@ -322,12 +340,33 @@ public:
                 errors::STATE_CHANGE_ERROR,
                 "failed to reach OP: no process data"
             );
+        std::map<uint16_t, slave::Refusal> refused;
+        bool io_left = false;
+        for (const auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
+            if (!this->on_bus(pos)) continue;
+            if (const auto it = this->refusing.find(pos); it != this->refusing.end())
+                refused.insert(*it);
+            else
+                io_left |= slave.properties.pdo_count() > 0;
+        }
+        if (!refused.empty()) {
+            if (io_left) this->start_refusals = refused;
+            this->start_dc_sync_refused = std::ranges::any_of(
+                refused | std::views::values,
+                &slave::Refusal::dc_sync_invalid
+            );
+            return x::errors::Error(
+                errors::STATE_CHANGE_REFUSED,
+                "failed to reach SAFE-OP: " + refused.begin()->second.reason
+            );
+        }
         if (this->inject_state_change_err) return this->inject_state_change_err;
         this->calls.emplace_back("op");
         this->short_until_op = false;
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (!this->on_bus(pos)) continue;
             const auto it = this->state_transition_failures.find(pos);
             const auto state = it != this->state_transition_failures.end() &&
                                        it->second == slave::State::OP
@@ -438,9 +477,36 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
+    std::map<uint16_t, slave::Refusal> refusals() const override {
+        std::lock_guard lock(this->mu);
+        return this->start_refusals;
+    }
+
+    bool dc_sync_refused() const override {
+        std::lock_guard lock(this->mu);
+        return this->start_dc_sync_refused;
+    }
+
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {
+        std::lock_guard lock(this->mu);
+        this->left_out = std::move(slaves);
+    }
+
     std::pair<pdo::Offset, x::errors::Error>
     pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
+        const auto pos = entry.slave_position;
+        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
+            const auto slave = std::ranges::find(
+                this->slave_list,
+                pos,
+                [](const slave::DiscoveryResult &s) { return s.properties.position; }
+            );
+            return {
+                {},
+                master::left_out_error(pos, slave->properties.name, it->second)
+            };
+        }
         return pdo::find_offset(this->pdo_offset_cache, entry);
     }
 
@@ -457,7 +523,7 @@ public:
         std::vector<slave::Health> health;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (!this->on_bus(pos)) continue;
             const auto fault = this->faults.find(pos);
             health.push_back({
                 .position = pos,
@@ -475,6 +541,8 @@ public:
             this->slave_states[pos] = slave::State::OP;
             this->faults.erase(pos);
         }
+        for (const auto &[pos, refusal]: this->left_out)
+            health.push_back({.position = pos, .refusal = refusal});
         return health;
     }
 
@@ -562,13 +630,19 @@ public:
     }
 
 private:
+    /// @brief whether the slave at position takes part in the next or current start.
+    [[nodiscard]] bool on_bus(const uint16_t position) const {
+        return !this->disabled_slaves.contains(position) &&
+               !this->left_out.contains(position);
+    }
+
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
         this->input_sz = 0;
         this->output_sz = this->output_padding;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
-            if (this->disabled_slaves.contains(props.position)) continue;
+            if (!this->on_bus(props.position)) continue;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
                 props.position,

@@ -137,7 +137,8 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
         const auto pos = slave.properties.position;
         {
             std::lock_guard lock(this->mu);
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (this->disabled_slaves.contains(pos) || this->left_out.contains(pos))
+                continue;
             const auto choice = this->chosen_modes.find(pos);
             if (choice != this->chosen_modes.end()) {
                 const auto err = choice->second.assign_activate != 0
@@ -225,6 +226,11 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     return x::errors::NIL;
 }
 
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
+    std::lock_guard lock(this->mu);
+    this->left_out = std::move(slaves);
+}
+
 void Master::deactivate() {
     if (!this->initialized) return;
 
@@ -300,6 +306,16 @@ std::span<uint8_t> Master::output_data() {
 std::pair<pdo::Offset, x::errors::Error>
 Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
+    const auto pos = entry.slave_position;
+    if (const auto it = this->left_out.find(pos); it != this->left_out.end())
+        return {
+            {},
+            master::left_out_error(
+                pos,
+                this->cached_slaves.at(pos).properties.name,
+                it->second
+            )
+        };
     return pdo::find_offset(this->pdo_offsets, entry);
 }
 
@@ -331,6 +347,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             .lost = state.online == 0,
         });
     }
+    std::lock_guard lock(this->mu);
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 

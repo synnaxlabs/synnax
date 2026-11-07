@@ -44,6 +44,14 @@ const pdo::Entry OUT_I32(0, 0x7000, 2, 32, false, x::telem::INT32_T);
 const pdo::Entry OUT_I24(0, 0x7000, 3, 24, false, x::telem::INT32_T);
 const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
+/// @brief why a slave in the specs refuses SAFE-OP.
+const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"};
+/// @brief a refusal that needs master::DC_SYNC_ADVICE.
+const slave::Refusal DC_SYNC_REFUSAL{
+    .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
+    .dc_sync_invalid = true,
+};
+
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
 constexpr size_t I16_BYTE = 0;
 constexpr size_t I32_BYTE = 2;
@@ -829,6 +837,121 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should start the bus again without a slave that refuses a state.
+TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should fail a reader on a slave that the bus started without, and stop the
+/// bus that the reader started.
+TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should give each left-out slave and its reason in the error when the start
+/// then fails.
+TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Inconsistent settings."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should end the error of a failed start with the DC sync advice once when a
+/// left-out slave needs it.
+TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should give the DC sync advice once, at the end, when two left-out slaves
+/// report "Invalid DC SYNC configuration".
+TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->refuse(2, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should end the error of a failed start with the DC sync advice when every
+/// slave refuses SAFE-OP with "Invalid DC SYNC configuration".
+TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
+    this->master->refuse(0, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should try a left-out slave again the next time the bus starts.
+TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    reader.reset();
+    this->master->clear_injected_errors();
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->read_times(*other, 1).size(), 1);
+}
+
 /// @brief it should cycle the bus while the slaves move to OP.
 TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
     const auto reader = ASSERT_NIL_P(
@@ -1138,6 +1261,21 @@ TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     EXPECT_EQ(
         this->engine->health()[0],
         (slave::Health{.position = 0, .state = slave::State::OP})
+    );
+}
+
+/// @brief it should report a left-out slave in its health with why the bus started
+/// without it.
+TEST_F(EngineTest, HealthReportsALeftOutSlave) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 2);
+    EXPECT_EQ(
+        this->engine->health()[1],
+        (slave::Health{.position = 1, .refusal = REFUSAL})
     );
 }
 

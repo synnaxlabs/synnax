@@ -319,8 +319,8 @@ public:
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
 
-    /// @brief returns the latest condition of each enabled slave, or an empty list when
-    /// the bus is not running.
+    /// @brief returns the latest condition of each enabled slave, then each left-out
+    /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
 
     /// @brief returns the interface name.

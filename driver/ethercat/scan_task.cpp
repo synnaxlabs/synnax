@@ -18,6 +18,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/master/master.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace driver::ethercat {
@@ -46,6 +47,17 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     if (health.operational()) {
         status.variant = synnax::status::VARIANT_SUCCESS;
         status.message = "Operational";
+        return;
+    }
+    if (health.refusal) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start";
+        status.description = "It " + health.refusal->reason +
+                             ". The other devices on the network started without it. "
+                             "The Driver tries it again the next time the network "
+                             "starts.";
+        if (health.refusal->dc_sync_invalid)
+            status.description.append(" ").append(master::DC_SYNC_ADVICE);
         return;
     }
     if (health.lost) {
