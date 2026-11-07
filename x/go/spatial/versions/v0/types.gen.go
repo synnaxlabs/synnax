@@ -211,8 +211,8 @@ func (s *StickyXY) SetDefaults() {
 	s.Units.Y = StickyUnitPx
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (s *StickyXY) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain StickyXY
 	if reflect.ValueOf(*s).IsZero() {
@@ -267,8 +267,8 @@ func (vi *Viewport) SetDefaults() {
 	vi.Zoom = 1
 }
 
-// UnmarshalJSONFrom decodes the input over vi. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (vi *Viewport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Viewport
 	if reflect.ValueOf(*vi).IsZero() {
