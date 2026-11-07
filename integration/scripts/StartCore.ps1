@@ -51,34 +51,39 @@ $process = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle
 $process.Id | Out-File -FilePath "$env:USERPROFILE\synnax-pid.txt" -Encoding ASCII
 Write-Host "Started Synnax with PID: $($process.Id)"
 
-# Wait for startup and verify it's still running
-Write-Host "Waiting for server startup..."
-Start-Sleep -Seconds 5
+# Test-NetConnection takes 5 to 20 seconds a call, so the probe opens a socket itself.
+function Test-CorePort {
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        return $client.ConnectAsync("localhost", 9090).Wait(1000)
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
 
-$synnaxProcess = Get-Process -Id $process.Id -ErrorAction SilentlyContinue
-if ($synnaxProcess) {
-    Write-Host "Synnax is running with PID: $($synnaxProcess.Id)"
-    
-    # Verify port 9090 is listening
-    $portReady = $false
-    for ($i = 1; $i -le 5; $i++) {
-        $connection = Test-NetConnection -ComputerName localhost -Port 9090 -WarningAction SilentlyContinue
-        if ($connection.TcpTestSucceeded) {
-            Write-Host "Port 9090 is ready"
-            $portReady = $true
-            break
-        }
-        Write-Host "Waiting for port 9090... (attempt $i/5)"
-        Start-Sleep -Seconds 3
+# The step output is the only record of a failed start, so it holds the Core's log.
+function Stop-Start([string]$message) {
+    Write-Host "ERROR: $message"
+    Write-Host "Core log ($logFile):"
+    if (Test-Path $logFile) {
+        Get-Content $logFile -Tail 200 | Write-Host
     }
-    
-    if (-not $portReady) {
-        Write-Host "ERROR: Port 9090 never became available"
-        exit 1
-    }
-} else {
-    Write-Host "ERROR: Synnax process died during startup"
     exit 1
+}
+
+# The deadline stays under the step's timeout, so the log prints before the kill.
+Write-Host "Waiting for port 9090..."
+$deadline = (Get-Date).AddSeconds(45)
+while (-not (Test-CorePort)) {
+    if ($process.HasExited) {
+        Stop-Start "Synnax exited during startup with code $($process.ExitCode)"
+    }
+    if ((Get-Date) -gt $deadline) {
+        Stop-Start "Port 9090 did not open within 45 seconds"
+    }
+    Start-Sleep -Seconds 1
 }
 
 Write-Host "Synnax server started successfully and is ready!"
