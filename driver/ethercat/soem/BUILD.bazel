@@ -126,7 +126,7 @@ cc_test(
         ":soem_mock_api",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
-        "//driver/ethercat/testutil",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

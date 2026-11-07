@@ -252,7 +252,7 @@ x::errors::Error Master::activate(
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
-            this->cfg.clock.now() + std::chrono::microseconds(timeout),
+            this->cfg.clock.steady() + std::chrono::microseconds(timeout),
             [] { return false; }
         ))
         return x::errors::Error(
@@ -347,7 +347,7 @@ x::errors::Error Master::send() {
         );
         return x::errors::NIL;
     }
-    const auto sent_at = this->cfg.clock.now();
+    const auto sent_at = this->cfg.clock.steady();
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
@@ -1219,7 +1219,8 @@ x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const std::function<bool()> &stopped
 ) {
-    const auto deadline = this->cfg.clock.now() + this->cfg.dc_settle_timeout.chrono();
+    const auto deadline = this->cfg.clock.steady() +
+                          this->cfg.dc_settle_timeout.chrono();
     const x::errors::Error stop_err(
         errors::ACTIVATION_ERROR,
         "the bus stopped before the clocks settled"
@@ -1252,7 +1253,7 @@ x::errors::Error Master::wait_for_dc_settle(
         }
         if (worst <= DC_SETTLED_DIFF) return x::errors::NIL;
         if (stopped()) return stop_err;
-        if (this->cfg.clock.now() >= deadline)
+        if (this->cfg.clock.steady() >= deadline)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
@@ -1321,7 +1322,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 }
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
-    const x::telem::TimeSpan latched_at(this->cfg.clock.now().time_since_epoch());
+    const x::telem::TimeSpan latched_at(this->cfg.clock.steady().time_since_epoch());
     if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
@@ -1390,7 +1391,7 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
     }
-    const auto deadline = this->cfg.clock.now() + std::chrono::microseconds(timeout);
+    const auto deadline = this->cfg.clock.steady() + std::chrono::microseconds(timeout);
     while (true) {
         this->api->readstate();
         std::vector<uint16_t> pending;
@@ -1406,7 +1407,8 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
             return this->refuses(pos, state);
         });
         if (!refused.empty()) return this->state_error(refused, state);
-        if (this->cfg.clock.now() >= deadline) return this->state_error(pending, state);
+        if (this->cfg.clock.steady() >= deadline)
+            return this->state_error(pending, state);
         this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
 }
@@ -1423,7 +1425,7 @@ bool Master::wait_for_frame(
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (this->cfg.clock.now() >= deadline || stopped()) return false;
+        if (this->cfg.clock.steady() >= deadline || stopped()) return false;
         this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
     return true;

@@ -168,7 +168,7 @@ public:
     int64_t dc_time_value = 0;
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
-    x::loop::Clock clock = x::loop::host_clock();
+    x::loop::HostClock clock;
     /// @brief when set, each send_processdata sets dc_time_value to the clock time plus
     /// this, in nanoseconds, like a reference clock that runs on.
     std::optional<int64_t> host_dc_offset;
@@ -186,7 +186,8 @@ private:
 
     /// @brief returns the clock time in nanoseconds.
     [[nodiscard]] int64_t now() const {
-        return x::telem::TimeSpan(this->clock.now().time_since_epoch()).nanoseconds();
+        return x::telem::TimeSpan(this->clock.steady().time_since_epoch())
+            .nanoseconds();
     }
 
 public:

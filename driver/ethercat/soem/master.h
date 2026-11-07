@@ -47,7 +47,7 @@ struct Config {
     x::telem::TimeSpan dc_settle_timeout = x::telem::SECOND * 2;
     /// @brief the host clock that the master waits on and times process data sends
     /// with.
-    x::loop::Clock clock = x::loop::host_clock();
+    x::loop::HostClock clock;
 };
 
 /// @brief SOEM-based implementation of the Master interface.

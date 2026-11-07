@@ -19,13 +19,13 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
-#include "driver/ethercat/testutil/clock.h"
 
 namespace driver::ethercat::soem {
 namespace {
@@ -618,7 +618,6 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
 /// @brief it should wait for a state change on the clock of its config, so a fake clock
 /// ends a one-minute timeout at once.
 TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
-    const testutil::SimClock clock;
     auto api = std::make_unique<MockAPI>();
     this->mock = api.get();
     this->master = std::make_unique<Master>(
@@ -627,7 +626,7 @@ TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
         Config{
             .pre_op_timeout = x::telem::MILLISECOND * 100,
             .state_change_timeout = x::telem::MINUTE,
-            .clock = clock.loop(),
+            .clock = x::loop::fake_clock(),
         }
     );
     this->initialize_with_slave();
