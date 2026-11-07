@@ -85,6 +85,21 @@ var _ = Describe("Resources", func() {
 		))
 	})
 
+	It("Should return a validation error for a key with a leading zero", func(
+		ctx SpecContext,
+	) {
+		ch := create(ctx, "fuel", false)
+		key := "0" + ch.ResourceID().Key
+		Expect(svc.Resources().Retrieve(
+			ctx,
+			db,
+			[]resource.ID{{Type: resource.TypeChannel, Key: key}},
+		)).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`invalid channel key "%s"`, key)),
+		))
+	})
+
 	It("Should leave out an ID that names no channel", func(ctx SpecContext) {
 		ch := create(ctx, "oxidizer", false)
 		missing := resource.ID{Type: resource.TypeChannel, Key: "4294967295"}

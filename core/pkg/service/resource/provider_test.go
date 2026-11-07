@@ -217,6 +217,22 @@ var _ = Describe("TableProvider", func() {
 			)).To(Equal([]resource.Resource{{ID: channels.id("2"), Name: "pump"}}))
 		})
 
+		It("Should refuse a key that does not round-trip", func(ctx SpecContext) {
+			cfg := channels.config(resource.TypeChannel)
+			cfg.Key = func(id resource.ID) (string, error) {
+				n, err := strconv.Atoi(id.Key)
+				return strconv.Itoa(n), err
+			}
+			Expect(resource.NewTableProvider(cfg).Retrieve(
+				ctx,
+				db,
+				[]resource.ID{channels.id("01")},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`invalid channel key "01"`)),
+			))
+		})
+
 		It("Should return the error of Key for a malformed key", func(ctx SpecContext) {
 			Expect(channels.provider.Retrieve(
 				ctx,
