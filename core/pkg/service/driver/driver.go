@@ -43,6 +43,8 @@ type Driver struct {
 	rack   rack.Rack
 	mu     struct {
 		instances map[task.Key]instance
+		// failures holds the error of each task that this driver failed to deploy.
+		failures map[task.Key]error
 		sync.RWMutex
 	}
 }
@@ -72,6 +74,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	d = &Driver{cfg: cfg}
 	d.mu.instances = make(map[task.Key]instance)
+	d.mu.failures = make(map[task.Key]error)
 	cleanup, ok := service.NewOpener(ctx, &d.closer)
 	defer func() { err = cleanup(err) }()
 
@@ -224,24 +227,17 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			// instance, even when the stored row has moved to another rack.
 			d.mu.RLock()
 			inst, ok := d.mu.instances[cmd.Task]
+			deployErr, failed := d.mu.failures[cmd.Task]
 			d.mu.RUnlock()
-			if !ok {
-				var tsk task.Task
-				if err := d.cfg.Task.NewRetrieve().
-					Where(task.MatchKeys(cmd.Task)).
-					Entry(&tsk).
-					Exec(ctx, nil); err == nil && tsk.Rack == d.rack.Key {
-					d.cfg.L.Warn(
-						"received command for a task with no instance",
-						zap.Stringer("task", cmd.Task),
-					)
-					if cmd.Key != NoCommand {
-						d.refuseCommand(ctx, tsk, cmd)
-					}
-				}
+			if ok {
+				d.exec(ctx, inst.task, cmd)
 				continue
 			}
-			d.exec(ctx, inst.task, cmd)
+			// Only a driver that failed to deploy the task refuses its commands. After
+			// a rack move, another driver may still run the task and answer.
+			if failed && cmd.Key != NoCommand {
+				d.refuseCommand(ctx, cmd, deployErr)
+			}
 		}
 	}
 }
@@ -353,18 +349,30 @@ func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Co
 	}
 }
 
-// refuseCommand answers a command for t, which has no live instance. A stored error,
-// such as a failed configure, says why the task is not running.
-func (d *Driver) refuseCommand(ctx context.Context, t task.Task, cmd task.Command) {
-	if err := d.answer(ctx, t, cmd.Key, func(stat *task.Status) {
-		stat.Details.Running = false
-		if stat.Variant == status.VariantError {
-			return
+// refuseCommand answers cmd for a task that this driver failed to deploy with
+// deployErr.
+func (d *Driver) refuseCommand(
+	ctx context.Context,
+	cmd task.Command,
+	deployErr error,
+) {
+	var tsk task.Task
+	if err := d.cfg.Task.NewRetrieve().
+		Where(task.MatchKeys(cmd.Task)).
+		Entry(&tsk).
+		Exec(ctx, nil); err != nil {
+		// A status written for a deleted task would recreate the one the delete
+		// removed.
+		if !errors.Is(err, query.ErrNotFound) {
+			d.cfg.L.Error("failed to retrieve task for refused command", zap.Error(err))
 		}
+		return
+	}
+	if err := d.answer(ctx, tsk, cmd.Key, func(stat *task.Status) {
 		stat.Variant = status.VariantError
 		stat.Message = "Task is not running"
-		stat.Description = "The task did not start on this Driver. Deploy the task " +
-			"again, then retry."
+		stat.Description = deployErr.Error()
+		stat.Details.Running = false
 	}); err != nil {
 		d.cfg.L.Error("failed to write refused command status", zap.Error(err))
 	}
@@ -528,6 +536,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	d.mu.Lock()
 	existing, hadExisting := d.mu.instances[t.Key]
 	delete(d.mu.instances, t.Key)
+	delete(d.mu.failures, t.Key)
 	d.mu.Unlock()
 
 	if hadExisting {
@@ -561,7 +570,13 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 		}
 		return errors.Wrapf(ErrTaskNotHandled, "task type '%s'", t.Type)
 	}, signal.RecoverWithErrOnPanic())
-	return sCtx.Wait()
+	err := sCtx.Wait()
+	if err != nil {
+		d.mu.Lock()
+		d.mu.failures[t.Key] = err
+		d.mu.Unlock()
+	}
+	return err
 }
 
 func (d *Driver) delete(key task.Key) {
@@ -572,12 +587,13 @@ func (d *Driver) delete(key task.Key) {
 	}
 }
 
-// release stops and forgets the live instance for key, reporting whether one
-// existed.
+// release stops and forgets the live instance for key, reporting whether one existed.
+// It also forgets a failed deploy of key.
 func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	d.mu.Lock()
 	inst, ok := d.mu.instances[key]
 	delete(d.mu.instances, key)
+	delete(d.mu.failures, key)
 	d.mu.Unlock()
 	if !ok {
 		return false

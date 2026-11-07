@@ -1797,30 +1797,65 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
-			"should refuse non-start commands with no live instance",
+			"should leave a command for a moved task to the Driver that runs it",
 			func(ctx SpecContext) {
-				var execCalled atomic.Bool
-				factory := &mockFactory{
+				openDriver(ctx, &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
 						t task.Task,
 					) (driver.Task, error) {
-						return &mockTask{
-							key: t.Key,
-							execFunc: func(context.Context, task.Command) error {
-								execCalled.Store(true)
-								return nil
-							},
-						}, nil
+						return &mockTask{key: t.Key}, nil
 					},
-				}
-				openDriver(ctx, factory)
+				})
+				otherRack := rack.Rack{Name: "Other Rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				t := newTask(otherRack.Key)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				t.Rack = embeddedRackKey(ctx)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				Consistently(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.OntologyID().String(),
+					).Details.Cmd
+				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-1"))
+			},
+		)
+
+		It(
+			"should answer a command with the error of a failed configure at boot",
+			func(ctx SpecContext) {
+				d1 := MustSucceed(driver.Open(ctx, driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}))
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				details := task.NewStatusDetails(t, false)
+				details.Cmd = "cmd-0"
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Key:         t.OntologyID().String(),
+					Name:        t.Name,
+					Time:        telem.Now(),
+					Variant:     status.VariantError,
+					Message:     "Failed to execute command",
+					Description: "The task does not accept the 'scan' command.",
+					Details:     details,
+				})).To(Succeed())
+				Expect(d1.Close()).To(Succeed())
+				// No factory handles the task, so the configure at boot fails and
+				// writes no status.
+				openDriver(ctx, &mockFactory{name: "test"})
 
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
 						ctx, t.OntologyID().String(),
@@ -1829,12 +1864,10 @@ var _ = Describe("Driver", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
 					g.Expect(stat.Message).To(Equal("Task is not running"))
 					g.Expect(stat.Description).To(Equal(
-						"The task did not start on this Driver. Deploy the task " +
-							"again, then retry.",
+						"task type 'pagerduty_alert': task not handled by factory",
 					))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
-				Expect(execCalled.Load()).To(BeFalse())
 			},
 		)
 
@@ -1871,7 +1904,7 @@ var _ = Describe("Driver", func() {
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("Failed to configure task"))
+					g.Expect(stat.Message).To(Equal("Task is not running"))
 					g.Expect(stat.Description).To(Equal("device is not connected"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
