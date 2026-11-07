@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, errors, url } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { type IncomingMessage } from "node:http";
+import { type AddressInfo } from "node:net";
+
+import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { type Context, EOF, WebSocketClient } from "@/index";
+import {
+  type Context,
+  EOF,
+  type FlowControl,
+  ReceiveOverflow,
+  WebSocketClient,
+} from "@/index";
 
 const endpoint = new url.URL({ host: "127.0.0.1", port: 8080 });
 
@@ -48,7 +58,7 @@ describe("websocket", () => {
   test("basic exchange", async () => {
     const stream = await client.stream("stream/echo", messageSchema, messageSchema);
     for (let i = 0; i < 10; i++) {
-      stream.send({ id: i, message: "hello" });
+      await stream.send({ id: i, message: "hello" });
       const response = await stream.receive();
       expect(response.id).toEqual(i + 1);
       expect(response.message).toEqual("hello");
@@ -76,7 +86,7 @@ describe("websocket", () => {
       messageSchema,
       messageSchema,
     );
-    stream.send({ id: 0, message: "hello" });
+    await stream.send({ id: 0, message: "hello" });
     await expect(stream.receive()).rejects.toThrow(MyCustomError);
   });
 
@@ -101,5 +111,133 @@ describe("websocket", () => {
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");
     });
+  });
+});
+
+describe("flow control", () => {
+  interface Connection {
+    ws: WebSocket;
+    req: IncomingMessage;
+  }
+
+  let server: WebSocketServer;
+  let connected: Promise<Connection>;
+
+  const dial = async (flowControl: Partial<FlowControl>) => {
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient(
+      new url.URL({ host: "127.0.0.1", port }),
+      new binary.JSONCodec(),
+      false,
+      flowControl,
+    );
+    return await c.stream("stream", messageSchema, messageSchema);
+  };
+
+  const sendData = (ws: WebSocket, payload: z.infer<typeof messageSchema>) =>
+    ws.send(Buffer.from(JSON.stringify({ type: "data", payload })));
+
+  beforeEach(async () => {
+    server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    connected = new Promise((resolve) =>
+      server.on("connection", (ws, req) => {
+        ws.send(Buffer.from(JSON.stringify({ type: "open", payload: null })));
+        resolve({ ws, req });
+      }),
+    );
+    await new Promise((resolve) => server.on("listening", resolve));
+  });
+
+  afterEach(async () => {
+    server.clients.forEach((ws) => ws.terminate());
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  test("should receive queued messages in order", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    for (let id = 0; id < 10; id++) sendData(ws, { id });
+    for (let id = 0; id < 10; id++) expect((await stream.receive()).id).toEqual(id);
+  });
+
+  test("should reject receive when a message does not decode", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    ws.send(Buffer.from("not json"));
+    await expect(stream.receive()).rejects.toThrow(SyntaxError);
+  });
+
+  test("should keep the flow control limits in a client from withCodec", async () => {
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient(
+      new url.URL({ host: "127.0.0.1", port }),
+      new binary.JSONCodec(),
+      false,
+      { receiveQueueLimit: 1024 },
+    ).withCodec(new binary.JSONCodec());
+    const stream = await c.stream("stream", messageSchema, messageSchema);
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    for (let id = 0; id < 10; id++) sendData(ws, { id, message: "x".repeat(256) });
+    await closed;
+    await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
+  });
+
+  test("should fail the stream when unread messages pass the limit", async () => {
+    const stream = await dial({ receiveQueueLimit: 1024 });
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    const message = "x".repeat(256);
+    for (let id = 0; id < 10; id++) sendData(ws, { id, message });
+    await closed;
+    await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+    await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
+  });
+
+  test("should wait to send while the socket buffer is full", async () => {
+    const stream = await dial({ sendHighWaterMark: 1024 });
+    const { ws, req } = await connected;
+    req.socket.pause();
+    const received: number[] = [];
+    const codec = new binary.JSONCodec();
+    const msgZ = z.object({ payload: messageSchema });
+    ws.on("message", (data: Buffer) => {
+      received.push(codec.decode(data, msgZ).payload.id ?? -1);
+    });
+    await stream.send({ id: 0, message: "x".repeat(32 * 1024 * 1024) });
+    let sent = false;
+    const second = stream.send({ id: 1 }).then(() => (sent = true));
+    await sleep.sleep(TimeSpan.milliseconds(50));
+    expect(sent).toBe(false);
+    req.socket.resume();
+    await second;
+    await expect.poll(() => received).toEqual([0, 1]);
+  });
+
+  test("should send waiting requests in call order", async () => {
+    const stream = await dial({ sendHighWaterMark: 1024 });
+    const { ws, req } = await connected;
+    req.socket.pause();
+    const received: number[] = [];
+    const codec = new binary.JSONCodec();
+    const msgZ = z.object({ payload: messageSchema });
+    ws.on("message", (data: Buffer) => {
+      received.push(codec.decode(data, msgZ).payload.id ?? -1);
+    });
+    const first = new Promise((resolve) => ws.once("message", resolve));
+    await stream.send({ id: 0, message: "x".repeat(32 * 1024 * 1024) });
+    // Holds the drain poll of the waiting send, so the buffer drains before it wakes.
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      const waiting = stream.send({ id: 1 });
+      req.socket.resume();
+      await first;
+      const late = stream.send({ id: 2 });
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.all([waiting, late]);
+    } finally {
+      vi.useRealTimers();
+    }
+    await expect.poll(() => received).toEqual([0, 1, 2]);
   });
 });
