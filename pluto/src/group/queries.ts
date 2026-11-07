@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
+import { type group, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -46,7 +46,20 @@ export const { useResult: useResultList } = Flux.createRetrieve<
 
 export type RetrieveAncestorsQuery = { keys: group.Key[] };
 
-/** Retrieves the groups with the keys and every group above them. */
+const getCachedAncestry = (
+  client: Synnax,
+  keys: group.Key[],
+): group.Group[] | undefined => {
+  const groups = client.groups.getCached(keys);
+  const ancestors = client.groups.getCachedAncestors(keys);
+  if (!query.isLive(groups) || ancestors == null) return undefined;
+  return [...groups, ...ancestors];
+};
+
+/**
+ * Retrieves the groups with the keys and every group above them. A rename or a move of
+ * one of them updates the answer.
+ */
 export const { useResult: useResultAncestors } = Flux.createRetrieve<
   RetrieveAncestorsQuery,
   group.Group[]
@@ -59,6 +72,11 @@ export const { useResult: useResultAncestors } = Flux.createRetrieve<
     ]);
     return [...groups, ...ancestors];
   },
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.groups.onAncestorsChange(keys, () =>
+      handler(getCachedAncestry(client, keys)),
+    ),
+  getCached: ({ client, query: { keys } }) => getCachedAncestry(client, keys),
 });
 
 export interface DeleteParams {

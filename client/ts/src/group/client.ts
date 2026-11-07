@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
@@ -204,6 +204,37 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     );
     this.store.ingest(groups, { since });
     return groups;
+  }
+
+  /**
+   * Returns the cached groups on the parent chain above the groups, each once, or
+   * undefined when a group on the chain is not cached.
+   */
+  getCachedAncestors(keys: Key | Key[]): Group[] | undefined {
+    const ancestors = new Map<Key, Group>();
+    for (const key of array.toArray(keys)) {
+      const start = this.store.get(key);
+      if (start == null) return undefined;
+      let parent = start.parent;
+      while (parent?.type === "group" && !ancestors.has(parent.key)) {
+        const g = this.store.get(parent.key);
+        if (g == null) return undefined;
+        ancestors.set(g.key, g);
+        parent = g.parent;
+      }
+    }
+    return [...ancestors.values()];
+  }
+
+  /**
+   * Calls the handler with the cached ancestors of the groups after each change to a
+   * cached group, since a rename or a move of any group can change them.
+   */
+  onAncestorsChange(
+    keys: Key | Key[],
+    handler: query.ChangeHandler<Group[]>,
+  ): destructor.Destructor {
+    return this.store.subscribe(() => handler(this.getCachedAncestors(keys)));
   }
 
   private async send<P>(
