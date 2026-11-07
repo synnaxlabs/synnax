@@ -23,9 +23,6 @@ export const FLAGS = {
   // Owner: Patrick Dotson. Umbrella: SY-5105. Removed in the release that ships the
   // Kafka integration.
   kafka: ENABLED,
-  // Owner: Emiliano Bonilla. Umbrella: SY-5506. Removed once the Driver reads the
-  // chosen sync mode (SY-5539), in the release that ships EtherCAT DC sync.
-  ethercatSyncMode: ENABLED,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
