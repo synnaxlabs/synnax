@@ -77,7 +77,7 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
-    /// @brief the process data frames that came back to the master.
+    /// @brief the frames that came back to the master.
     std::atomic<uint64_t> frames{0};
     /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
@@ -89,6 +89,11 @@ class Master final : public master::Master {
     /// @brief the DC time minus the host steady clock time, in nanoseconds, at the
     /// send of the frame that gave last_dc_time.
     std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
+    /// @brief whether the cycle holds process data back. A frame then carries only the
+    /// reference clock time.
+    std::atomic<bool> process_data_held{false};
+    /// @brief whether the last send held process data back. Only the cycle uses it.
+    bool last_send_held = false;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
