@@ -1042,6 +1042,46 @@ describe("Read", () => {
     );
     expect(tsk.config.channels).toHaveLength(1);
   });
+
+  it("should create the task from a slave with a channel for each input", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createRepeatedNamePDOs(),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    const addresses = tsk.config.channels.map((ch) =>
+      ch.type === "entry"
+        ? { device: ch.device, index: ch.index, subIndex: ch.subIndex }
+        : ch.type,
+    );
+    expect(addresses).toEqual(
+      slave.properties.pdos.inputs.map(({ index, subIndex }) => ({
+        device: slave.key,
+        index,
+        subIndex,
+      })),
+    );
+  });
+
+  it("should create the task from a slave without inputs with one channel on it", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [], outputs: createPDOs().outputs },
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+    expect(tsk.config.channels[0].device).toEqual(slave.key);
+  });
 });
 
 describe("Read channel names", () => {

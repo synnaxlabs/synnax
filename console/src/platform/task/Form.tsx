@@ -43,12 +43,15 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
 }
 
 export interface getInitialValuesParams {
+  client: Synnax;
   deviceKey?: device.Key;
   config?: unknown;
 }
 
 export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
-  (params: getInitialValuesParams): PTask.InitialValues<S>;
+  (
+    params: getInitialValuesParams,
+  ): PTask.InitialValues<S> | Promise<PTask.InitialValues<S>>;
 }
 
 export interface FormTabProps {

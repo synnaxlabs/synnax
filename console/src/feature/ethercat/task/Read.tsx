@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -15,6 +16,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   ReadChannelDetails,
@@ -39,6 +41,7 @@ import {
   type ReadChannel,
   readChannelName,
   type ReadSchemas,
+  uniqueEntries,
 } from "@/feature/ethercat/task/types";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -122,9 +125,28 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => {
+/** @returns a channel for each input of the slave, or one empty channel without any. */
+const createSlaveChannels = async (
+  client: Synnax,
+  key: string,
+): Promise<ReadChannel[]> => {
+  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
+  const inputs = uniqueEntries(slave.properties.pdos.inputs);
+  if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
+  return inputs.map((entry) => createEntryReadChannel(key, entry));
+};
+
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
+  client,
+  deviceKey,
+  config,
+}) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (config == null) cfg.channels = [createReadChannel([])];
+  if (config == null)
+    cfg.channels =
+      deviceKey == null
+        ? [createReadChannel([])]
+        : await createSlaveChannels(client, deviceKey);
   return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
 };
 
