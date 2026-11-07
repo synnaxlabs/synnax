@@ -22,8 +22,6 @@ type Use struct {
 	Resource ontology.ID
 	// Name is the name of the resource.
 	Name string
-	// Racks are the racks that connect with the secret for this use.
-	Racks []ontology.ID
 	// Secret is the key of the secret in use.
 	Secret Key
 }
