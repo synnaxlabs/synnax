@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -99,7 +100,7 @@ var _ = Describe("ProgramState", func() {
 			original := telem.NewSeriesV(3.14, 2.71)
 			h := s.Store(original)
 			retrieved := MustBeOk(s.Get(h))
-			Expect(retrieved).To(telem.MatchSeries(original))
+			Expect(retrieved).To(MatchSeries(original))
 		})
 
 		It("Should return false for an unknown handle", func() {
@@ -117,8 +118,8 @@ var _ = Describe("ProgramState", func() {
 			s2 := telem.NewSeriesV[float32](1.5)
 			h1 := s.Store(s1)
 			h2 := s.Store(s2)
-			Expect(MustBeOk(s.Get(h1))).To(telem.MatchSeries(s1))
-			Expect(MustBeOk(s.Get(h2))).To(telem.MatchSeries(s2))
+			Expect(MustBeOk(s.Get(h1))).To(MatchSeries(s1))
+			Expect(MustBeOk(s.Get(h2))).To(MatchSeries(s2))
 		})
 
 		It("Should return false for a handle that was cleared", func() {
@@ -155,7 +156,7 @@ var _ = Describe("ProgramState", func() {
 			s.Clear()
 			h := s.Store(telem.NewSeriesV[int64](42))
 			retrieved := MustBeOk(s.Get(h))
-			Expect(retrieved).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
+			Expect(retrieved).To(MatchSeries(telem.NewSeriesV[int64](42)))
 		})
 
 		It("Should be safe to call on an already empty state", func() {

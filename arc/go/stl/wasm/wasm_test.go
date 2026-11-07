@@ -39,6 +39,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -483,7 +484,7 @@ var _ = Describe("WASM", func() {
 				).To(Equal([]int64{11, 22, 13, 24, 15}))
 				Expect(
 					h.OutputTime("add", 0),
-				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+				).To(MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 			},
 		)
 
@@ -2875,7 +2876,7 @@ sequence main {
 						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(100).Series).To(HaveLen(1))
-					Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
+					Expect(fr.Get(100).Series[0]).To(MatchSeriesDataV[int32](42))
 				},
 			)
 		})
@@ -2909,7 +2910,7 @@ sequence main {
 						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(100).Series).To(HaveLen(1))
-					Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
+					Expect(fr.Get(100).Series[0]).To(MatchSeriesDataV[int32](99))
 					Expect(fr.Get(101).Series).To(HaveLen(1))
 					Expect(fr.Get(101).Series[0].Len()).To(Equal(int64(1)))
 					ts := fr.Get(101).Series[0].Unmarshal[telem.TimeStamp]()
@@ -2950,7 +2951,7 @@ sequence main {
 					Expect(fr.Get(201).Series).To(HaveLen(1))
 					Expect(
 						fr.Get(201).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesV(telem.TimeStamp(flushNow))))
+					).To(MatchSeries(telem.NewSeriesV(telem.TimeStamp(flushNow))))
 				},
 			)
 
@@ -2989,10 +2990,10 @@ sequence main {
 						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(10).Series).To(HaveLen(1))
-					Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
+					Expect(fr.Get(10).Series[0]).To(MatchSeriesDataV[int32](15))
 					Expect(fr.Get(11).Series).To(HaveLen(1))
 					Expect(fr.Get(20).Series).To(HaveLen(1))
-					Expect(fr.Get(20).Series[0]).To(telem.MatchSeriesDataV[int32](100))
+					Expect(fr.Get(20).Series[0]).To(MatchSeriesDataV[int32](100))
 					Expect(fr.Get(21).Series).To(HaveLen(1))
 				},
 			)
@@ -3076,7 +3077,7 @@ sequence main {
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(700).Series).To(HaveLen(1))
-				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
+				Expect(fr.Get(700).Series[0]).To(MatchSeriesDataV[int32](-50000))
 				Expect(fr.Get(701).Series).To(HaveLen(1))
 			})
 
@@ -3106,7 +3107,7 @@ sequence main {
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(800).Series).To(HaveLen(1))
-				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
+				Expect(fr.Get(800).Series[0]).To(MatchSeriesDataV[uint8](255))
 				Expect(fr.Get(801).Series).To(HaveLen(1))
 			})
 		})
@@ -3138,7 +3139,7 @@ sequence main {
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1100).Series).To(HaveLen(1))
-				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
+				Expect(fr.Get(1100).Series[0]).To(MatchSeriesDataV(3.14159))
 				Expect(fr.Get(1101).Series).To(HaveLen(1))
 			})
 
@@ -3170,7 +3171,7 @@ sequence main {
 				Expect(fr.Get(1200).Series).To(HaveLen(1))
 				Expect(
 					fr.Get(1200).Series[0],
-				).To(telem.MatchSeriesDataV[float32](2.718))
+				).To(MatchSeriesDataV[float32](2.718))
 				Expect(fr.Get(1201).Series).To(HaveLen(1))
 			})
 		})
@@ -3393,7 +3394,7 @@ sequence main {
 				fr, _, changed := h.ChannelState().
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
-				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](1))
+				Expect(fr.Get(100).Series[0]).To(MatchSeriesDataV[int32](1))
 
 				h.SetInput(
 					"trigger_source",
@@ -3404,7 +3405,7 @@ sequence main {
 				n.Next(nCtx)
 				fr, _, changed = h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
-				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](2))
+				Expect(fr.Get(100).Series[0]).To(MatchSeriesDataV[int32](2))
 			},
 		)
 	})
@@ -4326,7 +4327,7 @@ input_ch -> writer(output=write_target) -> sink_ch
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
-				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
+				Expect(fr.Get(200).Series[0]).To(MatchSeriesDataV[float32](50.0))
 			},
 		)
 
@@ -4391,7 +4392,7 @@ input_ch -> writer(output=write_target) -> sink_ch
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
-				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
+				Expect(fr.Get(200).Series[0]).To(MatchSeriesDataV[float32](30.0))
 			},
 		)
 
@@ -4452,7 +4453,7 @@ input_ch -> writer() -> sink_ch
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
-				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
+				Expect(fr.Get(200).Series[0]).To(MatchSeriesDataV[float32](20.0))
 			},
 		)
 
@@ -4516,7 +4517,7 @@ input_ch -> writer() -> sink_ch
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
-				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
+				Expect(fr.Get(200).Series[0]).To(MatchSeriesDataV[float32](20.0))
 			},
 		)
 
@@ -4586,7 +4587,7 @@ input_ch -> writer() -> sink_ch
 				Expect(fr.Get(200).Series).To(HaveLen(1))
 				Expect(
 					fr.Get(200).Series[0],
-				).To(telem.MatchSeriesDataV[float32](20.0, 30.0))
+				).To(MatchSeriesDataV[float32](20.0, 30.0))
 			},
 		)
 

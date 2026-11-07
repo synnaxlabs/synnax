@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -219,7 +220,7 @@ var _ = Describe("Service", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 			Expect(iter.Value().Get(idxCh.Key()).Series[0]).
-				To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
+				To(MatchWrittenSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
 		})
 	})
 
@@ -273,7 +274,7 @@ var _ = Describe("Service", func() {
 			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(outlet.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
+			Expect(res.Frame.Frame).To(MatchWrittenFrame(writtenFr.Frame))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})

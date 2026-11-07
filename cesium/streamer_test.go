@@ -25,6 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -561,7 +562,7 @@ var _ = Describe("Streamer Behavior", func() {
 							var res cesium.StreamerResponse
 							Eventually(o.Outlet()).Should(Receive(&res))
 							Expect(res.Frame.Count()).To(Equal(1))
-							Expect(res.Frame.SeriesAt(0)).To(telem.MatchSeriesDataV(v))
+							Expect(res.Frame.SeriesAt(0)).To(MatchSeriesDataV(v))
 						}
 					},
 				)
