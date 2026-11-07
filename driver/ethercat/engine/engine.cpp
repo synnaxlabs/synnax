@@ -249,6 +249,11 @@ void Engine::run() {
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
     Clock clock;
+    // The working counter falls short until the slaves reach OP.
+    const auto shortfall = [this](const x::errors::Error &err) {
+        return this->starting.load(std::memory_order_acquire) &&
+               err.matches(errors::WORKING_COUNTER_ERROR);
+    };
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -311,10 +316,10 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        // The working counter falls short until the slaves reach OP. After that, a
-        // short frame can miss the reference clock, and SOEM repeats the last DC time.
-        const bool shortfall = starting && err.matches(errors::WORKING_COUNTER_ERROR);
-        const auto dc = (!err || shortfall) ? this->master->dc_time() : std::nullopt;
+        // After the slaves reach OP, a short frame can miss the reference clock, and
+        // SOEM repeats the last DC time.
+        const auto dc = (!err || shortfall(err)) ? this->master->dc_time()
+                                                 : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
@@ -329,7 +334,7 @@ void Engine::run() {
                           << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (!shortfall && receive_failures++ == 0) {
+        } else if (!shortfall(err) && receive_failures++ == 0) {
             LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
                          << err.message();
             std::lock_guard lock(this->cycle_err_mu);
@@ -354,7 +359,7 @@ void Engine::run() {
     // Sends the zeroed outputs of the last writer to close before the slaves leave OP.
     this->write_outputs();
     send();
-    if (const auto err = this->master->receive())
+    if (const auto err = this->master->receive(); err && !shortfall(err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
                      << err.message();
     if (late_frames > 0)
@@ -396,6 +401,9 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const uint64_t mhz) {
+    auto [configs, configs_err] = this->config.slave_configs();
+    if (configs_err) return configs_err;
+    this->master->replace_slave_configs(std::move(configs));
     const auto start_cycle = [this, mhz] {
         {
             std::lock_guard lock(this->write_mu);
@@ -704,13 +712,5 @@ std::vector<slave::Health> Engine::health() const {
 
 std::string Engine::interface_name() const {
     return this->master->interface_name();
-}
-
-void Engine::set_slave_config(const uint16_t position, slave::Config config) {
-    this->master->set_slave_config(position, config);
-}
-
-void Engine::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
-    this->master->replace_slave_configs(std::move(configs));
 }
 }

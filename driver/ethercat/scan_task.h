@@ -79,13 +79,9 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief passes a slave device's enabled flag to its engine, and sets an error
-    /// status when its properties are invalid.
+    /// @brief sets the status of a changed slave device, or an error status when its
+    /// properties are invalid.
     void on_device_set(const synnax::device::Device &dev) override;
-
-    /// @brief loads the saved settings of each slave on a deleted slave device's
-    /// network into its engine again, so the engine drops the device's settings.
-    void on_device_delete(const synnax::device::Device &dev) override;
 
 private:
     std::shared_ptr<task::Context> ctx;
@@ -97,13 +93,6 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
-
-    /// @brief parses a slave device's properties and passes its enabled flag to its
-    /// engine.
-    /// @returns the properties, and x::errors::VALIDATION with each invalid field when
-    /// they do not parse, or the error that kept the engine from being acquired.
-    [[nodiscard]] std::pair<slave::Properties, x::errors::Error>
-    configure_slave(const synnax::device::Device &dev) const;
 
     /// @brief creates a slave device for the given slave. The status reflects the
     /// slave's live state when health holds an entry for it.

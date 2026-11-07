@@ -542,6 +542,15 @@ TEST_F(SOEMMasterTest, ActivateHappyPath) {
     this->activate_master();
 }
 
+/// @brief it should give each process data sync manager of the enabled slaves a length
+/// only from its PDOs, since a slave can refuse SAFE-OP for a sync manager that is on
+/// with no PDOs.
+TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sms_cleared_at_map);
+}
+
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
     ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
@@ -796,7 +805,7 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
     ASSERT_NIL(this->activate());
     EXPECT_GT(this->mock->sync_dc_count, 0);
@@ -823,20 +832,24 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
     EXPECT_EQ(receives, 0);
 }
 
-/// @brief it should fail a send before SAFE-OP when the reference clock frame does not
-/// come back.
-TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {
+/// @brief it should fail a send before SAFE-OP and the receive after it when the
+/// reference clock frame does not come back, so no caller reads a stale DC time.
+TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->mock->sync_dc_return = 0;
-    x::errors::Error err;
+    x::errors::Error send_err;
+    x::errors::Error receive_err;
     static_cast<void>(this->master->activate(PERIOD, [&] {
-        err = this->master->send();
+        send_err = this->master->send();
+        receive_err = this->master->receive();
     }));
-    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(send_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(send_err.data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(receive_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(receive_err.data, "reference clock frame failed");
 }
 
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
@@ -879,7 +892,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_config(2, {.enabled = false});
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -898,7 +911,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_config(2, {.enabled = false});
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -976,7 +989,7 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->add_slave(plain);
     this->add_slave(dc);
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_config(3, {.enabled = false});
+    this->master->replace_slave_configs({{3, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
@@ -1066,7 +1079,7 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
 /// @brief it should leave DC sync off on a disabled slave.
 TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnADisabledSlave) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->master->set_slave_config(1, {.enabled = false});
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
     ASSERT_NIL(this->activate());
     EXPECT_TRUE(this->mock->register_writes.empty());
 }
@@ -1075,9 +1088,8 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnADisabledSlave) {
 /// use its chosen mode.
 TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnALeftOutSlave) {
     this->initialize_with_dc_slave({DC_ONLY});
-    this->master->set_slave_config(
-        1,
-        {.op_mode = dc::Choice{.assign_activate = 0x0700}}
+    this->master->replace_slave_configs(
+        {{1, {.op_mode = dc::Choice{.assign_activate = 0x0700}}}}
     );
     this->master->leave_out(
         {{1,
@@ -1139,7 +1151,7 @@ TEST_F(SOEMMasterTest, ActivateRunsTheChosenModeWithItsCycles) {
         .assign_activate = 0x0700,
         .cycles = {.sync1 = x::telem::SECOND * 2},
     };
-    this->master->set_slave_config(1, {.op_mode = choice});
+    this->master->replace_slave_configs({{1, {.op_mode = choice}}});
     ASSERT_NIL(this->activate());
     EXPECT_EQ(
         this->master->dc_sync(),
@@ -1151,9 +1163,8 @@ TEST_F(SOEMMasterTest, ActivateRunsTheChosenModeWithItsCycles) {
 /// not list its chosen mode, and list the modes it has.
 TEST_F(SOEMMasterTest, ActivateFailsWhenTheSlaveDoesNotListItsChosenMode) {
     this->initialize_with_dc_slave({SM, DC_SECOND});
-    this->master->set_slave_config(
-        1,
-        {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}
+    this->master->replace_slave_configs(
+        {{1, {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}}}
     );
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
@@ -1400,9 +1411,31 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
+/// @brief it should read the reference clock time in the frames of the enabled slaves
+/// when the reference slave, the first slave with a distributed clock, is disabled.
+TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
+    MockSlaveInfo reference;
+    reference.state = EC_STATE_PRE_OP;
+    reference.hasdc = true;
+    this->add_slave(reference);
+    MockSlaveInfo enabled;
+    enabled.state = EC_STATE_PRE_OP;
+    enabled.hasdc = true;
+    this->add_slave(enabled);
+    ASSERT_NIL(this->master->initialize());
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
@@ -1529,7 +1562,7 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
 TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
-    this->master->set_slave_config(2, {.enabled = false});
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
     ASSERT_NIL(this->master->initialize());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
@@ -1589,23 +1622,13 @@ TEST_F(SOEMMasterTest, InterfaceName) {
 
 ////////////////////// Slave Enable/Disable //////////////////////
 
-TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
-    this->initialize_with_slave();
-    this->master->set_slave_config(1, {.enabled = false});
-    this->master->set_slave_config(1, {});
-    this->mock->obytes = 2;
-    this->mock->ibytes = 4;
-    ASSERT_NIL(this->activate());
-    EXPECT_EQ(this->mock->slave_infos[0].group, 1);
-}
-
 /// @brief it should disable a slave the replacement configs disable and enable one they
 /// leave out.
 TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     this->add_slave(MockSlaveInfo{});
     this->add_slave(MockSlaveInfo{});
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_config(1, {.enabled = false});
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
     this->master->replace_slave_configs({{2, {.enabled = false}}});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;

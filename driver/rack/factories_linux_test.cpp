@@ -33,7 +33,10 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
     };
     ASSERT_NIL(rack.tasks.create(scanner));
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(client);
     auto tasks = factory->configure_initial_tasks(ctx, rack);
     for (const auto &[_, tsk]: tasks)
@@ -58,7 +61,10 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
 /// @brief it should fail a start of a LabJack task and name the platforms that run it.
 TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,

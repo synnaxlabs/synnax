@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -45,6 +46,13 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief returns the settings of each slave, keyed by position. The engine calls
+    /// it each time the bus starts, and an error fails the start. A slave missing from
+    /// the map runs with the defaults of slave::Config.
+    std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
+        slave_configs = [] {
+            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        };
 
     Config() = default;
 };
@@ -307,14 +315,5 @@ public:
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
-
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect the next time
-    /// the bus starts.
-    void set_slave_config(uint16_t position, slave::Config config);
-
-    /// @brief replaces the settings of every slave. A slave missing from configs goes
-    /// back to the defaults of slave::Config. Takes effect the next time the bus
-    /// starts.
-    void replace_slave_configs(std::map<uint16_t, slave::Config> configs);
 };
 }

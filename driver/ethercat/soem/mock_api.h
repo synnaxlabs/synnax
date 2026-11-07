@@ -109,6 +109,10 @@ public:
     bool manual_state_change = false;
     /// @brief manual_state_change at the latest config_map_group call.
     std::optional<bool> manual_at_map;
+    /// @brief the group of the latest clear_process_data_sms call.
+    std::optional<uint8_t> sm_cleared_group;
+    /// @brief whether config_map_group came after clear_process_data_sms for its group.
+    bool sms_cleared_at_map = false;
     /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
@@ -127,6 +131,11 @@ public:
     std::vector<uint16_t> written_slaves;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
+    /// @brief the groups whose process data frames read the reference clock time,
+    /// keyed by group, with the position of the reference slave.
+    std::map<uint8_t, uint16_t> dc_groups;
+    /// @brief the position of the reference slave that configdc found, or 0.
+    uint16_t dc_reference = 0;
     /// @brief writes through write_register, in call order.
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
@@ -141,8 +150,6 @@ public:
     std::map<std::pair<uint16_t, uint16_t>, std::vector<uint8_t>> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
-    /// @brief whether the mapped group carries the reference clock time.
-    bool hasdc = false;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -174,8 +181,13 @@ public:
 
     int config_init() override { return this->config_init_return; }
 
+    void clear_process_data_sms(const uint8_t group) override {
+        this->sm_cleared_group = group;
+    }
+
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
+        this->sms_cleared_at_map = this->sm_cleared_group == group;
         this->mapped_group = group;
         this->manual_at_map = this->manual_state_change;
         return this->config_map_return;
@@ -227,7 +239,14 @@ public:
 
     bool configdc() override {
         this->configdc_count++;
-        return this->hasdc;
+        this->dc_reference = 0;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].hasdc) {
+                this->dc_reference = static_cast<uint16_t>(i + 1);
+                this->dc_groups[this->slave_infos[i].group] = this->dc_reference;
+                return true;
+            }
+        return false;
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
@@ -480,13 +499,15 @@ public:
         return group == this->mapped_group ? this->inputs_wkc : 0;
     }
 
-    /// @brief like ecx_configdc, true for the group of the first slave with a
-    /// distributed clock.
     [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        if (group != this->mapped_group) return false;
-        if (this->hasdc) return true;
-        const auto ref = std::ranges::find_if(this->slave_infos, &MockSlaveInfo::hasdc);
-        return ref != this->slave_infos.end() && ref->group == group;
+        return this->dc_groups.contains(group);
+    }
+
+    void set_group_dc(uint8_t group) override {
+        if (this->dc_reference == 0)
+            this->dc_groups.erase(group);
+        else
+            this->dc_groups[group] = this->dc_reference;
     }
 };
 

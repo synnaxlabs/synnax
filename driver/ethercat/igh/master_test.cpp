@@ -167,7 +167,7 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(1, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
@@ -207,7 +207,7 @@ TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(0, {.enabled = false});
+    this->master_instance->replace_slave_configs({{0, {.enabled = false}}});
     this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
@@ -217,9 +217,8 @@ TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
 /// DC sync.
 TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(
-        0,
-        {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}}
     );
     const auto err = this->master_instance->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
@@ -233,9 +232,8 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
 /// @brief it should run a slave in a chosen SM mode.
 TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
     this->initialize_with_slave();
-    this->master_instance->set_slave_config(
-        0,
-        {.op_mode = dc::Choice{.index = 0, .assign_activate = 0}}
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 0, .assign_activate = 0}}}}
     );
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
@@ -477,7 +475,7 @@ TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(1, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_with_domains();
     const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
@@ -516,15 +514,6 @@ TEST_F(IGHMasterTest, DeactivateCallsMasterDeactivate) {
     this->activate_with_domains();
     this->master_instance->deactivate();
     EXPECT_TRUE(this->mock_api->master_deactivate_called());
-}
-
-TEST_F(IGHMasterTest, SetSlaveEnabledReEnable) {
-    this->add_default_slave();
-    ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->set_slave_config(0, {.enabled = false});
-    this->master_instance->set_slave_config(0, {});
-    this->activate_with_domains();
-    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
 /// @brief it should discover padding entries but not register them with the master.

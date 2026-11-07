@@ -53,6 +53,7 @@ protected:
         this->master = std::make_shared<testutil::Master>("eth0");
         this->master->add_slave(
             slave::Properties{
+                .network = "eth0",
                 .position = 0,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
@@ -390,7 +391,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
 /// @brief it should fail to configure the scan task and report an error status when the
 /// packet capture library is missing.
 TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
-    Factory factory(std::unique_ptr<master::Manager>{});
+    Factory factory(std::unique_ptr<master::Manager>{}, this->client, this->rack.key);
     const synnax::task::Task task{
         .rack = this->rack.key,
         .name = "EtherCAT Scanner",
@@ -420,6 +421,7 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
@@ -429,6 +431,7 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to discover PDOs");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "No PDO objects found in object dictionary. Channels can use only the entries "
@@ -490,6 +493,7 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Operational");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a faulted slave as an error and put its AL status in the
@@ -506,6 +510,7 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Error in SAFE-OP");
     EXPECT_EQ(status.description, "Sync manager watchdog");
+    EXPECT_TRUE(status.details.connected);
     this->master->clear_transition_failures();
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && engine->health()[0].operational()
@@ -544,6 +549,7 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Not responding");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "Check the power and cabling of the device.");
 }
 
@@ -641,21 +647,54 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "In PRE-OP");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
+}
+/// @brief it should show a disabled slave as not connected.
+TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
+    auto dev = ASSERT_NIL_P(this->scanner->scan(common::ScannerContext{.count = 1}))
+                   .at(0);
+    dev.properties["enabled"] = false;
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 2, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    const auto &status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(status.message, "Device disabled");
+    EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should keep an enabled slave connected when its device is edited.
+TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan(common::ScannerContext{.count = 1})
+    )
+                         .at(0);
+    this->scanner->on_device_set(dev);
+    const auto status = ASSERT_NIL_P(
+        this->client->statuses.retrieve<synnax::device::StatusDetails>(
+            synnax::device::status_key(dev)
+        )
+    );
+    EXPECT_EQ(status.message, "Device enabled");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief a scanner over a mock bus with one slave, for device set specs.
 class EtherCATScanDeviceSetTest : public EtherCATScanTest {
 protected:
-    std::shared_ptr<testutil::Master> master;
     std::unique_ptr<Scanner> scanner;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
-        this->master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
+        auto master = std::make_shared<testutil::Master>("eth0");
+        master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
         auto manager = std::make_unique<testutil::Manager>();
-        manager->configure("eth0", this->master);
+        manager->configure("eth0", master);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             this->scan_task(),
@@ -702,67 +741,20 @@ protected:
     }
 };
 
-/// @brief it should pass the enabled flag of a changed device to the master.
-TEST_F(EtherCATScanDeviceSetTest, PassesTheEnabledFlagToTheMaster) {
+/// @brief it should report a changed device that is disabled as not connected.
+TEST_F(EtherCATScanDeviceSetTest, ReportsADisabledDevice) {
     const auto dev = this->create_slave(false);
     this->scanner->on_device_set(dev);
-    EXPECT_FALSE(this->master->slave_enabled(0));
-    EXPECT_EQ(this->status(dev).message, "Device disabled");
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(status.message, "Device disabled");
+    EXPECT_FALSE(status.details.connected);
 }
 
-/// @brief it should pass the chosen mode of a changed device to the master.
-TEST_F(EtherCATScanDeviceSetTest, PassesTheChosenModeToTheMaster) {
-    auto dev = this->create_slave(true);
-    const dc::Choice choice{.index = 1, .assign_activate = 0x0700};
-    dev.properties["op_mode"] = choice.to_json();
-    this->scanner->on_device_set(dev);
-    EXPECT_EQ(this->master->chosen_mode(0), choice);
-}
-
-/// @brief it should drop the settings of a deleted device from the master.
-TEST_F(EtherCATScanDeviceSetTest, DropsTheSettingsOfADeletedDevice) {
-    const auto dev = this->create_slave(false);
-    this->scanner->on_device_set(dev);
-    ASSERT_FALSE(this->master->slave_enabled(0));
-    ASSERT_NIL(this->client->devices.del(dev.key));
-    this->scanner->on_device_delete(dev);
-    EXPECT_TRUE(this->master->slave_enabled(0));
-}
-
-/// @brief it should drop the chosen mode of a deleted device from the master.
-TEST_F(EtherCATScanDeviceSetTest, DropsTheChosenModeOfADeletedDevice) {
-    auto dev = this->create_slave(true);
-    dev.properties["op_mode"] = dc::Choice{.index = 1, .assign_activate = 0x0700}
-                                    .to_json();
-    ASSERT_NIL(this->client->devices.create(dev));
-    this->scanner->on_device_set(dev);
-    ASSERT_TRUE(this->master->chosen_mode(0).has_value());
-    ASSERT_NIL(this->client->devices.del(dev.key));
-    this->scanner->on_device_delete(dev);
-    EXPECT_FALSE(this->master->chosen_mode(0).has_value());
-}
-
-/// @brief it should keep the settings of another device saved at the position of a
-/// deleted device, such as the new device after a module swap.
-TEST_F(EtherCATScanDeviceSetTest, KeepsTheSettingsOfAnotherDeviceAtTheDeletedPosition) {
-    const auto removed = this->create_slave(false);
-    auto kept = removed;
-    kept.key += "_replacement";
-    kept.properties["serial"] = 54321;
-    ASSERT_NIL(this->client->devices.create(kept));
-    this->scanner->on_device_set(removed);
-    ASSERT_NIL(this->client->devices.del(removed.key));
-    this->scanner->on_device_delete(removed);
-    EXPECT_FALSE(this->master->slave_enabled(0));
-}
-
-/// @brief it should leave the master settings unchanged and report an error status
-/// that names the invalid field.
+/// @brief it should report an error status that names the invalid field.
 TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
-    this->master->set_slave_config(0, {.enabled = false});
     const auto dev = this->create_slave(nullptr);
     this->scanner->on_device_set(dev);
-    EXPECT_FALSE(this->master->slave_enabled(0));
     const auto status = this->status(dev);
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Invalid device properties");

@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <map>
+#include <memory>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -96,6 +98,18 @@ Config quick_start_config() {
         .max_retries = 2,
         .scale = 1,
         .max_interval = x::telem::MILLISECOND,
+    };
+    return cfg;
+}
+
+/// @brief an engine configuration whose slave settings disable the slave at position.
+Config disabling(const uint16_t position) {
+    Config cfg;
+    cfg.slave_configs = [position] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{{position, {.enabled = false}}},
+            x::errors::NIL
+        };
     };
     return cfg;
 }
@@ -562,11 +576,53 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_config(1, {.enabled = false});
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
     );
+}
+
+/// @brief it should read the slave settings again each time the bus starts.
+TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail to start the bus with the error that kept the slave settings
+/// from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
 }
 
 /// @brief it should return the error that kept the master from initializing once the
@@ -1007,6 +1063,24 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
 }
 
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
+/// while a slave runs DC sync.
+TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should keep the bus rate when a faster task closes and when a slower task
 /// opens while a slave runs DC sync.
 TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
@@ -1030,7 +1104,7 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_config(1, {.enabled = false});
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );

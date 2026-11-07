@@ -855,6 +855,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.status->variant = synnax::status::VARIANT_WARNING;
     dev2.status->description = "Sync manager watchdog";
     dev2.status->details.rack = 2;
+    dev2.status->details.connected = true;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -922,6 +923,7 @@ TEST(TestScanTask, TestStatePropagation) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
+            ASSERT_FALSE(status.details.connected);
             ASSERT_EQ(status.description, "");
         } else
             FAIL() << "Unexpected device key: " << status.key;
@@ -964,6 +966,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     EXPECT_EQ(status.name, "Device 1");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Device disconnected");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "");
 }
 
@@ -1401,8 +1404,6 @@ public:
     mutable std::mutex mu;
     std::vector<std::unordered_map<std::string, synnax::device::Device>>
         captured_devices;
-    /// @brief the names of the devices passed to on_device_delete.
-    std::vector<std::string> deleted_names;
 
     explicit DeviceCapturingScanner(ScannerConfig config):
         scanner_config(std::move(config)) {}
@@ -1434,16 +1435,6 @@ public:
         std::lock_guard lock(mu);
         if (captured_devices.empty()) return false;
         return captured_devices.back().contains(key);
-    }
-
-    void on_device_delete(const synnax::device::Device &dev) override {
-        std::lock_guard lock(mu);
-        deleted_names.push_back(dev.name);
-    }
-
-    std::vector<std::string> deleted() {
-        std::lock_guard lock(mu);
-        return deleted_names;
     }
 };
 
@@ -1518,8 +1509,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     scan_task.stop();
 }
 
-/// @brief it should remove devices from context when device delete signal arrives, and
-/// pass the last state of each one to the scanner.
+/// @brief it should remove devices from context when device delete signal arrives.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
@@ -1587,8 +1577,6 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
     // Wait for signal thread to process and device to be removed
     ASSERT_EVENTUALLY_FALSE(scanner_ptr->has_device("device-to-delete"));
-    ASSERT_EVENTUALLY_EQ(scanner_ptr->deleted().size(), 1);
-    EXPECT_EQ(scanner_ptr->deleted(), std::vector<std::string>{"Device to Delete"});
 
     scan_task.stop();
 }
