@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <concepts>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -184,15 +185,17 @@ private:
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
-    /// @brief writes data to a DC register of a slave.
+    /// @brief writes value to the DC register of a slave at address. The register is
+    /// as wide as T.
     /// @returns errors::ACTIVATION_ERROR when the slave does not take the write.
-    x::errors::Error
-    write_dc_register(uint16_t pos, uint16_t address, std::vector<uint8_t> data);
+    template<std::integral T>
+    x::errors::Error write_dc_register(uint16_t pos, uint16_t address, T value);
 
-    /// @brief reads a DC register of a slave into data.
+    /// @brief reads the DC register of a slave at address. The register is as wide as
+    /// T.
     /// @returns errors::ACTIVATION_ERROR when the slave does not answer.
-    x::errors::Error
-    read_dc_register(uint16_t pos, uint16_t address, std::span<uint8_t> data);
+    template<std::integral T>
+    std::pair<T, x::errors::Error> read_dc_register(uint16_t pos, uint16_t address);
 
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock, also after a slave fails a write.
