@@ -298,13 +298,6 @@ inline void write_pdo_from_value(
     }
 
     const size_t byte_len = (bit_length + 7) / 8;
-    // A float type on a narrower entry holds an unsigned integer, as at 24 bits.
-    if (data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T}) &&
-        bit_length < data_type.density() * 8) {
-        const auto integer = x::telem::cast<uint64_t>(casted);
-        std::memcpy(dest, &integer, byte_len);
-        return;
-    }
     const void *data = x::telem::cast_to_void_ptr(casted);
     std::memcpy(dest, data, byte_len);
 }

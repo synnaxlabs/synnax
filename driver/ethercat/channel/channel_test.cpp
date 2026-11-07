@@ -105,6 +105,13 @@ slave::Properties wide_output_slave() {
              .is_input = false,
              .name = "Position",
              .data_type = x::telem::UINT32_T},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 4,
+             .bit_length = 20,
+             .is_input = false,
+             .name = "Torque",
+             .data_type = x::telem::UINT32_T},
         },
     };
 }
@@ -573,6 +580,22 @@ TEST(Output, AcceptsAFloatTypeOnANarrowerEntry) {
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_EQ(ch->index, 0x7000);
     ASSERT_EQ(ch->stop_value, 16777215.0);
+}
+
+/// @brief it should reject a float32 output channel on a narrower entry that is not 24
+/// bits.
+TEST(Output, ReportsAFloatTypeOnANarrowerEntryThatIsNot24Bits) {
+    const auto j = write_entry(0x7000, 4, "float32");
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "data_type");
+    ASSERT_EQ(
+        message,
+        "data type float32 needs a 32 bit entry, but entry 0x7000:04 on slave EL2252 "
+        "holds 20 bits. Pick an integer type."
+    );
+    ASSERT_EQ(ch->index, 0);
 }
 
 /// @brief it should reject a stop value that a 24-bit entry cannot hold for a float32

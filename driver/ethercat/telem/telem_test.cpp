@@ -340,16 +340,6 @@ TEST(WritePdoFromValue, TwentyFourBitAligned) {
     EXPECT_EQ(buffer[2], 0x12);
 }
 
-/// @brief it should write a float type on a narrower entry as an unsigned integer.
-TEST(WritePdoFromValue, FloatTypeOnANarrowerEntryAsAnInteger) {
-    uint8_t buffer[] = {0x00, 0x00, 0x00, 0xFF};
-    write_pdo_from_value(buffer, 0, 20, x::telem::FLOAT32_T, 74565.0F);
-    EXPECT_EQ(buffer[0], 0x45);
-    EXPECT_EQ(buffer[1], 0x23);
-    EXPECT_EQ(buffer[2], 0x01);
-    EXPECT_EQ(buffer[3], 0xFF);
-}
-
 TEST(WritePdoFromValue, TwentyFourBitWithBitOffset) {
     uint8_t buffer[] = {0x00, 0x00, 0x00, 0x00};
     write_pdo_from_value(buffer, 2, 24, x::telem::UINT32_T, uint32_t{0x123456});

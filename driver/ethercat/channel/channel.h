@@ -105,6 +105,19 @@ protected:
             );
             return;
         }
+        // Only the 24-bit write turns a float type into an integer of a narrower entry.
+        const auto bits = data_type.density() * 8;
+        if (!this->is_input &&
+            data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T}) &&
+            pdo->bit_length < bits && pdo->bit_length != 24) {
+            parser.field_err(
+                path + "data_type",
+                "data type " + data_type.name() + " needs a " + std::to_string(bits) +
+                    " bit entry, but " + entry + " holds " +
+                    std::to_string(pdo->bit_length) + " bits. Pick an integer type."
+            );
+            return;
+        }
         this->index = index;
         this->sub_index = sub_index;
         this->bit_length = pdo->bit_length;
@@ -251,7 +264,7 @@ private:
         const bool is_float = this->data_type.matches(
             {x::telem::FLOAT32_T, x::telem::FLOAT64_T}
         );
-        // A float type on a narrower entry holds an unsigned integer.
+        // A float32 type on a 24-bit entry holds an unsigned integer.
         const bool narrow_float = is_float &&
                                   this->bit_length < this->data_type.density() * 8;
         if (!narrow_float && this->data_type == x::telem::FLOAT32_T) {
