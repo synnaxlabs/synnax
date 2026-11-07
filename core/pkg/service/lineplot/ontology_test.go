@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,7 +22,7 @@ import (
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
-		p := lineplot.LinePlot{Name: name}
+		p := defaults.Fill(lineplot.LinePlot{Name: name})
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
 		return lineplot.OntologyID(p.Key)
 	}

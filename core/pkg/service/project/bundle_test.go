@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/query"
@@ -56,7 +57,7 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Name: name}
+	l := defaults.Fill(log.Log{Name: name})
 	Expect(logSvc.NewWriter(nil).Create(ctx, proj, &l)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(logSvc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
@@ -66,7 +67,7 @@ func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 
 func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Name: name}
+	lp := defaults.Fill(lineplot.LinePlot{Name: name})
 	Expect(lineplotSvc.NewWriter(nil).Create(ctx, proj, &lp)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(lineplotSvc.NewWriter(nil).Delete(ctx, lp.Key)).To(Succeed())

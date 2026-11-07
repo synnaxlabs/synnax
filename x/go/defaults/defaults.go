@@ -1,0 +1,74 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package defaults fills schema defaults into values that come from a source that
+// cannot tell an absent field from a zero one, such as a legacy format or a sparse Go
+// literal. A decode already applies defaults, so decoded values never need it.
+package defaults
+
+import "reflect"
+
+type setter interface{ SetDefaults() }
+
+// Fill returns v with every zero field replaced by its schema default. Each value
+// whose type has a SetDefaults method, at any depth, starts from its defaults, and
+// every non-zero field of v replaces the default.
+func Fill[T any](v T) T {
+	out := reflect.New(reflect.TypeFor[T]()).Elem()
+	fillFresh(out, reflect.ValueOf(&v).Elem())
+	return out.Interface().(T)
+}
+
+// fillFresh sets the zero, addressable dst to its defaults and overlays src.
+func fillFresh(dst, src reflect.Value) {
+	if s, ok := dst.Addr().Interface().(setter); ok {
+		s.SetDefaults()
+	}
+	overlay(dst, src)
+}
+
+// overlay writes every non-zero part of src into dst.
+func overlay(dst, src reflect.Value) {
+	if src.IsZero() {
+		return
+	}
+	switch src.Kind() {
+	case reflect.Struct:
+		for i := range src.NumField() {
+			if dst.Type().Field(i).IsExported() {
+				overlay(dst.Field(i), src.Field(i))
+			}
+		}
+	case reflect.Slice:
+		out := reflect.MakeSlice(src.Type(), src.Len(), src.Len())
+		for i := range src.Len() {
+			fillFresh(out.Index(i), src.Index(i))
+		}
+		dst.Set(out)
+	case reflect.Map:
+		out := reflect.MakeMapWithSize(src.Type(), src.Len())
+		for it := src.MapRange(); it.Next(); {
+			v := reflect.New(src.Type().Elem()).Elem()
+			fillFresh(v, it.Value())
+			out.SetMapIndex(it.Key(), v)
+		}
+		dst.Set(out)
+	case reflect.Pointer:
+		v := reflect.New(src.Type().Elem())
+		fillFresh(v.Elem(), src.Elem())
+		dst.Set(v)
+	case reflect.Interface:
+		// A union holds its variant by value behind an interface.
+		v := reflect.New(src.Elem().Type()).Elem()
+		fillFresh(v, src.Elem())
+		dst.Set(v)
+	default:
+		dst.Set(src)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,7 +22,7 @@ import (
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
-		l := log.Log{Name: name}
+		l := defaults.Fill(log.Log{Name: name})
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		return log.OntologyID(l.Key)
 	}
