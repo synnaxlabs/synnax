@@ -339,7 +339,7 @@ TEST(LoopTest, testPreciseSleepSleepsOnTheGivenClock) {
 }
 
 /// @brief it should read the host's wall time by default.
-TEST(HostClock, ReadsTheHostWallTimeByDefault) {
+TEST(HostClock, testReadsTheHostWallTimeByDefault) {
     const HostClock clock;
     const auto before = telem::TimeStamp::now();
     const auto now = clock.now();
@@ -348,7 +348,7 @@ TEST(HostClock, ReadsTheHostWallTimeByDefault) {
 }
 
 /// @brief it should read and sleep on the host's steady clock by default.
-TEST(HostClock, SleepsOnTheHostSteadyClockByDefault) {
+TEST(HostClock, testSleepsOnTheHostSteadyClockByDefault) {
     const HostClock clock;
     const auto start = clock.steady();
     clock.sleep(telem::MILLISECOND * 5);
@@ -356,7 +356,7 @@ TEST(HostClock, SleepsOnTheHostSteadyClockByDefault) {
 }
 
 /// @brief it should move the wall time and the steady time with its source.
-TEST(HostClock, MovesBothTimesWithItsSource) {
+TEST(HostClock, testMovesBothTimesWithItsSource) {
     const auto clock = fake_clock();
     const auto wall = clock.now();
     const auto steady = clock.steady();
@@ -366,7 +366,7 @@ TEST(HostClock, MovesBothTimesWithItsSource) {
 }
 
 /// @brief it should share one time between the copies of a fake clock on any thread.
-TEST(FakeClock, SharesItsTimeBetweenCopies) {
+TEST(FakeClock, testSharesItsTimeBetweenCopies) {
     const auto clock = fake_clock();
     const auto start = clock.steady();
     std::thread([copy = clock] { copy.sleep(telem::SECOND); }).join();
