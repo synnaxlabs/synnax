@@ -800,6 +800,20 @@ var _ = Describe("@ref", func() {
 			),
 			Entry("a type with no reference", "", `name string`,
 				"@retrieve references needs a @ref field"),
+			Entry(
+				"union variants that give one field different references",
+				`Channel union on type {
+					coil {
+						channel channel.Key = 0 @ref on_delete restrict
+					}
+					register {
+						channel channel.Key = 0 @ref on_delete detach
+					}
+				}`,
+				`channels Channel[]`,
+				"@ref field channels.channel declares different references in its "+
+					"variants",
+			),
 		)
 
 		It(
