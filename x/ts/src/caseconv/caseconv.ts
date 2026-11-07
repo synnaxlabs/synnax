@@ -220,9 +220,20 @@ const createConverter = (
 ): (<V>(obj: V, opt?: Options) => V) => {
   const encoderOf = (schema: z.ZodType | undefined) =>
     encodes ? getEncoder(schema) : undefined;
+  // A value read off the wire holds its encoded form, which the marked schema parses
+  // back.
+  const decoderOf = (
+    schema: z.ZodType | undefined,
+  ): ((value: unknown) => unknown) | undefined =>
+    encodes || schema == null || getEncoder(schema) == null
+      ? undefined
+      : (value) => schema.parse(value);
   const mapArray = (arr: unknown[], elemOpt: Options): unknown[] => {
     const encode = encoderOf(elemOpt.schema);
+    const decode = decoderOf(elemOpt.schema);
     return arr.map((v) => {
+      if (decode != null && (typeof v === "string" || Array.isArray(v)))
+        return decode(v);
       if (isValidObject(v)) {
         if (!isPreservedType(v)) return converter(v, elemOpt);
       } else if (Array.isArray(v)) {
@@ -238,6 +249,8 @@ const createConverter = (
     if (Array.isArray(obj)) {
       const encode = encoderOf(opt.schema);
       if (encode != null) return encode(obj) as V;
+      const decode = decoderOf(opt.schema);
+      if (decode != null) return decode(obj) as V;
       const elementSchema = getArrayElementSchema(opt.schema);
       const elemOpt: Options = {
         recursive: opt.recursive,
@@ -259,9 +272,12 @@ const createConverter = (
       };
       const res: record.Unknown = {};
       const anyObj = obj as record.Unknown;
+      const decode = decoderOf(valueSchema);
       for (const key of Object.keys(anyObj)) {
         let value = anyObj[key];
-        if (isValidObject(value)) {
+        if (decode != null && (typeof value === "string" || Array.isArray(value)))
+          value = decode(value);
+        else if (isValidObject(value)) {
           if (!isPreservedType(value)) value = converter(value, childOpt);
         } else if (Array.isArray(value)) {
           const encode = encoderOf(valueSchema);
@@ -306,8 +322,13 @@ const createConverter = (
       // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is snake_case (key matches)
       const propSchema: z.ZodType | undefined =
         shape != null ? (shape[key] ?? shape[nkey] ?? undefined) : undefined;
+      const decode = decoderOf(
+        shape != null ? propSchema : getRecordValueSchema(schema),
+      );
 
-      if (recursive)
+      if (decode != null && (typeof value === "string" || Array.isArray(value)))
+        value = decode(value);
+      else if (recursive)
         if (isValidObject(value)) {
           if (!isPreservedType(value)) {
             childOpt.schema = propSchema;
@@ -439,15 +460,8 @@ const createPathConverter =
       const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
     }
-    const leaf = s;
-    const convert = <V>(value: V): V => {
-      if (preserved) return value;
-      // A value read off the wire holds its encoded form, which the marked schema
-      // parses back.
-      if (!encodes && leaf != null && getEncoder(leaf) != null)
-        return leaf.parse(value) as V;
-      return convertChild(value, leaf, converter, encodes);
-    };
+    const convert = <V>(value: V): V =>
+      preserved ? value : convertChild(value, s, converter, encodes);
     return { path: out, convert };
   };
 
@@ -458,6 +472,10 @@ const convertChild = <V>(
   converter: Converter,
   encodes: boolean,
 ): V => {
+  // A value read off the wire holds its encoded form, which the marked schema parses
+  // back.
+  if (!encodes && schema != null && getEncoder(schema) != null)
+    return schema.parse(value) as V;
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });
   if (!Array.isArray(value)) return value;

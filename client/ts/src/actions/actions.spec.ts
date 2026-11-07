@@ -143,6 +143,30 @@ describe("applyPath", () => {
     ]);
   });
 
+  it("should store the colors of a value that an undo sets as tuples", () => {
+    const bandZ = z.object({ fillColor: color.colorZ });
+    const docZ = z.object({ bands: z.array(bandZ) });
+    let inverse: patch.Action[] = [];
+    const red = color.construct("#ff000080");
+    const removed = produce({ bands: [{ fillColor: red }] }, (draft) => {
+      inverse = actions.applyPath(
+        draft,
+        { type: "set", set: { path: ["bands"], value: [], guards: [] } },
+        docZ,
+      );
+    });
+    expect(inverse).toEqual([
+      {
+        type: "set",
+        set: { path: ["bands"], value: [{ fill_color: "#ff000080" }], guards: [] },
+      },
+    ]);
+    const restored = produce(removed, (draft) => {
+      actions.applyPath(draft, inverse[0], docZ);
+    });
+    expect(restored.bands[0].fillColor).toEqual(red);
+  });
+
   it("should keep the case of a key the schema preserves", () => {
     const { next } = apply(
       { maxSize: 1, params: {} },

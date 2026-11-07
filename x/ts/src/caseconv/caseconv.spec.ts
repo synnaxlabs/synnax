@@ -381,6 +381,46 @@ describe("caseconv", () => {
       expect(convert([1, 2])).toEqual("1:2");
     });
 
+    describe("decoding", () => {
+      const decodablePairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const docZ = z.object({
+        nested: z.object({ innerPair: decodablePairZ }),
+        pairList: z.array(decodablePairZ),
+        pairs: z.record(z.string(), decodablePairZ),
+      });
+
+      it("Should decode every marked value of a document", () => {
+        expect(
+          caseconv.snakeToCamel(
+            { nested: { inner_pair: "1:2" }, pair_list: ["3:4"], pairs: { a: "5:6" } },
+            { schema: docZ },
+          ),
+        ).toEqual({
+          nested: { innerPair: [1, 2] },
+          pairList: [[3, 4]],
+          pairs: { a: [5, 6] },
+        });
+      });
+
+      it("Should decode a marked value inside an object set at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
+        expect(convert({ inner_pair: "1:2" })).toEqual({ innerPair: [1, 2] });
+      });
+
+      it("Should decode each marked value of a list set at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["pair_list"], { schema: docZ });
+        expect(convert(["1:2", "3:4"])).toEqual([
+          [1, 2],
+          [3, 4],
+        ]);
+      });
+    });
+
     it("Should decode a marked value at the end of a camel case path", () => {
       const decodablePairZ = caseconv.encodeWith(
         z

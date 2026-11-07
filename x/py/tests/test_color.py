@@ -113,10 +113,12 @@ class TestColor:
         with pytest.raises(ValueError, match="Invalid hex color"):
             Color(value)
 
-    @pytest.mark.parametrize("value", ["", "#"])
-    def test_empty_hex(self, value: str) -> None:
+    def test_empty_string_is_zero(self) -> None:
+        assert Color("") == Color(r=0, g=0, b=0, a=0)
+
+    def test_bare_hash(self) -> None:
         with pytest.raises(ValueError, match="Invalid hex color"):
-            Color(value)
+            Color("#")
 
     def test_invalid_array_length(self) -> None:
         with pytest.raises(ValueError, match="Invalid color array length: 2"):

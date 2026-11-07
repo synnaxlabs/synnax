@@ -66,6 +66,8 @@ def _coerce(v: object) -> object:
     if isinstance(v, Color):
         return v
     if isinstance(v, str):
+        if v == "":
+            return {"r": 0, "g": 0, "b": 0, "a": 0}
         if v.startswith("rgb"):
             return _from_rgb(v)
         return _from_hex(v)
