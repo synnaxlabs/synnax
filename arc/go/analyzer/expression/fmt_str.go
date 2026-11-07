@@ -81,7 +81,7 @@ func bodyOffset(text string) int {
 }
 
 // analyzePlaceholder parses seg into out unless analyzed, then analyzes out's
-// expression. base is the source position of body[0].
+// expression. at holds the source position of each byte of the body.
 func analyzePlaceholder[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	at []protocol.Position,

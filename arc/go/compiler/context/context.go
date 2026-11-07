@@ -37,7 +37,7 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Writer   *wasm.Writer
 	Module   *wasm.Module
 	TypeMap  map[antlr.ParserRuleContext]types.Type
-	// FmtStrings holds the format string placeholders the analyzer parsed and typed.
+	// FmtStrings holds the segments of each format string the analyzer split.
 	FmtStrings parser.FmtStrings
 	WriterID   int
 	// Outputs and OutputMemoryBase are set for multi-output functions

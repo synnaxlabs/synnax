@@ -96,8 +96,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
-	// FmtStrings holds the parsed placeholders of each format string, so the
-	// compiler compiles the same nodes the analyzer typed.
+	// FmtStrings holds the segments of each format string, so the compiler compiles
+	// the same placeholder nodes the analyzer typed.
 	FmtStrings parser.FmtStrings
 	// CallEdges tracks function call relationships for post-analysis channel
 	// propagation.
