@@ -10,7 +10,7 @@
 import { DisconnectedError, lineplot, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
@@ -98,6 +98,38 @@ describe("panel tree item", () => {
     await findTreeRow(pan.name);
     expandTreeRow(pan.name);
     expect(await findTreeRow(plot.name)).toBeDefined();
+  });
+
+  it("should drop the row of a tab record that is deleted", async () => {
+    const { key } = await client.projects.create({ name: uniqueName("project") });
+    const other = await client.projects.create({ name: uniqueName("project") });
+    const [deleted, kept] = await client.lineplots.create([
+      { name: uniqueName("plot"), project: other.key },
+      { name: uniqueName("plot"), project: other.key },
+    ]);
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      project: key,
+      root: {
+        variant: "leaf",
+        tabs: [deleted, kept].map((plot) => ({
+          variant: "resource" as const,
+          key: uuid.create(),
+          resource: lineplot.resourceID(plot.key),
+        })),
+      },
+    });
+    await renderLiveTree({
+      client,
+      root: project.resourceID(key),
+      items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
+    });
+    await findTreeRow(pan.name);
+    expandTreeRow(pan.name);
+    await findTreeRow(deleted.name);
+    await client.lineplots.delete(deleted.key);
+    await waitFor(() => expect(screen.queryByText(deleted.name)).toBeNull());
+    expect(await findTreeRow(kept.name)).toBeDefined();
   });
 
   it("should list the tab records that the tree's client has not read", async () => {

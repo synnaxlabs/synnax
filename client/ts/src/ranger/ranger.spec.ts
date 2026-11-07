@@ -170,6 +170,27 @@ describe("range", () => {
       });
       expect(again.labels).toEqual([held.key]);
     });
+    it("should keep a label change that arrives before the create reply", async () => {
+      const lbl = await client.labels.create({ name: "Late", color: "#E774D0" });
+      const rng = await client.ranges.create({
+        name: "Created again",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/create");
+      const creating = local.ranges.create(rng.payload);
+      await responded;
+      await client.labels.label(rng.resourceID, [lbl.key]);
+      await expect
+        .poll(() => expectLive(local.ranges.getCached(rng.key)).labels)
+        .toContain(lbl.key);
+      release();
+      await creating;
+      expect(expectLive(local.ranges.getCached(rng.key)).labels).toContain(lbl.key);
+    });
   });
 
   describe("delete", () => {

@@ -112,9 +112,11 @@ func (p *TableProvider[K, E]) Search(
 		if err != nil || p.cfg.Hidden == nil {
 			return search.MapKeys(res, p.cfg.ID), err
 		}
+		// The index can still hold a key whose record a commit just deleted.
 		var entries []E
 		if err = p.cfg.Table.NewRetrieve().
 			Where(gorp.MatchKeys[K, E](res.Keys...)).
+			SkipMissingKeys().
 			Entries(&entries).
 			Exec(ctx, tx); err != nil {
 			return search.Result[ID]{}, err

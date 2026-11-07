@@ -376,7 +376,8 @@ func (w *bundleWalk) retrievePanel(
 }
 
 // panelRefs places the resources p's resource tabs reference, and that the directory
-// walk cannot reach, into the panel's directory.
+// walk cannot reach, into the panel's directory. A reference to a resource that no
+// longer exists is skipped, along with the tab that holds it.
 func (w *bundleWalk) panelRefs(
 	ctx context.Context,
 	p panel.Panel,

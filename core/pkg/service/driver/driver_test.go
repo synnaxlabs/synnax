@@ -1853,36 +1853,195 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
-			"should ignore non-start commands with no live instance",
+			"should leave a command for a moved task to the Driver that runs it",
 			func(ctx SpecContext) {
-				var execCalled atomic.Bool
-				factory := &mockFactory{
+				openDriver(ctx, &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
 						t task.Task,
 					) (driver.Task, error) {
-						return &mockTask{
-							key: t.Key,
-							execFunc: func(context.Context, task.Command) error {
-								execCalled.Store(true)
-								return nil
-							},
-						}, nil
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				otherRack := rack.Rack{Name: "Other Rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				t := newTask(otherRack.Key)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				details := task.NewStatusDetails(t, true)
+				details.Cmd = "cmd-0"
+				t.Rack = embeddedRackKey(ctx)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Owner:   new(t.ResourceID()),
+					Name:    t.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Started task",
+					Details: details,
+				})).To(Succeed())
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				Consistently(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					).Details.Cmd
+				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-1"))
+			},
+		)
+
+		It(
+			"should refuse a command for a task on its rack that it never deployed",
+			func(ctx SpecContext) {
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Task is not running"))
+					g.Expect(stat.Description).To(Equal(
+						"The task is not running on this Driver. Start the task first.",
+					))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"should leave a command for a failed task that moved to another rack",
+			func(ctx SpecContext) {
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						context.Context,
+						task.Task,
+					) (driver.Task, error) {
+						return nil, errors.New("device is not connected")
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					).Details.Cmd
+				}).Should(Equal("cmd-1"))
+				otherRack := rack.Rack{Name: "Other Rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				t.Rack = otherRack.Key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
+				Consistently(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					).Details.Cmd
+				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-2"))
+			},
+		)
+
+		It(
+			"should answer a command with the error of a failed configure at boot",
+			func(ctx SpecContext) {
+				d1 := MustSucceed(driver.Open(ctx, driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}))
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				details := task.NewStatusDetails(t, false)
+				details.Cmd = "cmd-0"
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Owner:       new(t.ResourceID()),
+					Name:        t.Name,
+					Time:        telem.Now(),
+					Variant:     status.VariantError,
+					Message:     "Failed to execute command",
+					Description: "The task does not accept the 'scan' command.",
+					Details:     details,
+				})).To(Succeed())
+				Expect(d1.Close()).To(Succeed())
+				// No factory handles the task, so the configure at boot fails and
+				// writes no status.
+				openDriver(ctx, &mockFactory{name: "test"})
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Task is not running"))
+					g.Expect(stat.Description).To(Equal(
+						"task type 'pagerduty_alert': task not handled by factory",
+					))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"should answer a command with no live instance with the configure error",
+			func(ctx SpecContext) {
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						context.Context,
+						task.Task,
+					) (driver.Task, error) {
+						return nil, errors.New("device is not connected")
 					},
 				}
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					).Details.Cmd
+				}).Should(Equal("cmd-1"))
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 
-				Consistently(
-					func() bool { return execCalled.Load() },
-					time.Millisecond*200,
-					time.Millisecond*50,
-				).
-					Should(BeFalse())
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Task is not running"))
+					g.Expect(stat.Description).To(Equal("device is not connected"))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
 			},
 		)
 
@@ -1958,11 +2117,7 @@ var _ = Describe("Driver", func() {
 			).Should(BeFalse())
 		})
 
-		It("should handle command execution errors gracefully", func(ctx SpecContext) {
-			var (
-				execCalled atomic.Bool
-				taskKey    atomic.Value
-			)
+		It("should answer a command whose Exec fails", func(ctx SpecContext) {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
@@ -1972,9 +2127,51 @@ var _ = Describe("Driver", func() {
 					return &mockTask{
 						key: t.Key,
 						execFunc: func(context.Context, task.Command) error {
-							if t.Key == taskKey.Load() {
-								execCalled.Store(true)
+							return errors.New("execution failed")
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+
+			t := newTask(embeddedRackKey(ctx))
+			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-fail"})
+
+			Eventually(func(g Gomega) {
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
+				g.Expect(stat.Details.Cmd).To(Equal("cmd-fail"))
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Failed to start task"))
+				g.Expect(stat.Description).To(Equal("execution failed"))
+				g.Expect(stat.Name).To(Equal(t.Name))
+				g.Expect(stat.Owner).To(HaveValue(Equal(t.ResourceID())))
+				g.Expect(stat.Details.Rack).To(Equal(t.Rack))
+			}).Should(Succeed())
+		})
+
+		It("should not answer a command for a deleted task", func(ctx SpecContext) {
+			var (
+				taskKey  atomic.Value
+				deleting = make(chan struct{})
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(ctx context.Context, cmd task.Command) error {
+							if cmd.Type == "start" || t.Key != taskKey.Load() {
+								return nil
 							}
+							if err := taskWriter.Delete(ctx, t.Key, false); err != nil {
+								return err
+							}
+							close(deleting)
 							return errors.New("execution failed")
 						},
 					}, nil
@@ -1985,13 +2182,15 @@ var _ = Describe("Driver", func() {
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
 			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "tare", Key: "cmd-2"})
+			Eventually(deleting).Should(BeClosed())
 
-			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-fail"})
-
-			Eventually(
-				func() bool { return execCalled.Load() },
-				time.Second*2,
-			).Should(BeTrue())
+			Consistently(func() status.Key {
+				return retrieveStatus[task.StatusDetails](
+					ctx, t.ResourceID(),
+				).Key
+			}, 200*time.Millisecond, 50*time.Millisecond).Should(BeEmpty())
 		})
 
 		It(
@@ -2049,6 +2248,16 @@ var _ = Describe("Driver", func() {
 					time.Second*2,
 				).Should(BeTrue())
 
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-panic"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to execute command"))
+					g.Expect(stat.Description).To(Equal("boom during exec"))
+				}).Should(Succeed())
+
 				healthyExecCalled.Store(false)
 				writeCommand(
 					ctx,
@@ -2062,25 +2271,32 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
-			"should log warning for unsupported command without crashing",
+			"should answer a command the task does not support",
 			func(ctx SpecContext) {
-				var (
-					execCalled atomic.Bool
-					taskKey    atomic.Value
-				)
 				factory := &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
 						t task.Task,
 					) (driver.Task, error) {
+						handler := driver.NewStatusHandler(db, statusSvc, t)
 						return &mockTask{
 							key: t.Key,
-							execFunc: func(context.Context, task.Command) error {
-								if t.Key == taskKey.Load() {
-									execCalled.Store(true)
+							execFunc: func(
+								ctx context.Context,
+								cmd task.Command,
+							) error {
+								if cmd.Type != "start" {
+									return driver.ErrUnsupportedCommand
 								}
-								return driver.ErrUnsupportedCommand
+								return handler.Send(
+									ctx,
+									cmd.Key,
+									status.VariantSuccess,
+									true,
+									"Started task",
+									"",
+								)
 							},
 						}, nil
 					},
@@ -2088,18 +2304,31 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				taskKey.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
-
 				writeCommand(
 					ctx,
-					task.Command{Task: t.Key, Type: "start", Key: "cmd-unsupported"},
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
 				)
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					).Details.Cmd
+				}).Should(Equal("cmd-1"))
 
-				Eventually(
-					func() bool { return execCalled.Load() },
-					time.Second*2,
-				).Should(BeTrue())
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "scan", Key: "cmd-2"})
+
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.ResourceID(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to execute command"))
+					g.Expect(stat.Description).To(Equal(
+						"The task does not accept the 'scan' command.",
+					))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}).Should(Succeed())
 			},
 		)
 
@@ -2274,6 +2503,15 @@ var _ = Describe("Driver", func() {
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Eventually(execStarted).Should(Receive())
+			Eventually(func(g Gomega) {
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
+				g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Failed to start task"))
+				g.Expect(stat.Description).To(Equal(
+					"The task did not finish the command within 50ms.",
+				))
+			}).Should(Succeed())
 		})
 	})
 

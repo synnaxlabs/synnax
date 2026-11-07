@@ -295,6 +295,50 @@ var _ = Describe("Device", func() {
 		)
 
 		It(
+			"Should not write a provided status over the status of another device",
+			func(ctx SpecContext) {
+				retrieve := func(d device.Device) device.Status {
+					GinkgoHelper()
+					var s device.Status
+					Expect(stat.NewRetrieve[device.StatusDetails]().
+						Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+						Entry(&s).
+						Exec(ctx, tx)).To(Succeed())
+					return s
+				}
+				a := device.Device{
+					Key:      "status-owner-a",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "a",
+					Name:     "A",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				}
+				Expect(w.Create(ctx, &a)).To(Succeed())
+				aKey := retrieve(a).Key
+				b := device.Device{
+					Key:      "status-owner-b",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "b",
+					Name:     "B",
+					Make:     "Test Make",
+					Model:    "Test Model",
+					Status: &device.Status{
+						Key:     aKey,
+						Variant: status.VariantSuccess,
+						Message: "forged",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, &b)).To(Succeed())
+				Expect(retrieve(a).Message).To(Equal("Device status unknown"))
+				bStatus := retrieve(b)
+				Expect(bStatus.Message).To(Equal("forged"))
+				Expect(bStatus.Key).ToNot(Equal(aKey))
+			},
+		)
+
+		It(
 			"Should not clobber a live status row on a no-op re-configure",
 			func(ctx SpecContext) {
 				d := device.Device{

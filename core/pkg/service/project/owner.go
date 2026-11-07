@@ -57,6 +57,27 @@ func GroupProject(
 	return TopParentProject(top, t)
 }
 
+// ValidateGroup returns a validation error on the group field when g is not in project
+// p. A nil g is valid.
+func ValidateGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	p Key,
+	g *group.Key,
+	t resource.Type,
+) error {
+	proj, err := GroupProject(ctx, tx, g, t)
+	if err != nil || proj == nil || *proj == p {
+		return err
+	}
+	return validate.PathedError(errors.Wrapf(
+		validate.ErrValidation,
+		"group %s is not in project %s",
+		*g,
+		p,
+	), "group")
+}
+
 // TopParentProject returns the project that a visualization of type t belongs to when
 // it sits in a group whose top parent is top. It returns a validation error on the
 // group field when top is not a project.

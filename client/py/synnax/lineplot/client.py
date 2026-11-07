@@ -56,7 +56,7 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting line plots on a Synnax
-    Core. A line plot belongs to exactly one project.
+    Core. A line plot belongs to exactly one of a project and a range.
     """
 
     _client: UnaryClient

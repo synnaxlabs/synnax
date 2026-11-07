@@ -194,10 +194,13 @@ describe("Group", () => {
   describe("getCachedAncestors", () => {
     it("should return each cached group above the groups once", async () => {
       const [root, mid, leaf] = await createChain();
-      expect(client.groups.getCachedAncestors([leaf.key, mid.key])).toEqual([
-        mid,
-        root,
-      ]);
+      expect(client.groups.getCachedAncestors([leaf.key, mid.key])).toEqual([root]);
+    });
+    it("should give the same groups as the Core", async () => {
+      const [, mid, leaf] = await createChain();
+      expect(client.groups.getCachedAncestors([leaf.key, mid.key])).toEqual(
+        await client.groups.retrieveAncestors([leaf.key, mid.key]),
+      );
     });
     it("should return undefined when a group above is not cached", async () => {
       const [, , leaf] = await createChain();
