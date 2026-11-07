@@ -111,17 +111,15 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     });
     ASSERT_EQ(tasks.size(), 1);
     EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
-    const auto key = synnax::rack::resource_id(rack.key).string();
+    const auto owner = synnax::rack::resource_id(rack.key);
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        client->statuses.retrieve<synnax::rack::StatusDetails>(key).first.message,
+        client->statuses.retrieve_by_owner(owner).first.message,
         "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
             " cannot work with Core 99.1.0",
         std::chrono::seconds(5),
         std::chrono::milliseconds(50)
     );
-    const auto stat = ASSERT_NIL_P(
-        client->statuses.retrieve<synnax::rack::StatusDetails>(key)
-    );
+    const auto stat = ASSERT_NIL_P(client->statuses.retrieve_by_owner(owner));
     EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(
         stat.description,

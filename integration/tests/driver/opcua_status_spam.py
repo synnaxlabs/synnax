@@ -31,8 +31,7 @@ def _warnings_for_task(
         except ValidationError:
             continue
         if (
-            status.details is not None
-            and status.details.task == task_key
+            status.owner == sy.task.resource_id(task_key)
             and status.variant == "warning"
         ):
             yield status

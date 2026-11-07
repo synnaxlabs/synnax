@@ -26,28 +26,28 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	group  group.Group
-	status status.Writer
-	table  *gorp.Table[Key, Device]
+	tx       gorp.Tx
+	otg      ontology.Writer
+	group    group.Group
+	status   status.Writer
+	statuses *status.Service
+	table    *gorp.Table[Key, Device]
 }
 
 func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     d.ResourceID().String(),
+			Owner:   new(d.ResourceID()),
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Device status unknown",
-			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+			Details: StatusDetails{Rack: d.Rack},
 		}
 	}
 	stat := *provided
-	stat.Key = d.ResourceID().String()
+	stat.Owner = new(d.ResourceID())
 	stat.Name = d.Name
-	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
 	return &stat
 }
@@ -66,8 +66,8 @@ func (w Writer) writeStatus(
 		return w.status.Set(ctx, d.Status)
 	}
 	var stored Status
-	err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](d.ResourceID().String())).
+	err := w.statuses.NewRetrieve[StatusDetails]().
+		Where(status.MatchOwners[StatusDetails](d.ResourceID())).
 		Entry(&stored).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -183,7 +183,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	}
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
-		w.status.Rename(ctx, ResourceID(key).String(), name),
+		w.status.RenameOwned(ctx, ResourceID(key), name),
 		query.ErrNotFound,
 	)
 }
@@ -191,9 +191,6 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResources(ctx, ResourceID(key)); err != nil {
-		return err
-	}
-	if err := w.status.Delete(ctx, ResourceID(key).String()); err != nil {
 		return err
 	}
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)

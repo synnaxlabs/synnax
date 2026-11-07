@@ -443,7 +443,7 @@ var _ = Describe("Reference", func() {
 			Expect(gorp.WrapWriter[string, refDevice](db).
 				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
 			Expect(deviceRef.rack.Get(ctx, db, 9)).
-				To(ConsistOf("a"))
+				To(ConsistOf("a", "b"))
 		})
 
 		It("Should only check targets that a write changes", func(ctx SpecContext) {
@@ -788,6 +788,57 @@ var _ = Describe("Reference", func() {
 				Expect(keys).To(BeEmpty())
 			},
 		)
+
+		Describe("ObserveDetaches", func() {
+			var detached []refDevice
+			BeforeEach(func(ctx SpecContext) {
+				detached = nil
+				record := func(_ context.Context, d refDevice) {
+					detached = append(detached, d)
+				}
+				DeferCleanup(devices.ObserveDetaches().OnChange(record))
+				createRack(ctx, 1)
+				createLabels(ctx, "l1", "l2")
+				Expect(createDevice(ctx, refDevice{
+					Key:    "d1",
+					Rack:   1,
+					Labels: []string{"l1", "l2"},
+				})).To(Succeed())
+				Expect(createDevice(ctx, refDevice{
+					Key:    "d2",
+					Rack:   1,
+					Labels: []string{"l2"},
+				})).To(Succeed())
+			})
+
+			It(
+				"Should notify each detached entry after the delete commits",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					Expect(labels.NewDelete().
+						Where(gorp.MatchKeys[string, refLabel]("l1")).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(detached).To(BeEmpty())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Expect(detached).To(HaveLen(1))
+					Expect(detached[0].Key).To(Equal("d1"))
+					Expect(detached[0].Labels).To(Equal([]string{"l2"}))
+				},
+			)
+
+			It(
+				"Should not notify a detach that does not commit",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					Expect(labels.NewDelete().
+						Where(gorp.MatchKeys[string, refLabel]("l1")).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Expect(detached).To(BeEmpty())
+				},
+			)
+		})
 	})
 
 	Describe("Delete size", func() {

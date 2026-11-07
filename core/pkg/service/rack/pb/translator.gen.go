@@ -20,50 +20,6 @@ import (
 	xpb "github.com/synnaxlabs/x/pb"
 )
 
-// StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
-	pb := &StatusDetails{
-		Rack: uint32(r.Rack),
-	}
-	return pb, nil
-}
-
-// StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
-	var r rack.StatusDetails
-	if pb == nil {
-		return r, nil
-	}
-	r.Rack = rack.Key(pb.Rack)
-	return r, nil
-}
-
-// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListToPB(rs []rack.StatusDetails) ([]*StatusDetails, error) {
-	result := make([]*StatusDetails, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusDetailsToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error) {
-	result := make([]rack.StatusDetails, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusDetailsFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // RackToPB converts Rack to Rack.
 func RackToPB(r rack.Rack) (*Rack, error) {
 	pb := &Rack{
@@ -74,7 +30,7 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.ToAny[rack.StatusDetails])
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +52,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[rack.StatusDetails])
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
 		if err != nil {
 			return rack.Rack{}, err
 		}

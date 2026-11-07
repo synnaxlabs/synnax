@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"strconv"
-	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -37,10 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -56,7 +50,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Label = override.Nil(c.Label, other.Label)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -65,7 +58,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
-	v.NotNil("label", c.Label)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -73,7 +65,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *status.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -83,16 +74,22 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Status,
-		label:    cfg.Label,
 		access:   cfg.RBAC,
 	}, nil
 }
 
 func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
-	ids := make([]resource.ID, 0, len(statuses))
+	ids := make([]resource.ID, len(statuses))
+	for i, s := range statuses {
+		ids[i] = s.ResourceID()
+	}
+	return ids
+}
+
+func labelAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
+	var ids []resource.ID
 	for _, s := range statuses {
-		ids = append(ids, s.ResourceID())
-		ids = append(ids, label.ResourceIDsFromLabels(s.Labels)...)
+		ids = append(ids, label.ResourceIDs(s.Labels)...)
 	}
 	return ids
 }
@@ -110,16 +107,16 @@ func decodeDetails[D any](details any) error {
 }
 
 func validateDetails(s status.Status[any]) error {
-	// A row that its resource cannot decode fails every read of that resource's status.
-	resourceType, _, _ := strings.Cut(s.Key, ":")
-	switch resource.Type(resourceType) {
-	case resource.TypeRack:
-		return decodeDetails[rack.StatusDetails](s.Details)
+	// A status whose details its owner cannot decode fails every read of that status.
+	if s.Owner == nil {
+		return nil
+	}
+	switch s.Owner.Type {
 	case resource.TypeDevice:
 		return decodeDetails[device.StatusDetails](s.Details)
 	case resource.TypeTask:
 		return decodeDetails[task.StatusDetails](s.Details)
-	case resource.TypeChannel:
+	case resource.TypeRack, resource.TypeChannel:
 		return decodeDetails[struct{}](s.Details)
 	default:
 		return nil
@@ -128,30 +125,35 @@ func validateDetails(s status.Status[any]) error {
 
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
-	// Parent is the parent resource ID for the statuses.
-	Parent resource.ID `json:"parent" msgpack:"parent"`
-	// Statuses are the statuses to set.
+	// Statuses are the statuses to set. A status with an owner goes to the status its
+	// owner holds, whatever key it carries. An update keeps the stored owner.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // SetResponse is a response to a SetRequest.
 type SetResponse struct {
-	// Statuses are the statuses that were set.
+	// Statuses are the statuses as stored, with their resolved keys and labels.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // Set creates or updates statuses in the cluster. It returns a validation error and
-// writes nothing if a status keyed by a rack, device, task, or channel carries details
-// that resource cannot decode.
+// writes nothing if a status carries details that its resolved owner cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
+	labelIDs := labelAccessResourceIDs(req.Statuses)
+	w := s.internal.NewWriter(tx)
+	for i := range req.Statuses {
+		if err := w.Resolve(ctx, &req.Statuses[i]); err != nil {
+			return SetResponse{}, err
+		}
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: statusAccessResourceIDs(req.Statuses),
+		Objects: append(statusAccessResourceIDs(req.Statuses), labelIDs...),
 	}); err != nil {
 		return SetResponse{}, err
 	}
@@ -162,14 +164,10 @@ func (s *Service) Set(
 			)
 		}
 	}
-	if err := s.internal.NewWriter(tx).SetManyWithParent(
-		ctx,
-		&req.Statuses,
-		req.Parent,
-	); err != nil {
+	if err := w.SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
 	}
-	return SetResponse{Statuses: req.Statuses}, nil
+	return SetResponse(req), nil
 }
 
 // SetByKeyOrNameRequest is a request to upsert a status by key or by name.
@@ -239,15 +237,7 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.IncludeLabels {
-		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.ResourceID(), nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Statuses[i].Labels = labels
-		}
-	}
+	// A status holds only the keys of its labels, so a read needs no label access.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

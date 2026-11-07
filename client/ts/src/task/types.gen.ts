@@ -17,6 +17,36 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
+export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
+  running: z.ZodBoolean;
+  cmd: z.ZodDefault<z.ZodString>;
+  configHash: z.ZodDefault<z.ZodString>;
+  rack: z.ZodDefault<typeof rack.keyZ>;
+  data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : z.ZodOptional<Data>;
+}>;
+
+export interface StatusDetailsZFunction {
+  <Data extends z.ZodType>(data: Data): StatusDetailsZodObject<Data>;
+  <Data extends z.ZodType = z.ZodNever>(data?: Data): StatusDetailsZodObject<Data>;
+}
+
+export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
+  data?: Data,
+) =>
+  z.object({
+    running: z.boolean(),
+    cmd: z.string().default(""),
+    configHash: z.string().default(""),
+    rack: rack.keyZ.default(0),
+    data: (data ?? z.unknown()).optional(),
+  });
+export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
+  running: boolean;
+  cmd: string;
+  configHash: string;
+  rack: rack.Key;
+} & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
+
 /** KeyedConfig is the base for every stored task configuration record. */
 export const keyedConfigZ = z.object({
   /** key is the unique identifier for the stored configuration record. */
@@ -118,6 +148,12 @@ export const SCALE_SCHEMAS: {
   none: noneScaleZ,
 };
 
+export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
+  status.statusZ({ details: statusDetailsZ(data) });
+export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
+  ReturnType<typeof statusZ<Data>>
+>;
+
 export const startConfigZ = keyedConfigZ.extend({
   autoStart: z.boolean().default(false),
 });
@@ -128,39 +164,6 @@ export const scanConfigZ = keyedConfigZ.extend({
   disabled: z.boolean().default(false),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
-
-export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
-  task: typeof keyZ;
-  running: z.ZodBoolean;
-  cmd: z.ZodDefault<z.ZodString>;
-  configHash: z.ZodDefault<z.ZodString>;
-  rack: z.ZodDefault<typeof rack.keyZ>;
-  data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : z.ZodOptional<Data>;
-}>;
-
-export interface StatusDetailsZFunction {
-  <Data extends z.ZodType>(data: Data): StatusDetailsZodObject<Data>;
-  <Data extends z.ZodType = z.ZodNever>(data?: Data): StatusDetailsZodObject<Data>;
-}
-
-export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
-  data?: Data,
-) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    cmd: z.string().default(""),
-    configHash: z.string().default(""),
-    rack: rack.keyZ.default(0),
-    data: (data ?? z.unknown()).optional(),
-  });
-export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
-  task: Key;
-  running: boolean;
-  cmd: string;
-  configHash: string;
-  rack: rack.Key;
-} & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
 
 /** Where is a filter that selects tasks. */
 export type Where = {
@@ -225,43 +228,6 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const persistConfigZ = startConfigZ.extend({
-  dataSavingDisabled: z.boolean().default(false),
-});
-export interface PersistConfig extends z.infer<typeof persistConfigZ> {}
-
-export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
-  status.statusZ({ details: statusDetailsZ(data) });
-export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
-  ReturnType<typeof statusZ<Data>>
->;
-
-/** RetrieveRequest is a request to retrieve tasks. */
-export const retrieveRequestZ = z.strictObject({
-  /** where selects the tasks to retrieve. An absent where selects all of them. */
-  where: whereZ.optional(),
-  /** searchTerm keeps the tasks that match the term, closest match first. */
-  searchTerm: z.string().optional(),
-  /** limit is the most tasks to return. */
-  limit: z.uint32().optional(),
-  /** offset is the number of matching tasks to skip. */
-  offset: z.uint32().optional(),
-  /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
-});
-export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
-
-export const readConfigZ = persistConfigZ.extend({
-  sampleRate: z.number().default(10),
-  streamRate: z.number().default(5),
-});
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-export const writeConfigZ = persistConfigZ.extend({
-  device: device.keyZ.default(""),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -303,6 +269,26 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   snapshot: boolean;
   status?: Status<S["statusData"]>;
 }
+
+export const persistConfigZ = startConfigZ.extend({
+  dataSavingDisabled: z.boolean().default(false),
+});
+export interface PersistConfig extends z.infer<typeof persistConfigZ> {}
+
+/** RetrieveRequest is a request to retrieve tasks. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the tasks to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the tasks that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** limit is the most tasks to return. */
+  limit: z.uint32().optional(),
+  /** offset is the number of matching tasks to skip. */
+  offset: z.uint32().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   Omit<Payload<S>, "status">,
   "key" | "rack" | "configHash" | "internal" | "snapshot"
@@ -318,6 +304,17 @@ export const retrieveResponseZ = z.object({
     .default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+export const readConfigZ = persistConfigZ.extend({
+  sampleRate: z.number().default(10),
+  streamRate: z.number().default(5),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = persistConfigZ.extend({
+  device: device.keyZ.default(""),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const resourceID = resource.createIDFactory<Key>("task");
 export const TYPE_RESOURCE_ID = resourceID("");

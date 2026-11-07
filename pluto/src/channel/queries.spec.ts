@@ -890,7 +890,7 @@ describe("queries", () => {
       // let that settle so it does not race the status set below.
       await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message: "invalid expression",
@@ -958,7 +958,7 @@ describe("queries", () => {
       await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "broken expression",
@@ -993,12 +993,11 @@ describe("queries", () => {
       const createCalculatedWithStatus = async () => {
         const calc = await createCalculated();
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "invalid expression",
           time: TimeStamp.now(),
-          details: { channel: calc.key },
         });
         return calc;
       };
@@ -1052,7 +1051,10 @@ describe("queries", () => {
 
       it("should fetch once when the channel has no status row", async () => {
         const calc = await createCalculated();
-        await client.statuses.delete(channel.statusKey(calc.key));
+        const held = await client.statuses.retrieve({
+          where: { owners: [channel.resourceID(calc.key)] },
+        });
+        await client.statuses.delete(held.map((s) => s.key));
         const local = createTestClient();
         await local.channels.retrieve([calc.key]);
         const localWrapper = await createAsyncSynnaxWrapper({ client: local });

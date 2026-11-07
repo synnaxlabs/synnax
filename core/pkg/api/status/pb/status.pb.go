@@ -43,9 +43,7 @@ type RetrieveRequest struct {
 	// limit is the most statuses to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching statuses to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// include_labels includes the labels of each record.
-	IncludeLabels bool `protobuf:"varint,5,opt,name=include_labels,json=includeLabels,proto3" json:"include_labels,omitempty"`
+	Offset        uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -108,13 +106,6 @@ func (x *RetrieveRequest) GetOffset() uint32 {
 	return 0
 }
 
-func (x *RetrieveRequest) GetIncludeLabels() bool {
-	if x != nil {
-		return x.IncludeLabels
-	}
-	return false
-}
-
 // RetrieveResponse holds the statuses a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -165,14 +156,13 @@ var File_core_pkg_api_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_status_pb_status_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/api/status/pb/status.proto\x12\rapi.status.pb\x1a'core/pkg/service/status/pb/status.proto\"\xd5\x01\n" +
+	"#core/pkg/api/status/pb/status.proto\x12\rapi.status.pb\x1a'core/pkg/service/status/pb/status.proto\"\xae\x01\n" +
 	"\x0fRetrieveRequest\x123\n" +
 	"\x05where\x18\x01 \x01(\v2\x18.service.status.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12\x19\n" +
 	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabelsB\b\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offsetB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_limit\"I\n" +
 	"\x10RetrieveResponse\x125\n" +

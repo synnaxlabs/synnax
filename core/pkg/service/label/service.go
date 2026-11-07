@@ -96,6 +96,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -147,10 +148,9 @@ func (s *Service) Dispatch(
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:   s.cfg.DB,
-		gorp:     s.table.NewRetrieve(),
-		indexes:  s.indexes,
-		ontology: s.cfg.Ontology,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
 

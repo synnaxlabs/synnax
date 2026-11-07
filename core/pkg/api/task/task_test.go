@@ -223,9 +223,8 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.ResourceID().String(),
-		)).To(Succeed())
+		w := svc.Status.NewWriter(nil)
+		Expect(w.DeleteOwned(ctx, withoutStatus.ResourceID())).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
 			withStatus.ResourceID(), withoutStatus.ResourceID(),
@@ -240,7 +239,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
+		Expect(res.Tasks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
 	})
 
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
@@ -326,11 +325,10 @@ func createRunningTask(ctx SpecContext, running bool) task.Task {
 func reportStopped(ctx context.Context, t task.Task) {
 	GinkgoHelper()
 	stat := task.Status{
-		Key:     t.ResourceID().String(),
+		Owner:   new(t.ResourceID()),
 		Variant: status.VariantSuccess,
 		Message: "Stopped task",
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.Key},
 	}
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &stat)).To(Succeed())
 }
@@ -531,16 +529,8 @@ var _ = Describe("Delete", func() {
 	)
 	It("Should stop only the requested task", func(ctx SpecContext) {
 		target := createRunningTask(ctx, true)
-		other := createRunningTask(ctx, true)
+		createRunningTask(ctx, true)
 		grant(ctx, access.ActionDelete, u.ResourceID(), target.ResourceID())
-		forged := task.Status{
-			Key:     target.ResourceID().String(),
-			Variant: status.VariantSuccess,
-			Message: "Task is running",
-			Time:    telem.Now(),
-			Details: task.StatusDetails{Task: other.Key, Running: true},
-		}
-		Expect(svc.Status.NewWriter(nil).Set(ctx, &forged)).To(Succeed())
 		commands := streamCommands(ctx)
 		Expect(withTimeout(100*time.Millisecond).Delete(
 			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{target.Key}},

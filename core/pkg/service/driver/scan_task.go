@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -437,12 +437,12 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		for i, dev := range devices {
 			// A device with no status was deleted after the retrieve, or lost its
 			// status, which its next Create restores.
-			h, ok := stored[dev.ResourceID().String()]
+			h, ok := stored[dev.ResourceID()]
 			if !ok || h == results[i] {
 				continue
 			}
 			statuses = append(statuses, device.Status{
-				Key:         dev.ResourceID().String(),
+				Owner:       new(dev.ResourceID()),
 				Name:        dev.Name,
 				Time:        now,
 				Variant:     results[i].variant,
@@ -450,7 +450,6 @@ func (t *ScanTask) scan(ctx context.Context) error {
 				Description: results[i].description,
 				Details: device.StatusDetails{
 					Rack:      dev.Rack,
-					Device:    dev.Key,
 					Connected: results[i].connected,
 				},
 			})
@@ -469,30 +468,27 @@ func (t *ScanTask) scan(ctx context.Context) error {
 	return nil
 }
 
-// storedHealth returns the health in the stored status of each device, by status key. A
+// storedHealth returns the health in the stored status of each device, by device ID. A
 // device with no stored status has no entry.
 func (t *ScanTask) storedHealth(
 	ctx context.Context,
 	tx gorp.Tx,
 	devices []device.Device,
-) (map[status.Key]health, error) {
-	keys := make([]status.Key, len(devices))
+) (map[resource.ID]health, error) {
+	owners := make([]resource.ID, len(devices))
 	for i, dev := range devices {
-		keys[i] = dev.ResourceID().String()
+		owners[i] = dev.ResourceID()
 	}
 	var statuses []device.Status
-	if err := errors.Skip(
-		t.cfg.Status.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](keys...)).
-			Entries(&statuses).
-			Exec(ctx, tx),
-		query.ErrNotFound,
-	); err != nil {
+	if err := t.cfg.Status.NewRetrieve[device.StatusDetails]().
+		Where(status.MatchOwners[device.StatusDetails](owners...)).
+		Entries(&statuses).
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	stored := make(map[status.Key]health, len(statuses))
+	stored := make(map[resource.ID]health, len(statuses))
 	for _, s := range statuses {
-		stored[s.Key] = health{
+		stored[*s.Owner] = health{
 			variant:     s.Variant,
 			message:     s.Message,
 			description: s.Description,

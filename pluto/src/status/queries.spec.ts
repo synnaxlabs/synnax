@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
+import { NotFoundError, query, rack, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
@@ -185,8 +185,13 @@ describe("Status queries", () => {
       act(() => {
         result.current.retrieve({ where: { labels: [label.key] } });
       });
-      await waitFor(() => expect(result.current.data.length).toEqual(2));
-      expect(result.current.data).toContain("labeled-status-test");
+      // The status set before the label can reach the list after the fetch.
+      await waitFor(() =>
+        expect(result.current.data.toSorted()).toEqual([
+          "filter-label-test",
+          "labeled-status-test",
+        ]),
+      );
     });
 
     it("should filter statuses by variants", async () => {
@@ -539,34 +544,18 @@ describe("Status queries", () => {
       expect(statuses).toHaveLength(2);
     });
 
-    it("should set status with parent", async () => {
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "Parent Group",
-      });
-      const parentResourceID = group.resourceID(parentGroup.key);
-
+    it("should write an owned status to the status its owner holds", async () => {
+      const r = await client.racks.create({ name: `owner-${id.create()}` });
+      const owner = rack.resourceID(r.key);
       const { result } = renderHook(() => Status.useSet(), { wrapper });
-
       await act(async () => {
         await result.current.updateAsync({
-          statuses: {
-            name: "Child Status",
-            key: "child-hook-test",
-            variant: "info",
-            message: "Has parent",
-            time: TimeStamp.now(),
-          },
-          parent: parentResourceID,
+          statuses: { owner, variant: "warning", message: "Rack needs attention" },
         });
       });
-
-      const resources = await client.ontology.children.retrieve({
-        ids: parentResourceID,
-      });
-
-      const statusResource = resources.find((r) => r.id.key === "child-hook-test");
-      expect(statusResource).toBeDefined();
+      const owned = await client.statuses.retrieve({ owners: [owner] });
+      expect(owned).toHaveLength(1);
+      expect(owned[0].message).toEqual("Rack needs attention");
     });
 
     it("should run afterOptimistic before a single set commits", async () => {
@@ -885,7 +874,9 @@ describe("Status queries", () => {
         () => Status.use({ key: result.current.form.value().key }),
         { wrapper },
       );
-      await waitFor(() => expect(q.result.current?.labels).toEqual([label1, label2]));
+      await waitFor(() =>
+        expect(q.result.current?.labels).toEqual([label1.key, label2.key]),
+      );
     });
 
     it("should update form when status changes externally", async () => {
@@ -1021,13 +1012,8 @@ describe("Status queries", () => {
         result.current.save();
       });
       await waitFor(async () => {
-        const labels = await client.labels.retrieve({
-          where: { for: status.resourceID(key) },
-        });
-        const labelKeys = labels.map((l) => l.key);
-        expect(labelKeys).not.toContain(label1.key);
-        expect(labelKeys).toContain(label2.key);
-        expect(labelKeys).toContain(label3.key);
+        const { labels } = await createTestClient().statuses.retrieve(key);
+        expect(labels.toSorted()).toEqual([label2.key, label3.key].toSorted());
       });
     });
 

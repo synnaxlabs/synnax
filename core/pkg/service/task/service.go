@@ -153,6 +153,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB:      cfg.DB,
+		Name:    tableName,
 		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
@@ -307,6 +308,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:        s.cfg.Ontology,
 		group:      s.group,
 		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),
@@ -324,8 +326,12 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
+	if err != nil {
+		return err
+	}
 	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
+	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
@@ -349,6 +355,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		// hash is carried across.
 		statuses = append(statuses, Status{
 			Key:     prev.Key,
+			Owner:   prev.Owner,
 			Time:    telem.Now(),
 			Name:    tsk.Name,
 			Variant: rackStat.Variant,
@@ -359,9 +366,8 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 				rackStat.Name,
 			),
 			Details: StatusDetails{
-				Task:       tsk.Key,
 				ConfigHash: prev.Details.ConfigHash,
-				Rack:       rackStat.Details.Rack,
+				Rack:       rackKey,
 			},
 		})
 	}

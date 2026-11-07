@@ -27,10 +27,6 @@ message RetrieveRequest {
   optional uint32 limit = 3;
   // offset is the number of matching ranges to skip.
   uint32 offset = 4;
-  // include_labels includes the labels of each record.
-  bool include_labels = 5;
-  // include_parent includes the parent of each record.
-  bool include_parent = 6;
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.

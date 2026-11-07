@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -88,6 +89,7 @@ var _ = Describe("ReadTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "read-task-test", Type: "mock"}
+		createTask(ctx, t)
 		src = newQueueSource()
 		w := channelSvc.NewWriter(nil)
 		idxCh = channel.Channel{
@@ -128,7 +130,7 @@ var _ = Describe("ReadTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	// name formats ch as an error message names it.
@@ -278,6 +280,9 @@ var _ = Describe("ReadTask", func() {
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				}
+				Expect(gorp.NewCreate[task.Key, task.Task]().
+					Entry(&t).
+					Exec(ctx, local.DB)).To(Succeed())
 				Expect(w.Create(ctx, &peerIdx)).To(Succeed())
 				peerData := channel.Channel{
 					Name:        UniqueChannelName(),

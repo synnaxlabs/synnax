@@ -500,8 +500,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
 
@@ -509,8 +508,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
 }

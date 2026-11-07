@@ -583,8 +583,8 @@ TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
                          .at(0);
     this->scanner->on_device_set(dev);
     const auto status = ASSERT_NIL_P(
-        this->client->statuses.retrieve<synnax::device::StatusDetails>(
-            synnax::device::status_key(dev)
+        this->client->statuses.retrieve_by_owner<synnax::device::StatusDetails>(
+            synnax::device::resource_id(dev.key)
         )
     );
     EXPECT_EQ(status.message, "Device enabled");

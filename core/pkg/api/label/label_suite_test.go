@@ -44,8 +44,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilabel.NewService(apilabel.ServiceConfig{
-		RBAC:  svc.RBAC,
-		Label: svc.Label,
+		RBAC:   svc.RBAC,
+		Label:  svc.Label,
+		Ranger: svc.Ranger,
+		Status: svc.Status,
 	}))
 })
 

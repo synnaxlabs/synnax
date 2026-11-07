@@ -44,12 +44,12 @@ var _ = Describe("AlertTask", func() {
 		cfg pd.TaskConfig,
 	) driver.Task {
 		GinkgoHelper()
-		t := task.Task{
+		t := createTask(ctx, task.Task{
 			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
 			Type:   pd.AlertTaskType,
 			Config: encodeConfig(cfg),
-		}
+		})
 		tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
@@ -90,12 +90,12 @@ var _ = Describe("AlertTask", func() {
 		It("Should return ErrUnsupportedCommand for unknown commands",
 			func(ctx context.Context) {
 				cfg := validConfig(pd.Alert{Status: "s1"})
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(cfg),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				err := tsk.Exec(ctx, task.Command{Type: "restart"})
@@ -105,12 +105,12 @@ var _ = Describe("AlertTask", func() {
 
 		DescribeTable("Should acknowledge a command that needs no work",
 			func(ctx context.Context, cmdType string, running bool) {
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "PagerDuty Test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(validConfig(pd.Alert{Status: "s1"})),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(false)).To(Succeed()) }()
 				if running {
@@ -125,7 +125,7 @@ var _ = Describe("AlertTask", func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
@@ -419,21 +419,19 @@ var _ = Describe("AlertTask", func() {
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
 				sender.setError(errors.New("simulated PagerDuty outage"))
-				t := task.Task{
+				t := createTask(ctx, task.Task{
 					Key:    uuid.New(),
 					Name:   "PagerDuty Test",
 					Type:   pd.AlertTaskType,
 					Config: encodeConfig(validConfig(pd.Alert{Status: "send-failure"})),
-				}
+				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				retrieve := func(g Gomega) task.Status {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							t.ResourceID().String(),
-						)).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, nil)).To(Succeed())
 					return stat

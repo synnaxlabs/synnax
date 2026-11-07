@@ -20,30 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/encoding/orc"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
-
-// LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
-// an ontology.Retrieve query to find all the labels for a particular resource. Pass
-// this traverser to ontology.Retrieve.TraverseTo.
-var LabelsOntologyTraverser = ontology.Traverser{
-	Traverse: func(_ []resource.ID) ontology.RawTraversal {
-		return func(data []byte, nextIDs *[]resource.ID) error {
-			raw, err := orc.NewRaw(data)
-			if err != nil {
-				return err
-			}
-			*nextIDs = append(*nextIDs, ontology.ReadRawID(raw.SkipStrings(3)))
-			return nil
-		}
-	},
-	Direction:    ontology.DirectionForward,
-	FilterPrefix: ontology.RelationshipPrefix(OntologyRelationshipTypeLabeledBy),
-}
 
 // ResourceID constructs a unique resource.ID for the label with the given key.
 func ResourceID(k Key) resource.ID {
@@ -54,18 +35,6 @@ func ResourceID(k Key) resource.ID {
 // keys.
 func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
-// ResourceIDsFromLabels constructs a slice of unique resource.IDs for the given labels.
-func ResourceIDsFromLabels(labels []Label) []resource.ID {
-	return lo.Map(labels, func(l Label, _ int) resource.ID { return l.ResourceID() })
-}
-
-// KeysFromResourceIDs extracts the label keys from the given resource.IDs.
-func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
-	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
-	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

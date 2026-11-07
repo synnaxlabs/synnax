@@ -124,7 +124,11 @@ func (t *Table[K, E]) detach(
 		t.references[op.ref].detachTarget(&e, op.target)
 	}
 	w := t.writer(tx, false)
-	return w.Set(ctx, e)
+	if err = w.Set(ctx, e); err != nil {
+		return err
+	}
+	OnCommit(tx, func() { t.detaches.Notify(ctx, e) })
+	return nil
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference

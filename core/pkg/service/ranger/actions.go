@@ -50,18 +50,24 @@ type document struct {
 	Name      string          `json:"name"`
 	TimeRange telem.TimeRange `json:"time_range"`
 	Color     *color.Color    `json:"color,omitzero"`
+	Parent    *Key            `json:"parent,omitzero"`
 }
 
 // edit applies a path action to a copy of the range's document. A document that gains a
 // member it does not declare, such as a path to the range's labels, is rejected.
 func edit(r Range, apply func(map[string]any) error) (Range, error) {
 	d, err := patch.Edit(
-		document{Name: r.Name, TimeRange: r.TimeRange, Color: r.Color},
+		document{
+			Name:      r.Name,
+			TimeRange: r.TimeRange,
+			Color:     r.Color,
+			Parent:    r.Parent,
+		},
 		apply,
 	)
 	if err != nil {
 		return Range{}, err
 	}
-	r.Name, r.TimeRange, r.Color = d.Name, d.TimeRange, d.Color
+	r.Name, r.TimeRange, r.Color, r.Parent = d.Name, d.TimeRange, d.Color, d.Parent
 	return r, nil
 }

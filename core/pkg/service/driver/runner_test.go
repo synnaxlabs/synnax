@@ -72,8 +72,9 @@ var _ = Describe("Runner", func() {
 		return runErr
 	}
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{Key: uuid.New(), Name: "runner-test", Type: "mock"}
+		createTask(ctx, t)
 		opened, runErr = 0, nil
 	})
 
@@ -98,7 +99,7 @@ var _ = Describe("Runner", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	Describe("NewRunner", func() {

@@ -55,7 +55,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: svc.Status,
-		Label:  svc.Label,
 		RBAC:   svc.RBAC,
 	}))
 })

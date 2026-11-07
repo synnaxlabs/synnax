@@ -61,8 +61,6 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,

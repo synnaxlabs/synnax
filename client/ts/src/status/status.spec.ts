@@ -11,9 +11,8 @@ import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
-import { group } from "@/group";
-import { NotFoundError } from "@/index";
-import { ontology } from "@/ontology";
+import { channel } from "@/channel";
+import { DataType, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import {
@@ -57,6 +56,13 @@ describe("Status", () => {
       expect(s.name).toBe("Test Status");
       expect(s.variant).toBe("info");
       expect(s.message).toBe("This is a test status");
+    });
+
+    it("should give a status with no key a UUID key", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "keyless" });
+      expect(z.uuid().safeParse(s.key).success).toBe(true);
+      const local = status.create({ variant: "info", message: "local" });
+      expect(z.uuid().safeParse(local.key).success).toBe(true);
     });
 
     it("should update an existing status", async () => {
@@ -106,31 +112,136 @@ describe("Status", () => {
       expect(statuses[1].key).toBe("batch-2");
     });
 
-    it("should set a status with a parent", async () => {
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "Parent Group",
+    it("should keep the stored labels on an update and ignore the carried ones", async () => {
+      const [held, carried] = await client.labels.create([
+        { name: "Held", color: color.construct("#0000FF") },
+        { name: "Carried", color: color.construct("#FF0000") },
+      ]);
+      const key = uuid.create();
+      await client.statuses.set({
+        key,
+        variant: "info",
+        message: "a",
+        labels: [held.key],
       });
-      const parentResourceID = group.resourceID(parentGroup.key);
-      const s = await client.statuses.set(
+      let duringWrite: status.Status["labels"] | undefined;
+      const updated = await client.statuses.set(
+        { key, variant: "info", message: "b", labels: [carried.key] },
         {
-          name: "Child Status",
-          key: "child-status",
-          variant: "info",
-          message: "Status with parent",
-          time: TimeStamp.now(),
+          onOptimistic: () => {
+            duringWrite = client.statuses.store.get(key)?.labels;
+          },
         },
-        { parent: parentResourceID },
+      );
+      expect(duringWrite).toEqual([held.key]);
+      expect(updated.labels).toEqual([held.key]);
+    });
+  });
+
+  describe("owner", () => {
+    const createOwner = async () =>
+      channel.resourceID(
+        (
+          await client.channels.create({
+            name: `owner_${id.create()}`,
+            dataType: DataType.FLOAT32,
+            virtual: true,
+          })
+        ).key,
       );
 
-      expect(s.key).toBe("child-status");
-
-      const resources = await client.ontology.children.retrieve({
-        ids: parentResourceID,
+    it("should write an owned status to the status its owner holds", async () => {
+      const owner = await createOwner();
+      const first = await client.statuses.set({ owner, variant: "info", message: "a" });
+      const second = await client.statuses.set({
+        owner,
+        key: uuid.create(),
+        variant: "warning",
+        message: "b",
       });
+      expect(second.key).toEqual(first.key);
+      expect(second.message).toEqual("b");
+      expect(second.owner).toEqual(owner);
+    });
 
-      const statusResource = resources.find((r) => r.id.key === "child-status");
-      expect(statusResource).toBeDefined();
+    it("should retrieve the statuses that resources own", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const res = await client.statuses.retrieve({ owners: [owner] });
+      expect(res.map(({ key }) => key)).toEqual([created.key]);
+    });
+
+    it("should find the cached status a resource owns", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(client.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should retrieve the statuses of several owners in one request", async () => {
+      const owners = await Promise.all([createOwner(), createOwner()]);
+      await Promise.all(
+        owners.map(
+          async (owner) =>
+            await client.statuses.set({ owner, variant: "info", message: "a" }),
+        ),
+      );
+      const local = createTestClient();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        owners.map(async (owner) => await local.statuses.retrieveOwned([owner])),
+      );
+      expect(res.map((statuses) => statuses.map((s) => s.owner))).toEqual(
+        owners.map((owner) => [owner]),
+      );
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
+    });
+
+    it("should not cache an owned status it holds no key for before the write commits", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const observer = createTestClient();
+      let duringWrite: status.Status | undefined;
+      const updated = await observer.statuses.set(
+        { owner, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = observer.statuses.ownedBy(owner);
+          },
+        },
+      );
+      expect(duringWrite).toBeUndefined();
+      expect(updated.key).toEqual(created.key);
+      expect(observer.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should replace a local status with the status the Core sets", async () => {
+      const owner = await createOwner();
+      const local = status.create({ owner, variant: "loading", message: "local" });
+      client.statuses.setLocal(local);
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(created.key).toEqual(local.key);
+      expect(client.statuses.ownedBy(owner)).toMatchObject({
+        key: created.key,
+        variant: "info",
+        message: "a",
+      });
     });
   });
 
@@ -565,9 +676,12 @@ describe("Status", () => {
         replace: true,
       });
 
-      const retrievedStat = await client.statuses.retrieve({ key: stat.key });
+      const local = createTestClient();
+      const retrievedStat = await local.statuses.retrieve({ key: stat.key });
       expect(retrievedStat.key).toEqual(stat.key);
-      expect(retrievedStat.labels).toHaveLength(2);
+      expect(retrievedStat.labels.toSorted()).toEqual(
+        [label1.key, label2.key].toSorted(),
+      );
     });
 
     it("should update a subscribed labels answer when labels change", async () => {

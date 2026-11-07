@@ -29,7 +29,6 @@ import {
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
-import { resource } from "@/resource";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -92,21 +91,11 @@ const singleQueryZ = z
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
-// Rack statuses live in the status table under the "rack:<key>" status key.
-const affectedRackKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "rack") return null;
-  const parsed = keyZ.safeParse(Number(key));
-  return parsed.success ? [parsed.data] : null;
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   tasks: task.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
+  statuses: status.Client;
   ontology: ontology.Client;
 }
 
@@ -123,7 +112,10 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedRackKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "rack")?.map(Number) ?? null;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
       fetch: async (keys) =>
@@ -217,7 +209,7 @@ export class Client extends query.Retriever<
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statusStore.stamp();
+    const since = this.cfg.statuses.store.stamp();
     const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
@@ -225,7 +217,7 @@ export class Client extends query.Retriever<
       createResZ,
     );
     res.racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since });
     });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
@@ -252,10 +244,8 @@ export class Client extends query.Retriever<
     return this.sugar({ ...cached, status: st });
   }
 
-  // Only the "rack:<key>" row is the rack's status. Task statuses name their rack in
-  // their details, and matching on that would let them take the rack's status over.
   private statusOf(key: Key): Status | undefined {
-    const parsed = statusZ.safeParse(this.cfg.statusStore.get(statusKey(key)));
+    const parsed = statusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
     return parsed.success ? parsed.data : undefined;
   }
 
@@ -271,11 +261,11 @@ export class Client extends query.Retriever<
 
   private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
     const since = this.store.stamp();
-    const statusSince = this.cfg.statusStore.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
     const racks = await this.execRetrieve(req);
     this.store.ingest(racks.map(stripStatus), { since });
     racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
     });
     return racks;
   }
@@ -360,5 +350,3 @@ export class Rack {
     };
   }
 }
-
-export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

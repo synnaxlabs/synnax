@@ -38,19 +38,17 @@ const (
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// task is the key of the task this status pertains to.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// running is true if the task is currently executing.
-	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
+	Running bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
 	// cmd is the last command executed on this task.
-	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
+	Cmd string `protobuf:"bytes,2,opt,name=cmd,proto3" json:"cmd,omitempty"`
 	// config_hash is the hash of the config the running task instance was built from.
 	// Empty when no instance exists.
-	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
+	ConfigHash string `protobuf:"bytes,3,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// rack is the key of the rack running the task instance.
-	Rack uint32 `protobuf:"varint,5,opt,name=rack,proto3" json:"rack,omitempty"`
+	Rack uint32 `protobuf:"varint,4,opt,name=rack,proto3" json:"rack,omitempty"`
 	// data contains task-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,6,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,5,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,13 +81,6 @@ func (x *StatusDetails) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
 func (*StatusDetails) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StatusDetails) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
 }
 
 func (x *StatusDetails) GetRunning() bool {
@@ -712,15 +703,14 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xbf\x01\n" +
-	"\rStatusDetails\x12\x12\n" +
-	"\x04task\x18\x01 \x01(\tR\x04task\x12\x18\n" +
-	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
-	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x12\x1f\n" +
-	"\vconfig_hash\x18\x04 \x01(\tR\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xab\x01\n" +
+	"\rStatusDetails\x12\x18\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\x12\x10\n" +
+	"\x03cmd\x18\x02 \x01(\tR\x03cmd\x12\x1f\n" +
+	"\vconfig_hash\x18\x03 \x01(\tR\n" +
 	"configHash\x12\x12\n" +
-	"\x04rack\x18\x05 \x01(\rR\x04rack\x120\n" +
-	"\x04data\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x04rack\x18\x04 \x01(\rR\x04rack\x120\n" +
+	"\x04data\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
 	"\x05_data\"\xa1\x02\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +

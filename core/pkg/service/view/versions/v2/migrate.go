@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"

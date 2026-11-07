@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 )
 
 // tableName names the Range table for references. Pass it as
@@ -27,6 +28,8 @@ const tableName = "range"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	labels *gorp.KeyReference[Key, Range, label.Key]
+	parent *gorp.KeyReference[Key, Range, Key]
 	search *gorp.SearchIndex[Key, Range]
 }
 
@@ -35,6 +38,31 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, label.Key]{
+			Name:     "labels",
+			Table:    "label",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Range) []label.Key {
+				return e.Labels
+			},
+			Detach: func(e *Range, t label.Key) {
+				e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {
+					return v == t
+				})
+			},
+		}),
+		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
+			Name:     "parent",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Acyclic:  true,
+			Targets: func(e *Range) []Key {
+				if e.Parent == nil {
+					return nil
+				}
+				return []Key{*e.Parent}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Range](
 			"search",
 			func(e *Range) []string {
@@ -49,6 +77,15 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Range] {
 	return []gorp.Index[Key, Range]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Range] {
+	return []gorp.Reference[Key, Range]{
+		i.labels,
+		i.parent,
 	}
 }
 
@@ -120,6 +157,40 @@ func MatchNames(vals ...string) Filter {
 		return gorp.Match(func(_ gorp.Context, e *Range) (bool, error) {
 			return slices.Contains(vals, e.Name), nil
 		})
+	}
+}
+
+// MatchLabels returns a filter for ranges
+// whose Labels contains any of the provided
+// values.
+func MatchLabels(vals ...label.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
+		return r.indexes.labels.Filter(vals...)
+	}
+}
+
+// MatchHasLabels returns a filter for ranges whose
+// Labels holds a target when has is true, and holds none when has is false.
+func MatchHasLabels(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
+		return r.indexes.labels.FilterHolding(has)
+	}
+}
+
+// MatchParents returns a filter for ranges
+// whose Parent matches any of the provided
+// values.
+func MatchParents(vals ...Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
+		return r.indexes.parent.Filter(vals...)
+	}
+}
+
+// MatchHasParent returns a filter for ranges whose
+// Parent holds a target when has is true, and holds none when has is false.
+func MatchHasParent(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
+		return r.indexes.parent.FilterHolding(has)
 	}
 }
 

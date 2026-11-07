@@ -66,7 +66,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -74,8 +74,6 @@ var _ = Describe("Task", Ordered, func() {
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    g,
-			Label:    labelSvc,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -126,9 +124,9 @@ var _ = Describe("Task", Ordered, func() {
 		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
-		It("Should round-trip a UUID task key", func(ctx SpecContext) {
+		It("Should round-trip the details", func(ctx SpecContext) {
 			original := task.StatusDetails{
-				Task:    uuid.New(),
+				Rack:    testRack.Key,
 				Running: true,
 				Cmd:     "start",
 			}
@@ -738,16 +736,15 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
 			var renamed task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](
-					alerts.ResourceID().String(),
-				)).
+				Where(status.MatchOwners[task.StatusDetails](alerts.ResourceID())).
 				Entry(&renamed).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(renamed.Name).To(Equal("Renamed"))
 		})
 
 		It("Should rename a task that has no status", func(ctx SpecContext) {
-			Expect(stat.NewWriter(db).Delete(ctx, alerts.ResourceID().String())).
+			sw := stat.NewWriter(db)
+			Expect(sw.DeleteOwned(ctx, alerts.ResourceID())).
 				To(Succeed())
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -1082,10 +1079,9 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(
 					svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
-				var deletedStatus task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
-					Entry(&deletedStatus).
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](m.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -1165,14 +1161,14 @@ var _ = Describe("Task", Ordered, func() {
 
 				var taskStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](m.ResourceID())).
 					Entry(&taskStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					taskStatus.Message,
 				).To(Equal("Task not deployed"))
-				Expect(taskStatus.Details.Task).To(Equal(m.Key))
+				Expect(taskStatus.Owner).To(HaveValue(Equal(m.ResourceID())))
 			},
 		)
 
@@ -1198,18 +1194,15 @@ var _ = Describe("Task", Ordered, func() {
 
 				var taskStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](m.ResourceID())).
 					Entry(&taskStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 				Expect(taskStatus.Message).To(Equal("Custom task status"))
 				Expect(taskStatus.Description).To(Equal("Task is running"))
-				// Key should be auto-assigned
-				Expect(taskStatus.Key).To(Equal(m.ResourceID().String()))
+				Expect(taskStatus.Owner).To(HaveValue(Equal(m.ResourceID())))
 				// Name should be auto-filled
 				Expect(taskStatus.Name).To(Equal(m.Name))
-				// Details.Task should be auto-filled
-				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 				// Provided details should be preserved
 				Expect(taskStatus.Details.Running).To(BeTrue())
 			},
@@ -1244,10 +1237,12 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 
-				Expect(stat.NewWriter(tx).
-					Delete(ctx, t.ResourceID().String())).To(Succeed())
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+				sw := stat.NewWriter(tx)
+				Expect(sw.DeleteOwned(ctx, t.ResourceID())).
+					To(Succeed())
+				Expect(stat.NewRetrieve[any]().
+					Where(status.MatchOwners[any](t.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
@@ -1255,10 +1250,10 @@ var _ = Describe("Task", Ordered, func() {
 
 				var healed task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(healed.Details.Task).To(Equal(t.Key))
+				Expect(healed.Owner).To(HaveValue(Equal(t.ResourceID())))
 				Expect(healed.Variant).To(Equal(status.VariantWarning))
 				Expect(healed.Message).To(Equal("Task status unknown"))
 			},
@@ -1284,7 +1279,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var preserved task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -1317,7 +1312,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var renamed task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&renamed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(renamed.Name).To(Equal("After Task"))
@@ -1339,7 +1334,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(
 					m.Status.Message,
 				).To(Equal("Task not deployed"))
-				Expect(m.Status.Details.Task).To(Equal(m.Key))
+				Expect(m.Status.Owner).To(HaveValue(Equal(m.ResourceID())))
 			},
 		)
 
@@ -1382,14 +1377,14 @@ var _ = Describe("Task", Ordered, func() {
 
 				var copiedStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](copied.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](copied.ResourceID())).
 					Entry(&copiedStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					copiedStatus.Message,
 				).To(Equal("Task not deployed"))
-				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
+				Expect(copiedStatus.Owner).To(HaveValue(Equal(copied.ResourceID())))
 			},
 		)
 	})
@@ -1399,7 +1394,7 @@ var _ = Describe("Task", Ordered, func() {
 			GinkgoHelper()
 			var got task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+				Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 				Entry(&got).
 				Exec(ctx, nil)).To(Succeed())
 			return got
@@ -1434,7 +1429,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var taskStatus task.Status
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
@@ -1444,8 +1439,8 @@ var _ = Describe("Task", Ordered, func() {
 						"The Core lost contact with the Driver on suspect rack " +
 							"while the task was running.",
 					))
+					g.Expect(taskStatus.Owner).To(HaveValue(Equal(t.ResourceID())))
 					g.Expect(taskStatus.Details).To(Equal(task.StatusDetails{
-						Task:       t.Key,
 						Running:    false,
 						ConfigHash: "deployed",
 						Rack:       r.Key,
@@ -1494,8 +1489,8 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var taskStatus task.Status
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](
-							running.ResourceID().String(),
+						Where(status.MatchOwners[task.StatusDetails](
+							running.ResourceID(),
 						)).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
@@ -1532,15 +1527,13 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("NewStatusDetails", func() {
-		It("Should echo the task's key, config hash, and rack", func() {
-			k := uuid.New()
+		It("Should echo the task's config hash and rack", func() {
 			t := task.Task{
-				Key:        k,
+				Key:        uuid.New(),
 				Rack:       testRack.Key,
 				ConfigHash: "hash1",
 			}
 			Expect(task.NewStatusDetails(t, true)).To(Equal(task.StatusDetails{
-				Task:       k,
 				Running:    true,
 				ConfigHash: "hash1",
 				Rack:       testRack.Key,

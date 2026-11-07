@@ -103,7 +103,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       name,
       color,
       timeRange: new TimeRange(start, end),
-      parent: { key: run.key },
+      parent: run.key,
     });
     await client.ranges.create([
       stage("Pressurization", "#3774D0", closed, opened),

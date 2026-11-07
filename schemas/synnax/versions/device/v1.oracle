@@ -17,9 +17,6 @@ StatusDetails struct {
     rack      rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    device    Key      {
-        @doc value "is the device identifier."
-    }
     connected bool = false {
         @doc value """
             is true while the Driver confirms that it can reach the device. A device
@@ -31,8 +28,8 @@ StatusDetails struct {
     }
 
     @doc value """
-        contains device-specific status details identifying the device and its
-        associated rack.
+        contains device-specific status details, including the rack the device belongs
+        to.
     """
 }
 

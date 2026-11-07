@@ -10,25 +10,63 @@
 package versions
 
 import (
-	"slices"
+	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
+
+// compositionNamespace is the namespace of the service layer's composition pass, which
+// ran the format migrations below before they moved into the table chain.
+const compositionNamespace = "Composition"
 
 // Migrations is the ordered migration chain for stored panels.
-var Migrations = []gorp.Migration{v0.Migration}
+var Migrations = []gorp.Migration{
+	v0.Migration,
+	gorp.MovedMigration(compositionNamespace, v0.ResourceTabTypesMigration),
+	gorp.MovedMigration(compositionNamespace, v1.Migration),
+	gorp.MovedMigration(compositionNamespace, v2.Migration),
+}
 
-// CompositionMigrations is the ordered set of migrations the service layer runs after
-// every service table is open, concatenating each version's contribution. The lifts
-// past v0 run here, not in the table chain, because the v0 migrations before them write
-// v0 panels.
-var CompositionMigrations = slices.Concat(
-	v0.CompositionMigrations,
-	[]gorp.Migration{v1.Migration, v2.Migration},
-)
+// CompositionMigrations returns the migrations the service layer runs after every
+// service table is open. They write each panel they create to table.
+func CompositionMigrations(table *gorp.Table[Key, Panel]) []gorp.Migration {
+	return v0.CompositionMigrations(
+		func(ctx context.Context, tx gorp.Tx, project resource.ID, old v0.Panel) error {
+			p, err := migratePanel(ctx, old)
+			if err != nil {
+				return err
+			}
+			if err = table.NewUncheckedWriter(tx).Set(ctx, p); err != nil {
+				return err
+			}
+			id := p.ResourceID()
+			if err = gorp.WrapWriter[string, ontology.Resource](tx).
+				Set(ctx, ontology.Resource{ID: id}); err != nil {
+				return err
+			}
+			return gorp.WrapWriter[string, ontology.Relationship](tx).
+				Set(ctx, ontology.Relationship{
+					From: project,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   id,
+				})
+		},
+	)
+}
+
+// migratePanel lifts a v0 panel to the latest version.
+func migratePanel(ctx context.Context, p0 v0.Panel) (Panel, error) {
+	p1, err := v1.MigratePanel(ctx, p0)
+	if err != nil {
+		return Panel{}, err
+	}
+	return v2.MigratePanel(ctx, p1)
+}
 
 // Latest is the portable schema version stamped on a panel bundle member and the
 // highest version an import accepts. It tracks the stored schema version, which the

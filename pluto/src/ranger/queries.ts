@@ -51,16 +51,16 @@ export const useListChildren = Flux.createList<
   name: PLURAL_CHILDREN_RESOURCE_NAME,
   retrieve: async ({ client, query: { key, limit, offset } }) => {
     if (key == null) return [];
-    return await client.ranges.children.retrieve({ key, limit, offset });
+    return await client.ranges.retrieve({ parents: [key], limit, offset });
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   onChange: ({ client, query: { key, limit, offset } }, handler) => {
     if (key == null) return () => {};
-    return client.ranges.children.onChange({ key, limit, offset }, handler);
+    return client.ranges.onChange({ parents: [key], limit, offset }, handler);
   },
   getCached: ({ client, query: { key, limit, offset } }) => {
     if (key == null) return undefined;
-    return client.ranges.children.getCached({ key, limit, offset });
+    return client.ranges.getCached({ parents: [key], limit, offset });
   },
 });
 
@@ -134,20 +134,14 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
-    const parentKey = value.parent;
     const rng = await client.ranges.create({
       ...value,
-      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
-    });
-    await Label.setLabelsFor({
-      client,
-      data: { id: rng.resourceID, labels: value.labels },
+      parent: primitive.isNonZero(value.parent) ? value.parent : undefined,
     });
     reset({
       ...value,
       ...rng.payload,
       timeRange: rng.timeRange.numeric,
-      labels: value.labels,
       parent: value.parent,
     });
   },
@@ -173,8 +167,10 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
-export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.resourceID(key) }).data;
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
+  const labels = useResult(key == null ? null : { key }).data?.labels;
+  return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
+};
 
 export { type ListQuery } from "@/ranger/aether/queries";
 

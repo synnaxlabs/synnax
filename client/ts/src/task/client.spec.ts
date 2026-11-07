@@ -79,7 +79,7 @@ const createStreamedClient = async () => {
   });
   onTestFinished(async () => await cache.close());
   const ont = new ontology.Client({ unary, cache });
-  const labels = new label.Client({ unary, cache, ontology: ont });
+  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
@@ -95,7 +95,7 @@ const createStreamedClient = async () => {
     framer: frames,
     channels: async () => [],
   });
-  const statuses = new status.Client({ unary, cache, ontology: ont, labels });
+  const statuses = new status.Client({ unary, cache, ontology: ont });
   const tasks = new task.Client({
     unary,
     framer: frames,
@@ -108,13 +108,17 @@ const createStreamedClient = async () => {
   return { stream, tasks };
 };
 
+const STATUS_KEY = "5c1e7a0b-2d3f-4e6a-8b9c-0d1e2f3a4b5c";
+
 const createStatus = (key: task.Key, message: string, time: TimeStamp) => ({
-  key: task.statusKey(key),
+  key: STATUS_KEY,
   name: "Task status",
   variant: "warning" as const,
   message,
   time,
-  details: { task: key, running: false, cmd: "", data: {} },
+  labels: [],
+  owner: task.resourceID(key),
+  details: { running: false, cmd: "", data: {} },
 });
 
 describe("task.Client", () => {

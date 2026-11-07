@@ -139,7 +139,7 @@ export const ensureRange = async (
         name: spec.name,
         timeRange: spec.timeRange,
         ...(spec.key != null && { key: spec.key }),
-        ...(spec.parent != null && { parent: { key: spec.parent } }),
+        ...(spec.parent != null && { parent: spec.parent }),
       }));
     if (spec.labels != null && spec.labels.length > 0)
       await client.labels.label(range.resourceID, spec.labels);

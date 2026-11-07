@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, query as clientQuery, type query } from "@synnaxlabs/client";
+import { device, query as clientQuery, type query, resource } from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -321,10 +321,9 @@ export const createForm: CreateForm = (
         data.key = uuid.create();
         set(formPath.key, data.key);
       }
-      // A status under the device's key was read from the Core. A beforeSave hook that
-      // reports a new status creates it under its own key.
-      const reported =
-        data.status != null && data.status.key !== device.statusKey(data.key);
+      // A status read from the Core names the device as its owner. A beforeSave hook
+      // that reports a new status leaves the owner out, and the Core sets it.
+      const reported = data.status != null && data.status.owner == null;
       const sent = reported ? data : device.toUpdate(data);
       await client.devices.create(sent as device.New, schemas);
     },
@@ -337,7 +336,9 @@ export const createForm: CreateForm = (
           if (parsed != null) reset(parsed);
         }),
         client.statuses.onSet((changed) => {
-          if (changed.key !== device.statusKey(key)) return;
+          const { owner } = changed;
+          if (owner == null || !resource.idsEqual(owner, device.resourceID(key)))
+            return;
           set(
             formPath.status,
             zod.parse(device.statusZ, changed, { label: "device status" }),

@@ -51,7 +51,7 @@ var _ = Describe("Where", Ordered, func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		lbl := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -59,8 +59,6 @@ var _ = Describe("Where", Ordered, func() {
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
-			Label:    lbl,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,

@@ -18,12 +18,6 @@ import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
-// StatusDetails contains rack-specific status details.
-message StatusDetails {
-  // rack is the key of the rack this status pertains to.
-  uint32 rack = 1;
-}
-
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.

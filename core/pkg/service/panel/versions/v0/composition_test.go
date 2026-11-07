@@ -41,14 +41,32 @@ var _ = Describe("Composition migrations", func() {
 			},
 		))
 	}
-	// runComposition runs the composition pass exactly as the service layer does after
-	// every table is open.
+	// projects maps the key of each panel the composition pass creates to the project
+	// it was created for.
+	var projects map[v0.Key]resource.ID
+	BeforeEach(func() { projects = map[v0.Key]resource.ID{} })
+	// runComposition runs the composition pass as the service layer does after every
+	// table is open, storing each created panel as v0.
 	runComposition := func(ctx context.Context, db *gorp.DB) {
 		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Composition",
+			Migrations: v0.CompositionMigrations(func(
+				ctx context.Context, tx gorp.Tx, project resource.ID, p v0.Panel,
+			) error {
+				projects[p.Key] = project
+				return gorp.WrapWriter[v0.Key, v0.Panel](tx).Set(ctx, p)
+			}),
+		})).To(Succeed())
+	}
+	// runChain runs the format migrations of the panel table chain this package owns.
+	runChain := func(ctx context.Context, db *gorp.DB) {
+		GinkgoHelper()
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
-			Namespace:  "Composition",
-			Migrations: v0.CompositionMigrations,
+			Namespace:  "Panel",
+			Migrations: []gorp.Migration{v0.ResourceTabTypesMigration},
 		})).To(Succeed())
 	}
 	stageTaskKey := func(
@@ -136,19 +154,6 @@ var _ = Describe("Composition migrations", func() {
 			zeroTabKeys(&v.Last)
 			n.Variant = v
 		}
-	}
-	rel := func(from, to resource.ID) ontology.Relationship {
-		return ontology.Relationship{
-			From: from,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   to,
-		}
-	}
-	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) bool {
-		GinkgoHelper()
-		return MustSucceed(gorp.NewRetrieve[string, ontology.Relationship]().
-			Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
-			Exists(ctx, db))
 	}
 	resourceTab := func(t resource.Type, key string) v0.Tab {
 		return v0.Tab{Variant: v0.ResourceTab{
@@ -300,20 +305,10 @@ var _ = Describe("Composition migrations", func() {
 				*leaf(resourceTab(resource.TypeTable, tblKey)),
 			))
 
-			By("Defining an ontology resource and parent relationship for each panel")
+			By("Creating each panel for the project")
+			projectID := project.Project{Key: projectKey}.ResourceID()
 			for _, p := range panels {
-				panelID := v0.Panel{Key: p.Key}.ResourceID()
-				Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
-					Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
-					Exists(ctx, db))).To(BeTrue())
-				Expect(
-					hasRel(
-						ctx,
-						db,
-						rel(project.Project{Key: projectKey}.ResourceID(), panelID),
-					),
-				).
-					To(BeTrue())
+				Expect(projects).To(HaveKeyWithValue(p.Key, projectID))
 			}
 
 			By("Deleting the staging entry once it has been consumed")
@@ -686,7 +681,7 @@ var _ = Describe("Composition migrations", func() {
 			}
 			Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
 
-			runComposition(ctx, db)
+			runChain(ctx, db)
 			var got v0.Panel
 			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
 				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
@@ -709,69 +704,14 @@ var _ = Describe("Composition migrations", func() {
 		},
 	)
 
-	It(
-		"Should convert legacy-keyed task view tabs into resource tabs",
-		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			legacy := "4294967395"
-			taskKey := uuid.New()
-			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
-				return v0.Tab{Variant: v0.ViewTab{
-					Key:  uuid.New(),
-					Type: viewType,
-					Args: args,
-				}}
-			}
-			table := openPanelTable(ctx, db)
-			p := v0.Panel{
-				Key:  uuid.New(),
-				Name: "Ops",
-				Root: v0.Node{Variant: v0.SplitNode{
-					Direction: spatial.DirectionX,
-					Size:      0.5,
-					First: *leaf(viewTab(
-						"ni_analog_read",
-						msgpack.EncodedJSON{"taskKey": legacy},
-					)),
-					Last: *leaf(
-						viewTab("range_explorer", nil),
-						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
-					),
-				}},
-			}
-			Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
-			stageTaskKey(ctx, db, legacy, taskKey)
-
-			runComposition(ctx, db)
-			var got v0.Panel
-			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
-				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
-				Entry(&got).
-				Exec(ctx, db)).To(Succeed())
-			split, ok := got.Root.Variant.(v0.SplitNode)
-			Expect(ok).To(BeTrue())
-			first, ok := split.First.Variant.(v0.LeafNode)
-			Expect(ok).To(BeTrue())
-			converted, ok := first.Tabs[0].Variant.(v0.ResourceTab)
-			Expect(ok).To(BeTrue())
-			Expect(converted.Resource).To(Equal(resource.ID{
-				Type: resource.TypeTask,
-				Key:  taskKey.String(),
-			}))
-
-			By("Leaving view tabs without staged task keys untouched")
-			last, ok := split.Last.Variant.(v0.LeafNode)
-			Expect(ok).To(BeTrue())
-			explorer, ok := last.Tabs[0].Variant.(v0.ViewTab)
-			Expect(ok).To(BeTrue())
-			Expect(explorer.Args).To(BeEmpty())
-			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
-			Expect(ok).To(BeTrue())
-			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
-
-			By("Draining the staging entry")
-			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
-				To(MatchError(query.ErrNotFound))
-		},
-	)
+	It("Should drain staged task keys that no layout uses", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		legacy := "4294967395"
+		stageTaskKey(ctx, db, legacy, uuid.New())
+		openPanelTable(ctx, db)
+		runComposition(ctx, db)
+		Expect(collectPanels(ctx, db)).To(BeEmpty())
+		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+			To(MatchError(query.ErrNotFound))
+	})
 })

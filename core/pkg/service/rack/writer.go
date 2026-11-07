@@ -36,6 +36,8 @@ type Writer struct {
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
 	status status.Writer
+	// statuses retrieves the status that a rack holds.
+	statuses *status.Service
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
@@ -45,42 +47,42 @@ type Writer struct {
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
-			Key:     r.ResourceID().String(),
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Rack status unknown",
-			Details: StatusDetails{Rack: r.Key},
 		}
 	}
 	stat := *r.Status
-	stat.Key = r.ResourceID().String()
-	stat.Details.Rack = r.Key
+	stat.Owner = new(r.ResourceID())
 	stat.Name = r.Name
 	return &stat
 }
 
-// writeStatus writes the status provided on r. With none, it keeps the stored row and
-// changes only its name. The default status is written only if no row exists, because
-// a stored row may be a live status from the Driver.
+// writeStatus writes the status provided on r. With none, it keeps the stored status
+// and changes only its name. The default status is written only if the rack holds no
+// status, because a stored status may be a live status from the Driver.
 func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 	stat := resolveStatus(r)
 	if r.Status != nil {
 		return w.status.Set(ctx, stat)
 	}
 	// A stored status can hold any details, so they do not decode as StatusDetails.
-	var stored status.Status[any]
-	err := gorp.NewRetrieve[status.Key, status.Status[any]]().
-		Where(gorp.MatchKeys[status.Key, status.Status[any]](stat.Key)).
-		Entry(&stored).
-		Exec(ctx, w.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return w.status.Set(ctx, stat)
-	}
-	if err != nil || stored.Name == r.Name {
+	var held []status.Status[any]
+	if err := w.statuses.NewRetrieve[any]().
+		Where(status.MatchOwners[any](*stat.Owner)).
+		Entries(&held).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Rename(ctx, stat.Key, r.Name)
+	if len(held) == 0 {
+		return w.status.Set(ctx, stat)
+	}
+	if held[0].Name == r.Name {
+		return nil
+	}
+	return w.status.Rename(ctx, held[0].Key, r.Name)
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key does
@@ -157,10 +159,13 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
+	return errors.Skip(
+		w.status.RenameOwned(ctx, key.ResourceID(), name),
+		query.ErrNotFound,
+	)
 }
 
-// DeleteGuard deletes the rack with the given key and its associated status if the
+// DeleteGuard deletes the rack with the given key, and with it its status, if the
 // provided guard function returns nil.
 func (w Writer) DeleteGuard(
 	ctx context.Context,
@@ -173,8 +178,5 @@ func (w Writer) DeleteGuard(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResources(ctx, key.ResourceID()); err != nil {
-		return err
-	}
-	return w.status.Delete(ctx, key.ResourceID().String())
+	return w.otg.DeleteResources(ctx, key.ResourceID())
 }

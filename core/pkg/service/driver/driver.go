@@ -148,12 +148,11 @@ func (d *Driver) startHeartbeat() {
 					return err
 				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
-					Key:     rack.StatusKey(d.rack.Key),
+					Owner:   new(d.rack.Key.ResourceID()),
 					Name:    r.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
-					Details: rack.StatusDetails{Rack: d.rack.Key},
 				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
@@ -342,18 +341,18 @@ func (d *Driver) ackFailure(
 // and config hash.
 func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
 	stat := task.Status{
-		Key:     t.ResourceID().String(),
+		Owner:   new(t.ResourceID()),
 		Name:    t.Name,
 		Variant: status.VariantWarning,
 		Message: "Config changed",
 		Description: "The task config changed after you saw it. Review the task, " +
 			"then start it again.",
-		Details: task.StatusDetails{Task: t.Key, Rack: t.Rack, Cmd: cmd.Key},
+		Details: task.StatusDetails{Rack: t.Rack, Cmd: cmd.Key},
 	}
 	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var stored task.Status
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Where(status.MatchOwners[task.StatusDetails](*stat.Owner)).
 			Entry(&stored).
 			Exec(ctx, tx); err == nil {
 			stat.Details.Running = stored.Details.Running

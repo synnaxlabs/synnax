@@ -107,7 +107,6 @@ const beforeSave = async ({
     variant: "success",
     details: {
       rack: get(path.rack).value,
-      device: get(path.key).value,
       connected: true,
     },
   });

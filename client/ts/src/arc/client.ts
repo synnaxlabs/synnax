@@ -121,7 +121,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
   tasks: task.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
+  statuses: status.Client;
 }
 
 export class Client extends query.Retriever<
@@ -197,7 +197,9 @@ export class Client extends query.Retriever<
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [
-        query.deriveWatch(this.cfg.statusStore, (event) => task.affectedKeys(event)),
+        query.deriveWatch(this.cfg.statuses.store, (event) =>
+          this.cfg.statuses.ownerKeys(event, "task"),
+        ),
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
@@ -433,7 +435,7 @@ export class Client extends query.Retriever<
   // The status is parsed because the status table holds every domain's statuses
   // generically.
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
-    const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
+    const cachedStatus = this.cfg.statuses.ownedBy(task.resourceID(cached.key));
     const payload = cached.payload;
     if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
     const parsed = task.defaultStatusZ.safeParse(cachedStatus);

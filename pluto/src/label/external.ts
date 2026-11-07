@@ -9,4 +9,5 @@
 
 export * from "@/label/queries";
 export * from "@/label/Select";
+export * from "@/label/Tags";
 export * from "@/label/types";

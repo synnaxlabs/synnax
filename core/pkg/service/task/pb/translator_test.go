@@ -25,21 +25,22 @@ import (
 
 var _ = Describe("Task", func() {
 	details := task.StatusDetails{
-		Task:       task.Key(uuid.New()),
 		Running:    true,
 		Cmd:        "start",
 		ConfigHash: "abc123",
 		Rack:       7,
 		Data:       msgpack.EncodedJSON{"read_rate": 10.0},
 	}
+	key := task.Key(uuid.New())
 	t := task.Task{
-		Key:    details.Task,
+		Key:    key,
 		Rack:   details.Rack,
 		Name:   "read",
 		Type:   "ni_analog_read",
 		Config: msgpack.EncodedJSON{},
 		Status: &task.Status{
 			Key:     "status",
+			Owner:   new(task.ResourceID(key)),
 			Variant: status.VariantSuccess,
 			Time:    telem.Now(),
 			Details: details,

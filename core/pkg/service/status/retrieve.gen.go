@@ -11,13 +11,25 @@
 
 package status
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"slices"
+
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
+
+// tableName names the Status table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "status"
 
 // indexes bundles the per-Service secondary indexes registered on the
 // Status[any] table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	labels *gorp.KeyReference[Key, Status[any], label.Key]
+	owner  *gorp.TargetReference[Key, Status[any]]
 	search *gorp.SearchIndex[Key, Status[any]]
 }
 
@@ -26,6 +38,31 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Status[any], label.Key]{
+			Name:     "labels",
+			Table:    "label",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Status[any]) []label.Key {
+				return e.Labels
+			},
+			Detach: func(e *Status[any], t label.Key) {
+				e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {
+					return v == t
+				})
+			},
+		}),
+		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
+			Name:     "owner",
+			Tables:   []string{"rack", "task", "device", "channel"},
+			OnDelete: gorp.Cascade,
+			Unique:   true,
+			Targets: func(e *Status[any]) []gorp.Target {
+				if e.Owner == nil {
+					return nil
+				}
+				return []gorp.Target{resourceTarget(*e.Owner)}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Status[any]](
 			"search",
 			func(e *Status[any]) []string {
@@ -41,6 +78,20 @@ func (i indexes) all() []gorp.Index[Key, Status[any]] {
 	return []gorp.Index[Key, Status[any]]{
 		i.search,
 	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Status[any]] {
+	return []gorp.Reference[Key, Status[any]]{
+		i.labels,
+		i.owner,
+	}
+}
+
+// resourceTarget returns the gorp.Target of the resource that id identifies.
+func resourceTarget(id resource.ID) gorp.Target {
+	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // MatchSearch matches the statuses whose text matches term.

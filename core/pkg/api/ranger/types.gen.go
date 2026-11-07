@@ -28,10 +28,6 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching ranges to skip.
 	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeLabels includes the labels of each record.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// IncludeParent includes the parent of each record.
-	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.

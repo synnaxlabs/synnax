@@ -30,16 +30,6 @@ type RetrieveRequest struct {
 	Offset uint32 `json:"offset" msgpack:"offset"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveRequest) Validate() error {
-	v := validate.New("RetrieveRequest")
-	if r.Where != nil {
-		v.Exec(func() error { return validate.PathedError(r.Where.Validate(), "where") })
-	}
-	return v.Error()
-}
-
 // RetrieveResponse holds the labels a RetrieveRequest selects.
 type RetrieveResponse struct {
 	// Labels are the labels the request selects.

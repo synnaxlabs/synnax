@@ -97,7 +97,6 @@ rack_key_set_from_proto(const ::service::task::pb::RackKeySet &pb) {
 inline std::pair<::service::task::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
     ::service::task::pb::StatusDetails pb;
-    pb.set_task(this->task.to_string());
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
     pb.set_config_hash(this->config_hash);
@@ -113,11 +112,6 @@ StatusDetails::to_proto() const {
 inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     StatusDetails cpp;
-    {
-        auto [v, err] = x::uuid::UUID::parse(pb.task());
-        if (err) return {{}, err};
-        cpp.task = v;
-    }
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
     cpp.config_hash = pb.config_hash();

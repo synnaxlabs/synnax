@@ -18,7 +18,7 @@ import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Status } from "@synnaxlabs/pluto";
+import { Access, Label, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
@@ -39,7 +39,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const { update: rename } = Status.useRename();
 
   if (item == null) return null;
-  const { name, time, variant, message, labels } = item;
+  const { name, time, variant, message } = item;
 
   return (
     <Select.Item<status.Key>
@@ -66,13 +66,9 @@ export const Item = (props: ItemProps): ReactElement | null => {
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center">
-        {labels != null && labels.length > 0 && (
+        {item.labels.length > 0 && (
           <Tag.Tags variant="text">
-            {labels.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small">
-                {name}
-              </Tag.Tag>
-            ))}
+            <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}
         <Text.Text x>

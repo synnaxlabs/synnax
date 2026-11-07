@@ -18,11 +18,7 @@ const createRack = (key: rack.Key, integrations: string[], running: boolean) =>
     name: `Rack ${key}`,
     integrations,
     status: running
-      ? status.create<typeof rack.statusDetailsZ>({
-          variant: "success",
-          message: "Running",
-          details: { rack: key },
-        })
+      ? status.create({ variant: "success", message: "Running" })
       : undefined,
   });
 
@@ -63,10 +59,9 @@ describe("getBlockedReason", () => {
         key: 1,
         name: "Rack 1",
         integrations: ["opc"],
-        status: status.create<typeof rack.statusDetailsZ>({
+        status: status.create({
           variant: "error",
           message: "Driver 0.59.3 cannot work with Core 0.60.1",
-          details: { rack: 1 },
         }),
       });
       expect(Device.getBlockedReason([r], { ...OPC, rack: 1 })).toBe(

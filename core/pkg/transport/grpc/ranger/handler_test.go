@@ -57,9 +57,9 @@ var _ = Describe("Retrieve", func() {
 					},
 				},
 				Overlaps: &telem.TimeRange{Start: 1, End: 2},
+				Parents:  []ranger.Key{key},
 			},
-			Limit:         new(uint32(10)),
-			IncludeLabels: true,
+			Limit: new(uint32(10)),
 		}
 		MustSucceed(client.Exec(ctx, &grpcranger.RetrieveRequest{
 			Request: MustSucceed(pb.RetrieveRequestToPB(msg)),

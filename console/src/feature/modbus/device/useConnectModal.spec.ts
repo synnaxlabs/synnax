@@ -110,12 +110,11 @@ describe("Modbus.Device.useConnectModal", () => {
     const dev = await createModbusDevice(client);
     await client.statuses.set(
       status.create<typeof device.statusDetailsZ>({
-        key: device.statusKey(dev.key),
+        owner: device.resourceID(dev.key),
         variant: "success",
         message: "Device connected",
         details: {
           rack: dev.rack,
-          device: dev.key,
           connected: true,
           data: {
             stats: {

@@ -14,6 +14,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -30,32 +31,36 @@
 #include "driver/task/status_cache.h"
 
 namespace driver::task {
-/// @brief a status set transport that holds each write that carries one status key
+/// @brief a status set transport that holds each write that carries one status owner
 /// until released, and echoes every write. The first passes such writes are not held.
 class HoldingSetClient final : public synnax::status::SetClient {
-    const std::string held_key;
+    const synnax::resource::ID held_owner;
     size_t passes;
     std::mutex mu;
     std::condition_variable cv;
     bool released = false;
     x::errors::Error held_err = x::errors::NIL;
-    std::vector<std::vector<std::string>> requests;
+    std::vector<std::vector<synnax::task::Status>> requests;
 
 public:
     std::atomic<bool> holding = false;
 
-    explicit HoldingSetClient(std::string held_key, const size_t passes = 0):
-        held_key(std::move(held_key)), passes(passes) {}
+    explicit HoldingSetClient(synnax::resource::ID held_owner, const size_t passes = 0):
+        held_owner(std::move(held_owner)), passes(passes) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
         std::unique_lock lock{this->mu};
-        auto &keys = this->requests.emplace_back();
-        for (const auto &status: req.statuses())
-            keys.push_back(status.key());
-        const bool held = std::ranges::find(keys, this->held_key) != keys.end();
+        auto &statuses = this->requests.emplace_back();
+        bool held = false;
+        for (const auto &pb: req.statuses()) {
+            auto [status, err] = synnax::task::Status::from_proto(pb);
+            if (err) return {{}, err};
+            held = held || status.owner == this->held_owner;
+            statuses.push_back(std::move(status));
+        }
         if (held && this->passes > 0)
             this->passes--;
         else if (held) {
@@ -69,10 +74,19 @@ public:
         return {res, x::errors::NIL};
     }
 
-    /// @brief returns the status keys of each request, in order.
-    std::vector<std::vector<std::string>> sent() {
+    /// @brief returns the statuses of each request, in order.
+    std::vector<std::vector<synnax::task::Status>> sent() {
         std::lock_guard lock{this->mu};
         return this->requests;
+    }
+
+    /// @brief returns the number of requests that carry exactly one status, owned by
+    /// owner.
+    size_t count(const synnax::resource::ID &owner) {
+        std::lock_guard lock{this->mu};
+        return std::ranges::count_if(this->requests, [&](const auto &statuses) {
+            return statuses.size() == 1 && statuses[0].owner == owner;
+        });
     }
 
     /// @brief lets held writes go on. The first one fails with err.
@@ -92,18 +106,16 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnAnotherTask) {
     const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
     const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
     const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::status_key(held)
+        synnax::task::resource_id(held.key)
     );
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status held_status{
-        .key = synnax::task::status_key(held),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = held.key},
+        .owner = synnax::task::resource_id(held.key),
     };
     synnax::task::Status free_status{
-        .key = synnax::task::status_key(free),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = free.key},
+        .owner = synnax::task::resource_id(free.key),
     };
     // Declared before the guard, so the guard releases the hung write before the future
     // waits for its task.
@@ -126,19 +138,17 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
     const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
     const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
     const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::status_key(held)
+        synnax::task::resource_id(held.key)
     );
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status free_status{
-        .key = synnax::task::status_key(free),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = free.key},
+        .owner = synnax::task::resource_id(free.key),
     };
     ASSERT_NIL(cache.set(free_status));
     synnax::task::Status held_status{
-        .key = synnax::task::status_key(held),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = held.key},
+        .owner = synnax::task::resource_id(held.key),
     };
     // Declared before the guard, so the guard releases the hung write before the future
     // waits for the re-send.
@@ -159,26 +169,19 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
     transport->release(freighter::UNREACHABLE);
     ASSERT_EQ(resent.wait_for(std::chrono::seconds(2)), std::future_status::ready);
     ASSERT_NIL(resent.get());
-    EXPECT_EQ(
-        std::ranges::count(
-            transport->sent(),
-            std::vector{synnax::task::status_key(held)}
-        ),
-        2
-    );
+    EXPECT_EQ(transport->count(synnax::task::resource_id(held.key)), 2);
 }
 
 /// @brief it should report a failed write as stale until a re-send starts.
 TEST(StatusCacheTest, FailedWriteIsStaleUntilResend) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
     const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::status_key(task)
+        synnax::task::resource_id(task.key)
     );
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status status{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_WARNING,
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     EXPECT_FALSE(cache.stale());
     transport->release(freighter::UNREACHABLE);
@@ -193,13 +196,12 @@ TEST(StatusCacheTest, FailedWriteIsStaleUntilResend) {
 TEST(StatusCacheTest, FailedResendStaysStale) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
     const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::status_key(task)
+        synnax::task::resource_id(task.key)
     );
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status status{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_WARNING,
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     transport->release(freighter::UNREACHABLE);
     ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
@@ -217,20 +219,18 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {
     const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
     const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
     const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::status_key(held),
+        synnax::task::resource_id(held.key),
         1
     );
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status held_status{
-        .key = synnax::task::status_key(held),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = held.key},
+        .owner = synnax::task::resource_id(held.key),
     };
     ASSERT_NIL(cache.set(held_status));
     synnax::task::Status free_status{
-        .key = synnax::task::status_key(free),
         .variant = synnax::status::VARIANT_SUCCESS,
-        .details = {.task = free.key},
+        .owner = synnax::task::resource_id(free.key),
     };
     ASSERT_NIL(cache.set(free_status));
     // Declared before the guard, so the guard releases the hung re-send before the
@@ -251,13 +251,12 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {
 /// @brief it should neither write nor keep a status of a task that left this Driver.
 TEST(StatusCacheTest, DropDiscardsLaterStatuses) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "released"};
-    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status late{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_ERROR,
         .message = "Failed to complete task operation",
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     cache.drop(task.key);
     ASSERT_NIL(cache.set(late));
@@ -268,38 +267,70 @@ TEST(StatusCacheTest, DropDiscardsLaterStatuses) {
 /// @brief it should write and keep the statuses of a task claimed again after a drop.
 TEST(StatusCacheTest, ClaimWritesStatusesAgain) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "returned"};
-    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status configured{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task configured",
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     cache.drop(task.key);
     cache.claim(task.key);
     ASSERT_NIL(cache.set(configured));
     ASSERT_NIL(cache.resend());
-    const auto key = synnax::task::status_key(task);
-    EXPECT_EQ(transport->sent(), (std::vector<std::vector<std::string>>{{key}, {key}}));
+    EXPECT_EQ(transport->sent().size(), 2);
+    EXPECT_EQ(transport->count(synnax::task::resource_id(task.key)), 2);
+}
+
+/// @brief it should keep one status per owner and send the latest one again.
+TEST(StatusCacheTest, ResendSendsLatestStatusOfOwner) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "task"};
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status first{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    synnax::task::Status second{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Started task",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    ASSERT_NIL(cache.set(first));
+    ASSERT_NIL(cache.set(second));
+    ASSERT_NIL(cache.resend());
+    const auto sent = transport->sent();
+    ASSERT_EQ(sent.size(), 3);
+    ASSERT_EQ(sent[2].size(), 1);
+    EXPECT_EQ(sent[2][0].message, "Started task");
+    EXPECT_TRUE(sent[2][0].key.empty());
+}
+
+/// @brief it should refuse a status that names no owner.
+TEST(StatusCacheTest, SetRequiresOwner) {
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status ownerless{.variant = synnax::status::VARIANT_SUCCESS};
+    EXPECT_THROW((void) cache.set(ownerless), std::bad_optional_access);
+    EXPECT_TRUE(transport->sent().empty());
 }
 
 /// @brief it should return the latest status of a task without its command key.
 TEST(StatusCacheTest, LatestReturnsTheLatestStatusWithNoCommandKey) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "failed"};
-    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status configured{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task configured",
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     synnax::task::Status failed{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_ERROR,
         .message = "Failed to configure task",
-        .details = {.task = task.key, .cmd = "start-cmd"},
+        .details = {.cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(task.key),
     };
     ASSERT_NIL(cache.set(configured));
     ASSERT_NIL(cache.set(failed));
@@ -312,13 +343,12 @@ TEST(StatusCacheTest, LatestReturnsTheLatestStatusWithNoCommandKey) {
 /// @brief it should return no status for a task that left this Driver or never had one.
 TEST(StatusCacheTest, LatestReturnsNothingForADroppedOrUnknownTask) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "released"};
-    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
     StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
     synnax::task::Status configured{
-        .key = synnax::task::status_key(task),
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task configured",
-        .details = {.task = task.key},
+        .owner = synnax::task::resource_id(task.key),
     };
     ASSERT_NIL(cache.set(configured));
     cache.drop(task.key);

@@ -47,7 +47,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			DB:       node.DB,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -55,8 +55,6 @@ var _ = Describe("Calculator", Ordered, func() {
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,

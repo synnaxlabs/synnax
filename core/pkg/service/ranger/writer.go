@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -18,19 +19,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create ranges within the DB.
+// Writer is used to create ranges within the DB. A Writer with no transaction runs each
+// Create in a transaction of its own.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	label      *label.Service
 	table      *gorp.Table[Key, Range]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -42,19 +41,31 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates or updates the given range. If r.Parent is non-nil, the range is
-// parented to that range via the parent-of relationship; only r.Parent.Key is consulted
-// on input — the parent's other fields are ignored and the parent must already exist
-// (it is not validated or written). On return, r.Parent is resolved to the parent's
-// stored fields (name, time range, color); the parent's own parent and labels are left
-// unset. If r.Parent is nil on update, the existing parent relationship is preserved;
-// on create it is left undefined. If r.Labels is non-empty, a LabeledBy relationship is
-// defined from the range to each label; existing relationships are preserved. If the
-// range does not already have a key, a new key will be assigned. If the range already
-// exists and r.Parent is non-nil, the existing parent relationship will be replaced.
-// After the transaction commits, Create broadcasts a create action that carries the
-// stored range, without its labels or parent.
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
+// Create creates or updates the given range, assigning a new key when it has none. A
+// create stores the labels r carries. An update keeps the stored labels, which change
+// only through AddLabels, ReplaceLabels, and RemoveLabels, and keeps the stored parent
+// when r has none. The parent and labels must exist, and the parent must not be the
+// range or one of its descendants. On return, r holds what was stored. After the
+// transaction commits, Create broadcasts a create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
+}
+
+func (w Writer) create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
@@ -64,83 +75,33 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	if err := w.validate(*r); err != nil {
 		return err
 	}
-	exists, err := w.table.
+	var stored Range
+	err := w.table.
 		NewRetrieve().
 		Where(gorp.MatchKeys[Key, Range](r.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Entry(&stored).
+		Exec(ctx, w.tx)
+	if err == nil {
+		r.Labels = stored.Labels
+		if r.Parent == nil {
+			r.Parent = stored.Parent
+		}
+	} else if !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	created := *r
-	created.Labels, created.Parent = nil, nil
 	w.dispatcher.NotifyOnCommit(
 		ctx,
 		w.tx,
 		r.Key,
-		NewCreateAction(CreatePayload{Range: created}),
+		NewCreateAction(CreatePayload{Range: *r}),
 	)
-	otgID := r.ResourceID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if len(r.Labels) > 0 {
-		labelKeys := lo.Map(r.Labels, func(l label.Label, _ int) label.Key {
-			return l.Key
-		})
-		if err = w.label.NewWriter(w.tx).Label(ctx, otgID, labelKeys); err != nil {
-			return err
-		}
-	}
-	if r.Parent == nil {
-		return nil
-	}
-	parent := r.Parent.ResourceID()
-	var relAlreadyExists bool
-	if exists {
-		if relAlreadyExists, err = w.otg.RelationshipExists(
-			ctx,
-			w.tx,
-			ontology.Relationship{
-				From: parent,
-				Type: ontology.RelationshipTypeParentOf,
-				To:   otgID,
-			},
-		); err != nil {
-			return err
-		}
-		if !relAlreadyExists {
-			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
-				ctx,
-				otgID,
-				ontology.RelationshipTypeParentOf,
-			); err != nil {
-				return err
-			}
-		}
-	}
-	if !relAlreadyExists {
-		if err = w.otgWriter.DefineRelationships(
-			ctx,
-			parent,
-			ontology.RelationshipTypeParentOf,
-			otgID,
-		); err != nil {
-			return err
-		}
-	}
-	return w.table.
-		NewRetrieve().
-		Where(gorp.MatchKeys[Key, Range](r.Parent.Key)).
-		Entry(r.Parent).
-		Exec(ctx, w.tx)
+	return w.otgWriter.DefineResources(ctx, r.ResourceID())
 }
 
-// CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
-// they will be updated. Each range's Parent field, if non-nil, is used to set its
-// parent relationship and is resolved to the parent's stored fields (see Create).
+// CreateMany calls Create for each range, in order.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	for i := range *ranges {
 		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
@@ -148,6 +109,59 @@ func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 		}
 	}
 	return nil
+}
+
+// AddLabels adds labels to the range with the given key. After the transaction
+// commits, AddLabels broadcasts the change as a set action. It returns
+// query.ErrNotFound if no range has the key.
+func (w Writer) AddLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.editLabels(ctx, key, func(stored []label.Key) []label.Key {
+		return lo.Union(stored, labels)
+	})
+}
+
+// ReplaceLabels makes labels the only labels of the range with the given key. After
+// the transaction commits, ReplaceLabels broadcasts the change as a set action. It
+// returns query.ErrNotFound if no range has the key.
+func (w Writer) ReplaceLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.editLabels(ctx, key, func([]label.Key) []label.Key {
+		return slices.Clone(labels)
+	})
+}
+
+// RemoveLabels removes labels from the range with the given key. After the transaction
+// commits, RemoveLabels broadcasts the change as a set action. It returns
+// query.ErrNotFound if no range has the key.
+func (w Writer) RemoveLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.editLabels(ctx, key, func(stored []label.Key) []label.Key {
+		return lo.Without(stored, labels...)
+	})
+}
+
+func (w Writer) editLabels(
+	ctx context.Context,
+	key Key,
+	edit func([]label.Key) []label.Key,
+) error {
+	var labels []label.Key
+	if err := w.table.
+		NewUpdate().
+		Where(gorp.MatchKeys[Key, Range](key)).
+		Change(func(_ gorp.Context, r Range) Range {
+			labels = edit(r.Labels)
+			r.Labels = labels
+			return r
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, labelsAction(labels))
+	return nil
+}
+
+// labelsAction returns the action that sets the labels of a range to labels.
+func labelsAction(labels []label.Key) Action {
+	return NewSetAction(SetPayload{Path: []string{"labels"}, Value: labels})
 }
 
 // apply applies the actions to the range with the given key and stores the result.
@@ -171,56 +185,19 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the ranges with the given keys. Delete also recursively removes every
-// descendant range (via the parent-of relationship). Delete is idempotent: missing keys
-// are silently ignored. The full subtree is collected in a single batched breadth-first
-// sweep over the ontology — one query per tree level rather than one per node — and the
-// underlying Gorp and ontology deletes are issued as bulk operations.
+// Delete deletes the ranges with the given keys, along with each range nested in them
+// and the aliases and key-value pairs of every deleted range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	toDelete := set.New(keys...)
-	frontier := keys
-	for len(frontier) > 0 {
-		var children []ontology.Resource
-		if err := w.otg.
-			NewRetrieve().
-			WhereIDs(ResourceIDs(frontier)...).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			ExcludeFieldData(true).
-			// The check for query.ErrNotFound is necessary because the range may
-			// already have been deleted, and delete is idempotent.
-			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		nextFrontier := make([]Key, 0, len(children))
-		for _, c := range children {
-			// Don't traverse into anything that's not a child range.
-			if c.ID.Type != resource.TypeRange {
-				continue
-			}
-			k, err := KeyFromResourceID(c.ID)
-			if err != nil {
-				return err
-			}
-			if toDelete.Contains(k) {
-				continue
-			}
-			toDelete.Add(k)
-			nextFrontier = append(nextFrontier, k)
-		}
-		frontier = nextFrontier
-	}
-	allKeys := toDelete.Slice()
 	if err := w.table.
 		NewDelete().
-		Where(gorp.MatchKeys[Key, Range](allKeys...)).
+		Where(gorp.MatchKeys[Key, Range](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(allKeys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }
 
 func (w Writer) validate(r Range) error {

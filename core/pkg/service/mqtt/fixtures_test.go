@@ -233,18 +233,29 @@ func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
 	return ch
 }
 
+// newTask stores and returns a task of taskType on rackKey. It skips task.Writer,
+// which writes a status of its own, so a spec sees only the statuses the factory
+// writes.
 func newTask(
+	ctx context.Context,
 	rackKey rack.Key,
 	taskType string,
 	cfg msgpack.EncodedJSON,
 ) task.Task {
-	return task.Task{
+	GinkgoHelper()
+	t := task.Task{
 		Key:    uuid.New(),
 		Name:   "mqtt-task",
 		Type:   taskType,
 		Rack:   rackKey,
 		Config: cfg,
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+	})
+	return t
 }
 
 // configure configures t with a start command key and stops the task at the end of
@@ -262,7 +273,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,
@@ -380,7 +391,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	var stat device.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.ResourceID().String())).
+			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, nil),
 		query.ErrNotFound,

@@ -70,15 +70,15 @@ bool server_answered(const x::errors::Error &err) {
 synnax::task::Status
 command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
     return {
-        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(task.key),
     };
 }
 }
@@ -164,12 +164,12 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Server connected",
         .time = ::x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key, .connected = true},
+        .details = {.rack = rack_key, .connected = true},
+        .owner = synnax::device::resource_id(dev.key),
     };
     if (parser.error()) {
         status.variant = synnax::status::VARIANT_WARNING;

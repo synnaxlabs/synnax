@@ -22,15 +22,7 @@ from x import filter
 
 Key: TypeAlias = int
 
-
-class StatusDetails(BaseModel):
-    """Contains rack-specific status details.
-
-    Attributes:
-        rack: Is the key of the rack this status pertains to.
-    """
-
-    rack: Key = Field(ge=0, le=4294967295)
+Status: TypeAlias = status_.Status
 
 
 class Where(BaseModel):
@@ -77,28 +69,6 @@ WhereInput = TypedDict(
     total=False,
 )
 
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
-class RetrieveRequest(BaseModel):
-    """Is a request to retrieve racks.
-
-    Attributes:
-        where: Selects the racks to retrieve. An absent where selects all of them.
-        search_term: Keeps the racks that match the term, closest match first.
-        limit: Is the most racks to return.
-        offset: Is the number of matching racks to skip.
-        include_status: Includes the status of each record.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    where: Where | None = None
-    search_term: str = ""
-    limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
-    include_status: bool = False
-
 
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
@@ -127,6 +97,26 @@ class Base(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve racks.
+
+    Attributes:
+        where: Selects the racks to retrieve. An absent where selects all of them.
+        search_term: Keeps the racks that match the term, closest match first.
+        limit: Is the most racks to return.
+        offset: Is the number of matching racks to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class Rack(Base):

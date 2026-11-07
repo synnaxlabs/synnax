@@ -18,13 +18,6 @@ import { status } from "@/status";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
-/** StatusDetails contains rack-specific status details. */
-export const statusDetailsZ = z.object({
-  /** rack is the key of the rack this status pertains to. */
-  rack: keyZ,
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
 /** Where is a filter that selects racks. */
 export type Where = {
   and?: Where[];
@@ -64,7 +57,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   hostIsNode: z.boolean().optional(),
 });
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
+export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
 /** RetrieveRequest is a request to retrieve racks. */

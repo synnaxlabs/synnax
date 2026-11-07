@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -39,11 +37,18 @@ func rangeAccessResourceIDs(ranges []Range) []resource.ID {
 	ids := make([]resource.ID, 0, len(ranges))
 	for _, r := range ranges {
 		ids = append(ids, r.ResourceID())
-		ids = append(ids, label.ResourceIDsFromLabels(r.Labels)...)
 		if r.Parent == nil {
 			continue
 		}
-		ids = append(ids, r.Parent.ResourceID())
+		ids = append(ids, ranger.ResourceID(*r.Parent))
+	}
+	return ids
+}
+
+func labelAccessResourceIDs(ranges []Range) []resource.ID {
+	var ids []resource.ID
+	for _, r := range ranges {
+		ids = append(ids, label.ResourceIDs(r.Labels)...)
 	}
 	return ids
 }
@@ -58,10 +63,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
 }
 
 var (
@@ -74,7 +75,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -83,14 +83,12 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("ranger", c.Ranger)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
 type Service struct {
 	access   *rbac.Service
 	internal *ranger.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -101,7 +99,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Ranger,
-		label:    cfg.Label,
 	}, nil
 }
 
@@ -125,7 +122,10 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: rangeAccessResourceIDs(req.Ranges),
+		Objects: append(
+			rangeAccessResourceIDs(req.Ranges),
+			labelAccessResourceIDs(req.Ranges)...,
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -170,35 +170,7 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.IncludeLabels {
-		for i, r := range res.Ranges {
-			labels, err := s.label.RetrieveFor(ctx, r.ResourceID(), nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Ranges[i].Labels = labels
-		}
-	}
-	if req.IncludeParent {
-		for i, r := range res.Ranges {
-			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Ranges[i].Parent = &ranger.Range{}
-			if err = s.
-				internal.
-				NewRetrieve().
-				Entry(res.Ranges[i].Parent).
-				Where(ranger.MatchKeys(parentKey)).
-				Exec(ctx, nil); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	}
+	// A range holds only the keys of its labels, so reading it needs no access to them.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

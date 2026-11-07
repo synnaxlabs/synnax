@@ -14,7 +14,6 @@ package task
 // must be the task the instance was built from, not a later revision.
 func NewStatusDetails(t Task, running bool) StatusDetails {
 	return StatusDetails{
-		Task:       t.Key,
 		Running:    running,
 		ConfigHash: t.ConfigHash,
 		Rack:       t.Rack,

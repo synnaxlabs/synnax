@@ -13,6 +13,7 @@ import { filter, id, type optional, telem, TimeStamp, zod } from "@synnaxlabs/x"
 import { z } from "zod";
 
 import { label } from "@/label";
+import { resource } from "@/resource";
 
 export const VARIANTS = [
   "success",
@@ -52,7 +53,8 @@ export type StatusZodObject<
   message: z.ZodString;
   description: z.ZodDefault<z.ZodString>;
   time: z.ZodDefault<typeof telem.timeStampZ>;
-  labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
+  labels: z.ZodDefault<z.ZodArray<typeof label.keyZ>>;
+  owner: z.ZodOptional<typeof resource.idZ>;
   details: [Details] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Details;
 }>;
 
@@ -84,7 +86,8 @@ export const statusZ: StatusZFunction = <
     description: z.string().default(""),
     time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
-    labels: zod.nullToUndefined(label.labelZ.array()),
+    labels: label.keyZ.array().default(() => []),
+    owner: resource.idZ.optional(),
   });
 export type Status<
   Details extends z.ZodType = z.ZodNever,
@@ -96,7 +99,8 @@ export type Status<
   message: string;
   description: string;
   time: telem.TimeStamp;
-  labels?: label.Label[];
+  labels: label.Key[];
+  owner?: resource.ID;
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 
 /** Where is a filter that selects statuses. */
@@ -107,6 +111,7 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   variant?: filter.Set<typeof variantZ>;
   labels?: label.Key[];
+  owners?: resource.ID[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -127,12 +132,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   variant: filter.setZ(variantZ).optional(),
   /** labels matches statuses that have any of the given labels. */
   labels: zod.nullToUndefined(label.keyZ.array()),
+  /** owners matches the statuses that the given resources own. */
+  owners: zod.nullToUndefined(resource.idZ.array()),
 });
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = Omit<
-  optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">,
+  optional.Optional<
+    Status<Details, V>,
+    "key" | "name" | "description" | "time" | "labels"
+  >,
   "details"
 > &
   ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });
@@ -156,7 +166,8 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
   /** offset is the number of matching statuses to skip. */
   offset: z.uint32().optional(),
-  /** includeLabels includes the labels of each record. */
-  includeLabels: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+export const resourceID = resource.createIDFactory<Key>("status");
+export const TYPE_RESOURCE_ID = resourceID("");

@@ -15,8 +15,8 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -80,6 +80,9 @@ func (StatusView) isViewVariant() {}
 func (s StatusView) Validate() error {
 	v := validate.New("StatusView")
 	v.Exec(s.Base.Validate)
+	if s.Where != nil {
+		v.Exec(func() error { return validate.PathedError(s.Where.Validate(), "where") })
+	}
 	return v.Error()
 }
 

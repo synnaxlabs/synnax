@@ -27,8 +27,6 @@ message RetrieveRequest {
   optional uint32 limit = 3;
   // offset is the number of matching statuses to skip.
   uint32 offset = 4;
-  // include_labels includes the labels of each record.
-  bool include_labels = 5;
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

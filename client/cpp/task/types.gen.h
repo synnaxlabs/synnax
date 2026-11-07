@@ -43,11 +43,36 @@ struct StartConfig;
 struct ScanConfig;
 struct RetrieveRequest;
 struct PersistConfig;
+struct RetrieveResponse;
 struct ReadConfig;
 struct WriteConfig;
-struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
+
+/// @brief StatusDetails contains task-specific status details including execution
+/// state.
+struct StatusDetails {
+    /// @brief running is true if the task is currently executing.
+    bool running = false;
+    /// @brief cmd is the last command executed on this task.
+    std::string cmd = "";
+    /// @brief config_hash is the hash of the config the running task instance was built
+    /// from. Empty when no instance exists.
+    std::string config_hash = "";
+    /// @brief rack is the key of the rack running the task instance.
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
+    /// @brief data contains task-specific status data.
+    std::optional<x::json::json::object_t> data;
+
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::task::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::task::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::task::pb::StatusDetails &pb);
+};
 
 /// @brief KeyedConfig is the base for every stored task configuration record.
 struct KeyedConfig {
@@ -126,33 +151,6 @@ using Scale = std::
 
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);
-
-/// @brief StatusDetails contains task-specific status details including execution
-/// state.
-struct StatusDetails {
-    /// @brief task is the key of the task this status pertains to.
-    Key task;
-    /// @brief running is true if the task is currently executing.
-    bool running = false;
-    /// @brief cmd is the last command executed on this task.
-    std::string cmd = "";
-    /// @brief config_hash is the hash of the config the running task instance was built
-    /// from. Empty when no instance exists.
-    std::string config_hash = "";
-    /// @brief rack is the key of the rack running the task instance.
-    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
-    /// @brief data contains task-specific status data.
-    std::optional<x::json::json::object_t> data;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::task::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::task::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::task::pb::StatusDetails &pb);
-};
 
 /// @brief Where is a filter that selects tasks.
 struct Where {
@@ -238,6 +236,8 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
+using Status = ::synnax::status::Status<StatusDetails>;
+
 /// @brief StartConfig carries the configuration fields shared by every task.
 struct StartConfig : public KeyedConfig {
     /// @brief auto_start is true when the task should start as soon as it is
@@ -258,8 +258,6 @@ struct ScanConfig : public KeyedConfig {
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
@@ -307,17 +305,6 @@ struct RetrieveRequest {
     from_proto(const ::api::task::pb::RetrieveRequest &pb);
 };
 
-/// @brief PersistConfig carries the configuration fields shared by tasks that write
-/// telemetry.
-struct PersistConfig : public StartConfig {
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    bool data_saving_disabled = false;
-
-    static PersistConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
 /// specific hardware operations such as reading sensor data, writing control signals,
 /// or scanning for devices.
@@ -357,6 +344,32 @@ struct Task {
     from_proto(const ::service::task::pb::Task &pb);
 };
 
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief tasks are the tasks the request selects.
+    std::vector<Task> tasks;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::task::pb::RetrieveResponse &pb);
+};
+
 /// @brief ReadConfig carries the configuration fields shared by hardware acquisition
 /// tasks.
 struct ReadConfig : public PersistConfig {
@@ -378,21 +391,6 @@ struct WriteConfig : public PersistConfig {
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief tasks are the tasks the request selects.
-    std::vector<Task> tasks;
-
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::task::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::api::task::pb::RetrieveResponse &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("task", "");

@@ -21,10 +21,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -42,13 +40,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology will be used to create relationships between ranges (parent-child) and
-	// with other resources within the Synnax cluster.
+	// Ontology serves ranges to ontology search and retrieval, and holds the ontology
+	// relationships that migrations move into range fields.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create the top level "Ranges" group that will be the default
-	// parent of all ranges.
+	// Group is used by a migration that folds legacy range groups into parent ranges.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -57,11 +54,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// Label is the label service used to attach, remove, and query labels related to
-	// changes.
-	//
-	// [REQUIRED]
-	Label *label.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -76,7 +68,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
@@ -87,7 +78,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -117,8 +107,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Ontology:        cfg.Ontology,
 			Group:           cfg.Group,
@@ -129,6 +121,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	// A label delete detaches the label from each range that holds it, which no range
+	// write does, so the service publishes the labels the range keeps.
+	detaches := s.table.ObserveDetaches()
+	disconnect := detaches.OnChange(func(ctx context.Context, r Range) {
+		s.state.Dispatcher().Notify(ctx, r.Key, labelsAction(r.Labels))
+	})
+	s.closer = append(s.closer, xio.CloserFunc(func() error {
+		disconnect()
+		return nil
+	}))
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -193,10 +195,9 @@ func (s *Service) Close() error { return s.closer.Close() }
 // execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology,
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		label:      s.cfg.Label,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -208,7 +209,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:    s.table.NewRetrieve(),
 		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
-		label:   s.cfg.Label,
 	}
 }
 
@@ -219,23 +219,19 @@ func (s *Service) RetrieveParentKey(
 	key Key,
 	tx gorp.Tx,
 ) (Key, error) {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	var resources []ontology.Resource
-	if err := s.cfg.Ontology.NewRetrieve().
-		WhereIDs(ResourceID(key)).
-		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(resource.TypeRange).
-		ExcludeFieldData(true).
-		Entries(&resources).
+	var r Range
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&r).
 		Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
-	if len(resources) == 0 {
+	if r.Parent == nil {
 		return uuid.Nil(), errors.Wrapf(
 			query.ErrNotFound,
 			"range %s has no parent",
 			key,
 		)
 	}
-	return KeyFromResourceID(resources[0].ID)
+	return *r.Parent, nil
 }

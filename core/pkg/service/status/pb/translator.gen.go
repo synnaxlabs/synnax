@@ -16,7 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
+	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
@@ -188,6 +188,13 @@ func WhereToPB(r status.Where) (*Where, error) {
 	if r.Labels != nil {
 		pb.Labels = &LabelKeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
+	if r.Owners != nil {
+		vals, err := resourcepb.IDSToPB(r.Owners)
+		if err != nil {
+			return nil, err
+		}
+		pb.Owners = &ResourceIdList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -248,6 +255,13 @@ func WhereFromPB(pb *Where) (status.Where, error) {
 			return status.Where{}, err
 		}
 		r.Labels = xpb.ListValues(vals)
+	}
+	if pb.Owners != nil {
+		vals, err := resourcepb.IDSFromPB(pb.Owners.Values)
+		if err != nil {
+			return status.Where{}, err
+		}
+		r.Owners = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -340,13 +354,14 @@ func StatusToPB[Details any](
 		Time:        int64(r.Time),
 		Details:     detailsAny,
 		Variant:     variantVal,
+		Labels:      lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
 	}
-	if r.Labels != nil {
-		vals, err := labelpb.LabelsToPB(r.Labels)
+	if r.Owner != nil {
+		var err error
+		pb.Owner, err = resourcepb.IDToPB(*r.Owner)
 		if err != nil {
 			return nil, err
 		}
-		pb.Labels = &LabelLabelList{Values: vals}
 	}
 	return pb, nil
 }
@@ -370,17 +385,31 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
+	r.Labels, err = func() ([]label.Key, error) {
+		result := make([]label.Key, len(pb.Labels))
+		for i, s := range pb.Labels {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = label.Key(parsed)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return status.Status[Details]{}, err
+	}
 	r.Key = pb.Key
 	r.Name = pb.Name
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
-	if pb.Labels != nil {
-		vals, err := labelpb.LabelsFromPB(pb.Labels.Values)
+	if pb.Owner != nil {
+		val, err := resourcepb.IDFromPB(pb.Owner)
 		if err != nil {
 			return status.Status[Details]{}, err
 		}
-		r.Labels = xpb.ListValues(vals)
+		r.Owner = &val
 	}
 	return r, nil
 }

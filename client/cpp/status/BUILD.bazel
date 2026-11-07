@@ -22,6 +22,7 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/label",
+        "//client/cpp/resource",
         "//core/pkg/api/status:status_grpc",
         "//core/pkg/service/status:status_grpc",
         "//core/pkg/transport/grpc:api_grpc",

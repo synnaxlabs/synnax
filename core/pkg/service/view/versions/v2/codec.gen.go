@@ -12,8 +12,8 @@
 package v2
 
 import (
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 )

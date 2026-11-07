@@ -26,19 +26,17 @@ Key: TypeAlias = str
 
 
 class StatusDetails(BaseModel):
-    """Contains device-specific status details identifying the device and its associated
-    rack.
+    """Contains device-specific status details, including the rack the device belongs
+    to.
 
     Attributes:
         rack: Is the key of the rack this device belongs to.
-        device: Is the device identifier.
         connected: Is true while the Driver confirms that it can reach the device. A
             device whose state is unknown is not connected.
         data: Contains device-specific status data.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    device: Key
     connected: bool = False
     data: dict[str, JsonValue] | None = None
 

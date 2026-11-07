@@ -51,16 +51,14 @@ func serviceConfig(
 		DB:       db,
 		Ontology: otg,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
-		Group:    groupSvc,
 		Ontology: otg,
-		Label:    labelSvc,
 	}))
 	return channel.ServiceConfig{
 		Channel:      node.Channel,

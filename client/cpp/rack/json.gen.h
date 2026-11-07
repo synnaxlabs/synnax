@@ -22,18 +22,6 @@
 
 namespace synnax::rack {
 
-inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
-    return StatusDetails{
-        .rack = parser.field<Key>("rack"),
-    };
-}
-
-inline x::json::json StatusDetails::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["rack"] = this->rack;
-    return j;
-}
-
 inline Rack Rack::parse(x::json::Parser parser) {
     return Rack{
         .key = parser.field<Key>("key"),

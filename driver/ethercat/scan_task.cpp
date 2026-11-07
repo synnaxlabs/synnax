@@ -212,10 +212,10 @@ synnax::device::Device Scanner::create_slave_device(
     dev.rack = rack_key;
     dev.properties = json_props;
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
+        .details = {.rack = rack_key, .connected = is_enabled},
+        .owner = synnax::device::resource_id(dev.key),
     };
     const auto live = std::ranges::find(
         health,
@@ -293,13 +293,13 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     const bool connected = props.enabled && (live == health.end() || !live->lost);
 
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = props.enabled ? synnax::status::VARIANT_SUCCESS
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
+        .details = {.rack = dev.rack, .connected = connected},
+        .owner = synnax::device::resource_id(dev.key),
     };
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
@@ -311,15 +311,15 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     TestInterfaceArgs args(parser);
 
     synnax::task::Status task_status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = this->task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = this->task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
 
     if (!parser.ok()) {

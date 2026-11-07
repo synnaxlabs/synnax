@@ -27,7 +27,6 @@ import (
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack:      uint32(r.Rack),
-		Device:    r.Device,
 		Connected: r.Connected,
 	}
 	if r.Data != nil {
@@ -47,7 +46,6 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 		return r, nil
 	}
 	r.Rack = rack.Key(pb.Rack)
-	r.Device = pb.Device
 	r.Connected = pb.Connected
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()

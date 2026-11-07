@@ -193,8 +193,7 @@ class TestRackClient:
         assert client.racks.retrieve(key=rack.key).status is None
         res = client.racks.retrieve(key=rack.key, include_status=True)
         assert res.status is not None
-        assert res.status.details is not None
-        assert res.status.details.rack == rack.key
+        assert res.status.owner == sy.rack.resource_id(rack.key)
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the matching racks."""

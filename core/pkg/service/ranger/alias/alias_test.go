@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Alias", Ordered, func() {
@@ -49,7 +51,7 @@ var _ = Describe("Alias", Ordered, func() {
 			DB:       node.DB,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -57,8 +59,6 @@ var _ = Describe("Alias", Ordered, func() {
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -72,7 +72,6 @@ var _ = Describe("Alias", Ordered, func() {
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
@@ -170,7 +169,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				a := MustSucceed(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()))
@@ -266,7 +265,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				resolved := MustSucceed(
@@ -298,7 +297,7 @@ var _ = Describe("Alias", Ordered, func() {
 						Start: telem.TimeStamp(7 * telem.Second),
 						End:   telem.TimeStamp(9 * telem.Second),
 					},
-					Parent: &parent,
+					Parent: &parent.Key,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 				Expect(
@@ -500,12 +499,39 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
-				Parent: &parent,
+				Parent: &parent.Key,
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			aliases := MustSucceed(aliasSvc.NewReader(tx).List(ctx, r.Key))
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})
+	})
+
+	Context("Range delete", func() {
+		It("Should delete the aliases of a deleted range", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).
+				To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It(
+			"Should reject an alias on a range that does not exist",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx)
+				tx := DeferClose(db.OpenTx())
+				missing := uuid.New()
+				err := aliasSvc.NewWriter(tx).Set(ctx, missing, ch.Key(), "Alias")
+				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+				Expect(err).To(MatchError(
+					"range: range " + missing.String() + " does not exist: validation error",
+				))
+			},
+		)
 	})
 
 	Context("Ontology", func() {

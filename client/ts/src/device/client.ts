@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  array,
-  type destructor,
-  filter,
-  primitive,
-  type record,
-  zod,
-} from "@synnaxlabs/x";
+import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -33,7 +26,6 @@ import {
 import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
-import { resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -137,24 +129,10 @@ export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
   ...device
 }: D): Omit<D, "status" | "parent"> => device;
 
-// Device statuses live in the status table under the "device:<key>" status
-// key, carrying the device key in their details.
-const affectedDeviceKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  if (event.variant === "set") {
-    const parsed = statusZ.safeParse(event.value);
-    return parsed.success ? [parsed.data.details.device] : null;
-  }
-  const [type, key] = event.key.split(":");
-  if (type !== "device" || !primitive.isNonZero(key)) return null;
-  return [key];
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
+  statuses: status.Client;
   ontology: ontology.Client;
 }
 
@@ -170,7 +148,10 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Omit<Device, "status">>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedDeviceKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "device");
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
@@ -318,7 +299,7 @@ export class Client extends query.Retriever<
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statusStore.stamp();
+    const since = this.cfg.statuses.store.stamp();
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -331,7 +312,7 @@ export class Client extends query.Retriever<
         ),
     });
     res.devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since });
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
@@ -392,7 +373,7 @@ export class Client extends query.Retriever<
 
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
-    const st = this.cfg.statusStore.get(statusKey(cached.key));
+    const st = this.cfg.statuses.ownedBy(resourceID(cached.key));
     if (st == null) return cached;
     const parsed = statusZ.safeParse(st);
     if (!parsed.success) return cached;
@@ -417,11 +398,11 @@ export class Client extends query.Retriever<
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const since = this.store.stamp();
-    const statusSince = this.cfg.statusStore.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
     const devices = await this.execRetrieve(req, schemas);
     this.store.ingest(devices.map(stripStatus), { since });
     devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
+      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
     });
     return devices;
   }
@@ -448,5 +429,3 @@ export class Client extends query.Retriever<
     return devices[0];
   }
 }
-
-export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

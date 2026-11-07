@@ -45,7 +45,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -53,8 +53,6 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,

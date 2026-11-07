@@ -18,7 +18,8 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from typing_extensions import TypeVar
 
-from synnax import label
+from synnax import label, resource
+from synnax.resource import ID
 from x import filter, telem
 from x.filter import shorthand
 
@@ -45,11 +46,12 @@ Key: TypeAlias = str
 class Status(BaseModel, Generic[Details]):
     """Is a standardized message used to communicate state across the Synnax platform.
     Statuses support different severity variants and can carry component-specific
-    details. A status is uniquely identified by a key and may carry a human-readable
-    name and labels for categorization and filtering.
+    details. A status is uniquely identified by a key, may name the resource that owns
+    it, and may carry a human-readable name and labels.
 
     Attributes:
-        key: Is a unique identifier for this status, auto-generated if not provided.
+        key: Is a unique identifier for this status. The Core assigns a UUID when a
+            status has no key and its owner holds no status.
         name: Is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         variant: Indicates the severity of the status. One of success, info, warning,
@@ -62,7 +64,9 @@ class Status(BaseModel, Generic[Details]):
             enough.
         time: Is the timestamp when the status was created.
         details: Contains optional component-specific custom details for the status.
-        labels: Contains optional labels for categorization and filtering.
+        labels: Are the keys of the labels attached to the status.
+        owner: Is the resource the status reports on, such as a task, device, or rack.
+            An owner holds at most one status. Empty for a status that no resource owns.
     """
 
     key: Key = Field(default_factory=lambda: str(uuid4()))
@@ -76,7 +80,8 @@ class Status(BaseModel, Generic[Details]):
         le=9223372036854775807,
     )
     details: Details | None = None
-    labels: list[label.Label] | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    owner: resource.ID | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -93,6 +98,7 @@ class Where(BaseModel):
         key: Selects by key.
         variant: Selects by variant.
         labels: Matches statuses that have any of the given labels.
+        owners: Matches the statuses that the given resources own.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -103,8 +109,9 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     variant: filter.Set[Variant] | None = None
     labels: list[label.Key] | None = None
+    owners: list[resource.ID] | None = None
 
-    @field_validator("labels", mode="before")
+    @field_validator("labels", "owners", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -121,6 +128,7 @@ WhereInput = TypedDict(
         "key": filter.SetInput[Key],
         "variant": filter.SetInput[Variant],
         "labels": label.Key | list[label.Key],
+        "owners": resource.ID | list[resource.ID],
     },
     total=False,
 )
@@ -144,7 +152,6 @@ class RetrieveRequest(BaseModel):
         search_term: Keeps the statuses that match the term, closest match first.
         limit: Is the most statuses to return.
         offset: Is the number of matching statuses to skip.
-        include_labels: Includes the labels of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -153,7 +160,13 @@ class RetrieveRequest(BaseModel):
     search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
-    include_labels: bool = False
 
 
 Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="status")
+
+
+def resource_id(key: Key) -> ID:
+    return ID(type="status", key=str(key))

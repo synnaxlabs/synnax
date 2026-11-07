@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <unordered_set>
+
 #include "client/cpp/resource/id.h"
 #include "client/cpp/resource/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
@@ -233,5 +235,12 @@ TEST(ResourceID, testProtoRoundTripBuiltinType) {
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
     EXPECT_EQ(parsed, original);
+}
+
+/// @brief it should find an ID in a hash set by an equal ID.
+TEST(ResourceID, testHash) {
+    const std::unordered_set<ID> ids{ID{.type = "task", .key = "a"}};
+    EXPECT_TRUE(ids.contains(ID{.type = "task", .key = "a"}));
+    EXPECT_FALSE(ids.contains(ID{.type = "rack", .key = "a"}));
 }
 }

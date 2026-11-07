@@ -43,7 +43,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
   configHash: CONFIG_HASH,
   status: createTaskStatus({
     details: {
-      task: "1",
       running: true,
       configHash: overrides.configHash ?? CONFIG_HASH,
       rack: overrides.rack ?? 2,

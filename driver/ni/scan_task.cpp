@@ -121,16 +121,12 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
-        .details = synnax::device::StatusDetails{
-            .rack = dev.rack,
-            .device = dev.key,
-            .connected = true,
-        }
+        .details = synnax::device::StatusDetails{.rack = dev.rack, .connected = true},
+        .owner = synnax::device::resource_id(dev.key),
     };
 
     // Chassis/link properties (non-fatal; missing = empty/false).

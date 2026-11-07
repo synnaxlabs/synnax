@@ -64,7 +64,7 @@ var _ = Describe("StatusHandler", func() {
 		handler *driver.StatusHandler
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		t = task.Task{
 			Key:        uuid.New(),
 			Name:       "handler-test",
@@ -72,20 +72,17 @@ var _ = Describe("StatusHandler", func() {
 			ConfigHash: "hash-1",
 			Rack:       7,
 		}
+		createTask(ctx, t)
 		handler = driver.NewStatusHandler(db, statusSvc, t)
 	})
 
-	// setUnreadable stores a status under the key of t whose details are not task
-	// details, so the handler fails to read it back and every write fails.
+	// setUnreadable stores a status owned by t whose details are not task details, so
+	// the handler fails to read it back and every write fails.
 	setUnreadable := func(ctx SpecContext) {
 		GinkgoHelper()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := statusSvc.NewWriter(tx)
-			if err := w.Delete(ctx, t.ResourceID().String()); err != nil {
-				return err
-			}
-			return w.Set(ctx, &status.Status[string]{
-				Key:     t.ResourceID().String(),
+			return statusSvc.NewWriter(tx).Set(ctx, &status.Status[string]{
+				Owner:   new(t.ResourceID()),
 				Name:    t.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantInfo,
@@ -96,16 +93,14 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return statusSvc.NewWriter(tx).Delete(ctx, t.ResourceID().String())
-		})).To(Succeed())
+		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
 		GinkgoHelper()
 		var stat task.Status
 		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).Exec(ctx, nil)).To(Succeed())
 		return stat
 	}
@@ -192,10 +187,10 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return statusSvc.NewWriter(tx).
-					Rename(ctx, t.ResourceID().String(), "renamed")
-			})).To(Succeed())
+			Expect(
+				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
+			).
+				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))
 		})
@@ -422,12 +417,12 @@ var _ = Describe("StatusHandler", func() {
 			// unreachable, without stopping the live instance.
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-					Key:     t.ResourceID().String(),
+					Owner:   new(t.ResourceID()),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantWarning,
 					Message: "Rack unreachable",
-					Details: task.StatusDetails{Task: t.Key, Running: false},
+					Details: task.StatusDetails{Running: false},
 				})
 			})).To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-4", true)).To(Succeed())
@@ -574,10 +569,9 @@ var _ = Describe("StatusHandler", func() {
 		It("should write no status at boot for a task that does not start",
 			func(ctx SpecContext) {
 				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
-				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						t.ResourceID().String(),
-					)).
+				Expect(statusSvc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](t.ResourceID())).
+					Entry(new(status.Status[any])).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)

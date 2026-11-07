@@ -20,18 +20,16 @@ import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 message StatusDetails {
   // rack is the key of the rack this device belongs to.
   uint32 rack = 1;
-  // device is the device identifier.
-  string device = 2;
   // connected is true while the Driver confirms that it can reach the device. A device
   // whose state is unknown is not connected.
-  bool connected = 3;
+  bool connected = 2;
   // data contains device-specific status data.
-  optional google.protobuf.Struct data = 4;
+  optional google.protobuf.Struct data = 3;
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.

@@ -182,7 +182,7 @@ var _ = Describe("UpdateTask", func() {
 		)
 		stored := retrieveTask(ctx, tsk.Key)
 		stat := task.Status{
-			Key:     stored.ResourceID().String(),
+			Owner:   new(stored.ResourceID()),
 			Name:    stored.Name,
 			Variant: status.VariantSuccess,
 			Message: "running",

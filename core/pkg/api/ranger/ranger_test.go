@@ -10,15 +10,18 @@
 package ranger_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
@@ -198,4 +201,63 @@ var _ = Describe("Create", func() {
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		},
 	)
+})
+
+var _ = Describe("Retrieve", func() {
+	authed := func(ctx SpecContext) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeRange},
+			resource.ID{Type: resource.TypeLabel},
+		)
+		return AuthedCtx(ctx, u)
+	}
+	keysOf := func(ranges []apiranger.Range) []ranger.Key {
+		return lo.Map(
+			ranges,
+			func(r apiranger.Range, _ int) ranger.Key { return r.Key },
+		)
+	}
+
+	It("Should retrieve the children of the given parents", func(ctx SpecContext) {
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "Burn",
+			TimeRange: telem.NewRangeSeconds(1, 2),
+			Parent:    &parent.Key,
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		createRange(ctx)
+		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+			Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+		}))
+		Expect(keysOf(res.Ranges)).To(Equal([]ranger.Key{child.Key}))
+		Expect(res.Ranges[0].Parent).To(HaveValue(Equal(parent.Key)))
+	})
+
+	It("Should retrieve the ranges that hold any of the labels", func(ctx SpecContext) {
+		a, b := label.Label{Name: "A"}, label.Label{Name: "B"}
+		Expect(svc.Label.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+		Expect(svc.Label.NewWriter(nil).Create(ctx, &b)).To(Succeed())
+		withA, withB := createRange(ctx), createRange(ctx)
+		createRange(ctx)
+		Expect(
+			svc.Ranger.NewWriter(nil).
+				AddLabels(ctx, withA.Key, []label.Key{a.Key}),
+		).
+			To(Succeed())
+		Expect(
+			svc.Ranger.NewWriter(nil).
+				AddLabels(ctx, withB.Key, []label.Key{b.Key}),
+		).
+			To(Succeed())
+		res := MustSucceed(apiSvc.Retrieve(authed(ctx), apiranger.RetrieveRequest{
+			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},
+		}))
+		Expect(keysOf(res.Ranges)).To(ConsistOf(withA.Key, withB.Key))
+	})
 })

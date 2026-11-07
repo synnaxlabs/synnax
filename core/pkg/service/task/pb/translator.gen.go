@@ -390,7 +390,6 @@ func StatusDetailsToPB(
 		Cmd:        r.Cmd,
 		ConfigHash: r.ConfigHash,
 		Rack:       uint32(r.Rack),
-		Task:       r.Task.String(),
 	}
 	if r.Data != nil {
 		var err error
@@ -410,11 +409,6 @@ func StatusDetailsFromPB(
 	var r task.StatusDetails
 	if pb == nil {
 		return r, nil
-	}
-	var err error
-	r.Task, err = uuid.Parse(pb.Task)
-	if err != nil {
-		return task.StatusDetails{}, err
 	}
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd

@@ -21,7 +21,6 @@ import {
   strings,
   sync,
   TimeSpan,
-  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -410,15 +409,13 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
-  private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
     const statusStore = statuses.store;
-    const statusesByTask = statusStore.index(
-      new query.LookupIndex<status.Key, status.Status>(statusTaskKey),
-    );
+    const affectedKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "task");
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -456,11 +453,12 @@ export class Client extends query.Retriever<
         statusStore.batch(() =>
           commands.forEach((changed) => {
             if (!LOADING_COMMANDS.includes(changed.type)) return;
-            const key = statusKey(changed.task);
-            // Commands reach every client, so one for a task this client neither
-            // tracks nor holds a status for is dropped.
-            if (store.get(changed.task) == null && statusStore.get(key) == null) return;
-            const optimistic = this.optimisticStatus(changed);
+            // Commands reach every client, and only the status the cache holds for the
+            // task has a known key, so a command for any other task shows nothing until
+            // the Driver answers.
+            const held = statuses.ownedBy(resourceID(changed.task));
+            if (held == null) return;
+            const optimistic = this.optimisticStatus(changed, held.key);
             statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
@@ -470,11 +468,10 @@ export class Client extends query.Retriever<
     // status, so the reply is matched on arrival rather than when the deadline fires.
     statusStore.subscribe((event) => {
       if (event.variant !== "set") return;
-      const task = statusTaskKey(event.value);
-      if (task == null) {
-        this.standInForDownRack(event.value);
-        return;
-      }
+      const { owner } = event.value;
+      if (owner?.type === "rack") this.standInForDownRack(event.value);
+      if (owner?.type !== "task") return;
+      const task = owner.key;
       const pending = this.commandDeadlines.get(task);
       if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
@@ -514,7 +511,6 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.statusesByTask = statusesByTask;
   }
 
   async create(task: New): Promise<Task>;
@@ -557,10 +553,13 @@ export class Client extends query.Retriever<
   }
 
   private dropLocal(keys: Key[]): destructor.Destructor[] {
+    const statuses = keys.flatMap(
+      (k) => this.cfg.statuses.ownedBy(resourceID(k))?.key ?? [],
+    );
     return [
       this.cfg.ontology.cache.deleteResources(resourceID(keys)),
       this.store.delete(keys),
-      this.cfg.statuses.store.delete(keys.map((k) => statusKey(k))),
+      this.cfg.statuses.store.delete(statuses),
     ];
   }
 
@@ -706,26 +705,23 @@ export class Client extends query.Retriever<
     return this.sugar({ ...payload, status: st });
   }
 
-  // Every domain's statuses share one store, so a rack's status sits beside its
-  // tasks' under the rack's resource ID.
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statuses.store.get(resource.idToString(rackResourceID(rack)));
+    const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
     if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
     return stat;
   }
 
   /**
-   * Builds the status shown while a command is in flight. A rack whose Driver is down
-   * answers nothing, so its warning stands in for a wait that would never end.
+   * Builds the status shown under key while a command is in flight. A rack whose Driver
+   * is down answers nothing, so its warning stands in for a wait that would never end.
    */
-  private optimisticStatus(cmd: Command): Status {
+  private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
     // optimistic status claim the task deployed with an empty config/rack.
     const latest = this.latestStatusOf(cmd.task);
-    const key = statusKey(cmd.task);
+    const owner = resourceID(cmd.task);
     const details = {
-      task: cmd.task,
       cmd: "",
       configHash: latest?.details.configHash ?? "",
       rack: latest?.details.rack ?? 0,
@@ -738,6 +734,7 @@ export class Client extends query.Retriever<
       return status.create<StatusDetailsZodObject>({
         key,
         name,
+        owner,
         variant: "loading",
         message: `Sending ${cmd.type} command`,
         details: { ...details, running: true },
@@ -745,6 +742,7 @@ export class Client extends query.Retriever<
     return status.create<StatusDetailsZodObject>({
       key,
       name,
+      owner,
       variant: "warning",
       message: down.message,
       description: down.description,
@@ -759,14 +757,13 @@ export class Client extends query.Retriever<
       const down = this.downRackStatus(this.store.get(task)?.rack);
       if (down?.key !== rackStatus.key) continue;
       // A batch stores a reply before it delivers the reply's event.
-      const answered = this.statusesByTask
-        .get(task)
-        .some(
-          (s) =>
-            s !== pending.optimistic && status.detailsOf(s)?.cmd === pending.cmd.key,
-        );
+      const held = this.cfg.statuses.ownedBy(resourceID(task));
+      const answered =
+        held != null &&
+        held !== pending.optimistic &&
+        status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
-      pending.optimistic = this.optimisticStatus(pending.cmd);
+      pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
       this.cfg.statuses.setLocal(pending.optimistic);
     }
   }
@@ -774,17 +771,19 @@ export class Client extends query.Retriever<
   // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statuses } = this.cfg;
-    const key = statusKey(cmd.task);
+    const owner = resourceID(cmd.task);
     clearTimeout(this.commandDeadlines.get(cmd.task)?.timer);
     // A reply disarms the deadline on arrival, so firing means nothing answered.
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
-      if (statuses.store.get(key) == null) return;
+      const held = statuses.ownedBy(owner);
+      if (held == null) return;
       if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
       statuses.setLocal(
         status.create<StatusDetailsZodObject>({
-          key,
+          key: held.key,
           name: optimistic.name,
+          owner,
           variant: "warning",
           message: `No response to the ${cmd.type} command`,
           description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
@@ -800,25 +799,10 @@ export class Client extends query.Retriever<
     this.commandDeadlines.set(cmd.task, { cmd, timer, optimistic });
   }
 
-  // A task's status may live under the "task:<key>" row or under any status whose
-  // details reference the task; the freshest wins, ties going to the more severe. Rows
-  // are parsed because the status table holds every domain's statuses generically.
+  // Parsed because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
-    const direct = this.cfg.statuses.store.get(statusKey(key));
-    const rows = this.statusesByTask.get(key);
-    // A task status names its task in details too, so the index usually holds it.
-    if (direct != null && !rows.includes(direct)) rows.push(direct);
-    const candidates = rows
-      .map((s) => defaultStatusZ.safeParse(s))
-      .filter((p) => p.success)
-      .map((p) => p.data);
-    if (candidates.length === 0) return undefined;
-    return candidates.reduce((latest, s) => {
-      const time = new TimeStamp(s.time);
-      const latestTime = new TimeStamp(latest.time);
-      if (!time.equals(latestTime)) return time.after(latestTime) ? s : latest;
-      return status.moreSevere(s.variant, latest.variant) ? s : latest;
-    });
+    const parsed = defaultStatusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
+    return parsed.success ? parsed.data : undefined;
   }
 
   private writeThrough(task: Task): void {
@@ -847,7 +831,7 @@ export class Client extends query.Retriever<
     const cached = "key" in q ? this.store.get(q.key) : undefined;
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
-    if (cached != null && this.cfg.statuses.store.has(statusKey(cached.key)))
+    if (cached != null && this.cfg.statuses.ownedBy(resourceID(cached.key)) != null)
       return this.compose(cached);
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
@@ -984,38 +968,6 @@ export class Client extends query.Retriever<
   }
 }
 
-/** @returns the key of the status that reports on the given task. */
-export const statusKey = (key: Key): string => resource.idToString(resourceID(key));
-
-/**
- * @returns the key of the task the status reports on, or null when it names none.
- * Guarded before the key parse: most statuses in the table belong to other domains,
- * and a failed zod parse costs orders of magnitude more than the miss is worth.
- */
-const statusTaskKey = (s: status.Status): Key | null => {
-  const task = status.detailsOf(s)?.task;
-  if (typeof task !== "string") return null;
-  return z.validate(keyZ, task) ? task : null;
-};
-
-/**
- * @returns the keys of the tasks a status change affects, or null when none. A status
- * names its task in `details.task`, with the "task:<key>" status key as a fallback.
- */
-export const affectedKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const keys: Key[] = [];
-  if (event.variant === "set") {
-    const task = statusTaskKey(event.value);
-    if (task != null) keys.push(task);
-  }
-  const [type, key] = event.key.split(":");
-  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
-    keys.push(key);
-  return keys.length === 0 ? null : keys;
-};
-
 interface ExecuteCommandInternalParams extends NewCommand {
   frameClient: framer.Client | null;
 }
@@ -1115,7 +1067,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw new Error("Task not created");
-  const rackStatusKeys = new Set(
+  const rackOwners = new Set(
     racks
       .filter((r) => primitive.isNonZero(r))
       .map((r) => resource.idToString(rackResourceID(r))),
@@ -1137,7 +1089,8 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
           const rackRes = rackStatusZ.safeParse(decoded);
           if (
             rackRes.success &&
-            rackStatusKeys.has(rackRes.data.key) &&
+            rackRes.data.owner != null &&
+            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
             !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
           )
             throw status.toError(rackRes.data);
