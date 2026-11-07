@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, errors, url } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { type Context, EOF, WebSocketClient } from "@/index";
@@ -45,7 +45,7 @@ const decodeTestError = (encoded: errors.Payload): errors.Typed | null => {
 errors.register({ encode: encodeTestError, decode: decodeTestError });
 
 describe("websocket", () => {
-  it("basic exchange", async () => {
+  test("basic exchange", async () => {
     const stream = await client.stream("stream/echo", messageSchema, messageSchema);
     for (let i = 0; i < 10; i++) {
       stream.send({ id: i, message: "hello" });
@@ -57,7 +57,7 @@ describe("websocket", () => {
     await expect(stream.receive()).rejects.toThrow(EOF);
   });
 
-  it("receive message after close", async () => {
+  test("receive message after close", async () => {
     const stream = await client.stream(
       "stream/sendMessageAfterClientClose",
       messageSchema,
@@ -70,7 +70,7 @@ describe("websocket", () => {
     await expect(stream.receive()).rejects.toThrow(EOF);
   });
 
-  it("receive error", async () => {
+  test("receive error", async () => {
     const stream = await client.stream(
       "stream/receiveAndExitWithErr",
       messageSchema,
@@ -81,7 +81,7 @@ describe("websocket", () => {
   });
 
   describe("middleware", () => {
-    it("receive middleware", async () => {
+    test("receive middleware", async () => {
       const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
       let c = 0;
       myClient.use(async (md, next): Promise<Context> => {
@@ -95,7 +95,7 @@ describe("websocket", () => {
       expect(c).toEqual(1);
     });
 
-    it("middleware error on server", async () => {
+    test("middleware error on server", async () => {
       const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
       await expect(
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),

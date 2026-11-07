@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { zod } from "@/zod";
@@ -307,7 +307,7 @@ describe("zod", () => {
     });
 
     describe("regression", () => {
-      it("reg 1", () => {
+      test("reg 1", () => {
         const names = ["one"];
         const schema = z
           .object({

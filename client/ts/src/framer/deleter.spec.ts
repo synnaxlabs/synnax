@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { UnauthorizedError } from "@/errors";
 import { NotFoundError } from "@/index";
@@ -22,7 +22,7 @@ import {
 const client = createTestClient();
 
 describe("Deleter", () => {
-  it("Client - basic delete", async () => {
+  test("Client - basic delete", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     await client.write(TimeStamp.seconds(5), {
@@ -37,7 +37,7 @@ describe("Deleter", () => {
     expect(deletedRes.data.length).toEqual(8);
     expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
-  it("Client - basic delete by name", async () => {
+  test("Client - basic delete by name", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     await client.write(TimeStamp.seconds(5), {
@@ -52,7 +52,7 @@ describe("Deleter", () => {
     expect(deletedRes.data.length).toEqual(8);
     expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
-  it("Client - delete key not found", async () => {
+  test("Client - delete key not found", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = randomSeries(10, dataCh.dataType);
     await client.write(TimeStamp.seconds(0), {
@@ -68,7 +68,7 @@ describe("Deleter", () => {
     expect(res.data).toEqual(data);
   });
 
-  it("Client - delete with writer", async () => {
+  test("Client - delete with writer", async () => {
     const [indexCh] = await newIndexedPair(client);
 
     const writer = await client.openWriter({
@@ -83,7 +83,7 @@ describe("Deleter", () => {
     await writer.close();
   });
 
-  it("Client - delete index channel alone", async () => {
+  test("Client - delete index channel alone", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const index = indexCh;
     const dat = dataCh;

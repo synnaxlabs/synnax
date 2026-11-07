@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { color } from "@/color";
 import { zod } from "@/zod";
 
 describe("color.Color", () => {
   describe("constructor", () => {
-    it("from hex", () => {
+    test("from hex", () => {
       const c = color.construct("#7a2c26");
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
     });
-    it("from hex with alpha", () => {
+    test("from hex with alpha", () => {
       const c = color.construct("#7a2c26", 0.5);
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
@@ -29,14 +29,14 @@ describe("color.Color", () => {
     });
 
     describe("from eight digit hex", () => {
-      it("case 1", () => {
+      test("case 1", () => {
         const c = color.construct("#7a2c26ff");
         expect(color.rValue(c)).toEqual(122);
         expect(color.gValue(c)).toEqual(44);
         expect(color.bValue(c)).toEqual(38);
         expect(color.aValue(c)).toBeCloseTo(1);
       });
-      it("case 2", () => {
+      test("case 2", () => {
         const c = color.construct("#7a2c2605");
         expect(color.rValue(c)).toEqual(122);
         expect(color.gValue(c)).toEqual(44);
@@ -45,27 +45,27 @@ describe("color.Color", () => {
       });
     });
 
-    it("from rgb", () => {
+    test("from rgb", () => {
       const c = color.construct([122, 44, 38]);
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
     });
-    it("from rgba", () => {
+    test("from rgba", () => {
       const c = color.construct([122, 44, 38, 0.5]);
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
       expect(color.aValue(c)).toBeCloseTo(0.5);
     });
-    it("from c", () => {
+    test("from c", () => {
       const c = color.construct(color.construct("#7a2c26"));
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
     });
 
-    it("from legacy object", () => {
+    test("from legacy object", () => {
       const c = color.construct({ rgba255: [122, 44, 38, 0.5] });
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
@@ -73,7 +73,7 @@ describe("color.Color", () => {
       expect(color.aValue(c)).toBeCloseTo(0.5);
     });
 
-    it("from rgba struct", () => {
+    test("from rgba struct", () => {
       const c = color.construct({ r: 255, g: 0, b: 0, a: 1 });
       expect(color.rValue(c)).toEqual(255);
       expect(color.gValue(c)).toEqual(0);
@@ -81,7 +81,7 @@ describe("color.Color", () => {
       expect(color.aValue(c)).toEqual(1);
     });
 
-    it("from rgba struct with alpha", () => {
+    test("from rgba struct with alpha", () => {
       const c = color.construct({ r: 122, g: 44, b: 38, a: 0.5 });
       expect(color.rValue(c)).toEqual(122);
       expect(color.gValue(c)).toEqual(44);
@@ -89,12 +89,12 @@ describe("color.Color", () => {
       expect(color.aValue(c)).toEqual(0.5);
     });
 
-    it("colorZ parses rgba struct", () => {
+    test("colorZ parses rgba struct", () => {
       const c = color.colorZ.parse({ r: 255, g: 0, b: 0, a: 1 });
       expect(c).toEqual([255, 0, 0, 1]);
     });
 
-    it("throws a ParseError for an invalid crude color", () => {
+    test("throws a ParseError for an invalid crude color", () => {
       expect(() => color.construct([300, 0, 0] as any)).toThrow(zod.ParseError);
       expect(() => color.construct([300, 0, 0] as any)).toThrow(
         /Failed to parse color/,
@@ -102,72 +102,72 @@ describe("color.Color", () => {
     });
 
     describe("legacy 0-255 alpha", () => {
-      it("from rgba with alpha 255", () => {
+      test("from rgba with alpha 255", () => {
         const c = color.construct([28, 28, 28, 255]);
         expect(c).toEqual([28, 28, 28, 1]);
       });
-      it("from rgba with mid-range alpha", () => {
+      test("from rgba with mid-range alpha", () => {
         const c = color.construct([255, 0, 0, 128]);
         expect(color.aValue(c)).toBeCloseTo(128 / 255);
       });
-      it("from rgba with alpha just above 1 clamps to opaque", () => {
+      test("from rgba with alpha just above 1 clamps to opaque", () => {
         const c = color.construct([255, 0, 0, 1.5]);
         expect(color.aValue(c)).toEqual(1);
       });
-      it("from rgba with alpha at the clamp boundary", () => {
+      test("from rgba with alpha at the clamp boundary", () => {
         const c = color.construct([255, 0, 0, 2]);
         expect(color.aValue(c)).toEqual(1);
       });
-      it("from rgba with alpha just above the clamp boundary divides", () => {
+      test("from rgba with alpha just above the clamp boundary divides", () => {
         const c = color.construct([255, 0, 0, 2.01]);
         expect(color.aValue(c)).toBeCloseTo(2.01 / 255);
       });
-      it("rejects an alpha above 255", () => {
+      test("rejects an alpha above 255", () => {
         expect(() => color.construct([255, 0, 0, 300])).toThrow(zod.ParseError);
         expect(() => color.construct({ r: 5, g: 5, b: 5, a: 300 })).toThrow(
           zod.ParseError,
         );
       });
-      it("from legacy object with alpha 255", () => {
+      test("from legacy object with alpha 255", () => {
         const c = color.construct({ rgba255: [5, 5, 5, 255] });
         expect(c).toEqual([5, 5, 5, 1]);
       });
-      it("from rgba struct with alpha 255", () => {
+      test("from rgba struct with alpha 255", () => {
         const c = color.construct({ r: 5, g: 5, b: 5, a: 255 });
         expect(c).toEqual([5, 5, 5, 1]);
       });
-      it("cssString renders a legacy alpha as opaque", () => {
+      test("cssString renders a legacy alpha as opaque", () => {
         expect(color.cssString([28, 28, 28, 255])).toEqual("rgba(28, 28, 28, 1)");
       });
-      it("isCrude accepts a legacy alpha", () => {
+      test("isCrude accepts a legacy alpha", () => {
         expect(color.isCrude([28, 28, 28, 255])).toBe(true);
       });
-      it("isColor still rejects a legacy alpha", () => {
+      test("isColor still rejects a legacy alpha", () => {
         expect(color.isColor([28, 28, 28, 255])).toBe(false);
       });
     });
   });
 
   describe("to hex", () => {
-    it("without alpha", () => {
+    test("without alpha", () => {
       const c = color.construct("#7a2c26");
       expect(color.hex(c)).toEqual("#7a2c26");
     });
-    it("with alpha", () => {
+    test("with alpha", () => {
       const c = color.construct("#7a2c26", 0.5);
       expect(color.hex(c)).toEqual("#7a2c2680");
     });
   });
 
   describe("to RGBA", () => {
-    it("with alpha", () => {
+    test("with alpha", () => {
       const c = color.construct("#7a2c26", 0.5);
       expect(c[0]).toEqual(122);
       expect(c[1]).toEqual(44);
       expect(c[2]).toEqual(38);
       expect(c[3]).toBeCloseTo(0.5);
     });
-    it("without alpha", () => {
+    test("without alpha", () => {
       const c = color.construct("#7a2c26");
       expect(c[0]).toEqual(122);
       expect(c[1]).toEqual(44);
@@ -177,14 +177,14 @@ describe("color.Color", () => {
   });
 
   describe("to RGBA1", () => {
-    it("with alpha", () => {
+    test("with alpha", () => {
       const c = color.construct("#7a2c26", 0.5);
       const expected = [122 / 255, 44 / 255, 38 / 255, 0.5];
       expected.forEach((v, i) => {
         expect(color.rgba1(c)[i]).toBeCloseTo(v);
       });
     });
-    it("without alpha", () => {
+    test("without alpha", () => {
       const c = color.construct("#7a2c26");
       const expected = [122 / 255, 44 / 255, 38 / 255, 1];
       expected.forEach((v, i) => {
@@ -199,7 +199,7 @@ describe("color.Color", () => {
       ["#ffffff", 1],
     ];
     tests.forEach(([hex, expected]) => {
-      it(hex, () => {
+      test(hex, () => {
         const c = color.construct(hex);
         expect(color.luminance(c)).toBeCloseTo(expected);
       });
@@ -214,13 +214,13 @@ describe("color.Color", () => {
       ["#ffffff", "#ffffff", 1],
     ];
     tests.forEach(([hex1, hex2, expected]) => {
-      it(`${hex1} ${hex2}`, () => {
+      test(`${hex1} ${hex2}`, () => {
         const c1 = color.construct(hex1);
         const c2 = color.construct(hex2);
         expect(color.contrast(c1, c2)).toBeCloseTo(expected);
       });
     });
-    it("pick c with highest contrast", () => {
+    test("pick c with highest contrast", () => {
       const c = color.construct("#000000");
       const c1 = color.construct("#ffffff");
       const c2 = color.construct("#0000ff");
@@ -229,37 +229,37 @@ describe("color.Color", () => {
   });
 
   describe("isDark", () => {
-    it("black is dark", () => {
+    test("black is dark", () => {
       expect(color.isDark("#000000")).toBe(true);
     });
 
-    it("white is not dark", () => {
+    test("white is not dark", () => {
       expect(color.isDark("#ffffff")).toBe(false);
     });
 
-    it("mid gray is not dark", () => {
+    test("mid gray is not dark", () => {
       expect(color.isDark("#808080")).toBe(true);
     });
 
-    it("dark red is dark", () => {
+    test("dark red is dark", () => {
       expect(color.isDark("#800000")).toBe(true);
     });
 
-    it("light blue is not dark", () => {
+    test("light blue is not dark", () => {
       expect(color.isDark("#add8e6")).toBe(false);
     });
 
-    it("handles RGB array input", () => {
+    test("handles RGB array input", () => {
       expect(color.isDark([0, 0, 0])).toBe(true);
       expect(color.isDark([255, 255, 255])).toBe(false);
     });
 
-    it("handles RGBA array input", () => {
+    test("handles RGBA array input", () => {
       expect(color.isDark([0, 0, 0, 0.5])).toBe(true);
       expect(color.isDark([255, 255, 255, 0.5])).toBe(false);
     });
 
-    it("handles Color object input", () => {
+    test("handles Color object input", () => {
       const darkColor = color.construct("#000000");
       const lightColor = color.construct("#ffffff");
       expect(color.isDark(darkColor)).toBe(true);
@@ -268,37 +268,37 @@ describe("color.Color", () => {
   });
 
   describe("isLight", () => {
-    it("white is light", () => {
+    test("white is light", () => {
       expect(color.isLight("#ffffff")).toBe(true);
     });
 
-    it("black is not light", () => {
+    test("black is not light", () => {
       expect(color.isLight("#000000")).toBe(false);
     });
 
-    it("mid gray is not light", () => {
+    test("mid gray is not light", () => {
       expect(color.isLight("#808080")).toBe(false);
     });
 
-    it("dark red is not light", () => {
+    test("dark red is not light", () => {
       expect(color.isLight("#800000")).toBe(false);
     });
 
-    it("light blue is light", () => {
+    test("light blue is light", () => {
       expect(color.isLight("#add8e6")).toBe(true);
     });
 
-    it("handles RGB array input", () => {
+    test("handles RGB array input", () => {
       expect(color.isLight([255, 255, 255])).toBe(true);
       expect(color.isLight([0, 0, 0])).toBe(false);
     });
 
-    it("handles RGBA array input", () => {
+    test("handles RGBA array input", () => {
       expect(color.isLight([255, 255, 255, 0.5])).toBe(true);
       expect(color.isLight([0, 0, 0, 0.5])).toBe(false);
     });
 
-    it("handles Color object input", () => {
+    test("handles Color object input", () => {
       const lightColor = color.construct("#ffffff");
       const darkColor = color.construct("#000000");
       expect(color.isLight(lightColor)).toBe(true);
@@ -319,7 +319,7 @@ describe("color.Color", () => {
       ["#d3c5c5", 0.945],
     ];
     tests.forEach(([hex, expected]) => {
-      it(hex, () => {
+      test(hex, () => {
         const c = color.construct(hex);
         expect(color.grayness(c)).toBeCloseTo(expected);
       });
@@ -343,25 +343,25 @@ describe("color.Color", () => {
     ];
 
     tests.forEach(([name, hsla, expected]) => {
-      it(name, () => {
+      test(name, () => {
         const result = color.fromHSLA(hsla);
         expect(result).toEqual(expected);
       });
     });
 
-    it("converts HSLA to RGBA", () => {
+    test("converts HSLA to RGBA", () => {
       const hsla: color.HSLA = [0, 100, 50, 1]; // Red in HSLA
       const expected: color.RGBA = [255, 0, 0, 1]; // Red in RGBA
       expect(color.fromHSLA(hsla)).toEqual(expected);
     });
 
-    it("handles hue wrapping properly", () => {
+    test("handles hue wrapping properly", () => {
       const hsla1: color.HSLA = [0, 100, 50, 1]; // 0 degrees = red
       const hsla2: color.HSLA = [360, 100, 50, 1]; // 360 degrees = red
       expect(color.fromHSLA(hsla1)).toEqual(color.fromHSLA(hsla2));
     });
 
-    it("handles zero saturation (grayscale)", () => {
+    test("handles zero saturation (grayscale)", () => {
       // For zero saturation, hue doesn't matter, only lightness
       const white: color.HSLA = [0, 0, 100, 1];
       const black: color.HSLA = [0, 0, 0, 1];
@@ -372,7 +372,7 @@ describe("color.Color", () => {
       expect(color.fromHSLA(gray)).toEqual([128, 128, 128, 1]);
     });
 
-    it("preserves alpha value", () => {
+    test("preserves alpha value", () => {
       const transparent: color.HSLA = [0, 100, 50, 0]; // Transparent red
       const semiTransparent: color.HSLA = [0, 100, 50, 0.5]; // Semi-transparent red
 
@@ -408,7 +408,7 @@ describe("color.Color", () => {
     ];
 
     tests.forEach(([name, rgba, expected]) => {
-      it(name, () => {
+      test(name, () => {
         const result = color.hsla(rgba);
         // Note: Due to potential rounding differences in conversion,
         // we use toBeCloseTo for HSL values with precision 0
@@ -418,7 +418,7 @@ describe("color.Color", () => {
       });
     });
 
-    it("handles hex color input", () => {
+    test("handles hex color input", () => {
       const hexColor = "#ff0000";
       const expected = [0, 100, 50, 1];
       const result = color.hsla(hexColor);
@@ -428,7 +428,7 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(expected[3]);
     });
 
-    it("handles RGB array input", () => {
+    test("handles RGB array input", () => {
       const rgbColor: color.RGB = [0, 255, 0];
       const expected = [120, 100, 50, 1];
       const result = color.hsla(rgbColor);
@@ -438,7 +438,7 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(1); // Default alpha
     });
 
-    it("preserves original color after round-trip conversion", () => {
+    test("preserves original color after round-trip conversion", () => {
       const originalColors: color.RGBA[] = [
         [255, 0, 0, 1], // Red
         [0, 255, 0, 1], // Green
@@ -461,7 +461,7 @@ describe("color.Color", () => {
       }
     });
 
-    it("handles achromatic colors correctly", () => {
+    test("handles achromatic colors correctly", () => {
       // For achromatic colors (black, white, gray),
       // hue is 0 and saturation is 0
       const gray: color.RGBA = [100, 100, 100, 1];
@@ -475,7 +475,7 @@ describe("color.Color", () => {
   });
 
   describe("setAlpha", () => {
-    it("sets alpha on RGB color", () => {
+    test("sets alpha on RGB color", () => {
       const rgb: color.RGB = [255, 0, 0];
       const result = color.setAlpha(rgb, 0.5);
 
@@ -485,7 +485,7 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(0.5);
     });
 
-    it("sets alpha on RGBA color", () => {
+    test("sets alpha on RGBA color", () => {
       const rgba: color.RGBA = [0, 255, 0, 1];
       const result = color.setAlpha(rgba, 0.3);
 
@@ -495,7 +495,7 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(0.3);
     });
 
-    it("sets alpha on hex color", () => {
+    test("sets alpha on hex color", () => {
       const hex = "#0000ff";
       const result = color.setAlpha(hex, 0.7);
 
@@ -505,7 +505,7 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(0.7);
     });
 
-    it("overrides existing alpha in RGBA color", () => {
+    test("overrides existing alpha in RGBA color", () => {
       const rgba: color.RGBA = [128, 128, 128, 0.2];
       const result = color.setAlpha(rgba, 0.8);
 
@@ -515,28 +515,28 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(0.8);
     });
 
-    it("handles alpha value of 0", () => {
+    test("handles alpha value of 0", () => {
       const color1 = color.construct("#ff0000");
       const result = color.setAlpha(color1, 0);
 
       expect(result[3]).toEqual(0);
     });
 
-    it("handles alpha value of 1", () => {
+    test("handles alpha value of 1", () => {
       const color1 = color.construct("#ff0000", 0.5);
       const result = color.setAlpha(color1, 1);
 
       expect(result[3]).toBeCloseTo(1);
     });
 
-    it("accepts alpha values in 0-1 range", () => {
+    test("accepts alpha values in 0-1 range", () => {
       const color1 = color.construct("#ff0000");
       const result = color.setAlpha(color1, 0.5);
 
       expect(result[3]).toBeCloseTo(0.5);
     });
 
-    it("preserves RGB values when setting alpha", () => {
+    test("preserves RGB values when setting alpha", () => {
       const originalColor: color.RGBA = [123, 45, 67, 0.8];
       const result = color.setAlpha(originalColor, 0.4);
 
@@ -545,7 +545,7 @@ describe("color.Color", () => {
       expect(result[2]).toEqual(67);
     });
 
-    it("return type is Color (RGBA format)", () => {
+    test("return type is Color (RGBA format)", () => {
       const hex = "#123456";
       const result = color.setAlpha(hex, 0.5);
 
@@ -556,188 +556,188 @@ describe("color.Color", () => {
   });
 
   describe("rgbaCSS", () => {
-    it("converts RGB array to CSS rgba string", () => {
+    test("converts RGB array to CSS rgba string", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.rgbaCSS(rgb)).toEqual("rgba(255, 0, 0, 1)");
     });
 
-    it("converts RGBA array to CSS rgba string", () => {
+    test("converts RGBA array to CSS rgba string", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.rgbaCSS(rgba)).toEqual("rgba(0, 255, 0, 0.5)");
     });
 
-    it("converts hex to CSS rgba string", () => {
+    test("converts hex to CSS rgba string", () => {
       const hex = "#0000ff";
       expect(color.rgbaCSS(hex)).toEqual("rgba(0, 0, 255, 1)");
     });
 
-    it("converts hex with alpha to CSS rgba string", () => {
+    test("converts hex with alpha to CSS rgba string", () => {
       const hex = "#ff000080";
       const result = color.rgbaCSS(hex);
       // Alpha 0x80 = 128/255 ≈ 0.502
       expect(result).toMatch(/rgba\(255, 0, 0, 0\.5\d*\)/);
     });
 
-    it("handles Color object", () => {
+    test("handles Color object", () => {
       const c = color.construct([128, 128, 128, 0.7]);
       expect(color.rgbaCSS(c)).toEqual("rgba(128, 128, 128, 0.7)");
     });
   });
 
   describe("rgbCSS", () => {
-    it("converts RGB array to CSS rgb string", () => {
+    test("converts RGB array to CSS rgb string", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.rgbCSS(rgb)).toEqual("rgb(255, 0, 0)");
     });
 
-    it("converts RGBA array to CSS rgb string (ignores alpha)", () => {
+    test("converts RGBA array to CSS rgb string (ignores alpha)", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.rgbCSS(rgba)).toEqual("rgb(0, 255, 0)");
     });
 
-    it("converts hex to CSS rgb string", () => {
+    test("converts hex to CSS rgb string", () => {
       const hex = "#0000ff";
       expect(color.rgbCSS(hex)).toEqual("rgb(0, 0, 255)");
     });
 
-    it("handles Color object", () => {
+    test("handles Color object", () => {
       const c = color.construct([128, 128, 128, 0.7]);
       expect(color.rgbCSS(c)).toEqual("rgb(128, 128, 128)");
     });
   });
 
   describe("rgbString", () => {
-    it("converts RGB array to comma-separated string", () => {
+    test("converts RGB array to comma-separated string", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.rgbString(rgb)).toEqual("255, 0, 0");
     });
 
-    it("converts RGBA array to comma-separated string (ignores alpha)", () => {
+    test("converts RGBA array to comma-separated string (ignores alpha)", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.rgbString(rgba)).toEqual("0, 255, 0");
     });
 
-    it("converts hex to comma-separated string", () => {
+    test("converts hex to comma-separated string", () => {
       const hex = "#0000ff";
       expect(color.rgbString(hex)).toEqual("0, 0, 255");
     });
 
-    it("handles Color object", () => {
+    test("handles Color object", () => {
       const c = color.construct([128, 128, 128, 0.7]);
       expect(color.rgbString(c)).toEqual("128, 128, 128");
     });
   });
 
   describe("rgbaString", () => {
-    it("carries the rgb channels and an opaque alpha", () => {
+    test("carries the rgb channels and an opaque alpha", () => {
       expect(color.rgbaString("#ff0000")).toEqual("255, 0, 0, 1");
     });
 
-    it("carries a translucent alpha", () => {
+    test("carries a translucent alpha", () => {
       expect(color.rgbaString([255, 0, 0, 0.5])).toEqual("255, 0, 0, 0.5");
     });
 
-    it("carries a fully transparent color", () => {
+    test("carries a fully transparent color", () => {
       expect(color.rgbaString(color.ZERO)).toEqual("0, 0, 0, 0");
     });
 
-    it("is undefined for no color", () => {
+    test("is undefined for no color", () => {
       expect(color.rgbaString(undefined)).toBeUndefined();
     });
   });
 
   describe("equals", () => {
-    it("same RGB values are equal", () => {
+    test("same RGB values are equal", () => {
       const c1: color.RGB = [255, 0, 0];
       const c2: color.RGB = [255, 0, 0];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
-    it("different RGB values are not equal", () => {
+    test("different RGB values are not equal", () => {
       const c1: color.RGB = [255, 0, 0];
       const c2: color.RGB = [0, 255, 0];
       expect(color.equals(c1, c2)).toBe(false);
     });
 
-    it("RGBA and RGB with default alpha are equal", () => {
+    test("RGBA and RGB with default alpha are equal", () => {
       const c1: color.RGB = [255, 0, 0];
       const c2: color.RGBA = [255, 0, 0, 1];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
-    it("different alpha values are not equal", () => {
+    test("different alpha values are not equal", () => {
       const c1: color.RGBA = [255, 0, 0, 1];
       const c2: color.RGBA = [255, 0, 0, 0.5];
       expect(color.equals(c1, c2)).toBe(false);
     });
 
-    it("hex and RGB with same values are equal", () => {
+    test("hex and RGB with same values are equal", () => {
       const c1 = "#ff0000";
       const c2: color.RGB = [255, 0, 0];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
-    it("eight-digit hex and RGBA with same values are equal", () => {
+    test("eight-digit hex and RGBA with same values are equal", () => {
       const c1 = "#ff000080";
       const c2: color.RGBA = [255, 0, 0, 128 / 255];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
-    it("comparing to undefined", () => {
+    test("comparing to undefined", () => {
       const c1: color.RGB = [255, 0, 0];
       expect(color.equals(c1, undefined)).toBe(false);
       expect(color.equals(undefined, c1)).toBe(false);
       expect(color.equals(undefined, undefined)).toBe(true);
     });
 
-    it("comparing color with itself returns true", () => {
+    test("comparing color with itself returns true", () => {
       const c = color.construct("#ff0000");
       expect(color.equals(c, c)).toBe(true);
     });
   });
 
   describe("cssString", () => {
-    it("returns undefined for undefined input", () => {
+    test("returns undefined for undefined input", () => {
       expect(color.cssString(undefined)).toBeUndefined();
     });
 
-    it("returns undefined for null input", () => {
+    test("returns undefined for null input", () => {
       expect(color.cssString(null as any)).toBeUndefined();
     });
 
-    it("converts RGB array to rgba CSS string", () => {
+    test("converts RGB array to rgba CSS string", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.cssString(rgb)).toEqual("rgba(255, 0, 0, 1)");
     });
 
-    it("converts RGBA array to rgba CSS string", () => {
+    test("converts RGBA array to rgba CSS string", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.cssString(rgba)).toEqual("rgba(0, 255, 0, 0.5)");
     });
 
-    it("converts hex to rgba CSS string", () => {
+    test("converts hex to rgba CSS string", () => {
       const hex = "#0000ff";
       expect(color.cssString(hex)).toEqual("rgba(0, 0, 255, 1)");
     });
 
-    it("returns CSS variables as-is", () => {
+    test("returns CSS variables as-is", () => {
       const cssVar = "var(--primary-color)";
       expect(color.cssString(cssVar)).toEqual(cssVar);
     });
 
-    it("handles eight-digit hex with alpha", () => {
+    test("handles eight-digit hex with alpha", () => {
       const hex = "#00ff0080";
       const result = color.cssString(hex);
       // Alpha 0x80 = 128/255 ≈ 0.502
       expect(result).toMatch(/rgba\(0, 255, 0, 0\.5\d*\)/);
     });
 
-    it("handles Color object", () => {
+    test("handles Color object", () => {
       const c = color.construct([128, 128, 128, 0.7]);
       expect(color.cssString(c)).toEqual("rgba(128, 128, 128, 0.7)");
     });
 
-    it("throws a ParseError for invalid color format", () => {
+    test("throws a ParseError for invalid color format", () => {
       expect(() => color.cssString({} as any)).toThrow(zod.ParseError);
       expect(() => color.cssString([1, 2] as any)).toThrow(zod.ParseError);
       expect(() => color.cssString([300, 0, 0] as any)).toThrow(zod.ParseError);
@@ -748,41 +748,41 @@ describe("color.Color", () => {
   });
 
   describe("isCrude", () => {
-    it("RGB array is a crude color", () => {
+    test("RGB array is a crude color", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.isCrude(rgb)).toBe(true);
     });
 
-    it("RGBA array is a crude color", () => {
+    test("RGBA array is a crude color", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.isCrude(rgba)).toBe(true);
     });
 
-    it("hex string is a crude color", () => {
+    test("hex string is a crude color", () => {
       expect(color.isCrude("#ff0000")).toBe(true);
     });
 
-    it("hex string with hash is a crude color", () => {
+    test("hex string with hash is a crude color", () => {
       expect(color.isCrude("#00ff00")).toBe(true);
     });
 
-    it("eight-digit hex is a crude color", () => {
+    test("eight-digit hex is a crude color", () => {
       expect(color.isCrude("#0000ff80")).toBe(true);
     });
 
-    it("Color object is a crude color", () => {
+    test("Color object is a crude color", () => {
       const c = color.construct("#ff0000");
       expect(color.isCrude(c)).toBe(true);
     });
 
-    it("rejects invalid hex strings", () => {
+    test("rejects invalid hex strings", () => {
       expect(color.isCrude("#xyz")).toBe(false);
       expect(color.isCrude("#12345")).toBe(false);
       expect(color.isCrude("#1234567")).toBe(false);
       expect(color.isCrude("#123456789")).toBe(false);
     });
 
-    it("rejects invalid RGB arrays", () => {
+    test("rejects invalid RGB arrays", () => {
       expect(color.isCrude([255])).toBe(false);
       expect(color.isCrude([255, 0])).toBe(false);
       expect(color.isCrude([255, 0, 0, 0.5, 1])).toBe(false);
@@ -790,16 +790,16 @@ describe("color.Color", () => {
       expect(color.isCrude([0, 256, 0])).toBe(false);
     });
 
-    it("rejects invalid RGBA arrays", () => {
+    test("rejects invalid RGBA arrays", () => {
       expect(color.isCrude([255, 0, 0, 256])).toBe(false);
       expect(color.isCrude([255, 0, 0, -0.1])).toBe(false);
     });
 
-    it("RGBA struct is a crude color", () => {
+    test("RGBA struct is a crude color", () => {
       expect(color.isCrude({ r: 255, g: 0, b: 0, a: 1 })).toBe(true);
     });
 
-    it("rejects non-color values", () => {
+    test("rejects non-color values", () => {
       expect(color.isCrude(null)).toBe(false);
       expect(color.isCrude(undefined)).toBe(false);
       expect(color.isCrude({})).toBe(false);
@@ -810,26 +810,26 @@ describe("color.Color", () => {
   });
 
   describe("isColor", () => {
-    it("valid RGBA array is a Color", () => {
+    test("valid RGBA array is a Color", () => {
       const rgba: color.RGBA = [0, 255, 0, 0.5];
       expect(color.isColor(rgba)).toBe(true);
     });
 
-    it("RGB array with 3 elements is not a Color", () => {
+    test("RGB array with 3 elements is not a Color", () => {
       const rgb: color.RGB = [255, 0, 0];
       expect(color.isColor(rgb)).toBe(false);
     });
 
-    it("constructed Color is a Color", () => {
+    test("constructed Color is a Color", () => {
       const c = color.construct("#ff0000");
       expect(color.isColor(c)).toBe(true);
     });
 
-    it("hex string is not a Color", () => {
+    test("hex string is not a Color", () => {
       expect(color.isColor("#ff0000")).toBe(false);
     });
 
-    it("rejects invalid RGBA arrays", () => {
+    test("rejects invalid RGBA arrays", () => {
       expect(color.isColor([255, 0, 0])).toBe(false); // Missing alpha
       expect(color.isColor([255, 0, 0, 0, 0])).toBe(false); // Too many elements
       expect(color.isColor([255, 0, -1, 1])).toBe(false); // Negative value
@@ -838,7 +838,7 @@ describe("color.Color", () => {
       expect(color.isColor([255, 0, 0, -0.1])).toBe(false); // Alpha < 0
     });
 
-    it("rejects non-array values", () => {
+    test("rejects non-array values", () => {
       expect(color.isColor(null)).toBe(false);
       expect(color.isColor(undefined)).toBe(false);
       expect(color.isColor({})).toBe(false);
@@ -846,14 +846,14 @@ describe("color.Color", () => {
       expect(color.isColor(123)).toBe(false);
     });
 
-    it("validates RGB values are within range", () => {
+    test("validates RGB values are within range", () => {
       expect(color.isColor([0, 0, 0, 0])).toBe(true);
       expect(color.isColor([255, 255, 255, 1])).toBe(true);
       expect(color.isColor([300, 0, 0, 1])).toBe(false);
       expect(color.isColor([0, -10, 0, 1])).toBe(false);
     });
 
-    it("validates alpha is within 0-1 range", () => {
+    test("validates alpha is within 0-1 range", () => {
       expect(color.isColor([0, 0, 0, 0])).toBe(true);
       expect(color.isColor([0, 0, 0, 1])).toBe(true);
       expect(color.isColor([0, 0, 0, 0.5])).toBe(true);
@@ -863,7 +863,7 @@ describe("color.Color", () => {
   });
 
   describe("fromCSS", () => {
-    it("parses hex colors", () => {
+    test("parses hex colors", () => {
       expect(color.fromCSS("#ff0000")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("#00ff00")).toEqual([0, 255, 0, 1]);
       expect(color.fromCSS("#0000ff")).toEqual([0, 0, 255, 1]);
@@ -872,29 +872,29 @@ describe("color.Color", () => {
       expect(color.fromCSS("#00f")).toEqual([0, 0, 255, 1]);
     });
 
-    it("parses rgb/rgba colors", () => {
+    test("parses rgb/rgba colors", () => {
       expect(color.fromCSS("rgb(255, 0, 0)")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("rgb(0, 255, 0)")).toEqual([0, 255, 0, 1]);
       expect(color.fromCSS("rgba(0, 0, 255, 0.5)")).toEqual([0, 0, 255, 0.5]);
       expect(color.fromCSS("rgba(128, 128, 128, 1)")).toEqual([128, 128, 128, 1]);
     });
 
-    it("parses four and eight digit hex with alpha", () => {
+    test("parses four and eight digit hex with alpha", () => {
       expect(color.fromCSS("#f008")).toEqual([255, 0, 0, 136 / 255]);
       expect(color.fromCSS("#ff000080")).toEqual([255, 0, 0, 128 / 255]);
     });
 
-    it("parses space syntax with a slash alpha", () => {
+    test("parses space syntax with a slash alpha", () => {
       expect(color.fromCSS("rgb(255 0 0 / 50%)")).toEqual([255, 0, 0, 0.5]);
       expect(color.fromCSS("rgb(100% 0% 0%)")).toEqual([255, 0, 0, 1]);
     });
 
-    it("parses hsl colors", () => {
+    test("parses hsl colors", () => {
       expect(color.fromCSS("hsl(0, 100%, 50%)")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("hsla(240 100% 50% / 0.25)")).toEqual([0, 0, 255, 0.25]);
     });
 
-    it("converts hsl hue units to degrees", () => {
+    test("converts hsl hue units to degrees", () => {
       const cyan = [0, 255, 255, 1];
       expect(color.fromCSS("hsl(180deg 100% 50%)")).toEqual(cyan);
       expect(color.fromCSS("hsl(0.5turn 100% 50%)")).toEqual(cyan);
@@ -903,19 +903,19 @@ describe("color.Color", () => {
       expect(color.fromCSS("hsl(1.8e2deg 100% 50%)")).toEqual(cyan);
     });
 
-    it("rejects an hsl hue with an unknown unit", () => {
+    test("rejects an hsl hue with an unknown unit", () => {
       expect(color.fromCSS("hsl(180px 100% 50%)")).toBeUndefined();
     });
 
-    it("rejects an hsl hue that overflows", () => {
+    test("rejects an hsl hue that overflows", () => {
       expect(color.fromCSS("hsl(1e999deg 100% 50%)")).toBeUndefined();
     });
 
-    it("clamps out of range channels", () => {
+    test("clamps out of range channels", () => {
       expect(color.fromCSS("rgb(300, -5, 0, 2)")).toEqual([255, 0, 0, 1]);
     });
 
-    it("parses named colors", () => {
+    test("parses named colors", () => {
       expect(color.fromCSS("red")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("green")).toEqual([0, 128, 0, 1]);
       expect(color.fromCSS("blue")).toEqual([0, 0, 255, 1]);
@@ -923,13 +923,13 @@ describe("color.Color", () => {
       expect(color.fromCSS("white")).toEqual([255, 255, 255, 1]);
     });
 
-    it("handles case insensitive input", () => {
+    test("handles case insensitive input", () => {
       expect(color.fromCSS("RED")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("Green")).toEqual([0, 128, 0, 1]);
       expect(color.fromCSS("BLUE")).toEqual([0, 0, 255, 1]);
     });
 
-    it("returns undefined for invalid input", () => {
+    test("returns undefined for invalid input", () => {
       expect(color.fromCSS("")).toBeUndefined();
       expect(color.fromCSS("none")).toBeUndefined();
       expect(color.fromCSS("transparent")).toBeUndefined();
@@ -942,73 +942,73 @@ describe("color.Color", () => {
   });
 
   describe("hsva", () => {
-    it("converts primary colors", () => {
+    test("converts primary colors", () => {
       expect(color.hsva("#ff0000")).toEqual([0, 100, 100, 1]);
       expect(color.hsva("#00ff00")).toEqual([120, 100, 100, 1]);
       expect(color.hsva("#0000ff")).toEqual([240, 100, 100, 1]);
     });
 
-    it("converts achromatic colors to zero hue and saturation", () => {
+    test("converts achromatic colors to zero hue and saturation", () => {
       expect(color.hsva("#000000")).toEqual([0, 0, 0, 1]);
       expect(color.hsva("#ffffff")).toEqual([0, 0, 100, 1]);
     });
 
-    it("keeps the alpha", () => {
+    test("keeps the alpha", () => {
       expect(color.hsva([255, 0, 0, 0.5])[3]).toEqual(0.5);
     });
   });
 
   describe("fromHSVA", () => {
-    it("converts primary colors", () => {
+    test("converts primary colors", () => {
       expect(color.fromHSVA([0, 100, 100, 1])).toEqual([255, 0, 0, 1]);
       expect(color.fromHSVA([120, 100, 100, 1])).toEqual([0, 255, 0, 1]);
       expect(color.fromHSVA([240, 100, 100, 0.5])).toEqual([0, 0, 255, 0.5]);
     });
 
-    it("treats a hue of 360 as 0", () => {
+    test("treats a hue of 360 as 0", () => {
       expect(color.fromHSVA([360, 100, 100, 1])).toEqual([255, 0, 0, 1]);
     });
 
-    it("round trips every hex color it produces", () => {
+    test("round trips every hex color it produces", () => {
       ["#3e8bff", "#dc136c", "#7ac74f", "#808080", "#010203"].forEach((hex) =>
         expect(color.hex(color.fromHSVA(color.hsva(hex)))).toEqual(hex),
       );
     });
 
-    it("throws on an out of range value", () => {
+    test("throws on an out of range value", () => {
       expect(() => color.fromHSVA([0, 101, 0, 1])).toThrow();
     });
   });
 
   describe("isZero", () => {
-    it("returns true for zero color", () => {
+    test("returns true for zero color", () => {
       expect(color.isZero([0, 0, 0, 0])).toBe(true);
     });
 
-    it("returns false for non-zero RGB values", () => {
+    test("returns false for non-zero RGB values", () => {
       expect(color.isZero([1, 0, 0, 0])).toBe(false);
       expect(color.isZero([0, 1, 0, 0])).toBe(false);
       expect(color.isZero([0, 0, 1, 0])).toBe(false);
     });
 
-    it("returns false for non-zero alpha", () => {
+    test("returns false for non-zero alpha", () => {
       expect(color.isZero([0, 0, 0, 0.1])).toBe(false);
       expect(color.isZero([0, 0, 0, 1])).toBe(false);
     });
 
-    it("returns false for undefined input", () => {
+    test("returns false for undefined input", () => {
       expect(color.isZero(undefined)).toBe(false);
     });
 
-    it("returns false for null input", () => {
+    test("returns false for null input", () => {
       expect(color.isZero(null as any)).toBe(false);
     });
 
-    it("returns false for hex color", () => {
+    test("returns false for hex color", () => {
       expect(color.isZero("#000000")).toBe(false);
     });
 
-    it("returns false for constructed color", () => {
+    test("returns false for constructed color", () => {
       expect(color.isZero(color.construct("#000000"))).toBe(false);
     });
   });

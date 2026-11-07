@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { table } from "@/table";
 
 describe("table action wire decode", () => {
-  it("preserves cell keys through the set-channel schema", () => {
+  test("preserves cell keys through the set-channel schema", () => {
     const wire = {
       key: "c211c9f3-0b3c-4f5a-9185-e9cabc09a091",
       dispatch_key: "abc",

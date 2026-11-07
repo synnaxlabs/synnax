@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
@@ -25,7 +25,7 @@ const client = createTestClient();
 
 describe("Writer", () => {
   describe("Writer", () => {
-    it("basic write", async () => {
+    test("basic write", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(1);
       const writer = await client.openWriter({ start, channels });
@@ -42,7 +42,7 @@ describe("Writer", () => {
       expect(true).toBe(true);
     });
 
-    it("write without a start", async () => {
+    test("write without a start", async () => {
       const [index, data] = await newIndexedPair(client);
       const writer = await client.openWriter({ channels: [index, data] });
       try {
@@ -65,7 +65,7 @@ describe("Writer", () => {
       expect(cfg).not.toHaveProperty("start");
     });
 
-    it("bool write and read round-trip", async () => {
+    test("bool write and read round-trip", async () => {
       const [index, boolCh] = await newIndexedBoolPair(client);
       const samples = [true, false, true, true, false, false, false, true, true];
       const start = TimeStamp.seconds(1);
@@ -87,7 +87,7 @@ describe("Writer", () => {
       expect(Array.from(fr.series[0])).toEqual(samples);
     });
 
-    it("write to unknown channel key", async () => {
+    test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({ start: TimeStamp.now(), channels });
       const write = writer.write(
@@ -126,7 +126,7 @@ describe("Writer", () => {
       expect(v).toEqual(123);
     });
 
-    it("write with auto commit on", async () => {
+    test("write with auto commit on", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
@@ -150,7 +150,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
-    it("write with auto commit and alwaysPersist", async () => {
+    test("write with auto commit and alwaysPersist", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
@@ -169,7 +169,7 @@ describe("Writer", () => {
       expect(true).toBe(true);
     });
 
-    it("auto-index generates server-side timestamps for data-only writes", async () => {
+    test("auto-index generates server-side timestamps for data-only writes", async () => {
       const [index, data] = await newIndexedPair(client);
       const before = TimeStamp.now();
       const writer = await client.openWriter({
@@ -190,7 +190,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(5);
     });
 
-    it("auto-index mixes user-provided and generated timestamps in one writer", async () => {
+    test("auto-index mixes user-provided and generated timestamps in one writer", async () => {
       const [index, data] = await newIndexedPair(client);
       const userStamps = secondsLinspace(200, 2);
       const beforeAuto = TimeStamp.now();
@@ -221,7 +221,7 @@ describe("Writer", () => {
       expect(autoF.length).toEqual(3);
     });
 
-    it("auto-index leaves user-provided index data untouched", async () => {
+    test("auto-index leaves user-provided index data untouched", async () => {
       const [index, data] = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(200),
@@ -246,7 +246,7 @@ describe("Writer", () => {
       );
     });
 
-    it("write with auto commit and a set interval", async () => {
+    test("write with auto commit and a set interval", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
@@ -265,7 +265,7 @@ describe("Writer", () => {
       expect(true).toBe(true);
     });
 
-    it("write with auto-commit off and incorrect data length validation error", async () => {
+    test("write with auto-commit off and incorrect data length validation error", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
@@ -281,7 +281,7 @@ describe("Writer", () => {
       }).rejects.toThrow(ValidationError);
     });
 
-    it("write with out of order timestamp", async () => {
+    test("write with out of order timestamp", async () => {
       const indexCh = await client.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -313,7 +313,7 @@ describe("Writer", () => {
       }).rejects.toThrow(ValidationError);
     });
 
-    it("write with errOnUnauthorized", async () => {
+    test("write with errOnUnauthorized", async () => {
       const channels = await newIndexedPair(client);
       const w1 = await client.openWriter({
         start: new TimeStamp(TimeSpan.milliseconds(500)),
@@ -330,7 +330,7 @@ describe("Writer", () => {
       await w1.close();
     });
 
-    it("setAuthority", async () => {
+    test("setAuthority", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);
       const w1 = await client.openWriter({
@@ -362,7 +362,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
-    it("setAuthority naming only the data channel", async () => {
+    test("setAuthority naming only the data channel", async () => {
       // Covering the index is the server's job: a data sample cannot be
       // written without its timestamp.
       const channels = await newIndexedPair(client);
@@ -396,7 +396,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
-    it("setAuthority naming only the data channel by name", async () => {
+    test("setAuthority naming only the data channel by name", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);
       const w1 = await client.openWriter({
@@ -428,7 +428,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
-    it("setAuthority with name keys", async () => {
+    test("setAuthority with name keys", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);
       const w1 = await client.openWriter({
@@ -462,7 +462,7 @@ describe("Writer", () => {
   });
 
   describe("Variable Channels", () => {
-    it("write and read string data", async () => {
+    test("write and read string data", async () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
@@ -495,7 +495,7 @@ describe("Writer", () => {
       expect(f.toStrings()).toEqual(["hello", "world", "foo"]);
     });
 
-    it("write and read JSON data", async () => {
+    test("write and read JSON data", async () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
@@ -528,7 +528,7 @@ describe("Writer", () => {
       expect(f.length).toEqual(2);
     });
 
-    it("write mixed fixed and variable channels", async () => {
+    test("write mixed fixed and variable channels", async () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
@@ -570,7 +570,7 @@ describe("Writer", () => {
       expect(strData.toStrings()).toEqual(["a", "b", "c"]);
     });
 
-    it("write strings with embedded newlines", async () => {
+    test("write strings with embedded newlines", async () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,

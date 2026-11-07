@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { binary } from "@/binary";
@@ -43,10 +43,10 @@ describe("primitive", () => {
       { value: new ExampleStringer("cat"), expected: false },
     ];
     SPECS.forEach(({ value, expected }) => {
-      it(`isZero should return ${expected} for ${toString(value)}`, () => {
+      test(`isZero should return ${expected} for ${toString(value)}`, () => {
         expect(primitive.isZero(value)).toEqual(expected);
       });
-      it(`isNonZero should return ${!expected} for ${toString(value)}`, () => {
+      test(`isNonZero should return ${!expected} for ${toString(value)}`, () => {
         expect(primitive.isNonZero(value)).toEqual(!expected);
       });
     });

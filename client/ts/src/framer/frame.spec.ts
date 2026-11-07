@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeRange } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";
 
@@ -26,7 +26,7 @@ const createMany = (tr: TimeRange): framer.Frame => {
 describe("framer.Frame", () => {
   describe("construction", () => {
     describe("valid", () => {
-      it("from an array of channel names and an array of arrays", () => {
+      test("from an array of channel names and an array of arrays", () => {
         const f = new framer.Frame(
           ["a", "b", "c"],
           [
@@ -39,7 +39,7 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("name");
       });
 
-      it("from an array of channel keys and an array of arrays", () => {
+      test("from an array of channel keys and an array of arrays", () => {
         const f = new framer.Frame(
           [12, 13, 14],
           [
@@ -52,7 +52,7 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("key");
       });
 
-      it("from a single name and an array of arrays", () => {
+      test("from a single name and an array of arrays", () => {
         const f = new framer.Frame("a", [
           new Series({ data: new Float32Array([1, 2, 3]) }),
         ]);
@@ -60,7 +60,7 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("name");
       });
 
-      it("from a single key and an array of arrays", () => {
+      test("from a single key and an array of arrays", () => {
         const f = new framer.Frame(12, [
           new Series({ data: new Float32Array([1, 2, 3]) }),
         ]);
@@ -68,7 +68,7 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("key");
       });
 
-      it("from a single key and a single array", () => {
+      test("from a single key and a single array", () => {
         const f = new framer.Frame(
           12,
           new Series({ data: new Float32Array([1, 2, 3]) }),
@@ -77,7 +77,7 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("key");
       });
 
-      it("from a single name and a single array", () => {
+      test("from a single name and a single array", () => {
         const f = new framer.Frame(
           "a",
           new Series({ data: new Float32Array([1, 2, 3]) }),
@@ -108,7 +108,7 @@ describe("framer.Frame", () => {
         });
       });
 
-      it("from record", () => {
+      test("from record", () => {
         const f = new framer.Frame({
           a: new Series({ data: new Float32Array([1, 2, 3]) }),
         });
@@ -117,7 +117,7 @@ describe("framer.Frame", () => {
         expect(f.series.length).toEqual(1);
       });
 
-      it("from map", () => {
+      test("from map", () => {
         const f = new framer.Frame(
           new Map([[12, new Series({ data: new Float32Array([1, 2, 3]) })]]),
         );
@@ -128,7 +128,7 @@ describe("framer.Frame", () => {
     });
 
     describe("invalid", () => {
-      it("mismatched lengths", () => {
+      test("mismatched lengths", () => {
         expect(
           () =>
             new framer.Frame(

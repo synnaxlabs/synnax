@@ -20,7 +20,6 @@
     "@eslint-react/eslint-plugin": "catalog:",
     "@eslint/js": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
-    "@vitest/eslint-plugin": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "eslint-plugin-jsdoc": "catalog:",
     "eslint-plugin-react-hooks": "catalog:",

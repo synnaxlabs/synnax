@@ -10,7 +10,6 @@
 import pluginJs from "@eslint/js";
 import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
-import vitest from "@vitest/eslint-plugin";
 import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
 import jsdoc from "eslint-plugin-jsdoc";
@@ -325,13 +324,6 @@ const config: Linter.Config[] = [
         "error",
         ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
       ],
-    },
-  },
-  {
-    files: ["**/*.spec.ts", "**/*.spec.tsx"],
-    plugins: { vitest },
-    rules: {
-      "vitest/consistent-test-it": ["error", { fn: "it", withinDescribe: "it" }],
     },
   },
   {

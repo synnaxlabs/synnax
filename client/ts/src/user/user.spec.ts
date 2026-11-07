@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -52,36 +52,36 @@ const expectUsers = (users: user.User[], created: user.New[]) =>
 describe("User", () => {
   describe("Create", () => {
     describe("One", () => {
-      it("with a name", async () => {
+      test("with a name", async () => {
         const res = await client.users.create(userOne);
         expect(res.key).not.toEqual("");
         expect(res.name).toEqual(userOne.name);
         userOne.key = res.key;
       });
-      it("with no name", async () => {
+      test("with no name", async () => {
         const res = await client.users.create(userTwo);
         expect(res.key).not.toEqual("");
         userTwo.key = res.key;
         expect(res.name).toEqual(userTwo.username);
       });
-      it("Repeated username", async () =>
+      test("Repeated username", async () =>
         await expect(
           client.users.create({ username: userOne.username, password: "test" }),
         ).rejects.toThrow(AuthError));
     });
     describe("Many", () => {
-      it("array empty", async () => {
+      test("array empty", async () => {
         const res = await client.users.create([]);
         expect(res).toHaveLength(0);
       });
-      it("array is one", async () => {
+      test("array is one", async () => {
         const res = await client.users.create([userThree]);
         expect(res).toHaveLength(1);
         expect(res[0].key).not.toEqual("");
         userThree.key = res[0].key;
         expect(res[0].name).toEqual(userThree.name);
       });
-      it("array not empty", async () => {
+      test("array not empty", async () => {
         const res = await client.users.create(userArray);
         expect(res).toHaveLength(2);
         userArray.forEach((u, i) => {
@@ -90,14 +90,14 @@ describe("User", () => {
           expect(res[i].name).toEqual(u.name ?? u.username);
         });
       });
-      it("Repeated username", async () =>
+      test("Repeated username", async () =>
         await expect(
           client.users.create([
             { username: userOne.username, password: "test" },
             { username: userTwo.username, password: "test" },
           ]),
         ).rejects.toThrow(AuthError));
-      it("Repeated key", async () =>
+      test("Repeated key", async () =>
         await expect(
           client.users.create({
             key: userOne.key,
@@ -110,31 +110,31 @@ describe("User", () => {
   describe("Retrieve", () => {
     describe("by name", () => {
       describe("one", () => {
-        it("found", async () => {
+        test("found", async () => {
           const res = await client.users.retrieve({ username: userOne.username });
           expect(res.key).toEqual(userOne.key);
           expect(res.name).toEqual(userOne.name);
         });
-        it("not found", async () =>
+        test("not found", async () =>
           await expect(
             client.users.retrieve({ username: id.create() }),
           ).rejects.toThrow(NotFoundError));
       });
       describe("many", () => {
-        it("found", async () => {
+        test("found", async () => {
           const res = await client.users.retrieve({
             where: { usernames: userArray.map((u) => u.username) },
           });
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
         });
-        it("not found", async () => {
+        test("not found", async () => {
           const res = await client.users.retrieve({
             where: { usernames: [id.create()] },
           });
           expect(res).toEqual([]);
         });
-        it("extra names getting deleted", async () => {
+        test("extra names getting deleted", async () => {
           const res = await client.users.retrieve({
             where: {
               usernames: [...userArray.map((u) => u.username), id.create()],
@@ -147,12 +147,12 @@ describe("User", () => {
     });
     describe("by key", () => {
       describe("one", () => {
-        it("found", async () => {
+        test("found", async () => {
           const res = await client.users.retrieve(userOne.key as string);
           expect(res.key).toEqual(userOne.key);
           expect(res.name).toEqual(userOne.name);
         });
-        it("not found", async () => {
+        test("not found", async () => {
           await expect(
             client.users.delete(userOne.key as string),
           ).resolves.toBeUndefined();
@@ -164,14 +164,14 @@ describe("User", () => {
         });
       });
       describe("many", () => {
-        it("found", async () => {
+        test("found", async () => {
           const res = await client.users.retrieve(
             userArray.map((u) => u.key as string),
           );
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
         });
-        it("not found", async () => {
+        test("not found", async () => {
           for (const u of userArray)
             await expect(client.users.delete(u.key as string)).resolves.toBeUndefined();
           await expect(
@@ -180,26 +180,26 @@ describe("User", () => {
           const users = await client.users.create(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
-        it("all", async () => {
+        test("all", async () => {
           const res = await client.users.retrieve({});
           expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
         });
       });
     });
     describe("by where", () => {
-      it("not and key", async () => {
+      test("not and key", async () => {
         const keys = userArray.map((u) => u.key as string);
         const res = await client.users.retrieve({
           where: { not: { key: { eq: keys[0] } }, key: { in: keys } },
         });
         expect(res.map((u) => u.key)).toEqual([keys[1]]);
       });
-      it("flat not and key", async () => {
+      test("flat not and key", async () => {
         const keys = userArray.map((u) => u.key as string);
         const res = await client.users.retrieve({ not: { key: keys[0] }, key: keys });
         expect(res.map((u) => u.key)).toEqual([keys[1]]);
       });
-      it("search term", async () => {
+      test("search term", async () => {
         const res = await client.users.retrieve({
           where: { key: { eq: userOne.key as string } },
           searchTerm: userOne.name,
@@ -209,7 +209,7 @@ describe("User", () => {
     });
   });
   describe("Change Username", () => {
-    it("Successful", async () => {
+    test("Successful", async () => {
       const newUsername = id.create();
       await expect(
         client.users.changeUsername(userOne.key as string, newUsername),
@@ -219,11 +219,11 @@ describe("User", () => {
       expect(res.name).toEqual(userOne.name);
       userOne.username = newUsername;
     });
-    it("Unsuccessful", async () =>
+    test("Unsuccessful", async () =>
       await expect(
         client.users.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
-    it("Repeated usernames fail", async () => {
+    test("Repeated usernames fail", async () => {
       const oldUsername = id.create();
       const user = await client.users.create({
         username: oldUsername,
@@ -237,7 +237,7 @@ describe("User", () => {
     });
   });
   describe("Change Name", () => {
-    it("Successful", async () => {
+    test("Successful", async () => {
       await expect(
         client.users.rename(userOne.key as string, "Thomas Jefferson"),
       ).resolves.toBeUndefined();
@@ -246,7 +246,7 @@ describe("User", () => {
       expect(res.name).toEqual("Thomas Jefferson");
       userOne.name = "Thomas Jefferson";
     });
-    it("should keep a rename that streams in during a retrieve", async () => {
+    test("should keep a rename that streams in during a retrieve", async () => {
       const u = await client.users.create({ username: id.create(), password: "test" });
       const local = createTestClient();
       await local.connect();
@@ -268,13 +268,13 @@ describe("User", () => {
     });
   });
   describe("Delete", () => {
-    it("one that exists", async () => {
+    test("one that exists", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
       await expect(client.users.retrieve(userOne.key as string)).rejects.toThrow(
         NotFoundError,
       );
     });
-    it("many that exist", async () => {
+    test("many that exist", async () => {
       await expect(
         client.users.delete(userArray.map((u) => u.key as string)),
       ).resolves.toBeUndefined();
@@ -284,10 +284,10 @@ describe("User", () => {
         }),
       ).resolves.toEqual([]);
     });
-    it("one that doesn't exist", async () => {
+    test("one that doesn't exist", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
     });
-    it("many where some don't exist", async () => {
+    test("many where some don't exist", async () => {
       await expect(
         client.users.delete([userOne.key as string, userTwo.key as string]),
       ).resolves.toBeUndefined();
@@ -309,7 +309,7 @@ describe("cached reads", () => {
   // Changes made while the stream is still opening are lost, so open it up front.
   beforeAll(async () => await client.connect());
 
-  it("should deliver a remote rename to a subscribed user", async () => {
+  test("should deliver a remote rename to a subscribed user", async () => {
     const u = await createUser();
     const handler = vi.fn();
     const off = client.users.onChange(u.key, handler);
@@ -330,7 +330,7 @@ describe("cached reads", () => {
     }
   });
 
-  it("should deliver a remote delete as a deleted result", async () => {
+  test("should deliver a remote delete as a deleted result", async () => {
     const u = await createUser();
     const results: Array<query.Cached<user.User> | undefined> = [];
     const off = client.users.onChange(u.key, (res) => results.push(res));

@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { errors } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { EOF, StreamClosed, Unreachable } from "@/index";
 
 describe("errors", () => {
-  it("encoding and decoding freighter errors", () => {
+  test("encoding and decoding freighter errors", () => {
     [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
       const encoded = errors.encode(error);
       expect(encoded.type.startsWith("freighter")).toBeTruthy();

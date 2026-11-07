@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
@@ -71,7 +71,7 @@ describe("Series", () => {
       });
     });
 
-    it("from another series", () => {
+    test("from another series", () => {
       const a = new Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(TimeStamp.seconds(5), TimeStamp.seconds(20)),
@@ -81,7 +81,7 @@ describe("Series", () => {
       expect(b.timeRange).toBe(a.timeRange);
     });
 
-    it("valid from typed array", () => {
+    test("valid from typed array", () => {
       const a = new Series(new Float32Array([1, 2, 3]));
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(a.length).toEqual(3);
@@ -97,13 +97,13 @@ describe("Series", () => {
       expect(c.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
     });
 
-    it("from buffer without data type provided", () => {
+    test("from buffer without data type provided", () => {
       expect(() => {
         new Series({ data: new ArrayBuffer(4) });
       }).toThrow();
     });
 
-    it("valid from js array", () => {
+    test("valid from js array", () => {
       const a = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(a.length).toEqual(3);
@@ -277,12 +277,12 @@ describe("Series", () => {
       expect(a.dataType.toString()).toBe(DataType.STRING.toString());
     });
 
-    it("from buffer with data type provided", () => {
+    test("from buffer with data type provided", () => {
       const a = new Series({ data: new ArrayBuffer(4), dataType: DataType.FLOAT32 });
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
     });
 
-    it("with time range", () => {
+    test("with time range", () => {
       const a = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -701,7 +701,7 @@ describe("Series", () => {
   });
 
   describe("conversion", () => {
-    it("from float64 to float32", () => {
+    test("from float64 to float32", () => {
       const a = new Series({
         data: new Float64Array([1, 2, 3]),
         dataType: DataType.FLOAT64,
@@ -711,7 +711,7 @@ describe("Series", () => {
       expect(b.data).toEqual(new Float32Array([1, 2, 3]));
     });
 
-    it("from int64 to int32", () => {
+    test("from int64 to int32", () => {
       const a = new Series({
         data: new BigInt64Array([1n, 2n, 3n]),
       });
@@ -720,7 +720,7 @@ describe("Series", () => {
       expect(b.data).toEqual(new Int32Array([1, 2, 3]));
     });
 
-    it("from float32 to int64", () => {
+    test("from float32 to int64", () => {
       const a = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -730,7 +730,7 @@ describe("Series", () => {
       expect(b.data).toEqual(new BigInt64Array([1n, 2n, 3n]));
     });
 
-    it("from uint8 to boolean normalizes nonzero to 1", () => {
+    test("from uint8 to boolean normalizes nonzero to 1", () => {
       const a = new Series({
         data: new Uint8Array([0, 1, 42, 0, 255]),
         dataType: DataType.UINT8,
@@ -740,14 +740,14 @@ describe("Series", () => {
       expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([0, 1, 1, 0, 1]));
     });
 
-    it("from boolean to uint8 copies canonical bytes", () => {
+    test("from boolean to uint8 copies canonical bytes", () => {
       const a = new Series({ data: [true, false, true, true, false] });
       const b = a.convert(DataType.UINT8);
       expect(b.dataType.equals(DataType.UINT8)).toBe(true);
       expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([1, 0, 1, 1, 0]));
     });
 
-    it("from int64 to boolean normalizes nonzero to 1", () => {
+    test("from int64 to boolean normalizes nonzero to 1", () => {
       const a = new Series({
         data: new BigInt64Array([0n, 1n, 100n, -5n, 0n]),
       });

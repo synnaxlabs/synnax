@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
@@ -21,7 +21,7 @@ describe("XY", () => {
       ["from signed dimensions", { signedWidth: 1, signedHeight: 2 }],
       ["from client dimensions", { clientX: 1, clientY: 2 }],
     ].forEach(([name, arg]) => {
-      it(name as string, () => {
+      test(name as string, () => {
         const p = xy.construct(arg as xy.Crude);
         expect(p.x).toEqual(1);
         expect(p.y).toEqual(2);
@@ -38,26 +38,26 @@ describe("XY", () => {
       expect(p.y).toEqual(1);
     });
   });
-  it("translateX", () => {
+  test("translateX", () => {
     let p = xy.construct([1, 2]);
     p = xy.translateX(p, 5);
     expect(p.x).toEqual(6);
     expect(p.y).toEqual(2);
   });
-  it("translateY", () => {
+  test("translateY", () => {
     let p = xy.construct([1, 2]);
     p = xy.translateY(p, 5);
     expect(p.x).toEqual(1);
     expect(p.y).toEqual(7);
   });
-  it("translate", () => {
+  test("translate", () => {
     let p = xy.construct([1, 2]);
     p = xy.translate(p, [5, 5]);
     expect(p.x).toEqual(6);
     expect(p.y).toEqual(7);
   });
 
-  it("translate multiple", () => {
+  test("translate multiple", () => {
     let p = xy.construct([1, 2]);
     p = xy.translate(p, [5, 5], [2, 2]);
     expect(p.x).toEqual(8);
@@ -112,7 +112,7 @@ describe("XY", () => {
       [{ x: 1, y: 12 }, { signedWidth: 1, signedHeight: 12 }, true],
     ];
     TESTS.forEach(([one, two, expected], i) => {
-      it(`equals ${i}`, () => {
+      test(`equals ${i}`, () => {
         const p = xy.construct(one);
         expect(xy.equals(p, two)).toEqual(expected);
       });
@@ -122,7 +122,7 @@ describe("XY", () => {
       expect(xy.equals(p, [1.1, 1.1], 0.15)).toBeTruthy();
     });
   });
-  it("couple", () => {
+  test("couple", () => {
     const p = xy.construct([1, 2]);
     expect(xy.couple(p)).toEqual([1, 2]);
   });

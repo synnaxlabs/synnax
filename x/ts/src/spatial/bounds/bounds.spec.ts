@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
@@ -25,7 +25,7 @@ describe("Bounds", () => {
       ["from invalid bounds", { upper: 1, lower: 2 }],
     ];
     TESTS.forEach(([name, arg]) => {
-      it(name, () => {
+      test(name, () => {
         const bound = bounds.construct(arg);
         expect(bound.lower).toEqual(1);
         expect(bound.upper).toEqual(2);
@@ -131,11 +131,11 @@ describe("Bounds", () => {
       expect(bounds.span(b)).toEqual(1);
     });
   });
-  it("isZero", () => {
+  test("isZero", () => {
     const b = bounds.construct([0, 0]);
     expect(bounds.isZero(b)).toEqual(true);
   });
-  it("spanIsZero", () => {
+  test("spanIsZero", () => {
     const b = bounds.construct([1, 1]);
     expect(bounds.spanIsZero(b)).toEqual(true);
   });
@@ -299,7 +299,7 @@ describe("Bounds", () => {
         [[[3, 7]], 8, { index: 1, position: 0 }],
       ];
     SPECS.forEach(([b, target, expected]) => {
-      it(`should return ${JSON.stringify(expected)} for ${JSON.stringify(b)} and ${target}`, () => {
+      test(`should return ${JSON.stringify(expected)} for ${JSON.stringify(b)} and ${target}`, () => {
         expect(bounds.findInsertPosition(b, target)).toEqual(expected);
       });
     });
@@ -394,7 +394,7 @@ describe("Bounds", () => {
       },
     ];
     SPECS.forEach(({ bounds: b, start, dist, expected }) => {
-      it(`should return ${expected} for ${toString(b)} and ${start} and ${dist}`, () => {
+      test(`should return ${expected} for ${toString(b)} and ${start} and ${dist}`, () => {
         expect(bounds.traverse(b, start, dist)).toEqual(expected);
       });
     });
@@ -438,7 +438,7 @@ describe("Bounds", () => {
       },
     ];
     SPECS.forEach(({ bounds: b, start, end, expected }) => {
-      it(`should return ${expected} for ${JSON.stringify(b)} and ${start} and ${end}`, () => {
+      test(`should return ${expected} for ${JSON.stringify(b)} and ${start} and ${end}`, () => {
         expect(bounds.distance(b, start, end)).toEqual(expected);
       });
     });
