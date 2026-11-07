@@ -373,6 +373,14 @@ class TestClient:
         assert c.range == rng.key
         assert c.project is None
 
+    def test_copy_into_missing_range(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should raise ValidationError when no range exists for the range key."""
+        s = client.schematics.create(name="Original", project=project.key)
+        with pytest.raises(sy.ValidationError, match="does not exist"):
+            client.schematics.copy(s.key, name="Snapshot", snapshot=True, range=uuid4())
+
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a schematic."""
         s = client.schematics.create(name="To Delete", project=project.key)
