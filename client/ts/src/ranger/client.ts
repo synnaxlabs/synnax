@@ -209,7 +209,12 @@ export class Range {
    */
   async setAlias(ch: channel.Key | Name, alias: string): Promise<void> {
     const found = await this.channels(ch);
-    checkForMultipleOrNoResults("channel", channel.singleWhere(ch), found, true);
+    checkForMultipleOrNoResults(
+      "channel",
+      { where: channel.singleWhere(ch) },
+      found,
+      true,
+    );
     await this.rangeClient.setAlias(this.key, found[0].key, alias);
   }
 
@@ -797,7 +802,7 @@ export class Client extends query.Retriever<
     const cached = this.store.get(key);
     if (cached != null) return this.composeOne(cached);
     const ranges = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("range", { key: { eq: key } }, ranges, true);
+    checkForMultipleOrNoResults("range", { where: { key: { eq: key } } }, ranges, true);
     return this.composeOne(ranges[0]);
   }
 

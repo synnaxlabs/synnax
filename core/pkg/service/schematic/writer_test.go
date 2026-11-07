@@ -234,6 +234,27 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
+		It("Should reject a create that sets a stored positive scale to zero", func(
+			ctx SpecContext,
+		) {
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[{"key":"v1"}],`+
+					`"configs":{"v1":{"variant":"valve"}}}`,
+			), &s)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			var edited schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[{"key":"v1"}],`+
+					`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+			), &edited)).To(Succeed())
+			edited.Key = s.Key
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &edited)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+			))
+		})
+
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

@@ -150,7 +150,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/ontology/retrieve-group", req, RetrieveResponse)
-        return sole("group", req.where, res.groups) if single else res.groups
+        return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(

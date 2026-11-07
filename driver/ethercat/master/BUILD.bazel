@@ -14,6 +14,8 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/dc",
+        "//driver/ethercat/errors",
         "//driver/ethercat/pdo",
         "//driver/ethercat/slave",
         "//x/cpp/breaker",
