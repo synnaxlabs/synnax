@@ -536,6 +536,25 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
         EXPECT_GE(state, EC_STATE_SAFE_OP);
 }
 
+/// @brief it should report a cycle before SAFE-OP as a working counter shortfall, since
+/// it exchanges no process data.
+TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    std::optional<x::errors::Error> err;
+    int receives = -1;
+    ASSERT_NIL(this->activate([&] {
+        ASSERT_NIL(this->master->send());
+        err = this->master->receive();
+        receives = this->mock->receive_count;
+    }));
+    ASSERT_TRUE(err.has_value());
+    ASSERT_OCCURRED_AS(*err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err->data, "no process data passes the slaves until they reach SAFE-OP");
+    EXPECT_EQ(receives, 0);
+}
+
 /// @brief it should fail a send before SAFE-OP when the reference clock frame does not
 /// come back.
 TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {

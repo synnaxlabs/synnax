@@ -259,7 +259,11 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
-    if (this->last_send_held) return x::errors::NIL;
+    if (this->last_send_held)
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "no process data passes the slaves until they reach SAFE-OP"
+        );
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
