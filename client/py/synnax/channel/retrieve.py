@@ -76,8 +76,8 @@ class Retriever:
         :raises NotFoundError: If no channel matches param.
         :raises MultipleFoundError: If more than one channel matches param.
         """
-        where = params_where(param)
-        return sole("channel", where, self.filter(RetrieveRequest(where=where)))
+        req = RetrieveRequest(where=params_where(param))
+        return sole("channel", req, self.filter(req))
 
     @trace("debug")
     def filter(

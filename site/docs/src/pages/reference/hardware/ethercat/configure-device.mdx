@@ -117,17 +117,23 @@ yet.
   Starting or stopping one task does not interrupt the others.
 - **Start and stop** -> The network starts when the first task on the port starts, and
   stops when the last task stops.
-- **Every module must start** -> With the built-in master, the network starts only when
-  every enabled module on the port reaches OP. If one module does not, no task on the
-  port starts. To run the other modules, [disable](#disable-a-device) that module.
-- **DC sync** -> The Driver does not turn on DC sync (SYNC0) yet. A module in a DC sync
-  mode does not start. See
+- **A module that refuses to start** -> With the built-in master, the network starts
+  without a module that refuses SAFE-OP or OP. The device status of the module shows
+  why, and a task that uses the module does not start. The other tasks start. The Driver
+  tries the module again the next time the network starts. If every module with inputs
+  or outputs refuses, or a module does not reach OP in time, no task on the port starts.
+- **DC sync** -> The Driver runs a module in SM sync when the module lists an SM sync
+  mode. With the built-in master, it runs a module that lists only DC sync modes in DC
+  sync, and starts SYNC0 and SYNC1 before the module goes to SAFE-OP. A module that is
+  set to DC sync but also lists an SM sync mode does not start. See
   ["Invalid DC SYNC configuration"](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
   network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
-  such as for 3 kHz and 4 kHz, the task fails to start.
+  such as for 3 kHz and 4 kHz, the task fails to start. While a module runs in DC sync,
+  the rate does not change until every task on the port stops. See
+  ["cycles at ... Hz while a slave runs DC sync"](#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
   task stops, its outputs go to zero. An output that another running write task
   commanded keeps the last value of that task instead.
@@ -322,26 +328,58 @@ the reason, such as no raw Ethernet access. See
 
 ### "failed to reach SAFE-OP" or "failed to reach OP"
 
-A module did not move to SAFE-OP or OP when the network started, so no task on the port
-starts. The error names each of these modules and its state. When a module refuses the
-change, the error also gives the error text of the module, such as "Invalid output
-configuration".
+A module did not move to SAFE-OP or OP in time when the network started, or every module
+refused the change, so no task on the port starts. The error names each of these modules
+and its state. When a module refuses the change, the error also gives the error text of
+the module, such as "Invalid output configuration".
 
 Check the error text in the documentation of the module. To run the other modules now,
 [disable](#disable-a-device) the module, then start the tasks again.
 
+### "Slave ... is not on the network"
+
+A task shows this error when it uses a module that refused SAFE-OP or OP. The network
+started without the module, and the error gives the error text of the module. Fix the
+module, then stop every task on the port and start them again.
+
 ### "failed to reach SAFE-OP: ... Invalid DC SYNC configuration"
 
-The module is in a DC sync mode, so it waits for the master to turn on DC sync (SYNC0).
-The Driver does not support DC sync yet, so the module stays in PRE-OP.
+The module is set to a sync mode that the Driver did not set up, so it stays in PRE-OP.
+The Driver runs a module in SM sync when the module lists an SM sync mode, so a module
+that is set to DC sync and also lists an SM sync mode does not start.
 
-- **The module has an SM sync mode** -> Set the module to it. Dewesoft modules keep the
-  mode in the module, and use a new mode after a power cycle. The
+- **Set the module to SM sync** -> Dewesoft modules keep the mode in the module, and use
+  a new mode after a power cycle. The
   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
   lists the modes of each model and how to set them.
-- **The module has only DC sync modes** -> [Disable](#disable-a-device) it, so that the
-  other modules on the port can run. For example, the Dewesoft IOLITE 16xAO and 16xLV
-  have only a DC sync mode in standalone mode.
+- **Disable the module** -> [Disable](#disable-a-device) it, so that the Driver stops
+  trying to start it.
+
+### "slave ... cannot run its DC mode at a bus cycle of ..."
+
+The DC sync mode of the module gives a SYNC0 or SYNC1 cycle that its registers cannot
+hold at the cycle rate of the network. The error gives the value and its limit. For
+example, the Dewesoft IOLITE 16xAO and 16xLV set SYNC1 to 1000 cycles, which is more
+than the 4.29 s limit when the network cycles slower than 233 Hz. Make the network cycle
+faster, for example with a write task at an execution rate of 250 Hz or more.
+
+### "the clock of slave ... is ... off the reference clock"
+
+The clock of a module in DC sync stayed more than 10 µs off the reference clock for two
+seconds, so the Driver did not start SYNC0. Check the cables and the power of the
+modules, then start the task again.
+
+### "the bus on ... cycles at ... Hz while a slave runs DC sync"
+
+The Driver sets the SYNC0 and SYNC1 cycles of a module in DC sync from the cycle rate
+when the network starts, so the rate stays the same while the network runs. A task that
+needs another rate does not start. Use a sample rate that the network rate is a multiple
+of, or an execution rate at or below the network rate.
+
+To change the rate, stop every task on the port. The first task that starts again sets
+the rate, so start a task at a rate that every task fits first. For example, read tasks
+at 300 Hz and 200 Hz need 600 Hz, so first start a write task at an execution rate of
+600 Hz.
 
 ### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
 

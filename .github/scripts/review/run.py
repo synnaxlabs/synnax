@@ -12,11 +12,11 @@ import re
 import tomllib
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from review.findings import SCHEMA, Finding, Review, parse
+from review.findings import SCHEMA, SEVERITIES, Finding, Review, parse
 from review.render import fence
 
 Claude = Callable[[list[str], str, Path], str]
@@ -70,6 +70,8 @@ class Lens:
     name: str
     focus: str
     """What the pass looks for, written to the reviewer."""
+    effort: str | None = None
+    """The effort of the pass, if not the effort of the config."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -88,8 +90,7 @@ class Config:
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each pass. With none, one pass reviews the pull request. With
-    some, one pass runs for each in parallel, and a last pass merges and checks their
-    findings."""
+    some, one pass runs for each in parallel, and the review joins their findings."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -119,19 +120,23 @@ class Usage:
     Code reports none, as with an API key."""
 
     @classmethod
-    def combine(cls, passes: list["Usage"], last: "Usage") -> "Usage":
-        """Adds up the usage of parallel passes and the last pass after them. The
-        duration is the time from the first start to the last end."""
-        every = [*passes, last]
+    def combine(cls, passes: list["Usage"]) -> "Usage":
+        """Adds up the usage of passes that ran in parallel. The duration is the
+        longest pass, and the limits are those of the last pass to end that reported
+        any."""
         return cls(
-            cost_usd=sum(u.cost_usd for u in every),
-            duration_ms=max(u.duration_ms for u in passes) + last.duration_ms,
-            turns=sum(u.turns for u in every),
-            input_tokens=sum(u.input_tokens for u in every),
-            output_tokens=sum(u.output_tokens for u in every),
-            cache_read_tokens=sum(u.cache_read_tokens for u in every),
-            cache_creation_tokens=sum(u.cache_creation_tokens for u in every),
-            limits=last.limits,
+            cost_usd=sum(u.cost_usd for u in passes),
+            duration_ms=max(u.duration_ms for u in passes),
+            turns=sum(u.turns for u in passes),
+            input_tokens=sum(u.input_tokens for u in passes),
+            output_tokens=sum(u.output_tokens for u in passes),
+            cache_read_tokens=sum(u.cache_read_tokens for u in passes),
+            cache_creation_tokens=sum(u.cache_creation_tokens for u in passes),
+            limits=max(
+                (u for u in passes if u.limits),
+                key=lambda u: u.duration_ms,
+                default=passes[0],
+            ).limits,
         )
 
     @classmethod
@@ -291,7 +296,7 @@ def _shows_new(config: Config, pr: PullRequest) -> bool:
     return len(pr.new) <= config.diff_chars // 3
 
 
-def _command(config: Config, *, head: Path) -> list[str]:
+def _command(config: Config, *, head: Path, effort: str | None = None) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head.
 
     Restricted mode confines the tools to the working directory and head, and ignores
@@ -311,7 +316,7 @@ def _command(config: Config, *, head: Path) -> list[str]:
         "--model",
         config.model,
         "--effort",
-        config.effort,
+        effort or config.effort,
         "--output-format",
         "stream-json",
         "--verbose",
@@ -335,26 +340,52 @@ def _focused(text: str, lens: Lens) -> str:
     )
 
 
-def _merging(text: str, candidates: list[Finding]) -> str:
-    """Builds the prompt of the pass that merges and checks the findings of the
-    focused passes."""
-    found = json.dumps([asdict(f) for f in candidates], indent=1)
-    return (
-        f"{text}\n\n# Candidate findings\n\n"
-        "Reviewers each took one focus on this pull request and found these "
-        "candidates. Merge the ones that name the same defect. Check each one "
-        "against the code at the head, and drop any you cannot confirm or that the "
-        "rules leave out. Fix the severity, lines, and wording of each one you keep "
-        "by the rules above. Add a finding of your own only when you confirmed it. "
-        "Then score the pull request and write its summary.\n\n"
-        f"{fence(found, 'json')}"
+def _merge(
+    reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
+) -> Review:
+    """Joins the reviews of parallel passes. A finding joins at most one finding of
+    each other pass in the same file: first by title and end line, then by title, then
+    by end line. The review keeps the more severe of joined findings, else the one that
+    continues an open thread. The verdict and summary come from the pass with the
+    lowest capped score."""
+
+    def rank(f: Finding) -> tuple[int, bool]:
+        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
+
+    def join(
+        found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
+    ) -> list[tuple[set[int], Finding]]:
+        kept: list[tuple[set[int], Finding]] = []
+        for passes, f in found:
+            hits = (q for q, k in kept if k.path == f.path and same(k, f))
+            hit = next((q for q in hits if not q & passes), None)
+            if hit is None:
+                kept.append((set(passes), f))
+            else:
+                hit |= passes
+        return kept
+
+    every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
+    found = sorted(every, key=lambda t: rank(t[1]))
+    found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
+    found = join(found, lambda k, f: k.title == f.title)
+    found = join(found, lambda k, f: k.line == f.line)
+    lead = min(reviews, key=lambda r: _cap(r, caps).score)
+    return replace(
+        lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
     )
 
 
 def _pass(
-    config: Config, pr: PullRequest, text: str, *, claude: Claude, workdir: Path
+    config: Config,
+    pr: PullRequest,
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    effort: str | None = None,
 ) -> tuple[Review, Usage]:
-    stream = claude(_command(config, head=pr.head), text, workdir)
+    stream = claude(_command(config, head=pr.head, effort=effort), text, workdir)
     messages = [json.loads(line) for line in stream.splitlines() if line]
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
@@ -384,13 +415,15 @@ def run(
         passes = list(
             pool.map(
                 lambda lens: _pass(
-                    config, pr, _focused(text, lens), claude=claude, workdir=workdir
+                    config,
+                    pr,
+                    _focused(text, lens),
+                    claude=claude,
+                    workdir=workdir,
+                    effort=lens.effort,
                 ),
                 config.lenses,
             )
         )
-    candidates = [f for review, _ in passes for f in review.findings]
-    review, last = _pass(
-        config, pr, _merging(text, candidates), claude=claude, workdir=workdir
-    )
-    return _cap(review, config.caps), Usage.combine([u for _, u in passes], last)
+    review = _merge([r for r, _ in passes], caps=config.caps, open=pr.open)
+    return _cap(review, config.caps), Usage.combine([u for _, u in passes])
