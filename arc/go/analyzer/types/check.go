@@ -71,6 +71,11 @@ func Check(
 		)
 	}
 
+	// Unification would widen an untyped integer to take an untyped float.
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
+		!untypedFits(t1, t2) {
+		return newTypeMismatchError(t1, t2, reason)
+	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		return cs.AddEquality(t1, t2, source, reason)
 	}

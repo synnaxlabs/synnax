@@ -231,6 +231,7 @@ func LiteralAssignmentCompatible(
 	if !types.StructuralMatch(variableType, literalType) {
 		return false
 	}
+	series := literalType.Kind == types.KindSeries
 	variableType = variableType.Unwrap()
 	literalType = literalType.Unwrap()
 	if literalType.Kind == types.KindVariable {
@@ -243,6 +244,10 @@ func LiteralAssignmentCompatible(
 	}
 	if variableType.String() == literalType.String() {
 		return true
+	}
+	// A typed series element, such as a variable read, is stored without conversion.
+	if series {
+		return false
 	}
 	if variableType.IsInteger() && literalType.IsSignedInteger() {
 		return true

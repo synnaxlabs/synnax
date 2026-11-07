@@ -629,6 +629,9 @@ func inferNumericLiteralType(
 // distinguish between: - Direct literals (2 + 3.2) which can be promoted - Variable
 // references (x := 10; x + 3.2) which should fail
 func resolveLiteralConstraint(t types.Type) types.Type {
+	if t.Kind == types.KindSeries && t.Elem != nil {
+		return types.Series(resolveLiteralConstraint(*t.Elem))
+	}
 	if t.Kind != types.KindVariable || t.Constraint == nil {
 		return t
 	}

@@ -25,6 +25,42 @@ var _ = Describe("Check", func() {
 		cs = constraints.New()
 	})
 
+	Describe("Untyped literals", func() {
+		DescribeTable(
+			"Should check an untyped value against an untyped target",
+			func(target, value types.Type, fits bool) {
+				t := types.Variable("target", &target)
+				v := types.Variable("value", &value)
+				err := atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")
+				if fits {
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring("expected integer, got float")))
+			},
+			Entry(
+				"float into integer",
+				types.IntegerConstraint(),
+				types.FloatConstraint(),
+				false,
+			),
+			Entry(
+				"integer into float",
+				types.FloatConstraint(),
+				types.IntegerConstraint(),
+				true,
+			),
+			Entry(
+				"integer into integer",
+				types.IntegerConstraint(),
+				types.IntegerConstraint(),
+				true,
+			),
+		)
+	})
+
 	Describe("Invalid Types", func() {
 		DescribeTable("should return nil without checking",
 			func(t1, t2 types.Type) {

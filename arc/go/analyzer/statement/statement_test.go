@@ -507,6 +507,71 @@ var _ = Describe("Statement", func() {
 			Entry("bool use", "a := []\nz := not a\na = [true]", ""),
 		)
 
+		DescribeTable(
+			"Should keep an untyped integer variable an integer",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("reassignment", "x := 0\nx = 1.5", "cannot assign float to 'x'"),
+			Entry(
+				"compound assignment",
+				"x := 0\nx += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"indexed assignment",
+				"y := [1, 3]\ny[0] = 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"indexed compound assignment",
+				"y := [1, 3]\ny[0] += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"series compound assignment",
+				"y := [1, 3]\ny += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"a series element",
+				"y := [1, 3]\nz := [y[0], 1.5]",
+				"incompatible type float",
+			),
+			Entry(
+				"arithmetic",
+				"y := [1, 3]\nw f32 := y[0] + v",
+				"cannot use i64 and f32",
+			),
+			Entry(
+				"a series of another type",
+				"y := [1, 3]\nw series f32 := [y[0]]",
+				"cannot assign series i64 to 'w'",
+			),
+			Entry("an integer", "x := 0\nx = 2", ""),
+			Entry("an integer into a float", "x := 0.0\nx = 1", ""),
+			Entry("a float into an empty series", "y := []\ny += 1.5", ""),
+		)
+
+		It(
+			"Should keep a series read in a literal at its own type",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "y := [1, 3]\nw := [y[0]]")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				s := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				block := s.FilterChildrenByKind(symbol.KindBlock)[0]
+				y := MustSucceed(block.Resolve(ctx, "y"))
+				Expect(
+					ctx.Constraints.ApplySubstitutions(y.Type),
+				).To(Equal(types.Series(types.I64())))
+			},
+		)
+
 		DescribeTable("Should reject an empty series in non-numeric arithmetic",
 			func(specCtx SpecContext, code, message string) {
 				ctx := analyze(specCtx, code)

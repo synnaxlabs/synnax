@@ -1272,11 +1272,11 @@ func analyzeSeriesCompoundAssignment(
 	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
-		targetType := elemType
+		valueType := exprType
 		if exprType.Kind == types.KindSeries {
-			targetType = *exprType.Elem
+			valueType = *exprType.Elem
 		}
-		if err := atypes.Check(ctx.Constraints, elemType, targetType, ctx.AST,
+		if err := atypes.Check(ctx.Constraints, elemType, valueType, ctx.AST,
 			"series compound assignment type compatibility"); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
