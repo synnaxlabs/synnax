@@ -233,7 +233,8 @@ type TaskUpdate struct {
 // UpdateTask changes the task of the arc with the given key. It returns the task, or
 // nil after an unbind. It returns an error wrapping validate.ErrValidation when
 // unbinding a running task, when unbinding and setting the performance in one update,
-// or when setting the performance of an arc with no task.
+// or when setting the performance of an arc with no task. The caller must hold the
+// locks of the arc's tasks through the commit, as Service.UpdateTask does.
 func (w Writer) UpdateTask(
 	ctx context.Context,
 	key Key,
@@ -243,6 +244,15 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
+	return w.updateTask(ctx, key, existing, update)
+}
+
+func (w Writer) updateTask(
+	ctx context.Context,
+	key Key,
+	existing []task.Key,
+	update TaskUpdate,
+) (*task.Task, error) {
 	if update.Rack != nil && *update.Rack == 0 {
 		if update.Performance != nil {
 			return nil, errors.Wrap(
@@ -257,7 +267,7 @@ func (w Writer) UpdateTask(
 		cfg taskversions.Config
 		tsk task.Task
 	)
-	if err = w.table.NewRetrieve().
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Arc](key)).
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
@@ -268,6 +278,7 @@ func (w Writer) UpdateTask(
 			validate.ErrValidation, "a module cannot be bound to a rack",
 		)
 	}
+	var err error
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
 			return nil, err

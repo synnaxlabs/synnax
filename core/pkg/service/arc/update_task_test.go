@@ -10,12 +10,14 @@
 package arc_test
 
 import (
+	"context"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -629,4 +631,103 @@ var _ = Describe("Task sync", func() {
 				Should(Equal(before.ConfigHash))
 		},
 	)
+
+	Describe("Service", func() {
+		var bind arc.TaskUpdate
+
+		BeforeEach(func(ctx SpecContext) {
+			bind = arc.TaskUpdate{Rack: new(testRack.Key)}
+			a = newAutomation(arc.Base{
+				Name:   "locked-" + uuid.New().String(),
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> b")}},
+			})
+			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+		})
+
+		It("Should commit the task", func(ctx SpecContext) {
+			tsk := MustSucceed(svc.UpdateTask(ctx, a.Base().Key, bind))
+			Expect(tsk.Rack).To(Equal(testRack.Key))
+			Expect(taskSvc.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Exec(ctx, nil)).To(Succeed())
+		})
+
+		It("Should return no task for a rejected update", func(ctx SpecContext) {
+			Expect(svc.UpdateTask(ctx, a.Base().Key, arc.TaskUpdate{
+				Performance: new(arctask.PerformanceHigh),
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should return no task when the commit fails", func(ctx SpecContext) {
+			var cancel context.CancelFunc
+			hook := func(task.Task) { cancel() }
+			onTaskLink.Store(&hook)
+			DeferCleanup(func() { onTaskLink.Store(nil) })
+			// A canceled commit fails only when cancel wins the select of its send.
+			Eventually(func(g Gomega) {
+				var cCtx context.Context
+				cCtx, cancel = context.WithCancel(ctx)
+				defer cancel()
+				g.Expect(svc.UpdateTask(cCtx, a.Base().Key, bind)).Error().
+					To(MatchError(context.Canceled))
+			}).Should(Succeed())
+		})
+
+		It("Should wait for a write that holds the task", func(ctx SpecContext) {
+			tsk := MustSucceed(svc.UpdateTask(ctx, a.Base().Key, bind))
+			updated := make(chan error, 1)
+			Expect(taskSvc.Transact(ctx, []task.Key{tsk.Key}, func(gorp.Tx) error {
+				go func() {
+					_, err := svc.UpdateTask(ctx, a.Base().Key, bind)
+					updated <- err
+				}()
+				Consistently(updated, 100*time.Millisecond).ShouldNot(Receive())
+				return nil
+			})).To(Succeed())
+			Eventually(updated).Should(Receive(Not(HaveOccurred())))
+		})
+
+		It("Should lock a task linked after its first read", func(ctx SpecContext) {
+			first := MustSucceed(svc.UpdateTask(ctx, a.Base().Key, bind))
+			second := task.Task{
+				Key:    uuid.New(),
+				Rack:   testRack.Key,
+				Name:   "second",
+				Type:   arc.TaskType,
+				Config: first.Config,
+			}
+			updated := make(chan error, 1)
+			Expect(taskSvc.Transact(
+				ctx,
+				[]task.Key{second.Key},
+				func(gorp.Tx) error {
+					Expect(taskSvc.Transact(
+						ctx,
+						[]task.Key{first.Key},
+						func(gorp.Tx) error {
+							go func() {
+								_, err := svc.UpdateTask(
+									ctx,
+									a.Base().Key,
+									arc.TaskUpdate{
+										Rack: new(rack.Key(0)),
+									},
+								)
+								updated <- err
+							}()
+							Consistently(
+								updated,
+								100*time.Millisecond,
+							).ShouldNot(Receive())
+							return taskSvc.NewWriter(nil).Create(ctx, &second)
+						},
+					)).To(Succeed())
+					Consistently(updated, 100*time.Millisecond).ShouldNot(Receive())
+					return nil
+				},
+			)).To(Succeed())
+			Eventually(updated).Should(Receive(Not(HaveOccurred())))
+			Expect(svc.NewWriter(nil).TaskKeys(ctx, a.Base().Key)).To(BeEmpty())
+		})
+	})
 })

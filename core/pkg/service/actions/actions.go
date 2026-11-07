@@ -131,13 +131,19 @@ func (s *State[K, A]) Dispatch(
 }
 
 // Transact runs fn in its own transaction, serialized per key with Dispatch through the
-// commit. It notifies nothing.
+// commit. It notifies nothing. keys must hold no duplicates, and every caller must pass
+// them in one total order, or Transact can deadlock.
 func (s *State[K, A]) Transact(
 	ctx context.Context,
-	key K,
+	keys []K,
 	fn func(gorp.Tx) error,
 ) error {
-	return s.locks.Do(key, func() error { return s.db.WithTx(ctx, fn) })
+	if len(keys) == 0 {
+		return s.db.WithTx(ctx, fn)
+	}
+	return s.locks.Do(keys[0], func() error {
+		return s.Transact(ctx, keys[1:], fn)
+	})
 }
 
 // OnChange subscribes the given handler to the action stream emitted by every
