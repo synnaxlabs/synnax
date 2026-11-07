@@ -45,6 +45,7 @@ from review import (
     open_findings,
     parse,
     post,
+    reviewed,
     run,
 )
 
@@ -81,6 +82,26 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         text=True,
         check=True,
     ).stdout
+    since = next(
+        (c for c in reviewed(target, gh) if _before(head, c, target.head)), None
+    )
+    new = ""
+    if since is not None:
+        new = subprocess.run(
+            [
+                *("git", "-C", str(head), "log", "--first-parent", "--no-merges"),
+                *(
+                    "--patch",
+                    "--no-color",
+                    "--no-ext-diff",
+                    "--format=commit %H%n%n%s%n",
+                ),
+                *(f"{since}..{target.head}", "--", ".", *excluded),
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+        ).stdout
     meta = json.loads(
         gh(
             "api",
@@ -97,6 +118,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         diff=diff,
         # A replay of an old commit must not see the threads that came after it.
         open=set() if replay else open_findings(target, gh),
+        new=new,
     )
     with tempfile.TemporaryDirectory() as workdir:
         result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
@@ -110,6 +132,15 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         "review": dataclasses.asdict(result),
     }
     path.write_text(json.dumps(record))
+
+
+def _before(head: Path, commit: str, tip: str) -> bool:
+    """Reports whether a commit comes before the tip in the history of a checkout. A
+    commit that a force push dropped is not in the history."""
+    if commit == tip:
+        return False
+    check = ("git", "-C", str(head), "merge-base", "--is-ancestor", commit, tip)
+    return subprocess.run(check, capture_output=True).returncode == 0
 
 
 def main(argv: list[str]) -> None:

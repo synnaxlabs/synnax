@@ -212,6 +212,7 @@ x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
         );
 
     this->api->configdc();
+    this->api->set_group_dc(ENABLED_GROUP);
     this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
 
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
@@ -398,6 +399,7 @@ void Master::populate_slaves() {
         result.properties.output_bits = this->api->slave_Obits(i);
         result.status.state = slave::from_al_state(this->api->slave_state(i));
         this->discover_slave_pdos(result);
+        result.properties.op_modes = this->read_op_modes(i);
         this->slave_list.push_back(result);
     }
 }
@@ -714,6 +716,47 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     VLOG(1) << "Slave " << props.position
             << " PDOs discovered via SII: " << props.input_pdos.size() << " inputs, "
             << props.output_pdos.size() << " outputs";
+}
+
+/// SII category that lists the synchronization modes of a slave.
+constexpr uint16_t SII_DC_CATEGORY = 60;
+/// Size in bytes of one mode in the SII DC category.
+constexpr uint32_t SII_OP_MODE_SIZE = 24;
+
+std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
+    const uint16_t start = this->api->siifind(position, SII_DC_CATEGORY);
+    if (start == 0) return {};
+    uint16_t addr = start;
+    const auto read = [&](const int bytes) {
+        uint32_t value = 0;
+        for (int i = 0; i < bytes; ++i)
+            value |= static_cast<uint32_t>(this->api->siigetbyte(position, addr++))
+                  << (8 * i);
+        return value;
+    };
+    const uint32_t length = read(2) * 2;
+    const uint16_t data = addr;
+    std::vector<dc::OpMode> modes;
+    for (uint32_t off = 0; off + SII_OP_MODE_SIZE <= length; off += SII_OP_MODE_SIZE) {
+        addr = static_cast<uint16_t>(data + off);
+        dc::OpMode mode;
+        mode.sync0_cycle = read(4);
+        mode.sync0_shift = static_cast<int32_t>(read(4));
+        mode.sync1_shift = static_cast<int32_t>(read(4));
+        mode.sync1_factor = static_cast<int16_t>(read(2));
+        mode.assign_activate = static_cast<uint16_t>(read(2));
+        mode.sync0_factor = static_cast<int16_t>(read(2));
+        const auto name_index = static_cast<uint16_t>(read(1));
+        if (name_index > 0) {
+            char name[EC_MAXNAME + 1] = {0};
+            this->api->siistring(name, position, name_index);
+            mode.name = name;
+        }
+        modes.push_back(std::move(mode));
+    }
+    this->api->eeprom2pdi(position);
+    VLOG(1) << "Slave " << position << " lists " << modes.size() << " OpModes in SII";
+    return modes;
 }
 
 x::errors::Error Master::read_pdo_assign(
