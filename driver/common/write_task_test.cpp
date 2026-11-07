@@ -400,21 +400,16 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
 }
 
 namespace {
-/// @brief creates a write task with one state channel whose state writer opens with
-/// open_err only when open is set.
-std::unique_ptr<WriteTask> create_gated_state_write_task(
+const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
+
+/// @brief creates a write task with one state channel.
+std::unique_ptr<WriteTask> create_state_write_task(
     const std::shared_ptr<driver::task::MockContext> &ctx,
-    std::promise<void> &open,
-    const x::errors::Error &open_err,
+    const std::shared_ptr<pipeline::testutil::WriterFactory> &writer_factory,
     const std::shared_ptr<std::vector<x::telem::Frame>> &cmd_reads,
     const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
     const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
 ) {
-    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
-        std::make_shared<x::sync::List<x::telem::Frame>>(),
-        std::vector{open_err}
-    );
-    writer_factory->open_gate = open.get_future().share();
     synnax::channel::Channel state;
     state.key = 2;
     state.data_type = x::telem::UINT8_T;
@@ -424,9 +419,9 @@ std::unique_ptr<WriteTask> create_gated_state_write_task(
     return std::make_unique<WriteTask>(
         task,
         ctx,
-        x::breaker::default_config("cat"),
+        x::breaker::Config{.name = "cat", .base_interval = x::telem::MILLISECOND},
         std::make_unique<MockSink>(
-            x::telem::HERTZ * 10,
+            x::telem::HERTZ * 100,
             std::vector<Sink::Output>{{1, state}},
             false,
             writes,
@@ -446,10 +441,14 @@ std::unique_ptr<WriteTask> create_gated_state_write_task(
 TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     std::promise<void> open;
-    auto write_task = create_gated_state_write_task(
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{OPEN_ERR}
+    );
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
         ctx,
-        open,
-        x::errors::Error(x::errors::UNAUTHORIZED, "no control authority"),
+        writer_factory,
         std::make_shared<std::vector<x::telem::Frame>>(),
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::make_shared<std::vector<x::errors::Error>>()
@@ -474,10 +473,11 @@ TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     cmd_reads->emplace_back(1, x::telem::Series(static_cast<uint8_t>(1)));
     const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    auto write_task = create_gated_state_write_task(
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
         ctx,
-        open,
-        x::errors::NIL,
+        writer_factory,
         cmd_reads,
         writes,
         std::make_shared<std::vector<x::errors::Error>>(
@@ -494,6 +494,35 @@ TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to write commands");
     EXPECT_EQ(status.description, "write error");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed write when the state writer fails to reopen
+/// after it opened.
+TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // The second state write fails, the writer closes as unreachable, and the reopen
+    // fails.
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::NIL, OPEN_ERR},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "no control authority");
     write_task->stop("stop_cmd", true);
 }
 

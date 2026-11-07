@@ -142,8 +142,8 @@ class ReadTask final : public driver::task::Task {
         /// @brief forgets the logged warning, so the next run logs it again.
         void forget_warning() { this->logged_warning = {}; }
 
-        /// @brief resets the source for a new run of the task.
-        void reset() {
+        /// @brief prepares the source for a new run of the task.
+        void begin_run() {
             this->forget_warning();
             this->writer_open = false;
         }
@@ -285,7 +285,7 @@ public:
             return false;
         }
         this->state.reset();
-        this->source->reset();
+        this->source->begin_run();
         const auto start_ok = !this->state.error(
             this->source->internal->start(),
             "Failed to start task"
