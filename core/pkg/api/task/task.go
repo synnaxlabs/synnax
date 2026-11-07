@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -120,17 +121,33 @@ type (
 	}
 )
 
+// Create creates or updates the tasks. It needs create access on tasks, and update
+// access on the range of each new snapshot. An existing snapshot keeps its range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeTask}},
 	}); err != nil {
 		return CreateResponse{}, err
+	}
+	ranges, err := s.newSnapshotRanges(ctx, tx, req.Tasks)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if len(ranges) > 0 {
+		if err = enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: ranges,
+		}); err != nil {
+			return CreateResponse{}, err
+		}
 	}
 	if err := s.task.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
@@ -138,6 +155,45 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tasks: req.Tasks}, nil
+}
+
+// newSnapshotRanges returns the ranges that the tasks place a snapshot in, leaving out
+// the tasks stored as snapshots, which keep their stored range.
+func (s *Service) newSnapshotRanges(
+	ctx context.Context,
+	tx gorp.Tx,
+	tasks []task.Task,
+) ([]resource.ID, error) {
+	var keys []task.Key
+	for _, t := range tasks {
+		if t.Range != nil {
+			keys = append(keys, t.Key)
+		}
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	var stored []task.Task
+	if err := s.task.NewRetrieve().
+		Where(task.MatchKeys(keys...)).
+		SkipMissingKeys().
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	snapshots := make(set.Set[task.Key], len(stored))
+	for _, t := range stored {
+		if t.Snapshot {
+			snapshots.Add(t.Key)
+		}
+	}
+	var ids []resource.ID
+	for _, t := range tasks {
+		if t.Range != nil && !snapshots.Contains(t.Key) {
+			ids = append(ids, ranger.ResourceID(*t.Range))
+		}
+	}
+	return ids, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single task. DispatchKey is
@@ -282,6 +338,8 @@ type (
 	}
 )
 
+// Copy copies a task. It needs retrieve access on the task, create access on the copy,
+// and update access on the range of a snapshot copy.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -293,6 +351,15 @@ func (s *Service) Copy(
 		Objects: []resource.ID{task.ResourceID(req.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
+	}
+	if req.Range != nil {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{ranger.ResourceID(*req.Range)},
+		}); err != nil {
+			return CopyResponse{}, err
+		}
 	}
 	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
 	if err != nil {

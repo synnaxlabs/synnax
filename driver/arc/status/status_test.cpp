@@ -193,11 +193,11 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
     auto st = ASSERT_NIL_P(s.node("status"));
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     Module module(client, noopReporter());
-    auto [created, err] = module.create(
-        ::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))
+    const auto created = ASSERT_OCCURRED_AS_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
+        x::errors::NOT_FOUND
     );
     EXPECT_EQ(created, nullptr);
-    EXPECT_EQ(err, x::errors::NOT_FOUND);
 }
 
 TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
@@ -252,8 +252,7 @@ TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    auto [retrieved, err] = client->statuses.retrieve(preset_key);
-    ASSERT_NIL(err);
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
     EXPECT_EQ(retrieved.message, "the message");
     EXPECT_EQ(retrieved.variant, "info");
 }
@@ -285,8 +284,7 @@ TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
-    auto [retrieved, err] = client->statuses.retrieve(preset_key);
-    ASSERT_NIL(err);
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
     EXPECT_EQ(retrieved.message, "msg");
 }
 

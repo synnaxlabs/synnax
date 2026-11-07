@@ -100,7 +100,10 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     const auto rack = ASSERT_NIL_P(client->racks.create("mismatch_rack"));
     Config cfg;
     cfg.incompatible_core_version = "99.1.0";
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        client,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     auto tasks = factory->configure_initial_tasks(
         std::make_shared<task::MockContext>(client),
         rack

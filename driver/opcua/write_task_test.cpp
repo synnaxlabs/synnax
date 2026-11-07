@@ -336,7 +336,7 @@ protected:
         };
         auto p = x::json::Parser(task_cfg);
         auto write_cfg = WriteTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<WriteTaskSink>(
             ctx->client,
             conn_pool,
@@ -575,7 +575,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     };
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
@@ -624,7 +624,7 @@ std::unique_ptr<WriteTaskSink> sink_for(
     };
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(client, p);
-    EXPECT_FALSE(p.error()) << p.error().message();
+    EXPECT_NIL(p.error());
     return std::make_unique<WriteTaskSink>(client, pool, std::move(write_cfg));
 }
 
@@ -892,7 +892,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
         this->secured_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
     );
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     ASSERT_MATCHES(sink->write(fr), errors::COMMAND_REJECTED);
     ASSERT_EQ(conn_pool->size(), 1);
     ASSERT_NIL(sink->stop());
@@ -919,7 +919,7 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
 
     auto p = x::json::Parser(task_cfg);
     const auto parsed = std::make_unique<WriteTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }
