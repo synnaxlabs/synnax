@@ -345,8 +345,9 @@ before it.
 9. **UUID status keys, derived in migration**: An owner-derived key is a hidden
    reference. A random UUID gives each node a different key. `owner` is optional because
    the Console and the clients create statuses with no owner.
-10. **Visualizations with no owner are deleted**: A recovery project was rejected. No
-    path reaches them today.
+10. **Visualizations with no owner are deleted**: A recovery project was rejected.
+    Shipped Cores leave the snapshots of a deleted range with no owner, and the upgrade
+    deletes them with a warning for each, as a range delete now does.
 11. **One write lock per DB, taken at open**: A lock taken at the first write misses a
     read that comes before that write, and each check reads first. Per-table locks
     deadlock when two transactions take them in opposite orders. Revisit the lock when

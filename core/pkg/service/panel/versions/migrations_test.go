@@ -24,6 +24,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -58,6 +59,24 @@ var _ = Describe("Migrations", func() {
 				Migrations: versions.Migrations,
 			}),
 		)
+	}
+	// own stores a project and its edge to the panel with key, and returns the
+	// project's
+	// key.
+	own := func(key versions.Key) uuid.UUID {
+		GinkgoHelper()
+		owner := uuid.New()
+		Expect(gorp.WrapWriter[projectv3.Key, projectv3.Project](db).
+			Set(ctx, projectv3.Project{Key: owner, Name: "Owner"})).To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](db).Set(
+			ctx,
+			ontology.Relationship{
+				From: project.Project{Key: owner}.ResourceID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   resource.ID{Type: resource.TypePanel, Key: key.String()},
+			},
+		)).To(Succeed())
+		return owner
 	}
 	retrieve := func(key versions.Key) versions.Panel {
 		GinkgoHelper()
@@ -101,12 +120,14 @@ var _ = Describe("Migrations", func() {
 				}},
 			}
 			Expect(gorp.WrapWriter[v0.Key, v0.Panel](db).Set(ctx, old)).To(Succeed())
+			owner := own(old.Key)
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
 			p1 := MustSucceed(v1.MigratePanel(ctx, old))
 			want := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
+			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
 
@@ -135,9 +156,11 @@ var _ = Describe("Migrations", func() {
 			)
 			Expect(gorp.WrapWriter[v2.Key, v2.Panel](db).Set(ctx, stored)).
 				To(Succeed())
+			owner := own(stored.Key)
 			openTable()
-			Expect(retrieve(stored.Key)).
-				To(Equal(MustSucceed(v3.MigratePanel(ctx, stored))))
+			want := MustSucceed(v3.MigratePanel(ctx, stored))
+			want.Project = &owner
+			Expect(retrieve(stored.Key)).To(Equal(want))
 		})
 	})
 
@@ -171,16 +194,7 @@ var _ = Describe("Migrations", func() {
 			lf := panels[0].Root.Variant.(versions.LeafNode)
 			Expect(lf.Tabs).To(HaveLen(1))
 			Expect(lf.Tabs[0].Variant.(versions.ResourceTab).Resource).To(Equal(lpID))
-
-			By("Parenting the panel under the project")
-			rel := ontology.Relationship{
-				From: project.Project{Key: projectKey}.ResourceID(),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   panels[0].ResourceID(),
-			}
-			Expect(gorp.NewRetrieve[string, ontology.Relationship]().
-				Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).
-				Exists(ctx, db)).To(BeTrue())
+			Expect(panels[0].Project).To(Equal(&projectKey))
 		})
 	})
 })

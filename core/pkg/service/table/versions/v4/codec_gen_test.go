@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -66,7 +68,9 @@ var _ = Describe("Codec", func() {
 						}),
 					}},
 				},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 			}),
 			Entry("zero values", v4.Table{
 				Key:     uuid.Nil(),
@@ -75,6 +79,8 @@ var _ = Describe("Codec", func() {
 				Columns: []v4.Column{},
 				Cells:   map[string]v4.CellConfig{},
 				Group:   nil,
+				Project: nil,
+				Range:   nil,
 			}),
 			Entry("empty collections", v4.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -83,6 +89,8 @@ var _ = Describe("Codec", func() {
 				Columns: []v4.Column{},
 				Cells:   map[string]v4.CellConfig{},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			}),
 		)
 	})
@@ -118,7 +126,9 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 				}),
 			}},
 		},
-		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
+		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -166,7 +176,9 @@ func FuzzDecodeTable(f *testing.F) {
 					}),
 				}},
 			},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -182,6 +194,8 @@ func FuzzDecodeTable(f *testing.F) {
 			Columns: []v4.Column{},
 			Cells:   map[string]v4.CellConfig{},
 			Group:   nil,
+			Project: nil,
+			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -197,6 +211,8 @@ func FuzzDecodeTable(f *testing.F) {
 			Columns: []v4.Column{},
 			Cells:   map[string]v4.CellConfig{},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

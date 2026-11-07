@@ -32,7 +32,7 @@ const createLog = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
-  return await client.logs.create(proj.key, { name: uniqueName("log") });
+  return await client.logs.create({ project: proj.key, name: uniqueName("log") });
 };
 
 const logResource = (key: string, name: string) =>
@@ -84,7 +84,7 @@ describe("log ontology service", () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
     });
-    const l = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const l = await client.logs.create({ project: proj.key, name: uniqueName("log") });
     const { store } = await renderOntologyTree({
       client,
       root: project.resourceID(proj.key),

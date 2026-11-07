@@ -59,13 +59,15 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 	})
 }
 
-// Create creates the given table within the project provided. If the table does not
-// have a key, a new key will be generated. An existing table keeps its group.
-func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, t) })
+// Create creates the given table, assigning a new key when t.Key is zero. The table
+// must belong to exactly one of a project and a range. An existing table keeps its
+// group, project, and range. A new table in a group belongs to the project that holds
+// the group.
+func (w Writer) Create(ctx context.Context, t *Table) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, t) })
 }
 
-func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) error {
+func (w Writer) create(ctx context.Context, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -82,21 +84,20 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 			return err
 		}
 		if exists = err == nil; exists {
-			t.Group = stored.Group
+			t.Group, t.Project, t.Range = stored.Group, stored.Project, stored.Range
 		}
 	}
-	if !exists {
-		if err = group.CheckMember(
-			ctx,
-			w.tx,
-			t.Group,
-			resource.TypeTable,
-			nil,
-		); err != nil {
+	if !exists && t.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, t.Group, resource.TypeTable)
+		if err != nil {
 			return err
 		}
+		t.Project = proj
 	}
 	if err = t.Validate(); err != nil {
+		return err
+	}
+	if err = project.ValidateOwner(t.Project, t.Range); err != nil {
 		return err
 	}
 	if err = validateUniqueKeys(*t); err != nil {
@@ -110,16 +111,6 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil() {
-			if err = w.otgWriter.DefineRelationships(
-				ctx,
-				project.ResourceID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -130,14 +121,65 @@ func (w Writer) create(ctx context.Context, projectKey project.Key, t *Table) er
 	return nil
 }
 
-// SetGroup moves the tables with keys into g, or out of their group when g is nil.
+// SetGroup moves the tables with keys into g, or out of their group when g is nil. A
+// table in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(ctx, w.tx, g, resource.TypeTable, nil); err != nil {
+	return w.inTx(ctx, func(w Writer) error {
+		p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
+		if err != nil {
+			return err
+		}
+		if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, g, keys)
+		if p == nil {
+			return nil
+		}
+		return w.setProject(ctx, *p, keys...)
+	})
+}
+
+// SetProject moves the tables with keys out of their group and into the project p. It
+// returns a validation error when a table belongs to a range.
+func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
+	return w.inTx(ctx, func(w Writer) error {
+		if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		w.notifyGroup(ctx, nil, keys)
+		return w.setProject(ctx, p, keys...)
+	})
+}
+
+// setProject moves the tables with keys into the project p, and notifies a project
+// change for each one that was not in p.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
+	if err := w.tbl.NewUpdate().
+		Where(gorp.MatchKeys[Key, Table](keys...)).
+		ChangeErr(func(_ gorp.Context, e Table) (Table, error) {
+			if e.Project == nil || *e.Project != p {
+				moved = append(moved, e.Key)
+			}
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
+	for _, k := range moved {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetProjectAction(SetProjectPayload{Project: p}),
+		)
 	}
+	return nil
+}
+
+func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
 	for _, k := range keys {
 		w.dispatcher.NotifyOnCommit(
 			ctx,
@@ -146,18 +188,13 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 			NewSetGroupAction(SetGroupPayload{Group: g}),
 		)
 	}
-	return nil
 }
 
-// CreateMany creates the given tables within the project provided. If tables with the
-// same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	tables *[]Table,
-) error {
+// CreateMany creates the given tables. If tables with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
-		if err := w.Create(ctx, projectKey, &(*tables)[i]); err != nil {
+		if err := w.Create(ctx, &(*tables)[i]); err != nil {
 			return err
 		}
 	}

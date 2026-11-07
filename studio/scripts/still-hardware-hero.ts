@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, project, type Synnax } from "@synnaxlabs/client";
+import { type panel, type Synnax } from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -65,7 +65,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await client.panels.delete(hardware.key);
     await client.panels.create({
       name: hardware.name,
-      parent: project.resourceID(tpc.key),
+      project: tpc.key,
       root: {
         variant: "split",
         direction: "x",

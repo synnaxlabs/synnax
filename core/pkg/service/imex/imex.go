@@ -240,8 +240,10 @@ type BodyExporter interface {
 // error env is left untouched.
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
-// A BodyExporter is reduced through ExportBody instead of directly.
-func (env *Envelope) Encode[T any](data T) error {
+// A BodyExporter is reduced through ExportBody instead of directly. references names
+// the top-level fields that hold Gorp references. Encode leaves them out, since they
+// hold keys local to this Core.
+func (env *Envelope) Encode[T any](data T, references ...string) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {
 		value = b.ExportBody()
@@ -255,6 +257,9 @@ func (env *Envelope) Encode[T any](data T) error {
 		if body, err = structToMap(value); err != nil {
 			return errors.Wrap(err, "encode envelope")
 		}
+	}
+	for _, ref := range references {
+		delete(body, ref)
 	}
 	// Importers mint a fresh key, so a key on the wire is noise at best and a collision
 	// hazard at worst.

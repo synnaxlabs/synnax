@@ -24,6 +24,8 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
@@ -240,8 +242,11 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  snapshot?: filter.Bool;
   groups?: group.Key[];
   grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -258,10 +263,16 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** snapshot selects by snapshot. */
+  snapshot: filter.boolZ.optional(),
   /** groups matches the schematics in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the schematics in a group, or in no group when false. */
   grouped: z.boolean().optional(),
+  /** projects matches the schematics owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the schematics owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
@@ -3311,6 +3322,16 @@ export const schematicZ = z.object({
   ),
   /** group is the group the schematic sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}

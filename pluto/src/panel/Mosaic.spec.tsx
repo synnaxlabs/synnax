@@ -9,7 +9,7 @@
 
 import { access, panel, project, type resource, user } from "@synnaxlabs/client";
 import {
-  createPanelParent,
+  createPanelProject,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -38,10 +38,10 @@ const client = createTestClient();
 // must pick up through the action channel.
 const writer = createTestClient();
 
-// Panel creation requires a parent; every panel here shares one throwaway project.
-let defaultParent: resource.ID;
+// Every panel here shares one throwaway project.
+let defaultProject: project.Key;
 beforeAll(async () => {
-  defaultParent = await createPanelParent(client);
+  defaultProject = await createPanelProject(client);
 });
 
 const ROUND_TRIP = { timeout: 5000 };
@@ -69,7 +69,7 @@ const selectorTab = (): panel.Tab => ({
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
   const created = await client.panels.create({
     name: `mosaic-${uuid.create()}`,
-    parent: defaultParent,
+    project: defaultProject,
   });
   if (tabs.length > 0)
     await client.panels.dispatch(

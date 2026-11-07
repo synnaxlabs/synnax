@@ -20,6 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -202,7 +203,9 @@ var _ = Describe("Codec", func() {
 						Position:  131.5,
 					},
 				},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 			}),
 			Entry("zero values", v8.LinePlot{
 				Key:   uuid.Nil(),
@@ -288,9 +291,11 @@ var _ = Describe("Codec", func() {
 						Type:           nil,
 					},
 				},
-				Lines: []v8.Line{},
-				Rules: []v8.Rule{},
-				Group: nil,
+				Lines:   []v8.Line{},
+				Rules:   []v8.Rule{},
+				Group:   nil,
+				Project: nil,
+				Range:   nil,
 			}),
 			Entry("empty collections", v8.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -379,9 +384,11 @@ var _ = Describe("Codec", func() {
 						Type:           new(v8.TickType("linear")),
 					},
 				},
-				Lines: []v8.Line{},
-				Rules: []v8.Rule{},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+				Lines:   []v8.Line{},
+				Rules:   []v8.Rule{},
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
 			}),
 		)
 	})
@@ -542,7 +549,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Position:  131.5,
 			},
 		},
-		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -747,7 +756,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Position:  131.5,
 				},
 			},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -840,9 +851,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Type:           nil,
 				},
 			},
-			Lines: []v8.Line{},
-			Rules: []v8.Rule{},
-			Group: nil,
+			Lines:   []v8.Line{},
+			Rules:   []v8.Rule{},
+			Group:   nil,
+			Project: nil,
+			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -938,9 +951,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Type:           new(v8.TickType("linear")),
 				},
 			},
-			Lines: []v8.Line{},
-			Rules: []v8.Rule{},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+			Lines:   []v8.Line{},
+			Rules:   []v8.Rule{},
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

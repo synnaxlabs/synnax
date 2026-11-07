@@ -247,6 +247,12 @@ type Transport struct {
 	LogSetGroup             freighter.UnaryServer[log.SetGroupRequest, struct{}]
 	TableSetGroup           freighter.UnaryServer[table.SetGroupRequest, struct{}]
 	PanelSetGroup           freighter.UnaryServer[panel.SetGroupRequest, struct{}]
+	// PROJECT MEMBERSHIP
+	SchematicSetProject freighter.UnaryServer[schematic.SetProjectRequest, struct{}]
+	LinePlotSetProject  freighter.UnaryServer[lineplot.SetProjectRequest, struct{}]
+	LogSetProject       freighter.UnaryServer[log.SetProjectRequest, struct{}]
+	TableSetProject     freighter.UnaryServer[table.SetProjectRequest, struct{}]
+	PanelSetProject     freighter.UnaryServer[panel.SetProjectRequest, struct{}]
 	// BATCH
 	Batch freighter.UnaryServer[batch.ExecRequest, batch.ExecResponse]
 }
@@ -519,6 +525,13 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableSetGroup,
 		t.PanelSetGroup,
 
+		// PROJECT MEMBERSHIP
+		t.SchematicSetProject,
+		t.LinePlotSetProject,
+		t.LogSetProject,
+		t.TableSetProject,
+		t.PanelSetProject,
+
 		// BATCH
 		t.Batch,
 	)
@@ -607,6 +620,23 @@ func (l *Layer) BindTo(t Transport) {
 	t.LogSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.SetGroup))
 	t.TableSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.SetGroup))
 	t.PanelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.SetGroup))
+
+	// PROJECT MEMBERSHIP
+	t.SchematicSetProject.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetProject),
+	)
+	t.LinePlotSetProject.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetProject),
+	)
+	t.LogSetProject.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Log.SetProject),
+	)
+	t.TableSetProject.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Table.SetProject),
+	)
+	t.PanelSetProject.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Panel.SetProject),
+	)
 
 	// BATCH
 	t.Batch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Batch.Exec))
@@ -884,6 +914,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Project, err = project.NewService(project.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
+		Bundle:  cfg.Service.Bundle,
 	}); err != nil {
 		return nil, err
 	}

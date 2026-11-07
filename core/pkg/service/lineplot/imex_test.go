@@ -39,8 +39,8 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
-			lp := lineplot.LinePlot{Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
+			lp := lineplot.LinePlot{Project: &proj.Key, Name: "exported"}
+			Expect(svc.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
@@ -162,12 +162,13 @@ var _ = Describe("ImEx", func() {
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
 				original := lineplot.LinePlot{
+					Project:  &proj.Key,
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
 					Ranges:   []ranger.Ref{recentRef},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(

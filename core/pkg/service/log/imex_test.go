@@ -34,7 +34,8 @@ import (
 var _ = Describe("ImEx", func() {
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
 		GinkgoHelper()
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+		l.Project = &proj.Key
+		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 		return l
 	}
 
@@ -229,25 +230,24 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should create the imported log under the parent project from the options",
+			"Should give the imported log the parent project from the options",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx, db, LoadEnvelope(v2Fixture),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
-				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: proj.ResourceID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
+				_, l := importAndRetrieve(ctx, v2Fixture)
+				Expect(l.Project).To(HaveValue(Equal(proj.Key)))
+				Expect(l.Range).To(BeNil())
 			},
 		)
 
 		It("Should reject a parent project that does not exist", func(ctx SpecContext) {
+			missing := uuid.New()
 			Expect(imexSvc.Import(
 				ctx, db, LoadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: project.ResourceID(uuid.New())},
-			)).Error().To(MatchError(query.ErrNotFound))
+				imex.ImportOptions{Parent: project.ResourceID(missing)},
+			)).Error().To(MatchError(
+				ContainSubstring(
+					"project: project " + missing.String() + " does not exist",
+				),
+			))
 		})
 
 		It("Should reject a parent that is not a project", func(ctx SpecContext) {

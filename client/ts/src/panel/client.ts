@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { group } from "@/group";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
   type Action,
@@ -32,24 +32,21 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
-  type Where,
 } from "@/panel/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
+import { project } from "@/project";
 import { query } from "@/query";
-import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const parentRequestZ = retrieveRequestZ.extend({
-  parent: resource.idZ.optional(),
-});
-type Request = z.infer<typeof parentRequestZ>;
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): Request => query.keysRequest(keys)),
+  query.keysRequestZ(keyZ),
   filter.requestInputZ(
-    parentRequestZ,
-    retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
   ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
@@ -58,13 +55,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
-
-const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
-  ontology.matchRelationship(rel, {
-    from: parent,
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: "panel" },
-  });
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -77,10 +67,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   private readonly store: query.Table<Key, Panel>;
   /** Builds requests that move panels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move panels out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontology: ontologyClient } = cfg;
+    const { cache } = cfg;
     // Dispatch mutates documents server-side, so fetched copies never clobber
     // a doc holding locally replayed edits: the table hydrates if-absent.
     const store = cache.createTable<Key, Panel>({
@@ -104,22 +96,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.fetchRequest(req),
-        matches: (panel, req) =>
-          matches(group.MEMBER_LINES, panel, req.where) &&
-          (req.parent == null || this.isCachedChild(req.parent, panel.key)),
-        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
-        watch: [
-          query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
-            if (req.parent == null) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!isChildOf(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
-        ],
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (panel, req) => matches(LINES, panel, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -127,22 +106,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     this.setGroupRequest = group.createMoveRequest("/panel/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
+    this.setProjectRequest = project.createMoveRequest(
+      "/panel/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
   /** All panels currently in the cache. */
   listCached(): Panel[] {
     return this.store.get();
-  }
-
-  private isCachedChild(parent: resource.ID, key: Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString({
-        from: parent,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: resourceID(key),
-      }),
-    );
   }
 
   async create(panel: New, opts?: query.WriteOptions<Panel[]>): Promise<Panel>;
@@ -300,22 +273,5 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       retrieveResponseZ,
     );
     return res.panels;
-  }
-
-  // Parent queries resolve membership through the ontology graph, then fetch
-  // the member panels; the panel retrieve endpoint knows nothing of parents.
-  private async fetchRequest({ parent, ...req }: Request): Promise<Panel[]> {
-    if (parent == null) return await this.execRetrieve(req);
-    const children = await this.cfg.ontology.children.retrieve({
-      ids: parent,
-      types: ["panel"],
-    });
-    const keys = children.map(({ id }) => id.key);
-    if (keys.length === 0) return [];
-    const where: Where = { key: { in: keys } };
-    return await this.execRetrieve({
-      ...req,
-      where: req.where == null ? where : { and: [req.where, where] },
-    });
   }
 }

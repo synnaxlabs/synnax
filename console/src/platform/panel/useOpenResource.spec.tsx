@@ -30,7 +30,7 @@ describe("Panel.useOpenResource", () => {
   it("opens the resource's resource ID as a tab", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     const project = await selectTestProject(store, client);
-    const created = await client.tables.create(project, { name: uniqueName("table") });
+    const created = await client.tables.create({ project, name: uniqueName("table") });
     const { result } = renderHook(() => Panel.useOpenResource(), { wrapper });
     const id = table.resourceID(created.key);
     await act(async () => {

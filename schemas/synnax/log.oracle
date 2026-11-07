@@ -9,6 +9,8 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/notation"
@@ -96,6 +98,20 @@ Log struct {
         @doc value     "is the group the log sits in, if any."
         @ref on_delete detach
     }
+    project              project.Key?   {
+        @doc value     """
+            is the project that owns the log, if any. Exactly one of project and range
+            is set.
+        """
+        @ref on_delete cascade
+    }
+    range                ranger.Key?    {
+        @doc value     """
+            is the range that owns the log, if any. Exactly one of project and range is
+            set.
+        """
+        @ref on_delete cascade
+    }
 
     action Create {
         log Log
@@ -118,6 +134,15 @@ Log struct {
         @doc value """
             moves the log into a group, or out of its group when group is empty. Emitted
             by the Core when it moves the log; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the log into a project. Emitted by the Core when it moves the log;
+            clients never dispatch it.
         """
     }
 
@@ -271,11 +296,17 @@ Log struct {
 
 Where filter Log {
     key
-    groups  group.Key[] {
+    groups   group.Key[]   {
         @doc value "matches the logs in any of the given groups."
     }
-    grouped bool        {
+    grouped  bool          {
         @doc value "matches the logs in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the logs owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the logs owned by any of the given ranges."
     }
 
     @doc value         "is a filter that selects logs."

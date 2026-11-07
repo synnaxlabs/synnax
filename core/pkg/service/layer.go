@@ -54,6 +54,7 @@ import (
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -187,6 +188,8 @@ type Layer struct {
 	KV *kv.Service
 	// Project is for working with Projects.
 	Project *project.Service
+	// Bundle exports and imports projects as bundles.
+	Bundle *bundle.Service
 	// Schematic is for working with schematic visualizations.
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
@@ -300,6 +303,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("group"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
+		// The visualization services open after the group service, so the hook reads
+		// them when it runs.
+		MoveMembers: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			groups []group.Key,
+			top *resource.ID,
+		) error {
+			for _, move := range []group.MoveMembers{
+				l.Schematic.MoveGroups,
+				l.LinePlot.MoveGroups,
+				l.Log.MoveGroups,
+				l.Table.MoveGroups,
+				l.Panel.MoveGroups,
+			} {
+				if err := move(ctx, tx, groups, top); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
@@ -536,6 +560,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
+	// The visualization migrations read the projects converted from workspaces, so the
+	// project table opens first.
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Signals:         l.Signals,
+	}); !ok(err, l.Project) {
+		return nil, err
+	}
 	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
@@ -573,15 +607,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Panel) {
 		return nil, err
 	}
-	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
-		Instrumentation: cfg.Child("project"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		Signals:         l.Signals,
-		ImEx:            l.ImEx,
-		Panel:           l.Panel,
-	}); !ok(err, l.Project) {
+	if l.Bundle, err = bundle.NewService(bundle.Config{
+		DB:       cfg.Distribution.DB,
+		Ontology: l.Ontology,
+		Project:  l.Project,
+		Group:    l.Group,
+		Panel:    l.Panel,
+		ImEx:     l.ImEx,
+	}); err != nil {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{

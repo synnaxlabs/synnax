@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -36,7 +38,7 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-3],
+				Migrations: versions.Migrations[:len(versions.Migrations)-4],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),
@@ -64,6 +66,18 @@ var _ = Describe("Stored v7 line plots", func() {
 			}
 			Expect(gorp.NewCreate[v7.Key, v7.LinePlot]().
 				Entry(&old).Exec(ctx, db)).To(Succeed())
+			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
+			Expect(gorp.NewCreate[projectv3.Key, projectv3.Project]().
+				Entry(&proj).
+				Exec(ctx, db)).To(Succeed())
+			owner := ontology.Relationship{
+				From: resource.ID{Type: resource.TypeProject, Key: proj.Key.String()},
+				Type: ontology.RelationshipTypeParentOf,
+				To:   resource.ID{Type: resource.TypeLineplot, Key: old.Key.String()},
+			}
+			Expect(gorp.NewCreate[string, ontology.Relationship]().
+				Entry(&owner).
+				Exec(ctx, db)).To(Succeed())
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 				DB:       db,

@@ -37,7 +37,7 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.logs.getCached(resource.key));
-    await client.logs.create(project, corpse);
+    await client.logs.create({ ...corpse, project });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

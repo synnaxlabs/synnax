@@ -20,32 +20,23 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
-// createPanel persists a panel parented to the suite parent group and returns it
-// with its key populated. Writes commit immediately (nil tx) so the api enforcer
-// can observe the new ontology resource.
+// createPanel persists a panel in the suite project and returns it with its key
+// populated. Writes commit immediately (nil tx) so the api enforcer can observe the new
+// ontology resource.
 func createPanel(ctx context.Context, name string) panel.Panel {
 	GinkgoHelper()
-	p := panel.Panel{Name: name, Parent: &parentID}
+	p := panel.Panel{Name: name, Project: &proj.Key}
 	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 	return p
-}
-
-func hasParent(ctx context.Context, parent resource.ID, key panel.Key) bool {
-	GinkgoHelper()
-	return MustSucceed(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-		From: parent,
-		Type: ontology.RelationshipTypeParentOf,
-		To:   panel.ResourceID(key),
-	}))
 }
 
 var _ = Describe("Service", func() {
@@ -54,18 +45,17 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject has no create policy",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				p := panel.Panel{Key: uuid.New(), Name: "no-policy", Parent: &parentID}
+				p := panel.Panel{Key: uuid.New(), Name: "no-policy", Project: &proj.Key}
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 
-		It("Should create the panels under the provided parent", func(ctx SpecContext) {
+		It("Should create the panels in the provided project", func(ctx SpecContext) {
 			u := newUser(ctx)
-			p := panel.Panel{Key: uuid.New(), Name: "with-parent", Parent: &parentID}
-			grant(ctx, u.ResourceID(), access.ActionCreate,
-				resource.ID{Type: resource.TypePanel}, parentID)
+			p := panel.Panel{Key: uuid.New(), Name: "with-parent", Project: &proj.Key}
+			grantCreate(ctx, u.ResourceID())
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
@@ -77,18 +67,17 @@ var _ = Describe("Service", func() {
 			Expect(panelSvc.NewRetrieve().Where(panel.MatchKeys(p.Key)).
 				Entry(&got).Exec(ctx, nil)).To(Succeed())
 			Expect(got.Name).To(Equal("with-parent"))
-			Expect(hasParent(ctx, parentID, p.Key)).To(BeTrue())
+			Expect(got.Project).To(HaveValue(Equal(proj.Key)))
 		})
 
 		It("Should stamp the dispatch key onto the create broadcast", func(
 			ctx SpecContext,
 		) {
 			u := newUser(ctx)
-			grant(ctx, u.ResourceID(), access.ActionCreate,
-				resource.ID{Type: resource.TypePanel}, parentID)
+			grantCreate(ctx, u.ResourceID())
 			rec := &Recorder[panel.Key, panel.Action]{}
 			DeferCleanup(panelSvc.OnAction(rec.Record))
-			p := panel.Panel{Key: uuid.New(), Name: "broadcast", Parent: &parentID}
+			p := panel.Panel{Key: uuid.New(), Name: "broadcast", Project: &proj.Key}
 			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 				Panels:      []panel.Panel{p},
 				DispatchKey: "dk-create",
@@ -100,15 +89,43 @@ var _ = Describe("Service", func() {
 		})
 
 		It(
-			"Should reject a panel with no parent",
+			"Should reject the request without update on the owner",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				p := panel.Panel{Key: uuid.New(), Name: "no-parent"}
+				grant(ctx, u.ResourceID(), access.ActionCreate,
+					resource.ID{Type: resource.TypePanel})
+				p := panel.Panel{Key: uuid.New(), Name: "denied", Project: &proj.Key}
+				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+					Panels: []panel.Panel{p},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should reject a panel with neither a project nor a range",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				p := panel.Panel{Key: uuid.New(), Name: "no-owner"}
 				grant(ctx, u.ResourceID(), access.ActionCreate,
 					resource.ID{Type: resource.TypePanel})
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
-				})).Error().To(MatchError(validate.ErrValidation))
+				})).Error().To(MatchError(ContainSubstring(
+					"must belong to exactly one of a project and a range",
+				)))
+			},
+		)
+
+		It(
+			"Should reject the request when the subject cannot create in the project",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				p := panel.Panel{Key: uuid.New(), Name: "denied", Project: &proj.Key}
+				grant(ctx, u.ResourceID(), access.ActionCreate,
+					resource.ID{Type: resource.TypePanel})
+				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+					Panels: []panel.Panel{p},
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 	})
@@ -179,6 +196,29 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should return the panels of the requested projects", func(ctx SpecContext) {
+			p := createPanel(ctx, "in-project")
+			grant(ctx, author.ResourceID(), access.ActionRetrieve, p.ResourceID())
+			res := MustSucceed(
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+					Where: &panel.Where{
+						Key:      &filter.Set[panel.Key]{Eq: &p.Key},
+						Projects: []project.Key{proj.Key},
+					},
+				}),
+			)
+			Expect(res.Panels).To(HaveLen(1))
+			res = MustSucceed(
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
+					Where: &panel.Where{
+						Key:      &filter.Set[panel.Key]{Eq: &p.Key},
+						Projects: []project.Key{uuid.New()},
+					},
+				}),
+			)
+			Expect(res.Panels).To(BeEmpty())
+		})
+
 		It("Should honor the limit and offset bounds", func(ctx SpecContext) {
 			a := createPanel(ctx, "page-a")
 			b := createPanel(ctx, "page-b")
@@ -194,6 +234,59 @@ var _ = Describe("Service", func() {
 				}),
 			)
 			Expect(res.Panels).To(HaveLen(1))
+		})
+	})
+
+	Describe("SetProject", func() {
+		It(
+			"Should reject the request when the subject has no update policy",
+			func(ctx SpecContext) {
+				p := createPanel(ctx, "move-denied")
+				Expect(apiSvc.SetProject(
+					AuthedCtx(ctx, author),
+					nil,
+					apipanel.SetProjectRequest{
+						Project: proj.Key,
+						Keys:    []panel.Key{p.Key},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should reject the request without update on the destination project",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				dest := project.Project{Name: "denied destination"}
+				Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+				p := createPanel(ctx, "move-denied")
+				grant(ctx, u.ResourceID(), access.ActionUpdate,
+					p.ResourceID(), proj.ResourceID())
+				Expect(apiSvc.SetProject(
+					AuthedCtx(ctx, u),
+					nil,
+					apipanel.SetProjectRequest{
+						Project: dest.Key,
+						Keys:    []panel.Key{p.Key},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&proj.Key))
+			},
+		)
+
+		It("Should move the panels into the project", func(ctx SpecContext) {
+			u := newUser(ctx)
+			dest := project.Project{Name: "destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			p := createPanel(ctx, "moved")
+			grant(ctx, u.ResourceID(), access.ActionUpdate,
+				p.ResourceID(), proj.ResourceID(), dest.ResourceID())
+			Expect(apiSvc.SetProject(
+				AuthedCtx(ctx, u),
+				nil,
+				apipanel.SetProjectRequest{Project: dest.Key, Keys: []panel.Key{p.Key}},
+			)).Error().To(Succeed())
+			Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&dest.Key))
 		})
 	})
 
@@ -273,10 +366,10 @@ var _ = Describe("Service", func() {
 	})
 })
 
-// createProjectGroup creates a project group with no top parent.
-func createProjectGroup(ctx SpecContext, name string) group.Group {
+// createGroup creates a group in the suite project.
+func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: name, Scope: resource.TypeProject}
+	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 	return g
 }
@@ -297,10 +390,10 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := createPanel(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
+			g := createGroup(ctx, "Set group denied")
 			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrievePanel(ctx, p.Key).Group).To(BeNil())
@@ -311,7 +404,7 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := createPanel(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
+			g := createGroup(ctx, "Set group granted")
 			grant(
 				ctx,
 				u.ResourceID(),
@@ -320,53 +413,150 @@ var _ = Describe("SetGroup", func() {
 				g.ResourceID(),
 			)
 			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+				AuthedCtx(ctx, u), db,
 				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
 		},
 	)
+	Context("Into a group under another project", func() {
+		var (
+			u    user.User
+			x    panel.Panel
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			x = createPanel(ctx, "Cross project")
+			dest = project.Project{Name: "Destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		move := func(ctx SpecContext) (struct{}, error) {
+			return apiSvc.SetGroup(
+				AuthedCtx(ctx, u),
+				db,
+				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{x.Key}},
+			)
+		}
+		DescribeTable(
+			"Should refuse the move without update on both projects",
+			func(ctx SpecContext, projects func() []resource.ID) {
+				objects := projects()
+				grant(ctx, u.ResourceID(), access.ActionUpdate, append(
+					objects,
+					panel.ResourceID(x.Key),
+					g.ResourceID(),
+				)...)
+				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&proj.Key))
+			},
+			Entry("without the destination", func() []resource.ID {
+				return []resource.ID{project.ResourceID(proj.Key)}
+			}),
+			Entry("without the source", func() []resource.ID {
+				return []resource.ID{dest.ResourceID()}
+			}),
+		)
+		It("Should move the panel with update on both projects", func(ctx SpecContext) {
+			objects := []resource.ID{project.ResourceID(proj.Key), dest.ResourceID()}
+			grant(ctx, u.ResourceID(), access.ActionUpdate, append(
+				objects,
+				panel.ResourceID(x.Key),
+				g.ResourceID(),
+			)...)
+			MustSucceed(move(ctx))
+			Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&dest.Key))
+		})
+	})
 })
 
 var _ = Describe("Create in a group", func() {
 	newPanel := func(name string, g group.Group) panel.Panel {
 		return panel.Panel{
-			Key:    uuid.New(),
-			Name:   name,
-			Parent: &parentID,
-			Group:  &g.Key,
+			Key:     uuid.New(),
+			Name:    name,
+			Project: &proj.Key,
+			Group:   &g.Key,
 		}
-	}
-	grantCreate := func(ctx SpecContext, u resource.ID) {
-		GinkgoHelper()
-		grant(
-			ctx,
-			u,
-			access.ActionCreate,
-			resource.ID{Type: resource.TypePanel},
-			parentID,
-		)
 	}
 	It(
 		"Should refuse the create without update on the group",
 		func(ctx SpecContext) {
 			u := newUser(ctx)
-			g := createProjectGroup(ctx, "Create denied")
+			g := createGroup(ctx, "Create denied")
 			grantCreate(ctx, u.ResourceID())
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
 				Panels: []panel.Panel{newPanel("Denied", g)},
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
 	It("Should create the panel with update on the group", func(ctx SpecContext) {
 		u := newUser(ctx)
-		g := createProjectGroup(ctx, "Create granted")
+		g := createGroup(ctx, "Create granted")
 		grantCreate(ctx, u.ResourceID())
 		grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
 		p := newPanel("Granted", g)
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+		Expect(apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().ToNot(HaveOccurred())
 		Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
+	})
+	Context("Under another project", func() {
+		var (
+			u    user.User
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			grantCreate(ctx, u.ResourceID())
+			dest = project.Project{Name: "Create destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Create destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		create := func(ctx SpecContext, carried *project.Key) (apipanel.CreateResponse, error) {
+			return apiSvc.Create(AuthedCtx(ctx, u), db, apipanel.CreateRequest{
+				Panels: []panel.Panel{
+					{
+						Key:     uuid.New(),
+						Project: carried,
+						Name:    "Elsewhere",
+						Group:   &g.Key,
+					},
+				},
+			})
+		}
+		DescribeTable(
+			"Should refuse a create in a group without update on the group's project",
+			func(ctx SpecContext, carried func() *project.Key) {
+				grant(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
+				Expect(create(ctx, carried())).Error().To(MatchError(access.ErrDenied))
+			},
+			Entry(
+				"with the project it carries",
+				func() *project.Key { return &proj.Key },
+			),
+			Entry("with no project", func() *project.Key { return nil }),
+		)
+		It(
+			"Should create the panel with update on the group's project",
+			func(ctx SpecContext) {
+				grant(
+					ctx,
+					u.ResourceID(),
+					access.ActionUpdate,
+					g.ResourceID(),
+					dest.ResourceID(),
+				)
+				res := MustSucceed(create(ctx, nil))
+				Expect(
+					retrievePanel(ctx, res.Panels[0].Key).Project,
+				).To(Equal(&dest.Key))
+			},
+		)
 	})
 })

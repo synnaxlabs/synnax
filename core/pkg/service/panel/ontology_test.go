@@ -69,7 +69,7 @@ var _ = Describe("Ontology", func() {
 
 		It("Should retrieve a panel as an ontology resource", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			p := panel.Panel{Name: "resource", Parent: &parentID}
+			p := panel.Panel{Name: "resource", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.ID).To(Equal(p.ResourceID()))
@@ -80,7 +80,7 @@ var _ = Describe("Ontology", func() {
 			tx := DeferClose(db.OpenTx())
 			c := MustSucceed(color.FromHex("#dc136c"))
 			p := panel.Panel{
-				Name: "styled", Parent: &parentID, Icon: new("valve"), Color: &c,
+				Name: "styled", Project: &proj.Key, Icon: new("valve"), Color: &c,
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
@@ -93,7 +93,7 @@ var _ = Describe("Ontology", func() {
 
 		It("Should omit an unset icon and color", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			p := panel.Panel{Name: "plain", Parent: &parentID}
+			p := panel.Panel{Name: "plain", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.Data).ToNot(HaveKey("icon"))
@@ -121,7 +121,7 @@ var _ = Describe("Ontology", func() {
 					changes = append(changes, slices.Collect(seq)...)
 				}),
 			)
-			p := panel.Panel{Name: "observed", Parent: &parentID}
+			p := panel.Panel{Name: "observed", Project: &proj.Key}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should search panels by name", func(ctx SpecContext) {
-			p := panel.Panel{Name: "turbopump overview", Parent: &parentID}
+			p := panel.Panel{Name: "turbopump overview", Project: &proj.Key}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())

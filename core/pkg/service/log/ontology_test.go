@@ -24,8 +24,8 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		l := log.Log{Name: name}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+		l := log.Log{Project: &proj.Key, Name: name}
+		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		return log.ResourceID(l.Key)
 	}
 

@@ -32,7 +32,12 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/lineplot/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/lineplot/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/lineplot/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -41,6 +46,8 @@ export const SET_CHANNEL_NAME = "sy_lineplot_set";
 export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
+
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -55,7 +62,6 @@ export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   linePlots: linePlotZ.array(),
 });
@@ -78,6 +84,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, LinePlot>;
   /** Builds requests that move line plots between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move line plots out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -106,8 +114,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (plot, req) => matches(group.MEMBER_LINES, plot, req.where),
-        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
+        matches: (plot, req) => matches(LINES, plot, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -115,21 +123,19 @@ export class Client extends query.Retriever<
     this.setGroupRequest = group.createMoveRequest("/lineplot/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
+    this.setProjectRequest = project.createMoveRequest(
+      "/lineplot/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(linePlot: New, opts?: query.WriteOptions<LinePlot[]>): Promise<LinePlot>;
   async create(
-    project: project.Key,
-    linePlot: New,
-    opts?: query.WriteOptions<LinePlot[]>,
-  ): Promise<LinePlot>;
-  async create(
-    project: project.Key,
     linePlots: New[],
     opts?: query.WriteOptions<LinePlot[]>,
   ): Promise<LinePlot[]>;
   async create(
-    project: project.Key,
     linePlots: New | New[],
     opts: query.WriteOptions<LinePlot[]> = {},
   ): Promise<LinePlot | LinePlot[]> {
@@ -146,7 +152,7 @@ export class Client extends query.Retriever<
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/lineplot/create",
-              { project, dispatchKey, linePlots: optimistic },
+              { dispatchKey, linePlots: optimistic },
               createReqZ,
               createResZ,
             ),

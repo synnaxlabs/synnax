@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -69,7 +67,7 @@ var _ = Describe("Signals", func() {
 		"Should broadcast a dispatched action vector on the set channel",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
-			p := panel.Panel{Name: "sig", Parent: &parentID}
+			p := panel.Panel{Name: "sig", Project: &proj.Key}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
@@ -102,12 +100,14 @@ var _ = Describe("Signals", func() {
 	)
 
 	It(
-		"Should not broadcast a create rejected by ontology validation",
+		"Should not broadcast a create rejected by a reference check",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
-			missing := user.ResourceID(uuid.New())
-			p := panel.Panel{Name: "sig-reject", Parent: &missing}
-			Expect(writer.Create(ctx, &p)).To(MatchError(query.ErrNotFound))
+			missing := uuid.New()
+			p := panel.Panel{Name: "sig-reject", Project: &missing}
+			Expect(
+				writer.Create(ctx, &p),
+			).To(MatchError(ContainSubstring("does not exist")))
 			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 		},
 	)
@@ -116,7 +116,7 @@ var _ = Describe("Signals", func() {
 		"Should emit the deleted panel key on the delete channel",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, deleteChannelName)
-			p := panel.Panel{Name: "sig-del", Parent: &parentID}
+			p := panel.Panel{Name: "sig-del", Project: &proj.Key}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			var res framer.StreamerResponse

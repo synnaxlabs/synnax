@@ -50,14 +50,9 @@ const renderCreate = (
   props: Parameters<typeof LinePlot.useCreate>[0] = {},
 ) => renderHook(() => LinePlot.useCreate(props), { wrapper: harness.wrapper });
 
-const expectParent = async (key: string, projectKey: project.Key) =>
+const expectProject = async (key: lineplot.Key, projectKey: project.Key) =>
   await waitFor(async () => {
-    const parents = await client.ontology.parents.retrieve({
-      ids: lineplot.resourceID(key),
-    });
-    expect(
-      parents.some((p) => p.id.type === "project" && p.id.key === projectKey),
-    ).toBe(true);
+    expect((await client.lineplots.retrieve({ key })).project).toEqual(projectKey);
   });
 
 describe("lineplot useCreate", () => {
@@ -77,7 +72,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ProvidedProject" });
       });
-      await expectParent(key, projectB.key);
+      await expectProject(key, projectB.key);
     });
 
     it("falls back to the active project when no prop is given", async () => {
@@ -87,7 +82,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ActiveProject" });
       });
-      await expectParent(key, projectA.key);
+      await expectProject(key, projectA.key);
     });
 
     it("does not change the active project when creating in another one", async () => {
@@ -97,7 +92,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "OtherProject" });
       });
-      await expectParent(key, projectB.key);
+      await expectProject(key, projectB.key);
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectA.key,
       );

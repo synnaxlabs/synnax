@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  NotFoundError,
-  panel,
-  project,
-  query,
-  type resource,
-} from "@synnaxlabs/client";
+import { NotFoundError, panel, query, type resource } from "@synnaxlabs/client";
 import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
@@ -136,7 +130,7 @@ export const useOpenTabs = (): OpenTabs => {
     createPanel({
       name: "New panel",
       root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
-      parent: project.resourceID(getSelectedProject()),
+      project: getSelectedProject(),
     });
   };
 };

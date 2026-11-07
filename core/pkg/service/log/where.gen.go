@@ -60,6 +60,12 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Grouped; l != nil {
 		fs = append(fs, MatchGrouped(*l))
 	}
+	if l := w.Projects; l != nil {
+		fs = append(fs, MatchProjects(l...))
+	}
+	if l := w.Ranges; l != nil {
+		fs = append(fs, MatchRanges(l...))
+	}
 	return And(fs...), nil
 }
 

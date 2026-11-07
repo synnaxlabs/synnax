@@ -38,8 +38,12 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a schematic as a versioned envelope", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "exported", Snapshot: true}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			s := schematic.Schematic{
+				Project:  &proj.Key,
+				Name:     "exported",
+				Snapshot: true,
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, schematic.ResourceID(s.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic"))
@@ -184,8 +188,9 @@ var _ = Describe("ImEx", func() {
 			"Should preserve schematic content through export then import",
 			func(ctx SpecContext) {
 				original := schematic.Schematic{
-					Name:  "round-trip",
-					Nodes: []schematic.Node{{Key: "n1", ZIndex: 5}},
+					Project: &proj.Key,
+					Name:    "round-trip",
+					Nodes:   []schematic.Node{{Key: "n1", ZIndex: 5}},
 					Edges: []schematic.Edge{{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
@@ -193,7 +198,7 @@ var _ = Describe("ImEx", func() {
 					}},
 				}
 				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
+					svc.NewWriter(nil).Create(ctx, &original),
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, schematic.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
