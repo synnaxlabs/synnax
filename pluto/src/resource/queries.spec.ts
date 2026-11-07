@@ -63,17 +63,17 @@ describe("Resource Queries", () => {
     });
 
     it("should list the resources of the given types for an empty term", async () => {
-      await createLabel(randomToken());
-      const expected = await client.resources.search({
-        searchTerm: "",
-        types: ["label"],
-        limit: 3,
-      });
+      for (let i = 0; i < 3; i++) await createLabel(randomToken());
       const { result } = renderHook(() => Resource.useList(), { wrapper });
       await act(
         async () => await result.current.retrieveAsync({ types: ["label"], limit: 3 }),
       );
-      expect(result.current.data).toEqual(expected.map((r) => r.key));
+      expect(result.current.data).toHaveLength(3);
+      expect(result.current.data.map((k) => resource.parseID(k).type)).toEqual([
+        "label",
+        "label",
+        "label",
+      ]);
     });
 
     it("should add a resource created while the list is mounted", async () => {

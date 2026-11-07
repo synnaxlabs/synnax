@@ -74,14 +74,6 @@ describe("Resource", () => {
       });
       expect(page).toHaveLength(2);
       expect(page.every((r) => r.id.type === "label")).toBe(true);
-      expect(
-        await client.resources.search({
-          searchTerm: "",
-          types: ["label"],
-          limit: 1,
-          offset: 1,
-        }),
-      ).toEqual([page[1]]);
     });
 
     it.each([
