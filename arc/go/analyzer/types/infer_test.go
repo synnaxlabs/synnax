@@ -1092,6 +1092,23 @@ var _ = Describe("Type Inference", func() {
 	})
 })
 
+var _ = Describe("Type variable names", func() {
+	DescribeTable("should name the enclosing function",
+		func(bCtx SpecContext, expr, expected string) {
+			parsed := MustSucceed(parser.ParseExpression(expr))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil))
+			fn := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindFunction,
+			}))
+			t := atypes.InferFromExpression(ctx.WithScope(fn))
+			Expect(t.Unwrap().Name).To(Equal(expected))
+		},
+		Entry("numeric literal", "1.5", "lit_f_1_0"),
+		Entry("empty series literal", "[]", "series_elem_f_1_0"),
+	)
+})
+
 var _ = Describe("Series operand inference", func() {
 	seriesResolver := []symbol.Symbol{
 		{Name: "s", Kind: symbol.KindVariable, Type: types.Series(types.I64())},

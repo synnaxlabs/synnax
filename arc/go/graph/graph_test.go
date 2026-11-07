@@ -12,12 +12,14 @@ package graph_test
 import (
 	"maps"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -240,6 +242,84 @@ var _ = Describe("Graph", func() {
 			},
 			Entry("constant", "math.nan"),
 			Entry("WASM-only function", "math.is_nan"),
+		)
+
+		DescribeTable("Should keep type variables of separate bodies apart",
+			func(
+				ctx SpecContext,
+				firstType, secondType types.Type,
+				firstBody, secondBody string,
+			) {
+				function := func(key string, typ types.Type, body string) ir.Function {
+					return ir.Function{
+						Key:     key,
+						Inputs:  types.Params{{Name: "x", Type: typ}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typ}},
+						Body:    ir.Body{Raw: body},
+					}
+				}
+				g := MustSucceed(graph.Parse(graph.Graph{Functions: []ir.Function{
+					function("first", firstType, firstBody),
+					function("second", secondType, secondBody),
+				}}))
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				within := func(node, ancestor antlr.Tree) bool {
+					for ; node != nil; node = node.GetParent() {
+						if node == ancestor {
+							return true
+						}
+					}
+					return false
+				}
+				for node, typ := range inter.TypeMap {
+					if _, ok := node.(parser.ILiteralContext); !ok {
+						continue
+					}
+					expected := secondType
+					if within(node, g.Functions[0].Body.AST) {
+						expected = firstType
+					}
+					Expect(typ.Unwrap().Kind).To(Equal(expected.Kind), node.GetText())
+				}
+			},
+			Entry("float literal in two float widths",
+				types.F32(), types.F64(),
+				"{ return x + 1.5 }", "{ return x + 1.5 }",
+			),
+			Entry("integer literal in two integer widths",
+				types.I32(), types.I64(),
+				"{ return x + 1 }", "{ return x + 1 }",
+			),
+			Entry("integer literal in an integer and a float",
+				types.I32(), types.F64(),
+				"{ return x + 1 }", "{ return x + 1 }",
+			),
+			Entry("float literal and integer literal",
+				types.F32(), types.I32(),
+				"{ return x + 1.5 }", "{ return x + 1 }",
+			),
+			Entry("returned literal",
+				types.F32(), types.F64(),
+				"{ return 1.5 }", "{ return 1.5 }",
+			),
+			Entry("declared literal",
+				types.F32(), types.F64(),
+				"{ y f32 := 1.5 return x + y }", "{ y f64 := 1.5 return x + y }",
+			),
+			Entry("stateful literal",
+				types.F32(), types.F64(),
+				"{ y f32 $= 1.5 return x + y }", "{ y f64 $= 1.5 return x + y }",
+			),
+			Entry("compared literal",
+				types.F32(), types.F64(),
+				"{ if x > 1.5 { return x } return x }",
+				"{ if x > 1.5 { return x } return x }",
+			),
+			Entry("empty series",
+				types.F32(), types.F64(),
+				"{ y := [] y[0] = x return x }", "{ y := [] y[0] = x return x }",
+			),
 		)
 
 		Describe("Polymorphic Stages", func() {
