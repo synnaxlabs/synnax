@@ -229,8 +229,8 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 // Exec implements Task. A command other than start and stop goes to the Scanner in the
 // background, and Exec returns at once. Commands take turns in no fixed order. The
 // result of the Scanner answers the command, within the time limit of ctx, which starts
-// when the command gets its turn. A command that the Scanner does not support gets no
-// answer.
+// when the command gets its turn. A command that the Scanner does not support gets an
+// error.
 func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
 		return t.Runner.Exec(ctx, cmd)
@@ -266,14 +266,6 @@ func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 // gets no answer, since the successor of the task owns its status.
 func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	data, err := t.cfg.Scanner.Exec(ctx, cmd)
-	if errors.Is(err, ErrUnsupportedCommand) {
-		t.cfg.L.Warn(
-			"unsupported command",
-			zap.Stringer("command", cmd),
-			zap.Stringer("task", cmd.Task),
-		)
-		return
-	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return
 	}
@@ -287,6 +279,15 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 		f           Failure
 	)
 	switch {
+	case errors.Is(err, ErrUnsupportedCommand):
+		t.cfg.L.Warn(
+			"unsupported command",
+			zap.Stringer("command", cmd),
+			zap.Stringer("task", cmd.Task),
+		)
+		variant = status.VariantError
+		message = failureMessage(cmd.Type)
+		description = unsupportedDescription(cmd.Type)
 	case errors.As(err, &f):
 		variant, message, description = status.VariantError, f.Message, f.Description
 	case err != nil:
