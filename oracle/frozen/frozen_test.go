@@ -108,6 +108,18 @@ Doc struct {
 			Entry("current version", 1, frozen.Sum{Schema: "s"}, false),
 		)
 
+		DescribeTable("Moved across a hash scheme change",
+			func(recorded frozen.Sum, moved bool) {
+				c := frozen.Chain{
+					Current: 1,
+					Sums:    map[int]frozen.Sum{0: {Schema: "s1:a", Output: "o"}},
+				}
+				Expect(c.Moved(0, recorded)).To(Equal(moved))
+			},
+			Entry("changed output", frozen.Sum{Schema: "b", Output: "x"}, true),
+			Entry("same output", frozen.Sum{Schema: "b", Output: "o"}, false),
+		)
+
 		It("Should treat a frozen package that stopped generating as moved", func() {
 			c := frozen.Chain{Current: 2, Sums: map[int]frozen.Sum{}}
 			Expect(c.Moved(0, frozen.Sum{Schema: "s"})).To(BeTrue())
