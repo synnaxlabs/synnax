@@ -150,7 +150,11 @@ sequence main {
 
 A constant fits `f32` or `f64`, and it defaults to `f64`. It does not fit an integer
 type. You can use a constant in an expression, a function body, a variable initializer,
-or a function input value, such as `limit := math.inf`.
+or a function input value, such as `limit := math.inf`. Outside a function, an
+initializer that computes with a constant must also read a channel, as
+`scaled := raw * math.inf` does. A flow has no value to read for
+`limit := math.inf * 2.0`, so it fails with
+`'limit' cannot be initialized from math.inf*2.0 outside a function`.
 
 ```arc bodies="lowest"
 import math
