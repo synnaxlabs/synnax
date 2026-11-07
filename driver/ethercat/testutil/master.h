@@ -119,7 +119,7 @@ public:
     }
 
     /// @brief makes activate() return err after the bus cycle starts, as when a slave
-    /// refuses SAFE-OP or OP.
+    /// refuses SAFE-OP or OP. A slave that refuse() names fails the start first.
     void inject_state_change_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_state_change_err = err;
@@ -349,7 +349,6 @@ public:
                 errors::STATE_CHANGE_ERROR,
                 "failed to reach OP: no process data"
             );
-        if (this->inject_state_change_err) return this->inject_state_change_err;
         std::map<uint16_t, std::string> refused;
         size_t on_bus = 0;
         for (const auto &slave: this->slave_list) {
@@ -366,6 +365,7 @@ public:
                 "failed to reach SAFE-OP: " + refused.begin()->second
             );
         }
+        if (this->inject_state_change_err) return this->inject_state_change_err;
         this->calls.emplace_back("op");
         this->short_until_op = false;
         for (auto &slave: this->slave_list) {

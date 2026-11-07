@@ -418,6 +418,11 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) || !retry.wait(err)) {
             retry.stop();
+            for (const auto &[pos, reason]: left_out) {
+                if (!err.data.ends_with('.')) err.data += '.';
+                err.data += " The Driver left out slave " + std::to_string(pos) +
+                            " because it " + reason;
+            }
             return err;
         }
     }

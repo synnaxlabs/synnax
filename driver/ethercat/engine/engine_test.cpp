@@ -668,6 +668,25 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should give each left-out slave and its reason in the error when the start
+/// then fails.
+TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Inconsistent settings."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should try a left-out slave again the next time the bus starts.
 TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
     this->master->add_slave(io_slave(1));
