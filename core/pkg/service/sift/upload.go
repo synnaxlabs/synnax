@@ -338,7 +338,7 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err != nil {
 		return err
 	}
-	conn, err := connect(ctx, u.cfg.Secret, props, dev.Rack.OntologyID(), uuid.Nil())
+	conn, err := connect(ctx, u.cfg.Secret, props)
 	if err != nil {
 		return err
 	}
