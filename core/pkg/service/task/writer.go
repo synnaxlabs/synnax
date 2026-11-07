@@ -49,7 +49,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // resolveStatus returns the status to persist for t. Without a provided status, a task
 // created for the first time provably has no live instance, so it gets a quiet "not
 // deployed" placeholder; an existing task can be running, so its placeholder stays a
-// "status unknown" warning.
+// "status unknown" warning. The owner selects the status, so a provided key is ignored.
 func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
 		message := "Task status unknown"
@@ -66,6 +66,7 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 			Variant: variant,
 		}
 	}
+	provided.Key = ""
 	provided.Owner = new(t.ResourceID())
 	provided.Name = t.Name
 	return provided

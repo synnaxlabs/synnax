@@ -938,6 +938,27 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 
 		It(
+			"Should not write a provided status over the status of another rack",
+			func(ctx SpecContext) {
+				a := rack.Rack{Name: "rack a"}
+				Expect(noTxWriter.Create(ctx, &a)).To(Succeed())
+				aKey := MustSucceed(retrieveStatus(ctx, stat, a.Key)).Key
+				b := rack.Rack{Name: "rack b", Status: &rack.Status{
+					Key:     aKey,
+					Variant: status.VariantSuccess,
+					Time:    telem.Now(),
+					Message: "forged",
+				}}
+				Expect(noTxWriter.Create(ctx, &b)).To(Succeed())
+				Expect(MustSucceed(retrieveStatus(ctx, stat, a.Key)).Message).
+					To(Equal("Rack status unknown"))
+				bStatus := MustSucceed(retrieveStatus(ctx, stat, b.Key))
+				Expect(bStatus.Message).To(Equal("forged"))
+				Expect(bStatus.Key).ToNot(Equal(aKey))
+			},
+		)
+
+		It(
 			"Should use the provided status when creating a rack",
 			func(ctx SpecContext) {
 				providedStatus := &rack.Status{
