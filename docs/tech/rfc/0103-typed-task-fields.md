@@ -151,13 +151,15 @@ the #4594 absent rule stays: no value, `null`, or `""` on a non-string channel.
 function that each service builds, as `slavesOf` does. It skips disabled fields, channel
 0, and missing channels, because imports hold foreign keys. It rejects a kind that §4
 does not allow, a fill or entry that does not fit the channel's width, and a fill on an
-index channel. It clears `data_type`.
+index channel. It converts each channel field entry to the channel's type, then requires
+unique values under the match rule in §2: two `"NaN"` entries, `0` and `-0.0`, or `0.1`
+and `0.1000000001` on a `float32` channel collide. It clears `data_type`.
 
-**Core config**, in `ValidateEntry`: Labels are unique, and channel field values are
-unique under the match rule in §2, so two `"NaN"` entries, or `0` and `-0.0`, collide.
-`json` and `bytes` text is valid, a raw `bytes` field is alone, and a static `float` is
-finite. Fills and entries are never JSON numbers. Kafka and MQTT check kinds at task
-configure and gain fill (Kafka skips an absent value today, `read_task.go:767`).
+**Core config**, in `ValidateEntry`, which has no channel: Labels are unique, `json` and
+`bytes` text is valid, and a raw `bytes` field is alone. Only a static `float` write
+value must be finite, because it goes into a payload as a JSON number. Fills and float
+entries may be non-finite. Kafka and MQTT check kinds at task configure and gain fill
+(Kafka skips an absent value today, `read_task.go:767`).
 
 **Non-finite samples**, when no entry matches: A `float` channel field fails the write.
 A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
