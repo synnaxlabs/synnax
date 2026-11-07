@@ -133,10 +133,11 @@ not, whether the schema itself can tell.
   honest encoding. On the wire, an absent field is left out of the JSON, never sent as
   `null`.
 - **`X = default`, the default means "not applicable"**: as `X?`, but no valid value can
-  equal the default (`0`, `""`, or an enum member that this field never holds). A sample
-  rate is never `0` Hz, so `0` can mean "not supported". A client that leaves the field
-  out sends "not applicable", so use this only where that guess is harmless. The doc
-  comment says what the default means.
+  equal the default or the type's zero value (`0`, `""`, or an enum member that this
+  field never holds). Go fills a default only over the zero value. A sample rate is
+  never `0` Hz, so `0` can mean "not supported". A client that leaves the field out
+  sends "not applicable", so use this only where that guess is harmless. The doc comment
+  says what the default means.
 
 Outside that case, never fake absence with a value. No `none` enum member, no `""`
 meaning "not applicable" where `""` is a real value, no `-1` meaning "inherit" (that is
