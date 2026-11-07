@@ -179,6 +179,7 @@ const CycleField = ({
       <Input.TimeSpan
         inline
         unit={TimeSpan.MICROSECOND}
+        precision={TimeSpan.NANOSECOND}
         value={auto ? undefined : value}
         onChange={onChange}
         onClear={() => onChange(0)}

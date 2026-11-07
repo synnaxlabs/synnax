@@ -340,6 +340,23 @@ describe("EtherCAT device ContextMenuItems", () => {
       },
     );
 
+    it("should keep a cycle to the nanosecond", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC0 cycle", "62.5");
+      const sync0 = screen.getByRole("textbox", { name: "SYNC0 cycle" });
+      expect(sync0).toHaveProperty("value", "62μs 500ns");
+      typeCycle("SYNC0 cycle", "62.6");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 0,
+          assignActivate: 0x0300,
+          sync0Cycle: 62_600,
+          sync1Cycle: 0,
+        }),
+      );
+    });
+
     it("should put a cycle back to the mode's own when Auto is clicked", async () => {
       const slave = await openSyncMode({ opModes: [DC_MODE] });
       typeCycle("SYNC0 cycle", "300");
