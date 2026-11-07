@@ -203,7 +203,7 @@ class TestUpdateSubmodules:
     def test_should_finish_the_deletes_of_a_cancelled_run(self, work: Path) -> None:
         recorded = git(work, "rev-parse", "HEAD:vendor/plain")
         kill_delete(work, "vendor/plain")
-        assert "not a git repository" in update(work).stderr
+        assert "could not get a repository handle" in update(work).stderr
         result = run(work)
         assert result.returncode == 0, result.stderr
         assert "::warning::Deleting unfinished submodule" in result.stdout
