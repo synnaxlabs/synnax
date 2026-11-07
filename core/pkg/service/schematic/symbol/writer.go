@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,24 +43,30 @@ func (w Writer) Create(
 	if err = s.Validate(); err != nil {
 		return err
 	}
-	// A zero scale draws the symbol at size zero.
-	if s.Data.Scale <= 0 {
+	var (
+		exists   bool
+		existing Symbol
+	)
+	if s.Key == uuid.Nil() {
+		s.Key = uuid.New()
+	} else {
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		exists = err == nil
+	}
+	// A zero scale draws the symbol at size zero. A stored scale that the write keeps
+	// passes, so a stored zero does not block a rename or another edit.
+	if s.Data.Scale <= 0 && (!exists || s.Data.Scale != existing.Data.Scale) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"data.scale: must be positive, got %v",
 			s.Data.Scale,
 		)
-	}
-	var exists bool
-	if s.Key == uuid.Nil() {
-		s.Key = uuid.New()
-	} else {
-		exists, err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
-			return err
-		}
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
