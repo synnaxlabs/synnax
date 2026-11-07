@@ -55,7 +55,7 @@ TickResult tick(
         r.deadline = d;
         r.span = s;
     };
-    EXPECT_FALSE(node.next(ctx));
+    EXPECT_NIL(node.next(ctx));
     return r;
 }
 

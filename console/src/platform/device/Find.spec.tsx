@@ -30,7 +30,7 @@ const createHardware = (): Device.Hardware => ({
   make: uniqueName("make"),
   scanType: uniqueName("scan"),
   checks: [],
-  zeroProperties: {},
+  Configure: Device.createConfigure({ icon: <Icon.Device />, zeroProperties: {} }),
 });
 
 describe("Device.useFindModal", () => {

@@ -184,7 +184,7 @@ var _ = Describe("Retrieve", func() {
 			)
 
 			It(
-				"Should skip a non-existent parent when missing IDs are skipped",
+				"Should treat a non-existent start ID as having no relationships",
 				func(ctx SpecContext) {
 					a := newSampleType("skip-parent")
 					b := newSampleType("skip-child")
@@ -198,7 +198,6 @@ var _ = Describe("Retrieve", func() {
 					var r []ontology.Resource
 					Expect(otg.NewRetrieve().
 						WhereIDs(newSampleType("nonexistent"), a).
-						SkipMissingIDs().
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&r).
 						Exec(ctx, tx),

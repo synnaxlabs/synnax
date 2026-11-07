@@ -128,7 +128,7 @@ export const setTestDeviceStatus = async (
       name,
       variant: "success",
       message: TEST_DEVICE_STATUS_MESSAGE,
-      details: { rack, device: key },
+      details: { rack, device: key, connected: true },
     }),
   );
 };

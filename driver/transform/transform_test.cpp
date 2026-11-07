@@ -193,8 +193,7 @@ TEST_F(TareTests, InvalidChannelKey) {
     ASSERT_NIL(tare.transform(frame));
 
     x::json::json::object_t tare_args = {{"keys", {999}}};
-    const auto err = tare.tare(tare_args);
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(tare.tare(tare_args), x::errors::VALIDATION);
 }
 
 /// @brief it should correctly apply a linear scale to a channel

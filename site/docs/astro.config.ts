@@ -136,6 +136,7 @@ export default defineConfig({
     "/reference/control/arc/how-to/unit-conversions":
       "/reference/control/arc/compute-values",
     "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/graph-editor": "/reference/control/arc/automations",
     "/reference/control/arc/concepts/stateful-variables":
       "/reference/control/arc/reference/variables",
     "/reference/control/arc/reference/built-ins":

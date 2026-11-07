@@ -197,4 +197,4 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/view/retrieve", req, RetrieveResponse)
-        return sole("View", fields, res.views) if single else res.views
+        return sole("view", req, res.views) if single else res.views

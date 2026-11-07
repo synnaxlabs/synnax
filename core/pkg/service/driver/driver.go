@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -82,7 +83,10 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-		func(r *rack.Rack) { r.Integrations = integrations },
+		func(r *rack.Rack) {
+			r.Integrations = integrations
+			r.Version = new(version.Get())
+		},
 	); !ok(err, nil) {
 		return nil, err
 	}
