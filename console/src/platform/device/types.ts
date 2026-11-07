@@ -23,7 +23,7 @@ export interface ConfigureProps extends ConfigureParams {
   close: () => void;
   /** Returns to the view that opened the form. Adds a "Back" action. */
   onBack?: () => void;
-  /** Opens a new read task for the device. Adds a "Save and create read task" action. */
+  /** Creates a read task for the device. Adds a "Save and create read task" action. */
   onCreateTask?: (deviceKey: device.Key) => void;
 }
 
