@@ -89,16 +89,17 @@ or generator logic and schemas disagree.
   `@validate` rules, `@go fields`, `@go imports`, and `@go to_any` marker (a generated
   `ToAny` that copies a generic struct into its `any` instantiation), since the current
   package's alias is the frozen type. A mint leaves the demoted package's generated
-  files byte-identical: a frozen package keeps its version file's declaration order, the
-  live file's `@go omit`, and root references for `@go marshal omit` fields. The one
-  exception is a live rule on a type the new version redeclares, because that type stops
-  being the live one. To keep the rule, restate the field with its `@doc` and
-  `@validate` in the version file that defines the type. The `frozen` gate enforces
-  this. Hand-written frozen definer files are marked `@go hand` in their version file;
-  hand-ness is version-local — an aliased member whose definer is an older version still
-  generates in the current package as a backward alias. `migrate.gen.go` is a pure
-  function of the two adjacent version files; hand-written transforms live in
-  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  files byte-identical: current and frozen packages keep the version file's declaration
+  order, declare every member it records even when the live file marks it `@go omit`,
+  and use root references for `@go marshal omit` fields. The one exception is a live
+  rule on a type the new version redeclares, because that type stops being the live one.
+  To keep the rule, restate the field with its `@doc` and `@validate` in the version
+  file that defines the type. The `frozen` gate enforces this. Hand-written frozen
+  definer files are marked `@go hand` in their version file; hand-ness is version-local
+  — an aliased member whose definer is an older version still generates in the current
+  package as a backward alias. `migrate.gen.go` is a pure function of the two adjacent
+  version files; hand-written transforms live in `migrate.go` (renames and
+  cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and

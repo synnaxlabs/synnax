@@ -1028,7 +1028,7 @@ var _ = Describe("Stored references through the importing version file", func() 
 })
 
 var _ = Describe("Frozen enum that the live file omits", func() {
-	frozenV0 := func(v0, v1, live string) string {
+	generate := func(v0, v1, live string) *plugin.Response {
 		GinkgoHelper()
 		root := GinkgoT().TempDir()
 		for rel, content := range map[string]string{
@@ -1046,14 +1046,19 @@ var _ = Describe("Frozen enum that the live file omits", func() {
 			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+		return MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
 			&plugin.Request{
 				Resolutions: table,
 				RepoRoot:    root,
 				Versions:    versions.NewResolver(chains, loader),
 			},
 		))
-		return generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+	}
+	frozenV0 := func(v0, v1, live string) string {
+		GinkgoHelper()
+		return generatedFile(
+			generate(v0, v1, live), "core/pkg/service/doc/versions/v0/types.gen.go",
+		)
 	}
 	const (
 		sharedSide = `
@@ -1166,7 +1171,7 @@ Doc struct {
 		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")).
 			To(ContainSubstring("Side = v0.Side"))
 	})
-	It("Should drop a shared enum that only a dropped declaration uses", func() {
+	It("Should declare live-omitted members that only each other use", func() {
 		frozen := frozenV0(`
 Side enum {
 	left = "left"
@@ -1212,8 +1217,8 @@ Doc struct {
 	name string
 }
 `)
-		Expect(frozen).ToNot(ContainSubstring("type Side string"))
-		Expect(frozen).ToNot(ContainSubstring("type Note struct"))
+		Expect(frozen).To(ContainSubstring("type Side string"))
+		Expect(frozen).To(ContainSubstring("type Note struct"))
 	})
 	It("Should keep a shared enum that another resource's frozen version uses",
 		func() {
@@ -1284,8 +1289,8 @@ Job struct {
 			)).To(ContainSubstring("type Side string"))
 		},
 	)
-	It("Should drop a shared enum that no frozen declaration uses", func() {
-		frozen := frozenV0(`
+	It("Should declare a live-omitted member that no declaration uses", func() {
+		resp := generate(`
 Side enum {
 	left = "left"
 }
@@ -1296,7 +1301,10 @@ Doc struct {
 	@go marshal
 }
 `, sharedSide, liveSide)
-		Expect(frozen).ToNot(ContainSubstring("type Side string"))
+		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")).
+			To(ContainSubstring("type Side string"))
+		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")).
+			To(ContainSubstring("Side = v0.Side"))
 	})
 	It("Should keep an enum that a frozen declaration uses or defines alone", func() {
 		frozen := frozenV0(`
