@@ -88,6 +88,8 @@ public:
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
+    /// @brief does what master::Master::activate does, but ignores period and starts no
+    /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.
     x::errors::Error activate(
         x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
