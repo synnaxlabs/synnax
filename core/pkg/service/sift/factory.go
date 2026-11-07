@@ -14,8 +14,11 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -53,6 +56,18 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
+	// Ranger retrieves the ranges that uploads send.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
+	// Channel retrieves the channels that uploads send.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// Framer reads the samples that uploads send.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
 	// Timeout bounds one call to Sift from a check or a command.
 	//
 	// [OPTIONAL] - Defaults to 10 s.
@@ -71,6 +86,9 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Secret = override.Nil(c.Secret, other.Secret)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Timeout = override.Numeric(c.Timeout, other.Timeout)
 	return c
 }
@@ -82,6 +100,9 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("secret", c.Secret)
+	v.NotNil("ranger", c.Ranger)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
 	v.Positive("timeout", c.Timeout)
 	return v.Error()
 }
@@ -130,7 +151,19 @@ func (f *factory) ConfigureTask(
 			return nil, err
 		}
 	}
-	return st, nil
+	return scanTask{ScanTask: st, uploads: openUploader(f.cfg, t.Rack)}, nil
+}
+
+// scanTask is the sift_scan task. Besides checking devices, it runs the uploads of
+// its rack whether or not scanning is on.
+type scanTask struct {
+	*driver.ScanTask
+	uploads *uploader
+}
+
+// Stop implements driver.Task.
+func (t scanTask) Stop(sendStatus bool) error {
+	return errors.Combine(t.uploads.Close(), t.ScanTask.Stop(sendStatus))
 }
 
 // configureScan returns the scan task of t, and whether the factory starts it.

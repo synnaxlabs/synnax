@@ -11,7 +11,6 @@ package sift_test
 
 import (
 	"context"
-	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,13 +31,7 @@ var _ = Describe("Factory", func() {
 	var f driver.Factory
 
 	BeforeEach(func() {
-		f = MustSucceed(sift.NewFactory(sift.FactoryConfig{
-			DB:      db,
-			Device:  deviceSvc,
-			Status:  statusSvc,
-			Secret:  secretSvc,
-			Timeout: 2 * telem.Second,
-		}))
+		f = MustSucceed(sift.NewFactory(factoryConfig()))
 	})
 
 	Describe("NewFactory", func() {
@@ -112,22 +104,9 @@ var _ = Describe("Factory", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
 
-		// exec runs a command on the scan task and returns the status that answers it.
 		exec := func(ctx context.Context, typ string, args any) task.Status {
 			GinkgoHelper()
-			key := uuid.New().String()
-			Expect(dt.Exec(ctx, task.Command{
-				Task: t.Key,
-				Type: typ,
-				Key:  key,
-				Args: toJSON(args),
-			})).To(Succeed())
-			var stat task.Status
-			Eventually(func(g Gomega) {
-				stat = taskStatus(ctx, t)
-				g.Expect(stat.Details.Cmd).To(Equal(key))
-			}).WithTimeout(10 * time.Second).Should(Succeed())
-			return stat
+			return execCommand(ctx, dt, t, typ, args)
 		}
 
 		Describe("Check", func() {
