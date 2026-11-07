@@ -1435,8 +1435,17 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	// If either type is a type variable, add a constraint instead of checking directly.
-	// A series holds its variable in the element type.
+	if !atypes.AssignmentCompatible(varType, exprType) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"type mismatch: cannot assign %s to '%s' (type %s)",
+			exprType,
+			name,
+			varType,
+		))
+		return
+	}
+	// A type variable, which a series holds in its element, binds through a constraint.
 	if exprType.Unwrap().Kind == types.KindVariable ||
 		varType.Unwrap().Kind == types.KindVariable {
 		if err := atypes.Check(
@@ -1448,18 +1457,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
-		return
 	}
-	if atypes.AssignmentCompatible(varType, exprType) {
-		return
-	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
-		ctx.AST,
-		"type mismatch: cannot assign %s to '%s' (type %s)",
-		exprType,
-		name,
-		varType,
-	))
 }
 
 // AnalyzeFunctionBody analyzes a block and infers its return type by examining

@@ -984,7 +984,7 @@ var _ = Describe("Type Inference", func() {
 			Expect(atypes.Numeric(system, types.Series(elem), nil)).To(BeTrue())
 			Expect(
 				system.AddCompatible(elem, types.Bool(), nil, "test"),
-			).ToNot(Succeed())
+			).To(MatchError(ContainSubstring("bool")))
 		})
 	})
 

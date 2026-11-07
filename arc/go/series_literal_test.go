@@ -146,7 +146,7 @@ var _ = Describe("Typed series literals", func() {
 		Entry("reassigned timestamp", "y series i64 ns := []\ny = []\nreturn len(y)"),
 		Entry("untyped", "y := []\nreturn len(y)"),
 		Entry("untyped reassigned", "y := []\ny = []\nreturn len(y)"),
-		Entry("untyped compound", "y := []\ny += v\nreturn len(y)"),
+		Entry("untyped compound", "y := []\ny += 1.5\nreturn len(y)"),
 		Entry("untyped negated", "y := []\nz := -y\nreturn len(z)"),
 	)
 
