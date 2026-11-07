@@ -274,7 +274,8 @@ type SetProjectRequest struct {
 }
 
 // SetProject moves the tables with the given keys out of their group and into a
-// project. It requires update access on the tables, their owners, and the project.
+// project. It requires update access on the tables, their groups, their owners, and the
+// project.
 func (s *Service) SetProject(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -290,12 +291,15 @@ func (s *Service) SetProject(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: project.MoveObjects(
-			table.ResourceIDs(req.Keys),
-			lo.Map(stored, func(e table.Table, _ int) *resource.ID {
-				return project.OwnerID(e.Project, e.Range)
-			}),
-			new(project.ResourceID(req.Project)),
+		Objects: group.MoveObjects(
+			project.MoveObjects(
+				table.ResourceIDs(req.Keys),
+				lo.Map(stored, func(e table.Table, _ int) *resource.ID {
+					return project.OwnerID(e.Project, e.Range)
+				}),
+				new(project.ResourceID(req.Project)),
+			),
+			lo.Map(stored, func(e table.Table, _ int) *group.Key { return e.Group }),
 		),
 	}); err != nil {
 		return struct{}{}, err
