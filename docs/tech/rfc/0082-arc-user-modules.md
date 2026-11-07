@@ -161,9 +161,8 @@ text, so the Core reads them there instead of keeping a second copy. An `imports
 ontology relationship costs less per module save (§3.2.1), but the ontology refuses
 cycles, so the relationship would need its own cycle rules.
 
-**5.4 An Arc hashes its compiled code.** No rule folds hashes level by level, and an
-edit that changes no code, like a comment, moves no hash. This needs equal text to
-compile to equal code. The Core compiles an automation on each save.
+**5.4 An Arc hashes its compiled code.** No rule folds hashes level by level. This
+needs equal text to compile to equal code. The Core compiles an automation on each save.
 
 **5.5 Drift names the module that changed.** The text hash, a hash per module, and their
 as-built copies live beside the task config (§3.2.0). RFC 0056 §4.4 rejected a deployed

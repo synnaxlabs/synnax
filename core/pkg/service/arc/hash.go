@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/cespare/xxhash/v2"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -62,6 +63,17 @@ func Hash(a Base) (string, error) {
 	b, err := json.Marshal(content, json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to hash arc %s", a.Key)
+	}
+	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
+}
+
+// HashProgram returns the xxhash64 of a compiled program as 16 lowercase hex
+// characters. The program holds the code of every module the Arc imports, so an
+// edit to a module at any depth moves the hash of each importer.
+func HashProgram(p arc.Program) (string, error) {
+	b, err := json.Marshal(p, json.Deterministic(true))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to hash program")
 	}
 	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }

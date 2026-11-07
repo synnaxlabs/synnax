@@ -14,6 +14,8 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -49,6 +51,9 @@ type Writer struct {
 	deletes     *gorp.Attachment[Key]
 	// directoryDispatcher attaches the actions that change directories.
 	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
+	editedModules       *gorp.Attachment[Key]
+	compile             func(context.Context, gorp.Snapshot, AutomationArc) (arc.Program, error)
+	parser              parser.Config
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -132,9 +137,20 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		if err = w.syncTask(ctx, b); err != nil {
+	if !exists {
+		if err = w.resyncImporting(ctx); err != nil {
 			return err
+		}
+	} else {
+		if err = w.syncTask(ctx, *a); err != nil {
+			return err
+		}
+		if existing.Base().Name != b.Name {
+			if err = w.resyncImporting(ctx); err != nil {
+				return err
+			}
+		} else if module {
+			w.editedModules.Add(w.tx, b.Key)
 		}
 	}
 	w.dispatcher.Attach(
@@ -170,7 +186,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	w.deletes.Add(w.tx, keys...)
-	return nil
+	return w.resyncImporting(ctx)
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
@@ -270,14 +286,25 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = Hash(a.Base()); err != nil {
+	if cfg.Hash, err = w.hash(ctx, a); err != nil {
 		return nil, err
 	}
 	return w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
 }
 
+// hash returns the hash of a's compiled program, or of its source when it does not
+// compile. The program holds the code of every module a imports.
+func (w Writer) hash(ctx context.Context, a Arc) (string, error) {
+	if automation, ok := a.Variant.(AutomationArc); ok {
+		if prog, err := w.compile(ctx, w.tx, automation); err == nil {
+			return HashProgram(prog)
+		}
+	}
+	return Hash(a.Base())
+}
+
 // writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
-// arc's key into it. cfg.Hash is the arc's semantic hash, so the task's config hash
+// arc's key into it. cfg.Hash is the arc's compiled hash, so the task's config hash
 // tracks the arc's content and the task drift mechanism reports arc content drift with
 // no extra machinery.
 func (w Writer) writeTask(
@@ -325,10 +352,11 @@ func (w Writer) retrieveTask(
 }
 
 // syncTask rewrites the arc's task in place when an edit changed the arc's name or
-// semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
+// compiled hash, keeping the task in step with the arc. A no-op for arcs with no rack
 // bound and for edits, like graph layout moves, that change neither.
-func (w Writer) syncTask(ctx context.Context, a Base) error {
-	existing, err := w.taskKeys(ctx, w.liveTasks(a.Key))
+func (w Writer) syncTask(ctx context.Context, a Arc) error {
+	b := a.Base()
+	existing, err := w.taskKeys(ctx, w.liveTasks(b.Key))
 	if err != nil || len(existing) == 0 {
 		return err
 	}
@@ -336,12 +364,12 @@ func (w Writer) syncTask(ctx context.Context, a Base) error {
 	if err != nil {
 		return err
 	}
-	hash, err := Hash(a)
-	if err != nil || (cfg.Hash == hash && tsk.Name == a.Name) {
+	hash, err := w.hash(ctx, a)
+	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
 		return err
 	}
 	cfg.Hash = hash
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
+	_, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg)
 	return err
 }
 

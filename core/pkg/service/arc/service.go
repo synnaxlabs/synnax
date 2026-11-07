@@ -165,6 +165,11 @@ type Service struct {
 	// followCommit reads them once the transaction commits.
 	resyncs *gorp.Attachment[Key]
 	deletes *gorp.Attachment[Key]
+	// editedModules holds the modules whose text a transaction changed. followCommit
+	// resyncs their importers.
+	editedModules *gorp.Attachment[Key]
+	// importerSync schedules a resync of every importer of an edited module.
+	importerSync *debounce.Keyed[Key]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -236,16 +241,33 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 			}
 			return cfg.Rename(ctx, channel.Key(sym.ID), newName)
 		},
-		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
-			Observable: s.cfg.Channel.Observe(),
-			Translate: func(
-				context.Context,
-				gorp.TxReader[channel.Key, channel.Channel],
-			) (struct{}, bool) {
-				return struct{}{}, true
+		OnExternalChange: observe.Merge[struct{}](
+			observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
+				Observable: s.cfg.Channel.Observe(),
+				Translate: func(
+					context.Context,
+					gorp.TxReader[channel.Key, channel.Channel],
+				) (struct{}, bool) {
+					return struct{}{}, true
+				},
 			},
-		},
+			observe.Translator[gorp.TxReader[Key, Arc], struct{}]{
+				Observable: s.table.Observe(),
+				Translate:  moduleChanged,
+			},
+		),
 	})
+}
+
+// moduleChanged reports whether any change in r touches a module, whose importers'
+// diagnostics may now differ.
+func moduleChanged(_ context.Context, r gorp.TxReader[Key, Arc]) (struct{}, bool) {
+	for c := range r {
+		if c.Kind == gorp.ChangeDelete || c.Value.Type() == TypeModule {
+			return struct{}{}, true
+		}
+	}
+	return struct{}{}, false
 }
 
 // newLSPRoot builds a root that reads the DB with no snapshot, since the LSP analyzes
@@ -325,22 +347,42 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		snap gorp.Snapshot,
 		lookups *channel.Lookups,
 	) (arc.Program, error) {
-		root := s.NewRoot(snap, lookups)
-		switch src := automation.Source.Variant.(type) {
-		case TextSource:
-			return arc.CompileText(ctx, src.Text.Materialize(), root,
-				arc.WithAllowDashedNames(s.AllowDashedNames()))
-		case GraphSource:
-			return arc.CompileGraph(ctx, src.Graph, root,
-				arc.WithAllowDashedNames(s.AllowDashedNames()))
-		}
-		return arc.Program{}, nil
+		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
 	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
 	automation.Program = &prog
 	return automation, nil
+}
+
+// compile compiles the automation's source against a root that reads snap.
+func (s *Service) compile(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	automation AutomationArc,
+) (arc.Program, error) {
+	root := s.newRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
+		s.moduleSource(snap),
+	)
+	return s.compileWith(ctx, root, automation)
+}
+
+// compileWith compiles the automation's source against root.
+func (s *Service) compileWith(
+	ctx context.Context,
+	root *symbol.Symbol,
+	automation AutomationArc,
+) (arc.Program, error) {
+	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
+	switch src := automation.Source.Variant.(type) {
+	case TextSource:
+		return arc.CompileText(ctx, src.Text.Materialize(), root, opt)
+	case GraphSource:
+		return arc.CompileGraph(ctx, src.Graph, root, opt)
+	}
+	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -360,15 +402,16 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:         cfg,
-		reserved:    reservedNames(),
-		state:       actions.NewState[Key, Action](cfg.DB),
-		table:       cfg.Table.table,
-		indexes:     cfg.Table.indexes,
-		directories: cfg.Table.directories,
-		root:        cfg.Table.root,
-		resyncs:     gorp.NewAttachment[Key](),
-		deletes:     gorp.NewAttachment[Key](),
+		cfg:           cfg,
+		reserved:      reservedNames(),
+		state:         actions.NewState[Key, Action](cfg.DB),
+		table:         cfg.Table.table,
+		indexes:       cfg.Table.indexes,
+		directories:   cfg.Table.directories,
+		root:          cfg.Table.root,
+		resyncs:       gorp.NewAttachment[Key](),
+		deletes:       gorp.NewAttachment[Key](),
+		editedModules: gorp.NewAttachment[Key](),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -383,6 +426,13 @@ func OpenService(
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resyncTask,
 	}); !ok(err, s.taskSync) {
+		return nil, err
+	}
+	if s.importerSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
+		Delay:    cfg.TaskSyncDebounce.Duration(),
+		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
+		Callback: s.resyncImporters,
+	}); !ok(err, s.importerSync) {
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
@@ -468,6 +518,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		sweeper:             s.sweeper,
 		resyncs:             s.resyncs,
 		deletes:             s.deletes,
+		editedModules:       s.editedModules,
+		compile:             s.compile,
+		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}
 }
 
