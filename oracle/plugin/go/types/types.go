@@ -1511,13 +1511,16 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
 {{- if .SetDefaultsView.HasGroups}}
-	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+	fresh := reflect.ValueOf(*{{$s.Receiver}}).IsZero()
+	if fresh {
 		{{$s.Receiver}}.SetUngroupedDefaults()
 	}
 	if err := json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}})); err != nil {
 		return err
 	}
-	{{$s.Receiver}}.DefaultGroups()
+	if fresh {
+		{{$s.Receiver}}.DefaultGroups()
+	}
 	return nil
 {{- else}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
@@ -1531,13 +1534,16 @@ func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain {{$s.Name}}
 {{- if .SetDefaultsView.HasGroups}}
-	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+	fresh := reflect.ValueOf(*{{$s.Receiver}}).IsZero()
+	if fresh {
 		{{$s.Receiver}}.SetUngroupedDefaults()
 	}
 	if err := dec.Decode((*plain)({{$s.Receiver}})); err != nil {
 		return err
 	}
-	{{$s.Receiver}}.DefaultGroups()
+	if fresh {
+		{{$s.Receiver}}.DefaultGroups()
+	}
 	return nil
 {{- else}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
