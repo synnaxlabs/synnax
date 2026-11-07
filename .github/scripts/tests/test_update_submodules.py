@@ -10,6 +10,7 @@
 import os
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -87,9 +88,10 @@ def kill_fetch(work: Path, path: str) -> None:
     empty_worktree(work, path)
 
 
-def kill_checkout(work: Path, path: str, *, locked: bool) -> None:
-    """Leaves the submodule as a checkout killed partway: HEAD on the fetched branch,
-    part of the files, and a stale index.lock when locked, else no index."""
+def kill_clone_checkout(work: Path, path: str, *, locked: bool) -> None:
+    """Leaves the submodule as a clone whose checkout was killed partway: HEAD on the
+    fetched branch and part of the files. A hard kill also leaves the index under a
+    stale index.lock; a kill that let Git clean up leaves no index."""
     git(work / path, "fetch", "-q", "origin", "+main:refs/heads/main")
     git(work / path, "symbolic-ref", "HEAD", "refs/heads/main")
     directory = gitdir(work, path)
@@ -99,6 +101,16 @@ def kill_checkout(work: Path, path: str, *, locked: bool) -> None:
         (directory / "index.lock").touch()
     else:
         (directory / "index").unlink()
+
+
+def kill_move(work: Path, path: str) -> None:
+    """Leaves the submodule as a move to the next recorded commit killed partway, after
+    Git removed its lock: HEAD and index on the old commit, and some new files."""
+    git(work / path, "fetch", "-q", "origin")
+    target = git(work / path, "rev-parse", "origin/main")
+    git(work, "update-index", "--cacheinfo", f"160000,{target},{path}")
+    git(work, "commit", "-q", "-m", "move")
+    (work / path / "later.txt").write_text("partial")
 
 
 @pytest.fixture
@@ -143,21 +155,37 @@ class TestUpdateSubmodules:
         assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
         assert (work / "vendor/plain/plain.txt").read_text() == "plain.txt"
 
-    @pytest.mark.parametrize(
-        ("locked", "error"),
-        [(True, "index.lock': File exists"), (False, "would be overwritten")],
-    )
-    def test_should_clone_a_submodule_killed_during_its_checkout_again(
-        self, work: Path, locked: bool, error: str
+    def test_should_clone_a_submodule_with_a_stale_index_lock_again(
+        self, work: Path
     ) -> None:
         recorded = git(work, "rev-parse", "HEAD:vendor/plain")
-        kill_checkout(work, "vendor/plain", locked=locked)
-        assert error in update(work).stderr
+        kill_clone_checkout(work, "vendor/plain", locked=True)
+        assert "index.lock': File exists" in update(work).stderr
         result = run(work)
         assert result.returncode == 0, result.stderr
         assert "::warning::Deleting unfinished submodule" in result.stdout
         assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
         assert (work / "vendor/plain/plain.txt").read_text() == "plain.txt"
+
+    @pytest.mark.parametrize(
+        "kill",
+        [
+            lambda work, path: kill_clone_checkout(work, path, locked=False),
+            kill_move,
+        ],
+        ids=["clone", "move"],
+    )
+    def test_should_finish_a_killed_checkout_in_place(
+        self, work: Path, kill: Callable[[Path, str], None]
+    ) -> None:
+        kill(work, "vendor/plain")
+        recorded = git(work, "rev-parse", "HEAD:vendor/plain")
+        assert "would be overwritten" in update(work).stderr
+        result = run(work)
+        assert result.returncode == 0, result.stderr
+        assert "::warning::" not in result.stdout
+        assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
+        assert git(work / "vendor/plain", "status", "--porcelain") == ""
 
     def test_should_clone_an_unfinished_nested_submodule_again(
         self, work: Path

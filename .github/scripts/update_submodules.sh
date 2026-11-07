@@ -11,19 +11,19 @@
 
 # Checks out every submodule at the commit its superproject records. A job cancelled
 # during a clone or checkout can leave an unfinished submodule on a self-hosted runner,
-# and git submodule update fails on it. The script deletes those to clone them again.
+# and a plain git submodule update fails on it. The script repairs those first.
 # Usage: update_submodules.sh
 
 set -euo pipefail
 
-# A clone killed in its fetch leaves a HEAD that does not resolve. One killed in its
-# checkout leaves no index, or a stale index.lock. foreach enters each submodule after
-# running its command, so the deletes wait until the list is done.
+# A clone killed in its fetch leaves a HEAD that does not resolve, and a checkout killed
+# with no time to clean up leaves a stale index.lock. Those are cloned again. foreach
+# enters each submodule after running its command, so the deletes wait for the list.
 # shellcheck disable=SC2016 # foreach expands the variables in each submodule.
 unfinished=$(git submodule foreach --recursive --quiet '
     gitdir=$(git rev-parse --absolute-git-dir)
     if ! git rev-parse --quiet --verify HEAD > /dev/null ||
-        [ ! -f "$gitdir/index" ] || [ -e "$gitdir/index.lock" ]; then
+        [ -e "$gitdir/index.lock" ]; then
         printf "%s\t%s\n" "$toplevel/$sm_path" "$gitdir"
     fi')
 if [ -n "$unfinished" ]; then
@@ -32,4 +32,5 @@ if [ -n "$unfinished" ]; then
         rm -rf "$worktree" "$gitdir"
     done <<< "$unfinished"
 fi
-git submodule update --init --recursive
+# --force checks out with -f, which overwrites the files a killed checkout left behind.
+git submodule update --init --recursive --force
