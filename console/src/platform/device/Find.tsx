@@ -373,8 +373,9 @@ const FindModal = ({
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
     return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
+  const { Configure } = hardware;
   return (
-    <hardware.Configure
+    <Configure
       deviceKey={configuring}
       onBack={() => setConfiguring(null)}
       close={() => close(configuring)}

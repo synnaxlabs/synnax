@@ -9,7 +9,7 @@
 
 import "@/feature/ethercat/device/Configure.css";
 
-import { type device, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -19,10 +19,10 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { deep, strings, TimeSpan } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { useSlave, useUpdateOpMode } from "@/feature/ethercat/device/queries";
 import {
   autoIndex,
   choose,
@@ -36,12 +36,18 @@ import {
   takesCycles,
 } from "@/feature/ethercat/device/syncMode";
 import {
+  MAKE,
   type OpMode,
   type OpModeChoice,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
   type SlaveDevice,
+  ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
+import { FLAGS } from "@/flags";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
+import { Device } from "@/platform/device";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
@@ -222,18 +228,66 @@ const Help = ({ text, problem }: HelpProps): ReactElement => (
     {text}
   </Text.Text>
 );
+const path = deep.path<SlaveDevice>();
 
-interface InternalProps {
-  slave: SlaveDevice;
-  close: () => void;
-}
+const OP_MODE_PATH = path.properties.opMode;
 
-const Internal = ({ slave, close }: InternalProps): ReactElement => {
-  const [choice, setChoice] = useState<OpModeChoice | null>(
-    () => slave.properties.opMode ?? null,
-  );
-  const { update, variant } = useUpdateOpMode({ afterSuccess: () => close() });
-  const modes = slave.properties.opModes;
+const INITIAL_VALUES: SlaveDevice = {
+  key: "",
+  rack: 0,
+  name: "",
+  make: MAKE,
+  model: SLAVE_MODEL,
+  location: "",
+  configured: false,
+  properties: ZERO_SLAVE_PROPERTIES,
+};
+
+const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
+
+// A check reports issues without making the form invalid, so its errors stop the save.
+const beforeSave = async ({
+  getStatuses,
+  set,
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SLAVE_SCHEMAS>
+>): Promise<boolean> => {
+  if (getStatuses().some(({ variant }) => variant === "error")) return false;
+  set(path.configured, true);
+  return true;
+};
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "EtherCAT slave",
+  "aria-label": "Name",
+} as const;
+
+/** The form that sets the name, identifier, and sync mode of one EtherCAT slave. */
+export const Configure = ({
+  deviceKey,
+  close,
+  onBack,
+  onCreateTask,
+}: Device.ConfigureProps): ReactElement => {
+  const { form, saveAsync, variant } = useForm({
+    query: { key: deviceKey },
+    beforeSave,
+  });
+  // Save sets configured, so the dialog keeps the slave as it was at open.
+  const [opened] = useState(form.value);
+  const checked = useRef(false);
+  // The checks show the platform's messages in place of the stored schema's.
+  useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
+  const name = Form.useFieldValue(path.name, { ctx: form });
+  const modes = Form.useFieldValue(path.properties.opModes, { ctx: form }) ?? [];
+  const choice =
+    Form.useFieldValue(OP_MODE_PATH, { ctx: form, optional: true }) ?? null;
+  const setChoice = (next: OpModeChoice | null) =>
+    form.set(OP_MODE_PATH, next ?? undefined);
+  const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes) : choice.index;
   let mode: OpMode | null = null;
@@ -245,12 +299,21 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const handleSave = () => {
-    if (stale || cycleError != null) return;
-    // A mode that takes no cycles fails the start with any cycle.
-    if (choice != null && mode == null)
-      update({ key: slave.key, opMode: choose(modes, choice.index) });
-    else update({ key: slave.key, opMode: choice ?? undefined });
+  const save = async (createTask: boolean) => {
+    // A new slave has no identifier, so its check applies from the first Save on.
+    if (!checked.current) {
+      form.addCheck(path.properties.identifier, Device.identifierZ);
+      checked.current = true;
+    }
+    if (FLAGS.ethercatSyncMode) {
+      if (stale || cycleError != null) return;
+      // A mode that takes no cycles fails the start with any cycle.
+      if (choice != null && mode == null) setChoice(choose(modes, choice.index));
+    }
+    if (!(await saveAsync())) return;
+    if (!opened.configured) capture("device_configured", { make: MAKE });
+    if (createTask) onCreateTask?.(deviceKey);
+    close();
   };
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
@@ -261,53 +324,105 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
   return (
     <Modal.Frame className={CSS.BE("ethercat-configure", "frame")}>
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
-        {[slave.name, "Configure"]}
+        {[opened.name, "Configure"]}
       </Modal.Header>
-      <Modal.Body align="stretch">
-        <Form.Sections>
-          <Form.Section title="Sync mode">
-            <Input.Item label="Mode" padHelpText={false}>
-              <ModeSelect
-                modes={modes}
-                value={choice}
-                stale={stale}
-                onChange={setChoice}
+      <Modal.Body align="stretch" gap="large">
+        <Form.Form<PDevice.FormSchema<typeof SLAVE_SCHEMAS>> {...form}>
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          <Form.Sections>
+            <Form.Section title="General">
+              <Form.TextField
+                path={path.properties.identifier}
+                label="Identifier"
+                padHelpText={false}
+                inputProps={{ placeholder: "dev1" }}
               />
-            </Input.Item>
-            {mode != null && index != null && (
-              <Flex.Box x>
-                <CycleField
-                  label="SYNC0 cycle"
-                  value={choice == null ? 0 : choice.sync0Cycle}
-                  problem={sync0Problem == null ? undefined : severity}
-                  onChange={(ns) =>
-                    setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
-                  }
-                />
-                <CycleField
-                  label="SYNC1 cycle"
-                  value={choice == null ? 0 : choice.sync1Cycle}
-                  problem={sync1Problem == null ? undefined : severity}
-                  onChange={(ns) =>
-                    setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
-                  }
-                />
+              <Flex.Box y gap="small">
+                <Text.Text level="small" color={9}>
+                  A short prefix for every channel on this device.
+                </Text.Text>
+                <Flex.Box x align="center">
+                  <Icon.Bolt />
+                  {strings.createShortIdentifiers(name ?? "").map((id) => (
+                    <Button.Button
+                      key={id}
+                      onClick={() => form.set(path.properties.identifier, id)}
+                      size="small"
+                      variant="text"
+                    >
+                      {id}
+                    </Button.Button>
+                  ))}
+                </Flex.Box>
               </Flex.Box>
+            </Form.Section>
+            {FLAGS.ethercatSyncMode && (
+              <Form.Section title="Sync mode">
+                <Input.Item label="Mode" padHelpText={false}>
+                  <ModeSelect
+                    modes={modes}
+                    value={choice}
+                    stale={stale}
+                    onChange={setChoice}
+                  />
+                </Input.Item>
+                {mode != null && index != null && (
+                  <Flex.Box x>
+                    <CycleField
+                      label="SYNC0 cycle"
+                      value={choice == null ? 0 : choice.sync0Cycle}
+                      problem={sync0Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                      }
+                    />
+                    <CycleField
+                      label="SYNC1 cycle"
+                      value={choice == null ? 0 : choice.sync1Cycle}
+                      problem={sync1Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                      }
+                    />
+                  </Flex.Box>
+                )}
+                <Flex.Box y gap="small">
+                  <Help {...help} />
+                  <Text.Text level="small" color={9}>
+                    {APPLY_NOTE}
+                  </Text.Text>
+                </Flex.Box>
+              </Form.Section>
             )}
-            <Flex.Box y gap="small">
-              <Help {...help} />
-              <Text.Text level="small" color={9}>
-                {APPLY_NOTE}
-              </Text.Text>
-            </Flex.Box>
-          </Form.Section>
-        </Form.Sections>
+          </Form.Sections>
+        </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Nav.Bar.End>
+        <Nav.Bar.Start gap="small">
+          {onBack != null && (
+            <Button.Button variant="text" onClick={onBack}>
+              <Icon.Arrow.Left />
+              Back
+            </Button.Button>
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End gap="small">
+          {onCreateTask != null && !opened.configured && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => void save(true)}
+            >
+              Save and create read task
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
-            onClick={handleSave}
+            onClick={() => void save(false)}
             variant="filled"
             trigger={Triggers.SAVE}
             triggerIndicator
@@ -320,18 +435,3 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
     </Modal.Frame>
   );
 };
-
-interface ConfigureParams {
-  deviceKey: device.Key;
-}
-
-const Configure = ({
-  deviceKey,
-  close,
-}: Modals.ContentProps<ConfigureParams, void>): ReactElement => {
-  const slave = useSlave({ key: deviceKey });
-  return <Internal slave={slave} close={close} />;
-};
-
-/** Opens the form that sets the settings of one EtherCAT slave. */
-export const useConfigureModal = Modals.create(Configure);
