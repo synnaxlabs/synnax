@@ -24,6 +24,7 @@ import (
 
 var _ = Describe("Resources", func() {
 	create := func(ctx SpecContext, name string, internal bool) channel.Channel {
+		GinkgoHelper()
 		ch := channel.Channel{
 			Name:     name,
 			DataType: telem.Float32T,
