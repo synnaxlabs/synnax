@@ -701,6 +701,7 @@ TEST(DeviceTests, testDeviceStatusKey) {
     ASSERT_EQ(device::status_key(d), "device:cat");
 }
 
+/// @brief it should create a device whose parent is another device's resource ID.
 TEST(DeviceTests, testCreateWithParentResourceID) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
