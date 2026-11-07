@@ -273,7 +273,8 @@ func literalAssignments(
 		return lines, true
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
-			return nil, true
+			// The literal may override a default list that SetDefaults set.
+			return []string{selector + " = nil"}, true
 		}
 		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
 		if !ok {
@@ -481,7 +482,11 @@ func scalarFill(
 		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			fill := defaultFillData{GoName: goName + ".Variant", ZeroLit: "nil", Expr: expr}
+			fill := defaultFillData{
+				GoName:  goName + ".Variant",
+				ZeroLit: "nil",
+				Expr:    expr,
+			}
 			if defaulted {
 				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
 				fill.Expr = "v0"
@@ -514,7 +519,7 @@ func emptyVariant(
 	ident string,
 	typeRef resolution.TypeRef,
 	data *templateData,
-) (expr string, defaulted bool, ok bool) {
+) (expr string, defaulted, ok bool) {
 	uv, ok := validation.ResolveUnionVariant(ident, typeRef, data.table)
 	if !ok {
 		return "", false, false
@@ -947,8 +952,14 @@ func variantSetsDefaults(
 	v resolution.UnionVariant,
 	data *templateData,
 ) bool {
+	// A named payload embeds the union's bases beside it.
 	if !v.Inline {
-		return typeSetsDefaults(v.Type, data, set.New[string]())
+		return lo.SomeBy(
+			append(slices.Clone(form.Extends), v.Type),
+			func(ref resolution.TypeRef) bool {
+				return typeSetsDefaults(ref, data, set.New[string]())
+			},
+		)
 	}
 	payload, ok := v.Type.Resolve(data.table)
 	if !ok {
