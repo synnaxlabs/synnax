@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -1405,6 +1406,60 @@ var _ = Describe("Decode-time default generation", func() {
 					"func (b *Base) UnmarshalJSONFrom(",
 					"func (b *Base) DecodeMsgpack(",
 				)
+		},
+	)
+
+	DescribeTable(
+		"Should reject an embedded type with defaults that a field holds",
+		func(ctx SpecContext, field string) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Outer struct { ` + field + ` }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Outer.items: Base has defaults and another struct embeds it, so it " +
+					"cannot be held in a slice, a map, or an optional field",
+			)))
+		},
+		Entry("in a slice", "items Base[]"),
+		Entry("in a map value", "items map<string, Base>"),
+		Entry("in an optional field", "items Base?"),
+	)
+
+	It(
+		"Should accept an embedded type without defaults that a field holds",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { name string }
+			Cfg struct extends Base { mode string = "auto" }
+			Outer struct { items Base[] }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("Items []Base")
+		},
+	)
+
+	It(
+		"Should accept an embedded type with defaults in a required field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Outer struct { item Base }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (o *Outer) SetDefaults() {\n\to.Item.SetDefaults()\n}")
 		},
 	)
 
