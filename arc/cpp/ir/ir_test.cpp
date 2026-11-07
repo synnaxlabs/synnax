@@ -54,6 +54,35 @@ TEST(IRTest, testChannelsProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.write.at(3), "channel_c");
 }
 
+/// @brief it should round-trip Channels through JSON as objects with string keys.
+TEST(IRTest, testChannelsJSONRoundTrip) {
+    types::Channels original;
+    original.read[1] = "channel_a";
+    original.write[3] = "channel_c";
+    const auto j = original.to_json();
+    ASSERT_EQ(
+        j,
+        x::json::json::parse(R"({"read":{"1":"channel_a"},"write":{"3":"channel_c"}})")
+    );
+    x::json::Parser parser(j);
+    const auto parsed = types::Channels::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.read.at(1), "channel_a");
+    ASSERT_EQ(parsed.write.at(3), "channel_c");
+}
+
+/// @brief it should round-trip Authorities through JSON as an object with string keys.
+TEST(IRTest, testAuthoritiesJSONRoundTrip) {
+    Authorities original;
+    original.channels[12] = 200;
+    const auto j = original.to_json();
+    ASSERT_EQ(j, x::json::json::parse(R"({"channels":{"12":200}})"));
+    x::json::Parser parser(j);
+    const auto parsed = Authorities::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.channels.at(12), 200);
+}
+
 /// @brief it should correctly round-trip Param through protobuf
 TEST(IRTest, testParamProtobufRoundTrip) {
     types::Param original;

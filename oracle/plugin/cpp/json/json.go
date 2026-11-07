@@ -308,7 +308,7 @@ func (p *Plugin) processStruct(
 		return nil, nil
 	}
 	for _, field := range resolution.UnifiedFields(s, data.table) {
-		if err := checkStructMapKey(s, field, data.table); err != nil {
+		if err := checkMapKey(s, field, data.table); err != nil {
 			return nil, err
 		}
 	}
@@ -363,34 +363,39 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-// structMap returns the map type behind ref when its values are structs.
-func structMap(
+// objectMap returns the map type behind ref, whether its values are structs, and
+// whether to_json must build its JSON object by hand: nlohmann_json writes non-string
+// keys as an array of pairs and cannot reach the to_json member of a struct.
+func objectMap(
 	ref resolution.TypeRef,
 	table *resolution.Table,
-) (resolution.TypeRef, bool) {
+) (resolution.TypeRef, bool, bool) {
 	if _, target, ok := resolution.Dealias(ref, table); ok {
 		ref = target
 	}
 	if ref.Name != "Map" || len(ref.TypeArgs) < 2 {
-		return resolution.TypeRef{}, false
+		return resolution.TypeRef{}, false, false
 	}
-	value, _, ok := resolution.Dealias(ref.TypeArgs[1], table)
-	if !ok {
-		return resolution.TypeRef{}, false
+	isStruct := false
+	if value, _, ok := resolution.Dealias(ref.TypeArgs[1], table); ok {
+		_, isStruct = value.Form.(resolution.StructForm)
 	}
-	_, isStruct := value.Form.(resolution.StructForm)
-	return ref, isStruct
+	key := ref.TypeArgs[0]
+	if key.IsTypeParam() {
+		return ref, isStruct, isStruct
+	}
+	return ref, isStruct, isStruct || resolution.PrimitiveBase(key, table) != "string"
 }
 
-// checkStructMapKey rejects a map of structs whose key has no exact JSON object key:
-// to_json writes string keys as they are, UUID keys through to_string, and integer keys
-// through std::to_string.
-func checkStructMapKey(
+// checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
+// object key: to_json writes string keys as they are, UUID keys through to_string, and
+// integer keys through std::to_string.
+func checkMapKey(
 	s resolution.Type,
 	field resolution.Field,
 	table *resolution.Table,
 ) error {
-	ref, ok := structMap(field.Type, table)
+	ref, _, ok := objectMap(field.Type, table)
 	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
@@ -401,7 +406,7 @@ func checkStructMapKey(
 	}
 	return errors.Wrapf(
 		validate.ErrValidation,
-		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
+		"%s.%s: C++ cannot serialize a map keyed by %s",
 		s.QualifiedName,
 		field.Name,
 		ref.TypeArgs[0].Name,
@@ -1032,7 +1037,7 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	if mapRef, ok := structMap(typeRef, data.table); ok {
+	if mapRef, isStruct, ok := objectMap(typeRef, data.table); ok {
 		src := "this->" + fieldName
 		if field.Optional {
 			src = "*" + src
@@ -1050,12 +1055,15 @@ func (p *Plugin) toJSONExprForField(
 			data.AddSystem("string")
 			key = "std::to_string(key)"
 		}
-		// nlohmann_json cannot reach the to_json member inside a map.
+		value := "item"
+		if isStruct {
+			value = "item.to_json()"
+		}
 		body := fmt.Sprintf(`{
         auto obj = x::json::json::object();
-        for (const auto& [key, item] : %s) obj[%s] = item.to_json();
+        for (const auto& [key, item] : %s) obj[%s] = %s;
         j["%s"] = obj;
-    }`, src, key, jsonName)
+    }`, src, key, value, jsonName)
 		if field.Optional {
 			return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
 		}
