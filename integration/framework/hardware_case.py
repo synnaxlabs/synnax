@@ -55,6 +55,10 @@ class HardwareCase(TestCase):
         """Mark existing devices for deletion in teardown."""
         self._test_device_keys.extend(d.key for d in devices)
 
+    def track_test_racks(self, racks: list[sy.Rack]) -> None:
+        """Mark existing racks for deletion in teardown."""
+        self._test_rack_keys.extend(r.key for r in racks)
+
     def track_test_tasks(self, tasks: list[sy.Task]) -> None:
         """Mark existing tasks for deletion in teardown."""
         self._test_task_keys.extend(t.key for t in tasks)
