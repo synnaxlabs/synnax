@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -24,10 +25,10 @@ var _ = Describe("Ownership", func() {
 		owned   *ontology.Ontology
 		owner   *ontology.Owner
 		ownedTx gorp.Tx
-		dir     = ontology.ID{Type: ontology.ResourceTypeGroup, Key: "dir"}
-		child   = ontology.ID{Type: ontology.ResourceTypeArc, Key: "child"}
-		task    = ontology.ID{Type: ontology.ResourceTypeTask, Key: "task"}
-		other   = ontology.ID{Type: ontology.ResourceTypeChannel, Key: "other"}
+		dir     = resource.ID{Type: resource.TypeGroup, Key: "dir"}
+		child   = resource.ID{Type: resource.TypeArc, Key: "child"}
+		task    = resource.ID{Type: resource.TypeTask, Key: "task"}
+		other   = resource.ID{Type: resource.TypeChannel, Key: "other"}
 		edge    = ontology.Relationship{
 			From: dir,
 			Type: ontology.RelationshipTypeParentOf,
@@ -38,11 +39,11 @@ var _ = Describe("Ownership", func() {
 		ownedDB := DeferClose(gorp.Wrap(memkv.New()))
 		owned = MustOpen(ontology.Open(ctx, ontology.Config{DB: ownedDB}))
 		owner = owned.Own(ontology.Ownership{
-			Children: []ontology.ResourceType{
-				ontology.ResourceTypeArc,
-				ontology.ResourceTypeGroup,
+			Children: []resource.Type{
+				resource.TypeArc,
+				resource.TypeGroup,
 			},
-			Parents: []ontology.ResourceType{ontology.ResourceTypeGroup},
+			Parents: []resource.Type{resource.TypeGroup},
 		})
 		ownedTx = DeferClose(ownedDB.OpenTx())
 		Expect(owned.NewWriter(ownedTx).DefineResources(

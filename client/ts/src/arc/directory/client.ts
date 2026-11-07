@@ -16,11 +16,11 @@ import {
   directoryZ,
   type Key,
   keyZ,
-  ontologyID,
+  resourceID,
 } from "@/arc/directory/types.gen";
 import { ontology } from "@/ontology";
-import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 const createReqZ = z.object({
   parent: keyZ,
@@ -29,7 +29,7 @@ const createReqZ = z.object({
 const createResZ = z.object({ directory: directoryZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(ontologyIDZ) });
+const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(resource.idZ) });
 
 export interface CreateParams {
   /** parent is the key of the directory to create the new directory in. */
@@ -45,7 +45,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-const parentRel = (from: ontology.ID, to: ontology.ID): ontology.Relationship => ({
+const parentRel = (from: resource.ID, to: resource.ID): ontology.Relationship => ({
   from,
   type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
   to,
@@ -67,7 +67,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    const rel = parentRel(ontologyID(parent), ontologyID(res.directory.key));
+    const rel = parentRel(resourceID(parent), resourceID(res.directory.key));
     this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.directory;
   }
@@ -75,7 +75,7 @@ export class Client {
   /** Renames the directory with key. */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -106,9 +106,9 @@ export class Client {
    * the same arguments as {@link ontology.Client.moveChildren}.
    */
   async move(
-    from: ontology.ID,
-    to: ontology.ID,
-    ...children: ontology.ID[]
+    from: resource.ID,
+    to: resource.ID,
+    ...children: resource.ID[]
   ): Promise<void> {
     const rels = this.cfg.ontology.cache.relationships;
     const move = (): destructor.Destructor[] => [

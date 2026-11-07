@@ -18,7 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import color as color_
 from x import filter, telem
 from x.filter import shorthand
@@ -159,8 +159,8 @@ Payload.model_rebuild()
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="range")
+TYPE_RESOURCE_ID = ID(type="range")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="range", key=str(key))

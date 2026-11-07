@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
@@ -92,7 +92,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeProject}},
+		Objects: []resource.ID{{Type: resource.TypeProject}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -115,7 +115,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{project.OntologyID(req.Key)},
+		Objects: []resource.ID{project.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -137,7 +137,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: project.OntologyIDsFromProjects(res.Projects),
+		Objects: project.ResourceIDsFromProjects(res.Projects),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -176,7 +176,7 @@ func (s *Service) Export(
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{project.OntologyID(req.Key)},
+		Objects: []resource.ID{project.ResourceID(req.Key)},
 	}); err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: project.OntologyIDs(req.Keys),
+		Objects: project.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

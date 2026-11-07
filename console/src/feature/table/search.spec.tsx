@@ -31,7 +31,7 @@ describe("table/search", () => {
   it("opens the table as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("table");
-    const resource = createResource(table.ontologyID(key), name);
+    const resource = createResource(table.resourceID(key), name);
     const SearchListItem = Table.SEARCH_LIST_ITEMS.table;
     if (SearchListItem == null) throw new Error("table SearchListItem is not defined");
     const Harness = (): ReactElement => {

@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -30,8 +30,8 @@ import (
 var _ = Describe("Retrieve", func() {
 	var (
 		lbl     label.Label
-		rangeID ontology.ID
-		labels  ontology.ID
+		rangeID resource.ID
+		labels  resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
 		lbl = label.Label{Name: "Pressurized"}
@@ -44,32 +44,32 @@ var _ = Describe("Retrieve", func() {
 			},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
-		rangeID = rng.OntologyID()
+		rangeID = rng.ResourceID()
 		Expect(svc.Label.NewWriter(nil).Label(
 			ctx, rangeID, []label.Key{lbl.Key},
 		)).To(Succeed())
-		labels = ontology.ID{Type: ontology.ResourceTypeLabel}
+		labels = resource.ID{Type: resource.TypeLabel}
 	})
 
 	DescribeTable(
 		"Should deny the retrieve when a for line names a resource without access",
-		func(ctx SpecContext, where func(id ontology.ID) label.Where) {
+		func(ctx SpecContext, where func(id resource.ID) label.Where) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionRetrieve, u.OntologyID(), labels)
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), labels)
 			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apilabel.RetrieveRequest{
 				Where: new(where(rangeID)),
 			})).Error().To(MatchError(access.ErrDenied))
 		},
-		Entry("alone", func(id ontology.ID) label.Where {
+		Entry("alone", func(id resource.ID) label.Where {
 			return label.Where{For: &id}
 		}),
-		Entry("under or", func(id ontology.ID) label.Where {
+		Entry("under or", func(id resource.ID) label.Where {
 			return label.Where{Or: []label.Where{
 				{For: &id},
 				{Name: &filter.String{Eq: new("Depressurized")}},
 			}}
 		}),
-		Entry("under not", func(id ontology.ID) label.Where {
+		Entry("under not", func(id resource.ID) label.Where {
 			return label.Where{Not: &label.Where{For: &id}}
 		}),
 	)
@@ -78,7 +78,7 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), labels, rangeID)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), labels, rangeID)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apilabel.RetrieveRequest{
 			Where: &label.Where{For: &rangeID},
 		}))
@@ -111,7 +111,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should apply the actions when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		l := createLabel(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), l.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -132,7 +132,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), label.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), label.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -146,8 +146,8 @@ var _ = Describe("Create", func() {
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
-				Type: ontology.ResourceTypeLabel,
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeLabel,
 			})
 			rec := &Recorder[label.Key, label.Action]{}
 			DeferCleanup(svc.Label.ObserveActions().OnChange(rec.Record))

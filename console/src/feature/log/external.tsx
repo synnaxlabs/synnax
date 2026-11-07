@@ -22,7 +22,7 @@ export * from "@/feature/log/Selectable";
 export * from "@/feature/log/tree";
 export * from "@/platform/log/external";
 
-const TAB_TYPE = log.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = log.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -81,7 +82,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		r.Key,
 		NewCreateAction(CreatePayload{Range: created}),
 	)
-	otgID := r.OntologyID()
+	otgID := r.ResourceID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -96,7 +97,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Parent == nil {
 		return nil
 	}
-	parent := r.Parent.OntologyID()
+	parent := r.Parent.ResourceID()
 	var relAlreadyExists bool
 	if exists {
 		if relAlreadyExists, err = w.otg.RelationshipExists(
@@ -185,7 +186,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		var children []ontology.Resource
 		if err := w.otg.
 			NewRetrieve().
-			WhereIDs(OntologyIDs(frontier)...).
+			WhereIDs(ResourceIDs(frontier)...).
 			TraverseTo(ontology.ChildrenTraverser).
 			Entries(&children).
 			ExcludeFieldData(true).
@@ -197,10 +198,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		nextFrontier := make([]Key, 0, len(children))
 		for _, c := range children {
 			// Don't traverse into anything that's not a child range.
-			if c.ID.Type != ontology.ResourceTypeRange {
+			if c.ID.Type != resource.TypeRange {
 				continue
 			}
-			k, err := KeyFromOntologyID(c.ID)
+			k, err := KeyFromResourceID(c.ID)
 			if err != nil {
 				return err
 			}
@@ -219,7 +220,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {

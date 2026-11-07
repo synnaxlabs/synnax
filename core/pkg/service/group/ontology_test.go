@@ -15,40 +15,40 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("OntologyIDsFromGroups", func() {
-	It("Should map a slice of groups to ontology IDs", func() {
+var _ = Describe("ResourceIDsFromGroups", func() {
+	It("Should map a slice of groups to resource IDs", func() {
 		a := group.Group{Key: uuid.New(), Name: "a"}
 		b := group.Group{Key: uuid.New(), Name: "b"}
-		Expect(group.OntologyIDsFromGroups([]group.Group{a, b})).
-			To(ConsistOf(a.OntologyID(), b.OntologyID()))
+		Expect(group.ResourceIDsFromGroups([]group.Group{a, b})).
+			To(ConsistOf(a.ResourceID(), b.ResourceID()))
 	})
 })
 
-var _ = Describe("KeyFromOntologyID", func() {
+var _ = Describe("KeyFromResourceID", func() {
 	It("Should return the key of a group ID", func() {
 		key := uuid.New()
-		Expect(group.KeyFromOntologyID(group.OntologyID(key))).To(Equal(key))
+		Expect(group.KeyFromResourceID(group.ResourceID(key))).To(Equal(key))
 	})
 	DescribeTable("Should reject an ID that is not a group",
-		func(id ontology.ID, msg string) {
-			Expect(group.KeyFromOntologyID(id)).Error().To(SatisfyAll(
+		func(id resource.ID, msg string) {
+			Expect(group.KeyFromResourceID(id)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(msg)),
 			))
 		},
 		Entry("a project",
-			ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.New().String()},
+			resource.ID{Type: resource.TypeProject, Key: uuid.New().String()},
 			`must be a group, got "project"`),
-		Entry("a zero ID", ontology.ID{}, `must be a group, got ""`),
+		Entry("a zero ID", resource.ID{}, `must be a group, got ""`),
 		Entry("a group whose key is not a UUID",
-			ontology.ID{Type: ontology.ResourceTypeGroup, Key: "not-a-uuid"},
+			resource.ID{Type: resource.TypeGroup, Key: "not-a-uuid"},
 			`invalid group key "not-a-uuid"`),
 		Entry("a group with an empty key",
-			ontology.ID{Type: ontology.ResourceTypeGroup},
+			resource.ID{Type: resource.TypeGroup},
 			`invalid group key ""`),
 	)
 })

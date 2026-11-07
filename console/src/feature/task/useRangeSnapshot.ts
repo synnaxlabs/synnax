@@ -43,7 +43,7 @@ export const useRangeSnapshot = () => {
         message: "Failed to snapshot tasks",
         description: "No range is active.",
       });
-    const parentID = ranger.ontologyID(rng.key);
+    const parentID = ranger.resourceID(rng.key);
     update({ tasks, parentID });
   };
 };

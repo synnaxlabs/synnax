@@ -16,21 +16,21 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var policyType = ontology.ID{Type: ontology.ResourceTypePolicy}
+var policyType = resource.ID{Type: resource.TypePolicy}
 
 var _ = Describe("Retrieve", func() {
 	It("Should return the policies of a subject when retrieve is granted", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		p := grantOn(ctx, u.OntologyID(), access.ActionRetrieve, policyType)
+		p := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, policyType)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
-			Where: &policy.Where{Subjects: []ontology.ID{u.OntologyID()}},
+			Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
 		}))
 		Expect(res.Policies).To(HaveExactElements(HaveField("Key", p.Key)))
 	})
@@ -39,7 +39,7 @@ var _ = Describe("Retrieve", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		p := grantOn(ctx, u.OntologyID(), access.ActionUpdate, u.OntologyID())
+		p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
 			Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &p.Key}},
 		})).Error().To(MatchError(access.ErrDenied))

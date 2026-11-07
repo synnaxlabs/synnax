@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "client/cpp/node/types.gen.h"
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -253,9 +253,9 @@ struct RetrieveResponse {
     from_proto(const ::api::channel::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("channel", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("channel", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("channel", std::to_string(key));
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("channel", std::to_string(key));
 }
 }

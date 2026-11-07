@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,8 +26,8 @@ var _ = Describe("Relationship", func() {
 	Describe("GorpKey", func() {
 		It("Should return the correct gorp key", func() {
 			Expect(v0.Relationship{
-				From: v0.ID{Type: "channel", Key: "qux"},
-				To:   v0.ID{Type: "device", Key: "baz"},
+				From: resource.ID{Type: "channel", Key: "qux"},
+				To:   resource.ID{Type: "device", Key: "baz"},
 				Type: v0.RelationshipTypeParentOf,
 			}.GorpKey()).To(Equal("channel:qux->parent->device:baz"))
 		})
@@ -45,9 +46,9 @@ var _ = Describe("RelationshipNormalizeKeys", func() {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
 			e := v0.Relationship{
-				From: v0.ID{Type: v0.ResourceTypeGroup, Key: "devices"},
+				From: resource.ID{Type: resource.TypeGroup, Key: "devices"},
 				Type: v0.RelationshipTypeParentOf,
-				To:   v0.ID{Type: v0.ResourceTypeLabel, Key: "critical"},
+				To:   resource.ID{Type: resource.TypeLabel, Key: "critical"},
 			}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,

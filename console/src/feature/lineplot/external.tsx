@@ -21,7 +21,7 @@ export * from "@/feature/lineplot/search";
 export * from "@/feature/lineplot/tree";
 export * from "@/platform/lineplot/external";
 
-const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = lineplot.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 

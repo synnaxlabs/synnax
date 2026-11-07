@@ -10,12 +10,12 @@
 import { describe, expect, it } from "vitest";
 
 import { access } from "@/access";
-import { type ontology } from "@/ontology";
+import { type resource } from "@/resource";
 
-const id = (type: ontology.ResourceType, key: string): ontology.ID => ({ type, key });
+const id = (type: resource.Type, key: string): resource.ID => ({ type, key });
 
 const policy = (
-  objects: ontology.ID[],
+  objects: resource.ID[],
   actions: access.Action[],
   key = crypto.randomUUID(),
 ): access.policy.Policy => ({ key, name: "test", objects, actions, internal: false });

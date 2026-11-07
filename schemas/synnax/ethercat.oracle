@@ -51,6 +51,12 @@ ReadChannel union on type extends BaseReadChannel {
             @doc value "is the data type of the PDO entry."
             @ts type   "string"
         }
+        scale     task.Scale = none {
+            @doc value """
+                is the scale applied to raw samples after acquisition. A scaled channel
+                writes to a float Synnax channel.
+            """
+        }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
     }

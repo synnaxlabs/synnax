@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { type ontology, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
@@ -26,7 +26,7 @@ import { createTestStore, renderWithConsole } from "@/testutil";
 const client = createTestClient();
 
 const renderCopyItem = async (
-  ids: ontology.ID[],
+  ids: resource.ID[],
   resources: ontology.Resource[],
 ): Promise<void> => {
   const store = await createTestStore();
@@ -44,9 +44,9 @@ const renderCopyItem = async (
 };
 
 describe("CopyPropertiesContextMenuItem", () => {
-  const chID = ontology.idZ.parse("channel:1");
+  const chID = resource.idZ.parse("channel:1");
   const properties = { rate: 25, virtual: false };
-  const resource = createResource(chID, "my_channel", properties);
+  const ch = createResource(chID, "my_channel", properties);
   let writeText: Mock;
 
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe("CopyPropertiesContextMenuItem", () => {
   });
 
   it("should copy the resource's properties as JSON when clicked", async () => {
-    await renderCopyItem([chID], [resource]);
+    await renderCopyItem([chID], [ch]);
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
@@ -62,9 +62,9 @@ describe("CopyPropertiesContextMenuItem", () => {
   });
 
   it("should render nothing when more than one resource is selected", async () => {
-    const otherID = ontology.idZ.parse("channel:2");
+    const otherID = resource.idZ.parse("channel:2");
     const other = createResource(otherID, "other_channel", {});
-    await renderCopyItem([chID, otherID], [resource, other]);
+    await renderCopyItem([chID, otherID], [ch, other]);
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 

@@ -49,7 +49,7 @@ const haulItems = (resource: ontology.Resource): Haul.Item[] => {
 
 const useRename = Tree.createUseRename({
   useUpdate: Ranger.useRename,
-  ontologyID: ranger.ontologyID,
+  resourceID: ranger.resourceID,
   convertKey: String,
 });
 
@@ -70,7 +70,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state: { getResource },
   } = props;
   const keys = ids.map((id) => id.key);
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const favoriteKeys = Session.Range.useSelectKeys();
@@ -128,7 +128,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            handleLink({ name: getResource(firstID).name, resourceID: firstID })
           }
         />
       )}

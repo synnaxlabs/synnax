@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -18,13 +19,17 @@ import (
 // to RootID when root is zero. The walk does not go above root. Each relationship
 // appears once. Ancestors reads the changes staged against tx, falling back to the
 // underlying database when tx is nil.
-func (o *Ontology) Ancestors(tx gorp.Tx, root ID, ids ...ID) ([]Relationship, error) {
+func (o *Ontology) Ancestors(
+	tx gorp.Tx,
+	root resource.ID,
+	ids ...resource.ID,
+) ([]Relationship, error) {
 	tx = o.cfg.DB.OverrideTx(tx)
 	if root.IsZero() {
 		root = RootID
 	}
 	visited := set.New(root)
-	frontier := make([]ID, 0, len(ids))
+	frontier := make([]resource.ID, 0, len(ids))
 	for _, id := range ids {
 		if !visited.Contains(id) {
 			visited.Add(id)
@@ -61,26 +66,26 @@ func (o *Ontology) Ancestors(tx gorp.Tx, root ID, ids ...ID) ([]Relationship, er
 type descendants struct {
 	o       *Ontology
 	tx      gorp.Tx
-	root    ID
-	inside  set.Set[ID]
-	outside set.Set[ID]
+	root    resource.ID
+	inside  set.Set[resource.ID]
+	outside set.Set[resource.ID]
 	// err is the first failure of a walk. Once it is set, except reports true for every
 	// ID.
 	err error
 }
 
-func (o *Ontology) newDescendants(tx gorp.Tx, root ID) *descendants {
+func (o *Ontology) newDescendants(tx gorp.Tx, root resource.ID) *descendants {
 	return &descendants{
 		o:       o,
 		tx:      tx,
 		root:    root,
-		inside:  make(set.Set[ID]),
-		outside: make(set.Set[ID]),
+		inside:  make(set.Set[resource.ID]),
+		outside: make(set.Set[resource.ID]),
 	}
 }
 
 // except reports whether id does not descend from the root.
-func (d *descendants) except(id ID) bool {
+func (d *descendants) except(id resource.ID) bool {
 	if d.err != nil {
 		return true
 	}
@@ -92,7 +97,7 @@ func (d *descendants) except(id ID) bool {
 	return !inside
 }
 
-func (d *descendants) descends(id ID) (bool, error) {
+func (d *descendants) descends(id resource.ID) (bool, error) {
 	if d.inside.Contains(id) {
 		return true, nil
 	}
@@ -100,7 +105,7 @@ func (d *descendants) descends(id ID) (bool, error) {
 		return false, nil
 	}
 	visited := set.New(id)
-	for frontier := []ID{id}; len(frontier) > 0; {
+	for frontier := []resource.ID{id}; len(frontier) > 0; {
 		keys, err := d.o.relIndexes.byTo.Get(d.tx, frontier...)
 		if err != nil {
 			return false, err

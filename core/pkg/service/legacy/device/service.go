@@ -196,7 +196,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
 		statuses[i] = Status{
-			Key:         device.OntologyID().String(),
+			Key:         device.ResourceID().String(),
 			Name:        device.Name,
 			Time:        telem.Now(),
 			Variant:     rackStat.Variant,

@@ -68,14 +68,14 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		return err
 	}
 	if !exists {
-		otgID := t.OntologyID()
+		otgID := t.ResourceID()
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
 		if projectKey != uuid.Nil() {
 			if err = w.otgWriter.DefineRelationships(
 				ctx,
-				project.OntologyID(projectKey),
+				project.ResourceID(projectKey),
 				ontology.RelationshipTypeParentOf,
 				otgID,
 			); err != nil {
@@ -113,7 +113,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }
 
 func validateUniqueKeys(t Table) error {
