@@ -456,6 +456,28 @@ Channel struct {
 `,
 			"schemas/synnax/versions/channel/v1.oracle": "Channel = v0.Channel\n",
 		}),
+		Entry("when an inline union variant holds the omitted field", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Shape union on kind {
+	circle {
+		seen telem.TimeStamp {
+			@go marshal omit
+		}
+	}
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`,
+		}),
 		Entry("when a stored reference also uses the dependency", map[string]string{
 			"schemas/synnax/versions/channel/v0.oracle": `
 import "schemas/x/versions/telem/v0"
@@ -472,6 +494,35 @@ Channel struct {
 `,
 		}),
 	)
+
+	It("Should leave a lagging stored member to the stored check", func() {
+		write("schemas/x/versions/telem/v0.oracle",
+			"TimeStamp = int64\n\nStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle",
+			"TimeStamp = v0.TimeStamp\n\nStamp = int32\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n\nStamp = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.Stamp
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		var messages []string
+		for _, f := range run(analyzeLive(liveV0)).Findings {
+			messages = append(messages, f.Message)
+		}
+		Expect(
+			messages,
+		).To(ContainElement(ContainSubstring("resolves telem at v0, but")))
+		Expect(messages).ToNot(ContainElement(ContainSubstring("for omitted fields")))
+	})
 
 	It("Should accept an omitted-field pin at its dependency's current version",
 		func() {
