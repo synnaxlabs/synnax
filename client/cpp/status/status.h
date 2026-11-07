@@ -19,6 +19,7 @@
 #include "client/cpp/status/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/status/pb/status.pb.h"
@@ -125,51 +126,43 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief Retrieves a status with the given key.
-    /// @tparam Details The type of custom details expected in the retrieved status.
-    /// @param key The key of the status to retrieve.
-    /// @returns A pair containing the retrieved status and an error where ok() is
-    /// false if the status could not be retrieved. In the case of an error, the
-    /// returned status will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// @brief retrieves the status with the given key.
+    /// @tparam Details the type of the custom details of the status.
+    /// @param key the key of the status.
+    /// @param options the options of the retrieve.
+    /// @returns the status, and an error that matches NOT_FOUND when no status has the
+    /// key.
     template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve(const std::string &key) const {
-        auto [statuses, err] = this->retrieve<Details>(std::vector{key});
-        if (err) return {synnax::status::Status<Details>{}, err};
-        if (statuses.empty()) {
-            return {
-                synnax::status::Status<Details>(),
-                errors::not_found_error("status", "key " + key)
-            };
-        }
-        return {statuses[0], x::errors::NIL};
+    retrieve(const std::string &key, const RetrieveOptions &options = {}) const {
+        return this->retrieve_one<Details>(Where{.key = key}, options, "key " + key);
     }
 
-    /// @brief Retrieves statuses with the given keys.
-    /// @tparam Details The type of custom details expected in the retrieved statuses.
-    /// @param keys The keys of the statuses to retrieve.
-    /// @returns A pair containing all statuses matching the given keys and an error
-    /// where ok() is false if the statuses could not be retrieved. Statuses that
-    /// don't exist will not be in the returned vector.
+    /// @brief retrieves the statuses with the given keys.
+    /// @tparam Details the type of the custom details of the statuses.
+    /// @param keys the keys of the statuses.
+    /// @param options the options of the retrieve.
+    /// @returns the statuses for the keys that exist, and an error if one occurred.
     template<typename Details = x::json::json>
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
-        retrieve(const std::vector<std::string> &keys) const {
-        return this->retrieve<Details>(
-            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
-        );
+        retrieve(
+            const std::vector<std::string> &keys,
+            const RetrieveOptions &options = {}
+        ) const {
+        return this->retrieve<Details>(Where{.key = keys}, options);
     }
 
-    /// @brief Retrieves the statuses that req selects.
-    /// @tparam Details The type of custom details expected in the retrieved statuses.
-    /// @returns A pair containing the statuses and an error where ok() is false if the
-    /// statuses could not be retrieved.
+    /// @brief retrieves the statuses that where selects.
+    /// @tparam Details the type of the custom details of the statuses.
+    /// @param where the filter that the statuses match. An empty filter matches all
+    /// statuses.
+    /// @param options the options of the retrieve.
     template<typename Details = x::json::json>
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
-        retrieve(const RetrieveRequest &req) const {
-        auto [pb_req, pb_err] = req.to_proto();
+        retrieve(const Where &where, const RetrieveOptions &options = {}) const {
+        auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
         if (pb_err) return {std::vector<synnax::status::Status<Details>>(), pb_err};
         grpc::status::RetrieveRequest grpc_req;
         *grpc_req.mutable_request() = pb_req;
@@ -186,6 +179,22 @@ public:
             statuses.push_back(decoded);
         }
         return {statuses, x::errors::NIL};
+    }
+
+    /// @brief retrieves the one status that where selects.
+    /// @tparam Details the type of the custom details of the status.
+    /// @param where the filter that the status matches.
+    /// @param options the options of the retrieve.
+    /// @returns the status, and an error that matches NOT_FOUND when no status
+    /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
+    /// set a limit or an offset.
+    template<typename Details = x::json::json>
+    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const {
+        return this->retrieve_one<Details>(where, options, where.to_json().dump());
     }
 
     /// @brief Deletes a status with the given key.
@@ -239,6 +248,30 @@ public:
     }
 
 private:
+    template<typename Details>
+    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
+    retrieve_one(
+        const Where &where,
+        const RetrieveOptions &options,
+        const std::string &query
+    ) const {
+        if (options.limit.has_value() || options.offset != 0)
+            return {synnax::status::Status<Details>{}, errors::paged_one_error()};
+        auto [statuses, err] = this->retrieve<Details>(where, options);
+        if (err) return {synnax::status::Status<Details>{}, err};
+        if (statuses.empty())
+            return {
+                synnax::status::Status<Details>{},
+                errors::not_found_error("status", query)
+            };
+        if (statuses.size() > 1)
+            return {
+                synnax::status::Status<Details>{},
+                errors::multiple_found_error("statuses", query)
+            };
+        return {std::move(statuses[0]), x::errors::NIL};
+    }
+
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;

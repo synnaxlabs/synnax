@@ -182,7 +182,7 @@ const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
   const { data, getItem, subscribe, retrieve, status } = Ranger.useListMetaData({
-    initialQuery: { rangeKey },
+    query: { rangeKey },
     sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);

@@ -23,6 +23,7 @@
 
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
@@ -76,8 +77,9 @@ class Master final : public master::Master {
     /// @brief whether the cycle holds process data back. A frame then carries only the
     /// reference clock time.
     std::atomic<bool> process_data_held{false};
-    /// @brief whether the last send held process data back. Only the cycle uses it.
-    bool last_send_held = false;
+    /// @brief what receive returns after a send that held process data back, or NIL
+    /// after a send that did not. Only the cycle uses it.
+    x::errors::Error held_err;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -132,6 +134,10 @@ private:
 
     /// @brief discovers PDOs from SII EEPROM (fallback method).
     void discover_pdos_sii(slave::DiscoveryResult &slave);
+
+    /// @brief reads the synchronization modes the slave at the given position lists in
+    /// its SII. Returns an empty list when the SII has no DC category.
+    std::vector<dc::OpMode> read_op_modes(uint16_t position);
 
     /// @brief reads PDO assignment object to get list of assigned PDOs.
     x::errors::Error read_pdo_assign(
