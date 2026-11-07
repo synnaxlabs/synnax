@@ -265,6 +265,82 @@ TEST(testConfig, testInterpretStringAsNumber) {
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
 
+/// @brief it should reject a number above the range of an unsigned field.
+TEST(testConfig, testRejectsANumberAboveAnUnsignedRange) {
+    Parser parser(json{{"index", 65536}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "index");
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative number for an unsigned field.
+TEST(testConfig, testRejectsANegativeNumberForAnUnsignedField) {
+    Parser parser(json{{"index", -1}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject an unsigned number above the maximum of a signed field.
+TEST(testConfig, testRejectsAnUnsignedNumberAboveASignedMaximum) {
+    Parser parser(json{{"offset", 9223372036854775808ULL}});
+    EXPECT_EQ(parser.field<int64_t>("offset"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "must be between -9223372036854775808 and 9223372036854775807"
+    );
+}
+
+/// @brief it should reject a float outside the range of an integer field.
+TEST(testConfig, testRejectsAFloatOutsideAnIntegerRange) {
+    Parser parser(json{{"index", 70000.5}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should accept the limits of an integer field and a whole float.
+TEST(testConfig, testAcceptsIntegerLimitsAndWholeFloats) {
+    Parser parser(json{{"max", 65535}, {"min", -32768}, {"whole", 1.0}});
+    EXPECT_EQ(parser.field<uint16_t>("max"), 65535);
+    EXPECT_EQ(parser.field<int16_t>("min"), -32768);
+    EXPECT_EQ(parser.field<uint16_t>("whole"), 1);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should reject a string number above the range of an integer field.
+TEST(testConfig, testRejectsAStringNumberAboveAnIntegerRange) {
+    Parser parser(json{{"index", "65536"}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative string number for an unsigned field.
+TEST(testConfig, testRejectsANegativeStringNumberForAnUnsignedField) {
+    Parser parser(json{{"index", "-1"}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should read a string number into a byte field as a number.
+TEST(testConfig, testReadsAStringNumberIntoAByteField) {
+    Parser parser(json{{"count", "65"}});
+    EXPECT_EQ(parser.field<uint8_t>("count"), 65);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should read a string number above the signed 64-bit maximum into an
+/// unsigned 64-bit field.
+TEST(testConfig, testReadsAStringNumberAboveTheSigned64BitMaximum) {
+    Parser parser(json{{"count", "18446744073709551615"}});
+    EXPECT_EQ(parser.field<uint64_t>("count"), 18446744073709551615ULL);
+    EXPECT_TRUE(parser.ok());
+}
+
 /// @brief it should parse array fields successfully.
 TEST(testConfig, testArray) {
     const json j = {{"array", {1, 2, 3, 4, 5}}};
@@ -1056,6 +1132,17 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host2"), 8081);
 }
 
+/// @brief it should write string keys as they are.
+TEST(testMapKey, testString) {
+    ASSERT_EQ(map_key(std::string("host")), "host");
+}
+
+/// @brief it should write integer keys as their decimal form.
+TEST(testMapKey, testInteger) {
+    ASSERT_EQ(map_key(8080), "8080");
+    ASSERT_EQ(map_key(std::uint64_t{18446744073709551615U}), "18446744073709551615");
+}
+
 /// @brief it should parse maps with numeric string keys as integer keys.
 TEST(testConfig, testMapWithIntKeys) {
     const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
@@ -1108,6 +1195,34 @@ TEST(testConfig, testMapWithInvalidNumericKey) {
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "ports.not_a_number");
     EXPECT_EQ(err["message"], "Invalid numeric key: 'not_a_number'");
+}
+
+/// @brief it should reject a map key above the range of its integer type.
+TEST(testConfig, testMapRejectsAKeyAboveItsIntegerRange) {
+    Parser parser(json{{"slaves", {{"65536", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(slaves.empty());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "slaves.65536");
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative map key for an unsigned key type.
+TEST(testConfig, testMapRejectsANegativeKeyForAnUnsignedType) {
+    Parser parser(json{{"slaves", {{"-1", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(slaves.empty());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should accept a map key at the limit of its integer type.
+TEST(testConfig, testMapAcceptsAKeyAtItsIntegerLimit) {
+    Parser parser(json{{"slaves", {{"65535", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves.at(65535), "drive");
 }
 
 /// @brief it should parse maps with numeric keys and complex values.
@@ -1662,6 +1777,38 @@ TEST(testConfig, testToArrayWithPrimitives) {
     EXPECT_EQ(arr[2], 3);
 }
 
+/// @brief it should convert std::monostate items to null.
+TEST(testConfig, testToArrayWithMonostate) {
+    const std::vector<std::monostate> items(2);
+    EXPECT_EQ(to_array(items), json::parse("[null, null]"));
+}
+
+/// @brief it should call to_json() on a value that has one.
+TEST(testConfig, testToJSONWithToJSON) {
+    struct Item {
+        std::string name;
+        [[nodiscard]] json to_json() const { return {{"name", this->name}}; }
+    };
+    EXPECT_EQ(x::json::to_json(Item{"alpha"}), json({{"name", "alpha"}}));
+}
+
+/// @brief it should assign a value that has no to_json() directly.
+TEST(testConfig, testToJSONWithPrimitive) {
+    EXPECT_EQ(x::json::to_json(std::string("alpha")), json("alpha"));
+    EXPECT_EQ(x::json::to_json(42), json(42));
+}
+
+/// @brief it should convert std::monostate to null.
+TEST(testConfig, testToJSONWithMonostate) {
+    EXPECT_TRUE(x::json::to_json(std::monostate{}).is_null());
+}
+
+/// @brief it should keep a JSON object as is.
+TEST(testConfig, testToJSONWithObject) {
+    const json::object_t obj = {{"a", 1}};
+    EXPECT_EQ(x::json::to_json(obj), json({{"a", 1}}));
+}
+
 /// @brief it should return the default value when a field is null.
 TEST(testConfig, testFieldWithDefaultReturnsDefaultOnNull) {
     const json j = {{"name", "test"}, {"args", nullptr}};
@@ -1679,5 +1826,82 @@ TEST(testConfig, testMonostate) {
     const auto result = parser.field<std::monostate>("data");
     EXPECT_TRUE(parser.ok());
     (void) result;
+}
+
+namespace {
+struct DefaultedFields {
+    std::string name;
+    int count = 0;
+
+    static DefaultedFields parse(Parser parser) {
+        return DefaultedFields{
+            .name = parser.field<std::string>("name", ""),
+            .count = parser.field<int>("count", 0),
+        };
+    }
+};
+
+struct ScalarWrapper {
+    std::int64_t value = 0;
+
+    static ScalarWrapper parse(Parser parser) {
+        return ScalarWrapper{.value = parser.field<std::int64_t>()};
+    }
+};
+
+struct ArrayWrapper {
+    std::vector<int> values;
+
+    static ArrayWrapper parse(Parser parser) {
+        return ArrayWrapper{.values = parser.field<std::vector<int>>()};
+    }
+};
+}
+
+/// @brief it should bind one error when a keyed parse receives a scalar.
+TEST(testConfig, testStaticParseRejectsScalar) {
+    for (const json &bad: {json(false), json("bad"), json(1)}) {
+        Parser parser(json{{"child", bad}});
+        parser.field<DefaultedFields>("child");
+        ASSERT_EQ(parser.errors->size(), 1);
+        EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
+    }
+}
+
+/// @brief it should bind one error when a keyed parse receives an array.
+TEST(testConfig, testStaticParseRejectsArray) {
+    Parser parser(json{{"child", json::array()}});
+    parser.field<DefaultedFields>("child");
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
+}
+
+/// @brief it should fall back to defaults when a keyed parse receives an empty object.
+TEST(testConfig, testStaticParseAcceptsEmptyObject) {
+    Parser parser(json{{"child", json::object()}});
+    const auto child = parser.field<DefaultedFields>("child");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(child.count, 0);
+}
+
+/// @brief it should keep parsing a root scalar through a static parse.
+TEST(testConfig, testStaticParseAcceptsRootScalar) {
+    Parser parser(json{{"child", 12}});
+    EXPECT_EQ(parser.field<ScalarWrapper>("child").value, 12);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should keep parsing a root array through a static parse.
+TEST(testConfig, testStaticParseAcceptsRootArray) {
+    Parser parser(json{{"child", json::array({1, 2})}});
+    EXPECT_EQ(parser.field<ArrayWrapper>("child").values.size(), 2);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should treat a null value as missing in a keyed parse.
+TEST(testConfig, testNullParserReadsFieldsAsMissing) {
+    Parser parser(json(nullptr));
+    EXPECT_EQ(parser.field<int>("count", 3), 3);
+    EXPECT_TRUE(parser.ok());
 }
 }

@@ -484,6 +484,68 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
+/// @brief it should save a device again when a scan finds a different model, and keep
+/// the name and properties of the saved device.
+TEST(TestScanTask, TestUpdateWhenModelChanges) {
+    const x::json::json user_props = {{"user_key", "user_value"}};
+
+    synnax::device::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "usb";
+    dev1.model = "Unknown device type";
+    dev1.properties = user_props;
+    dev1.configured = true;
+
+    synnax::device::Device dev1_scanned = dev1;
+    dev1_scanned.model = "LJM_dtT8";
+    dev1_scanned.name = "scanner_name";
+    dev1_scanned.properties = x::json::json::object();
+    dev1_scanned.configured = false;
+
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).model, "LJM_dtT8");
+    EXPECT_EQ(created_devices->at(0).name, "Device 1");
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
+    EXPECT_TRUE(created_devices->at(0).configured);
+}
+
 /// @brief it should save a changed device again on the next scan when the save fails.
 TEST(TestScanTask, TestRetryFailedUpdate) {
     synnax::device::Device dev1;
@@ -793,6 +855,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.status->variant = synnax::status::VARIANT_WARNING;
     dev2.status->description = "Sync manager watchdog";
     dev2.status->details.rack = 2;
+    dev2.status->details.connected = true;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -860,6 +923,7 @@ TEST(TestScanTask, TestStatePropagation) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
+            ASSERT_FALSE(status.details.connected);
             ASSERT_EQ(status.description, "");
         } else
             FAIL() << "Unexpected device key: " << status.key;
@@ -902,6 +966,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     EXPECT_EQ(status.name, "Device 1");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Device disconnected");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "");
 }
 

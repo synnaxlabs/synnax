@@ -109,12 +109,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.zoom(modal, 1.6);
   await session.click(name);
   await type(session, "Ramp");
-  await session.click(
-    modal
-      .locator(".console-arc-create-modal__mode-select-button")
-      .filter({ hasText: "Text" })
-      .first(),
-  );
   await session.hold(400);
   await capture.clickButton(session, "Create");
   session.endZoom();

@@ -51,10 +51,10 @@ jobs:
       matrix: ${{ steps.select.outputs.matrix }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       - name: Select issues
         id: select
@@ -66,8 +66,9 @@ jobs:
           CAP: ${{ inputs.cap || 3 }}
           DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
         run: |
-          # shellcheck disable=SC2086
-          uv run dispatch_agents.py --cap "$CAP" --output "$GITHUB_OUTPUT" $DRY_RUN
+          read -ra dry_run <<< "$DRY_RUN"
+          uv run dispatch_agents.py --cap "$CAP" --output "$GITHUB_OUTPUT" \
+            "${dry_run[@]}"
 
   agent:
     name: Agent for ${{ matrix.issue }}
@@ -88,4 +89,10 @@ jobs:
       output: pr
       title: ${{ matrix.title }}
       timeout-minutes: 90
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

@@ -14,28 +14,50 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("RetrieveResource", func() {
+	DescribeTable("Should carry the Arc type in the resource data",
+		func(ctx SpecContext, t arc.Type) {
+			a := newArc(
+				t,
+				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, a.Base().Key.String(), tx))
+			Expect(res.Data).To(HaveKeyWithValue("type", string(t)))
+		},
+		Entry("automation", arc.TypeAutomation),
+		Entry("module", arc.TypeModule),
+	)
+})
 
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
-		a := arc.Arc{Name: name, Mode: arc.ModeText}
+		a := newAutomation(
+			arc.Base{Name: name, Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-		return arc.OntologyID(a.Key)
+		return arc.OntologyID(a.Base().Key)
 	}
 
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {
 		a := create(ctx, "turbopump test")
 		b := create(ctx, "turbopump")
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+		q := search.Query[ontology.ID]{Term: "turbopump"}
+		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 			To(Equal([]ontology.ID{b, a}))
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+		q.Limit = 1
+		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 			To(Equal([]ontology.ID{b}))
 	})
 
 	It("Should not match a staged Arc outside its transaction", func(ctx SpecContext) {
 		create(ctx, "injector")
-		Expect(MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys).To(BeEmpty())
+		q := search.Query[ontology.ID]{Term: "injector"}
+		Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 	})
 })

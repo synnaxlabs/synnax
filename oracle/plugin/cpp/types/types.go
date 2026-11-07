@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
-	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
-	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -651,6 +650,20 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		data.AddInternal("x/cpp/json/json.h")
 	}
 
+	if entry.Filter != nil {
+		sd.IsFilter = true
+		data.AddSystem("utility")
+	}
+
+	if where, ok := requestFilter(entry, data.table); ok {
+		sd.Where = where.Name
+		sd.OptionsName = strings.TrimSuffix(sd.Name, "Request") + "Options"
+		sd.Options = lo.Filter(sd.Fields, func(f fieldData, _ int) bool {
+			return f.Name != "where"
+		})
+		data.AddSystem("utility")
+	}
+
 	if form.IsGeneric() {
 		data.AddSystem("type_traits")
 	}
@@ -774,23 +787,6 @@ func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	return ""
 }
 
-// wrapCppDistinct direct-initializes a scalar default literal with its C++ type
-// when the field's type resolves to a distinct type. Hand-written distinct types
-// such as x::telem::Rate and x::telem::DataType expose only explicit
-// constructors, so a bare literal fails copy-initialization both as a struct
-// member initializer and as the fallback argument to parser.field. Generated
-// distinct types are scalar typedefs, where the direct-init is a no-op cast.
-func (p *Plugin) wrapCppDistinct(
-	typeRef resolution.TypeRef,
-	literal string,
-	data *templateData,
-) string {
-	if !resolution.IsDistinct(typeRef, data.table) {
-		return literal
-	}
-	return fmt.Sprintf("%s(%s)", p.typeRefToCpp(typeRef, data), literal)
-}
-
 func getUnderlyingPrimitive(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -862,18 +858,31 @@ func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return ok && form.IsIntEnum
 }
 
+// Indirect reports whether field is an x::mem::indirect: an optional field whose value
+// holds parent, which std::optional cannot hold before parent is complete. A
+// std::vector accepts an incomplete element, so a list field is never indirect.
+func Indirect(
+	field resolution.Field,
+	parent resolution.Type,
+	table *resolution.Table,
+) bool {
+	return field.Optional && field.Type.Name != "Array" &&
+		resolution.RefersTo(field.Type, parent.QualifiedName, table)
+}
+
 func (p *Plugin) processField(
 	field resolution.Field,
 	entry resolution.Type,
 	data *templateData,
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 
 	var defaultValue string
 	if !field.Optional {
 		defaultValue = p.zeroValue(field.Type, data)
-	} else if isSelfRef {
+	} else if lineType, ok := p.filterLineType(field, entry, data); ok {
+		cppType = lineType
+	} else if Indirect(field, entry, data.table) {
 		data.AddInternal("x/cpp/mem/indirect.h")
 		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
 	} else {
@@ -888,7 +897,8 @@ func (p *Plugin) processField(
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	if field.Default != nil {
-		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
+		if lit := p.defaultRenderer(data).
+			Literal(field.Type, *field.Default); lit != "" {
 			defaultValue = lit
 		}
 	}
@@ -897,148 +907,59 @@ func (p *Plugin) processField(
 		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
-		IsSelfRef:    isSelfRef,
 		DefaultValue: defaultValue,
 	}
 }
 
-// cppDefaultLiteral renders a default value as a C++ brace-init literal. typeRef
-// is the declared type of the value, used to resolve enum variants, array
-// element types, and nested struct field types. Arrays and structs recurse.
-func (p *Plugin) cppDefaultLiteral(
-	typeRef resolution.TypeRef,
-	val resolution.ExpressionValue,
-	data *templateData,
-) string {
-	switch val.Kind {
-	case resolution.ValueKindString:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%q", val.StringValue), data)
-	case resolution.ValueKindInt:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%d", val.IntValue), data)
-	case resolution.ValueKindFloat:
-		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue), data)
-	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", val.BoolValue)
-	case resolution.ValueKindIdent:
-		if ev, ok := validation.ResolveEnumVariant(
-			val.IdentValue,
-			typeRef,
-			data.table,
-		); ok {
-			return p.cppEnumVariantRef(ev, data)
-		}
-		if val.IdentValue == "true" || val.IdentValue == "false" {
-			return val.IdentValue
-		}
-		if val.IdentValue == "now" && telem.IsTimeStamp(typeRef, data.table, "cpp") {
-			return "x::telem::TimeStamp::now()"
-		}
-		if uv, ok := validation.ResolveUnionVariant(
-			val.IdentValue,
-			typeRef,
-			data.table,
-		); ok {
-			// std::variant default-constructs its first alternative, so a default
-			// naming any other variant must be written out explicitly. The variant
-			// structs live with the union, not with an alias of it.
-			_, unionRef, _ := resolution.Dealias(typeRef, data.table)
-			return cppnaming.QualifiedVariantTypeName(
-				p.typeRefToCpp(unionRef, data),
-				uv.Variant.Name,
-			) + "{}"
-		}
-		// Unresolvable idents (magic defaults like create) have no C++
-		// rendering; the caller falls back to the type's zero value.
-		return ""
-	case resolution.ValueKindArray:
-		elem := cppArrayElementType(typeRef)
-		parts := make([]string, 0, len(val.Elements))
-		for _, el := range val.Elements {
-			parts = append(parts, p.cppDefaultLiteral(elem, el, data))
-		}
-		return "{" + strings.Join(parts, ", ") + "}"
-	case resolution.ValueKindStruct:
-		return p.cppStructLiteral(typeRef, val, data)
-	}
-	return ""
+// requestFilter returns the filter that derives entry as its retrieve request.
+func requestFilter(
+	entry resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	return lo.Find(table.StructTypes(), func(t resolution.Type) bool {
+		return t.Filter != nil && t.Filter.Request == entry.QualifiedName
+	})
 }
 
-// cppStructLiteral renders a struct default as a C++ designated-initializer list,
-// emitting the provided fields in the struct's declaration order (required for
-// designated initializers in C++).
-func (p *Plugin) cppStructLiteral(
-	typeRef resolution.TypeRef,
-	val resolution.ExpressionValue,
+// filterLineType returns the C++ type of a line of the filter entry, which takes a
+// plain value or a list in a designated initializer. A bare line holds an operator in
+// an x::filter::Field, and a typed list line is an x::filter::List. It returns false
+// for any other field.
+func (p *Plugin) filterLineType(
+	field resolution.Field,
+	entry resolution.Type,
 	data *templateData,
-) string {
-	resolved, _, ok := resolution.Dealias(typeRef, data.table)
+) (string, bool) {
+	if entry.Filter == nil {
+		return "", false
+	}
+	line, ok := lo.Find(entry.Filter.Lines, func(l resolution.Field) bool {
+		return l.Name == field.Name
+	})
 	if !ok {
-		return "{}"
+		return "", false
 	}
-	provided := make(map[string]resolution.ExpressionValue, len(val.Fields))
-	for _, fv := range val.Fields {
-		provided[fv.Name] = fv.Value
+	if !line.HasType() {
+		data.AddInternal("x/cpp/filter/field.h")
+		op := p.typeRefToCpp(field.Type, data)
+		return fmt.Sprintf("::x::filter::Field<%s>", op), true
 	}
-	parts := make([]string, 0, len(val.Fields))
-	for _, f := range resolution.UnifiedFields(resolved, data.table) {
-		v, has := provided[f.Name]
-		if !has {
-			continue
-		}
-		parts = append(
-			parts,
-			fmt.Sprintf(
-				".%s = %s",
-				cppFieldName(f),
-				p.cppDefaultLiteral(f.Type, v, data),
-			),
-		)
+	if field.Type.Name == "Array" && field.Type.ArraySize == nil {
+		data.AddInternal("x/cpp/filter/field.h")
+		elem := p.typeRefToCpp(field.Type.TypeArgs[0], data)
+		return fmt.Sprintf("::x::filter::List<%s>", elem), true
 	}
-	return "{" + strings.Join(parts, ", ") + "}"
+	return "", false
 }
 
-// cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
-// Int enums generate as enum classes and are referenced Enum::Variant; string
-// enums generate as ENUM_VARIANT string constants and must be referenced as such.
-func (p *Plugin) cppEnumVariantRef(
-	ev validation.EnumVariant,
-	data *templateData,
-) string {
-	ref := fmt.Sprintf("%s::%s", ev.Type.Name, lo.PascalCase(ev.Variant.Name))
-	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		ref = fmt.Sprintf(
-			"%s_%s",
-			cppnaming.ScreamingSnake(ev.Type.Name),
-			cppnaming.ScreamingSnake(ev.Variant.Name),
-		)
+func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
+	return defaults.Renderer{
+		Table:     data.table,
+		Namespace: data.rawNs,
+		TypeName: func(typeRef resolution.TypeRef) string {
+			return p.typeRefToCpp(typeRef, data)
+		},
 	}
-	if ev.Type.Namespace != data.rawNs {
-		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
-		if targetOutputPath != "" {
-			ns := cppnaming.Namespace(targetOutputPath)
-			return fmt.Sprintf("::%s::%s", ns, ref)
-		}
-	}
-	return ref
-}
-
-// cppFieldName returns the C++ field name for a resolved field, mirroring the
-// naming applied when the field is declared.
-func cppFieldName(field resolution.Field) string {
-	name := domain.GetFieldName(field, "cpp")
-	if name == field.Name {
-		name = casing.FieldSnake(field.Name)
-	}
-	return keywords.Escape(name)
-}
-
-// cppArrayElementType returns the element type of an array type reference, or the
-// reference itself when it is not an array.
-func cppArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0]
-	}
-	return typeRef
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
@@ -1416,6 +1337,14 @@ type structData struct {
 	IsAlias           bool
 	IsGeneric         bool
 	HasExtends        bool
+	// IsFilter is true for the Where of a filter, which combines with &&, ||, and !.
+	IsFilter bool
+	// Where is the filter of a retrieve request, and is empty for any other struct.
+	Where string
+	// OptionsName names the struct that holds Options.
+	OptionsName string
+	// Options are the fields of a retrieve request other than where.
+	Options []fieldData
 }
 
 // inheritedDefaultData assigns a new default to a member declared by a base struct.
@@ -1436,7 +1365,6 @@ type fieldData struct {
 	DefaultValue string
 	CppType      string
 	Doc          string
-	IsSelfRef    bool
 }
 
 type enumData struct {
@@ -1721,6 +1649,18 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- $s := $d.Struct}}
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
+{{- if $s.Options}}
+/// @brief {{$s.OptionsName}} holds every field of a {{$s.Name}} except where.
+struct {{$s.OptionsName}} {
+{{- range $s.Options}}
+{{- if .Doc}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
+{{- end}}
+    {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+};
+
+{{end}}
 {{- if $s.Doc}}
 {{formatDoc $s.Name $s.Doc}}
 {{end}}
@@ -1742,6 +1682,47 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- range $s.InheritedDefaults}}
         this->{{.Name}} = {{.Value}};
 {{- end}}
+    }
+{{- end}}
+
+{{- if $s.IsFilter}}
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend {{$s.Name}} operator&&({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend {{$s.Name}} operator||({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend {{$s.Name}} operator!({{$s.Name}} a) {
+        {{$s.Name}} w;
+        w.not_ = std::move(a);
+        return w;
+    }
+{{- end}}
+{{- if $s.Options}}
+
+    /// @brief returns a request for the records that where selects.
+    static {{$s.Name}}
+    from({{$s.Where}} where, const {{$s.OptionsName}} &options = {}) {
+        return {
+            .where = std::move(where),
+{{- range $s.Options}}
+            .{{.Name}} = options.{{.Name}},
+{{- end}}
+        };
     }
 {{- end}}
 
@@ -1775,6 +1756,13 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 {{- if $u.HasProto}}
 [[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
 std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
+{{- end}}
+{{- if $u.Base}}
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const {{$u.Base}}& base(const {{$u.Name}}& value) {
+    return std::visit([](const auto& v) -> const {{$u.Base}}& { return v; }, value);
+}
 {{- end}}
 {{- end}}
 {{- end}}

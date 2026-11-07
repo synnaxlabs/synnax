@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -20,7 +20,18 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/log/actions.gen";
-import { type Key, keyZ, type Log, logZ, type New, ontologyID } from "@/log/types.gen";
+import {
+  type Key,
+  keyZ,
+  type Log,
+  logZ,
+  type New,
+  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/log/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -30,23 +41,17 @@ export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
 
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ logs: logZ.array().default(() => []) });
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
   project: project.keyZ,
@@ -56,15 +61,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
-
-/**
- * Client-side matching for a request: exact for the requested key set, the
- * only field a request carries.
- */
-const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
-  const keySet = new Set(req.keys);
-  return (l) => keySet.has(l.key);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -84,8 +80,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const store = cache.createTable<Key, Log>({
       name: "logs",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
@@ -104,7 +99,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (log, req) => requestFilter(req)(log),
+        matches: (log, req) => matches(log, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -254,12 +250,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Log[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Log[]> {
     const res = await this.cfg.unary.send(
       "/log/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.logs;
   }

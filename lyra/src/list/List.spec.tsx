@@ -9,7 +9,7 @@
 
 import { observe, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { createRef, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -464,6 +464,50 @@ describe("List", () => {
     });
   });
 
+  describe("map data", () => {
+    beforeAll(() => mockGeometry(100, 100));
+
+    it("should re-render only the item whose key an update carries", () => {
+      const { Counted, counts } = createRenderCounter();
+      const NamedItem = ({ itemKey }: { itemKey: string }): ReactElement => (
+        <div>{List.useItem<string, record.KeyedNamed<string>>(itemKey)?.name}</div>
+      );
+      const Mapped = (): ReactElement => {
+        const data = List.useMapData<string, record.KeyedNamed<string>>({
+          initialData: [
+            { key: "1", name: "one" },
+            { key: "2", name: "two" },
+            { key: "3", name: "three" },
+          ],
+        });
+        return (
+          <List.Frame<string, record.KeyedNamed<string>>
+            data={["1", "2", "3"]}
+            getItem={data.getItem}
+            subscribe={data.subscribe}
+          >
+            <Button.Button onClick={() => data.setItem({ key: "2", name: "updated" })}>
+              Update
+            </Button.Button>
+            <List.Scroll>
+              <List.Items<string>>
+                {({ key, itemKey }: List.ItemProps<string>) => (
+                  <Counted key={key} id={itemKey}>
+                    <NamedItem itemKey={itemKey} />
+                  </Counted>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </List.Frame>
+        );
+      };
+      const result = render(<Mapped />);
+      fireEvent.click(result.getByText("Update"));
+      expect(result.getByText("updated")).toBeTruthy();
+      expect(Object.fromEntries(counts)).toEqual({ 2: 1 });
+    });
+  });
+
   describe("scroll container", () => {
     const ITEM_HEIGHT = 27;
     const DATA = Array.from({ length: 500 }, (_, i) => `${i}`);
@@ -487,6 +531,21 @@ describe("List", () => {
       const scrolls = result.container.querySelectorAll(".lyra-list__scroll");
       expect(scrolls).toHaveLength(1);
       expect(scrolls[0].textContent).toBe("fixed12");
+    });
+
+    it("should pass its element to a given ref and still window the items", () => {
+      const ref = createRef<HTMLDivElement>();
+      const result = render(
+        <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT}>
+          <List.Scroll ref={ref}>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      expect(ref.current).toBe(result.container.querySelector(".lyra-list__scroll"));
+      const rows = result.container.querySelectorAll(".lyra-list__item");
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThan(DATA.length);
     });
 
     it("should throw when no Scroll encloses the items", () => {

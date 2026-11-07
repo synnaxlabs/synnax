@@ -9,10 +9,12 @@
 
 import "schemas/synnax/channel"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/log"
+@py output "client/py/synnax/log"
 @ts output "client/ts/src/log"
 
 Key = uuid {
@@ -33,7 +35,8 @@ TimestampConfig struct {
 
 ChannelEntry struct {
     channel   channel.Key       {
-        @doc value "is the channel this entry references."
+        @doc value         "is the channel this entry references."
+        @validate required
     }
     color     color.Color       {
         @doc value "is the display color for the channel."
@@ -41,16 +44,18 @@ ChannelEntry struct {
     notation  notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision int32?            {
+    precision uint8?            {
         @doc value    """
             is the number of decimal digits to display. Absent shows each sample as it
             arrives; 17 is the maximum significant digits for a float64.
         """
         @validate max 17
-        @validate min 0
     }
     alias     string = "" {
-        @doc value "is a human-readable alias displayed in place of the channel name."
+        @doc value           """
+            is a human-readable alias displayed in place of the channel name.
+        """
+        @validate max_length 64
     }
     timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
         @doc value "is the per-channel timestamp display configuration."
@@ -61,28 +66,30 @@ ChannelEntry struct {
 }
 
 Log struct {
-    key                      Key = create {
+    key                  Key = create {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name                     string         {
+    name                 string         {
         @doc value         "is a human-readable name for the log."
         @search
         @validate required
     }
-    channels                 ChannelEntry[] = [] {
+    channels             ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."
     }
-    timestamp_precision      int32 = 0 {
+    timestamp_precision  uint8 = 0 {
         @doc value    "is the precision of displayed timestamps (0-3)."
         @validate max 3
-        @validate min 0
     }
-    channel_names_hidden     bool = false {
+    channel_names_hidden bool = false {
         @doc value "is true when channel names are hidden."
     }
-    receipt_timestamp_hidden bool = false {
-        @doc value "is true when the receipt timestamp column is hidden."
+    timestamps_hidden    bool = false {
+        @doc value "is true when entry timestamps are hidden."
+    }
+    time_zone            telem.TimeZone = "local" {
+        @doc value "is the time zone of the line times and day rows of the log."
     }
 
     action Create {
@@ -152,7 +159,7 @@ Log struct {
 
     action SetChannelPrecision {
         channel   channel.Key
-        precision int32?
+        precision uint8?
 
         @doc value """
             sets the number of decimal digits displayed for the entry identified by
@@ -208,12 +215,12 @@ Log struct {
         @doc value """
             repoints the entry referencing the "from" channel at the "to" channel in
             place, preserving the entry's position and display configuration. No-op when
-            no entry references "from".
+            no entry references "from" or an entry already references "to".
         """
     }
 
     action SetTimestampPrecision {
-        timestamp_precision int32
+        timestamp_precision uint8
 
         @doc value "sets the precision of displayed timestamps (0-3)."
     }
@@ -224,21 +231,33 @@ Log struct {
         @doc value "sets whether channel names are hidden."
     }
 
-    action SetReceiptTimestampHidden {
-        receipt_timestamp_hidden bool
+    action SetTimestampsHidden {
+        timestamps_hidden bool
 
-        @doc value "sets whether the receipt timestamp column is hidden."
+        @doc value "sets whether entry timestamps are hidden."
+    }
+
+    action SetTimeZone {
+        time_zone telem.TimeZone
+
+        @doc value "sets the time zone of the line times and day rows of the log."
     }
 
     @create
     @doc value     """
-        is a timestamped event and message logging component. Logs display chronological
-        records of events, system messages, and audit trails with filtering and
-        formatting capabilities.
+        is a visualization that shows the samples of its channels as text, one line per
+        sample, in time order.
     """
     @go imex
     @go marshal
     @go migrate
     @ontology type "log"
     @retrieve
+}
+
+Where filter Log {
+    key
+
+    @doc value         "is a filter that selects logs."
+    @go request_output "core/pkg/api/log"
 }

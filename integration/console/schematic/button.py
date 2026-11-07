@@ -7,11 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+import synnax as sy
+from console.schematic.symbol import Properties, Symbol
 
-from console.schematic.symbol import Symbol
-
-ButtonMode = Literal["Fire", "Momentary", "Pulse"]
+_MODE_LABELS: dict[sy.schematic.ButtonMode, str] = {
+    "fire": "Fire",
+    "momentary": "Momentary",
+    "pulse": "Pulse",
+}
 
 
 class Button(Symbol):
@@ -26,7 +29,7 @@ class Button(Symbol):
         channel_name: str,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: ButtonMode = "Fire",
+        mode: sy.schematic.ButtonMode = "fire",
         symbol_type: str = "Button",
     ):
         """Initialize a button symbol with configuration.
@@ -37,7 +40,7 @@ class Button(Symbol):
             activation_delay: Milliseconds the button must be held before it
                 fires (optional)
             show_control_chip: Whether to show the control chip (optional)
-            mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
+            mode: Button mode (optional)
             symbol_type: The type of symbol (default: "Button")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
@@ -61,13 +64,11 @@ class Button(Symbol):
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: ButtonMode = "Fire",
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        mode: sy.schematic.ButtonMode = "fire",
+    ) -> None:
         """Set Button properties including channel settings."""
         self.click()
 
-        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -77,12 +78,10 @@ class Button(Symbol):
 
         if channel_name is not None:
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
             self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
-            applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
@@ -94,23 +93,15 @@ class Button(Symbol):
                 current_state = chip_toggle.is_checked()
                 if current_state != show_control_chip:
                     chip_toggle.click()
-            applied_properties["show_control_chip"] = show_control_chip
 
         if mode is not None:
-            self.page.get_by_role("button", name=mode, exact=True).click()
-            applied_properties["mode"] = mode
+            self.page.get_by_role("button", name=_MODE_LABELS[mode], exact=True).click()
 
-        return applied_properties
-
-    def get_properties(self, *, tab: str = "Control") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Control") -> Properties:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: dict[str, Any] = {
-            "channel": "",
-            "show_control_chip": False,
-            "mode": "",
-        }
+        props: Properties = {"channel": "", "show_control_chip": False}
 
         # Channel name
         channel_display = self.channel_trigger("Command")
@@ -121,7 +112,9 @@ class Button(Symbol):
         # the hold is the actuation.
         delay_field = self.page.locator("text=Delay")
         if delay_field.count() > 0:
-            props["activation_delay"] = float(self.layout.get_input_field("Delay"))
+            props["activation_delay"] = (
+                self.layout.get_time_span_field("Delay") / sy.TimeSpan.MILLISECOND
+            )
 
         # Control chip
         chip_toggle = (
@@ -133,14 +126,13 @@ class Button(Symbol):
             props["show_control_chip"] = chip_toggle.is_checked()
 
         # Mode
-        mode_options = ["Fire", "Momentary", "Pulse"]
-        for option in mode_options:
+        for mode, label in _MODE_LABELS.items():
             try:
-                button = self.page.get_by_text(option).first
+                button = self.page.get_by_text(label).first
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
                     if "lyra--selected" in class_name:
-                        props["mode"] = option
+                        props["mode"] = mode
                         break
             except Exception as e:
                 raise RuntimeError("Error getting mode property") from e

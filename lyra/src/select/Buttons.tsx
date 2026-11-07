@@ -33,6 +33,8 @@ export interface ButtonsProps<K extends record.Key = record.Key>
       | "overscan"
       | "onFetchMore"
     > {
+  /** Whether the buttons ignore clicks and keys. */
+  disabled?: boolean;
   /** Whether to render the buttons flat and inert, for use inside a preview. */
   preview?: boolean;
   /**
@@ -58,6 +60,8 @@ export const Buttons = <K extends record.Key = record.Key>({
   onChange,
   allowNone,
   multiple,
+  enableTriggers,
+  disabled,
   preview = false,
   variant = "text",
   className,
@@ -71,10 +75,12 @@ export const Buttons = <K extends record.Key = record.Key>({
     multiple,
     value,
     onChange,
+    enableTriggers: disabled === true ? false : enableTriggers,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   const itemStatus = Input.useItemStatus({});
   const ctx = {
+    disabled,
     preview,
     variant,
     status: itemStatus.status,

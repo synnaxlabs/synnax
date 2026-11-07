@@ -11,6 +11,7 @@ import re
 import sys
 
 from examples.modbus import ModbusSerialSim
+from pydantic import JsonValue
 
 import synnax as sy
 from tests.console.device.connect_network import NETWORK
@@ -58,14 +59,13 @@ class ConnectSerial(ModbusCase):
         layout = self.console.layout
         layout.click_btn("Parity")
         layout.select_from_dropdown("None", exact=True)
-        devices.modal.get_by_role("tab", name="Unit", exact=True).click(timeout=5000)
         devices.modal.get_by_label(re.compile(r"^Unit ID\b")).fill("2")
         devices.fill_connect_serial(name=name, serial_port=ModbusSerialSim.serial_port)
         devices.modal.wait_for(state="hidden", timeout=15000)
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         connection = sy.device.ensure_object(dev.properties, "connection")
-        expected = {
+        expected: dict[str, JsonValue] = {
             "transport": "rtu",
             "serial_port": ModbusSerialSim.serial_port,
             "unit_id": 2,

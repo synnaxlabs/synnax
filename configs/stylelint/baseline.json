@@ -12,8 +12,7 @@
     "console/src/feature/arc/editor/SelectPerformance.css": [
       "lyra--visible",
       "lyra-icon",
-      "lyra-select__dialog",
-      "lyra-select__label"
+      "lyra-select__dialog"
     ],
     "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
@@ -27,22 +26,12 @@
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
     "console/src/feature/http/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections",
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
     "console/src/feature/license/useInfoModal.css": ["lyra-text--code"],
     "console/src/feature/lineplot/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/log/toolbar/Toolbar.css": ["lyra-btn"],
-    "console/src/feature/ni/task/DigitalChannelList.css": [
-      "lyra--selected",
-      "lyra-list__item"
-    ],
-    "console/src/feature/opcua/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections"
-    ],
     "console/src/feature/opcua/task/Task.css": ["lyra-header"],
     "console/src/feature/panel/Mosaic.css": [
       "lyra--center",
@@ -66,7 +55,7 @@
       "lyra-list__virtualizer",
       "lyra-tags"
     ],
-    "console/src/feature/range/list/List.css": ["lyra-list__item", "lyra-tags"],
+    "console/src/feature/range/list/List.css": ["lyra-tags"],
     "console/src/feature/range/overview/Overview.css": ["lyra--hidden", "lyra-header"],
     "console/src/feature/schematic/symbol/edit/Edit.css": [
       "lyra-modal",
@@ -130,7 +119,7 @@
       "lyra-resize__handle"
     ],
     "console/src/platform/notifications/Feed.css": ["lyra-btn"],
-    "console/src/platform/selector/Selector.css": ["lyra-btn", "lyra-icon"],
+    "console/src/platform/selector/Selector.css": ["lyra-icon"],
     "console/src/platform/shell/Shell.css": [
       "lyra--square",
       "lyra-header",

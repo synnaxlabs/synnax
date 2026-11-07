@@ -9,11 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-opc-connect {
-    width: 155rem;
+/* The username and the password are equally wide, with the form's column gap. */
+.console-opc-connect__login {
+    display: grid;
+    grid-template-columns: 1fr max-content 1fr;
+    gap: 4rem;
+    align-items: center;
 
-    /* Fits the longest label, so the column holds still as fields show and hide. */
-    .lyra-form-sections.lyra--direction-y {
-        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
+    /* The form puts the control of each field from its second column. Here, each
+       control comes after its label. */
+    & * {
+        grid-column: auto;
     }
 }

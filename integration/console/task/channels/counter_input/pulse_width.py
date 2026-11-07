@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class PulseWidth(Counter):
@@ -28,14 +29,14 @@ class PulseWidth(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        starting_edge: Literal["Rising", "Falling"] | None = None,
-        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
+        *,
+        starting_edge: sy.ni.CIEdge | None = None,
+        units: sy.ni.CITimeUnits | Literal["Custom"] | None = None,
         terminal: str | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize pulse width channel with configuration."""
         super().__init__(

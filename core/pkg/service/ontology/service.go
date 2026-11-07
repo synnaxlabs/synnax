@@ -30,13 +30,12 @@ type Service interface {
 	// RetrieveResource returns the resource with the given key. If the resource does
 	// not exist, returns [query.ErrNotFound].
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
-	// Search returns the IDs of at most limit resources whose text matches term,
-	// closest match first. Search reads the changes staged against tx.
+	// Search returns the IDs of the resources whose text matches q, closest match
+	// first. Search reads the changes staged against tx.
 	Search(
 		ctx context.Context,
 		tx gorp.Tx,
-		term string,
-		limit int,
+		q search.Query[ID],
 	) (search.Result[ID], error)
 	// Observable is used by the [Ontology] to subscribe to changes in the entities.
 	// This is used to propagate resource changes for signals (see
@@ -45,18 +44,20 @@ type Service interface {
 	observe.Observable[iter.Seq[Change]]
 }
 
-// SearchIndex returns the IDs of at most limit entries of idx whose text matches term,
-// closest match first. id returns the ID of the entry with a key. Services use it to
-// implement Service.Search.
+// SearchIndex searches idx as Service.Search does. id returns the ID of the entry with
+// a key. Services use it to implement Service.Search.
 func SearchIndex[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,
 	idx *gorp.SearchIndex[K, E],
-	term string,
-	limit int,
 	id func(K) ID,
+	q search.Query[ID],
 ) (search.Result[ID], error) {
-	res, err := idx.Search(ctx, tx, term, limit)
+	res, err := idx.Search(ctx, tx, search.Query[K]{
+		Term:   q.Term,
+		Except: func(key K) bool { return q.Except != nil && q.Except(id(key)) },
+		Limit:  q.Limit,
+	})
 	if err != nil {
 		return search.Result[ID]{}, err
 	}

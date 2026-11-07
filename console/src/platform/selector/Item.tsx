@@ -8,51 +8,83 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type PointerEvent, type ReactElement } from "react";
 
-import {
-  type OnSelectParams,
-  type Selectable,
-  type SelectableProps,
-} from "@/platform/selector/Selector";
+import { CSS } from "@/platform/css";
+import { type Selectable } from "@/platform/selector/types";
 
-export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
-  title: string;
-  icon: Icon.ReactElement;
+export interface ItemProps {
+  selectable: Selectable;
+  /** A card, or a button under a group heading. */
+  variant: "card" | "action";
+  disabled: boolean;
+  hovered: boolean;
+  onSelect: () => void;
+  onHover: (type: string) => void;
 }
 
-const Item = ({ title, icon, ...rest }: ItemProps) => (
-  <Button.Button variant="outlined" {...rest}>
-    {icon}
-    {title}
-  </Button.Button>
-);
-
-export interface CreateSelectableConfig {
-  type: string;
-  title: string;
-  icon: Icon.ReactElement;
-  useOnSelect: (params?: OnSelectParams) => () => void;
-  useVisible?: () => boolean;
-}
-
-const useAlwaysVisible = (): boolean => true;
-
-export const createSelectable = ({
-  title,
-  icon,
-  type,
-  useOnSelect,
-  useVisible,
-}: CreateSelectableConfig): Selectable => {
-  const useSelectableVisible = useVisible ?? useAlwaysVisible;
-  const C: Selectable = ({ tabKey }: SelectableProps) => {
-    const visible = useSelectableVisible();
-    const onSelect = useOnSelect({ tabKey });
-    if (!visible) return null;
-    return <Item title={title} icon={icon} onClick={() => onSelect()} />;
-  };
-  C.type = type;
-  C.useVisible = useVisible;
-  return C;
+export const Item = ({
+  selectable: { type, title, label, description, icon },
+  variant,
+  disabled,
+  hovered,
+  onSelect,
+  onHover,
+}: ItemProps): ReactElement => {
+  const props = {
+    className: CSS.cls(
+      CSS.BEM("layout-selector", "item", variant),
+      hovered && PCSS.M("hovered"),
+      hovered && CSS.M("hovered"),
+    ),
+    full: "x",
+    disabled,
+    "aria-label": title,
+    "data-selectable": type,
+    onClick: () => onSelect(),
+    onPointerMove: (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && !disabled) onHover(type);
+    },
+  } as const;
+  if (variant === "action")
+    return (
+      <Button.Button
+        variant="text"
+        size="small"
+        textColor={9}
+        justify="start"
+        {...props}
+      >
+        {label ?? title}
+      </Button.Button>
+    );
+  return (
+    <Button.Button variant="card" {...props}>
+      <Icon.Tile size="large">{icon}</Icon.Tile>
+      <Flex.Box
+        el="span"
+        y
+        gap="tiny"
+        className={CSS.BE("layout-selector", "card-label")}
+      >
+        <Text.Text el="span" weight={500}>
+          {title}
+        </Text.Text>
+        {description != null && (
+          <Text.Text
+            level="small"
+            color={9}
+            overflow="fade"
+            className={CSS.BE("layout-selector", "description")}
+          >
+            {description}
+          </Text.Text>
+        )}
+      </Flex.Box>
+    </Button.Button>
+  );
 };

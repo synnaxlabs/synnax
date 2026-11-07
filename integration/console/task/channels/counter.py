@@ -7,8 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import TypedDict
+
 from console.layout import LayoutClient
+from console.task.channels.labels import label as console_label
 from console.task.channels.utils import get_port, is_numeric_string, set_port
+
+
+class Options(TypedDict, total=False):
+    """Options that every counter channel type accepts."""
+
+    port: int | None
+    min_val: float | None
+    max_val: float | None
 
 
 class Counter:
@@ -21,10 +32,10 @@ class Counter:
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         chan_type: str,
         port: int | None = None,
         min_val: float | None = None,
@@ -124,6 +135,7 @@ class Counter:
             track: Whether to track the value in form_values
         """
         if value is not None:
+            value = console_label(value)
             self.layout.click_btn(label)
             self.layout.select_from_dropdown(
                 value, reopen=lambda: self.layout.click_btn(label)

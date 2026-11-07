@@ -19,17 +19,13 @@ from classify import (
     BOT,
     HUMAN,
     MARKER,
-    Answer,
     Surface,
-    ask_agent,
     fence,
     needs_human,
-    parse_answer,
     plan_labels,
     read_surfaces,
     render,
     trust_reasons,
-    ui_answer,
 )
 
 
@@ -38,13 +34,6 @@ def same(name: str) -> Surface:
 
 
 ALL_SAME = [same(n) for n in ("oracle", "client-ts", "client-py", "core", "driver")]
-
-
-def agent(tmp_path: Path, *, reply: str) -> str:
-    """Returns a command that reads stdin and prints reply."""
-    script = tmp_path / "agent.py"
-    script.write_text(f"import sys\nsys.stdin.read()\nprint({reply!r})\n")
-    return f"{sys.executable} {script}"
 
 
 def pull(head_repo: str = "synnaxlabs/synnax") -> dict[str, Any]:
@@ -62,6 +51,7 @@ class TestReadSurfaces:
     """Tests reading the uploaded surface results."""
 
     def test_reads_status_and_diff(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("")
         d = tmp_path / "surface-oracle"
         d.mkdir()
         (d / "status").write_text("changed\n")
@@ -72,48 +62,63 @@ class TestReadSurfaces:
         )
 
     def test_treats_a_missing_report_as_an_error(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
         surfaces = {s.name: s for s in read_surfaces(tmp_path)}
         assert surfaces["core"].status == "error"
 
+    def test_skips_a_surface_the_run_has_no_job_for(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core-windows"].status == "skipped"
+
+    def test_treats_a_run_with_no_surface_jobs_as_an_error(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "jobs").write_text("Compare ${{ matrix.surface }}\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "error"
+
+    def test_reads_a_skipped_report(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        d = tmp_path / "surface-core"
+        d.mkdir()
+        (d / "status").write_text("skipped\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "skipped"
+
 
 class TestNeedsHuman:
-    """Tests the decision from reports, the UI answer, and trust reasons."""
+    """Tests the decision from reports and reasons."""
 
     def test_is_false_when_nothing_changed(self) -> None:
-        assert not needs_human(ALL_SAME, console=None, reasons=[])
-        assert not needs_human(
-            ALL_SAME, console=Answer(human=False, reason="refactor"), reasons=[]
-        )
+        assert not needs_human(ALL_SAME, reasons=[])
 
     def test_is_true_when_a_surface_changed_or_failed(self) -> None:
         assert needs_human(
             [*ALL_SAME, Surface(name="core", status="changed", diff="")],
-            console=None,
             reasons=[],
         )
         assert needs_human(
             [*ALL_SAME, Surface(name="core", status="error", diff="")],
-            console=None,
             reasons=[],
         )
 
-    def test_is_true_when_the_ui_changed_visibly(self) -> None:
-        assert needs_human(
-            ALL_SAME, console=Answer(human=True, reason="new button"), reasons=[]
-        )
+    def test_is_false_when_a_surface_was_skipped(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        assert not needs_human([*ALL_SAME, skipped], reasons=[])
 
-    def test_is_true_when_the_reports_cannot_be_trusted(self) -> None:
-        assert needs_human(ALL_SAME, console=None, reasons=["fork"])
+    def test_is_true_when_a_reason_applies(self) -> None:
+        assert needs_human(ALL_SAME, reasons=["fork"])
 
 
 class TestPlanLabels:
-    """Tests that exactly one of review/human and review/bot stays."""
+    """Tests that the classifier only raises a tier."""
 
     def test_sets_human_and_removes_bot(self) -> None:
         assert plan_labels({BOT}, human=True) == ([HUMAN], [BOT])
 
-    def test_sets_bot_when_no_tier_is_set(self) -> None:
-        assert plan_labels(set(), human=False) == ([BOT], [])
+    def test_sets_no_tier_when_none_is_set(self) -> None:
+        assert plan_labels(set(), human=False) == ([], [])
 
     def test_never_removes_human(self) -> None:
         assert plan_labels({HUMAN}, human=False) == ([], [])
@@ -126,41 +131,6 @@ class TestPlanLabels:
     def test_changes_nothing_when_the_label_is_right(self) -> None:
         assert plan_labels({HUMAN}, human=True) == ([], [])
         assert plan_labels({BOT}, human=False) == ([], [])
-
-
-class TestUIAnswer:
-    """Tests when and how the agent judges the UI patches."""
-
-    def test_is_none_without_ui_files(self, tmp_path: Path) -> None:
-        assert (
-            ui_answer([file("core/main.go")], command=agent(tmp_path, reply="{}"))
-            is None
-        )
-
-    def test_asks_about_console_pluto_and_lyra(self, tmp_path: Path) -> None:
-        reply = '{"human": false, "reason": "Tests only."}'
-        for name in ("console/a.tsx", "pluto/b.tsx", "lyra/c.css"):
-            assert ui_answer(
-                [file(name)], command=agent(tmp_path, reply=reply)
-            ) == Answer(human=False, reason="Tests only.")
-
-    def test_answers_human_without_asking_when_a_patch_is_missing(
-        self, tmp_path: Path
-    ) -> None:
-        reply = '{"human": false, "reason": "x"}'
-        files = [file("console/a.tsx"), file("console/b.png", patch=None)]
-        answer = ui_answer(files, command=agent(tmp_path, reply=reply))
-        assert answer is not None
-        assert answer.human
-
-    def test_answers_human_without_asking_when_the_diff_is_too_large(
-        self, tmp_path: Path
-    ) -> None:
-        reply = '{"human": false, "reason": "x"}'
-        files = [file("console/a.tsx", patch="+" + "x" * 200_000)]
-        answer = ui_answer(files, command=agent(tmp_path, reply=reply))
-        assert answer is not None
-        assert answer.human
 
 
 class TestTrustReasons:
@@ -181,35 +151,6 @@ class TestTrustReasons:
         ]
 
 
-class TestParseAnswer:
-    """Tests reading the agent's JSON answer."""
-
-    def test_reads_the_last_json_answer(self) -> None:
-        text = 'thinking {"x": 1}\n{"human": false, "reason": "Tests only."}'
-        assert parse_answer(text) == Answer(human=False, reason="Tests only.")
-
-    def test_answers_human_when_unclear(self) -> None:
-        assert parse_answer("no idea").human
-        assert parse_answer('{"human": "no", "reason": "x"}').human
-
-
-class TestAskAgent:
-    """Tests running the agent command."""
-
-    def test_sends_the_prompt_on_stdin(self, tmp_path: Path) -> None:
-        script = tmp_path / "echo.py"
-        script.write_text(
-            "import json, sys\n"
-            "print(json.dumps({'human': False, 'reason': sys.stdin.read()}))\n"
-        )
-        assert ask_agent("hello", command=f"{sys.executable} {script}") == Answer(
-            human=False, reason="hello"
-        )
-
-    def test_answers_human_when_the_agent_fails(self) -> None:
-        assert ask_agent("prompt", command=f"{sys.executable} -c 'exit(3)'").human
-
-
 class TestRender:
     """Tests the sticky comment."""
 
@@ -218,39 +159,37 @@ class TestRender:
             *ALL_SAME[:4],
             Surface(name="driver", status="changed", diff="+flag --x\n"),
         ]
-        body = render(surfaces, console=None, reasons=[], kept=False)
+        body = render(surfaces, reasons=[], kept=False)
         assert body.startswith(MARKER)
         assert f"`{HUMAN}`" in body
         assert "| Driver commands and config keys | Changed |" in body
         assert "+flag --x" in body
-        assert "Console screenshots" not in body
 
     def test_explains_a_kept_human_label(self) -> None:
-        body = render(
-            ALL_SAME,
-            console=Answer(human=False, reason="Refactor."),
-            reasons=[],
-            kept=True,
-        )
+        body = render(ALL_SAME, reasons=[], kept=True)
         assert f"## Review tier: `{HUMAN}`" in body
         assert "already set" in body
-        assert "| Console and UI libraries | No visible change: Refactor. |" in body
-        assert "Console screenshots" in body
 
     def test_lists_trust_reasons(self) -> None:
         body = render(
             ALL_SAME,
-            console=None,
             reasons=["The pull request comes from a fork."],
             kept=False,
         )
         assert f"## Review tier: `{HUMAN}`" in body
         assert "- The pull request comes from a fork." in body
 
-    def test_says_bot_when_nothing_changed(self) -> None:
-        assert f"## Review tier: `{BOT}`" in render(
-            ALL_SAME, console=None, reasons=[], kept=False
+    def test_says_the_author_picks_when_nothing_changed(self) -> None:
+        assert "## Review tier: the author picks" in render(
+            ALL_SAME, reasons=[], kept=False
         )
+
+    def test_shows_a_skipped_surface_without_raising_the_tier(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        body = render([*ALL_SAME, skipped], reasons=[], kept=False)
+        assert "## Review tier: the author picks" in body
+        assert "Not compared" in body
+        assert "<details>" not in body
 
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
@@ -266,6 +205,7 @@ class FakeGH:
 
     def __init__(self) -> None:
         self.heads = ["abc", "abc"]
+        self.files = ["core/main.go"]
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
@@ -277,7 +217,7 @@ class FakeGH:
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
         if f"repos/{REPO}/pulls/5/files" in args:
-            return json.dumps(file("core/main.go")) + "\n"
+            return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
             return "".join(json.dumps(c) + "\n" for c in self.comments)
         self.writes.append((args, stdin))
@@ -289,29 +229,42 @@ class TestMain:
 
     @pytest.fixture
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
-        (tmp_path / "pr").mkdir()
-        (tmp_path / "pr" / "number").write_text("5\n")
-        for name in ("oracle", "client-ts", "client-py", "core", "driver"):
+        for name in classify.SURFACES:
             d = tmp_path / f"surface-{name}"
             d.mkdir()
             (d / "status").write_text("same\n")
+        jobs = "".join(f"Compare {name}\n" for name in classify.SURFACES)
+        (tmp_path / "jobs").write_text(jobs)
         fake = FakeGH()
         monkeypatch.setattr(classify, "gh", fake)
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
-        monkeypatch.setenv("REVIEW_AGENT", "false")
+        monkeypatch.setenv("PR", "5")
         return fake
 
-    def test_labels_bot_and_posts_a_comment_when_nothing_changed(
+    def test_keeps_the_tier_of_a_branch_older_than_a_report(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        gh.labels = [BOT]
+        (tmp_path / "surface-core" / "status").write_text("skipped\n")
+        classify.main()
+        assert not any(LABELS in args for args, _ in gh.writes)
+        assert "Not compared" in str(gh.writes[-1][1])
+
+    def test_raises_when_a_report_is_missing(self, gh: FakeGH, tmp_path: Path) -> None:
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        assert any(LABELS in args for args, _ in gh.writes)
+
+    def test_adds_no_label_and_posts_a_comment_when_nothing_changed(
         self, gh: FakeGH
     ) -> None:
         classify.main()
-        (label, _), (post, body) = gh.writes
-        assert label == ("api", "-X", "POST", LABELS, "-f", f"labels[]={BOT}")
+        ((post, body),) = gh.writes
         assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
         assert body is not None
-        assert f"## Review tier: `{BOT}`" in json.loads(body)["body"]
+        assert "the author picks" in json.loads(body)["body"]
 
     def test_swaps_bot_for_human_and_edits_the_comment_when_a_surface_changed(
         self, gh: FakeGH, tmp_path: Path
@@ -332,6 +285,62 @@ class TestMain:
                 "-",
             ),
         ]
+
+    def test_adds_no_label_when_only_the_ui_changed(self, gh: FakeGH) -> None:
+        gh.files = ["console/a.tsx"]
+        classify.main()
+        assert [args[3] for args, _ in gh.writes] == [COMMENTS]
+
+    def test_keeps_the_tier_the_author_set_when_nothing_changed(
+        self, gh: FakeGH
+    ) -> None:
+        gh.labels = [BOT]
+        classify.main()
+        assert [args[3] for args, _ in gh.writes] == [COMMENTS]
+
+    def test_reads_the_number_from_the_environment_first(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("99\n")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_reads_the_number_from_the_results_when_the_environment_has_none(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("5\n")
+        monkeypatch.setenv("PR", "")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_refuses_a_number_that_is_not_an_integer(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PR", "5/../../9")
+        with pytest.raises(ValueError, match="invalid literal"):
+            classify.main()
+        assert gh.writes == []
+
+    def test_writes_nothing_when_the_number_names_another_head(
+        self, gh: FakeGH
+    ) -> None:
+        gh.heads = ["def"]
+        classify.main()
+        assert gh.writes == []
+
+    def test_leaves_an_unchanged_comment_alone(self, gh: FakeGH) -> None:
+        classify.main()
+        ((_, body),) = gh.writes
+        assert body is not None
+        gh.comments = [{"id": 9, "body": json.loads(body)["body"]}]
+        gh.writes = []
+        gh.heads = ["abc", "abc"]
+        classify.main()
+        assert gh.writes == []
 
     def test_writes_nothing_when_the_head_moves_during_the_run(
         self, gh: FakeGH

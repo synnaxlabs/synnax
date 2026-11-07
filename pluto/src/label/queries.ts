@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { color, verbs } from "@synnaxlabs/x";
+import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -36,7 +36,7 @@ export const setLabelsFor = async ({
 }: SetLabelsForParams): Promise<label.Label[]> => {
   await client.labels.label(id, labels, { replace: true });
   if (labels.length === 0) return [];
-  return await client.labels.retrieve({ keys: labels });
+  return await client.labels.retrieve(labels);
 };
 
 export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
@@ -93,6 +93,8 @@ const { useEnsure } = Flux.createRetrieve<RetrieveQuery, label.Label>({
 
 export const createFormSchema = label.labelZ.partial({ key: true });
 
+export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
+
 const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   color: color.construct("#000000"),
@@ -145,7 +147,9 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.labels.retrieve({ key: keys }),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.labels.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),
 });

@@ -8,11 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, color, type scale, TimeRange, xy } from "@synnaxlabs/x";
+import { bounds, box, type scale, TimeRange, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
+import {
+  drawBars,
+  drawFills,
+  drawTooltip,
+  hitTest,
+  layout,
+  stripHeight,
+} from "@/lineplot/range/aether/strip";
 import { ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -31,6 +39,8 @@ export const providerStateZ = z.object({
   visible: z.boolean().optional().default(true),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
+  /** The strip's height in pixels, or 0 when no range is in view. */
+  height: z.number().default(0),
 });
 export type ProviderState = z.infer<typeof providerStateZ>;
 
@@ -53,9 +63,9 @@ export interface ProviderProps {
 
 /**
  * The most ranges the annotation strip draws for one viewport. A denser viewport draws
- * none: the strip cannot label them legibly in 32 pixels, and the Core answers a
- * limited query in key order, so drawing a truncated answer would show an arbitrary
- * subset that changes as the viewport moves.
+ * none: the strip cannot label them legibly, and the Core answers a limited query in
+ * key order, so drawing a truncated answer would show an arbitrary subset that changes
+ * as the viewport moves.
  */
 const MAX_ANNOTATIONS = 100;
 
@@ -108,7 +118,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null)
-      i.retrieve.update(i.client, { overlapsWith: i.window, limit: FETCH_LIMIT });
+      i.retrieve.update(i.client, {
+        where: { overlaps: i.window },
+        limit: FETCH_LIMIT,
+      });
     const { draw } = i;
     const fetched = i.retrieve.value ?? [];
     const start = timeRange.start.valueOf();
@@ -116,89 +129,57 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const inView = fetched.filter(
       (r) => r.timeRange.end.valueOf() >= start && r.timeRange.start.valueOf() <= end,
     );
-    const ranges =
-      fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS ? [] : inView;
-    const visible = this.state.visible !== false;
+    const saturated = fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
-    const cursor = this.state.cursor == null ? null : this.state.cursor.x;
-    let hoveredState: SelectedState | null = null;
-    let visibleCount = 0;
-    const clearScissor = visible
-      ? draw.canvas.scissor(
-          box.construct(
-            { x: box.left(region), y: box.top(region) - 35 },
-            { x: box.right(region), y: box.bottom(region) },
-          ),
-        )
-      : null;
-    ranges.forEach((r) => {
-      const cRes = color.colorZ.safeParse(r.color);
-      if (!cRes.success) return;
-      const c = cRes.data;
-      let startPos = regionScale.pos(Number(r.timeRange.start.valueOf()));
-      const endPos = regionScale.pos(Number(r.timeRange.end.valueOf()));
-      visibleCount++;
-      if (!visible) return;
-      startPos = bounds.clamp(
-        { lower: box.left(region) - 2, upper: box.right(region) - 1 },
-        startPos,
-      );
-      let hovered = false;
-      if (cursor != null)
-        hovered = bounds.contains({ lower: startPos, upper: endPos }, cursor);
-      if (hovered)
-        hoveredState = {
-          key: r.key,
-          parent: r.parent,
-          name: r.name,
-          color: r.color,
-          labels: r.labels,
-          timeRange: r.timeRange,
-          viewport: {
-            lower: dataToDecimalScale
-              .scale(box.xBounds(viewport))
-              .pos(Number(r.timeRange.start.valueOf())),
-            upper: dataToDecimalScale
-              .scale(box.xBounds(viewport))
-              .pos(Number(r.timeRange.end.valueOf())),
-          },
-        };
-      draw.container({
-        region: box.construct(
-          { x: startPos, y: box.top(region) - 1 },
-          { x: endPos, y: box.bottom(region) - 1 },
+    // Lanes pack over the axis bounds, not the viewport, so a range keeps its lane
+    // while the viewport moves.
+    const { bars: packed, lanes } = layout(
+      saturated ? [] : inView,
+      region,
+      (v) => regionScale.pos(v),
+      draw.theme,
+    );
+    const bars = packed.filter(
+      (b) => b.end >= box.left(region) && b.start <= box.right(region),
+    );
+    const count = packed.length;
+    const height = stripHeight(lanes);
+    const { cursor, visible } = this.state;
+    const hovered =
+      visible && cursor != null ? hitTest(bars, region, lanes, cursor) : null;
+    if (visible) {
+      const clearScissor = draw.canvas.scissor(
+        box.construct(
+          { x: box.left(region) - 2, y: box.top(region) - height },
+          { x: box.right(region) + 2, y: box.bottom(region) },
         ),
-        backgroundColor: color.setAlpha(c, 0.1),
-        bordered: false,
-      });
-      const titleRegion = box.construct(
-        { x: startPos + 1, y: box.top(region) - 34 },
-        { x: endPos - 1, y: box.top(region) - 12 },
       );
-      draw.container({
-        region: titleRegion,
-        backgroundColor:
-          box.width(titleRegion) < 20
-            ? color.setAlpha(c, 0.4)
-            : (t) => (hovered ? t.colors.gray.l2 : t.colors.gray.l0),
-        bordered: true,
-        borderWidth: 1,
-        borderRadius: 2,
-        borderColor: color.setAlpha(c, 0.8),
-      });
-      draw.text({
-        text: r.name,
-        position: { x: startPos + 8, y: box.top(region) - 30 },
-        level: "small",
-        shade: 10,
-        weight: 500,
-        maxWidth: endPos - startPos - 16,
-      });
-    });
-    clearScissor?.();
+      drawFills(draw, bars, region, hovered);
+      drawBars(draw, bars, region, lanes, hovered);
+      clearScissor();
+      if (hovered != null && cursor != null) drawTooltip(draw, hovered, cursor, region);
+    }
+    const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
+    const r = hovered?.range;
+    const hoveredState: SelectedState | null =
+      r == null
+        ? null
+        : {
+            key: r.key,
+            parent: r.parent,
+            name: r.name,
+            color: r.color,
+            labels: r.labels,
+            timeRange: r.timeRange,
+            viewport: {
+              lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
+              upper: viewportScale.pos(Number(r.timeRange.end.valueOf())),
+            },
+          };
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
-    else if (this.state.hovered) this.setState((s) => ({ ...s, hovered: null }));
-    if (this.state.count !== visibleCount)
-      this.setState((s) => ({ ...s, count: visibleCount }));
+    else if (this.state.hovered != null)
+      this.setState((s) => ({ ...s, hovered: null }));
+    if (this.state.count !== count || this.state.height !== height)
+      this.setState((s) => ({ ...s, count, height }));
   }
 }

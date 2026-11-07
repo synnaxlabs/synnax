@@ -21,13 +21,13 @@ the *interactive* fallback documented in the skill; this module is the *batch* p
 runs at exit.
 """
 
-import json
 import re
 import traceback as _tb
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+
+from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from framework.models import STATUS, Test
 
@@ -48,17 +48,67 @@ class _TraceAction:
 
     call_id: str
     method: str
-    params: dict[str, Any]
+    params: dict[str, JsonValue]
     start_time: float
     duration_ms: float | None
     error: str | None
 
 
+class _Request(BaseModel):
+    method: str = ""
+    url: str = ""
+
+
+class _Response(BaseModel):
+    status: int = 0
+    status_text: str = Field(default="", alias="statusText")
+
+
+class _Snapshot(BaseModel):
+    request: _Request = Field(default_factory=_Request)
+    response: _Response = Field(default_factory=_Response)
+
+
 @dataclass
 class _TraceSummary:
     actions: list[_TraceAction] = field(default_factory=list)
-    console_errors: list[dict[str, Any]] = field(default_factory=list)
-    network_failures: list[dict[str, Any]] = field(default_factory=list)
+    console_errors: list[str] = field(default_factory=list)
+    network_failures: list[_Snapshot] = field(default_factory=list)
+
+
+class _TraceEvent(BaseModel):
+    """A line of the ``trace.trace`` stream. Fields that a type of event does not
+    carry keep their defaults."""
+
+    type: str = ""
+    call_id: str = Field(default="", alias="callId")
+    class_name: str = Field(default="", alias="class")
+    method: str = ""
+    params: dict[str, JsonValue] = Field(default_factory=dict)
+    start_time: float | None = Field(default=None, alias="startTime")
+    end_time: float | None = Field(default=None, alias="endTime")
+    error: JsonValue = None
+    message_type: str = Field(default="", alias="messageType")
+    text: str = ""
+
+
+@dataclass
+class _Call:
+    before: _TraceEvent | None = None
+    after: _TraceEvent | None = None
+
+
+class _NetworkEvent(BaseModel):
+    """A line of the ``trace.network`` stream."""
+
+    snapshot: _Snapshot = Field(default_factory=_Snapshot)
+
+
+class _Stacks(BaseModel):
+    """The ``trace.stacks`` file. Each stack pairs a call ID with its frames, and the
+    last item of each frame is the calling function."""
+
+    stacks: list[tuple[str, list[list[JsonValue]]]] = Field(default_factory=list)
 
 
 def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
@@ -70,7 +120,7 @@ def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
     if not trace_zip.exists():
         return None
     summary = _TraceSummary()
-    paired: dict[str, dict[str, Any]] = {}
+    paired: dict[str, _Call] = {}
     try:
         with zipfile.ZipFile(trace_zip) as z:
             _parse_trace_events(z, paired, summary)
@@ -79,24 +129,26 @@ def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
     except (zipfile.BadZipFile, KeyError, OSError):
         return None
 
-    for call_id, pair in paired.items():
-        before = pair.get("before")
+    for call_id, call in paired.items():
+        before = call.before
         if before is None or call_id in teardown_calls:
             continue
-        after = pair.get("after", {})
-        err = _extract_action_error(after)
-        method = f"{before.get('class', '')}.{before.get('method', '')}".strip(".")
+        after = call.after
         duration = None
-        if "endTime" in after and "startTime" in before:
-            duration = after["endTime"] - before["startTime"]
+        if (
+            after is not None
+            and after.end_time is not None
+            and before.start_time is not None
+        ):
+            duration = after.end_time - before.start_time
         summary.actions.append(
             _TraceAction(
                 call_id=call_id,
-                method=method,
-                params=before.get("params", {}),
-                start_time=before.get("startTime", 0.0),
+                method=f"{before.class_name}.{before.method}".strip("."),
+                params=before.params,
+                start_time=before.start_time or 0.0,
                 duration_ms=duration,
-                error=err,
+                error=None if after is None else _action_error(after.error),
             )
         )
     summary.actions.sort(key=lambda a: a.start_time)
@@ -105,7 +157,7 @@ def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
 
 def _parse_trace_events(
     z: zipfile.ZipFile,
-    paired: dict[str, dict[str, Any]],
+    paired: dict[str, _Call],
     summary: _TraceSummary,
 ) -> None:
     try:
@@ -115,21 +167,15 @@ def _parse_trace_events(
     with z.open(info) as f:
         for raw in f:
             try:
-                evt = json.loads(raw)
-            except json.JSONDecodeError:
+                evt = _TraceEvent.model_validate_json(raw)
+            except ValidationError:
                 continue
-            t = evt.get("type")
-            if t == "before":
-                paired.setdefault(evt["callId"], {})["before"] = evt
-            elif t == "after":
-                paired.setdefault(evt["callId"], {})["after"] = evt
-            elif t == "console" and evt.get("messageType") == "error":
-                summary.console_errors.append(
-                    {
-                        "text": evt.get("text", ""),
-                        "url": evt.get("location", {}).get("url", ""),
-                    }
-                )
+            if evt.type == "before":
+                paired.setdefault(evt.call_id, _Call()).before = evt
+            elif evt.type == "after":
+                paired.setdefault(evt.call_id, _Call()).after = evt
+            elif evt.type == "console" and evt.message_type == "error":
+                summary.console_errors.append(evt.text)
 
 
 def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
@@ -141,13 +187,16 @@ def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
         return set()
     with z.open(info) as f:
         try:
-            stacks = json.load(f).get("stacks", [])
-        except json.JSONDecodeError:
+            stacks = _Stacks.model_validate_json(f.read()).stacks
+        except ValidationError:
             return set()
     return {
         call_id
         for call_id, frames in stacks
-        if any(caller.endswith(".teardown") for *_, caller in frames)
+        if any(
+            isinstance(caller, str) and caller.endswith(".teardown")
+            for *_, caller in frames
+        )
     }
 
 
@@ -159,30 +208,19 @@ def _parse_network_events(z: zipfile.ZipFile, summary: _TraceSummary) -> None:
     with z.open(info) as f:
         for raw in f:
             try:
-                evt = json.loads(raw)
-            except json.JSONDecodeError:
+                snap = _NetworkEvent.model_validate_json(raw).snapshot
+            except ValidationError:
                 continue
-            snap = evt.get("snapshot", {})
-            resp = snap.get("response", {})
-            status = resp.get("status", 0)
-            if status >= 400:
-                req = snap.get("request", {})
-                summary.network_failures.append(
-                    {
-                        "method": req.get("method", ""),
-                        "url": req.get("url", ""),
-                        "status": status,
-                        "status_text": resp.get("statusText", ""),
-                    }
-                )
+            if snap.response.status >= 400:
+                summary.network_failures.append(snap)
 
 
-def _extract_action_error(after: dict[str, Any]) -> str | None:
-    err = after.get("error")
+def _action_error(err: JsonValue) -> str | None:
     if err is None:
         return None
     if isinstance(err, dict):
-        return err.get("message") or err.get("name")
+        message = err.get("message") or err.get("name")
+        return None if message is None else str(message)
     return str(err)
 
 
@@ -301,9 +339,7 @@ def _render_console(summary: _TraceSummary) -> list[str]:
         return []
     out: list[str] = ["### Browser console errors", ""]
     out.append("```")
-    for entry in summary.console_errors[:_MAX_CONSOLE_ERRORS]:
-        line = entry.get("text", "")
-        out.append(_truncate(line, 200))
+    out.extend(_truncate(e, 200) for e in summary.console_errors[:_MAX_CONSOLE_ERRORS])
     if len(summary.console_errors) > _MAX_CONSOLE_ERRORS:
         out.append(f"... +{len(summary.console_errors) - _MAX_CONSOLE_ERRORS} more")
     out.append("```")
@@ -317,8 +353,8 @@ def _render_network(summary: _TraceSummary) -> list[str]:
     out: list[str] = ["### Network failures", ""]
     out.append("```")
     out.extend(
-        f"{f['status']} {f['status_text']:<15} {f['method']} "
-        f"{_truncate(f['url'], 100)}".rstrip()
+        f"{f.response.status} {f.response.status_text:<15} {f.request.method} "
+        f"{_truncate(f.request.url, 100)}".rstrip()
         for f in summary.network_failures[:_MAX_NETWORK_FAILURES]
     )
     if len(summary.network_failures) > _MAX_NETWORK_FAILURES:
@@ -376,9 +412,9 @@ def _code_snippet_from_traceback(tb_text: str) -> str | None:
     style references (produced when the conductor imports test modules by
     relative path) compare equal to their canonical ``integration/tests/`` form.
     """
-    test_frame: dict[str, Any] | None = None
-    helper_frame: dict[str, Any] | None = None
-    other_frame: dict[str, Any] | None = None
+    test_frame: dict[str, str] | None = None
+    helper_frame: dict[str, str] | None = None
+    other_frame: dict[str, str] | None = None
     for match in _FRAME_PATTERN.finditer(tb_text):
         raw = match.group("file")
         try:

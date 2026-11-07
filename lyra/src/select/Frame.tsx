@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
 import { RegistryContext, useRegistry } from "@/select/registry";
+import { KeyboardContext } from "@/select/scope";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -29,13 +30,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   ...rest
 }: MultipleProviderProps<K>): ReactElement => {
   const { value, allowNone } = rest;
-  const res = useMultiple(rest);
+  const { keyboard, ...res } = useMultiple(rest);
   // Mirrors useMultiple: a click that would empty the selection returns before
   // onChange and before the dialog closes.
   const reselectNoop = allowNone === false;
   return (
     <Context value={value} reselectNoop={reselectNoop} {...res}>
-      {children}
+      <KeyboardContext value={keyboard}>{children}</KeyboardContext>
     </Context>
   );
 };
@@ -49,13 +50,13 @@ const SingleProvider = <K extends record.Key = record.Key>({
   ...rest
 }: SingleProviderProps<K>): ReactElement => {
   const { value, allowNone, closeDialogOnSelect } = rest;
-  const res = useSingle(rest);
+  const { keyboard, ...res } = useSingle(rest);
   // Mirrors useSingle: a re-select closes the dialog when it closes on select, and
   // clears the selection otherwise when allowNone is set.
   const reselectNoop = allowNone !== true && closeDialogOnSelect !== true;
   return (
     <Context<K> value={value} reselectNoop={reselectNoop} {...res}>
-      {children}
+      <KeyboardContext value={keyboard}>{children}</KeyboardContext>
     </Context>
   );
 };

@@ -25,7 +25,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Rack, Status } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import {
@@ -39,19 +39,21 @@ import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<AlertSchemas>>();
 
 const Properties = () => (
   <Flex.Box x grow>
     <PForm.TextField
       inputProps={ROUTING_KEY_INPUT_PROPS}
-      path="config.routingKey"
+      path={path.config.routingKey}
       label="Routing key"
       grow
       className={CSS.B("pagerduty-routing-key")}
     />
-    <PForm.Field<number> path="rack" label="Connect from" grow>
+    <PForm.Field path={path.rack} label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
   </Flex.Box>
@@ -64,42 +66,44 @@ const ROUTING_KEY_INPUT_PROPS = {
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={INITIAL_RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["pagerduty"] } },
+};
 
 interface AlertDetailsProps {
   itemKey: string;
 }
 
 const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
-  const path = `config.alerts.${itemKey}`;
+  const alert = path.config.alerts[itemKey];
   return (
     <PForm.Sections className={CSS.B("pagerduty-alert-details")}>
       <PForm.Section title="Trigger">
-        <PForm.Field<string> path={`${path}.status`} label="Status" required>
+        <PForm.Field path={alert.status} label="Status" required>
           {selectStatusRenderProp}
         </PForm.Field>
         <PForm.CheckboxField
-          path={`${path}.errorsCritical`}
+          path={alert.errorsCritical}
           label="Treat error as critical"
         />
       </PForm.Section>
       <PForm.Section title="Incident">
         <PForm.TextField
-          path={`${path}.component`}
+          path={alert.component}
           label="Component"
           inputProps={COMPONENT_INPUT_PROPS}
         />
         <PForm.TextField
-          path={`${path}.group`}
+          path={alert.group}
           label="Group"
           inputProps={GROUP_INPUT_PROPS}
         />
         <PForm.TextField
-          path={`${path}.class`}
+          path={alert.class}
           label="Class"
           inputProps={CLASS_INPUT_PROPS}
         />
@@ -121,7 +125,7 @@ const selectStatusRenderProp = Component.renderProp(
 const EMPTY_CONTENT = <Empty.Action message="No alerts" />;
 
 const useAlertStatus = (itemKey: string): status.Status | undefined => {
-  const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
+  const statusKey = PForm.useFieldValue(path.config.alerts[itemKey].status);
   return Status.useResult(statusKey.length > 0 ? { key: statusKey } : null).data;
 };
 
@@ -150,7 +154,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Task.EnabledCheckbox path={`config.alerts.${itemKey}.disabled`} />
+      <Task.EnabledCheckbox path={path.config.alerts[itemKey].disabled} />
     </Select.Item>
   );
 };
@@ -165,7 +169,7 @@ interface AlertContextMenuProps extends PMenu.ContextMenuMenuProps {
 const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProps) => {
   const isPreview = Task.useIsPreview();
   const canRemove = keys.length > 0;
-  const alerts = PForm.useFieldValue<AlertConfig[]>("config.alerts").filter((a) =>
+  const alerts = PForm.useFieldValue(path.config.alerts).filter((a) =>
     keys.includes(a.key),
   );
   const canDisable = alerts.some(({ disabled }) => !disabled);
@@ -198,9 +202,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
 
 const Form: FC = () => {
   const isPreview = Task.useIsPreview();
-  const { data, push, remove } = PForm.useFieldList<string, AlertConfig>(
-    "config.alerts",
-  );
+  const { data, push, remove } = PForm.useFieldList(path.config.alerts);
   const { set } = PForm.useContext();
   const [selected, setSelected] = useState<string[]>([]);
   const menuProps = PMenu.useContextMenu();
@@ -217,7 +219,7 @@ const Form: FC = () => {
   };
 
   const handleSetEnabled = (keys: string[], enabled: boolean) => {
-    for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
+    for (const key of keys) set(path.config.alerts[key].disabled, !enabled);
   };
 
   const alertContextMenu = (p: PMenu.ContextMenuMenuProps) => (
@@ -254,7 +256,7 @@ const Form: FC = () => {
           )}
         </>
       }
-      detailsPath={current != null ? `config.alerts.${current}` : null}
+      detailsPath={current != null ? path.config.alerts[current] : null}
       title={current != null && <AlertTitle itemKey={current} />}
     >
       {current != null ? (
@@ -293,9 +295,10 @@ export const useCreateAlert = Task.createUseCreate({
   getInitialValues,
 });
 
-export const AlertSelectable = Selector.createSelectable({
+export const AlertSelectable: Selector.Selectable = {
   type: ALERT_TYPE,
   title: "PagerDuty alert task",
+  label: "Alert",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
-});
+};

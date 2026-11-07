@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -82,12 +83,18 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-		func(r *rack.Rack) { r.Integrations = integrations },
+		func(r *rack.Rack) {
+			r.Integrations = integrations
+			r.Version = new(version.Get())
+		},
 	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
+	if err = d.createInitialTasks(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
 	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
@@ -96,6 +103,31 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+func (d *Driver) createInitialTasks(ctx context.Context) error {
+	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := d.cfg.Task.NewWriter(tx)
+		for _, f := range d.cfg.Factories {
+			for _, t := range f.InitialTasks() {
+				exists, err := d.cfg.Task.NewRetrieve().
+					Where(task.And(task.MatchRacks(d.rack.Key), task.MatchTypes(t.Type))).
+					Exists(ctx, tx)
+				if err != nil {
+					return err
+				}
+				if exists {
+					continue
+				}
+				t.Rack = d.rack.Key
+				t.Internal = true
+				if err = w.Create(ctx, &t); err != nil {
+					return errors.Wrapf(err, "failed to create initial %s task", t.Type)
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (d *Driver) startHeartbeat() {
@@ -211,8 +243,11 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	}
 }
 
-// startCommandType deploys the stored task row before running it.
-const startCommandType = "start"
+const (
+	// startCommandType deploys the stored task row before running it.
+	startCommandType = "start"
+	stopCommandType  = "stop"
+)
 
 // handleStart deploys the latest stored config before running the task: when no live
 // instance exists or the stored config differs from the one the instance was built

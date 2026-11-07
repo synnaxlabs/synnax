@@ -43,6 +43,10 @@ on:
         description: "Build: Console web assets"
         type: boolean
         default: false
+      flags_enabled:
+        description: "Console web assets: turn on every flag in console/src/flags.ts"
+        type: boolean
+        default: false
       console_tauri:
         description: "Build: Console Tauri desktop app"
         type: boolean
@@ -98,6 +102,9 @@ on:
         type: boolean
         default: false
       console:
+        type: boolean
+        default: false
+      flags_enabled:
         type: boolean
         default: false
       console_tauri:
@@ -158,6 +165,37 @@ on:
         description: Console updater channel the app polls, stable or next
         type: string
         default: stable
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
 env:
   # The proxy drops streams at times, so a failed fetch falls back to the source.
@@ -178,7 +216,7 @@ jobs:
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -209,11 +247,13 @@ jobs:
       - name: Get version
         id: version
         working-directory: core
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
+          if [ -n "$INPUT_VERSION" ]; then
             # Extract pure version by removing any suffix (-rc, -branch, etc.)
-            PURE_VERSION=$(echo "${{ inputs.version }}" | sed 's/-.*$//')
-            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            PURE_VERSION=${INPUT_VERSION%%-*}
+            echo "VERSION=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
             echo "PURE_VERSION=${PURE_VERSION}" >> "$GITHUB_OUTPUT"
           else
             # A dev build stays 0.0 so clients pair with it, and names the newest
@@ -267,12 +307,17 @@ jobs:
 
       - name: Generate Go build tags
         id: go-tags
+        env:
+          CONSOLE: ${{ inputs.console }}
+          CONSOLE_RELEASE: ${{ inputs.console_release }}
+          DRIVER: ${{ inputs.driver }}
+          DRIVER_RELEASE: ${{ inputs.driver_release }}
         run: |
           TAGS=""
-          if [ "${{ inputs.console }}" = "true" ] || [ -n "${{ inputs.console_release }}" ]; then
+          if [ "$CONSOLE" = "true" ] || [ -n "$CONSOLE_RELEASE" ]; then
             TAGS="console"
           fi
-          if [ "${{ inputs.driver }}" = "true" ] || [ -n "${{ inputs.driver_release }}" ]; then
+          if [ "$DRIVER" = "true" ] || [ -n "$DRIVER_RELEASE" ]; then
             TAGS="${TAGS:+$TAGS,}driver"
           fi
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
@@ -311,17 +356,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        run: git submodule update --init --recursive
+        shell: bash
+        run: .github/scripts/update_submodules.sh
 
       - name: Install deps on Ubuntu
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
         if: matrix.os == 'ubuntu-build-bot'
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
@@ -332,7 +379,7 @@ jobs:
 
       - name: Setup Bazel
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -341,7 +388,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
@@ -353,15 +400,15 @@ jobs:
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          scripts/run_bazel.sh build "${flags[@]}" \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows debug symbols
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'windows-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -379,9 +426,8 @@ jobs:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS \
-            --config=opt-unix //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix //driver
 
       - name: Extract debug symbols (macOS)
         if:
@@ -394,7 +440,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
@@ -407,9 +453,9 @@ jobs:
       - name: Build Driver (NI Linux Real-Time)
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix --define=platform=nilinuxrt //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix --define=platform=nilinuxrt \
+            //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
       - name: Extract debug symbols (NI Linux Real-Time)
@@ -423,7 +469,7 @@ jobs:
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -436,7 +482,7 @@ jobs:
 
       - name: Upload NI Linux Real-Time Driver as artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
@@ -476,9 +522,8 @@ jobs:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
-          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix //driver
+          read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
+          bazel build "${flags[@]}" --config=opt-unix //driver
 
       - name: Extract debug symbols (Linux)
         if:
@@ -491,7 +536,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
@@ -599,7 +644,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID != '' && inputs.core &&
           env.CORE_REF_RUN_ID == ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: ${{ runner.temp }}/cached-driver
@@ -625,7 +670,7 @@ jobs:
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -639,7 +684,7 @@ jobs:
 
       - name: Upload Driver to release
         if: inputs.driver && inputs.release_tag != ''
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
           timeout_minutes: 5
@@ -667,9 +712,11 @@ jobs:
       - name: Download Driver release
         if: inputs.driver_release != '' && inputs.core
         shell: bash
+        env:
+          RELEASE: ${{ inputs.driver_release }}
         run: |
           mkdir -p core/pkg/driver/assets
-          gh release download "${{ inputs.driver_release }}" \
+          gh release download "$RELEASE" \
             --pattern "synnax-driver-v*-${{ matrix.os-name }}${{ matrix.executable }}" \
             --output core/pkg/driver/assets/driver${{ matrix.executable }}
           chmod +x core/pkg/driver/assets/driver${{ matrix.executable }}
@@ -677,9 +724,11 @@ jobs:
       - name: Download Console release
         if: inputs.console_release != '' && inputs.core
         shell: bash
+        env:
+          RELEASE: ${{ inputs.console_release }}
         run: |
           mkdir -p core/pkg/console/dist
-          gh release download "${{ inputs.console_release }}" \
+          gh release download "$RELEASE" \
             --pattern "console-web-*.tar.gz" --output console-web.tar.gz
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
@@ -703,13 +752,14 @@ jobs:
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
+          VITE_FLAGS_ENABLED: ${{ inputs.flags_enabled }}
         run: pnpm build:console-vite
 
       - name: Download cached Console assets
         if:
           inputs.console && env.CONSOLE_REF_RUN_ID != '' && inputs.core &&
           env.CORE_REF_RUN_ID == ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console/dist
@@ -718,7 +768,7 @@ jobs:
 
       - name: Upload Console assets as artifact
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -760,14 +810,14 @@ jobs:
       - name: Restore the Go toolchain
         id: go-restore
         if: inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os == 'windows-build-bot'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Set up Go
         if: inputs.core && env.CORE_REF_RUN_ID == ''
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
@@ -778,7 +828,7 @@ jobs:
         if:
           steps.go-restore.outcome == 'success' && steps.go-restore.outputs.cache-hit !=
           'true' && github.event_name != 'merge_group'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
@@ -876,7 +926,7 @@ jobs:
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -894,7 +944,7 @@ jobs:
 
       - name: Upload Core to release
         if: inputs.core && inputs.release_tag != ''
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
           timeout_minutes: 5
@@ -933,7 +983,7 @@ jobs:
     steps:
       - name: Download cached Driver
         if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: driver-in
@@ -949,7 +999,7 @@ jobs:
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -963,7 +1013,7 @@ jobs:
 
       - name: Download cached Console assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console-dist
@@ -972,7 +1022,7 @@ jobs:
 
       - name: Upload Console assets as artifact
         if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -984,7 +1034,7 @@ jobs:
 
       - name: Download cached Core
         if: inputs.core && env.CORE_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-core-${{ matrix.os-name }}
           path: core-in
@@ -1000,7 +1050,7 @@ jobs:
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -1023,11 +1073,11 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download Linux Driver artifact
         if: inputs.driver
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
@@ -1049,7 +1099,7 @@ jobs:
 
       - name: Download Console assets
         if: inputs.console
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
@@ -1060,9 +1110,10 @@ jobs:
         if: inputs.driver_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.driver_release }}
         run: |
           mkdir -p core/pkg/driver/assets
-          gh release download "${{ inputs.driver_release }}" \
+          gh release download "$RELEASE" \
             --pattern "synnax-driver-v*-linux" --output core/pkg/driver/assets/driver
           chmod +x core/pkg/driver/assets/driver
 
@@ -1070,24 +1121,25 @@ jobs:
         if: inputs.console_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.console_release }}
         run: |
           mkdir -p core/pkg/console/dist
-          gh release download "${{ inputs.console_release }}" \
+          gh release download "$RELEASE" \
             --pattern "console-web-*.tar.gz" --output console-web.tar.gz
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Login to Docker Hub
         if: inputs.release_tag != ''
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1100,7 +1152,7 @@ jobs:
           "$GITHUB_OUTPUT"
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./core/Dockerfile
@@ -1145,7 +1197,20 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   build-desktop-tauri:
     name: Build Synnax Desktop
@@ -1163,4 +1228,17 @@ jobs:
       sign_binaries: ${{ inputs.sign_binaries }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

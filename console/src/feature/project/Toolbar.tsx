@@ -9,7 +9,7 @@
 
 import { project } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Project } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -24,9 +24,7 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
-        <Icon.Add />
-      </Toolbar.Action>
+      <Toolbar.CreateAction onClick={() => openCreate()} tooltip="Create project" />
     </Toolbar.Actions>
   );
 };
@@ -47,7 +45,7 @@ const Content = (): ReactElement => (
 );
 
 const Body = (): ReactElement => {
-  const groupID = Project.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Projects" });
   return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 

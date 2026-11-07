@@ -1242,6 +1242,30 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
+		Context("Names", func() {
+			It(
+				"Should delete only exact names and not read a name as a pattern",
+				func(ctx SpecContext) {
+					prefix := UniqueChannelName()
+					chs := []channel.Channel{
+						{Name: prefix + "_a", DataType: telem.Float32T, Virtual: true},
+						{Name: prefix + "_b", DataType: telem.Float32T, Virtual: true},
+					}
+					Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
+					Expect(channelWriter.DeleteManyByNames(
+						ctx,
+						[]string{prefix + "_a", prefix + "_.*"},
+						false,
+					)).To(Succeed())
+					var remaining []channel.Channel
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchNames(prefix+"_a", prefix+"_b")).
+						Entries(&remaining).
+						Exec(ctx, nil)).To(Succeed())
+					Expect(remaining).To(ConsistOf(HaveField("Name", prefix+"_b")))
+				},
+			)
+		})
 		Context("Internal Channels", func() {
 			var internalCh channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
@@ -1267,10 +1291,11 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should return an error when deleting an internal channel by name",
 				func(ctx SpecContext) {
-					Expect(
-						channelWriter.DeleteManyByNames(ctx, []string{internalCh.Name}, false),
-					).
-						To(MatchError(ContainSubstring("can't delete internal channel")))
+					Expect(channelWriter.DeleteManyByNames(
+						ctx,
+						[]string{internalCh.Name},
+						false,
+					)).To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(internalCh.Name)).
 						Exists(ctx, nil)).To(BeTrue())

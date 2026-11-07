@@ -14,7 +14,7 @@ import {
   query,
   schematic,
 } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -60,13 +60,7 @@ export const useResolved = (key: string | null): Resolved => {
   };
 };
 
-export type ListQuery = {
-  keys?: string[];
-  parent?: ontology.ID;
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
   sort: (a, b) => a.name.localeCompare(b.name),
@@ -89,6 +83,8 @@ export type FormQuery = {
 export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
   .extend({ parent: ontology.idZ });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const toFormValues = (
   symbol: schematic.symbol.Symbol,
@@ -144,8 +140,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       if (!query.isLive(result)) return;
       reset({
         ...result,
-        parent:
-          get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
+        parent: get(formPath.parent, { optional: true })?.value ?? ontology.ROOT_ID,
       });
     }),
 });

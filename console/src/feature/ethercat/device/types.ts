@@ -27,6 +27,29 @@ const pdosZ = z.object({
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
+/** A synchronization mode that the slave lists in its SII. */
+const opModeZ = z.object({
+  name: z.string().default(""),
+  assignActivate: z.number(),
+  sync0Cycle: z.number(),
+  sync0Factor: z.number(),
+  sync0Shift: z.number(),
+  sync1Factor: z.number(),
+  sync1Shift: z.number(),
+});
+export interface OpMode extends z.infer<typeof opModeZ> {}
+
+/**
+ * The mode that the user chose for a slave: its index in opModes, its AssignActivate,
+ * and SYNC0 and SYNC1 cycles in nanoseconds. A cycle of 0 means the cycle of the mode.
+ */
+const opModeChoiceZ = z.object({
+  index: z.number(),
+  assignActivate: z.number(),
+  sync0Cycle: z.number().default(0),
+  sync1Cycle: z.number().default(0),
+});
+export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
 /** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
 const startupParameterZ = z.object({
   index: z.number(),
@@ -61,6 +84,9 @@ export const slavePropertiesZ = z.object({
     .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
     .default(() => ({ channels: {} })),
   enabled: z.boolean().optional().default(true),
+  opModes: z.array(opModeZ).default(() => []),
+  /** The mode the Driver sets up. Unset means the Driver picks it. */
+  opMode: opModeChoiceZ.optional(),
   startupParameters: z.array(startupParameterZ).default(() => []),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
@@ -80,6 +106,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   read: { channels: {} },
   write: { channels: {} },
   enabled: true,
+  opModes: [],
   startupParameters: [],
 };
 

@@ -64,5 +64,26 @@ describe("arc useCreate", () => {
 
     const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
     expect(retrieved.name).toBe(name);
+    expect(retrieved.type).toBe("automation");
+    expect(retrieved.source.mode).toBe("text");
+  });
+
+  it("should create a module when Module is selected", async () => {
+    const name = id.create();
+    const { store, open } = await setup();
+    await selectTestProject(store, client);
+    await open();
+
+    const input = await screen.findByPlaceholderText("Arc name");
+    fireEvent.change(input, { target: { value: name } });
+    fireEvent.click(await screen.findByText("Module"));
+
+    const create = await screen.findByRole("button", { name: "Create" });
+    await act(async () => {
+      fireEvent.click(create);
+    });
+
+    const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
+    expect(retrieved.type).toBe("module");
   });
 });

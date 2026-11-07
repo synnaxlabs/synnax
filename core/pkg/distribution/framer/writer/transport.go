@@ -38,6 +38,15 @@ const (
 // Mode configures the persistence and streaming behavior of a writer.
 type Mode = ts.WriterMode
 
+const (
+	// ModePersistStream persists and streams written frames.
+	ModePersistStream = ts.WriterModePersistStream
+	// ModePersistOnly persists written frames and does not stream them.
+	ModePersistOnly = ts.WriterModePersistOnly
+	// ModeStreamOnly streams written frames and does not persist them.
+	ModeStreamOnly = ts.WriterModeStreamOnly
+)
+
 // Request represents a streaming call to a Writer.
 type Request struct {
 	// Config sets the configuration to use when opening the writer. CommandSetAuthority
@@ -61,7 +70,7 @@ type Response struct {
 	// to the Request.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. This value is only validate
-	// during calls to WriterCommit.
+	// during calls to WriterCommit, and it is zero if the commit fails on any node.
 	End telem.TimeStamp
 	// NodeKey is the NodeKey of the node that sent the response.
 	NodeKey node.Key

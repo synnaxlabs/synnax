@@ -30,18 +30,31 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   author merges a `review/human` PR once the gate passes.
 - The `preview` label deploys a live Core with the Console for the PR, and each push
   while the label stays deploys it again. Add it when the PR changes the Console UI or
-  needs a live Core to review. `preview/docs` does the same for the docs site.
+  needs a live Core to review. `preview/docs`, `preview/foundation`, `preview/landing`,
+  and `preview/portal` do the same for each site on Vercel.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
+### Pull requests from forks
+
+Workflows that hold write access start only from a branch of this repository, so a
+fork's pull request cannot start them. Every 15 minutes, `Relay - Sweep` starts the
+classifier, the gate, and auto-merge and adds path labels for a fork or Dependabot pull
+request that changed in the last hour, and for a fork without `review/human` that
+changed in the last day. The classifier always raises a fork to `review/human`. To
+refresh the gate on an idle pull request, run
+`gh workflow run check.review.yaml -f pr=<number>`.
+
 ## Review tiers
 
-A tier says if a human must read the PR. A reviewer can raise it by swapping the label.
+The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
+report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
+label.
 
-| Label          | Review                          | Covers                                                                                                                                                                                                                                               |
-| -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `review/human` | A human reads it, plus Greptile | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python or TypeScript client interface, a Core or Driver config (flags, config files), or a Console design or feature. |
-| `review/bot`   | Greptile only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                        |
+| Label          | Review                          | Covers                                                                                                                                                                                                                                                                    |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review/human` | A human reads it, plus Greptile | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python, TypeScript, or C++ client interface, a CLI command, a Core or Driver config (flags, config files), or a Console design or feature. |
+| `review/bot`   | Greptile only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                                             |
 
 A `review/human` reviewer reads the changed interface and its tests, approves or
 requests changes, and confirms a stored shape change carries a migration.
@@ -55,12 +68,13 @@ passes the gate without a review. `OK` is the CI workflow's last job: it fails w
 check the PR's paths select failed. A merge into `main` goes through a merge queue,
 which reruns CI with the integration suite added before the branch moves. A queue
 entry's CI builds `main` with the entries ahead of it and the entry itself, but selects
-checks from the entry's own changes. Each entry merges only when its own CI passes: an
-entry that fails leaves the queue, and GitHub rebuilds the entries behind it. GitHub
-refuses a queue on a wildcard branch pattern, so a `release/**` merge goes in directly,
-and CI runs again on the pushed commit. The queue also runs the gate again. A release
-runs the integration suite itself. Admins bypass when Greptile is down. The gate script
-is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+checks from the entry's own changes. An entry that changes only unit tests skips the
+integration suite. Each entry merges only when its own CI passes: an entry that fails
+leaves the queue, and GitHub rebuilds the entries behind it. GitHub refuses a queue on a
+wildcard branch pattern, so a `release/**` merge goes in directly, and CI runs again on
+the pushed commit. The queue also runs the gate again. A release runs the integration
+suite itself. Admins bypass when Greptile is down. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
 `.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
 `Check - Rulesets` workflow fails each day until GitHub matches the files.
 

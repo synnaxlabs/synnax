@@ -31,7 +31,7 @@ import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
-import { useStatus } from "@/platform/task/useStatus";
+import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -73,13 +73,9 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   showControls?: boolean;
 }
 
-export const useIsRunning = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
-
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => PForm.useFieldValue<boolean>("snapshot", { ctx });
+) => PForm.useFieldValue(formPath.snapshot, { ctx });
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -87,8 +83,13 @@ interface HeaderProps {
 
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
-    <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
+    <div className={CSS.BE("task-configure", "header")}>
+      <PForm.Field
+        path={formPath.name}
+        showLabel={false}
+        padHelpText={false}
+        className={CSS.BE("task-configure", "name")}
+      >
         {(p) => (
           <Input.Text
             variant="text"
@@ -99,13 +100,13 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
+      <div className={CSS.BE("task-configure", "rack")}>
+        <Rack />
+      </div>
+      <div className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <div className={CSS.BE("task-configure", "rack")}>
-          <Rack />
-        </div>
-      </Flex.Box>
-    </Flex.Box>
+      </div>
+    </div>
     {!isSnapshot && <ParentRangeButton />}
   </>
 );
@@ -139,7 +140,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (canEdit) {
           if (!(await flush())) return;
           if (!deployChecked.current) {
-            form.addCheck("config", deployConfigZ);
+            form.addCheck(formPath.config, deployConfigZ);
             deployChecked.current = true;
           }
           await form.validateAsync();
@@ -154,9 +155,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           // Another client can edit the task while onConfigure runs, so only the
           // values onConfigure changed are written.
           form.batch(() => {
-            PForm.setChanged(form, "config", config, newConfig);
+            PForm.setChanged(form, formPath.config, config, newConfig);
             if (primitive.isNonZero(newRack))
-              PForm.setChanged(form, "rack", rack, newRack);
+              PForm.setChanged(form, formPath.rack, rack, newRack);
           });
           if (!(await flush())) return;
           await client.tasks.settled(taskKey);

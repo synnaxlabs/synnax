@@ -80,9 +80,27 @@ public:
             this->advance(x::telem::MILLISECOND);
     }
 
+    /// @brief the stamp the last tick ran with.
+    [[nodiscard]] x::telem::TimeStamp now() const { return this->harness.now(); }
+
     /// @brief ingests a sample onto the given channel.
     void ingest(const std::string &name, x::telem::Series &&data) {
         this->harness.ingest(this->key(name), std::move(data));
+    }
+
+    /// @brief ingests a stamped batch onto the given indexed channel.
+    void ingest_indexed(
+        const std::string &index_name,
+        x::telem::Series &&stamps,
+        const std::string &name,
+        x::telem::Series &&data
+    ) {
+        this->harness.ingest_indexed(
+            this->key(index_name),
+            std::move(stamps),
+            this->key(name),
+            std::move(data)
+        );
     }
 
     /// @brief ingests a u8=1 onto the given channel and ticks the scheduler long enough
@@ -193,6 +211,42 @@ Sequence new_h() {
 void push_src(Sequence &h, const float v) {
     h.push("rx_src", x::telem::Series(v));
 }
+}
+
+namespace empty_series {
+/// @brief runs a program that declares, measures, and reassigns an empty series of
+/// element, and returns the length it wrote.
+std::int64_t run(const std::string &element) {
+    Sequence h(
+        "func check() {v i64} i64 {\n    y series " + element +
+            " := []\n    n := len(y)\n    y = []\n    return n + len(y)\n}\n"
+            "%x% -> check() -> %out%\n",
+        {{"x", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+    h.push("x", x::telem::Series(std::int64_t(1)));
+    return last<std::int64_t>(h.flush(), h.key("out"));
+}
+}
+
+/// @brief it should load an empty series of every element type and read its length.
+TEST(EmptySeriesTest, LoadsEveryElementType) {
+    for (const std::string element:
+         {"str",
+          "bool",
+          "f32",
+          "f64",
+          "i8",
+          "i16",
+          "i32",
+          "i64",
+          "u8",
+          "u16",
+          "u32",
+          "u64",
+          "i64 ns"}) {
+        SCOPED_TRACE(element);
+        EXPECT_EQ(empty_series::run(element), 0);
+    }
 }
 
 TEST(ReactiveReExpressionTest, JumpsToAReExpressionReachedBySkippingEarlierStages) {
@@ -3398,5 +3452,79 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
         h.advance(x::telem::MILLISECOND);
     out = h.flush();
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
+}
+
+// A stage sees only samples taken after it was entered. A batch sampled before entry
+// but delivered after it must not reach the stage.
+namespace stage_entry_samples {
+const std::string SRC = R"(
+    sequence main {
+        stage a {
+            %go_cmd% == 1 => next
+        }
+        stage b {
+            %pt% -> %pt_seen%
+        }
+    }
+    %start_cmd% == 1 => main)";
+
+Sequence new_h() {
+    return Sequence(
+        SRC,
+        {{"start_cmd", x::telem::UINT8_T},
+         {"go_cmd", x::telem::UINT8_T},
+         {"pt_idx", x::telem::TIMESTAMP_T, "", true},
+         {"pt", x::telem::FLOAT32_T, "pt_idx"},
+         {"pt_seen", x::telem::FLOAT32_T}}
+    );
+}
+
+void ingest_pt(
+    Sequence &h,
+    const std::vector<x::telem::TimeStamp> &stamps,
+    const std::vector<float> &values
+) {
+    h.ingest_indexed(
+        "pt_idx",
+        x::telem::Series(stamps),
+        "pt",
+        x::telem::Series(values, x::telem::FLOAT32_T)
+    );
+    h.settle();
+}
+}
+
+TEST(StageEntrySamplesTest, DropsABatchTakenEntirelyBeforeEntry) {
+    using namespace stage_entry_samples;
+    auto h = new_h();
+    h.trigger("start_cmd");
+    const auto pre = h.now();
+    h.trigger("go_cmd");
+    ingest_pt(
+        h,
+        {pre - 36 * x::telem::MILLISECOND,
+         pre - 25 * x::telem::MILLISECOND,
+         pre - 14 * x::telem::MILLISECOND},
+        {289.6f, 289.6f, 289.6f}
+    );
+    EXPECT_TRUE(collect<float>(h.flush(), h.key("pt_seen")).empty());
+}
+
+TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
+    using namespace stage_entry_samples;
+    auto h = new_h();
+    h.trigger("start_cmd");
+    const auto pre = h.now();
+    h.trigger("go_cmd");
+    const auto post = h.now();
+    ingest_pt(
+        h,
+        {pre - 10 * x::telem::MILLISECOND, pre, post, post + x::telem::MILLISECOND},
+        {1.0f, 2.0f, 3.0f, 4.0f}
+    );
+    EXPECT_EQ(
+        collect<float>(h.flush(), h.key("pt_seen")),
+        (std::vector<float>{3.0f, 4.0f})
+    );
 }
 }

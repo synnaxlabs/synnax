@@ -26,13 +26,21 @@
             min-height: 12rem;
             font-family: var(--pluto-code-font-family);
         }
+
+        /* The optional checkbox keeps its width in the second track. The fill value's
+           label and input take the last two tracks. */
+        .console-field-form {
+            grid-template-columns:
+                var(--pluto-form-label-column, max-content) max-content max-content
+                minmax(min-content, 1fr);
+        }
+
+        .console-fill-value {
+            --pluto-control-width: 100%;
+        }
     }
 
     .console-rate-input {
         max-width: 20rem;
-    }
-
-    .console-static-field-value {
-        width: 120px;
     }
 }

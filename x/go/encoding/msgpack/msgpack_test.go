@@ -21,6 +21,7 @@ import (
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -28,7 +29,23 @@ type toEncode struct {
 	Value int
 }
 
+// rejected fails every decode with a validation error.
+type rejected struct{}
+
+func (*rejected) DecodeMsgpack(*msgpack.Decoder) error {
+	return errors.Wrap(validate.ErrValidation, "rejected")
+}
+
 var _ = Describe("Codec", func() {
+	It("Should keep a validation error in the error chain", func(ctx SpecContext) {
+		err := xmsgpack.Codec.Decode(ctx, []byte{0x80}, &rejected{})
+		Expect(err).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("failed to decode")),
+		))
+		Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+	})
+
 	Describe("ContentType", func() {
 		It("Should report the MessagePack content type", func() {
 			Expect(xmsgpack.Codec.ContentType()).To(Equal("application/msgpack"))
@@ -74,6 +91,29 @@ var _ = Describe("Codec", func() {
 })
 
 var _ = Describe("EncodedJSON", func() {
+	Describe("NewEncodedJSON", func() {
+		It("Should encode a struct by its JSON tags", func() {
+			type result struct {
+				Topics []string `json:"topics"`
+				Count  int      `json:"count"`
+			}
+			encoded := MustSucceed(xmsgpack.NewEncodedJSON(
+				result{Topics: []string{"plant/line1"}, Count: 2},
+			))
+			Expect(encoded).To(Equal(xmsgpack.EncodedJSON{
+				"topics": []any{"plant/line1"},
+				"count":  2.0,
+			}))
+			var decoded result
+			Expect(encoded.Unmarshal(&decoded)).To(Succeed())
+			Expect(decoded.Count).To(Equal(2))
+		})
+		It("Should reject a value that is not a JSON object", func() {
+			Expect(xmsgpack.NewEncodedJSON(3)).Error().
+				To(MatchError(ContainSubstring("int does not marshal to a JSON object")))
+		})
+	})
+
 	It("Should round-trip through msgpack encoding and decoding", func() {
 		original := xmsgpack.EncodedJSON{"key": "value", "count": int64(42)}
 		b := MustSucceed(msgpack.Marshal(original))
