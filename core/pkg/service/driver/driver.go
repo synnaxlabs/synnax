@@ -227,15 +227,13 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			// instance, even when the stored row has moved to another rack.
 			d.mu.RLock()
 			inst, ok := d.mu.instances[cmd.Task]
-			deployErr, failed := d.mu.failures[cmd.Task]
+			deployErr := d.mu.failures[cmd.Task]
 			d.mu.RUnlock()
 			if ok {
 				d.exec(ctx, inst.task, cmd)
 				continue
 			}
-			// Only a driver that failed to deploy the task refuses its commands. After
-			// a rack move, another driver may still run the task and answer.
-			if failed && cmd.Key != NoCommand {
+			if cmd.Key != NoCommand {
 				d.refuseCommand(ctx, cmd, deployErr)
 			}
 		}
@@ -349,8 +347,9 @@ func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Co
 	}
 }
 
-// refuseCommand answers cmd for a task that this driver failed to deploy with
-// deployErr.
+// refuseCommand answers cmd for a task with no live instance here. deployErr is the
+// error of a failed deploy here, or nil. It leaves cmd to other drivers when the task
+// is on another rack, or when the task moved here while another driver still runs it.
 func (d *Driver) refuseCommand(
 	ctx context.Context,
 	cmd task.Command,
@@ -368,10 +367,33 @@ func (d *Driver) refuseCommand(
 		}
 		return
 	}
+	if tsk.Rack != d.rack.Key {
+		return
+	}
+	description := "The task is not running on this Driver. Start the task first."
+	if deployErr != nil {
+		description = deployErr.Error()
+	} else {
+		var stat task.Status
+		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](tsk.OntologyID().String())).
+			Entry(&stat).
+			Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+			d.cfg.L.Error(
+				"failed to retrieve status for refused command",
+				zap.Error(err),
+			)
+			return
+		}
+		// The task moved here while another driver still runs it.
+		if stat.Details.Running {
+			return
+		}
+	}
 	if err := d.answer(ctx, tsk, cmd.Key, func(stat *task.Status) {
 		stat.Variant = status.VariantError
 		stat.Message = "Task is not running"
-		stat.Description = deployErr.Error()
+		stat.Description = description
 		stat.Details.Running = false
 	}); err != nil {
 		d.cfg.L.Error("failed to write refused command status", zap.Error(err))

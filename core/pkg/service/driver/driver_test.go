@@ -1812,8 +1812,18 @@ var _ = Describe("Driver", func() {
 				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
 				t := newTask(otherRack.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				details := task.NewStatusDetails(t, true)
+				details.Cmd = "cmd-0"
 				t.Rack = embeddedRackKey(ctx)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Key:     t.OntologyID().String(),
+					Name:    t.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Started task",
+					Details: details,
+				})).To(Succeed())
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Consistently(func() string {
@@ -1821,6 +1831,74 @@ var _ = Describe("Driver", func() {
 						ctx, t.OntologyID().String(),
 					).Details.Cmd
 				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-1"))
+			},
+		)
+
+		It(
+			"should refuse a command for a task on its rack that it never deployed",
+			func(ctx SpecContext) {
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus[task.StatusDetails](
+						ctx, t.OntologyID().String(),
+					)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Task is not running"))
+					g.Expect(stat.Description).To(Equal(
+						"The task is not running on this Driver. Start the task first.",
+					))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"should leave a command for a failed task that moved to another rack",
+			func(ctx SpecContext) {
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						context.Context,
+						task.Task,
+					) (driver.Task, error) {
+						return nil, errors.New("device is not connected")
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.OntologyID().String(),
+					).Details.Cmd
+				}).Should(Equal("cmd-1"))
+				otherRack := rack.Rack{Name: "Other Rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+				t.Rack = otherRack.Key
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
+				Consistently(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, t.OntologyID().String(),
+					).Details.Cmd
+				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-2"))
 			},
 		)
 
