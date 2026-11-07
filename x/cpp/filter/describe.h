@@ -14,8 +14,9 @@
 #include "x/cpp/json/json.h"
 
 namespace x::filter {
-/// @returns a short, readable description of the records that the JSON filter tree
-/// selects, such as `active = true and name starts with "press"`. An empty tree returns
-/// an empty string.
+/// @brief describes the records that a filter tree selects as a short sentence.
+/// @param tree the JSON form of the filter tree.
+/// @returns a sentence such as `active = true and name starts with "press"`, or an
+/// empty string when the tree sets no conditions.
 [[nodiscard]] std::string describe(const x::json::json &tree);
 }
