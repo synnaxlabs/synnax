@@ -33,6 +33,7 @@ import {
   isStale,
   modeName,
   sync1Error,
+  takesCycles,
 } from "@/feature/ethercat/device/syncMode";
 import {
   type OpMode,
@@ -79,14 +80,14 @@ const draftIsStale = ({ properties }: SlaveDevice, draft: Draft): boolean =>
   draft.index === properties.opMode.index &&
   isStale(properties.opModes, properties.opMode);
 
-/** The DC mode that runs for the draft, or null for SM sync or a stale choice. */
-const dcMode = (slave: SlaveDevice, draft: Draft): OpMode | null => {
+/** The mode that runs for the draft when it takes cycles, or null. */
+const cycleMode = (slave: SlaveDevice, draft: Draft): OpMode | null => {
   if (draftIsStale(slave, draft)) return null;
   const modes = slave.properties.opModes;
   const index = draft.index ?? autoIndex(modes);
   if (index == null) return null;
   const mode = modes[index];
-  return mode == null || isSM(mode) ? null : mode;
+  return mode != null && takesCycles(mode) ? mode : null;
 };
 
 interface ModeSelectProps {
@@ -203,7 +204,7 @@ const CycleField = ({
   );
 };
 
-/** Sets a cycle. A cycle typed while the mode is auto keeps the mode that auto picks. */
+/** Sets a cycle. A cycle typed in auto keeps the mode that auto picks. */
 const withCycle = (
   modes: OpMode[],
   draft: Draft,
@@ -242,7 +243,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   const { update, variant } = useUpdateOpMode({ afterSuccess: () => close() });
   const modes = slave.properties.opModes;
   const stale = draftIsStale(slave, draft);
-  const mode = dcMode(slave, draft);
+  const mode = cycleMode(slave, draft);
   const cycleError = sync1Error(draft);
   const handleSave = () => {
     if (cycleError != null) return;

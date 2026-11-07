@@ -15,11 +15,27 @@ import {
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
 
+/** The AssignActivate bit that gives the sync unit to the PDI. */
+const PDI_SYNC_UNIT = 0x0001;
+/** The AssignActivate bit that turns on SYNC0. */
+const SYNC0_ACTIVE = 0x0200;
 /** The AssignActivate bit that turns on SYNC1. */
 const SYNC1_ACTIVE = 0x0400;
 
 /** Whether the mode is SM sync, which runs no clock ticks. */
 export const isSM = (mode: OpMode): boolean => mode.assignActivate === 0;
+
+const ownedByPDI = (mode: OpMode): boolean =>
+  (mode.assignActivate & PDI_SYNC_UNIT) !== 0;
+
+const runsSync0 = (mode: OpMode): boolean => (mode.assignActivate & SYNC0_ACTIVE) !== 0;
+
+/**
+ * Whether the Driver can set SYNC0 and SYNC1 cycles for the mode: it runs SYNC0, and
+ * the master keeps its sync unit. A cycle on any other mode fails the start.
+ */
+export const takesCycles = (mode: OpMode): boolean =>
+  runsSync0(mode) && !ownedByPDI(mode);
 
 /** Whether the mode runs SYNC1 when no cycle replaces its own. */
 const hasSync1 = (mode: OpMode): boolean => (mode.assignActivate & SYNC1_ACTIVE) !== 0;
@@ -106,6 +122,8 @@ export const describeTicks = (mode: OpMode, draft: Draft): string => {
 /** A short description of the mode for its option in the select. */
 export const describeMode = (mode: OpMode): string => {
   if (isSM(mode)) return "Each frame from the Driver times the device.";
+  if (ownedByPDI(mode)) return "The device sets its own clock ticks.";
+  if (!runsSync0(mode)) return "The DC clock runs with no SYNC0 ticks.";
   const sync1 = sync1Text(mode);
   return sync1 == null
     ? `Clock ticks: SYNC0 ${sync0Text(mode)}.`

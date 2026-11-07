@@ -105,6 +105,8 @@ const createMode = (name: string, assignActivate: number): EtherCAT.Device.OpMod
 
 const SM_MODE = createMode("SM", 0);
 const DC_MODE = createMode("DC", 0x0300);
+const PDI_MODE = createMode("DC (PDI)", 0x0301);
+const NO_SYNC0_MODE = createMode("DC (no SYNC0)", 0x0100);
 
 const retrieveOpMode = async (key: device.Key) =>
   (await client.devices.retrieve({ key, schemas: EtherCAT.Device.SLAVE_SCHEMAS }))
@@ -243,6 +245,15 @@ describe("EtherCAT device ContextMenuItems", () => {
       expect(screen.queryByRole("textbox", { name: "SYNC1 cycle" })).toBeNull();
     });
 
+    it("should hide the cycle fields for a mode that takes no cycles", async () => {
+      await openSyncMode({ opModes: [DC_MODE, PDI_MODE, NO_SYNC0_MODE] });
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
+      await pickMode("The device sets its own clock ticks.");
+      expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
+      await pickMode("The DC clock runs with no SYNC0 ticks.");
+      expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
+    });
+
     it("should put the slave back in auto when the auto mode is picked", async () => {
       const slave = await openSyncMode({
         opModes: [SM_MODE, DC_MODE],
@@ -258,7 +269,7 @@ describe("EtherCAT device ContextMenuItems", () => {
       );
     });
 
-    it("should say that a SYNC1 cycle turns on SYNC1 when the mode leaves it off", async () => {
+    it("should say when a SYNC1 cycle turns on SYNC1", async () => {
       const slave = await openSyncMode({ opModes: [DC_MODE] });
       typeCycle("SYNC1 cycle", "1000000");
       expect(
@@ -291,7 +302,7 @@ describe("EtherCAT device ContextMenuItems", () => {
       expect(await retrieveOpMode(slave.key)).toBeUndefined();
     });
 
-    it("should show a stored mode that the device no longer lists as an error", async () => {
+    it("should show a mode the device no longer lists as an error", async () => {
       await openSyncMode({
         opModes: [DC_MODE],
         opMode: { index: 1, assignActivate: 0x0700, sync0Cycle: 0, sync1Cycle: 0 },
