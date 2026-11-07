@@ -13,7 +13,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
-import { FLAGS } from "@/flags";
 
 export interface UploadMenuItemProps {
   rangeKey: ranger.Key;
@@ -23,7 +22,6 @@ export interface UploadMenuItemProps {
 /** Opens a modal that uploads the data of a range to Sift. */
 export const UploadMenuItem = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
   const open = useUploadModal();
-  if (!FLAGS.sift) return null;
   return (
     <Menu.Item
       itemKey="siftUpload"
@@ -49,7 +47,6 @@ export const UploadRegionMenuItem = ({
 }: UploadRegionMenuItemProps) => {
   const open = useUploadModal();
   const handleError = Status.useErrorHandler();
-  if (!FLAGS.sift) return null;
   const handleClick = () =>
     handleError(async () => {
       const tr = await getTimeRange();

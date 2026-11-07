@@ -44,7 +44,6 @@ export type Make = z.infer<typeof makeZ>;
 export const getMake = (make: unknown): Make | null => {
   const parsed = makeZ.safeParse(make).data ?? null;
   if (parsed === MQTT.Device.MAKE && !FLAGS.mqtt) return null;
-  if (parsed === Sift.Device.MAKE && !FLAGS.sift) return null;
   return parsed;
 };
 

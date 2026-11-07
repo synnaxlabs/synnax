@@ -30,7 +30,7 @@ export const NETWORK: PlatformDevice.Network[] = [
   HTTP.Device.NETWORK,
   ...(FLAGS.kafka ? [Kafka.Device.NETWORK] : []),
   ...(FLAGS.mqtt ? [MQTT.Device.NETWORK] : []),
-  ...(FLAGS.sift ? [Sift.Device.NETWORK] : []),
+  Sift.Device.NETWORK,
 ];
 
 export const HARDWARE: Hardware[] = [
