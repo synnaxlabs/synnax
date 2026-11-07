@@ -446,6 +446,28 @@ var _ = Describe("Service", func() {
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
 		})
 
+		It("Should fill the zero fields of a legacy config with defaults", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(versioned.Normalize(ctx, 0, msgpack.EncodedJSON{
+				"module":      uuid.New().String(),
+				"performance": "",
+			}))
+			Expect(out).To(HaveKeyWithValue("performance", "auto"))
+		})
+
+		It("Should keep an explicit zero in a latest-version config", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(
+				svc.Normalize(ctx, arcversions.Latest, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "",
+				}),
+			)
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
 		It("Should run the legacy rewrite on a version below the ladder's first", func(
 			ctx SpecContext,
 		) {

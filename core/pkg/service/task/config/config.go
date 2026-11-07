@@ -280,6 +280,9 @@ func (s *Service[E]) Normalize(
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
 	ladder := s.cfg.Ladder
+	// An older version lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults.
+	lifted := version != ladder.Latest
 	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
@@ -295,9 +298,7 @@ func (s *Service[E]) Normalize(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	// An older version lifts through Go code that cannot tell an absent field from a
-	// zero one, so its zero fields take their defaults.
-	if version != ladder.Latest {
+	if lifted {
 		e = defaults.Fill(e)
 	}
 	return encode(e)
