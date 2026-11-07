@@ -306,7 +306,7 @@ func withLiveDependencies(
 			continue
 		}
 		live, has := liveType(req, lp, t.Name)
-		if !has {
+		if !has || omit.IsType(live, "go") {
 			continue
 		}
 		t.Form, t.Domains = live.Form, live.Domains
@@ -577,9 +577,9 @@ func annotateOutputs(
 					withGoName(t, n)
 				}
 			}
-			// A type the live schema no longer declares has no root to point at, so
-			// it stays on the pinned version.
-			if !pinned && has {
+			// A type the live schema no longer declares, or omits from Go, has no root
+			// declaration to point at, so it stays on the pinned version.
+			if !pinned && has && !omit.IsType(lt, "go") {
 				withGoOutput(t, goRoot)
 				continue
 			}
