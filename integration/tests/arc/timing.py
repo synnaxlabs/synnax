@@ -33,6 +33,8 @@ LIMITS: dict[str, dict[str, Limits]] = {
         # EVENT_DRIVEN does not spin on macOS. Its timer is rarely up to 1.2 ms late.
         "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=1.5),
         "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
+        # The cRIO-9041 of the HITL station.
+        "NI Linux RT": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=0.2),
     },
     "Go": {
         "Linux": Limits(min_wait_ms=1, max_error_percent=8.0, max_spread_ms=0.3),

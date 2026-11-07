@@ -7,7 +7,7 @@
     },
     {
       "sequence_name": "cRIO",
-      "tests": [{ "case": "hitl/crio_driver" }]
+      "tests": [{ "case": "hitl/crio_driver" }, { "case": "hitl/crio_arc" }]
     }
   ]
 }

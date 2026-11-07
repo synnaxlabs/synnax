@@ -54,6 +54,9 @@ class _WaitSamples(ArcCase):
     profile_ms: list[int]
     #: The limits of each runtime and OS that the waits of the case must hold.
     limit_table: dict[str, dict[str, Limits]] = LIMITS
+    #: The OS of the Driver that runs the task. The Core and its Driver run on the test
+    #: host, so they share its OS.
+    driver_os: str = platform.system()
 
     arc_name_prefix = "ArcWaitAccuracySamples"
     start_cmd_channel = "ws_start_cmd"
@@ -64,9 +67,7 @@ class _WaitSamples(ArcCase):
 
     def setup(self) -> None:
         self._retrieve_rack()
-        assert self.rack is not None
-        # The Core and its Driver run on the test host, so they share its OS.
-        self.limits = self.limit_table[runtime(self.rack)][platform.system()]
+        self.limits = self.limit_table[runtime(self.rack)][self.driver_os]
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:

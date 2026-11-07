@@ -63,7 +63,6 @@ class CRIOCase(HardwareCase):
         return super().resources() | {resources.CRIO}
 
     def setup(self) -> None:
-        super().setup()
         # The Driver stamps samples with the cRIO's clock, and nothing else syncs it. A
         # run that the conductor abandoned can leave its Driver running.
         self.ssh(
@@ -75,6 +74,8 @@ class CRIOCase(HardwareCase):
         self.start_driver()
         self.rack = self.wait_for_rack("success")
         self.track_test_racks([self.rack])
+        # Later setups in the chain, such as ArcCase's, deploy to the running Driver.
+        super().setup()
 
     def start_driver(self) -> None:
         """Starts the Driver in the background with the state from the last start."""
