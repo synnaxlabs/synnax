@@ -373,9 +373,15 @@ var _ = Describe("Service", func() {
 
 	Describe("Grants and Resolve", func() {
 		rk := rack.Key(7)
-		allowDevices := func(ctx SpecContext, u user.User) {
+		allowGrants := func(ctx SpecContext, u user.User) {
 			GinkgoHelper()
 			allow(ctx, u.OntologyID(), []access.Action{access.ActionCreate}, deviceType)
+			allow(
+				ctx,
+				u.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				secretType,
+			)
 		}
 		createGrant := func(
 			ctx freighter.Context,
@@ -393,7 +399,7 @@ var _ = Describe("Service", func() {
 		It("Should let the rack resolve the granted secrets in request order",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				allowDevices(ctx, u)
+				allowGrants(ctx, u)
 				a := createSecret(ctx, "A", "first")
 				b := createSecret(ctx, "B", "second")
 				keys := []secret.Key{b.Base().Key, a.Base().Key}
@@ -410,7 +416,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should let the rack resolve a grant only once", func(ctx SpecContext) {
 			u := createUser(ctx)
-			allowDevices(ctx, u)
+			allowGrants(ctx, u)
 			s := createSecret(ctx, "A", "v")
 			uCtx := SubjectCtx(ctx, u.OntologyID())
 			res := createGrant(uCtx, s.Base().Key)
@@ -431,6 +437,23 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.OntologyID(), all, secretType)
+				s := createSecret(ctx, "A", "v")
+				uCtx := SubjectCtx(ctx, u.OntologyID())
+				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
+					Subject: rk.OntologyID(),
+					Secrets: []secret.Key{s.Base().Key},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It("Should deny a grant of a secret the user cannot retrieve",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				allow(
+					ctx,
+					u.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					deviceType,
+				)
 				s := createSecret(ctx, "A", "v")
 				uCtx := SubjectCtx(ctx, u.OntologyID())
 				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
@@ -471,7 +494,7 @@ var _ = Describe("Service", func() {
 				apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
 			)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring(`rack:7 cannot read secret "A"`)),
+				MatchError(ContainSubstring("has ended or does not exist")),
 			))
 		})
 	})

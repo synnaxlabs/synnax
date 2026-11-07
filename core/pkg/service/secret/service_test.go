@@ -119,8 +119,8 @@ var _ = Describe("Service", func() {
 				Expect(e.svc.Close()).To(Succeed())
 				e.svc = MustOpen(openService(ctx, e, key))
 				rk := rack.Key(1).OntologyID()
-				e.uses = []secret.Use{{Secret: s.Base().Key, Racks: []ontology.ID{rk}}}
-				Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), s.Base().Key)).To(Equal(
+				g := MustSucceed(e.svc.Grant(ctx, nil, rk, s.Base().Key))
+				Expect(e.svc.Resolve(ctx, nil, rk, g, s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
 				))
 			},
