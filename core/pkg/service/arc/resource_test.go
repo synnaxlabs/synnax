@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,6 +30,18 @@ var _ = Describe("Resources", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{a.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Base().Name}}))
+	})
+
+	It("Should name each Arc directory by its name", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		d := directory.Directory{Name: "resource_dir"}
+		Expect(svc.NewWriter(tx).CreateDirectory(ctx, &d, rootDirectory(ctx, tx).Key)).
+			To(Succeed())
+		Expect(svc.DirectoryResources().Retrieve(
+			ctx,
+			tx,
+			[]resource.ID{d.ResourceID()},
+		)).To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
 	})
 
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -26,11 +27,12 @@ import (
 
 var _ = Describe("Table", func() {
 	var (
+		db    *gorp.DB
 		table *directory.Table
 		w     directory.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		table = MustOpen(directory.OpenTable(ctx, directory.TableConfig{DB: db}))
 		w = table.NewWriter(nil)
 	})
@@ -125,6 +127,74 @@ var _ = Describe("Table", func() {
 			Expect(w.Delete(ctx, d.Key)).
 				To(MatchError(ContainSubstring(`directory "lib" is not empty`)))
 		})
+	})
+
+	Describe("Resources", func() {
+		named := func(d directory.Directory) resource.Resource {
+			return resource.Resource{ID: d.ResourceID(), Name: d.Name}
+		}
+
+		It("Should name each directory by its name", func(ctx SpecContext) {
+			d := create(ctx, "lib", nil)
+			Expect(table.Resources().Retrieve(ctx, db, []resource.ID{d.ResourceID()})).
+				To(Equal([]resource.Resource{named(d)}))
+		})
+
+		It("Should leave out an ID that names no directory", func(ctx SpecContext) {
+			d := create(ctx, "lib", nil)
+			missing := directory.ResourceID(uuid.New())
+			Expect(table.Resources().Retrieve(
+				ctx,
+				db,
+				[]resource.ID{missing, d.ResourceID()},
+			)).To(Equal([]resource.Resource{named(d)}))
+		})
+
+		It(
+			"Should return a validation error for a malformed key",
+			func(ctx SpecContext) {
+				Expect(table.Resources().Retrieve(
+					ctx,
+					nil,
+					[]resource.ID{{Type: resource.TypeArcDirectory, Key: "bad"}},
+				)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(`invalid Arc directory key "bad"`)),
+				))
+			},
+		)
+
+		It("Should list each directory by its name", func(ctx SpecContext) {
+			lib := create(ctx, "lib", nil)
+			sub := create(ctx, "sub", &lib.Key)
+			Expect(table.Resources().List(ctx, db, 10, nil)).
+				To(ConsistOf(named(lib), named(sub)))
+		})
+
+		It(
+			"Should return the matching directories, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test", nil)
+				b := create(ctx, "turbopump", nil)
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(table.Resources().Search(ctx, db, q)).Keys).
+					To(Equal([]resource.ID{b.ResourceID(), a.ResourceID()}))
+			},
+		)
+
+		It(
+			"Should not match a staged directory outside its transaction",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				d := directory.Directory{Name: "injector"}
+				Expect(table.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+				q := search.Query[resource.ID]{Term: "injector"}
+				Expect(MustSucceed(table.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{d.ResourceID()}))
+				Expect(MustSucceed(table.Resources().Search(ctx, db, q)).Keys).
+					To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("MatchNested", func() {
