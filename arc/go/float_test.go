@@ -253,7 +253,8 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("equality", "math.inf != v"),
 	)
 
-	DescribeTable("Should reject a float constant in an integer series",
+	DescribeTable(
+		"Should reject a float constant in an integer series",
 		func(ctx SpecContext, source string) {
 			root := symbol.NewRoot(nil, stl.NewSymbols())
 			Expect(arc.CompileText(
@@ -265,6 +266,11 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("constant only", "y series i32 := [math.inf]"),
 		Entry("integer then constant", "y series i32 := [1, math.nan]"),
 		Entry("constant then integer", "y series i64 := [math.inf, 1]"),
+		Entry("reassignment", "y series i32 := [1]\ny = [math.inf]"),
+		Entry(
+			"reassignment after an integer",
+			"y series i64 := [1]\ny = [1, math.nan]",
+		),
 	)
 
 	DescribeTable("Should report a source that is not a channel once",
