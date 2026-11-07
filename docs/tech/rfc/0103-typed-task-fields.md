@@ -108,10 +108,13 @@ becomes one encoded sample. Integer, unsigned, string, and boolean entries compa
 exact value. A float entry compares by numeric equality, so `-0.0` matches `0` and an
 infinity matches itself, but a `"NaN"` entry matches any NaN sample by `isnan`. On read,
 a `"NaN"` entry's label decodes to NaN. On write, entries match before the non-finite
-rule in §5, so a matched sample writes its label. Phase 3 does this in both runtimes.
-Phase 3 also adds string and boolean write enums: `Encoder.Append` quotes a string
-sample and writes a boolean with no lookup, and `from_sample_value` checks enums only
-for a numeric value written as a string.
+rule in §5, so a matched sample writes its label. Phase 3 does this in both runtimes. A
+read field's labels are unique and its values may repeat, so `ON` and `HIGH` can both
+mean 1. A channel field's values are unique under this rule, after narrowing, and its
+labels may repeat, since two values can share a label. Phase 3 also adds string and
+boolean write enums: `Encoder.Append` quotes a string sample and writes a boolean with
+no lookup, and `from_sample_value` checks enums only for a numeric value written as a
+string.
 
 ## 3 Bytes
 
@@ -152,16 +155,16 @@ function that each service builds, as `slavesOf` does. It skips disabled fields,
 0, and missing channels, because imports hold foreign keys. It rejects a kind that §4
 does not allow, a fill or entry that does not fit the channel's width, and a fill on an
 index channel. It also converts each channel field entry to the channel's type and
-rejects values that collide only after that narrowing, such as `0.1` and `0.1000000001`
-on a `float32` channel. It clears `data_type`.
+rejects values that collide only after narrowing, such as `0.1` and `0.1000000001` on a
+`float32` channel. It clears `data_type`.
 
-**Core config**, in `ValidateEntry`, which has no channel and checks every field: Labels
-are unique, channel field values are unique under the §2 match rule on the stored value,
-so two `"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, and
-a raw `bytes` field is alone. Only a static `float` write value must be finite, because
-it goes into a payload as a JSON number. Fills and float entries may be non-finite.
-Kafka and MQTT check kinds at task configure and gain fill (Kafka skips an absent value
-today, `read_task.go:767`).
+**Core config**, in `ValidateEntry`, which has no channel and checks every field: Read
+field labels are unique, channel field values are unique on the stored value, so two
+`"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, and a raw
+`bytes` field is alone. Only a static `float` write value must be finite, because it
+goes into a payload as a JSON number. Fills and float entries may be non-finite. Kafka
+and MQTT check kinds at task configure and gain fill (Kafka skips an absent value today,
+`read_task.go:767`).
 
 **Non-finite samples**, when no entry matches: A `float` channel field fails the write.
 A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
@@ -203,9 +206,10 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 it and the HTTP default is `float64`. Between numeric kinds it converts entries and
 fills by the same rules, so a non-finite fill becomes no fill, and it drops them on
 other kinds. It logs each change, naming a foreign key that matched an unrelated local
-channel. Migration and `Reconcile` keep the first entry of a set whose labels repeat or
-whose values collide under §2, on the stored value or after narrowing, drop the rest,
-and log each drop. So a stored `{ON: 1, HIGH: 1}` keeps `ON` and is not quarantined.
+channel. Migration and `Reconcile` apply only each side's rule. A read field keeps the
+first entry of a repeated label, so a stored `{ON: 1, HIGH: 1}` keeps both. A channel
+field keeps the first entry of a set whose values collide, on the stored value or after
+narrowing. Each drop is logged.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
