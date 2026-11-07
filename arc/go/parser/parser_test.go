@@ -110,8 +110,7 @@ var _ = Describe("Parser", func() {
 
 		It("Should report a syntax error at its position in the source", func() {
 			_, diags := parser.ParseExpressionAt("a +", 3, 7)
-			Expect(diags).ToNot(BeNil())
-			Expect(diags.Ok()).To(BeFalse())
+			Expect(*diags).To(HaveLen(1))
 			Expect((*diags)[0].Range.Start.Line).To(Equal(uint32(2)))
 			Expect((*diags)[0].Range.Start.Character).To(Equal(uint32(10)))
 		})

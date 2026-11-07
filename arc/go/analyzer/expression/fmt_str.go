@@ -147,8 +147,8 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 // the source just past prefix, where base is the source position of prefix[0].
 func runePosition(base protocol.Position, prefix string) (line, column int) {
 	line = int(base.Line) + 1 + strings.Count(prefix, "\n")
-	if i := strings.LastIndexByte(prefix, '\n'); i >= 0 {
-		return line, utf8.RuneCountInString(prefix[i+1:])
+	if _, last, found := strings.CutLast(prefix, "\n"); found {
+		return line, utf8.RuneCountInString(last)
 	}
 	return line, int(base.Character) + utf8.RuneCountInString(prefix)
 }
