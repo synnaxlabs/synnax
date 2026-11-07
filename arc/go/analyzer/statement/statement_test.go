@@ -449,6 +449,20 @@ var _ = Describe("Statement", func() {
 			Entry("reassigned", "y := []\ny = []"),
 		)
 
+		DescribeTable("Should bind an untyped empty series on reassignment",
+			func(specCtx SpecContext, code string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				s := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				block := s.FilterChildrenByKind(symbol.KindBlock)[0]
+				y := MustSucceed(block.Resolve(ctx, "y"))
+				Expect(ctx.Constraints.ApplySubstitutions(y.Type)).
+					To(Equal(types.Series(types.F32())))
+			},
+			Entry("a literal", "y := []\ny = [v]"),
+			Entry("a series", "s series f32 := [1.5]\ny := []\ny = s"),
+		)
+
 		DescribeTable("Should accept an empty series of any element type",
 			func(specCtx SpecContext, element string) {
 				ctx := analyze(specCtx, "y series "+element+" := []\ny = []")
@@ -462,13 +476,27 @@ var _ = Describe("Statement", func() {
 			Entry("timestamp", "i64 ns"),
 		)
 
+		DescribeTable("Should reject an empty series in non-numeric arithmetic",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("bool on the right",
+				"flags series bool := [true]\nz := [] * flags", "cannot use bool"),
+			Entry("str on the right",
+				"names series str := [\"a\"]\nz := [] - names", "cannot use str"),
+			Entry("bool on the left",
+				"flags series bool := [true]\nz := flags * []", "cannot use"),
+		)
+
 		It(
 			"Should reject a typed integer after a float literal",
 			func(specCtx SpecContext) {
 				ctx := analyze(specCtx, "z i32 := 1\nx := [1, 1.5, z]")
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
-					"series element type: float is not compatible with i32",
+					"series element 3 has incompatible type i32, expected float",
 				))
 			},
 		)

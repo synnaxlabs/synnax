@@ -1436,9 +1436,9 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	}
 
 	// If either type is a type variable, add a constraint instead of checking directly.
-	// A series literal holds its variable in the element type.
+	// A series holds its variable in the element type.
 	if exprType.Unwrap().Kind == types.KindVariable ||
-		varType.Kind == types.KindVariable {
+		varType.Unwrap().Kind == types.KindVariable {
 		if err := atypes.Check(
 			ctx.Constraints,
 			varType,

@@ -80,6 +80,12 @@ var _ = Describe("Typed series literals", func() {
 		),
 		Entry("from a func", "y := pick()\nreturn y[0]", float32(1.5)),
 		Entry("into a func", "return head([1.5])", float32(1.5)),
+		Entry(
+			"untyped then a series",
+			"y := []\ny = pick()\nreturn y[0]",
+			float32(1.5),
+		),
+		Entry("untyped then a literal", "y := []\ny = [v]\nreturn y[0]", float32(2)),
 	)
 
 	DescribeTable("Should read an untyped f64 element",

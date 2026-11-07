@@ -234,6 +234,16 @@ func validateType[T, N antlr.ParserRuleContext](
 
 		if firstType.Kind == basetypes.KindVariable ||
 			nextType.Kind == basetypes.KindVariable {
+			// The first operand skips the check above when it has no constraint.
+			if nextType.Kind != basetypes.KindVariable && !check(nextType) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in %s operation",
+					nextType,
+					opName,
+				))
+				return
+			}
 			if err := ctx.Constraints.AddCompatible(
 				firstType,
 				nextType,
