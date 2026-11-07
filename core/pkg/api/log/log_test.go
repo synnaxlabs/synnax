@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,7 +28,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
-		r := log.Log{Name: "unretrievable"}
+		r := defaults.Fill(log.Log{Name: "unretrievable"})
 		Expect(svc.Log.NewWriter(nil).Create(ctx, uuid.Nil(), &r)).To(Succeed())
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
 			Where: &log.Where{Key: &filter.Set[log.Key]{Eq: &r.Key}},
@@ -44,7 +45,7 @@ var _ = Describe("Create", func() {
 		DeferCleanup(svc.Log.OnAction(rec.Record))
 		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
 			Project:     proj.Key,
-			Logs:        []log.Log{{Name: "broadcast"}},
+			Logs:        defaults.Fill([]log.Log{{Name: "broadcast"}}),
 			DispatchKey: "dk-create",
 		}))
 		frames := rec.Snapshot()

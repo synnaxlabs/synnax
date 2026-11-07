@@ -807,6 +807,9 @@ type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
+	// Groups marks a SetDefaults step into a type that has a `@default group`, which
+	// splits its defaults into SetUngroupedDefaults and DefaultGroups.
+	Groups bool
 }
 
 // fieldHasOwn reports whether a field is itself a reason for its struct to emit a
@@ -1148,15 +1151,52 @@ func setDefaultsSteps(
 	var steps []recurseStepData
 	for _, e := range embeds {
 		if typeSetsDefaults(e.ref, data, set.New[string]()) {
-			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered)})
+			steps = append(steps, recurseStepData{
+				GoName: embedFieldName(e.rendered),
+				Groups: typeHasGroups(e.ref, data, set.New[string]()),
+			})
 		}
 	}
 	for _, f := range fields {
 		if !f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()) {
-			steps = append(steps, recurseStepData{GoName: naming.GetFieldName(f)})
+			steps = append(steps, recurseStepData{
+				GoName: naming.GetFieldName(f),
+				Groups: typeHasGroups(f.Type, data, set.New[string]()),
+			})
 		}
 	}
 	return steps
+}
+
+// typeHasGroups reports whether ref names a struct that has a `@default group` with a
+// default to set, in its own fields or in a required struct field or embedded parent.
+// visited guards against cycles in recursive types.
+func typeHasGroups(
+	ref resolution.TypeRef,
+	data *templateData,
+	visited set.Set[string],
+) bool {
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" ||
+		visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	return lo.SomeBy(
+		resolution.UnifiedFields(resolved, data.table),
+		func(f resolution.Field) bool {
+			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
+				(!f.Optional && typeHasGroups(f.Type, data, visited))
+		},
+	)
 }
 
 // applyFills returns the fills that ApplyDefaults assigns: every fill but SetOnly ones.
@@ -1164,12 +1204,8 @@ func applyFills(fills []defaultFillData) []defaultFillData {
 	return lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.SetOnly })
 }
 
-// allFills returns fills followed by the fills of every group. SetDefaults assigns
-// each one, since a decode overwrites whatever the input supplies.
-func allFills(fills []defaultFillData, groups []defaultGroupData) []defaultFillData {
-	all := lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.ApplyOnly })
-	for _, g := range groups {
-		all = append(all, g.Fills...)
-	}
-	return all
+// setFills returns the fills that SetDefaults assigns unconditionally: every fill but
+// ApplyOnly ones. A group's fills run only when all of its members are zero.
+func setFills(fills []defaultFillData) []defaultFillData {
+	return lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.ApplyOnly })
 }

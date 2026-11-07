@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -156,7 +157,7 @@ var _ = Describe("CreatePanels", func() {
 			groupSvc.NewWriter(tx).Create(ctx, "Legacy Parent", ontology.RootID),
 		)
 		parent = g.OntologyID()
-		l := log.Log{Name: "Metrics"}
+		l := defaults.Fill(log.Log{Name: "Metrics"})
 		Expect(logSvc.NewWriter(tx).Create(ctx, project.Key{}, &l)).To(Succeed())
 		refs = map[string]ontology.ID{"k1": log.OntologyID(l.Key)}
 	})

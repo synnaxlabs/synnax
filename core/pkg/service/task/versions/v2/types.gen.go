@@ -221,8 +221,24 @@ func (MapScale) isScaleVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (m *MapScale) SetDefaults() {
-	m.PreScaledMax = 1
-	m.ScaledMax = 1
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MapScale) SetUngroupedDefaults() {
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, so
+// a group the input sets in part keeps its zero members.
+func (m *MapScale) DefaultGroups() {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
+	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
+	}
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -338,10 +354,11 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
-		v.MapScale.SetDefaults()
+		v.MapScale.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.MapScale.DefaultGroups()
 		u.Variant = v.MapScale
 	case PolynomialScaleType:
 		var v struct {

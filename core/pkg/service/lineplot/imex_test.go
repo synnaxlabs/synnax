@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -39,7 +40,7 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
-			lp := lineplot.LinePlot{Name: "exported"}
+			lp := defaults.Fill(lineplot.LinePlot{Name: "exported"})
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
@@ -161,11 +162,11 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
-				original := lineplot.LinePlot{
+				original := defaults.Fill(lineplot.LinePlot{
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
 					Ranges:   []ranger.Ref{recentRef},
-				}
+				})
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
 				).To(Succeed())

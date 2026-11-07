@@ -80,7 +80,6 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 			return err
 		}
 	}
-	l.ApplyDefaults()
 	if err = validateWrite(*l); err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -59,6 +60,21 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels).To(HaveLen(2))
 		Expect(l.Channels[0].Precision).To(Equal(new(uint8(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
+	})
+
+	It("Should keep an explicit empty timestamp format at the latest version", func(
+		ctx SpecContext,
+	) {
+		l := decode(ctx, "testdata/import_v3.json")
+		Expect(l.Channels[1].Timestamp.Format).To(BeEmpty())
+	})
+
+	It("Should fill an empty timestamp format from an older version", func(
+		ctx SpecContext,
+	) {
+		l := decode(ctx, "testdata/import_v2.json")
+		Expect(l.Channels[1].Timestamp.Format).
+			To(Equal(telem.TimestampFormatPreciseDate))
 	})
 
 	It("Should lift a Console v1 state through the legacy chain", func(

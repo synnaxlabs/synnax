@@ -868,9 +868,9 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		sd.DefaultGroups = goDefaultGroups(fields, data)
 		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
 	}
-	sd.SetFills = allFills(sd.DefaultFills, sd.DefaultGroups)
+	sd.SetFills = setFills(sd.DefaultFills)
 	sd.DefaultFills = applyFills(sd.DefaultFills)
-	sd.DecodeHooks = (len(sd.SetSteps) > 0 || len(sd.SetFills) > 0) &&
+	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
 	if sd.DecodeHooks {
 		data.AddExternal("encoding/json/v2")
@@ -1166,6 +1166,29 @@ type setDefaultsView struct {
 	Name     string
 	Steps    []recurseStepData
 	Fills    []defaultFillData
+	// Groups are the type's own `@default group`s, each set only when all of its
+	// members are zero.
+	Groups []defaultGroupData
+}
+
+// Sets reports whether the type emits SetDefaults.
+func (v setDefaultsView) Sets() bool {
+	return len(v.Steps) > 0 || len(v.Fills) > 0 || len(v.Groups) > 0
+}
+
+// HasGroups reports whether the type or a type it sets the defaults of has a
+// `@default group`, so it splits SetDefaults into SetUngroupedDefaults and
+// DefaultGroups.
+func (v setDefaultsView) HasGroups() bool {
+	if len(v.Groups) > 0 {
+		return true
+	}
+	for _, s := range v.Steps {
+		if s.Groups {
+			return true
+		}
+	}
+	return false
 }
 
 // SetDefaultsView returns the view of the struct's SetDefaults method.
@@ -1175,6 +1198,7 @@ func (s structData) SetDefaultsView() setDefaultsView {
 		Name:     s.Name,
 		Steps:    s.SetSteps,
 		Fills:    s.SetFills,
+		Groups:   s.DefaultGroups,
 	}
 }
 
@@ -1486,19 +1510,41 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 // schema defaults, so an omitted member takes its default and a zero stays.
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
+{{- if .SetDefaultsView.HasGroups}}
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetUngroupedDefaults()
+	}
+	if err := json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}})); err != nil {
+		return err
+	}
+	{{$s.Receiver}}.DefaultGroups()
+	return nil
+{{- else}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
 		{{$s.Receiver}}.SetDefaults()
 	}
 	return json.UnmarshalDecode(dec, (*plain)({{$s.Receiver}}))
+{{- end}}
 }
 
 // DecodeMsgpack decodes the input over {{$s.Receiver}}, as UnmarshalJSONFrom does.
 func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain {{$s.Name}}
+{{- if .SetDefaultsView.HasGroups}}
+	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
+		{{$s.Receiver}}.SetUngroupedDefaults()
+	}
+	if err := dec.Decode((*plain)({{$s.Receiver}})); err != nil {
+		return err
+	}
+	{{$s.Receiver}}.DefaultGroups()
+	return nil
+{{- else}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {
 		{{$s.Receiver}}.SetDefaults()
 	}
 	return dec.Decode((*plain)({{$s.Receiver}}))
+{{- end}}
 }
 {{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
@@ -1764,12 +1810,17 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
 			{{.TypeName}}
 		}
-{{- if or .SetSteps .SetFills}}
+{{- if .SetDefaultsView.HasGroups}}
+		v.{{.TypeName}}.SetUngroupedDefaults()
+{{- else if .SetDefaultsView.Sets}}
 		v.{{.TypeName}}.SetDefaults()
 {{- end}}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+{{- if .SetDefaultsView.HasGroups}}
+		v.{{.TypeName}}.DefaultGroups()
+{{- end}}
 		u.Variant = v.{{.TypeName}}
 {{- end}}
 	default:
@@ -1854,15 +1905,8 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 {{- end}}
 {{- end}}
 {{- end}}
-{{- define "setDefaults"}}
-{{- if or .Steps .Fills}}
-
-// SetDefaults sets every field that has a schema default to that default.
-func ({{.Receiver}} *{{.Name}}) SetDefaults() {
+{{- define "setFills"}}
 {{- $r := .Receiver}}
-{{- range .Steps}}
-	{{$r}}.{{.GoName}}.SetDefaults()
-{{- end}}
 {{- range .Fills}}
 {{- if .Setup}}
 	{
@@ -1875,6 +1919,54 @@ func ({{.Receiver}} *{{.Name}}) SetDefaults() {
 	{{$r}}.{{.GoName}} = {{.Expr}}
 {{- end}}
 {{- end}}
+{{- end}}
+{{- define "setDefaults"}}
+{{- $r := .Receiver}}
+{{- if .HasGroups}}
+
+// SetDefaults sets every field that has a schema default to that default.
+func ({{$r}} *{{.Name}}) SetDefaults() {
+	{{$r}}.SetUngroupedDefaults()
+	{{$r}}.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func ({{$r}} *{{.Name}}) SetUngroupedDefaults() {
+{{- range .Steps}}
+{{- if .Groups}}
+	{{$r}}.{{.GoName}}.SetUngroupedDefaults()
+{{- else}}
+	{{$r}}.{{.GoName}}.SetDefaults()
+{{- end}}
+{{- end}}
+{{- template "setFills" .}}
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, so
+// a group the input sets in part keeps its zero members.
+func ({{$r}} *{{.Name}}) DefaultGroups() {
+{{- range .Groups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$r}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$r}}.{{.GoName}} = {{.Expr}}
+{{- end}}
+	}
+{{- end}}
+{{- range .Steps}}
+{{- if .Groups}}
+	{{$r}}.{{.GoName}}.DefaultGroups()
+{{- end}}
+{{- end}}
+}
+{{- else if .Sets}}
+
+// SetDefaults sets every field that has a schema default to that default.
+func ({{$r}} *{{.Name}}) SetDefaults() {
+{{- range .Steps}}
+	{{$r}}.{{.GoName}}.SetDefaults()
+{{- end}}
+{{- template "setFills" .}}
 }
 {{- end}}
 {{- end}}
