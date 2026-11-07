@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -40,11 +39,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology serves ranges to ontology search and retrieval, and holds the ontology
-	// relationships that migrations move into range fields.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Group is used by a migration that folds legacy range groups into parent ranges.
 	//
 	// [REQUIRED]
@@ -66,7 +60,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	return v.Error()
 }
@@ -75,7 +68,6 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
@@ -112,7 +104,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Ontology:        cfg.Ontology,
 			Group:           cfg.Group,
 			Instrumentation: cfg.Instrumentation,
 		}),
@@ -120,7 +111,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	// A label delete detaches the label from each range that holds it, which no range
 	// write does, so the service publishes the labels the range keeps.
 	detaches := s.table.ObserveDetaches()
@@ -197,7 +187,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

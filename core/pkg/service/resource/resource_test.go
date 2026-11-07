@@ -117,43 +117,4 @@ var _ = Describe("ID", func() {
 				To(Equal(resource.ID{Type: "channel", Key: "bar:baz"}))
 		})
 	})
-	Describe("ParseIDs", func() {
-		It("Should parse a list of IDs from a list of strings", func() {
-			Expect(resource.ParseIDs([]string{"channel:bar", "channel:baz"})).
-				To(ConsistOf(
-					resource.ID{Type: "channel", Key: "bar"},
-					resource.ID{Type: "channel", Key: "baz"},
-				))
-		})
-		It(
-			"Should return an error if any of the IDs have an invalid structure",
-			func() {
-				Expect(resource.ParseIDs([]string{"channel:bar", "foo"})).Error().
-					To(And(
-						MatchError(validate.ErrValidation),
-						MatchError(
-							ContainSubstring(
-								"[resource] - failed to parse id: foo",
-							),
-						),
-					))
-			},
-		)
-		It("Should return an empty slice when given an empty slice", func() {
-			Expect(resource.ParseIDs([]string{})).To(BeEmpty())
-		})
-	})
-	Describe("IDsToKeys", func() {
-		It("Should convert IDs to their keys", func() {
-			ids := []resource.ID{
-				{Type: "cat", Key: "dog1"},
-				{Type: "cat", Key: "dog2"},
-			}
-			strings := resource.IDsToKeys(ids)
-			Expect(strings).To(ConsistOf("cat:dog1", "cat:dog2"))
-		})
-		It("Should return an empty slice for empty input", func() {
-			Expect(resource.IDsToKeys([]resource.ID{})).To(BeEmpty())
-		})
-	})
 })

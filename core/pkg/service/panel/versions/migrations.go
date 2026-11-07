@@ -14,7 +14,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
@@ -51,11 +50,7 @@ func CompositionMigrations(table *gorp.Table[Key, Panel]) []gorp.Migration {
 				return err
 			}
 			p.Project = &owner
-			if err = table.NewUncheckedWriter(tx).Set(ctx, p); err != nil {
-				return err
-			}
-			return gorp.WrapWriter[string, ontology.Resource](tx).
-				Set(ctx, ontology.Resource{ID: p.ResourceID()})
+			return table.NewUncheckedWriter(tx).Set(ctx, p)
 		},
 	)
 }

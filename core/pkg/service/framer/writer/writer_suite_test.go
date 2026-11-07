@@ -17,9 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -40,27 +38,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	mockNode = testutil.NewNode(ctx)
 
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: mockNode.DB,
 	}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       mockNode.DB,
-		Ontology: otg,
-	}))
-	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       mockNode.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       mockNode.DB,
-		Ontology: otg,
+		DB: mockNode.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      mockNode.Channel,
 		DB:           mockNode.DB,
 		HostProvider: mockNode.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)

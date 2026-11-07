@@ -17,6 +17,12 @@ import "github.com/synnaxlabs/x/encoding/orc"
 func (d Directory) EncodeOrc(w *orc.Writer) error {
 	w.Write(d.Key[:])
 	w.String(d.Name)
+	if d.Parent != nil {
+		w.Bool(true)
+		w.Write((*d.Parent)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -28,6 +34,19 @@ func (d *Directory) DecodeOrc(r *orc.Reader) error {
 	}
 	if d.Name, err = r.String(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			d.Parent = &hv
+		}
 	}
 	return nil
 }

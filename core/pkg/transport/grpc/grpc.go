@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -102,12 +102,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
 	t.UserSetRoles = noop.UnaryServer[user.SetRolesRequest, struct{}]{}
-
-	// ONTOLOGY
-	t.OntologyRetrieve = noop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
-	t.OntologyAddChildren = noop.UnaryServer[ontology.AddChildrenRequest, struct{}]{}
-	t.OntologyRemoveChildren = noop.UnaryServer[ontology.RemoveChildrenRequest, struct{}]{}
-	t.OntologyMoveChildren = noop.UnaryServer[ontology.MoveChildrenRequest, struct{}]{}
 
 	// RESOURCE
 	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
@@ -231,6 +225,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
 	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
+	t.ArcRetrieveDirectory = noop.UnaryServer[
+		apiarcdirectory.RetrieveRequest,
+		apiarcdirectory.RetrieveResponse,
+	]{}
 	t.ArcCreateDirectory = noop.UnaryServer[
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,

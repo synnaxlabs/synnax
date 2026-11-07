@@ -95,3 +95,93 @@ var _ = Describe("NewFieldMigration", func() {
 		},
 	)
 })
+
+var _ = Describe("Graph", func() {
+	var (
+		db             *gorp.DB
+		a, b, c        resource.ID
+		aToB, bToC     v0.Relationship
+		resources      func(ctx context.Context) []v0.Resource
+		relationships  func(ctx context.Context) []v0.Relationship
+		allRelationsOf = func(v0.Relationship) bool { return true }
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = gorp.Wrap(memkv.New())
+		DeferCleanup(db.Close)
+		a = resource.ID{Type: resource.TypeGroup, Key: "a"}
+		b = resource.ID{Type: resource.TypeGroup, Key: "b"}
+		c = resource.ID{Type: resource.TypeChannel, Key: "1"}
+		aToB = v0.Relationship{From: a, Type: v0.RelationshipTypeParentOf, To: b}
+		bToC = v0.Relationship{From: b, Type: v0.RelationshipTypeParentOf, To: c}
+		Expect(v0.DefineResources(ctx, db, a, b, c)).To(Succeed())
+		Expect(gorp.WrapWriter[string, v0.Relationship](db).Set(ctx, aToB, bToC)).
+			To(Succeed())
+		resources = func(ctx context.Context) []v0.Resource {
+			var out []v0.Resource
+			Expect(gorp.NewRetrieve[string, v0.Resource]().
+				Entries(&out).
+				Exec(ctx, db)).To(Succeed())
+			return out
+		}
+		relationships = func(ctx context.Context) []v0.Relationship {
+			return MustSucceed(v0.RetrieveRelationships(ctx, db, allRelationsOf))
+		}
+	})
+
+	Describe("DefineResources", func() {
+		It("Should store a resource for each ID", func(ctx SpecContext) {
+			Expect(resources(ctx)).To(ConsistOf(
+				v0.Resource{ID: a},
+				v0.Resource{ID: b},
+				v0.Resource{ID: c},
+			))
+		})
+	})
+
+	Describe("RetrieveRelationships", func() {
+		It("Should return the relationships keep accepts", func(ctx SpecContext) {
+			Expect(v0.RetrieveRelationships(
+				ctx,
+				db,
+				func(r v0.Relationship) bool { return r.To == c },
+			)).To(ConsistOf(bToC))
+		})
+	})
+
+	Describe("DeleteRelationships", func() {
+		It(
+			"Should delete the relationships and skip missing ones",
+			func(ctx SpecContext) {
+				missing := v0.Relationship{
+					From: c,
+					Type: v0.RelationshipTypeParentOf,
+					To:   a,
+				}
+				Expect(v0.DeleteRelationships(ctx, db, aToB, missing)).To(Succeed())
+				Expect(relationships(ctx)).To(ConsistOf(bToC))
+			},
+		)
+	})
+
+	Describe("DeleteResources", func() {
+		It(
+			"Should delete the resources and every relationship from or to them",
+			func(ctx SpecContext) {
+				Expect(v0.DeleteResources(ctx, db, b)).To(Succeed())
+				Expect(resources(ctx)).To(ConsistOf(
+					v0.Resource{ID: a},
+					v0.Resource{ID: c},
+				))
+				Expect(relationships(ctx)).To(BeEmpty())
+			},
+		)
+	})
+
+	Describe("Drop", func() {
+		It("Should delete every resource and relationship", func(ctx SpecContext) {
+			Expect(v0.Drop(ctx, db)).To(Succeed())
+			Expect(resources(ctx)).To(BeEmpty())
+			Expect(relationships(ctx)).To(BeEmpty())
+		})
+	})
+})

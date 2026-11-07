@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type task } from "@synnaxlabs/client";
+import { NotFoundError, query, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -18,7 +18,7 @@ import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createExecutingHandleError,
@@ -27,7 +27,8 @@ import {
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  HOST_ID,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -48,7 +49,7 @@ const roles = new RoleClients(client);
 
 const Item = Task.TREE_ITEMS.task;
 const { ContextMenu: Menu } = Item;
-assertDefined(Menu, "task ontology service has no ContextMenu");
+assertDefined(Menu, "task tree item has no ContextMenu");
 
 const createTask = async () => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
@@ -60,10 +61,17 @@ const createTask = async () => {
 };
 
 const renderTaskTree = async (t: task.Task) =>
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
-    root: ontology.ROOT_ID,
-    items: { ...Task.TREE_ITEMS, ...createHostItems([t.resourceID]) },
+    root: HOST_ID,
+    items: {
+      ...Task.TREE_ITEMS,
+      ...createHostItems((c) => [
+        Tree.createSource(c.tasks, query.keysRequest([t.key]), (tsk) =>
+          Tree.toResource("task")(tsk.payload),
+        ),
+      ]),
+    },
   });
 
 interface CreateMenuPropsParams {
@@ -104,7 +112,7 @@ const renderMenu = async (props: Tree.ContextMenuProps) => {
   return { store, statuses };
 };
 
-describe("task ontology", () => {
+describe("task tree", () => {
   describe("onSelect", () => {
     it("should open the task's configuration tab when double-clicked", async () => {
       const t = await createTask();

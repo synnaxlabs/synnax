@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -38,7 +39,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -120,11 +120,6 @@ type Transport struct {
 	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
-	// ONTOLOGY
-	OntologyRetrieve       freighter.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]
-	OntologyAddChildren    freighter.UnaryServer[ontology.AddChildrenRequest, struct{}]
-	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, struct{}]
-	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -219,16 +214,17 @@ type Transport struct {
 	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate          freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete          freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve        freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch        freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcUpdateTask      freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
-	ArcCreateDirectory freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
-	ArcRenameDirectory freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
-	ArcDeleteDirectory freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
-	ArcMove            freighter.UnaryServer[arc.MoveRequest, struct{}]
-	ArcLSP             freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate            freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete            freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve          freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch          freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask        freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
+	ArcCreateDirectory   freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
+	ArcRenameDirectory   freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDeleteDirectory   freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
+	ArcMove              freighter.UnaryServer[arc.MoveRequest, struct{}]
+	ArcLSP               freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
@@ -271,7 +267,6 @@ type Layer struct {
 	Control      *control.Service
 	Connectivity *connectivity.Service
 	License      *license.Service
-	Ontology     *ontology.Service
 	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
@@ -372,12 +367,6 @@ func (l *Layer) BindTo(t Transport) {
 
 		// CONTROL
 		t.ControlRetrieve,
-
-		// ONTOLOGY
-		t.OntologyRetrieve,
-		t.OntologyAddChildren,
-		t.OntologyRemoveChildren,
-		t.OntologyMoveChildren,
 
 		// RESOURCE
 		t.ResourceSearch,
@@ -513,6 +502,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcUpdateTask,
+		t.ArcRetrieveDirectory,
 		t.ArcCreateDirectory,
 		t.ArcRenameDirectory,
 		t.ArcDeleteDirectory,
@@ -594,18 +584,6 @@ func (l *Layer) BindTo(t Transport) {
 
 	// CONTROL
 	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
-
-	// ONTOLOGY
-	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
-	t.OntologyAddChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.AddChildren),
-	)
-	t.OntologyRemoveChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.RemoveChildren),
-	)
-	t.OntologyMoveChildren.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Ontology.MoveChildren),
-	)
 
 	// RESOURCE
 	t.ResourceSearch.BindHandler(l.Resource.Search)
@@ -800,6 +778,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(l.Arc.Dispatch)
 	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
+	t.ArcRetrieveDirectory.BindHandler(l.Arc.RetrieveDirectories)
 	t.ArcCreateDirectory.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
 	)
@@ -829,8 +808,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
-		Ontology: cfg.Service.Ontology,
 		User:     cfg.Service.User,
+		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
 		Cluster:  cfg.Distribution.Cluster,
 	}); err != nil {
@@ -888,12 +867,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.License, err = license.NewService(license.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		License: cfg.Service.License,
-	}); err != nil {
-		return nil, err
-	}
-	if l.Ontology, err = ontology.NewService(ontology.ServiceConfig{
-		Ontology: cfg.Service.Ontology,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

@@ -17,8 +17,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -41,8 +41,7 @@ type MoveMembers func(
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
+	DB *gorp.DB
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
@@ -54,7 +53,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.MoveMembers = override.Nil(c.MoveMembers, other.MoveMembers)
 	return c
 }
@@ -63,7 +61,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -90,8 +87,22 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}); err != nil {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	return s, nil
+}
+
+// BuiltinDeleteMigration returns a migration that deletes every group with the builtin
+// scope. The service layer runs it after the ontology drop.
+func (s *Service) BuiltinDeleteMigration() gorp.Migration {
+	return migrate.New(
+		"v61_delete_builtin_groups",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			return s.table.NewDelete().
+				Where(gorp.Match(func(_ gorp.Context, g *Group) (bool, error) {
+					return g.Scope == resource.TypeBuiltin, nil
+				})).
+				Exec(ctx, tx)
+		},
+	)
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
@@ -127,11 +138,10 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:       s,
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		table:     s.table,
-		onMove:    s.cfg.MoveMembers,
+		svc:    s,
+		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		table:  s.table,
+		onMove: s.cfg.MoveMembers,
 	}
 }
 
@@ -208,11 +218,10 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	svc       *Service
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	table     *gorp.Table[Key, Group]
-	onMove    MoveMembers
+	svc    *Service
+	tx     gorp.Tx
+	table  *gorp.Table[Key, Group]
+	onMove MoveMembers
 }
 
 // inTx calls f with w, or with a Writer on a transaction of its own when w has no
@@ -281,11 +290,9 @@ func (w Writer) create(ctx context.Context, g *Group) error {
 		return err
 	}
 	if moved {
-		if err = w.moveMembers(ctx, []Key{g.Key}, top); err != nil {
-			return err
-		}
+		return w.moveMembers(ctx, []Key{g.Key}, top)
 	}
-	return w.otgWriter.DefineResources(ctx, g.ResourceID())
+	return nil
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is
@@ -387,7 +394,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	named := set.New(
 		lo.Map(keys, func(k Key, _ int) string { return gorp.FormatKey(k) })...,
 	)
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
 		Guard(func(ctx gorp.Context, g Group) error {
 			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
@@ -406,10 +413,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			}
 			return nil
 		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.

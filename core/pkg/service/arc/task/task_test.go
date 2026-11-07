@@ -40,7 +40,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -99,25 +98,19 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB: node.DB,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
@@ -133,17 +126,14 @@ var _ = Describe("Task", Ordered, func() {
 			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB:    node.DB,
+			Group: groupSvc,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           node.DB,
-			Ontology:     otg,
 			HostProvider: node.Cluster,
 			Status:       statusSvc,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
@@ -152,13 +142,12 @@ var _ = Describe("Task", Ordered, func() {
 			DB: node.DB,
 		}))
 		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			Channel:  channelSvc,
-			ImEx:     imex.NewService(),
-			Configs:  MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
+			DB:      node.DB,
+			Rack:    rackSvc,
+			Status:  statusSvc,
+			Channel: channelSvc,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
 		}))
 		taskWriter = taskSvc.NewWriter(nil)
 	})

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -53,8 +52,6 @@ func validateWrite(l Log) error {
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	table      *gorp.Table[Key, Log]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -123,12 +120,6 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 	}
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	if !exists {
-		otgID := l.ResourceID()
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -221,12 +212,9 @@ func (w Writer) CreateMany(ctx context.Context, logs *[]Log) error {
 
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.
+	return w.
 		table.
 		NewDelete().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }

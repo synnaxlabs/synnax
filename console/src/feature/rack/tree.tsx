@@ -9,14 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import {
-  arc,
-  device,
-  type ontology,
-  rack,
-  type resource,
-  task,
-} from "@synnaxlabs/client";
+import { arc, device, rack, type resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -199,8 +192,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const toResource = (r: rack.Rack): ontology.Resource =>
-  Tree.toResource("rack")(r.payload);
+const toResource = (r: rack.Rack): Tree.Resource => Tree.toResource("rack")(r.payload);
 
 /** Lists the racks that sit in a group. */
 export const GROUP_MEMBER: Group.Member = {

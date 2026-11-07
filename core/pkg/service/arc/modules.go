@@ -12,15 +12,11 @@ package arc
 import (
 	"context"
 	"strings"
-	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -41,36 +37,37 @@ func (s *Service) retrieveModuleText(
 ) (arctext.Text, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
-	parent := directory.ResourceID(s.root)
+	parent := s.root
 	for _, name := range segments[:len(segments)-1] {
-		dir, ok, err := s.childNamed(
-			ctx, tx, parent, resource.TypeArcDirectory, name,
-		)
-		if err != nil {
+		var dirs []directory.Directory
+		if err := s.directories.NewRetrieve().
+			Where(directory.And(
+				directory.MatchParents(parent),
+				directory.MatchNames(name),
+			)).
+			Entries(&dirs).
+			Exec(ctx, tx); err != nil {
 			return arctext.Text{}, err
 		}
-		if !ok {
+		if len(dirs) == 0 {
 			return arctext.Text{}, notFound
 		}
-		parent = dir
+		parent = dirs[0].Key
 	}
-	id, ok, err := s.childNamed(
-		ctx, tx, parent, resource.TypeArc, segments[len(segments)-1],
-	)
-	if err != nil {
+	var arcs []Arc
+	if err := s.NewRetrieve().
+		Where(And(
+			MatchDirectories(parent),
+			MatchNames(segments[len(segments)-1]),
+		)).
+		Entries(&arcs).
+		Exec(ctx, tx); err != nil {
 		return arctext.Text{}, err
 	}
-	if !ok {
+	if len(arcs) == 0 {
 		return arctext.Text{}, notFound
 	}
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return arctext.Text{}, err
-	}
-	var a Arc
-	if err = s.NewRetrieve().Where(MatchKeys(key)).Entry(&a).Exec(ctx, tx); err != nil {
-		return arctext.Text{}, err
-	}
+	a := arcs[0]
 	if a.Type() != TypeModule {
 		return arctext.Text{}, errors.Newf(
 			"%q is an automation and cannot be imported", path,
@@ -83,27 +80,4 @@ func (s *Service) retrieveModuleText(
 		)
 	}
 	return src.Text.Materialize(), nil
-}
-
-// childNamed returns the child of parent with the type and name, false if none.
-func (s *Service) childNamed(
-	ctx context.Context,
-	tx gorp.Tx,
-	parent resource.ID,
-	typ resource.Type,
-	name string,
-) (resource.ID, bool, error) {
-	var children []ontology.Resource
-	if err := s.cfg.Ontology.NewRetrieve().
-		WhereIDs(parent).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(typ).
-		Entries(&children).
-		Exec(ctx, tx); err != nil {
-		return resource.ID{}, false, err
-	}
-	child, ok := lo.Find(children, func(r ontology.Resource) bool {
-		return r.Name == name
-	})
-	return child.ID, ok, nil
 }

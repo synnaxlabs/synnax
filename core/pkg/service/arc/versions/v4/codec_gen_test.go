@@ -31,9 +31,10 @@ import (
 
 var (
 	fullyPopulatedBase = v4.Base{
-		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:   "test_2",
-		Source: v4.Source{Variant: v4.TextSource{Text: text.Text{Doc: text.Document{}}}},
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:      "test_2",
+		Source:    v4.Source{Variant: v4.TextSource{Text: text.Text{Doc: text.Document{}}}},
+		Directory: new(uuid.UUID(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 	}
 )
 
@@ -73,6 +74,7 @@ var _ = Describe("Codec", func() {
 						Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
 					},
 				}},
+				Directory: nil,
 			}),
 		)
 	})
@@ -237,6 +239,7 @@ func FuzzDecodeBase(f *testing.F) {
 					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
 				},
 			}},
+			Directory: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

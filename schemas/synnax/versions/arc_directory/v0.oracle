@@ -12,12 +12,15 @@ Key = uuid {
 }
 
 Directory struct {
-    key  Key    {
+    key    Key    {
         @doc value "is the unique identifier for this directory."
         @key
     }
-    name string {
+    name   string {
         @doc value "is the name of the directory, one segment of an import path."
+    }
+    parent Key?   {
+        @doc value "is the directory that holds this directory. The root has none."
     }
 
     @doc value  "holds Arcs and other directories below the Arcs root."

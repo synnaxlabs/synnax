@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
@@ -47,31 +46,22 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -81,7 +71,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -126,7 +115,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			calc, channelSvc, statusSvc, labelSvc, groupSvc, otg, node,
+			calc, channelSvc, statusSvc, labelSvc, groupSvc, node,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

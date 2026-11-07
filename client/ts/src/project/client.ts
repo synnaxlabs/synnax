@@ -17,14 +17,12 @@ import { z } from "zod";
 
 import { group } from "@/group";
 import { imex } from "@/imex";
-import { type ontology } from "@/ontology";
 import {
   type Key,
   keyZ,
   type New,
   type Project,
   projectZ,
-  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -67,7 +65,6 @@ export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
@@ -132,10 +129,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -152,10 +146,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

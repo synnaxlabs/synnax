@@ -18,9 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -43,7 +41,6 @@ var _ = Describe("Status", Ordered, func() {
 		svc      *status.Service
 		w        status.Writer
 		labelSvc *label.Service
-		otg      *ontology.Ontology
 		racks    *gorp.Table[rack.Key, rack.Rack]
 		tx       gorp.Tx
 	)
@@ -56,27 +53,15 @@ var _ = Describe("Status", Ordered, func() {
 			store,
 			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 		))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{
-			DB: db,
-		}))
-		g := MustOpen(
-			group.OpenService(
-				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg},
-			),
-		)
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 			DB:   db,
 			Name: string(resource.TypeRack),
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 	openTx := func() {
@@ -261,6 +246,9 @@ var _ = Describe("Status", Ordered, func() {
 						Expect(svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](s.Key)).
 							Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+						Expect(svc.Resources().Retrieve(
+							ctx, tx, []resource.ID{status.ResourceID(s.Key)},
+						)).To(BeEmpty())
 					},
 				)
 			})
@@ -1078,11 +1066,6 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
 				key, _ := statusv2.MigrateKey(missing.String())
 				Expect(retrieve(ctx, key).Owner).To(Equal(&missing))
-				var res ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(status.ResourceID(key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
 			},
 		)
 	})
@@ -1185,10 +1168,10 @@ var _ = Describe("Status", Ordered, func() {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -1197,10 +1180,10 @@ var _ = Describe("Status", Ordered, func() {
 			id := create(ctx, "c", "cryogenic")
 			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
 			q := search.Query[resource.ID]{Term: "hydraulic"}
-			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 				To(Equal([]resource.ID{id}))
 			q = search.Query[resource.ID]{Term: "cryogenic"}
-			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 				To(BeEmpty())
 		})
 	})

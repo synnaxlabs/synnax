@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type ontology,
   query,
   resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { type destructor, type record } from "@synnaxlabs/x";
+
+import { type Resource } from "@/platform/tree/types";
 
 /**
  * A live list holding some of the children of a tree node. It reads each listed
@@ -21,15 +22,15 @@ import { type destructor, type record } from "@synnaxlabs/x";
  */
 export interface Source {
   /** Fetches the list. The answer reaches onChange handlers too. */
-  retrieve: () => Promise<ontology.Resource[]>;
+  retrieve: () => Promise<Resource[]>;
   /** Calls the handler with the list each time it changes. */
   onChange: (
-    handler: (resources: ontology.Resource[]) => void,
+    handler: (resources: Resource[]) => void,
   ) => destructor.Destructor;
   /** Returns the cached list, or undefined when nothing is cached. */
-  getCached: () => ontology.Resource[] | undefined;
+  getCached: () => Resource[] | undefined;
   /** Returns the cached resource under the key of a resource the list holds. */
-  get: (key: string) => ontology.Resource | undefined;
+  get: (key: string) => Resource | undefined;
   /** Calls the handler each time the resource under the key changes. */
   subscribe: (key: string, handler: () => void) => destructor.Destructor;
 }
@@ -70,14 +71,14 @@ interface Reads<D extends record.Keyed<record.Key>> {
 
 const fromReads = <D extends record.Keyed<record.Key>>(
   reads: Reads<D>,
-  toResource: (record: D) => ontology.Resource,
+  toResource: (record: D) => Resource,
   filter: (record: D) => boolean,
 ): Source => {
   // A record keeps its identity until it changes, so a row reads the same resource
   // until then.
-  const resources = new WeakMap<D, ontology.Resource>();
+  const resources = new WeakMap<D, Resource>();
   const keys = new Map<string, D["key"]>();
-  const convert = (record: D): ontology.Resource => {
+  const convert = (record: D): Resource => {
     let res = resources.get(record);
     if (res == null) {
       res = toResource(record);
@@ -85,7 +86,7 @@ const fromReads = <D extends record.Keyed<record.Key>>(
     }
     return res;
   };
-  const convertList = (records: D[]): ontology.Resource[] => {
+  const convertList = (records: D[]): Resource[] => {
     const listed = records.filter(filter);
     keys.clear();
     return listed.map((record) => {
@@ -125,7 +126,7 @@ const fromReads = <D extends record.Keyed<record.Key>>(
 export const createSource = <Q, D extends record.Keyed<record.Key>>(
   retriever: Retriever<Q, D>,
   q: Q,
-  toResource: (record: D) => ontology.Resource,
+  toResource: (record: D) => Resource,
   filter: (record: D) => boolean = () => true,
 ): Source =>
   fromReads(
@@ -143,7 +144,7 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
 /** Returns a function that shows a typed record of the type as a tree resource. */
 export const toResource =
   (type: resource.Type) =>
-  <D extends record.KeyedNamed<record.Key>>(record: D): ontology.Resource => {
+  <D extends record.KeyedNamed<record.Key>>(record: D): Resource => {
     const id: resource.ID = { type, key: String(record.key) };
     return {
       key: resource.idToString(id),
@@ -152,25 +153,3 @@ export const toResource =
       data: record as unknown as record.Unknown,
     };
   };
-
-/** Builds a source that lists the ontology children of the node of the given types. */
-export const createOntologySource = (
-  client: Client,
-  id: resource.ID,
-  types?: resource.Type[],
-  filter: (resource: ontology.Resource) => boolean = () => true,
-): Source => {
-  const q = { ids: id, types };
-  const { ontology: resources } = client;
-  return fromReads(
-    {
-      retrieve: async () => await resources.children.retrieve(q),
-      onList: (handler) => resources.children.onChange(q, handler),
-      getList: () => resources.children.getCached(q),
-      onRecord: (key, handler) => resources.onChange(key, handler),
-      getRecord: (key) => resources.getCached(key),
-    },
-    (r) => r,
-    filter,
-  );
-};

@@ -19,8 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -243,14 +243,12 @@ var _ = Describe("Writer", func() {
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should remove the log's ontology resource", func(ctx SpecContext) {
-			l := log.Log{Project: &proj.Key, Name: "to-delete-otg"}
+		It("Should leave a deleted log out of its resources", func(ctx SpecContext) {
+			l := log.Log{Project: &proj.Key, Name: "to-delete-resource"}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().
-				WhereIDs(l.ResourceID()).
-				Entry(&ontology.Resource{}).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{l.ResourceID()})).
+				To(BeEmpty())
 		})
 
 		It("Should delete multiple logs in one call", func(ctx SpecContext) {

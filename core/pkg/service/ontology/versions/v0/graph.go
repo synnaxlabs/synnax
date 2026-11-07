@@ -135,3 +135,43 @@ func migrateFields[K gorp.Key, E gorp.Entry[K]](
 	}
 	return DeleteRelationships(ctx, tx, rels...)
 }
+
+// DefineResources stores a resource for each of ids.
+func DefineResources(ctx context.Context, tx gorp.Tx, ids ...resource.ID) error {
+	resources := make([]Resource, len(ids))
+	for i, id := range ids {
+		resources[i] = Resource{ID: id}
+	}
+	return gorp.WrapWriter[string, Resource](tx).Set(ctx, resources...)
+}
+
+// DeleteResources deletes the resources with ids and every relationship from or to
+// them.
+func DeleteResources(ctx context.Context, tx gorp.Tx, ids ...resource.ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	deleted := set.New(ids...)
+	rels, err := RetrieveRelationships(ctx, tx, func(r Relationship) bool {
+		return deleted.Contains(r.From) || deleted.Contains(r.To)
+	})
+	if err != nil {
+		return err
+	}
+	if err = DeleteRelationships(ctx, tx, rels...); err != nil {
+		return err
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = id.String()
+	}
+	return gorp.WrapWriter[string, Resource](tx).Delete(ctx, keys...)
+}
+
+// Drop deletes every stored resource and relationship.
+func Drop(ctx context.Context, tx gorp.Tx) error {
+	if err := gorp.NewDelete[string, Resource]().Exec(ctx, tx); err != nil {
+		return err
+	}
+	return gorp.NewDelete[string, Relationship]().Exec(ctx, tx)
+}

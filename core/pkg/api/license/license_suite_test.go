@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -52,23 +50,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	kvDB := memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Password: passwordSvc,
+		DB: db, Password: passwordSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-		DB:       db,
-		Ontology: otg,
-		User:     userSvc,
-		Status:   statusSvc,
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
 	})).RBAC
 	signer = svctestutil.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{

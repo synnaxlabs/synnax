@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -55,7 +54,6 @@ var _ = Describe("Task", Ordered, func() {
 	var (
 		db          *gorp.DB
 		svc         *task.Service
-		otg         *ontology.Ontology
 		w           task.Writer
 		tx          gorp.Tx
 		rackService *rack.Service
@@ -68,27 +66,18 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
-			Ontology:            otg,
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -97,12 +86,11 @@ var _ = Describe("Task", Ordered, func() {
 			),
 		}))
 		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB:    db,
+			Group: g,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
 			Variant: arc.AutomationArc{
 				Base: arc.Base{
@@ -121,12 +109,11 @@ var _ = Describe("Task", Ordered, func() {
 			slices.Concat(pd.Stores(), at.Stores(), lj.Stores())...,
 		))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Rack:     rackService,
-			Status:   stat,
-			ImEx:     imex.NewService(),
-			Configs:  configs,
+			DB:      db,
+			Rack:    rackService,
+			Status:  stat,
+			ImEx:    imex.NewService(),
+			Configs: configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -553,30 +540,6 @@ var _ = Describe("Task", Ordered, func() {
 				data := MustSucceed(store.Read(ctx, tx, copied.Key))
 				Expect(data).To(HaveKeyWithValue("routing_key", "rk-copy"))
 			},
-		)
-		DescribeTable(
-			"Should give a task a resource but no group parent",
-			func(ctx SpecContext, internal bool) {
-				t := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Resource Task",
-					Internal: internal,
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				Expect(otg.NewRetrieve().
-					WhereIDs(t.ResourceID()).
-					Exists(ctx, tx)).To(BeTrue())
-				var parents []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(t.ResourceID()).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&parents).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(parents).To(BeEmpty())
-			},
-			Entry("internal", true),
-			Entry("regular", false),
 		)
 	})
 
@@ -1830,10 +1793,10 @@ var _ = Describe("Task", Ordered, func() {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -1841,7 +1804,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should match a task by its type", func(ctx SpecContext) {
 			id := create(ctx, "igniter")
 			q := search.Query[resource.ID]{Term: testType}
-			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+			Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 				To(ContainElement(id))
 		})
 
@@ -1850,7 +1813,9 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})
@@ -1875,39 +1840,28 @@ var _ = Describe("Writer with no transaction", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
-			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Rack:     racks,
-			Status:   stat,
-			ImEx:     imex.NewService(),
-			Configs:  MustSucceed(config.NewRegistry(pd.Stores()...)),
+			DB:      db,
+			Rack:    racks,
+			Status:  stat,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(config.NewRegistry(pd.Stores()...)),
 		}))
 		testRack = rack.Rack{Name: "Test Rack"}
 		Expect(racks.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())

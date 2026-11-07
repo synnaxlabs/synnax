@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -31,15 +30,12 @@ var _ = Describe("Provision", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Role:     roleSvc,
+			DB:   db,
+			Role: roleSvc,
 		}))
 	})
 	provision := func(ctx context.Context) builtin.ProvisionResult {

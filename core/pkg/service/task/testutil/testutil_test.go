@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,27 +39,22 @@ func openTargets(ctx SpecContext) (
 ) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statuses,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roles)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Status:   statuses,
-		Rack:     racks,
+		DB:     db,
+		Status: statuses,
+		Rack:   racks,
 	}))
 	return devices, statuses, racks.EmbeddedKey, tasktestutil.NewTargets(
 		tasktestutil.TargetsConfig{
@@ -79,8 +73,7 @@ var _ = Describe("Tasks", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{
 				Key:    uuid.New(),

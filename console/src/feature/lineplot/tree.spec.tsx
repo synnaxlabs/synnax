@@ -30,7 +30,7 @@ import {
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 
@@ -100,7 +100,7 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
   return { store, props, itemID, rerenderWith };
 };
 
-describe("lineplot/ontology", () => {
+describe("lineplot/tree", () => {
   describe("TreeContextMenu", () => {
     it("copies the plot's properties to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
@@ -208,7 +208,7 @@ describe("lineplot/ontology", () => {
   describe("onSelect", () => {
     it("retrieves the plot and opens it as a tab when double-clicked", async () => {
       const plot = await createLinePlot();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
         root: clientProject.resourceID(await project()),
         items: { ...Project.TREE_ITEMS, ...LinePlot.TREE_ITEMS },

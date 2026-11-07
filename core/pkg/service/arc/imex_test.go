@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -142,22 +141,16 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should parent the imported Arc under the root Arcs directory",
+			"Should put the imported Arc in the root Arcs directory",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_v3.json",
 					imex.ImportOptions{Parent: testParent},
 				)
-				var parents []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(res.ResourceID()).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&parents).
-					Exec(ctx, db)).To(Succeed())
-				Expect(parents).To(HaveLen(1))
-				Expect(parents[0].ID.Type).To(Equal(resource.TypeArcDirectory))
-				Expect(parents[0].Name).To(Equal("Arcs"))
+				root := rootDirectory(ctx, nil)
+				Expect(root.Name).To(Equal("Arcs"))
+				Expect(res.Base().Directory).To(HaveValue(Equal(root.Key)))
 			},
 		)
 

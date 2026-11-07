@@ -14,6 +14,17 @@ import { Flux } from "@/flux";
 
 export const RESOURCE_NAME = "directory";
 
+export type RetrieveRootQuery = Record<string, never>;
+
+/** Returns the key of the directory that holds every other directory and Arc. */
+export const { use: useRootKey } = Flux.createRetrieve<
+  RetrieveRootQuery,
+  arc.directory.Key
+>({
+  name: "root directory",
+  retrieve: async ({ client }) => (await client.arcs.directories.retrieveRoot()).key,
+});
+
 export interface CreateParams extends arc.directory.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({

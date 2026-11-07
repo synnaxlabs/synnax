@@ -196,12 +196,8 @@ var _ = Describe("Retrieve", func() {
 
 		Context("Composed with another filter", func() {
 			// When MatchKeys is layered with another filter (Match, MatchRaw,
-			// WherePrefix, etc.), Exec must treat missing keys as empty slots
-			// rather than fail with ErrNotFound. The ontology Retrieve
-			// pipeline depends on this: between clauses it injects
-			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
-			// transient miss (orphaned relationship, freshly-deleted
-			// resource) must not blow up the whole traversal.
+			// WherePrefix, etc.), Exec treats missing keys as empty slots rather than
+			// failing with ErrNotFound.
 			DescribeTable(
 				"Should NOT return ErrNotFound when MatchKeys is combined with a filter and some keys are missing",
 				func(ctx SpecContext, build func() gorp.Retrieve[int32, entry], wantIndices []int) {

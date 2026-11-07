@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,8 +32,7 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{
 				Key:    uuid.New(),

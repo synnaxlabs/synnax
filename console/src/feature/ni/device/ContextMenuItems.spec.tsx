@@ -65,7 +65,7 @@ const renderContextMenu = async () => {
   return { store, deviceKey: dev.key };
 };
 
-describe("device ontology context menu", () => {
+describe("device tree context menu", () => {
   it("should offer every NI task type and create the clicked one bound to the device", async () => {
     const { store, deviceKey } = await renderContextMenu();
     for (const label of TASK_LABELS)

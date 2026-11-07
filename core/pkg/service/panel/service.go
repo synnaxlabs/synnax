@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -34,9 +33,8 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
+	Signals *signals.Provider
+	DB      *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -45,7 +43,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -54,7 +51,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("panel")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -102,7 +98,6 @@ func OpenService(
 			s.state.Dispatcher().Notify(ctx, p.Key, create)
 		},
 	)))
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -176,7 +171,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

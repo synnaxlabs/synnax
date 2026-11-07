@@ -51,7 +51,7 @@ export interface ImportOptions extends Options {
   fileName: string;
   /**
    * The resource to create the imported resource under, such as the project of a
-   * project item. The Core creates the resource and its parent relationship in a single
+   * project item. The Core creates the resource with its parent in a single
    * transaction, so a parenting failure rolls back the import. Symbols take no parent.
    */
   parent?: resource.ID;
@@ -93,7 +93,7 @@ export class Client {
   }
 
   /**
-   * Imports a resource from the given serialized source and returns its new ontology
+   * Imports a resource from the given serialized source and returns its new resource
    * ID.
    * @param source - the serialized resource (e.g. a file's contents). A Blob is sent
    * from wherever the engine holds it, so a file never enters client memory; bytes are

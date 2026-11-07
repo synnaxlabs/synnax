@@ -10,6 +10,8 @@
 package versions_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -17,9 +19,9 @@ import (
 
 var _ = Describe("NewMigrations", func() {
 	It("Should end the chain with the root migration", func() {
-		chain := versions.NewMigrations(versions.MigrationsConfig{})
+		chain := versions.NewMigrations(uuid.New())
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
-		Expect(chain[len(chain)-1].Key()).To(Equal("v61_arcs_directory"))
+		Expect(chain[len(chain)-1].Key()).To(Equal("v61_arcs_root_directory"))
 	})
 })
 

@@ -47,9 +47,8 @@ type indexedEntry struct {
 func (e indexedEntry) GorpKey() int32    { return e.ID }
 func (e indexedEntry) SetOptions() []any { return nil }
 
-// relationEntry is a composite-string-keyed test entry. Its gorp key is
-// the "<from>-><to>" string, mimicking the shape of an ontology
-// relationship key.
+// relationEntry is a composite-string-keyed test entry. Its gorp key is the
+// "<from>-><to>" string.
 type relationEntry struct {
 	From  string
 	To    string
@@ -1413,12 +1412,8 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 		)
 	})
 
-	// Tx delta visibility mirrors the Lookup test block: inserts,
-	// updates, deletes, and rollback exercised against a LookupIndex
-	// over a composite-string-keyed entry. This is the analogue that
-	// covers the ontology relationship shape directly — the motivating
-	// broken case (dagWriter.DefineRelationship cycle check over a byTo
-	// index) is reproduced here.
+	// Tx delta visibility mirrors the Lookup test block: inserts, updates, deletes, and
+	// rollback exercised against a LookupIndex over a composite-string-keyed entry.
 	Describe("Tx delta visibility", func() {
 		var (
 			table *gorp.Table[string, relationEntry]
@@ -1499,13 +1494,8 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
 		})
 
-		// Regression for the ontology DAG writer cycle check. The
-		// dagWriter.DefineRelationship flow writes a relationship
-		// and then traverses descendants via byTo.Filter to detect
-		// cycles. Before the overlay, the filter missed
-		// in-tx writes and cycle detection silently passed invalid
-		// graphs. This test reproduces the shape: insert A->B and
-		// then retrieve via byTo.Filter("B") in the same tx.
+		// A graph walk that writes an edge and then filters on it in the same tx, such
+		// as a cycle check, must see the write.
 		It(
 			"Should surface a newly-written relationship via byTo.Filter in the same tx",
 			func(ctx SpecContext) {

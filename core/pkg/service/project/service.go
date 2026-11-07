@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -29,9 +28,8 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
+	Signals *signals.Provider
+	DB      *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -40,7 +38,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -49,7 +46,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("project")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -72,18 +68,15 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
-		DB:         cfg.DB,
-		Name:       tableName,
-		Indexes:    s.indexes.all(),
-		References: s.indexes.references(),
-		Migrations: versions.NewMigrations(
-			versions.MigrationsConfig{Ontology: cfg.Ontology},
-		),
+		DB:              cfg.DB,
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -103,7 +96,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:   s,
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
 		table: s.table,
 	}
 }

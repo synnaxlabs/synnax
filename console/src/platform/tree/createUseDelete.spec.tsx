@@ -43,11 +43,11 @@ const createChannel = async () =>
 const setup = async (target: channel.Channel) => {
   const store = await createTestStore();
   const propsFor = (ch: channel.Channel): Tree.ContextMenuProps => {
-    const otgID = channel.resourceID(ch.key);
+    const id = channel.resourceID(ch.key);
     return {
       ...createBaseProps({ client, store }),
-      selection: createSelection({ ids: [otgID] }),
-      state: createState([createResource(otgID, ch.name)]),
+      selection: createSelection({ ids: [id] }),
+      state: createState([createResource(id, ch.name)]),
     };
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });

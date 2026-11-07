@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
@@ -327,11 +326,9 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should keep the line plots of a group in its project during concurrent moves",
 		func(ctx SpecContext) {
 			moveDB := DeferClose(gorp.Wrap(memkv.New()))
-			moveOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: moveDB}))
 			var plots *lineplot.Service
 			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       moveDB,
-				Ontology: moveOtg,
+				DB: moveDB,
 				MoveMembers: func(
 					ctx context.Context,
 					tx gorp.Tx,
@@ -342,13 +339,11 @@ var _ = Describe("Writer with no transaction", func() {
 				},
 			}))
 			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-				DB:       moveDB,
-				Ontology: moveOtg,
+				DB: moveDB,
 			}))
 			plots = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:       moveDB,
-				Ontology: moveOtg,
-				ImEx:     imex.NewService(),
+				DB:   moveDB,
+				ImEx: imex.NewService(),
 			}))
 			tops := make([]resource.ID, 2)
 			for i := range tops {

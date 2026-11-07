@@ -48,8 +48,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -164,10 +163,6 @@ func (c LayerConfig) Validate() error {
 // The service layer wraps the distribution layer to provide the core services of
 // synnax that do not require network awareness.
 type Layer struct {
-	// Ontology manages relationships between arbitrary data structures in a directed
-	// acyclic graph. It is the main method for defining relationships between resources
-	// in Synnax.
-	Ontology *ontology.Ontology
 	// Group is for grouping related resources in the cluster.
 	Group *group.Service
 	// User is the service for registering and retrieving information about users.
@@ -251,7 +246,7 @@ type Layer struct {
 	View *view.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
-	// Node publishes the cluster's nodes as resources in the ontology.
+	// Node serves the cluster's nodes as resources.
 	Node *node.Service
 	// Resource searches and names records of every type.
 	Resource *resource.Service
@@ -295,16 +290,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
-	if l.Ontology, err = ontology.Open(ctx, ontology.Config{
-		Instrumentation: cfg.Child("ontology"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Ontology) {
+	// The migrations of the tables below read the ontology of an upgraded store, and
+	// ontologyDropMigration deletes it once they have run.
+	if err = ontology.Migrate(
+		ctx,
+		cfg.Distribution.DB,
+		cfg.Child("ontology"),
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Group, err = group.OpenService(ctx, group.ServiceConfig{
 		Instrumentation: cfg.Child("group"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		// The visualization services open after the group service, so the hook reads
 		// them when it runs.
 		MoveMembers: func(
@@ -329,18 +326,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
-	if l.Node, err = node.NewService(ctx, node.ServiceConfig{
+	if l.Node, err = node.NewService(node.ServiceConfig{
 		Instrumentation: cfg.Child("node"),
 		Cluster:         cfg.Distribution.Cluster,
-		Ontology:        l.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		Instrumentation: cfg.Child("label"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -349,7 +343,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		status.ServiceConfig{
 			Instrumentation: cfg.Child("status"),
 			DB:              cfg.Distribution.DB,
-			Ontology:        l.Ontology,
 		},
 	); !ok(err, l.Status) {
 		return nil, err
@@ -365,7 +358,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         cfg.Distribution.Channel,
 		DB:              cfg.Distribution.DB,
 		HostProvider:    cfg.Distribution.Cluster,
-		Ontology:        l.Ontology,
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
@@ -430,14 +422,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := ontologysignals.Publish(
-		ctx,
-		cfg.Child("ontology_signals"),
-		l.Signals,
-		l.Ontology,
-	); !ok(err, closer) {
-		return nil, err
-	}
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
@@ -478,7 +462,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	roles, err := rbac.OpenRoles(ctx, rbac.RolesConfig{
 		Instrumentation: cfg.Child("rbac"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 	})
 	if !ok(err, roles) {
@@ -494,8 +477,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
 		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
@@ -530,7 +511,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		HostProvider:    cfg.Distribution.Cluster,
 		Status:          l.Status,
 		DriverRole:      roles.Builtin.DriverKey,
@@ -546,7 +526,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.RBAC, err = rbac.NewService(ctx, rbac.ServiceConfig{
 		Instrumentation: cfg.Child("rbac"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Roles:           roles,
 		User:            l.User,
 		Rack:            l.Rack,
@@ -577,7 +556,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		Instrumentation: cfg.Child("ranger"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
 	}); !ok(err, l.Ranger) {
@@ -595,7 +573,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
 		Instrumentation: cfg.Child("project"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 	}); !ok(err, l.Project) {
 		return nil, err
@@ -604,7 +581,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
@@ -614,7 +590,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		Instrumentation: cfg.Child("lineplot"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.LinePlot) {
@@ -623,7 +598,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
@@ -632,7 +606,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
 		Instrumentation: cfg.Child("panel"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 	}); !ok(err, l.Panel) {
 		return nil, err
@@ -640,7 +613,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Table) {
@@ -649,7 +621,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
@@ -703,7 +674,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 	})
 	if !ok(err, arcTable) {
 		return nil, err
@@ -744,7 +714,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
@@ -764,7 +733,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Table:           arcTable,
-			Ontology:        l.Ontology,
 			Channel:         l.Channel,
 			Task:            l.Task,
 			MatchTasks:      l.ArcTask.MatchArcs,
@@ -778,7 +746,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
 		Instrumentation: cfg.Child("alias"),
 		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
 		Signals:         l.Signals,
 		Channel:         l.Channel,
 		ParentRetriever: l.Ranger,
@@ -791,7 +758,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("view"),
 			DB:              cfg.Distribution.DB,
 			Signals:         l.Signals,
-			Ontology:        l.Ontology,
 		},
 	); !ok(err, l.View) {
 		return nil, err
@@ -800,6 +766,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB: cfg.Distribution.DB,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
+			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeChannel:         l.Channel.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
@@ -858,8 +825,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations:      l.Panel.CompositionMigrations(),
+		Migrations: append(
+			l.Panel.CompositionMigrations(),
+			ontologyDropMigration,
+			l.Group.BuiltinDeleteMigration(),
+		),
 	}); !ok(err, nil) {
+		return nil, err
+	}
+	if err = deleteOntologyChannels(
+		ctx,
+		cfg.Distribution.DB,
+		l.Channel,
+	); !ok(err, nil) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

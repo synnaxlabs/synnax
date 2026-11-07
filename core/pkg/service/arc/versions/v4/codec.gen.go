@@ -14,6 +14,7 @@ package v4
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -67,6 +68,12 @@ func (bv Base) EncodeOrc(w *orc.Writer) error {
 	if err := bv.Source.EncodeOrc(w); err != nil {
 		return err
 	}
+	if bv.Directory != nil {
+		w.Bool(true)
+		w.Write((*bv.Directory)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -81,6 +88,19 @@ func (bv *Base) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = bv.Source.DecodeOrc(r); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uuid.UUID
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			bv.Directory = &hv
+		}
 	}
 	return nil
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -41,7 +40,6 @@ import (
 
 var _ = Describe("Device", func() {
 	var (
-		otg      *ontology.Ontology
 		groupSvc *group.Service
 		rackSvc  *rack.Service
 		svc      *device.Service
@@ -50,36 +48,28 @@ var _ = Describe("Device", func() {
 		w        device.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+			DB: db,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
-			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   stat,
-			Rack:     rackSvc,
+			DB:     db,
+			Status: stat,
+			Rack:   rackSvc,
 		}))
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
@@ -108,28 +98,6 @@ var _ = Describe("Device", func() {
 				To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
-		It(
-			"Should correctly create an ontology resource for the device",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "device2",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "dev2",
-					Name:     "Cat",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-				var res ontology.Resource
-				Expect(
-					otg.NewRetrieve().
-						WhereIDs(d.ResourceID()).
-						Entry(&res).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res.ID).To(Equal(d.ResourceID()))
-			},
-		)
 		It(
 			"Should refuse a device on a rack that does not exist",
 			func(ctx SpecContext) {
@@ -1203,62 +1171,29 @@ var _ = Describe("Device", func() {
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
-		It(
-			"Should correctly delete an ontology resource for the device",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "device15",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "dev15",
-					Name:     "Fish",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-				Expect(w.Delete(ctx, d.Key)).To(Succeed())
-				var res ontology.Resource
-				Expect(
-					otg.NewRetrieve().
-						WhereIDs(d.ResourceID()).
-						Entry(&res).
-						Exec(ctx, tx),
-				).To(MatchError(query.ErrNotFound))
-			},
-		)
 	})
 	Describe("Observe", func() {
 		It("Should notify when a device is created", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
-				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Status:   stat,
-				Rack:     rackSvc,
+				DB:     db,
+				Status: stat,
+				Rack:   rackSvc,
 			}))
 			var created atomic.Value
 			disconnect := svc.Observe().OnChange(
@@ -1288,27 +1223,17 @@ var _ = Describe("Device", func() {
 			"Should propagate rack warning status to devices on that rack",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
-				otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-				groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-				}))
 				MustOpen(label.OpenService(ctx, label.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Group:    groupSvc,
+					DB: db,
 				}))
 				stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-					Ontology: otg,
-					DB:       db,
+					DB: db,
 				}))
 				roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
+					DB: db,
 				}))
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
-					Ontology:            otg,
 					HostProvider:        testutil.NewStaticHostProvider(1),
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
@@ -1317,10 +1242,9 @@ var _ = Describe("Device", func() {
 					),
 				}))
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Status:   stat,
-					Rack:     rackSvc,
+					DB:     db,
+					Status: stat,
+					Rack:   rackSvc,
 				}))
 
 				r := rack.Rack{Name: "suspect rack"}
@@ -1372,10 +1296,10 @@ var _ = Describe("Device", func() {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -1384,7 +1308,7 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext, term string) {
 				id := create(ctx, "igniter", "igniter")
 				q := search.Query[resource.ID]{Term: term}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{id}))
 			},
 			Entry("name", "igniter"),
@@ -1398,7 +1322,9 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector", "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})
@@ -1471,31 +1397,25 @@ var _ = Describe("Writer with no transaction", func() {
 		"Should keep the group that a move writes during concurrent creates",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
-				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 			}))
 			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Status:   stat,
-				Rack:     rackSvc,
+				DB:     db,
+				Status: stat,
+				Rack:   rackSvc,
 			}))
 			groups := make([]group.Group, 50)
 			for i := range groups {

@@ -43,7 +43,6 @@ from synnax.control import Client as ControlClient
 from synnax.exceptions import ValidationError
 from synnax.imex import Client as ImexClient
 from synnax.license import Client as LicenseClient
-from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
 from synnax.ranger.retrieve import Retriever as RangeRetriever
 from synnax.signals import Registry as SignalsRegistry
@@ -88,7 +87,6 @@ class Synnax(framer.Client):
     racks: rack.Client
     devices: device.Client
     tasks: task.Client
-    ontology: OntologyClient
     resources: resource.Client
     license: LicenseClient
     statuses: status.Client
@@ -218,7 +216,6 @@ class Synnax(framer.Client):
         )
         self.groups = group.Client(self._transport.unary)
         self.labels = label.Client(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary)
         self.resources = resource.Client(self._transport.unary)
         self.channels = channel.Client(
             client=self._transport.unary,
@@ -259,7 +256,6 @@ class Synnax(framer.Client):
             writer=range_creator,
             retriever=range_retriever,
             signals=self.signals,
-            ontology=self.ontology,
             tasks=self.tasks,
             labels=self.labels,
         )

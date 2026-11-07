@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -29,27 +27,18 @@ import (
 var _ = Describe("Grant", func() {
 	It("Should let the user take the actions on the objects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       db,
-			Ontology: otg,
-			Group:    groups,
 			Password: passwords,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-			DB:       db,
-			Ontology: otg,
-			User:     users,
-			Status:   statuses,
+			DB:     db,
+			User:   users,
+			Status: statuses,
 		})).RBAC
 		u := MustSucceed(users.NewWriter(nil).Create(ctx, user.User{Name: "u"}))
 		req := access.Request{

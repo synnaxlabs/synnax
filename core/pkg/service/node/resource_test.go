@@ -10,10 +10,14 @@
 package node_test
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/search"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -71,4 +75,42 @@ var _ = Describe("Resources", func() {
 			[]resource.Resource{{ID: node.ResourceID(2), Name: "Node 2"}},
 		),
 	)
+})
+
+var _ = Describe("Resource", func() {
+	Describe("ResourceID", func() {
+		It(
+			"Should construct an ID with the node resource type and a stringified key",
+			func() {
+				id := node.ResourceID(7)
+				Expect(id.Type).To(Equal(resource.TypeNode))
+				Expect(id.Key).To(Equal("7"))
+			},
+		)
+
+		It("Should round-trip the free node key", func() {
+			id := node.ResourceID(node.KeyFree)
+			Expect(id.Key).To(Equal(strconv.Itoa(int(node.KeyFree))))
+		})
+	})
+
+	Describe("Service", func() {
+		Describe("Search", func() {
+			DescribeTable("Should search the nodes currently in the cluster",
+				func(ctx SpecContext, term string, limit int, expected []resource.ID) {
+					q := search.Query[resource.ID]{Term: term, Limit: limit}
+					Expect(
+						MustSucceed(testSvc.Resources().Search(ctx, nil, q)).Keys,
+					).To(Equal(expected))
+				},
+				Entry("every node", "node", 10,
+					[]resource.ID{node.ResourceID(1), node.ResourceID(2)}),
+				Entry("the node that matches every word", "node 2", 10,
+					[]resource.ID{node.ResourceID(2)}),
+				Entry("at most the limit", "node", 1,
+					[]resource.ID{node.ResourceID(1)}),
+				Entry("no match", "valve", 10, []resource.ID{}),
+			)
+		})
+	})
 })

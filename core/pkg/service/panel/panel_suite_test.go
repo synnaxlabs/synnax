@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -41,7 +40,6 @@ func TestPanel(t *testing.T) {
 var (
 	node       testutil.Node
 	db         *gorp.DB
-	otg        *ontology.Ontology
 	groupSvc   *group.Service
 	svc        *panel.Service
 	writer     panel.Writer
@@ -55,26 +53,20 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -94,21 +86,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  framerSvc,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Signals:  sigs,
+		DB:      node.DB,
+		Signals: sigs,
 	}))
 	writer = svc.NewWriter(nil)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	proj = project.Project{Name: "panel-project"}
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		ImEx:     imex.NewService(),
+		DB:   node.DB,
+		ImEx: imex.NewService(),
 	}))
 })
 

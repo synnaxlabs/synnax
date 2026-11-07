@@ -12,12 +12,44 @@ package arc
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
+
+// RetrieveDirectories retrieves Arc directories. The caller must hold retrieve access
+// to
+// each directory it returns.
+func (s *Service) RetrieveDirectories(
+	ctx context.Context,
+	req apidirectory.RetrieveRequest,
+) (apidirectory.RetrieveResponse, error) {
+	var res apidirectory.RetrieveResponse
+	q, err := req.Apply(s.internal.NewDirectoryRetrieve().Entries(&res.Directories))
+	if err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	if err = q.Exec(ctx, nil); err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: lo.Map(
+			res.Directories,
+			func(d directory.Directory, _ int) resource.ID {
+				return d.ResourceID()
+			},
+		),
+	}); err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	return res, nil
+}
 
 type (
 	// CreateDirectoryRequest creates Directory in the directory Parent.

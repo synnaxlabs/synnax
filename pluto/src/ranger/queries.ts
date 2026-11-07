@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger, type resource } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
@@ -64,20 +64,16 @@ export const useListChildren = Flux.createList<
   },
 });
 
-export type RetrieveParentQuery = {
-  id: resource.ID;
-};
-
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
+  RetrieveQuery,
   ranger.Range | null
 >({
   name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  retrieve: async ({ client, query: { key } }) =>
+    await client.ranges.parent.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.ranges.parent.onChange(key, handler),
+  getCached: ({ client, query: { key } }) => client.ranges.parent.getCached(key),
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =

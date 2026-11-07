@@ -15,9 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -30,17 +30,14 @@ var _ = Describe("Group", Ordered, func() {
 	var (
 		db  *gorp.DB
 		svc *group.Service
-		otg *ontology.Ontology
 		w   group.Writer
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		w = svc.NewWriter(nil)
 	})
@@ -353,6 +350,25 @@ var _ = Describe("Group", Ordered, func() {
 		)
 	})
 
+	Describe("BuiltinDeleteMigration", func() {
+		It("Should delete every group with the builtin scope", func(ctx SpecContext) {
+			builtin := group.Group{
+				Name:  "builtin-to-delete",
+				Scope: resource.TypeBuiltin,
+			}
+			Expect(w.Create(ctx, &builtin)).To(Succeed())
+			kept := create(ctx, "kept-by-builtin-delete", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.BuiltinDeleteMigration().
+					Run(ctx, tx, alamos.Instrumentation{})
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(group.MatchScopes(resource.TypeBuiltin)).
+				Exists(ctx, nil)).To(BeFalse())
+			Expect(retrieve(ctx, kept.Key).Name).To(Equal("kept-by-builtin-delete"))
+		})
+	})
+
 	Describe("Observe", func() {
 		It("Should notify when a group is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
@@ -385,10 +401,10 @@ var _ = Describe("Group", Ordered, func() {
 				a := createIn(ctx, "turbopump test")
 				b := createIn(ctx, "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -398,7 +414,9 @@ var _ = Describe("Group", Ordered, func() {
 			func(ctx SpecContext) {
 				createIn(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})

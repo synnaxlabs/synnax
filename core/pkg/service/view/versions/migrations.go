@@ -11,20 +11,16 @@ package versions
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 )
 
-// NewMigrations returns the ordered migration chain for stored views. The ontology
-// removes the resources of views the chain deletes.
-func NewMigrations(otg *ontology.Ontology) []gorp.Migration {
-	return []gorp.Migration{
-		v0.NormalizeKeys,
-		v0.Migration,
-		v0.NameMigration,
-		v1.NewMigration(otg),
-		v2.Migration,
-	}
+// Migrations is the ordered migration chain for stored views.
+var Migrations = []gorp.Migration{
+	v0.NormalizeKeys,
+	v0.Migration,
+	v0.NameMigration,
+	v1.Migration,
+	v2.Migration,
 }

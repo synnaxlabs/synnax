@@ -65,7 +65,9 @@ describe("arc/Explorer", () => {
     const name = uniqueName("dir");
     commitTextEdit(await awaitTextEditingElement(), name);
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: arcsID });
+      const children = await client.arcs.directories.retrieve({
+        parents: [arcsID.key],
+      });
       expect(children.some((r) => r.name === name)).toBe(true);
     });
   });
@@ -104,9 +106,7 @@ describe("arc/Explorer", () => {
     const name = uniqueName("sub");
     commitTextEdit(await awaitTextEditingElement(), name);
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: clientArc.directory.resourceID(dir.key),
-      });
+      const children = await client.arcs.directories.retrieve({ parents: [dir.key] });
       expect(children.some((r) => r.name === name)).toBe(true);
     });
   });

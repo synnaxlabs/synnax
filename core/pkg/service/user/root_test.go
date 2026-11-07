@@ -62,10 +62,6 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 			if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 				return err
 			}
-			if err := otg.NewWriter(tx).
-				DefineResources(ctx, u.ResourceID()); err != nil {
-				return err
-			}
 		} else {
 			var err error
 			if u, err = svc.NewWriter(tx).Create(ctx, user.User{
@@ -123,11 +119,6 @@ func purgeUsers(ctx context.Context) {
 		if err := gorp.WrapWriter[user.Key, user.User](
 			tx,
 		).Delete(ctx, keys...); err != nil {
-			return err
-		}
-		if err := otg.NewWriter(tx).DeleteResources(
-			ctx, user.ResourceIDsFromKeys(keys)...,
-		); err != nil {
 			return err
 		}
 		return passwordSvc.NewWriter(tx).

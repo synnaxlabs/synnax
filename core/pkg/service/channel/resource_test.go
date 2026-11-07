@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -99,5 +100,101 @@ var _ = Describe("Resources", func() {
 		Expect(svc.Resources().List(ctx, db, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: ch.ResourceID(), Name: ch.Name},
 		))
+	})
+})
+
+var _ = Describe("Resource helpers", func() {
+	Describe("ResourceID", func() {
+		It("Should return the resource ID for the channel key", func() {
+			Expect(channel.ResourceID(distchannel.NewKey(1, 2))).To(Equal(resource.ID{
+				Type: "channel",
+				Key:  distchannel.NewKey(1, 2).String(),
+			}))
+		})
+	})
+	Describe("KeysFromResourceIDs", func() {
+		It("Should parse a list of resource IDs into a list of keys", func() {
+			ids := []resource.ID{
+				{Type: "channel", Key: "1"},
+				{Type: "channel", Key: "2"},
+			}
+			Expect(channel.KeysFromResourceIDs(ids)).To(Equal(channel.Keys{1, 2}))
+		})
+		It("Should return an error if a key cannot be parsed", func() {
+			ids := []resource.ID{
+				{Type: "channel", Key: "1"},
+				{Type: "channel", Key: "a"},
+			}
+			Expect(channel.KeysFromResourceIDs(ids)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("a is not a valid channel key")),
+			))
+		})
+	})
+	Describe("ResourceIDsFromKeys", func() {
+		It("Should return the resource ID for each key", func() {
+			keys := channel.Keys{distchannel.NewKey(1, 2), distchannel.NewKey(3, 4)}
+			Expect(channel.ResourceIDsFromKeys(keys)).To(Equal([]resource.ID{
+				channel.ResourceID(keys[0]),
+				channel.ResourceID(keys[1]),
+			}))
+		})
+	})
+})
+
+var _ = Describe("Resource", Ordered, func() {
+	Describe("ResourceID", func() {
+		It(
+			"Should correctly return the resource.ID for the specified channel",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(ch.ResourceID()).To(Equal(channel.ResourceID(ch.Key())))
+			},
+		)
+	})
+	Describe("ToPayload", func() {
+		It("Should include operations when the channel has them", func() {
+			ch := channel.Channel{
+				Name:       "with_ops",
+				DataType:   telem.Float64T,
+				Operations: []channel.Operation{{Type: channel.OperationTypeAvg}},
+			}
+			Expect(ch.ToPayload()).To(HaveKeyWithValue("operations", ch.Operations))
+		})
+		It("Should omit the operations key when the channel has no operations", func() {
+			ch := channel.Channel{Name: "no_ops", DataType: telem.Float64T}
+			Expect(ch.ToPayload()).ToNot(HaveKey("operations"))
+		})
+	})
+	Describe("Search", func() {
+		It(
+			"Should return the channels whose name matches the term",
+			func(ctx SpecContext) {
+				inlet := channel.Channel{
+					Name:     "turbopump_inlet_pressure",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				outlet := channel.Channel{
+					Name:     "turbopump_outlet_pressure",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
+				q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(Equal([]resource.ID{inlet.ResourceID()}))
+				q = search.Query[resource.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
+					To(ConsistOf(inlet.ResourceID(), outlet.ResourceID()))
+			},
+		)
 	})
 })

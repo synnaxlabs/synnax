@@ -10,6 +10,7 @@
 package symbol
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -22,4 +23,26 @@ func (s *Service) Resources() *resource.TableProvider[Key, Symbol] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(sym *Symbol) string { return sym.Name },
 	})
+}
+
+// ResourceID returns the resource ID of the symbol with key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeSchematicSymbol, Key: k.String()}
+}
+
+// ResourceIDs returns the resource IDs of the symbols with keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
+}
+
+// KeysFromResourceIDs extracts the keys of the symbols from the resource IDs.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
+		return resource.ParseUUIDKey(id)
+	})
+}
+
+// ResourceIDsFromSymbols returns the resource IDs of the symbols.
+func ResourceIDsFromSymbols(symbols []Symbol) []resource.ID {
+	return lo.Map(symbols, func(s Symbol, _ int) resource.ID { return s.ResourceID() })
 }

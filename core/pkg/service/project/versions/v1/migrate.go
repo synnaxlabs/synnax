@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -41,12 +41,13 @@ func migrateLayoutsToStaging(
 	tx gorp.Tx,
 	_ alamos.Instrumentation,
 ) error {
-	projects, err := collectEntries(
-		ctx,
-		gorp.WrapReader[Key, Project](tx),
-		func(p Project) bool { return len(p.Layout) > 0 },
-	)
-	if err != nil {
+	var projects []Project
+	if err := gorp.NewRetrieve[Key, Project]().
+		Where(gorp.Match(func(_ gorp.Context, p *Project) (bool, error) {
+			return len(p.Layout) > 0, nil
+		})).
+		Entries(&projects).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	for _, p := range projects {
@@ -96,12 +97,13 @@ func migrateWorkspaceToProject(
 // retrieves the existing group (with the migrated projects already parented under it)
 // rather than creating a second one.
 func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
-	stale, err := collectEntries(
-		ctx,
-		gorp.WrapReader[group.Key, group.Group](tx),
-		func(g group.Group) bool { return g.Name == "Workspaces" },
-	)
-	if err != nil {
+	var stale []group.Group
+	if err := gorp.NewRetrieve[group.Key, group.Group]().
+		Where(gorp.Match(func(_ gorp.Context, g *group.Group) (bool, error) {
+			return g.Name == "Workspaces", nil
+		})).
+		Entries(&stale).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	w := gorp.WrapWriter[group.Key, group.Group](tx)
@@ -118,11 +120,10 @@ func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 // removes it from the workspace table. The DB codec decodes the legacy records (Orc,
 // falling back to MessagePack) and re-encodes the projects as Orc.
 func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
-	stale, err := collectEntries(
-		ctx,
-		gorp.WrapReader[Key, v0.Workspace](tx),
-		func(v0.Workspace) bool { return true },
-	)
+	var stale []v0.Workspace
+	err := gorp.NewRetrieve[Key, v0.Workspace]().
+		Entries(&stale).
+		Exec(ctx, tx)
 	if err != nil || len(stale) == 0 {
 		return err
 	}
@@ -141,12 +142,13 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 // rewriteWorkspaceResources re-keys every ontology resource node of type workspace to
 // type project.
 func rewriteWorkspaceResources(ctx context.Context, tx gorp.Tx) error {
-	stale, err := collectEntries(
-		ctx,
-		gorp.WrapReader[string, ontology.Resource](tx),
-		func(r ontology.Resource) bool { return r.ID.Type == legacyWorkspaceType },
-	)
-	if err != nil {
+	var stale []ontology.Resource
+	if err := gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.Match(func(_ gorp.Context, r *ontology.Resource) (bool, error) {
+			return r.ID.Type == legacyWorkspaceType, nil
+		})).
+		Entries(&stale).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	w := gorp.WrapWriter[string, ontology.Resource](tx)
@@ -166,9 +168,9 @@ func rewriteWorkspaceResources(ctx context.Context, tx gorp.Tx) error {
 // rewriteWorkspaceRelationships repoints every relationship endpoint of type workspace
 // to type project, preserving the relationship's direction and type.
 func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
-	stale, err := collectEntries(
+	stale, err := ontology.RetrieveRelationships(
 		ctx,
-		gorp.WrapReader[string, ontology.Relationship](tx),
+		tx,
 		func(rel ontology.Relationship) bool {
 			return rel.From.Type == legacyWorkspaceType ||
 				rel.To.Type == legacyWorkspaceType
@@ -202,14 +204,10 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 // parent is now the Projects group. This must run after the workspace-to-project
 // migration, which re-types the legacy user-to-workspace relationships to
 // user-to-project before they can be matched here.
-func removeAuthorRelationships(
-	ctx context.Context,
-	tx gorp.Tx,
-	otg *ontology.Ontology,
-) error {
-	stale, err := collectEntries(
+func removeAuthorRelationships(ctx context.Context, tx gorp.Tx) error {
+	stale, err := ontology.RetrieveRelationships(
 		ctx,
-		gorp.WrapReader[string, ontology.Relationship](tx),
+		tx,
 		func(rel ontology.Relationship) bool {
 			return rel.Type == ontology.RelationshipTypeParentOf &&
 				rel.From.Type == resource.TypeUser &&
@@ -219,27 +217,7 @@ func removeAuthorRelationships(
 	if err != nil {
 		return err
 	}
-	return otg.NewWriter(tx).DeleteRelationships(ctx, stale...)
-}
-
-// collectEntries drains a reader into a slice of the entries matching keep. Mutating a
-// gorp table while iterating it is unsafe, so callers gather first and write after.
-func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	r gorp.Reader[K, E],
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := r.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
+	return ontology.DeleteRelationships(ctx, tx, stale...)
 }
 
 // workspaceToProjectMigration lifts stored workspaces into projects. It runs after the
@@ -256,27 +234,16 @@ var layoutsToStagingMigration = migrate.New(
 
 // removeAuthorRelationshipsMigration drops the legacy author relationships projects
 // held in the ontology.
-func removeAuthorRelationshipsMigration(otg *ontology.Ontology) gorp.Migration {
-	return migrate.New(
-		"v56_remove_project_author_relationships",
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			return removeAuthorRelationships(ctx, tx, otg)
-		},
-	)
-}
+var removeAuthorRelationshipsMigration = migrate.New(
+	"v56_remove_project_author_relationships",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		return removeAuthorRelationships(ctx, tx)
+	},
+)
 
-// MigrationsConfig is the configuration for NewMigrations.
-type MigrationsConfig struct {
-	// Ontology is the cluster ontology; the author-relationship cleanup runs against
-	// it.
-	Ontology *ontology.Ontology
-}
-
-// NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
-	return []gorp.Migration{
-		workspaceToProjectMigration,
-		layoutsToStagingMigration,
-		removeAuthorRelationshipsMigration(cfg.Ontology),
-	}
+// Migrations is the ordered migration chain for stored projects at this version.
+var Migrations = []gorp.Migration{
+	workspaceToProjectMigration,
+	layoutsToStagingMigration,
+	removeAuthorRelationshipsMigration,
 }

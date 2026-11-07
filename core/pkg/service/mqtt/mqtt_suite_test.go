@@ -37,12 +37,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -77,42 +75,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	core := cluster.Provision(ctx)
 	host, peer = core.Cluster.HostKey(), cluster.Provision(ctx).Cluster.HostKey()
 	db = core.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
+		DB: db,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      core.Channel,
 		DB:           db,
 		HostProvider: core.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -128,13 +114,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Channel:  channelSvc,
-		ImEx:     imex.NewService(),
-		Configs:  MustSucceed(taskconfig.NewRegistry(mqttSvc.Stores()...)),
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(mqttSvc.Stores()...)),
 	}))
 	taskWriter = taskSvc.NewWriter(nil)
 })

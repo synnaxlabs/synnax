@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, resource } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
@@ -27,7 +27,7 @@ const client = createTestClient();
 
 const renderCopyItem = async (
   ids: resource.ID[],
-  resources: ontology.Resource[],
+  resources: Tree.Resource[],
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {

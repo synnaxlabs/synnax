@@ -22,6 +22,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeLineplot }
+
 // Match reports whether body is a legacy Console line plot state, which persists the
 // plot body inline under axes and channels. The markers are frozen historical file
 // shapes.

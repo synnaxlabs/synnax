@@ -132,10 +132,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const channels = await client.channels.retrieve(READINGS.map(([, name]) => name));
-    await client.tables.create(
-      tpc.key,
-      readings(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...readings(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());

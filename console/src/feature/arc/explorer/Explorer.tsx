@@ -10,17 +10,17 @@
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Ontology } from "@synnaxlabs/pluto";
+import { Access, Arc } from "@synnaxlabs/pluto";
 
-import { Arc } from "@/platform/arc";
+import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
 const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
-  const createArc = Arc.useCreate();
-  const createDirectory = Arc.useCreateDirectory({ parent: root, state, root });
+  const createArc = PlatformArc.useCreate();
+  const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
   const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
   return (
@@ -44,10 +44,10 @@ const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
 };
 
 export const Explorer: Panel.Content = () => {
-  const rootID = Ontology.useRootChildID({ name: "Arcs" });
+  const rootKey = Arc.Directory.useRootKey({});
   return (
     <Tree.Tree
-      root={rootID}
+      root={arc.directory.resourceID(rootKey)}
       emptyContent={<Empty.Action message="No Arcs" />}
       rootContextMenu={RootContextMenu}
     />

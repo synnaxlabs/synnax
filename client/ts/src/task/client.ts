@@ -26,7 +26,6 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type framer } from "@/framer";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
@@ -380,7 +379,6 @@ const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
-  ontology: ontology.Client;
   ranges: ranger.Client;
   cache: query.Cache;
   statuses: status.Client;
@@ -549,11 +547,7 @@ export class Client extends query.Retriever<
     const statuses = keys.flatMap(
       (k) => this.cfg.statuses.ownedBy(resourceID(k))?.key ?? [],
     );
-    return [
-      this.cfg.ontology.cache.deleteResources(resourceID(keys)),
-      this.store.delete(keys),
-      this.cfg.statuses.store.delete(statuses),
-    ];
+    return [this.store.delete(keys), this.cfg.statuses.store.delete(statuses)];
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -578,7 +572,6 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),

@@ -14,8 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -60,4 +62,38 @@ var _ = Describe("Resources", func() {
 			resource.Resource{ID: lp.ResourceID(), Name: lp.Name},
 		))
 	})
+})
+
+var _ = Describe("Search", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+	create := func(ctx SpecContext, name string) resource.ID {
+		GinkgoHelper()
+		p := lineplot.LinePlot{Project: &proj.Key, Name: name}
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		return lineplot.ResourceID(p.Key)
+	}
+
+	It(
+		"Should return the matching line plots, closest match first",
+		func(ctx SpecContext) {
+			a := create(ctx, "turbopump test")
+			b := create(ctx, "turbopump")
+			q := search.Query[resource.ID]{Term: "turbopump"}
+			Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{b, a}))
+			q.Limit = 1
+			Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+				To(Equal([]resource.ID{b}))
+		},
+	)
+
+	It(
+		"Should not match a staged line plot outside its transaction",
+		func(ctx SpecContext) {
+			create(ctx, "injector")
+			q := search.Query[resource.ID]{Term: "injector"}
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).To(BeEmpty())
+		},
+	)
 })

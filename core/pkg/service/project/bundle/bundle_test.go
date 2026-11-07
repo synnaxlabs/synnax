@@ -19,11 +19,11 @@ import (
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -770,14 +770,13 @@ var _ = Describe("Import", func() {
 			Exec(ctx, tx)).To(Succeed())
 		Expect(res.Base().Name).To(Equal("Startup"))
 		Expect(textOf(res.Base()).Materialize().Raw).To(Equal("x := 1"))
-		var parents []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(newArcID).
-			TraverseTo(ontology.ParentsTraverser).
-			Entries(&parents).
+		var root directory.Directory
+		Expect(arcSvc.NewDirectoryRetrieve().
+			Where(directory.MatchNested(false)).
+			Entry(&root).
 			Exec(ctx, tx)).To(Succeed())
-		Expect(parents).To(HaveLen(1))
-		Expect(parents[0].Name).To(Equal("Arcs"))
+		Expect(root.Name).To(Equal("Arcs"))
+		Expect(res.Base().Directory).To(HaveValue(Equal(root.Key)))
 	})
 
 	It("Should reject a bundle whose Arc name is taken", func(ctx SpecContext) {

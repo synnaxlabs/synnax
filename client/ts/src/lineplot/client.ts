@@ -27,7 +27,6 @@ import {
   type LinePlot,
   linePlotZ,
   type New,
-  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -38,7 +37,6 @@ import {
   retrieveInputZ,
   serverComputed,
 } from "@/lineplot/where.gen";
-import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -72,7 +70,6 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -167,10 +164,8 @@ export class Client extends query.Retriever<
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -241,10 +236,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(resourceID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

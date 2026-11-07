@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,34 +37,28 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// serviceConfig builds a channel ServiceConfig for the node on db, opening the
-// ontology, group, label, and status services the channel service depends on. It also
-// returns the group service.
+// serviceConfig builds a channel ServiceConfig for the node on db, opening the group,
+// label, and status services the channel service depends on. It also returns the group
+// service.
 func serviceConfig(
 	ctx context.Context,
 	node testutil.Node,
 	db *gorp.DB,
 ) (channel.ServiceConfig, *group.Service) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	return channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           db,
 		HostProvider: node.Cluster,
-		Ontology:     otg,
 		Status:       statusSvc,
 	}, groupSvc
 }
@@ -78,20 +71,19 @@ func openService(
 	ctx context.Context,
 	node testutil.Node,
 	cfgs ...channel.ServiceConfig,
-) (*channel.Service, *ontology.Ontology) {
+) *channel.Service {
 	GinkgoHelper()
 	cfg, _ := serviceConfig(ctx, node, node.DB)
-	channelSvc := MustOpen(channel.OpenService(
+	return MustOpen(channel.OpenService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,
 	))
-	return channelSvc, cfg.Ontology
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	svc, _ = openService(ctx, node)
+	svc = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)
 })

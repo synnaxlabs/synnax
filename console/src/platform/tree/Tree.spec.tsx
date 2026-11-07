@@ -45,7 +45,7 @@ import {
   getTreeRow,
   itemName,
   openTreeRootContextMenu,
-  renderOntologyTree,
+  renderLiveTree,
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
@@ -542,7 +542,7 @@ describe("Tree.Tree", () => {
       const items: Tree.Items = {
         group: createGroupItem({ ContextMenu: TreeContextMenu }),
       };
-      await renderOntologyTree({ client, root: rootID, items });
+      await renderLiveTree({ client, root: rootID, items });
       // A click on a folded group selects it and opens it.
       fireEvent.click(await findTreeRow(outer.name));
       const innerRow = await findTreeRow(inner.name);
@@ -585,7 +585,7 @@ describe("Tree.Tree", () => {
       const items: Tree.Items = {
         group: createGroupItem({ ContextMenu: TreeContextMenu }),
       };
-      await renderOntologyTree({ client, root: rootID, items, search: useGroupSearch });
+      await renderLiveTree({ client, root: rootID, items, search: useGroupSearch });
       searchTree(tok);
       fireEvent.click(await findTreeRow(itemName(a.name)));
       const rowB = await findTreeRow(itemName(b.name));
@@ -619,7 +619,7 @@ describe("Tree.Tree", () => {
       const items: Tree.Items = {
         group: createGroupItem({ ContextMenu: TreeContextMenu }),
       };
-      await renderOntologyTree({ client, root: parentID, items });
+      await renderLiveTree({ client, root: parentID, items });
       await screen.findByText(doomed.name);
       await screen.findByText(survivor.name);
       // Both must be selected: the menu falls back to the live selection only when
@@ -750,7 +750,7 @@ describe("Tree.Tree", () => {
       const folderID = group.resourceID(folder.key);
       const report = await createGroup(folderID, "report");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folder.name);
       expandTreeRow(folder.name);
       await screen.findByText(report.name);
@@ -777,7 +777,7 @@ describe("Tree.Tree", () => {
       const folderID = group.resourceID(folder.key);
       const nested = await createGroup(folderID, "nested");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folder.name);
       expandTreeRow(folder.name);
       await screen.findByText(nested.name);
@@ -810,7 +810,7 @@ describe("Tree.Tree", () => {
         parent: containerID,
         name: `${tok} dest`,
       });
-      await renderOntologyTree({
+      await renderLiveTree({
         client,
         root: containerID,
         items: DROPPABLE,
@@ -845,7 +845,7 @@ describe("Tree.Tree", () => {
       const folderBID = group.resourceID(folderB.key);
       const reportB = await createGroup(folderBID, "reportB");
       const dest = await createGroup(containerID, "dest");
-      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       await screen.findByText(folderA.name);
       expandTreeRow(folderA.name);
       await screen.findByText(reportA.name);
@@ -1032,7 +1032,7 @@ const MORE_MATCHES = "Showing the first 100 matches. Type more to narrow the sea
 const renderSearchable = async (
   root: resource.ID,
   search: Tree.UseSearch = useGroupSearch,
-) => await renderOntologyTree({ client, root, items: GROUP_ITEMS, search });
+) => await renderLiveTree({ client, root, items: GROUP_ITEMS, search });
 
 const hiddenTrees = (): number =>
   document.querySelectorAll(".lyra-tree.console-tree--hidden").length;

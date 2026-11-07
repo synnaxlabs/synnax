@@ -353,7 +353,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 })
 
 // createStatus persists a fresh status and returns it. Writes commit immediately (nil
-// tx) so access-control reads can observe the new ontology resource.
+// tx) so access-control reads can observe the new status.
 func createStatus(ctx SpecContext, name string) status.Status[any] {
 	GinkgoHelper()
 	s := status.Status[any]{

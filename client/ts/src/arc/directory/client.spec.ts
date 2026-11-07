@@ -12,79 +12,96 @@ import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
 import { NotFoundError, ValidationError } from "@/index";
-import { ontology } from "@/ontology";
-import { type resource } from "@/resource";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
 const uniqueName = (): string => `d_${id.create().replace(/-/g, "_")}`;
 
-const retrieveRoot = async (): Promise<resource.ID> => {
-  const children = await client.ontology.children.retrieve({
-    ids: ontology.ROOT_ID,
-    types: ["arc_directory"],
+const createArc = async (): Promise<arc.Arc> =>
+  await client.arcs.create({
+    name: uniqueName(),
+    type: "automation",
+    source: { mode: "text" },
   });
-  expect(children).toHaveLength(1);
-  return children[0].id;
-};
 
 describe("arc.directory", () => {
+  it("should retrieve the root directory", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    expect(root.name).toBe("Arcs");
+    expect(root.parent).toBeUndefined();
+  });
+
   it("should create a directory in its parent", async () => {
-    const root = await retrieveRoot();
+    const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
     });
-    const children = await client.ontology.children.retrieve({ ids: root });
-    expect(children.map((c) => c.id.key)).toContain(d.key);
+    expect(d.parent).toBe(root.key);
+    const children = await client.arcs.directories.retrieve({ parents: [root.key] });
+    expect(children.map((c) => c.key)).toContain(d.key);
   });
 
   it("should rename a directory", async () => {
-    const root = await retrieveRoot();
+    const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
     });
     const name = uniqueName();
     await client.arcs.directories.rename(d.key, name);
-    const res = await client.ontology.retrieve(arc.directory.resourceID(d.key));
+    const [res] = await client.arcs.directories.retrieve([d.key]);
     expect(res.name).toBe(name);
   });
 
+  it("should retrieve a directory by name", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const d = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const res = await client.arcs.directories.retrieve(d.name);
+    expect(res.key).toBe(d.key);
+  });
+
   it("should delete a directory", async () => {
-    const root = await retrieveRoot();
+    const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
     });
     await client.arcs.directories.delete(d.key);
-    await expect(
-      client.ontology.retrieve(arc.directory.resourceID(d.key)),
-    ).rejects.toSatisfy(NotFoundError.matches);
+    await expect(client.arcs.directories.retrieve([d.key])).rejects.toSatisfy(
+      NotFoundError.matches,
+    );
+  });
+
+  it("should put a new Arc in the root directory", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const a = await createArc();
+    const arcs = await client.arcs.retrieve({ directories: [root.key] });
+    expect(arcs.map((r) => r.key)).toContain(a.key);
   });
 
   it("should move an Arc into a directory", async () => {
-    const root = await retrieveRoot();
+    const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
     });
-    const a = await client.arcs.create({
-      name: uniqueName(),
-      type: "automation",
-      source: { mode: "text" },
-    });
-    const dirID = arc.directory.resourceID(d.key);
-    await client.arcs.directories.move(root, dirID, arc.resourceID(a.key));
-    const parents = await client.ontology.parents.retrieve({
-      ids: arc.resourceID(a.key),
-    });
-    expect(parents.map((p) => p.id)).toEqual([dirID]);
+    const a = await createArc();
+    await client.arcs.directories.move(
+      arc.directory.resourceID(root.key),
+      arc.directory.resourceID(d.key),
+      arc.resourceID(a.key),
+    );
+    const res = await client.arcs.retrieve({ key: a.key });
+    expect(res.directory).toBe(d.key);
   });
 
   it("should reject a move whose source does not hold the Arc", async () => {
-    const root = await retrieveRoot();
+    const root = await client.arcs.directories.retrieveRoot();
     const named = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
@@ -93,11 +110,7 @@ describe("arc.directory", () => {
       parent: root.key,
       name: uniqueName(),
     });
-    const a = await client.arcs.create({
-      name: uniqueName(),
-      type: "automation",
-      source: { mode: "text" },
-    });
+    const a = await createArc();
     await expect(
       client.arcs.directories.move(
         arc.directory.resourceID(named.key),
@@ -105,9 +118,7 @@ describe("arc.directory", () => {
         arc.resourceID(a.key),
       ),
     ).rejects.toSatisfy(ValidationError.matches);
-    const parents = await client.ontology.parents.retrieve({
-      ids: arc.resourceID(a.key),
-    });
-    expect(parents.map((p) => p.id)).toEqual([root]);
+    const res = await client.arcs.retrieve({ key: a.key });
+    expect(res.directory).toBe(root.key);
   });
 });

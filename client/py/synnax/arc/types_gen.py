@@ -11,17 +11,18 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 MODE_TEXT: Literal["text"] = "text"
 
@@ -70,6 +71,7 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        directories: Matches the Arcs in any of the given directories.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -79,6 +81,12 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    directories: list[UUID] | None = None
+
+    @field_validator("directories", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -91,6 +99,7 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
+        "directories": UUID | list[UUID],
     },
     total=False,
 )
@@ -103,11 +112,13 @@ class Base(BaseModel):
         key: Is the unique identifier for this module.
         name: Is a human-readable name for the module.
         source: Is the Arc's source code, written as text or drawn as a graph.
+        directory: Is the key of the directory that holds the Arc.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
+    directory: UUID | None = None
 
     @_override
     def __hash__(self) -> int:

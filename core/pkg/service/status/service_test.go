@@ -15,9 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -45,19 +43,15 @@ var _ = Describe("Dispatch", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db, Ontology: otg,
-		}))
 		// Status labels reference the label table, so it must be open.
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB: db, Ontology: otg, Group: g,
+			DB: db,
 		}))
 		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 			DB: db, Name: string(resource.TypeRack),
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		}))
 	})
 

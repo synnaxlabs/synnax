@@ -14,6 +14,7 @@ package v4
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"uuid"
 
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/program"
@@ -167,6 +168,8 @@ type Base struct {
 	Name string `json:"name" msgpack:"name"`
 	// Source is the Arc's source code, written as text or drawn as a graph.
 	Source Source `json:"source" msgpack:"source"`
+	// Directory is the key of the directory that holds the Arc.
+	Directory *uuid.UUID `json:"directory,omitzero" msgpack:"directory,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -14,7 +14,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -23,10 +22,8 @@ import (
 
 // Writer is used to create and update views within the DB.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, View]
+	tx    gorp.Tx
+	table *gorp.Table[Key, View]
 }
 
 // Create creates or updates a view within the DB. If the view already has a key and an
@@ -38,12 +35,9 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if view.GorpKey() == uuid.Nil() {
 		*view = view.WithKey(uuid.New())
 	}
-	if err := w.table.NewCreate().
+	return w.table.NewCreate().
 		Entry(view).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DefineResources(ctx, view.ResourceID())
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates or updates multiple views within the DB. If any of the views
@@ -75,11 +69,8 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 
 // Delete deletes the views with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) validate(v View) error {

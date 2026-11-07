@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -23,7 +23,7 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((resource: Tree.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const openTab = Panel.useOpenTab();
@@ -41,8 +41,8 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-const haulItems = (resource: ontology.Resource): Haul.Item[] => {
-  const payload = resource.data as ranger.Payload | null | undefined;
+const haulItems = (resource: Tree.Resource): Haul.Item[] => {
+  const payload = resource.data as ranger.Payload | undefined;
   if (payload == null) return [];
   return [Ranger.createHaulItem(payload)];
 };
@@ -140,7 +140,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const toResource = (range: ranger.Range): ontology.Resource =>
+const toResource = (range: ranger.Range): Tree.Resource =>
   Tree.toResource("range")(range.payload);
 
 const TreeItem = Tree.createItem({

@@ -12,14 +12,12 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { Granted } from "@/access/granted";
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
-import { type ontology } from "@/ontology";
 import { type query } from "@/query";
 import { type user } from "@/user";
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
   users: user.Client;
 }
 

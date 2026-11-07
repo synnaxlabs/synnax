@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -38,10 +37,6 @@ type TasksConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds the task resources. OpenTasks opens one on DB when it is nil.
-	//
-	// [OPTIONAL]
-	Ontology *ontology.Ontology
 	// Status stores the task statuses. OpenTasks opens one on DB when it is nil.
 	//
 	// [OPTIONAL]
@@ -79,17 +74,9 @@ func OpenTasks(ctx context.Context, cfg TasksConfig) (*Tasks, error) {
 }
 
 func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
-	if cfg.Ontology == nil {
-		cfg.Ontology, err = ontology.Open(ctx, ontology.Config{DB: cfg.DB})
-		if err != nil {
-			return err
-		}
-		t.closer = append(t.closer, cfg.Ontology)
-	}
 	if cfg.Status == nil {
 		if cfg.Status, err = status.OpenService(ctx, status.ServiceConfig{
-			DB:       cfg.DB,
-			Ontology: cfg.Ontology,
+			DB: cfg.DB,
 		}); err != nil {
 			return err
 		}
@@ -115,12 +102,11 @@ func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
 		return err
 	}
 	if t.svc, err = task.OpenService(ctx, task.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Rack:     cfg.Rack,
-		Status:   cfg.Status,
-		ImEx:     imex.NewService(),
-		Configs:  configs,
+		DB:      cfg.DB,
+		Rack:    cfg.Rack,
+		Status:  cfg.Status,
+		ImEx:    imex.NewService(),
+		Configs: configs,
 	}); err != nil {
 		return err
 	}
@@ -130,8 +116,7 @@ func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
 
 func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 	roles, err := role.OpenService(ctx, role.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
+		DB: cfg.DB,
 	})
 	if err != nil {
 		return err
@@ -143,7 +128,6 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 	}
 	if cfg.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           cfg.DB,
-		Ontology:     cfg.Ontology,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       cfg.Status,
 		DriverRole:   driverRole,
@@ -156,10 +140,9 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 
 func (t *Tasks) openDevice(ctx context.Context, cfg *TasksConfig) (err error) {
 	if cfg.Device, err = device.OpenService(ctx, device.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Status:   cfg.Status,
-		Rack:     cfg.Rack,
+		DB:     cfg.DB,
+		Status: cfg.Status,
+		Rack:   cfg.Rack,
 	}); err != nil {
 		return err
 	}

@@ -24,10 +24,8 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -46,36 +44,25 @@ func openDevices(
 	db *gorp.DB,
 ) (*device.Service, tasktestutil.TasksConfig) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	entry := func(name string, index int) map[string]any {
 		return map[string]any{
@@ -124,11 +111,10 @@ func openDevices(
 	}
 	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
 	return devices, tasktestutil.TasksConfig{
-		DB:       db,
-		Ontology: otg,
-		Status:   statusSvc,
-		Rack:     rackSvc,
-		Device:   devices,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
+		Device: devices,
 	}
 }
 
@@ -147,7 +133,6 @@ var _ = Describe("Service", func() {
 			Channel:      node.Channel,
 			DB:           node.DB,
 			HostProvider: node.Cluster,
-			Ontology:     tasksCfg.Ontology,
 			Status:       tasksCfg.Status,
 		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{

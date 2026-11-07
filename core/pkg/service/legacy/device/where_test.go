@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -47,36 +46,28 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+		MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB: db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
-			Ontology:     otg,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Status:   stat,
-			Rack:     racks,
+			DB:     db,
+			Status: stat,
+			Rack:   racks,
 		}))
 		for _, d := range v.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}

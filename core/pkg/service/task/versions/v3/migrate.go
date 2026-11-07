@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -33,8 +33,6 @@ import (
 type MigrationConfig struct {
 	// Status deletes the statuses of the tasks the migration removes.
 	Status *status.Service
-	// Ontology defines the task resources the migration creates and removes.
-	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
 	Configs config.Registry
 }
@@ -105,21 +103,24 @@ func migrateConfigsToRecords(
 	ins alamos.Instrumentation,
 	cfg MigrationConfig,
 ) error {
-	tasks, err := collectEntries(
-		ctx,
-		gorp.WrapReader[v2.Key, v2.Task](tx),
-		func(v2.Task) bool { return true },
-	)
+	var tasks []v2.Task
+	err := gorp.NewRetrieve[v2.Key, v2.Task]().
+		Entries(&tasks).
+		Exec(ctx, tx)
 	if err != nil || len(tasks) == 0 {
 		return err
 	}
-	rows := gorp.WrapWriter[v2.Key, v2.Task](tx)
-	otgW := cfg.Ontology.NewWriter(tx)
+	var (
+		rows    = gorp.WrapWriter[v2.Key, v2.Task](tx)
+		removed []resource.ID
+	)
 	for _, t := range tasks {
+		id := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
 		if retiredTypes.Contains(t.Type) {
-			if err := retire(ctx, tx, ins, otgW, cfg.Status, t); err != nil {
+			if err := retire(ctx, tx, ins, cfg.Status, t); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		newType := t.Type
@@ -129,10 +130,11 @@ func migrateConfigsToRecords(
 		store, ok := cfg.Configs.Store(newType)
 		if !ok {
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, "unknown task type "+t.Type,
+				ctx, tx, ins, cfg.Status, t, "unknown task type "+t.Type,
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		// Stored blobs are all console-era, which every store's legacy rewrite
@@ -140,10 +142,11 @@ func migrateConfigsToRecords(
 		converted, err := store.Normalize(ctx, tx, 0, t.Config)
 		if err != nil {
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
+				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		rec, err := store.Prepare(ctx, tx, t.Key, converted)
@@ -155,10 +158,11 @@ func migrateConfigsToRecords(
 				return err
 			}
 			if err := quarantine(
-				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
+				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
+			removed = append(removed, id)
 			continue
 		}
 		stored := rec.Data()
@@ -170,25 +174,17 @@ func migrateConfigsToRecords(
 		if err := rows.Set(ctx, t); err != nil {
 			return err
 		}
-		taskID := resource.ID{
-			Type: resource.TypeTask,
-			Key:  t.Key.String(),
-		}
-		if err := otgW.DefineResources(ctx, taskID); err != nil {
-			return err
-		}
 	}
-	return nil
+	return ontology.DeleteResources(ctx, tx, removed...)
 }
 
 // stageAndRemove stages the JSON encoding of the legacy row in KV and removes the
-// row, its status, and its ontology presence. A config JSON cannot encode (a NaN
-// float) is staged without the config rather than aborting boot.
+// row and its status. A config JSON cannot encode (a NaN float) is staged without the
+// config rather than aborting boot.
 func stageAndRemove(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 ) error {
@@ -214,11 +210,10 @@ func stageAndRemove(
 	if err := gorp.WrapWriter[v2.Key, v2.Task](tx).Delete(ctx, t.Key); err != nil {
 		return err
 	}
-	taskID := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-	if err := statuses.NewWriter(tx).DeleteOwned(ctx, taskID); err != nil {
-		return err
-	}
-	return otgW.DeleteResources(ctx, taskID)
+	return statuses.NewWriter(tx).DeleteOwned(
+		ctx,
+		resource.ID{Type: resource.TypeTask, Key: t.Key.String()},
+	)
 }
 
 // unconvertibleReason frames a raw conversion or encode error as a quarantine reason
@@ -233,12 +228,11 @@ func quarantine(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 	reason string,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Warn(
@@ -256,11 +250,10 @@ func retire(
 	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
-	otgW ontology.Writer,
 	statuses *status.Service,
 	t v2.Task,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Info(
@@ -270,25 +263,4 @@ func retire(
 		zap.String("type", t.Type),
 	)
 	return nil
-}
-
-// collectEntries drains a reader into a slice of the entries matching keep.
-// Mutating a gorp table while iterating it is unsafe, so callers gather first and
-// write after.
-func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	r gorp.Reader[K, E],
-	keep func(E) bool,
-) (out []E, err error) {
-	iter, err := r.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
-			out = append(out, *e)
-		}
-	}
-	return out, iter.Error()
 }

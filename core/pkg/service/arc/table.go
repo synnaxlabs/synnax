@@ -11,12 +11,12 @@ package arc
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -24,16 +24,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// rootName is the name of the directory that holds every Arc.
+const rootName = "Arcs"
+
 // TableConfig is the configuration for opening the Arc table.
 type TableConfig struct {
 	// DB is the database that stores Arcs.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds the directory of each Arc and directory.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -45,7 +44,6 @@ var _ config.Config[TableConfig] = TableConfig{}
 // Override implements config.Config.
 func (c TableConfig) Override(other TableConfig) TableConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -54,7 +52,6 @@ func (c TableConfig) Override(other TableConfig) TableConfig {
 func (c TableConfig) Validate() error {
 	v := validate.New("arc.table")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -63,8 +60,7 @@ func (c TableConfig) Validate() error {
 type Table struct {
 	table       *gorp.Table[Key, Arc]
 	indexes     indexes
-	owner       *ontology.Owner
-	directories directories
+	directories *directory.Table
 	root        directory.Key
 }
 
@@ -75,39 +71,66 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Table{
-		indexes: newIndexes(),
-		owner: cfg.Ontology.Own(ontology.Ownership{
-			Children: []resource.Type{
-				resource.TypeArc,
-				resource.TypeArcDirectory,
-			},
-			Parents: []resource.Type{resource.TypeArcDirectory},
-		}),
-	}
-	if t.directories, err = openDirectories(ctx, cfg); err != nil {
-		return nil, err
-	}
-	if t.root, err = openRoot(ctx, cfg, t.directories, t.owner); err != nil {
-		return nil, errors.Combine(err, t.directories.table.Close())
-	}
-	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: t.indexes.all(),
-		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Ontology: cfg.Ontology,
-			Owner:    t.owner,
-			Root:     directory.ResourceID(t.root),
-		}),
+	t := &Table{indexes: newIndexes()}
+	if t.directories, err = directory.OpenTable(ctx, directory.TableConfig{
+		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
-		return nil, errors.Combine(err, t.directories.table.Close())
+		return nil, err
+	}
+	if t.root, err = openRoot(ctx, t.directories); err != nil {
+		return nil, errors.Combine(err, t.directories.Close())
+	}
+	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
+		DB:              cfg.DB,
+		Name:            tableName,
+		Indexes:         t.indexes.all(),
+		References:      []gorp.Reference[Key, Arc]{newDirectoryReference()},
+		Migrations:      versions.NewMigrations(t.root),
+		Instrumentation: cfg.Instrumentation,
+	}); err != nil {
+		return nil, errors.Combine(err, t.directories.Close())
 	}
 	return t, nil
 }
 
+// openRoot returns the key of the directory that no directory holds, creating it when
+// it does not exist.
+func openRoot(ctx context.Context, dirs *directory.Table) (directory.Key, error) {
+	var roots []directory.Directory
+	if err := dirs.NewRetrieve().
+		Where(directory.MatchNested(false)).
+		Entries(&roots).
+		Exec(ctx, nil); err != nil {
+		return uuid.Nil(), err
+	}
+	if len(roots) > 0 {
+		return roots[0].Key, nil
+	}
+	root := directory.Directory{Name: rootName}
+	if err := dirs.NewWriter(nil).Create(ctx, &root); err != nil {
+		return uuid.Nil(), err
+	}
+	return root.Key, nil
+}
+
+// newDirectoryReference returns the reference from each Arc to the directory that
+// holds it.
+func newDirectoryReference() *gorp.KeyReference[Key, Arc, directory.Key] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Arc, directory.Key]{
+		Name:     "directory",
+		Table:    string(resource.TypeArcDirectory),
+		OnDelete: gorp.Restrict,
+		Targets: func(a *Arc) []directory.Key {
+			if d := a.Base().Directory; d != nil {
+				return []directory.Key{*d}
+			}
+			return nil
+		},
+	})
+}
+
 // Close closes the table.
 func (t *Table) Close() error {
-	return errors.Combine(t.table.Close(), t.directories.table.Close())
+	return errors.Combine(t.table.Close(), t.directories.Close())
 }

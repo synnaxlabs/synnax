@@ -139,7 +139,9 @@ type Base struct {
 	// name is a human-readable name for the module.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// source is the Arc's source code, written as text or drawn as a graph.
-	Source        *Source `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *Source `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// directory is the key of the directory that holds the Arc.
+	Directory     *string `protobuf:"bytes,4,opt,name=directory,proto3,oneof" json:"directory,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -193,6 +195,13 @@ func (x *Base) GetSource() *Source {
 		return x.Source
 	}
 	return nil
+}
+
+func (x *Base) GetDirectory() string {
+	if x != nil && x.Directory != nil {
+		return *x.Directory
+	}
+	return ""
 }
 
 type WhereList struct {
@@ -351,7 +360,9 @@ type Where struct {
 	// key selects by key.
 	Key *UuidSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
 	// name selects by name.
-	Name          *pb.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Name *pb.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// directories matches the Arcs in any of the given directories.
+	Directories   *UuidList `protobuf:"bytes,6,opt,name=directories,proto3" json:"directories,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -417,6 +428,13 @@ func (x *Where) GetKey() *UuidSet {
 func (x *Where) GetName() *pb.String {
 	if x != nil {
 		return x.Name
+	}
+	return nil
+}
+
+func (x *Where) GetDirectories() *UuidList {
+	if x != nil {
+		return x.Directories
 	}
 	return nil
 }
@@ -771,11 +789,14 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\\\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x8d\x01\n" +
 	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
-	"\x06source\x18\x03 \x01(\v2\x16.service.arc.pb.SourceR\x06source\":\n" +
+	"\x06source\x18\x03 \x01(\v2\x16.service.arc.pb.SourceR\x06source\x12!\n" +
+	"\tdirectory\x18\x04 \x01(\tH\x00R\tdirectory\x88\x01\x01B\f\n" +
+	"\n" +
+	"_directory\":\n" +
 	"\tWhereList\x12-\n" +
 	"\x06values\x18\x01 \x03(\v2\x15.service.arc.pb.WhereR\x06values\"\"\n" +
 	"\bUuidList\x12\x16\n" +
@@ -783,13 +804,14 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\aUuidSet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12(\n" +
 	"\x02in\x18\x02 \x01(\v2\x18.service.arc.pb.UuidListR\x02inB\x05\n" +
-	"\x03_eq\"\x84\x02\n" +
+	"\x03_eq\"\xc0\x02\n" +
 	"\x05Where\x12+\n" +
 	"\x03and\x18\x01 \x01(\v2\x19.service.arc.pb.WhereListR\x03and\x12)\n" +
 	"\x02or\x18\x02 \x01(\v2\x19.service.arc.pb.WhereListR\x02or\x12,\n" +
 	"\x03not\x18\x03 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x03not\x88\x01\x01\x12.\n" +
 	"\x03key\x18\x04 \x01(\v2\x17.service.arc.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
-	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01B\x06\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12:\n" +
+	"\vdirectories\x18\x06 \x01(\v2\x18.service.arc.pb.UuidListR\vdirectoriesB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_name\":\n" +
@@ -864,19 +886,20 @@ var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	6,  // 5: service.arc.pb.Where.not:type_name -> service.arc.pb.Where
 	5,  // 6: service.arc.pb.Where.key:type_name -> service.arc.pb.UuidSet
 	13, // 7: service.arc.pb.Where.name:type_name -> x.filter.pb.String
-	14, // 8: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
-	15, // 9: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
-	16, // 10: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
-	7,  // 11: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
-	8,  // 12: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
-	2,  // 13: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
-	9,  // 14: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
-	10, // 15: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	4,  // 8: service.arc.pb.Where.directories:type_name -> service.arc.pb.UuidList
+	14, // 9: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
+	15, // 10: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
+	16, // 11: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
+	7,  // 12: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
+	8,  // 13: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
+	2,  // 14: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
+	9,  // 15: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
+	10, // 16: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -884,6 +907,7 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 	if File_core_pkg_service_arc_pb_arc_proto != nil {
 		return
 	}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[3].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[7].OneofWrappers = []any{}

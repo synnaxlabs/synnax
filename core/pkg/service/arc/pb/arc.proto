@@ -41,6 +41,8 @@ message Base {
   string name = 2;
   // source is the Arc's source code, written as text or drawn as a graph.
   Source source = 3;
+  // directory is the key of the directory that holds the Arc.
+  optional string directory = 4;
 }
 message WhereList {
   repeated Where values = 1;
@@ -70,6 +72,8 @@ message Where {
   optional UuidSet key = 4;
   // name selects by name.
   optional .x.filter.pb.String name = 5;
+  // directories matches the Arcs in any of the given directories.
+  UuidList directories = 6;
 }
 message SourceTextPayload {
   // text is the text-based Arc source code.

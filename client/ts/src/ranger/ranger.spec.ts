@@ -988,28 +988,55 @@ describe("cached reads", () => {
       const child = await createRange(client, { parent: parent.key });
       const res = await client.ranges.retrieveParent(child.key);
       expect(res?.key).toEqual(parent.key);
-      const id = ranger.resourceID(child.key);
-      expect((await client.ranges.parent.retrieve(id))?.key).toEqual(parent.key);
-      expect(expectLive(client.ranges.parent.getCached(id))?.key).toEqual(parent.key);
+      expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(parent.key);
+      expect(expectLive(client.ranges.parent.getCached(child.key))?.key).toEqual(
+        parent.key,
+      );
+    });
+
+    it("throws a NotFoundError for a range that does not exist", async () => {
+      await expect(client.ranges.retrieveParent(uuid.create())).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("moves a subscribed parent answer when the child moves", async () => {
       const [first, second] = await Promise.all([createRange(), createRange()]);
       const child = await createRange(client, { parent: first.key });
-      const id = ranger.resourceID(child.key);
-      const off = client.ranges.parent.onChange(id, vi.fn());
+      const off = client.ranges.parent.onChange(child.key, vi.fn());
       try {
-        expect((await client.ranges.parent.retrieve(id))?.key).toEqual(first.key);
+        expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(
+          first.key,
+        );
         await client.ranges.dispatch(
           child.key,
           ranger.set({ path: ["parent"], value: second.key }),
         );
         await expect
           .poll(() => {
-            const cached = client.ranges.parent.getCached(id);
+            const cached = client.ranges.parent.getCached(child.key);
             return query.isLive(cached) ? cached?.key : undefined;
           })
           .toEqual(second.key);
+      } finally {
+        off();
+      }
+    });
+
+    it("updates a subscribed parent answer when the parent is renamed", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      try {
+        await client.ranges.parent.retrieve(child.key);
+        const name = `renamed-${id.create()}`;
+        await client.ranges.rename(parent.key, name);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.parent.getCached(child.key);
+            return query.isLive(cached) ? cached?.name : undefined;
+          })
+          .toEqual(name);
       } finally {
         off();
       }

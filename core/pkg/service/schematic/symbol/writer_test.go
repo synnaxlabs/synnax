@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
@@ -130,20 +129,6 @@ var _ = Describe("Writer", func() {
 				Expect(retrieved.Data.SVG).To(Equal("<svg>updated</svg>"))
 			},
 		)
-
-		It("Should define the symbol's ontology resource", func(ctx SpecContext) {
-			sym := symbol.Symbol{
-				Name: "ontology-test",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-			var res []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(sym.ResourceID()).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(1))
-		})
 
 		It("Should create a symbol in a group", func(ctx SpecContext) {
 			g := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
@@ -329,18 +314,15 @@ var _ = Describe("Writer", func() {
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})
 
-		It("Should remove the ontology resource when deleting", func(ctx SpecContext) {
+		It("Should leave a deleted symbol out of its resources", func(ctx SpecContext) {
 			sym := symbol.Symbol{
-				Name: "ontology-delete-test",
+				Name: "resource-delete-test",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
-			var res []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(sym.ResourceID()).
-				Entries(&res).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{sym.ResourceID()})).
+				To(BeEmpty())
 		})
 	})
 })

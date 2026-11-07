@@ -14,8 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -60,4 +62,35 @@ var _ = Describe("Resources", func() {
 			resource.Resource{ID: t.ResourceID(), Name: t.Name},
 		))
 	})
+})
+
+var _ = Describe("Search", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+	create := func(ctx SpecContext, name string) resource.ID {
+		GinkgoHelper()
+		t := table.Table{Project: &proj.Key, Name: name}
+		Expect(svc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+		return table.ResourceID(t.Key)
+	}
+
+	It("Should return the matching tables, closest match first", func(ctx SpecContext) {
+		a := create(ctx, "turbopump test")
+		b := create(ctx, "turbopump")
+		q := search.Query[resource.ID]{Term: "turbopump"}
+		Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+			To(Equal([]resource.ID{b, a}))
+		q.Limit = 1
+		Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+			To(Equal([]resource.ID{b}))
+	})
+
+	It(
+		"Should not match a staged table outside its transaction",
+		func(ctx SpecContext) {
+			create(ctx, "injector")
+			q := search.Query[resource.ID]{Term: "injector"}
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).To(BeEmpty())
+		},
+	)
 })

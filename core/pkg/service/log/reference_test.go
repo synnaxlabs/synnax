@@ -22,7 +22,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -109,16 +108,13 @@ var _ = Describe("Channel references", func() {
 
 	It("Should drop channels the Core does not hold on open", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
 			HostProvider: node.Cluster,
-			Ontology:     otg,
 			Status:       statusSvc,
 		}))
 		kept := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
@@ -136,9 +132,8 @@ var _ = Describe("Channel references", func() {
 			Entry(&stored).
 			Exec(ctx, node.DB)).To(Succeed())
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			ImEx:     imex.NewService(),
+			DB:   node.DB,
+			ImEx: imex.NewService(),
 		}))
 		Expect(channelsOf(retrieve(ctx, node.DB, stored.Key))).
 			To(Equal([]channel.Key{kept}))

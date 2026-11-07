@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -40,10 +39,8 @@ const TaskType = "arc"
 // on the database.
 type Writer struct {
 	tx          gorp.Tx
-	otgWriter   ontology.Writer
-	otg         *ontology.Ontology
 	root        directory.Key
-	directories *gorp.Table[directory.Key, directory.Directory]
+	directories *directory.Table
 	reserved    set.Set[string]
 	tasks       *task.Service
 	matchTasks  func(arcs ...Key) task.Filter
@@ -110,10 +107,15 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	module := a.Type() == TypeModule
 	if !exists {
 		if err = w.validateEntry(
-			ctx, directory.ResourceID(w.root), a.ResourceID(), b.Name, module,
+			ctx,
+			w.root,
+			a.ResourceID(),
+			b.Name,
+			module,
 		); err != nil {
 			return err
 		}
+		b.Directory = &w.root
 	} else {
 		if err = validateType(existing.Type(), a.Type()); err != nil {
 			return err
@@ -123,24 +125,16 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 				return err
 			}
 		}
+		b.Directory = existing.Base().Directory
 	}
+	a.SetBase(b)
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, a.ResourceID()); err != nil {
+	if exists {
+		if err = w.syncTask(ctx, b); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationships(
-			ctx,
-			directory.ResourceID(w.root),
-			ontology.RelationshipTypeParentOf,
-			a.ResourceID(),
-		); err != nil {
-			return err
-		}
-	} else if err = w.syncTask(ctx, b); err != nil {
-		return err
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -176,9 +170,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
-			return err
-		}
 		w.sweeper.forget(key)
 		w.taskSync.Forget(key)
 	}

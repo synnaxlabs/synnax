@@ -21,7 +21,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
@@ -291,12 +290,10 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It("Should register the imported log in the ontology", func(ctx SpecContext) {
-			id, _ := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
-			var resource ontology.Resource
-			Expect(otg.NewRetrieve().WhereIDs(id).Entry(&resource).Exec(ctx, db)).
-				To(Succeed())
-			Expect(resource.ID).To(Equal(id))
+		It("Should retrieve the imported log as a resource", func(ctx SpecContext) {
+			id, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
+			Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{id})).
+				To(ConsistOf(resource.Resource{ID: id, Name: l.Name}))
 		})
 
 		It(

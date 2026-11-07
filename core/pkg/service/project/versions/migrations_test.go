@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
@@ -47,14 +46,11 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 				},
 			)
 
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			table := MustOpen(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[versions.Key, versions.Project]{
-					DB: db,
-					Migrations: versions.NewMigrations(
-						versions.MigrationsConfig{Ontology: otg},
-					),
+					DB:         db,
+					Migrations: versions.Migrations,
 				},
 			))
 
@@ -84,14 +80,11 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 		"Should be a no-op on a store with no legacy-prefix rows",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			table := MustOpen(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[versions.Key, versions.Project]{
-					DB: db,
-					Migrations: versions.NewMigrations(
-						versions.MigrationsConfig{Ontology: otg},
-					),
+					DB:         db,
+					Migrations: versions.Migrations,
 				},
 			))
 			Expect(table.NewRetrieve().

@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"math"
@@ -21,9 +22,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -38,6 +38,12 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+func resourceExists(ctx context.Context, db *gorp.DB, id resource.ID) (bool, error) {
+	return gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
+		Exists(ctx, db)
+}
+
 var _ = Describe("QuarantineKVKey", func() {
 	It("Should scope the task key under the quarantine prefix", func() {
 		key := uuid.New()
@@ -51,25 +57,16 @@ var _ = Describe("NewMigration", func() {
 	var (
 		memDB     kv.DB
 		db        *gorp.DB
-		otg       *ontology.Ontology
 		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		memDB = memkv.New()
 		db = DeferClose(gorp.Wrap(memDB))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
@@ -77,7 +74,7 @@ var _ = Describe("NewMigration", func() {
 		GinkgoHelper()
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())
-		Expect(otg.NewWriter(nil).DefineResources(ctx, resource.ID{
+		Expect(ontology.DefineResources(ctx, db, resource.ID{
 			Type: resource.TypeTask,
 			Key:  t.Key.String(),
 		})).To(Succeed())
@@ -92,9 +89,8 @@ var _ = Describe("NewMigration", func() {
 			Name: string(resource.TypeTask),
 			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
-					Status:   statusSvc,
-					Ontology: otg,
-					Configs:  configs,
+					Status:  statusSvc,
+					Configs: configs,
 				}),
 			},
 		}))
@@ -104,7 +100,7 @@ var _ = Describe("NewMigration", func() {
 	// Core opens them.
 	openArcStore := func(ctx SpecContext) config.Store {
 		GinkgoHelper()
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		return MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Config
 	}
 
@@ -279,10 +275,10 @@ var _ = Describe("NewMigration", func() {
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
-		Expect(otg.NewRetrieve().WhereIDs(resource.ID{
+		Expect(resourceExists(ctx, db, resource.ID{
 			Type: resource.TypeTask,
 			Key:  key.String(),
-		}).Exists(ctx, nil)).To(BeFalse())
+		})).To(BeFalse())
 		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
 		Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 		Expect(closer.Close()).To(Succeed())
@@ -345,7 +341,7 @@ var _ = Describe("NewMigration", func() {
 			}
 			Expect(gorp.NewCreate[v2.Key, v2.Task]().
 				Entry(&t).Exec(ctx, legacyDB)).To(Succeed())
-			Expect(otg.NewWriter(nil).DefineResources(ctx, resource.ID{
+			Expect(ontology.DefineResources(ctx, db, resource.ID{
 				Type: resource.TypeTask,
 				Key:  key.String(),
 			})).To(Succeed())

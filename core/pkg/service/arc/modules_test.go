@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
@@ -55,14 +53,7 @@ var _ = Describe("Modules", func() {
 		BeforeEach(func(ctx SpecContext) {
 			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
-			var roots []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(ontology.RootID).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(resource.TypeArcDirectory).
-				Entries(&roots).
-				Exec(ctx, tx)).To(Succeed())
-			root = MustSucceed(directory.KeyFromResourceID(roots[0].ID))
+			root = rootDirectory(ctx, tx).Key
 		})
 
 		It("Should resolve a module directly under Arcs", func(ctx SpecContext) {

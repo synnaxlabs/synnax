@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -29,7 +28,6 @@ import (
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
 	table      *gorp.Table[Key, Range]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -98,7 +96,7 @@ func (w Writer) create(ctx context.Context, r *Range) error {
 		r.Key,
 		NewCreateAction(CreatePayload{Range: *r}),
 	)
-	return w.otgWriter.DefineResources(ctx, r.ResourceID())
+	return nil
 }
 
 // CreateMany calls Create for each range, in order.
@@ -191,13 +189,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	if err := w.table.
+	return w.table.
 		NewDelete().
 		Where(gorp.MatchKeys[Key, Range](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) validate(r Range) error {

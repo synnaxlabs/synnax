@@ -22,6 +22,9 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeLog }
+
 // Match reports whether body is a legacy Console log state, which persists the channels
 // as an array. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {

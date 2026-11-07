@@ -18,10 +18,8 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -41,27 +39,17 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
+				DB: db,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
-				Ontology:     otg,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
@@ -88,12 +76,11 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			By("Carrying the task through the full chain to a UUID key")

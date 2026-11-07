@@ -121,7 +121,6 @@ class ArcCase(SimDaqCase, TestCase):
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task)
-        self.client.ontology.add_children(arc.resource_id, task.resource_id)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")

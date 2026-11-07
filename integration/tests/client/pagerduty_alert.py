@@ -111,7 +111,7 @@ class PagerDutyAlert(TestCase):
         created.execute_command("start")
 
         # Wait for the Go driver to configure and start the task
-        task_ontology_key = f"task:{created.key}"
+        task_owner = {"type": "task", "key": str(created.key)}
         timer = sy.Timer()
         configured = False
         while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
@@ -121,7 +121,7 @@ class PagerDutyAlert(TestCase):
             for val in frame["sy_status_set"]:
                 if (
                     isinstance(val, dict)
-                    and val.get("key") == task_ontology_key
+                    and val.get("owner") == task_owner
                     and val.get("variant") == "success"
                 ):
                     self.log(f"Task acknowledged: {val.get('message')}")

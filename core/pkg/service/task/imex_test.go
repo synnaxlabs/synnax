@@ -21,10 +21,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -54,27 +52,17 @@ type stack struct {
 func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		Ontology:            otg,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
@@ -84,7 +72,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,
@@ -156,7 +143,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			var env imex.Envelope
 			Expect(json.Unmarshal(raw, &env)).To(Succeed())
 			id := MustSucceed(imexSvc.Import(
-				ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+				ctx, nil, env, imex.ImportOptions{},
 			))
 			var imported task.Task
 			Expect(svc.NewRetrieve().
@@ -275,7 +262,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(raw, &env)).To(Succeed())
 				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+					ctx, nil, env, imex.ImportOptions{},
 				)).Error().To(MatchError(ContainSubstring("newer than this Core supports")))
 			},
 		)
@@ -289,7 +276,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					&env,
 				)).To(Succeed())
 				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+					ctx, nil, env, imex.ImportOptions{},
 				)).Error().To(MatchError(ContainSubstring("no importer registered")))
 			},
 		)
@@ -303,7 +290,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					&env,
 				)).To(Succeed())
 				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+					ctx, nil, env, imex.ImportOptions{},
 				)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("was removed")),

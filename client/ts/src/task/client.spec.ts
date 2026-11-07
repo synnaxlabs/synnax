@@ -19,7 +19,6 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
 import { label } from "@/label";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
@@ -78,7 +77,6 @@ const createStreamedClient = async () => {
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
-  const ont = new ontology.Client({ unary, cache });
   const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
@@ -91,15 +89,13 @@ const createStreamedClient = async () => {
     unary,
     cache,
     labels,
-    ontology: ont,
     framer: frames,
     channels: async () => [],
   });
-  const statuses = new status.Client({ unary, cache, ontology: ont });
+  const statuses = new status.Client({ unary, cache });
   const tasks = new task.Client({
     unary,
     framer: frames,
-    ontology: ont,
     ranges,
     cache,
     statuses,

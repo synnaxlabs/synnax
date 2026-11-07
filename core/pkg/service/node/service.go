@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node publishes the cluster's nodes as resources in the Synnax ontology.
+// Package node serves the cluster's nodes as resources.
 package node
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,10 +26,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Cluster cluster.Cluster
-	// Ontology is the ontology to which node resources are published.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -42,7 +34,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -50,25 +41,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("node")
 	v.NotNil("cluster", c.Cluster)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
-// Service publishes the cluster's nodes as resources in the Synnax ontology.
+// Service serves the cluster's nodes as resources.
 type Service struct{ cfg ServiceConfig }
 
-// NewService creates a Service, registers it with the ontology, and defines the
-// sentinel free-node resource (KeyFree) that free channels parent under.
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+// NewService creates a Service.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
-	cfg.Ontology.RegisterService(s)
-	if err := cfg.Ontology.NewWriter(nil).
-		DefineResources(ctx, ResourceID(KeyFree)); err != nil {
-		return nil, errors.Wrap(err, "define free node ontology resource")
-	}
-	return s, nil
+	return &Service{cfg: cfg}, nil
 }

@@ -9,7 +9,7 @@
 
 import "@/platform/tree/search.css";
 
-import { group, type ontology, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -28,6 +28,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Toolbar } from "@/platform/toolbar";
 import { toResource } from "@/platform/tree/children";
+import { type Resource } from "@/platform/tree/types";
 
 /** How a search shows its matches: in one list, or inside their groups. */
 export type SearchLayout = "flat" | "groups";
@@ -44,7 +45,7 @@ export interface SearchQuery {
 /** The matches one source found, in rank order. */
 export type Matches =
   | { variant: "loading" }
-  | { variant: "success"; resources: ontology.Resource[] }
+  | { variant: "success"; resources: Resource[] }
   | { variant: "error"; description?: string };
 
 /**
@@ -58,7 +59,7 @@ export interface UseMatches {
 /** Converts a Flux result into the matches of one source. */
 export const toMatches = <T extends state.State>(
   result: Flux.Result<T[]>,
-  convert: (item: T) => ontology.Resource,
+  convert: (item: T) => Resource,
 ): Matches => {
   if (result.variant === "success")
     return { variant: "success", resources: result.data.map(convert) };
@@ -84,23 +85,23 @@ export const useGroupMatches: UseMatches = (query) => {
   return [toMatches(result, toResource("group"))];
 };
 
-const groupOf = ({ id, data }: ontology.Resource): group.Key | undefined => {
+const groupOf = ({ id, data }: Resource): group.Key | undefined => {
   if (id.type !== "group") return group.keyZ.optional().parse(data?.group);
   const parent = resource.idZ.optional().parse(data?.parent);
   return parent?.type === "group" ? parent.key : undefined;
 };
 
 /** Names what a result row shows of a match, so a change to it rebuilds the results. */
-export const matchKey = (r: ontology.Resource): string =>
+export const matchKey = (r: Resource): string =>
   [r.key, r.name, groupOf(r) ?? ""].join("\t");
 
 /** Returns the keys of the groups that hold the resources. */
-export const groupsAbove = (resources: ontology.Resource[]): group.Key[] => [
+export const groupsAbove = (resources: Resource[]): group.Key[] => [
   ...new Set(resources.map(groupOf).filter((key) => key != null)),
 ];
 
 // Whether a resource with no group above it sits at the top of the tree under root.
-const atTop = (r: ontology.Resource, root: resource.ID): boolean => {
+const atTop = (r: Resource, root: resource.ID): boolean => {
   if (r.id.type !== "group") return root.key === "";
   const parent = resource.idZ.optional().parse(r.data?.parent);
   if (parent != null) return resource.idsEqual(parent, root);
@@ -110,7 +111,7 @@ const atTop = (r: ontology.Resource, root: resource.ID): boolean => {
 /** Where the search places its matches. */
 export interface Placement {
   /** The groups between the matches and the root. */
-  resources: ontology.Resource[];
+  resources: Resource[];
   /** The groups from the root down to the parent of each match, keyed by match key. */
   paths: Record<string, resource.ID[][]>;
 }
@@ -121,13 +122,13 @@ export interface Placement {
  * @param groups holds every group above the resources.
  */
 export const placeInGroups = (
-  resources: ontology.Resource[],
+  resources: Resource[],
   groups: group.Group[],
   root: resource.ID,
 ): Placement => {
   const byKey = new Map(groups.map((g) => [g.key, toResource("group")(g)]));
-  const pathOf = (r: ontology.Resource): ontology.Resource[] | null => {
-    const path: ontology.Resource[] = [];
+  const pathOf = (r: Resource): Resource[] | null => {
+    const path: Resource[] = [];
     let top = r;
     for (let key = groupOf(r); key != null; key = groupOf(top)) {
       if (root.type === "group" && key === root.key) return path;
@@ -139,7 +140,7 @@ export const placeInGroups = (
     return atTop(top, root) ? path : null;
   };
   const paths: Record<string, resource.ID[][]> = {};
-  const used = new Map<string, ontology.Resource>();
+  const used = new Map<string, Resource>();
   resources.forEach((r) => {
     const path = pathOf(r);
     if (path == null) return;
@@ -166,7 +167,7 @@ export interface ResultNodes {
   /** The groups above each node at the top of the results, nearest first. */
   paths: Map<string, resource.ID[]>;
   /** The resource of each node. */
-  resources: Map<string, ontology.Resource>;
+  resources: Map<string, Resource>;
   /** The keys of every group above each match, over all of its paths. */
   ancestors: Map<string, Set<string>>;
 }

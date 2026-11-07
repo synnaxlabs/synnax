@@ -53,11 +53,10 @@ var _ = Describe("ServiceConfig", func() {
 	var cfg rbac.ServiceConfig
 	BeforeEach(func() {
 		cfg = rbac.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Roles:    roles,
-			User:     userSvc,
-			Rack:     rackSvc,
+			DB:    db,
+			Roles: roles,
+			User:  userSvc,
+			Rack:  rackSvc,
 		}
 	})
 	Describe("Override", func() {
@@ -66,7 +65,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := rbac.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Roles).To(Equal(roles))
 				Expect(result.User).To(Equal(userSvc))
 				Expect(result.Rack).To(Equal(rackSvc))
@@ -77,7 +75,6 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := cfg.Override(rbac.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Roles).To(Equal(roles))
 				Expect(result.User).To(Equal(userSvc))
 				Expect(result.Rack).To(Equal(rackSvc))
@@ -98,11 +95,6 @@ var _ = Describe("ServiceConfig", func() {
 				"db",
 				func(c *rbac.ServiceConfig) { c.DB = nil },
 				"db: must be non-nil",
-			),
-			Entry(
-				"ontology",
-				func(c *rbac.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
 			),
 			Entry(
 				"roles",
@@ -145,11 +137,6 @@ var _ = Describe("Service", func() {
 				"db",
 				func(c *rbac.RolesConfig) { c.DB = nil },
 				"db: must be non-nil",
-			),
-			Entry(
-				"ontology",
-				func(c *rbac.RolesConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
 			),
 		)
 	})

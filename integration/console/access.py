@@ -288,7 +288,7 @@ class AccessClient(ResourceClient):
         sy.sleep(0.3)
 
     def drag_user_to_role(self, username: str, role_name: str) -> None:
-        """Assign a role to a user via drag-drop in the ontology tree.
+        """Assign a role to a user via drag-drop in the resource tree.
 
         :param username: The username of the user to drag.
         :param role_name: The name of the role to drop onto.
@@ -489,12 +489,12 @@ class AccessClient(ResourceClient):
         return item
 
     def _find_role_item(self, role_name: str) -> Locator | None:
-        """Find a role item in the ontology tree by name."""
+        """Find a role item in the resource tree by name."""
         self._show_users_panel()
         return self.tree.find_by_name(self.ROLE_ITEM_PREFIX, role_name)
 
     def list_visible_roles(self) -> list[str]:
-        """List all roles visible in the ontology tree.
+        """List all roles visible in the resource tree.
 
         :returns: List of role names.
         """
