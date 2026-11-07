@@ -135,7 +135,9 @@ and a mint that moves the demoted package all fail it.
 - `oracle sync --refreeze` accepts the change. Use it only for a change that must reach
   frozen packages, such as a generator change for every version or a live rule on a type
   the current version aliases, and say why in the PR.
-- A merge conflict in a sum file: take either side, then run `oracle sync`.
+- A merge conflict in a sum file: take either side, then run `oracle sync`. If either
+  side ran `--refreeze`, run `oracle sync --refreeze` instead, or the gate keeps failing
+  on the packages that side accepted.
 
 ## Field optionality
 
