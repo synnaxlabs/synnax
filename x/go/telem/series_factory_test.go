@@ -604,6 +604,24 @@ var _ = Describe("SeriesFactory", func() {
 			),
 			Entry("int → StringT", 42, telem.StringT, telem.NewSeriesV("42")),
 			Entry("float → StringT", 3.14, telem.StringT, telem.NewSeriesV("3.14")),
+			Entry(
+				"float32 → StringT",
+				float32(0.1),
+				telem.StringT,
+				telem.NewSeriesV("0.1"),
+			),
+			Entry(
+				"small float → StringT",
+				1e-7,
+				telem.StringT,
+				telem.NewSeriesV("1e-7"),
+			),
+			Entry(
+				"infinite float → StringT",
+				math.Inf(1),
+				telem.StringT,
+				telem.NewSeriesV("Infinity"),
+			),
 			Entry("uuid → StringT", id, telem.StringT, telem.NewSeriesV(id.String())),
 			// uuid
 			Entry("uuid → UUIDT", id, telem.UUIDT, telem.NewSeriesV(id)),

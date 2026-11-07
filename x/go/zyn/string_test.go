@@ -10,6 +10,7 @@
 package zyn_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -190,6 +191,21 @@ var _ = Describe("String", func() {
 			Specify("float value", func() {
 				result := MustSucceed(zyn.String().Dump(42.5))
 				Expect(result).To(Equal("42.5"))
+			})
+
+			Specify("float32 value at its own precision", func() {
+				result := MustSucceed(zyn.String().Dump(float32(0.1)))
+				Expect(result).To(Equal("0.1"))
+			})
+
+			Specify("float value in exponent notation", func() {
+				result := MustSucceed(zyn.String().Dump(1e21))
+				Expect(result).To(Equal("1e+21"))
+			})
+
+			Specify("NaN value", func() {
+				result := MustSucceed(zyn.String().Dump(math.NaN()))
+				Expect(result).To(Equal("NaN"))
 			})
 
 			Specify("boolean value", func() {

@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <bit>
+#include <charconv>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+#include <random>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -152,4 +158,74 @@ TEST(EscapeLineBreaks, EscapesEveryLineBreak) {
         x::strings::escape_line_breaks("<html>\n  <body>\r\n</body>\n"),
         "<html>\\n  <body>\\r\\n</body>\\n"
     );
+}
+
+/// @brief it should write the shortest text in fixed notation inside its range.
+TEST(FormatFloat, FixedNotation) {
+    EXPECT_EQ(x::strings::format_float(-1.5), "-1.5");
+    EXPECT_EQ(x::strings::format_float(1e10), "10000000000");
+    EXPECT_EQ(x::strings::format_float(1e20), "100000000000000000000");
+    EXPECT_EQ(x::strings::format_float(1e-6), "0.000001");
+    EXPECT_EQ(x::strings::format_float(1000000000000000128.0), "1000000000000000100");
+    EXPECT_EQ(x::strings::format_float(1e20f), "100000000000000000000");
+    EXPECT_EQ(x::strings::format_float(0.1f), "0.1");
+    EXPECT_EQ(x::strings::format_float(1e-6f), "0.000001");
+    EXPECT_EQ(x::strings::format_float(0.000244140625f), "0.00024414062");
+}
+
+/// @brief it should write exponent notation below 1e-6 and from 1e21.
+TEST(FormatFloat, ExponentNotation) {
+    EXPECT_EQ(x::strings::format_float(1e21), "1e+21");
+    EXPECT_EQ(x::strings::format_float(1.5e-7), "1.5e-7");
+    EXPECT_EQ(x::strings::format_float(5e-324), "5e-324");
+    EXPECT_EQ(
+        x::strings::format_float(std::numeric_limits<double>::max()),
+        "1.7976931348623157e+308"
+    );
+    EXPECT_EQ(x::strings::format_float(1e30f), "1e+30");
+    EXPECT_EQ(x::strings::format_float(1.5e-7f), "1.5e-7");
+}
+
+/// @brief it should write zero, NaN, and the infinities.
+TEST(FormatFloat, SpecialValues) {
+    EXPECT_EQ(x::strings::format_float(0.0), "0");
+    EXPECT_EQ(x::strings::format_float(std::copysign(0.0, -1.0)), "-0");
+    EXPECT_EQ(
+        x::strings::format_float(std::numeric_limits<double>::quiet_NaN()),
+        "NaN"
+    );
+    EXPECT_EQ(x::strings::format_float(std::numeric_limits<float>::quiet_NaN()), "NaN");
+    EXPECT_EQ(
+        x::strings::format_float(std::numeric_limits<double>::infinity()),
+        "Infinity"
+    );
+    EXPECT_EQ(
+        x::strings::format_float(-std::numeric_limits<float>::infinity()),
+        "-Infinity"
+    );
+}
+
+/// @brief it should write text that parses back to the same bits.
+TEST(FormatFloat, RoundTrip) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable set of values.
+    std::mt19937_64 rng(1);
+    for (int i = 0; i < 100000; ++i) {
+        const std::uint64_t bits64 = rng();
+        const auto v64 = std::bit_cast<double>(bits64);
+        const auto bits32 = static_cast<std::uint32_t>(rng());
+        const auto v32 = std::bit_cast<float>(bits32);
+        if (std::isnan(v64) || std::isnan(v32)) continue;
+        const std::string t64 = x::strings::format_float(v64);
+        double p64 = 0;
+        std::from_chars(t64.data(), t64.data() + t64.size(), p64);
+        if (!std::isinf(v64)) {
+            ASSERT_EQ(std::bit_cast<std::uint64_t>(p64), bits64) << t64;
+        }
+        const std::string t32 = x::strings::format_float(v32);
+        float p32 = 0;
+        std::from_chars(t32.data(), t32.data() + t32.size(), p32);
+        if (!std::isinf(v32)) {
+            ASSERT_EQ(std::bit_cast<std::uint32_t>(p32), bits32) << t32;
+        }
+    }
 }
