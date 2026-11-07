@@ -79,7 +79,8 @@ interface ResourcesProps extends Pick<ResourceProps, "onSelectCertificate"> {
 }
 
 const Resources = ({ ids, onSelectCertificate }: ResourcesProps): ReactElement => {
-  const resources = Ontology.useResources({ ids });
+  // The uses are a snapshot, so a resource in them may since have been deleted.
+  const resources = Ontology.useResources({ ids, ignoreNotFoundError: true });
   return (
     <>
       {resources.map((r) => (

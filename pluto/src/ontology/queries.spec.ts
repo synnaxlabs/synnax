@@ -425,6 +425,21 @@ describe("Ontology Queries", () => {
         ),
       );
     });
+
+    it("should drop an ID whose resource does not exist when ignoring not found", async () => {
+      const g = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const ids = [group.ontologyID(g.key), group.ontologyID(crypto.randomUUID())];
+      const { result } = await renderHookSuspended(
+        () => Ontology.useResources({ ids, ignoreNotFoundError: true }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.map((r) => r.id)).toEqual([group.ontologyID(g.key)]),
+      );
+    });
   });
 
   describe("useResultResources", () => {
