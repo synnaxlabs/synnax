@@ -11,7 +11,11 @@ import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  type OpModeChoice,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+} from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
@@ -49,6 +53,35 @@ export const useCommonNetwork = (channels: Channel[]) => {
   );
   return slave?.properties?.network ?? "";
 };
+
+export interface UpdateOpModeParams {
+  key: device.Key;
+  /** The mode the Driver sets up. Undefined lets the Driver pick it. */
+  opMode?: OpModeChoice;
+}
+
+export const { useUpdate: useUpdateOpMode } = Flux.createUpdate<
+  UpdateOpModeParams,
+  SlaveDevice
+>({
+  name: "sync mode",
+  verbs: verbs.UPDATE,
+  update: async ({ data: { key, opMode }, client, onOptimisticComplete }) => {
+    const dev = await client.devices.retrieve({
+      key,
+      includeStatus: true,
+      schemas: SLAVE_SCHEMAS,
+    });
+    const { opMode: _, ...rest } = dev.properties;
+    const updated: SlaveDevice = {
+      ...dev,
+      properties: opMode == null ? rest : { ...rest, opMode },
+    };
+    return await client.devices.create(updated, SLAVE_SCHEMAS, {
+      onOptimistic: async () => await onOptimisticComplete(updated),
+    });
+  },
+});
 
 export interface ToggleEnabledParams {
   keys: device.Key | device.Key[];

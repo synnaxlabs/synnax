@@ -10,6 +10,7 @@
 import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,6 +19,8 @@ import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { type Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
+import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import {
   createBaseProps,
   createSelection,
@@ -65,24 +68,71 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   // act never commits, so the mount needs an async act (see renderHookSuspended).
   await act(async () => {
     result.rerender(
-      <>
+      <Triggers.Provider>
         {loaders}
         <PMenu.Menu>
           <EtherCAT.Device.ContextMenuItems {...props} />
         </PMenu.Menu>
-      </>,
+        <Modals.Stack />
+      </Triggers.Provider>,
     );
   });
   return { store };
 };
 
-const createSlave = async (enabled: boolean) => {
+const createSlave = async (
+  enabled: boolean,
+  properties: Partial<EtherCAT.Device.SlaveProperties> = {},
+) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   return await createSlaveDevice(client, rack.key, {
     identifier: createIdentifier(),
     network: "eth0",
     enabled,
+    ...properties,
   });
+};
+
+const createMode = (name: string, assignActivate: number): EtherCAT.Device.OpMode => ({
+  name,
+  assignActivate,
+  sync0Cycle: 0,
+  sync0Factor: 1,
+  sync0Shift: 0,
+  sync1Factor: 0,
+  sync1Shift: 0,
+});
+
+const SM_MODE = createMode("SM", 0);
+const DC_MODE = createMode("DC", 0x0300);
+
+const retrieveOpMode = async (key: device.Key) =>
+  (await client.devices.retrieve({ key, schemas: EtherCAT.Device.SLAVE_SCHEMAS }))
+    .properties.opMode;
+
+/** Opens the sync mode form from the menu of a slave with the given properties. */
+const openSyncMode = async (properties: Partial<EtherCAT.Device.SlaveProperties>) => {
+  const slave = await createSlave(true, properties);
+  await renderContextMenu([slave]);
+  fireEvent.click(await screen.findByText("Set sync mode"));
+  await screen.findByText("Sync mode");
+  return slave;
+};
+
+const SM_DESCRIPTION = "Each frame from the Driver times the device.";
+const DC_DESCRIPTION = "Clock ticks: SYNC0 each bus cycle.";
+
+/** Opens the Mode select and picks the option with the description. */
+const pickMode = async (description: string) => {
+  fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+  fireEvent.click(await screen.findByText(description));
+};
+
+const typeCycle = (label: string, value: string) => {
+  const field = screen.getByRole("textbox", { name: label });
+  fireEvent.focus(field);
+  fireEvent.change(field, { target: { value } });
+  fireEvent.blur(field);
 };
 
 describe("EtherCAT device ContextMenuItems", () => {
@@ -157,6 +207,102 @@ describe("EtherCAT device ContextMenuItems", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.enabled).toBe(true);
+    });
+  });
+
+  describe("sync mode", () => {
+    it("should offer Set sync mode for one slave but not for several", async () => {
+      const slaveA = await createSlave(true);
+      const slaveB = await createSlave(true);
+      await renderContextMenu([slaveA, slaveB]);
+      await screen.findByText("Disable");
+      expect(screen.queryByText("Set sync mode")).toBeNull();
+    });
+
+    it("should save the chosen DC mode to the device", async () => {
+      const slave = await openSyncMode({ opModes: [SM_MODE, DC_MODE] });
+      expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
+      await pickMode(DC_DESCRIPTION);
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 1,
+          assignActivate: 0x0300,
+          sync0Cycle: 0,
+          sync1Cycle: 0,
+        }),
+      );
+    });
+
+    it("should hide the cycle fields when SM sync is picked", async () => {
+      await openSyncMode({ opModes: [SM_MODE, DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
+      expect(screen.getByRole("textbox", { name: "SYNC1 cycle" })).toBeTruthy();
+      await pickMode(SM_DESCRIPTION);
+      expect(screen.queryByRole("textbox", { name: "SYNC1 cycle" })).toBeNull();
+    });
+
+    it("should put the slave back in auto when the auto mode is picked", async () => {
+      const slave = await openSyncMode({
+        opModes: [SM_MODE, DC_MODE],
+        opMode: { index: 1, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+      fireEvent.click(
+        await screen.findByText("The Driver uses SM sync", { exact: false }),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toBeUndefined(),
+      );
+    });
+
+    it("should say that a SYNC1 cycle turns on SYNC1 when the mode leaves it off", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC1 cycle", "1000000");
+      expect(
+        screen.getByText("The cycle turns on SYNC1, which the mode leaves off.", {
+          exact: false,
+        }),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 0,
+          assignActivate: 0x0300,
+          sync0Cycle: 0,
+          sync1Cycle: 1_000_000_000,
+        }),
+      );
+    });
+
+    it("should not save a SYNC1 cycle that is not a multiple of SYNC0", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC0 cycle", "300");
+      typeCycle("SYNC1 cycle", "1000");
+      expect(
+        screen.getByText("SYNC1 cycle must be a multiple of the SYNC0 cycle"),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      // A save in flight disables the button until the Core answers.
+      expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
+      expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
+    it("should show a stored mode that the device no longer lists as an error", async () => {
+      await openSyncMode({
+        opModes: [DC_MODE],
+        opMode: { index: 1, assignActivate: 0x0700, sync0Cycle: 0, sync1Cycle: 0 },
+      });
+      expect(
+        screen.getByText(
+          "The device no longer lists this mode, so the network fails to start. " +
+            "Pick a mode.",
+        ),
+      ).toBeTruthy();
+      expect(screen.getByText("Mode 2 (0x0700)")).toBeTruthy();
     });
   });
 });
