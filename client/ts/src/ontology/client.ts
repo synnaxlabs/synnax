@@ -80,6 +80,7 @@ const parentRel = (from: ID, to: ID): Relationship => ({
 /** A retrieve request with IDs normalized to stable, sorted strings. */
 type NormalizedRequest = {
   ids?: string[];
+  ignoreNotFoundError?: boolean;
   excludeFieldData?: boolean;
   types?: ResourceType[];
   searchTerm?: string;
@@ -157,6 +158,8 @@ const normalizeDependents = (
 const retrieveRequestZ = z
   .strictObject({
     ids: idZ.array().optional(),
+    /** Drops the IDs whose resources do not exist instead of throwing. */
+    ignoreNotFoundError: z.boolean().optional(),
     excludeFieldData: z.boolean().optional(),
     types: resourceTypeZ.array().optional(),
     searchTerm: z.string().optional(),
@@ -167,6 +170,7 @@ const retrieveRequestZ = z
   .transform((req): NormalizedRequest => {
     const out: NormalizedRequest = {};
     if (req.ids != null) out.ids = normalizeIDs(req.ids);
+    if (req.ignoreNotFoundError === true) out.ignoreNotFoundError = true;
     if (req.excludeFieldData != null) out.excludeFieldData = req.excludeFieldData;
     if (req.types != null) out.types = [...req.types].sort();
     if (req.searchTerm != null) out.searchTerm = req.searchTerm;
