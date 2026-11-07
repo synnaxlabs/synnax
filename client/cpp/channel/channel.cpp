@@ -142,8 +142,12 @@ std::pair<Channel, x::errors::Error> Client::retrieve(
         return {Channel{}, errors::paged_one_error()};
     auto [channels, err] = this->retrieve(where, options);
     if (err) return {Channel{}, err};
-    if (const auto
-            one_err = errors::check_one("channel", where.to_json(), channels.size()))
+    if (const auto one_err = errors::check_one(
+            "channel",
+            where.to_json(),
+            options.search_term,
+            channels.size()
+        ))
         return {Channel{}, one_err};
     return {std::move(channels[0]), x::errors::NIL};
 }

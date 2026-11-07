@@ -116,7 +116,12 @@ std::pair<Arc, x::errors::Error> Client::retrieve(
         return {Arc{}, errors::paged_one_error()};
     auto [arcs, err] = this->retrieve(where, options);
     if (err) return {Arc{}, err};
-    if (const auto one_err = errors::check_one("Arc", where.to_json(), arcs.size()))
+    if (const auto one_err = errors::check_one(
+            "Arc",
+            where.to_json(),
+            options.search_term,
+            arcs.size()
+        ))
         return {Arc{}, one_err};
     return {std::move(arcs[0]), x::errors::NIL};
 }

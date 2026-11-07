@@ -64,16 +64,21 @@ not_found_error(const std::string &resource_name, const std::string &query) {
 /// @param name the name of the record type, such as "range".
 /// @param where the JSON form of the filter that the retrieve sent. The errors
 /// describe it.
+/// @param search_term the search term that the retrieve sent, or an empty string. The
+/// errors name it.
 /// @param count the number of records that the retrieve found.
 /// @returns NIL when count is 1, NOT_FOUND when it is 0, or MULTIPLE_RESULTS.
 inline x::errors::Error check_one(
     const std::string &name,
     const x::json::json &where,
+    const std::string &search_term,
     const std::size_t count
 ) {
     if (count == 1) return x::errors::NIL;
     const auto description = x::filter::describe(where);
-    const auto clause = description.empty() ? "" : " where " + description;
+    std::string clause = description.empty() ? "" : " where " + description;
+    if (!search_term.empty())
+        clause = " matching " + x::json::json(search_term).dump() + clause;
     if (count == 0)
         return x::errors::Error(x::errors::NOT_FOUND, "Found no " + name + clause);
     return x::errors::Error(
