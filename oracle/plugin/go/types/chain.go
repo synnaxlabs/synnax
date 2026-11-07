@@ -265,7 +265,8 @@ func liveDrops(
 					continue
 				}
 				candidates.Add(t.QualifiedName)
-				def := fmt.Sprintf("%s@%d.%s", e.livePath, surface[t.Name].Version, t.Name)
+				version := surface[t.Name].Version
+				def := fmt.Sprintf("%s@%d.%s", e.livePath, version, t.Name)
 				definition[t.QualifiedName] = def
 				sameDefinition[def] = append(sameDefinition[def], t.QualifiedName)
 			}
