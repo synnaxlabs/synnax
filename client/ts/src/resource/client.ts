@@ -52,8 +52,8 @@ const DEFAULT_LIMIT = 100;
 const normalize = ({ searchTerm, types, limit, offset }: SearchParams): Search => ({
   ...(searchTerm != null && searchTerm !== "" && { searchTerm }),
   ...(types != null && types.length > 0 && { types }),
-  limit: limit != null && limit > 0 ? limit : DEFAULT_LIMIT,
-  ...(offset != null && offset > 0 && { offset }),
+  limit: limit == null || limit === 0 ? DEFAULT_LIMIT : limit,
+  ...(offset != null && offset !== 0 && { offset }),
 });
 
 const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;

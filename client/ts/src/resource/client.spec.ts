@@ -83,6 +83,15 @@ describe("Resource", () => {
       ).toEqual([page[1]]);
     });
 
+    it.each([
+      ["limit", { limit: -1 }],
+      ["offset", { offset: -1 }],
+    ])("should refuse a negative %s", async (_, bounds) => {
+      await expect(
+        client.resources.search({ searchTerm: "pump", ...bounds }),
+      ).rejects.toSatisfy(ValidationError.matches);
+    });
+
     it("should refuse a type that the Core cannot search", async () => {
       await expect(
         client.resources.search({ searchTerm: "pump", types: ["builtin"] }),
