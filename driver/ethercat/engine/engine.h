@@ -20,10 +20,10 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/rt/rt.h"
 
-#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::engine {
@@ -46,7 +46,7 @@ struct Config {
         .max_interval = x::telem::SECOND * 5
     };
     /// @brief the clocks the bus cycle waits on and stamps frames with.
-    HostClock host_clock;
+    x::loop::HostClock host_clock;
 
     Config() = default;
 };

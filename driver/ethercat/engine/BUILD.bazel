@@ -67,6 +67,7 @@ cc_test(
         "//driver/ethercat/engine",
         "//driver/ethercat/testutil",
         "//x/cpp/defer",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
