@@ -10,6 +10,9 @@
 package service_test
 
 import (
+	"context"
+	"encoding/json/v2"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,13 +25,18 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/crypto/bcrypt"
@@ -70,6 +78,100 @@ var _ = Describe("Layer", func() {
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
 	})
+
+	DescribeTable(
+		"Should publish NI resource changes on signal channels",
+		func(
+			ctx SpecContext,
+			name string,
+			create func(context.Context, *service.Layer) uuid.UUID,
+			remove func(context.Context, *service.Layer, uuid.UUID) error,
+		) {
+			layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+			openStreamer := func(
+				name string,
+			) confluence.Outlet[framer.StreamerResponse] {
+				GinkgoHelper()
+				var ch channel.Channel
+				Expect(layer.Channel.NewRetrieve().
+					Where(channel.MatchNames(name)).
+					Entry(&ch).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(ch.Virtual).To(BeTrue())
+				Expect(ch.Internal).To(BeTrue())
+				streamer := MustSucceed(layer.Framer.NewStreamer(
+					ctx,
+					framer.StreamerConfig{
+						Keys:        channel.Keys{ch.Key()},
+						SendOpenAck: true,
+					},
+				))
+				requests, responses := confluence.Attach(streamer, 2)
+				sCtx, cancel := signal.Isolated()
+				shutdown := signal.NewHardShutdown(sCtx, cancel)
+				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					requests.Close()
+					confluence.Drain(responses)
+					Expect(shutdown.Close()).To(Succeed())
+				})
+				Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
+				return responses
+			}
+			sets := openStreamer("sy_ni_" + name + "_set")
+			deletes := openStreamer("sy_ni_" + name + "_delete")
+
+			key := create(ctx, layer)
+			var res framer.StreamerResponse
+			Eventually(sets.Outlet(), 5*time.Second).Should(Receive(&res))
+			var written struct {
+				Key uuid.UUID `json:"key"`
+			}
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				Expect(json.Unmarshal(sample, &written)).To(Succeed())
+			}
+			Expect(written.Key).To(Equal(key))
+
+			Expect(remove(ctx, layer, key)).To(Succeed())
+			Eventually(deletes.Outlet(), 5*time.Second).Should(Receive(&res))
+			var removed []uuid.UUID
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				removed = append(removed, uuid.UUID(sample))
+			}
+			Expect(removed).To(ContainElement(key))
+		},
+		Entry(
+			"chassis",
+			"chassis",
+			func(ctx context.Context, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				c := chassis.Chassis{
+					Rack:         layer.Rack.EmbeddedKey,
+					Name:         "PXIe-1071",
+					ResourceName: "Mod1",
+					Model:        "PXIe-1071",
+				}
+				Expect(layer.NI.Chassis.NewWriter(nil).Create(ctx, &c)).To(Succeed())
+				return c.Key
+			},
+			func(ctx context.Context, layer *service.Layer, key uuid.UUID) error {
+				return layer.NI.Chassis.NewWriter(nil).Delete(ctx, key)
+			},
+		),
+		Entry(
+			"device",
+			"device",
+			func(ctx context.Context, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				d := device.Device{Rack: layer.Rack.EmbeddedKey, Name: "PXI-6255"}
+				Expect(layer.NI.Devices.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+				return d.Key
+			},
+			func(ctx context.Context, layer *service.Layer, key uuid.UUID) error {
+				return layer.NI.Devices.NewWriter(nil).Delete(ctx, key)
+			},
+		),
+	)
 
 	It(
 		"Should end root sessions only when the root password changes",
