@@ -10,6 +10,7 @@
 package policy_test
 
 import (
+	"context"
 	"sync"
 	"uuid"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -677,4 +679,85 @@ var _ = Describe("Writer with no transaction", func() {
 			}
 		},
 	)
+})
+
+var _ = Describe("ResolveRolesWith", func() {
+	var (
+		tx                 gorp.Tx
+		held, other        role.Role
+		heldPolicy, otherP policy.Policy
+		subject            resource.ID
+		rolesOf            policy.RolesOf
+	)
+	BeforeEach(func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
+		held, other = role.Role{Name: "held"}, role.Role{Name: "other"}
+		rw := roleSvc.NewWriter(tx, true)
+		Expect(rw.Create(ctx, &held)).To(Succeed())
+		Expect(rw.Create(ctx, &other)).To(Succeed())
+		heldPolicy = policy.Policy{
+			Role:    held.Key,
+			Name:    "held-policy",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{access.ActionRetrieve},
+		}
+		otherP = policy.Policy{
+			Role:    other.Key,
+			Name:    "other-policy",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{access.ActionRetrieve},
+		}
+		w := svc.NewWriter(tx, true)
+		Expect(w.Create(ctx, &heldPolicy)).To(Succeed())
+		Expect(w.Create(ctx, &otherP)).To(Succeed())
+		subject = resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+		rolesOf = func(
+			_ context.Context,
+			_ gorp.Tx,
+			subjects ...resource.ID,
+		) ([]role.Key, error) {
+			if subjects[0] != subject {
+				return nil, query.ErrNotFound
+			}
+			return []role.Key{held.Key}, nil
+		}
+	})
+
+	retrieve := func(ctx SpecContext, f policy.Filter) ([]policy.Policy, error) {
+		var ps []policy.Policy
+		err := svc.NewRetrieve().ResolveRolesWith(rolesOf).Where(f).Entries(&ps).
+			Exec(ctx, tx)
+		return ps, err
+	}
+
+	It("Should match the policies of the roles a subject holds", func(ctx SpecContext) {
+		Expect(retrieve(ctx, policy.MatchSubjects(subject))).To(ConsistOf(heldPolicy))
+	})
+
+	It("Should match no policies for a subject that does not exist", func(
+		ctx SpecContext,
+	) {
+		missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+		Expect(retrieve(ctx, policy.Or(
+			policy.MatchSubjects(missing),
+			policy.MatchKeys(otherP.Key),
+		))).To(ConsistOf(otherP))
+	})
+
+	It("Should return any other error of the role lookup", func(ctx SpecContext) {
+		rolesOf = func(context.Context, gorp.Tx, ...resource.ID) ([]role.Key, error) {
+			return nil, errors.New("lookup failed")
+		}
+		Expect(retrieve(ctx, policy.MatchSubjects(subject))).Error().
+			To(MatchError(ContainSubstring("lookup failed")))
+	})
+
+	It("Should fail to filter by subject without a role lookup", func(ctx SpecContext) {
+		var ps []policy.Policy
+		Expect(svc.NewRetrieve().
+			Where(policy.MatchSubjects(subject)).
+			Entries(&ps).
+			Exec(ctx, tx)).
+			To(MatchError(ContainSubstring("cannot filter by subject")))
+	})
 })
