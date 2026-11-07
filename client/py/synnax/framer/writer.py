@@ -408,9 +408,9 @@ class Writer:
         """Commits like commit, and also reports whether the writer had control.
 
         :returns: The result of the commit.
-        :raises WriterClosed: If the writer is closed.
+        :raises WriterClosed: If the writer was closed before the commit.
+        :raises EOF: If the Core ends the stream during the commit.
         :raises ValidationError: If the Core rejects the commit.
-        :raises UnexpectedError: If the Core closes the writer before it responds.
         """
         if self._close_exc is not None:
             raise self._close_exc

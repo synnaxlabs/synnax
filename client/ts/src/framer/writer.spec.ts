@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EOF, type Stream, WebSocketClient } from "@synnaxlabs/freighter";
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
+import { type z } from "zod";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
@@ -362,6 +364,70 @@ describe("Writer", () => {
       } finally {
         await low.close();
       }
+    });
+
+    describe("commitResult after the stream ends", () => {
+      // Wraps each writer stream so that a spec can end it as the Core would.
+      const endable = () => {
+        const state = { ended: false, queued: false };
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- applied below.
+        const original = WebSocketClient.prototype.stream;
+        const spy = vi
+          .spyOn(WebSocketClient.prototype, "stream")
+          .mockImplementation(async function (this: WebSocketClient, ...args) {
+            const stream: Stream<z.ZodType, z.ZodType> = await original.apply(
+              this,
+              args,
+            );
+            return {
+              send: (req) => stream.send(req),
+              closeSend: () => stream.closeSend(),
+              received: () => state.queued || stream.received(),
+              receive: async () => {
+                if (state.ended || state.queued) throw new EOF();
+                return await stream.receive();
+              },
+            };
+          });
+        return { state, restore: () => spy.mockRestore() };
+      };
+
+      test("should throw EOF when the Core ends the stream during a commit", async () => {
+        const { state, restore } = endable();
+        try {
+          const writer = await client.openWriter({
+            start: TimeStamp.seconds(5),
+            channels: await newIndexedPair(client),
+          });
+          state.ended = true;
+          await expect(writer.commitResult()).rejects.toThrow(EOF);
+        } finally {
+          restore();
+        }
+      });
+
+      test("should throw WriterClosedError when the Core ended the stream before", async () => {
+        const { state, restore } = endable();
+        try {
+          const writer = await client.openWriter({
+            start: TimeStamp.seconds(5),
+            channels: await newIndexedPair(client),
+          });
+          state.queued = true;
+          await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+        } finally {
+          restore();
+        }
+      });
+
+      test("should throw WriterClosedError when the writer was closed", async () => {
+        const writer = await client.openWriter({
+          start: TimeStamp.seconds(5),
+          channels: await newIndexedPair(client),
+        });
+        await writer.close();
+        await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+      });
     });
 
     test("setAuthority", async () => {

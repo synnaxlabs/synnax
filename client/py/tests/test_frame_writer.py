@@ -9,12 +9,14 @@
 
 import asyncio
 from types import MappingProxyType
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter import EOF, Stream, WebsocketClient
 from synnax.framer.frame import FramePayload
 from tests.channel import RetrieveCounter
 from x.strings import random_name
@@ -542,6 +544,52 @@ class TestWriter:
             granted = low.commit_result()
             assert granted.authorized
             assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
+
+    def test_commit_result_stream_ended_during_commit(
+        self,
+        client: sy.Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ended = False
+        original = WebsocketClient.stream
+
+        class _EndableStream:
+            """Wraps a writer stream so that the spec can end it as the Core would."""
+
+            def __init__(self, stream: Stream[Any, Any]) -> None:
+                self._stream = stream
+
+            def send(self, req: Any) -> None:
+                self._stream.send(req)
+
+            def receive(self, timeout: float | None = None) -> Any:
+                if ended:
+                    raise EOF()
+                return self._stream.receive(timeout=timeout)
+
+            def received(self) -> bool:
+                return self._stream.received()
+
+            def close_send(self) -> None:
+                self._stream.close_send()
+
+        def stream(self: WebsocketClient, *args: Any, **kwargs: Any) -> Any:
+            return _EndableStream(original(self, *args, **kwargs))
+
+        monkeypatch.setattr(WebsocketClient, "stream", stream)
+        writer = client.open_writer(start=sy.TimeSpan.SECOND, channels=indexed_pair)
+        ended = True
+        with pytest.raises(EOF):
+            writer.commit_result()
+
+    def test_commit_result_writer_closed(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        writer = client.open_writer(start=sy.TimeSpan.SECOND, channels=indexed_pair)
+        writer.close()
+        with pytest.raises(sy.WriterClosed):
+            writer.commit_result()
 
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]

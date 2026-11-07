@@ -296,7 +296,9 @@ export class Writer {
   /**
    * Commits like `commit`, and also reports whether the writer had control.
    * @returns the result of the commit.
-   * @throws {WriterClosedError} if the writer is closed, or the Core closed it.
+   * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
+   * before the commit.
+   * @throws {EOF} if the Core ends the stream during the commit.
    * @throws {ValidationError} if the Core rejects the commit.
    */
   async commitResult(): Promise<CommitResult> {
