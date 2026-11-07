@@ -70,14 +70,6 @@ inline std::uint16_t rack_key_node(const Key key) {
     return key >> 16;
 }
 
-/// @brief Options for retrieving racks.
-struct RetrieveOptions {
-    /// @brief When true, the server joins each rack's current operational
-    /// status from the Status service and returns it on the retrieved rack.
-    /// Leave false for lighter-weight reads that don't need live status.
-    bool include_status = false;
-};
-
 /// @brief Client for managing racks in a Synnax cluster.
 class Client {
 public:

@@ -308,6 +308,42 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     ASSERT_TRUE(found1);
     ASSERT_TRUE(found2);
 }
+/// @brief it should apply the limit of the options to a retrieve by names.
+TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<std::string> names;
+    for (int i = 0; i < 2; i++) {
+        auto t = Task{
+            .name = std::to_string(gen_rand_task()),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+        names.push_back(t.name);
+    }
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(names, {.limit = 1}));
+    ASSERT_EQ(tasks.size(), 1);
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one task.
+TEST(TaskTests, testRetrieveTaskRejectsPage) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        const auto [_, err] = r.tasks.retrieve("test_module", options);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "a query for one record takes no limit or offset, since a page could "
+            "hide a second match"
+        );
+    }
+}
+
 /// @brief it should retrieve multiple tasks by their types.
 TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
