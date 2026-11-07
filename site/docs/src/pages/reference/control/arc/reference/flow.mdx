@@ -98,10 +98,10 @@ parenthesis must touch the name. Do not mix the two forms in one pair of parenth
 Values by position fill the parameters in order, and skip the trigger that the flow
 feeds.
 
-| Parameter type | Value                                                                      |
-| -------------- | -------------------------------------------------------------------------- |
-| `chan T`       | A channel name, or a variable that holds a channel.                        |
-| Any other type | A literal, or a variable declared with a literal, such as `gain := 6.895`. |
+| Parameter type | Value                                                               |
+| -------------- | ------------------------------------------------------------------- |
+| `chan T`       | A channel name, or a variable that holds a channel.                 |
+| Any other type | A literal, a constant like `math.inf`, or a variable set to either. |
 
 Other values, expressions too, fail with `input value for 'k' must be a literal`. When a
 stage or a sequence sets the variable to a new value, the function uses the new value.
