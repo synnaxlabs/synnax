@@ -12,8 +12,9 @@
 # Decides the Review gate commit status for a pull request. Usage: check_review.sh
 # <pr_number>. Prints "<state>\t<description>" where state is pending, failure, or
 # success. A pull request needs one tier label and a Sedosaur 5/5 of the head. A pull
-# request Dependabot opened and wrote every commit of passes without a review. Exits
-# non-zero only when the GitHub API fails.
+# request Dependabot opened and wrote every commit of passes without a review. A fork
+# fails, since Sedosaur does not review one. Exits non-zero only when the GitHub API
+# fails.
 
 set -euo pipefail
 
@@ -27,8 +28,9 @@ report() {
 }
 
 PULL=$("$GH_API" "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.base.ref) \(
-    .user.login) \([.labels[].name | select(startswith("review/"))] | join(","))"')
-read -r HEAD BASE AUTHOR TIER <<< "$PULL"
+    .head.repo.full_name != .base.repo.full_name) \(.user.login) \(
+    [.labels[].name | select(startswith("review/"))] | join(","))"')
+read -r HEAD BASE FORK AUTHOR TIER <<< "$PULL"
 
 # Git author emails are free to set, so a commit counts as Dependabot's only when GitHub
 # also signed and committed it.
@@ -46,6 +48,10 @@ case "$TIER" in
     review/bot | review/human) ;;
     *) report pending "waiting for one label: review/bot or review/human" ;;
 esac
+
+if [ "$FORK" = true ]; then
+    report failure "Sedosaur does not review forks, so an admin merges this one"
+fi
 
 # Only a review of the head counts: a push after the review needs a new one. The newest
 # review of this pull request and base decides, since a commit can head two pull

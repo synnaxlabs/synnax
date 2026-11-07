@@ -25,8 +25,8 @@ Read every value from GitHub now. Never repeat a status from earlier in the sess
 
 ```bash
 Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(number:$n){
-  number url title state isDraft mergeable headRefName headRefOid baseRefName body
-  mergeCommit{oid}
+  number url title state isDraft mergeable headRefName baseRefName mergeCommit{oid}
+  commits(last:1){nodes{commit{status{context(name:"Review gate"){state description}}}}}
   labels(first:20){nodes{name}}
   stack{number entries(first:50){nodes{position pullRequest{
     number state headRefName mergeCommit{oid}
@@ -35,16 +35,11 @@ Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(numbe
   reviewThreads(first:100){nodes{isResolved}}
 }}}'
 for n in $PRS; do
-  gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest
-    | .headRefOid as $sha
-    | ((.body // "")
-      | [match("<!-- sedosaur_comment -->[\\s\\S]*?<!-- /sedosaur_comment -->").string]
-      | first // "") as $sedosaur | {
+  gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest | {
     number, url, title, state, draft: .isDraft, mergeable,
     head: .headRefName, base: .baseRefName, mergeCommit: .mergeCommit.oid,
     tier: ([.labels.nodes[].name | select(startswith("review/"))] | first),
-    sedosaur: ($sedosaur | [scan("Confidence Score: ([0-9])/5")] | first | first),
-    sedosaurCurrent: ($sedosaur | contains("commit/" + $sha)),
+    gate: .commits.nodes[0].commit.status.context,
     humans: [.latestOpinionatedReviews.nodes[]
       | select(.author.login | endswith("[bot]") | not)
       | {login: .author.login, state}],
@@ -87,10 +82,11 @@ you see `No run`.
 
 **Review.** One cell holds Sedosaur, human review, and open threads.
 
-- Sedosaur: `5/5` is good. Below 5 fails the `Review gate`. A clean re-review posts no
-  review object, so the only source is the summary in the PR body. If `sedosaurCurrent`
-  is false, the score is for an older commit: write `Sedosaur 5/5 on an older commit`.
-  If `sedosaur` is null, write `no Sedosaur review`.
+- Sedosaur: `gate` is the `Review gate` status of the head, the verdict that blocks the
+  merge. Never read the score from the summary in the PR body: the author can edit it,
+  and a failed review leaves the old one. Write `Sedosaur N/5` when the description
+  gives a score, or `no Sedosaur review` while it waits for one. If `gate` is null, the
+  gate has not judged the head: write `gate pending`.
 - Human: on `review/human`, name who approved or requested changes, or write
   `human pending`. On `review/bot`, omit the human part unless `humans` is not empty.
   With no tier label, write `no tier label`.

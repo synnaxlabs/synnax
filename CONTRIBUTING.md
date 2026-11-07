@@ -43,7 +43,8 @@ classifier, the gate, and auto-merge and adds path labels for a fork or Dependab
 request that changed in the last hour, and for a fork without `review/human` that
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
-`gh workflow run check.review.yaml -f pr=<number>`.
+`gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
+the gate fails it, and an admin merges it after a person reviews it.
 
 ## Review tiers
 

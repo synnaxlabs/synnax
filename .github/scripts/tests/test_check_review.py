@@ -57,11 +57,16 @@ class Harness:
         self.commits(commit())
         self.reviews("head", review())
 
-    def pull(self, author: str, *labels: str) -> None:
-        """Sets the account that opened the pull request and its labels."""
+    def pull(self, author: str, *labels: str, fork: bool = False) -> None:
+        """Sets the account that opened the pull request, its labels, and whether its
+        head is in a fork."""
+        repo = "synnaxlabs/synnax"
         payload = {
-            "head": {"sha": "head"},
-            "base": {"ref": "main"},
+            "head": {
+                "sha": "head",
+                "repo": {"full_name": f"{author}/synnax" if fork else repo},
+            },
+            "base": {"ref": "main", "repo": {"full_name": repo}},
             "user": {"login": author},
             "labels": [{"name": n} for n in labels or ("review/bot",)],
         }
@@ -174,6 +179,33 @@ class TestScore:
     def test_fails_without_a_score(self, harness: Harness) -> None:
         harness.reviews("head", review(None))
         assert harness.run() == ("failure", "Sedosaur left no score on the head")
+
+
+class TestFork:
+    """Tests for pull requests from forks, which Sedosaur does not review."""
+
+    def test_fails_a_fork(self, harness: Harness) -> None:
+        harness.pull("someone", "review/human", fork=True)
+        harness.reviews("head")
+        assert harness.run() == (
+            "failure",
+            "Sedosaur does not review forks, so an admin merges this one",
+        )
+
+    def test_fails_a_deleted_fork(self, harness: Harness) -> None:
+        harness.pull("someone", "review/human")
+        payload = {
+            "head": {"sha": "head", "repo": None},
+            "base": {"ref": "main", "repo": {"full_name": "synnaxlabs/synnax"}},
+            "user": {"login": "someone"},
+            "labels": [{"name": "review/human"}],
+        }
+        harness.gh.serve("api */pulls/42", payload)
+        assert harness.run()[0] == "failure"
+
+    def test_waits_for_a_tier_first(self, harness: Harness) -> None:
+        harness.pull("someone", "core", fork=True)
+        assert harness.run()[0] == "pending"
 
 
 class TestDependabot:
