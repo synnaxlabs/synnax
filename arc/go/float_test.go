@@ -15,7 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -94,6 +97,20 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("is_finite of an integer literal", "math.is_finite(3)", 0.0, true),
 		Entry("is_finite of a negated integer", "math.is_finite(-3)", 0.0, true),
 		Entry("is_finite of integer arithmetic", "math.is_finite(1 + 2)", 0.0, true),
+	)
+
+	It(
+		"Should fail to compile a float check with no float argument",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			Expect(arc.CompileText(
+				ctx,
+				arc.Text{
+					Raw: "import math\nfunc f() str {\n    return f\"{math.is_nan(3)}\"\n}",
+				},
+				root,
+			)).Error().To(MatchError(ContainSubstring("float check requires an f32 or f64")))
+		},
 	)
 
 	Describe("Mixed float and integer literals", func() {

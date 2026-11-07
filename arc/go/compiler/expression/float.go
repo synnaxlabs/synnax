@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // floatCheck tests |x| against +Inf with op. Each op is false for NaN, so a check that
@@ -37,12 +38,18 @@ func emitFloatCheck[T antlr.ParserRuleContext](
 	check floatCheck,
 	t types.Type,
 ) (types.Type, error) {
-	if t.Kind == types.KindF32 {
+	switch t.Kind {
+	case types.KindF32:
 		ctx.Writer.WriteOpcode(wasm.OpF32Abs)
 		ctx.Writer.WriteF32Const(float32(math.Inf(1)))
-	} else {
+	case types.KindF64:
 		ctx.Writer.WriteOpcode(wasm.OpF64Abs)
 		ctx.Writer.WriteF64Const(math.Inf(1))
+	default:
+		return types.Type{}, errors.Newf(
+			"float check requires an f32 or f64, got %s",
+			t,
+		)
 	}
 	if err := ctx.Writer.WriteBinaryOpInferred(check.op, t); err != nil {
 		return types.Type{}, err
