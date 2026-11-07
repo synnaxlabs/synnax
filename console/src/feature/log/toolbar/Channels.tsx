@@ -109,7 +109,7 @@ const ChannelRow = ({
           value={channel}
           onChange={handleChannelChange}
           allowNone
-          initialQuery={selectQueryExcluding(otherChannels)}
+          query={selectQueryExcluding(otherChannels)}
           disabled={disabled}
           triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
@@ -138,7 +138,7 @@ const ChannelRow = ({
               value={precision}
               onChange={handlePrecisionChange}
               onClear={() => handlePrecisionChange()}
-              endContent={precision == null ? <Input.AutoChip /> : undefined}
+              endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
@@ -212,7 +212,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
       <Channel.SelectSingle
         allowNone
         onChange={handleAdd}
-        initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+        query={SELECT_CHANNEL_INITIAL_QUERY}
         disabled={disabled}
         triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
         className={CSS.BE("log", "channel-select")}
