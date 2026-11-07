@@ -549,22 +549,20 @@ class Client:
                 )
             ),
         )
-        res = self._retriever.filter(
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                include_status=include_status,
-            ),
-            range_key,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_status=include_status,
         )
+        res = self._retriever.filter(req, range_key)
         sug = self._sugar(res)
         if not single:
             return sug
         if channel is not None and positional and len(res) > 1:
             raise _multiple_results_error(channel, res)
-        return sole("Channel", fields if channel is None else channel, sug)
+        return sole("channel", req.where, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:
