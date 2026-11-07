@@ -12,9 +12,7 @@
           {
             "key": "r1",
             "name": "Body",
-            "selectors": [
-              "#body"
-            ],
+            "selectors": ["#body"],
             "strokeColor": "#123456",
             "fillColor": "#654321"
           }

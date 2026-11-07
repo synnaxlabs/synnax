@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -81,10 +82,10 @@ var _ = Describe("ExportGroup", func() {
 	}
 	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 		GinkgoHelper()
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name: name,
 			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-		}
+		})
 		Expect(svc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
@@ -292,10 +293,10 @@ var _ = Describe("ImportGroup", func() {
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
 		})
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name: "Inlet",
 			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-		}
+		})
 		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.OntologyID())).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
