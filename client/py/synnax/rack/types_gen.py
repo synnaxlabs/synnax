@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, TypedDict
 from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -59,6 +59,23 @@ class Where(BaseModel):
     integrations: filter.Contains[str] | None = None
     host_is_node: bool | None = None
 
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "embedded": filter.BoolInput,
+        "integrations": filter.ContainsInput[str],
+        "host_is_node": bool,
+    },
+    total=False,
+)
 
 Status: TypeAlias = status_.Status[StatusDetails]
 

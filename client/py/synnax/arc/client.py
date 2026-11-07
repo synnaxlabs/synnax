@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import overload
+from typing import Any, Literal, overload
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -32,11 +32,12 @@ from synnax.arc.types_gen import (
     TextSource,
     Type,
     Where,
+    WhereInput,
     ontology_id,
 )
-from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.client import Client as OntologyClient
 from synnax.ontology.payload import ID
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -149,29 +150,74 @@ class Client:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, *, key: Key, include_program: bool = False) -> Arc: ...
-
-    @overload
-    def retrieve(self, *, name: str, include_program: bool = False) -> Arc: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: bool = ...,
+    ) -> Arc: ...
 
     @overload
     def retrieve(
         self,
         *,
-        where: Where | None = None,
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
-        include_program: bool = False,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: bool = ...,
+    ) -> Arc: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: Literal[True],
+    ) -> Arc: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_program: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Arc]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
@@ -179,30 +225,44 @@ class Client:
         limit: int | None = None,
         offset: int = 0,
         include_program: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> Arc | list[Arc]:
-        """Retrieve Arcs. Returns one Arc when a key or name is given, and a list
-        otherwise.
+        """Retrieves Arcs from the Core. With no arguments, retrieves every Arc.
 
-        :param where: Keeps Arcs that match this filter tree.
+        Each filter field takes a value, a list of values, or an operator, and an Arc
+        must match every field. A plain ``key`` or ``name`` returns one Arc.
+
+        :param key: Keeps Arcs with this key.
+        :param name: Keeps Arcs with this name.
+        :param and_: Keeps Arcs that match every filter in the list.
+        :param or_: Keeps Arcs that match any filter in the list.
+        :param not_: Keeps Arcs that do not match the filter.
+        :param where: A filter tree that the Arcs must also match.
+        :param keys: Keeps Arcs with one of these keys.
+        :param names: Keeps Arcs with one of these names.
+        :param search_term: A fuzzy search term matched against Arc names.
+        :param limit: The maximum number of Arcs to retrieve.
+        :param offset: The number of Arcs to skip.
         :param include_program: Whether the Core compiles each automation and sets
             its program. The Core raises an error if any automation fails to compile.
-        :raises NotFoundError: If a single Arc is requested and none matches.
-        :raises MultipleFoundError: If a single Arc is requested by name and more
-            than one matches.
+        :param one: Returns one Arc for any filter.
+        :returns: One Arc for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of Arcs. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one Arc is wanted and none matches.
+        :raises MultipleFoundError: If one Arc is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one Arc is wanted
+            beside a limit or an offset.
         """
-        if key is not None:
-            keys = [key]
-        if name is not None:
-            names = [name]
+        single = returns_one(fields, one, limit, offset)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        is_single = key is not None or name is not None
         res = self._client.send(
             "/arc/retrieve",
             RetrieveRequest(
-                where=filter.merge(where, flat),
+                where=request_where(Where, filter.merge(where, flat), fields),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
@@ -210,17 +270,8 @@ class Client:
             ),
             RetrieveResponse,
         )
-
         arcs = self._sugar(res.arcs)
-        if not is_single:
-            return arcs
-        if len(arcs) == 0:
-            identifier = key if key is not None else name
-            raise NotFoundError(f"Arc {identifier} not found")
-        if len(arcs) > 1:
-            identifier = key if key is not None else name
-            raise MultipleFoundError(f"Multiple Arcs matching {identifier} found")
-        return arcs[0]
+        return sole("Arc", fields, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

@@ -19,9 +19,9 @@ import { type Entry } from "@/server/user";
 import { userPath } from "@/shell";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { Fact, Facts } from "@/ui/Facts";
-import { date } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface UsersProps {
   entries: Entry[];
@@ -46,6 +46,7 @@ const lastActive = ({ lastActive: t }: Usage): number => t?.getTime() ?? -Infini
 
 /** Users lists every account by when it last used Synnax Desktop. Staff only. */
 export const Users = ({ entries, now }: UsersProps): ReactElement => {
+  const clock = useClock();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<Period | null>(null);
   const query = search.trim().toLowerCase();
@@ -120,7 +121,7 @@ export const Users = ({ entries, now }: UsersProps): ReactElement => {
                     </Text.Text>
                   </Flex.Box>
                   <Text.Text level="p" color={9}>
-                    {date(usage.lastLogin)}
+                    {clock.date(usage.lastLogin)}
                   </Text.Text>
                   {isActive(usage, "day", now) ? (
                     <Flex.Box>
@@ -128,14 +129,14 @@ export const Users = ({ entries, now }: UsersProps): ReactElement => {
                     </Flex.Box>
                   ) : (
                     <Text.Text level="p" color={9}>
-                      {date(usage.lastActive)}
+                      {clock.date(usage.lastActive)}
                     </Text.Text>
                   )}
                   <Text.Text level="p" color={9}>
                     {usage.days === 0 ? "" : `${usage.days} of ${MONTH}`}
                   </Text.Text>
                   <Text.Text level="p" color={9}>
-                    {date(a.joinedAt)}
+                    {clock.date(a.joinedAt)}
                   </Text.Text>
                 </Row>
               ))}

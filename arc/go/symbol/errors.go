@@ -13,6 +13,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // NotExportedError is returned when a user module holds the member but does not
@@ -40,6 +43,11 @@ type UndefinedSymbolError struct {
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
 	return fmt.Sprintf("undefined symbol: %s", e.Name)
+}
+
+func isUndefined(err error) bool {
+	var undefined *UndefinedSymbolError
+	return errors.Is(err, query.ErrNotFound) || errors.As(err, &undefined)
 }
 
 // GetHint implements diagnostics.HintProvider. It looks for two kinds of

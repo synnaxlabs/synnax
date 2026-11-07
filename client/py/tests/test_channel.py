@@ -233,8 +233,8 @@ class TestChannel:
             assert isinstance(indexed_pair[i].data_type.density, sy.Density)
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
-        """Should raise a NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError):
+        """Should raise NotFoundError when key not found"""
+        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
@@ -252,6 +252,13 @@ class TestChannel:
         fake_names = ["fake1", "fake2", "fake3"]
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
+
+    def test_retrieve_empty_list(self, client: sy.Synnax) -> None:
+        """Should retrieve no channels for an empty list."""
+        client.channels.create(
+            name=channel_name(), data_type=sy.DataType.FLOAT32, virtual=True
+        )
+        assert client.channels.retrieve([]) == []
 
     def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax) -> None:
         """Should retrieve an empty list when can't find channels"""
@@ -802,6 +809,78 @@ class TestChannelRetrieveFilters:
         assert len(rest) == 1
         assert self.keys(first) | self.keys(rest) == self.keys(list(create_channels))
 
+    def test_fields(
+        self,
+        client: sy.Synnax,
+        prefix: str,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should keep the channels that match every field"""
+        idx, data, _ = create_channels
+        res = client.channels.retrieve(
+            name={"starts_with": prefix}, data_type=[sy.DataType.FLOAT32]
+        )
+        assert self.keys(res) == {data.key}
+        res = client.channels.retrieve(
+            name={"starts_with": prefix},
+            leaseholder=idx.leaseholder,
+            is_index=False,
+            virtual=False,
+        )
+        assert self.keys(res) == {data.key}
+
+    def test_plain_key_beside_fields(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should return one channel for a plain key or name beside other fields"""
+        _, data, virt = create_channels
+        assert client.channels.retrieve(key=virt.key, virtual=True).key == virt.key
+        assert client.channels.retrieve(name=data.name, is_index=False).key == data.key
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(key=virt.key, virtual=False)
+
+    def test_or(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should keep the channels that match any filter in or_"""
+        idx, _, virt = create_channels
+        res = client.channels.retrieve(or_=[{"name": idx.name}, {"key": [virt.key]}])
+        assert self.keys(res) == {idx.key, virt.key}
+
+    def test_one(
+        self,
+        client: sy.Synnax,
+        prefix: str,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should return one channel for any filter when one is set"""
+        virt = create_channels[2]
+        found = client.channels.retrieve(
+            name={"starts_with": prefix}, virtual=True, one=True
+        )
+        assert found.key == virt.key
+
+    def test_single_with_limit(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should reject a single key beside a limit, since a page could hide a
+        match"""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.channels.retrieve(create_channels[0].key, limit=1)  # type: ignore[call-overload]
+
+    def test_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, even beside an empty list of keys"""
+        with pytest.raises(sy.ValidationError, match="virtual is None"):
+            client.channels.retrieve(virtual=None)  # type: ignore[call-overload]
+        with pytest.raises(sy.ValidationError, match="virtual is None"):
+            client.channels.retrieve([], virtual=None)  # type: ignore[call-overload]
+
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""
         assert len(client.channels.retrieve(limit=1)) == 1
@@ -910,6 +989,18 @@ class TestChannelRetriever:
     def test_retrieve_one_not_found(self, client: sy.Synnax) -> None:
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
+
+    def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise MultipleFoundError when a pattern matches two channels."""
+        prefix = channel_name()
+        for suffix in ("a", "b"):
+            client.channels.create(
+                data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
+            )
+        with pytest.raises(
+            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+        ):
+            client.channels._retriever.retrieve_one(f"{prefix}_.*")
 
 
 @pytest.mark.framer

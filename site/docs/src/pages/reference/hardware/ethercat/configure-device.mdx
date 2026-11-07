@@ -30,7 +30,9 @@ use a module, you configure it.
   a port for EtherCAT only, and do not connect it to a switch or to your office network.
 - Packet capture software:
   - **Windows** -> install [Npcap](https://npcap.com/#download). The default install
-    options work.
+    options work. If DewesoftX is installed,
+    [turn off its network filter](#no-modules-show-on-a-computer-with-dewesoftx) on the
+    port for Synnax.
   - **Linux** and **macOS** -> nothing to install.
 
 <Edition.Enterprise>
@@ -103,9 +105,9 @@ list of modules does not change. To find new modules, stop the tasks on the port
 The Driver reads the PDOs of a module from the module itself. If the module does not
 report them, the Driver uses a built-in catalog of Beckhoff and Dewesoft modules. If it
 cannot find them, the status of the module reads "Failed to discover PDOs", and its
-description gives the reason. To scan again,
-[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A module
-that the scan cannot read is not supported yet.
+description gives the reason. While no task uses the port, the Driver tries to discover
+the PDOs again every 30 seconds. A module that the scan cannot read is not supported
+yet.
 
 <Divider.Divider x />
 
@@ -115,6 +117,12 @@ that the scan cannot read is not supported yet.
   Starting or stopping one task does not interrupt the others.
 - **Start and stop** -> The network starts when the first task on the port starts, and
   stops when the last task stops.
+- **Every module must start** -> With the built-in master, the network starts only when
+  every enabled module on the port reaches OP. If one module does not, no task on the
+  port starts. To run the other modules, [disable](#disable-a-device) that module.
+- **DC sync** -> The Driver does not turn on DC sync (SYNC0) yet. A module in a DC sync
+  mode does not start. See
+  ["Invalid DC SYNC configuration"](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
@@ -204,7 +212,8 @@ Configure modules in the Console. TypeScript returns device properties in camel 
 
 ## Disable a device
 
-Disable a module to leave it out of the network, for example when it is not cabled yet.
+Disable a module to leave it out of the network, for example when it is not cabled yet
+or when it does not start.
 
 <Client.Tabs>
   <Fragment slot="console">
@@ -264,10 +273,40 @@ name of the PDO that holds it. TypeScript uses the same fields in camel case, su
 ### No modules show in the devices toolbar
 
 1. Check the cable from the port to the first module, and the power to the modules.
-2. Make sure that no other program uses the port.
+2. Make sure that no other program uses the port. On Windows, DewesoftX can block the
+   port also when DewesoftX is closed. See
+   [No modules show on a computer with DewesoftX](#no-modules-show-on-a-computer-with-dewesoftx).
 3. Check the [prerequisites](#prerequisites) and the
    [network interface access](#network-interface-access), then
    [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### No modules show on a computer with DewesoftX
+
+DewesoftX adds a network filter, **EthercatDAQ Filter**, to each Ethernet port. After
+DewesoftX starts, the filter stops the replies of the modules before they get to the
+Driver. This continues after you close DewesoftX, and a restart of the port does not
+stop it. The scan finds no modules, and a task shows "no EtherCAT slaves found".
+
+To turn off the filter on the port for Synnax:
+
+1. In Windows Settings, go to **Network and internet** > **Advanced network settings** >
+   **More network adapter options**. You can also press Windows + R and enter
+   `ncpa.cpl`.
+2. Right-click the port that connects to the first module, then select **Properties**.
+   Windows asks for administrator access.
+3. Clear **EthercatDAQ Filter**, then select **OK**.
+
+The modules show in the devices toolbar in 30 seconds or less. You do not need to
+restart the Driver. From an administrator PowerShell, this command does the same, with
+the name of the port from step 2:
+
+```powershell
+Disable-NetAdapterBinding -Name "Ethernet 2" -ComponentID DW_EthcatDAQ
+```
+
+DewesoftX cannot use a port while its filter is off. To use DewesoftX and Synnax at the
+same time, connect each one to a different port. To give a port back to DewesoftX,
+select **EthercatDAQ Filter** again.
 
 ### "EtherCAT is unavailable because a required packet capture library is not installed"
 
@@ -280,6 +319,29 @@ Follow the [prerequisites](#prerequisites), then
 The Console shows this warning when the Driver cannot scan a port. The description gives
 the reason, such as no raw Ethernet access. See
 [network interface access](#network-interface-access).
+
+### "failed to reach SAFE-OP" or "failed to reach OP"
+
+A module did not move to SAFE-OP or OP when the network started, so no task on the port
+starts. The error names each of these modules and its state. When a module refuses the
+change, the error also gives the error text of the module, such as "Invalid output
+configuration".
+
+Check the error text in the documentation of the module. To run the other modules now,
+[disable](#disable-a-device) the module, then start the tasks again.
+
+### "failed to reach SAFE-OP: ... Invalid DC SYNC configuration"
+
+The module is in a DC sync mode, so it waits for the master to turn on DC sync (SYNC0).
+The Driver does not support DC sync yet, so the module stays in PRE-OP.
+
+- **The module has an SM sync mode** -> Set the module to it. Dewesoft modules keep the
+  mode in the module, and use a new mode after a power cycle. The
+  [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
+  lists the modes of each model and how to set them.
+- **The module has only DC sync modes** -> [Disable](#disable-a-device) it, so that the
+  other modules on the port can run. For example, the Dewesoft IOLITE 16xAO and 16xLV
+  have only a DC sync mode in standalone mode.
 
 ### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
 

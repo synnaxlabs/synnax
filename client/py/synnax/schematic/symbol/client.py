@@ -7,13 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.exceptions import NotFoundError
 from synnax.ontology import ID, CrudeID
 from synnax.schematic.symbol.types_gen import (
     Key,
@@ -21,7 +20,9 @@ from synnax.schematic.symbol.types_gen import (
     RetrieveResponse,
     Symbol,
     Where,
+    WhereInput,
 )
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -89,49 +90,82 @@ class Client:
         return res.symbols[0] if is_single else res.symbols
 
     @overload
-    def retrieve(self, *, key: Key) -> Symbol: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Symbol: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        where: Where | None = None,
-        search_term: str = "",
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Symbol: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[False] = ...,
     ) -> list[Symbol]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
         where: Where | None = None,
         search_term: str = "",
+        one: bool = False,
+        **fields: Any,
     ) -> Symbol | list[Symbol]:
-        """Retrieves one or more symbols. With no arguments, it retrieves every symbol.
+        """Retrieves symbols. With no arguments, retrieves every symbol.
 
-        :param key: The key of a single symbol to retrieve.
-        :param keys: The keys of the symbols to retrieve.
-        :param where: A filter that the symbols must also match.
+        Each filter field takes a value, a list of values, or an operator, and a symbol
+        must match every field. A plain ``key`` returns one symbol.
+
+        :param key: Keeps symbols with this key.
+        :param and_: Keeps symbols that match every filter in the list.
+        :param or_: Keeps symbols that match any filter in the list.
+        :param not_: Keeps symbols that do not match the filter.
+        :param where: A filter tree that the symbols must also match.
+        :param keys: Keeps symbols with one of these keys.
         :param search_term: A fuzzy search term matched against symbol names.
-        :returns: The matching symbol when ``key`` is provided, otherwise a list of
-            matching symbols. The list leaves out keys that do not exist.
-        :raises NotFoundError: If ``key`` is provided and no symbol has it.
+        :param one: Returns one symbol for any filter.
+        :returns: One symbol for a plain ``key`` or when ``one`` is set, otherwise a
+            list of symbols. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one symbol is wanted and none matches.
+        :raises MultipleFoundError: If one symbol is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
+        single = returns_one(fields, one, None, 0)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
-        res = self._client.send(
-            "/schematic/symbol/retrieve",
-            RetrieveRequest(where=filter.merge(where, flat), search_term=search_term),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
         )
-        if not is_single:
-            return res.symbols
-        if len(res.symbols) == 0:
-            raise NotFoundError(f"Symbol {key} not found")
-        return res.symbols[0]
+        res = self._client.send("/schematic/symbol/retrieve", req, RetrieveResponse)
+        return sole("Symbol", fields, res.symbols) if single else res.symbols
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.

@@ -390,6 +390,9 @@ const maxProgramLocalChannelKey = 1 << 20
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
+		if err != nil && !isUndefined(err) {
+			return nil, err
+		}
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
@@ -675,10 +678,12 @@ func (s *Symbol) resolveLexical(
 		}
 	}
 	if s.globalResolver != nil {
-		if sym, err := s.globalResolver.Resolve(ctx, name); err == nil {
-			if opts.includeInternal || !sym.Internal {
-				return sym, nil
-			}
+		sym, err := s.globalResolver.Resolve(ctx, name)
+		if err != nil && !isUndefined(err) {
+			return nil, err
+		}
+		if err == nil && (opts.includeInternal || !sym.Internal) {
+			return sym, nil
 		}
 	}
 	if s.Parent != nil {
