@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
-	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -70,11 +69,6 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	}
 	if err != nil {
 		return Schematic{}, err
-	}
-	// An older version lifts through Go code that cannot tell an absent field from a
-	// zero one, so its zero fields take their defaults.
-	if env.Version != Latest {
-		sch = defaults.Fill(sch)
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.

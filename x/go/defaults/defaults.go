@@ -25,12 +25,28 @@ func Fill[T any](v T) T {
 	return *out.Addr().Interface().(*T)
 }
 
-// fillFresh sets the zero, addressable dst to its defaults and overlays src.
+// fillFresh sets the zero, addressable dst to its defaults and overlays src. A
+// SetDefaults method sets the defaults of the nested structs too, so only a struct
+// without one fills its struct fields itself.
 func fillFresh(dst, src reflect.Value) {
-	if s, ok := dst.Addr().Interface().(setter); ok {
+	s, ok := dst.Addr().Interface().(setter)
+	if ok {
 		s.SetDefaults()
 	}
-	overlay(dst, src)
+	if ok || dst.Kind() != reflect.Struct {
+		overlay(dst, src)
+		return
+	}
+	for i := range dst.NumField() {
+		if !dst.Type().Field(i).IsExported() {
+			continue
+		}
+		if f := dst.Field(i); f.Kind() == reflect.Struct {
+			fillFresh(f, src.Field(i))
+		} else {
+			overlay(f, src.Field(i))
+		}
+	}
 }
 
 // overlay writes every non-zero part of src into dst.
