@@ -259,11 +259,7 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
-    if (this->last_send_held)
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
-        );
+    if (this->held_err) return this->held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
@@ -284,15 +280,21 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
-    this->last_send_held = this->process_data_held.load(std::memory_order_acquire);
-    if (this->last_send_held) {
-        if (!this->has_dc) return x::errors::NIL;
-        if (this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0)
-            return x::errors::Error(
+    this->held_err = x::errors::NIL;
+    if (this->process_data_held.load(std::memory_order_acquire)) {
+        if (this->has_dc &&
+            this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
+            this->held_err = x::errors::Error(
                 errors::CYCLIC_ERROR,
                 "reference clock frame failed"
             );
-        this->frames.fetch_add(1, std::memory_order_release);
+            return this->held_err;
+        }
+        if (this->has_dc) this->frames.fetch_add(1, std::memory_order_release);
+        this->held_err = x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "no process data passes the slaves until they reach SAFE-OP"
+        );
         return x::errors::NIL;
     }
     const int result = this->api->send_processdata(ENABLED_GROUP);

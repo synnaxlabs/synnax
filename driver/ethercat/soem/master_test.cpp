@@ -554,18 +554,24 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
     EXPECT_EQ(receives, 0);
 }
 
-/// @brief it should fail a send before SAFE-OP when the reference clock frame does not
-/// come back.
-TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {
+/// @brief it should fail a send before SAFE-OP and the receive after it when the
+/// reference clock frame does not come back, so no caller reads a stale DC time.
+TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->hasdc = true;
     this->mock->sync_dc_return = 0;
-    x::errors::Error err;
-    static_cast<void>(this->master->activate([&] { err = this->master->send(); }));
-    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "reference clock frame failed");
+    x::errors::Error send_err;
+    x::errors::Error receive_err;
+    static_cast<void>(this->master->activate([&] {
+        send_err = this->master->send();
+        receive_err = this->master->receive();
+    }));
+    ASSERT_OCCURRED_AS(send_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(send_err.data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(receive_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(receive_err.data, "reference clock frame failed");
 }
 
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
