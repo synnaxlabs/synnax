@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -48,6 +49,12 @@ const (
 	testType = pagerduty.AlertTaskType
 	// namedType is a task type whose config hook records the task name it receives.
 	namedType = "named"
+)
+
+// routingKey1 and routingKey2 are secret keys for the routing keys of alert configs.
+const (
+	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
+	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 )
 
 var _ = Describe("Task", Ordered, func() {
@@ -91,7 +98,16 @@ var _ = Describe("Task", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+			DB: db,
+			Secret: secrettestutil.OpenService(
+				ctx,
+				db,
+				otg,
+				g,
+				pagerduty.FindSecretUses,
+			),
+		}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 		named := MustOpen(config.OpenService(ctx, config.ServiceConfig[arctask.Config]{
@@ -207,7 +223,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Broadcast",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(svc.NewWriter(createTx).
 					WithDispatchKey("dk-create").
@@ -253,17 +269,17 @@ var _ = Describe("Task", Ordered, func() {
 		}
 		It("Should assign a hash on create", func(ctx SpecContext) {
 			Expect(
-				create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"}),
+				create(ctx, msgpack.EncodedJSON{"routing_key": routingKey1}),
 			).ToNot(BeEmpty())
 		})
 		It(
 			"Should hash equal configs equally regardless of key order",
 			func(ctx SpecContext) {
 				first := create(ctx, msgpack.EncodedJSON{
-					"routing_key": "rk-1", "auto_start": true,
+					"routing_key": routingKey1, "auto_start": true,
 				})
 				second := create(ctx, msgpack.EncodedJSON{
-					"auto_start": true, "routing_key": "rk-1",
+					"auto_start": true, "routing_key": routingKey1,
 				})
 				Expect(first).To(Equal(second))
 			},
@@ -275,10 +291,10 @@ var _ = Describe("Task", Ordered, func() {
 				return map[string]any{"key": key, "status": "st-1"}
 			}
 			first := create(ctx, msgpack.EncodedJSON{
-				"routing_key": "rk-1", "alerts": []any{alert("a-1")},
+				"routing_key": routingKey1, "alerts": []any{alert("a-1")},
 			})
 			second := create(ctx, msgpack.EncodedJSON{
-				"routing_key": "rk-1", "alerts": []any{alert("a-2")},
+				"routing_key": routingKey1, "alerts": []any{alert("a-2")},
 			})
 			Expect(first).To(Equal(second))
 		})
@@ -293,8 +309,8 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(first).ToNot(Equal(second))
 		})
 		It("Should hash differing configs differently", func(ctx SpecContext) {
-			first := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"})
-			second := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-2"})
+			first := create(ctx, msgpack.EncodedJSON{"routing_key": routingKey1})
+			second := create(ctx, msgpack.EncodedJSON{"routing_key": routingKey2})
 			Expect(first).ToNot(Equal(second))
 		})
 		It("Should hash a nil and an empty config identically", func(ctx SpecContext) {
@@ -327,14 +343,14 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Test Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				original := t.ConfigHash
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-2"}
+				t.Config = msgpack.EncodedJSON{"routing_key": routingKey2}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				Expect(t.ConfigHash).ToNot(Equal(original))
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-1"}
+				t.Config = msgpack.EncodedJSON{"routing_key": routingKey1}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				Expect(t.ConfigHash).To(Equal(original))
 			},
@@ -344,13 +360,13 @@ var _ = Describe("Task", Ordered, func() {
 				Type:       testType,
 				Rack:       testRack.Key,
 				Name:       "Test Task",
-				Config:     msgpack.EncodedJSON{"routing_key": "rk-1"},
+				Config:     msgpack.EncodedJSON{"routing_key": routingKey1},
 				ConfigHash: "deadbeefdeadbeef",
 			}
 			Expect(w.Create(ctx, t)).To(Succeed())
 			Expect(t.ConfigHash).ToNot(Equal("deadbeefdeadbeef"))
 			Expect(t.ConfigHash).To(Equal(
-				create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"}),
+				create(ctx, msgpack.EncodedJSON{"routing_key": routingKey1}),
 			))
 		})
 		// A NaN cannot encode to JSON, so the config store must reject it before
@@ -369,7 +385,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   testType,
 				Rack:   testRack.Key,
 				Name:   "Test Task",
-				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+				Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 			}
 			Expect(w.Create(ctx, t)).To(Succeed())
 			var retrieved task.Task
@@ -386,13 +402,13 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Test Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true))
 				Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
 				edited := snap
-				edited.Config = msgpack.EncodedJSON{"routing_key": "rk-999"}
+				edited.Config = msgpack.EncodedJSON{"routing_key": routingKey2}
 				Expect(w.Create(ctx, &edited)).To(Succeed())
 				var retrieved task.Task
 				Expect(svc.NewRetrieve().
@@ -427,13 +443,13 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Stored Config Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-stored"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
 				data := MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-stored"))
-				Expect(t.Config).To(HaveKeyWithValue("routing_key", "rk-stored"))
+				Expect(data).To(HaveKeyWithValue("routing_key", routingKey1))
+				Expect(t.Config).To(HaveKeyWithValue("routing_key", routingKey1))
 			},
 		)
 		It(
@@ -443,14 +459,14 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Reused Record Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-2"}
+				t.Config = msgpack.EncodedJSON{"routing_key": routingKey2}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
 				data := MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-2"))
+				Expect(data).To(HaveKeyWithValue("routing_key", routingKey2))
 			},
 		)
 		It(
@@ -460,7 +476,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Type Change Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-keep"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				changed := *t
@@ -469,7 +485,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(w.Create(ctx, &changed)).To(MatchError(validate.ErrValidation))
 				store := MustBeOk(configs.Store(testType))
 				data := MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-keep"))
+				Expect(data).To(HaveKeyWithValue("routing_key", routingKey1))
 			},
 		)
 		It(
@@ -479,7 +495,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Composed Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-composed"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				var res task.Task
@@ -487,7 +503,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(task.MatchKeys(t.Key)).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-composed"))
+				Expect(res.Config).To(HaveKeyWithValue("routing_key", routingKey1))
 				Expect(res.Config).To(HaveKey("key"))
 			},
 		)
@@ -498,7 +514,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Deleted Record Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-del"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				Expect(w.Delete(ctx, t.Key, false)).To(Succeed())
@@ -515,17 +531,17 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Copy Source Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-copy"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				copied := MustSucceed(w.Copy(ctx, t.Key, "Copied", false))
 				Expect(copied.Config).To(
-					HaveKeyWithValue("routing_key", "rk-copy"),
+					HaveKeyWithValue("routing_key", routingKey1),
 				)
 				Expect(copied.Key).ToNot(Equal(t.Key))
 				store := MustBeOk(configs.Store(testType))
 				data := MustSucceed(store.Read(ctx, tx, copied.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-copy"))
+				Expect(data).To(HaveKeyWithValue("routing_key", routingKey1))
 			},
 		)
 		It(
@@ -637,7 +653,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   testType,
 					Rack:   testRack.Key,
 					Name:   "Original",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 				}
 				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
 				frames := collect()
@@ -658,7 +674,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(f.Actions).To(Equal([]task.Action{
 					task.NewCreateAction(task.CreatePayload{Task: copied}),
 				}))
-				Expect(copied.Config).To(HaveKeyWithValue("routing_key", "rk-1"))
+				Expect(copied.Config).To(HaveKeyWithValue("routing_key", routingKey1))
 			},
 		)
 	})
@@ -680,7 +696,7 @@ var _ = Describe("Task", Ordered, func() {
 				Rack: testRack.Key,
 				Name: "Alerts",
 				Config: msgpack.EncodedJSON{
-					"routing_key": "rk-1",
+					"routing_key": routingKey1,
 					"alerts":      []any{map[string]any{"key": "a", "status": "st-a"}},
 				},
 			}
@@ -724,10 +740,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should store the new config and its hash", func(ctx SpecContext) {
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"config", "routing_key"}, routingKey2),
 			}))
 			res := retrieve(ctx, alerts.Key)
-			Expect(res.Config["routing_key"]).To(Equal("rk-2"))
+			Expect(res.Config["routing_key"]).To(Equal(routingKey2))
 			Expect(res.ConfigHash).ToNot(Equal(alerts.ConfigHash))
 		})
 
@@ -735,14 +751,14 @@ var _ = Describe("Task", Ordered, func() {
 			ctx SpecContext,
 		) {
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"config", "routing_key"}, routingKey2),
 			}))
 			same := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
 				Name: "Same",
 				Config: msgpack.EncodedJSON{
-					"routing_key": "rk-2",
+					"routing_key": routingKey2,
 					"alerts":      []any{map[string]any{"key": "a", "status": "st-a"}},
 				},
 			}
@@ -812,7 +828,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"config", "routing_key"}, routingKey2),
 				set([]string{"type"}, "arc"),
 			})).Error().To(MatchError(validate.ErrValidation))
 			expectUnchanged(ctx)
@@ -822,7 +838,7 @@ var _ = Describe("Task", Ordered, func() {
 			ctx SpecContext,
 		) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
-				set([]string{"config", "routng_key"}, "rk-2"),
+				set([]string{"config", "routng_key"}, routingKey2),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(`unknown object member name "routng_key"`)),
@@ -886,7 +902,7 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, snap)
 			Expect(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"config", "routing_key"}, routingKey2),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
@@ -906,7 +922,7 @@ var _ = Describe("Task", Ordered, func() {
 			ctx SpecContext,
 		) {
 			frames := collect()
-			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
+			acts := []task.Action{set([]string{"config", "routing_key"}, routingKey2)}
 			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
 			hash := retrieve(ctx, alerts.Key).ConfigHash
 			Expect(
@@ -1134,7 +1150,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   testType,
 				Rack:   testRack.Key,
 				Name:   "Config Record Task",
-				Config: msgpack.EncodedJSON{"routing_key": "rk-delete"},
+				Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			store := MustBeOk(configs.Store(testType))

@@ -32,6 +32,11 @@ import {
 const client = createTestClient();
 const writer = createTestClient();
 
+// A routing key is the key of a secret. No spec here deploys a task, so neither key
+// names a secret that exists.
+const ROUTING_KEY = uuid.create();
+const OTHER_ROUTING_KEY = uuid.create();
+
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
@@ -41,7 +46,7 @@ describe("Task", async () => {
     it("should create a task on a rack", async () => {
       const m = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       expect(m.key).not.toHaveLength(0);
@@ -54,7 +59,7 @@ describe("Task", async () => {
     });
     it("should create a task with a config", async () => {
       const config = {
-        routingKey: "rk-create",
+        routingKey: ROUTING_KEY,
         autoStart: true,
         alerts: [{ key: "a1", status: "st1" }],
       };
@@ -64,7 +69,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       expect(m.config).toMatchObject({
-        routingKey: "rk-create",
+        routingKey: ROUTING_KEY,
         autoStart: true,
         alerts: [{ key: "a1", status: "st1" }],
       });
@@ -103,7 +108,7 @@ describe("Task", async () => {
     it("should update a task if the key is provided", async () => {
       const m = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       // Exclude status, internal, snapshot when updating - these have different input/output types
@@ -121,7 +126,7 @@ describe("Task", async () => {
     it("should keep a rename that lands before an older fetch by name", async () => {
       const m = await testRack.createTask({
         name: `task-${id.create()}`,
-        config: { routingKey: "rk" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const local = createTestClient();
@@ -142,7 +147,7 @@ describe("Task", async () => {
     it("should rename a task and keep its config", async () => {
       const m = await testRack.createTask({
         name: "task-rename",
-        config: { routingKey: "rk-rename" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       await client.tasks.rename(m.key, "task-renamed");
@@ -154,7 +159,7 @@ describe("Task", async () => {
     it("should update the cache of another client", async () => {
       const m = await testRack.createTask({
         name: "task-rename-remote",
-        config: { routingKey: "rk" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       expect((await client.tasks.retrieve(m.key)).name).toBe("task-rename-remote");
@@ -168,7 +173,7 @@ describe("Task", async () => {
     it("should reject an empty name", async () => {
       const m = await testRack.createTask({
         name: "task-rename-empty",
-        config: { routingKey: "rk" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       await expect(client.tasks.rename(m.key, "")).rejects.toThrow();
@@ -181,7 +186,7 @@ describe("Task", async () => {
     it("retrieves a task by its name", async () => {
       const created = await testRack.createTask({
         name: `named-task-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await client.tasks.retrieve(created.name);
@@ -192,12 +197,12 @@ describe("Task", async () => {
       const created = [
         await testRack.createTask({
           name: "coalesce-a",
-          config: { routingKey: "dog" },
+          config: { routingKey: ROUTING_KEY },
           type: "pagerduty_alert",
         }),
         await testRack.createTask({
           name: "coalesce-b",
-          config: { routingKey: "dog" },
+          config: { routingKey: ROUTING_KEY },
           type: "pagerduty_alert",
         }),
       ];
@@ -216,7 +221,7 @@ describe("Task", async () => {
     it("does not reject concurrent retrieves when a key in the window is missing", async () => {
       const created = await testRack.createTask({
         name: "isolation",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const local = createTestClient();
@@ -234,7 +239,7 @@ describe("Task", async () => {
     it("should treat a missing key as a non-match", async () => {
       const created = await testRack.createTask({
         name: "present",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await createTestClient().tasks.retrieve({
@@ -246,25 +251,25 @@ describe("Task", async () => {
     it("should retrieve a task by its key", async () => {
       const m = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
-      expect(retrieved.config).toMatchObject({ routingKey: "dog" });
+      expect(retrieved.config).toMatchObject({ routingKey: ROUTING_KEY });
       expect(retrieved.type).toBe("pagerduty_alert");
     });
 
     it("should retrieve tasks by a key list in key order", async () => {
       const t1 = await testRack.createTask({
         name: "t1",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const t2 = await testRack.createTask({
         name: "t2",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await client.tasks.retrieve([t2.key, t1.key]);
@@ -274,7 +279,7 @@ describe("Task", async () => {
     it("should throw a NotFoundError for a missing key in a key list", async () => {
       const t = await testRack.createTask({
         name: "t",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const missing = uuid.create();
@@ -286,7 +291,7 @@ describe("Task", async () => {
     it("should return one task for a plain key beside other fields", async () => {
       const t = await testRack.createTask({
         name: "t",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved: task.Task = await client.tasks.retrieve({
@@ -303,7 +308,7 @@ describe("Task", async () => {
       const name = `test-${Date.now()}-${Math.random()}`;
       const m = await testRack.createTask({
         name,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const retrieved = await client.tasks.retrieve({ name });
@@ -315,7 +320,7 @@ describe("Task", async () => {
       for (let i = 0; i < 2; i++)
         await testRack.createTask({
           name,
-          config: { routingKey: "dog" },
+          config: { routingKey: ROUTING_KEY },
           type: "pagerduty_alert",
         });
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
@@ -355,7 +360,7 @@ describe("Task", async () => {
       it("should include task status when requested", async () => {
         const t = await testRack.createTask({
           name: "test",
-          config: { routingKey: "dog" },
+          config: { routingKey: ROUTING_KEY },
           type: "pagerduty_alert",
         });
         const communicatedStatus: task.Status = {
@@ -627,12 +632,12 @@ describe("Task", async () => {
     it("should correctly copy the task", async () => {
       const m = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const copy = await client.tasks.copy(m.key, "New Name", false);
       expect(copy.name).toBe("New Name");
-      expect(copy.config).toMatchObject({ routingKey: "dog" });
+      expect(copy.config).toMatchObject({ routingKey: ROUTING_KEY });
     });
   });
 
@@ -644,12 +649,14 @@ describe("Task", async () => {
       await waitForStreamLive(client.connection);
       const t = await testRack.createTask({
         name: `dispatch-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
-      expect(await client.tasks.dispatch(t.key, routingKey("cat"))).toBe(true);
+      expect(await client.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY))).toBe(
+        true,
+      );
       const stored = await createTestClient().tasks.retrieve(t.key);
-      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
       expect(stored.configHash).not.toBe(t.configHash);
       await client.tasks.settled(t.key);
       const cached = await client.tasks.retrieve(t.key);
@@ -660,7 +667,7 @@ describe("Task", async () => {
     it("should apply list actions to the config", async () => {
       const t = await testRack.createTask({
         name: `dispatch-list-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       await client.tasks.dispatch(t.key, [
@@ -688,12 +695,14 @@ describe("Task", async () => {
     it("should return false without a send when the task is not cached", async () => {
       const t = await testRack.createTask({
         name: `dispatch-uncached-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const fresh = createTestClient();
       const send = spyOnSend(fresh);
-      expect(await fresh.tasks.dispatch(t.key, routingKey("cat"))).toBe(false);
+      expect(await fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY))).toBe(
+        false,
+      );
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -721,7 +730,7 @@ describe("Task", async () => {
     it("should drop actions the Core refuses from the cached task", async () => {
       const t = await testRack.createTask({
         name: `dispatch-refused-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       await expect(
@@ -849,7 +858,7 @@ describe("Task", async () => {
       const args = { a: "dog" };
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -870,7 +879,7 @@ describe("Task", async () => {
     it("should stamp the config hash from the task instance", async () => {
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       expect(t.configHash).not.toEqual("");
@@ -888,7 +897,7 @@ describe("Task", async () => {
     it("should stamp the config hash from the cached task row", async () => {
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       await client.tasks.retrieve(t.key);
@@ -906,7 +915,7 @@ describe("Task", async () => {
     it("should send a pinned start with the given hash", async () => {
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -970,7 +979,7 @@ describe("Task", async () => {
 
     it("should create and retrieve a task with typed config", async () => {
       const config = {
-        routingKey: "rk-typed",
+        routingKey: ROUTING_KEY,
         autoStart: true,
         alerts: [{ key: "a1", status: "st1" }],
       };
@@ -982,14 +991,14 @@ describe("Task", async () => {
         },
         schemas,
       );
-      expect(t.config.routingKey).toBe("rk-typed");
+      expect(t.config.routingKey).toBe(ROUTING_KEY);
       expect(t.config.autoStart).toBe(true);
 
       const retrieved = await client.tasks.retrieve({
         key: t.key,
         schemas,
       });
-      expect(retrieved.config.routingKey).toBe("rk-typed");
+      expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
       expect(retrieved.config.alerts).toMatchObject([{ key: "a1", status: "st1" }]);
       expect(retrieved.type).toBe("pagerduty_alert");
     });
@@ -999,7 +1008,7 @@ describe("Task", async () => {
         {
           name: "multi-schema-1",
           type: "pagerduty_alert",
-          config: { routingKey: "rk-100", autoStart: false, alerts: [] },
+          config: { routingKey: ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1007,7 +1016,7 @@ describe("Task", async () => {
         {
           name: "multi-schema-2",
           type: "pagerduty_alert",
-          config: { routingKey: "rk-200", autoStart: false, alerts: [] },
+          config: { routingKey: OTHER_ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1017,8 +1026,8 @@ describe("Task", async () => {
         schemas,
       });
       expect(retrieved).toHaveLength(2);
-      expect(retrieved[0].config.routingKey).toBe("rk-100");
-      expect(retrieved[1].config.routingKey).toBe("rk-200");
+      expect(retrieved[0].config.routingKey).toBe(ROUTING_KEY);
+      expect(retrieved[1].config.routingKey).toBe(OTHER_ROUTING_KEY);
     });
 
     it("should retrieve task by name with schemas", async () => {
@@ -1027,7 +1036,7 @@ describe("Task", async () => {
         {
           name: uniqueName,
           type: "pagerduty_alert",
-          config: { routingKey: "rk-500", autoStart: false, alerts: [] },
+          config: { routingKey: ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1037,7 +1046,7 @@ describe("Task", async () => {
         schemas,
       });
       expect(retrieved.name).toBe(uniqueName);
-      expect(retrieved.config.routingKey).toBe("rk-500");
+      expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
     });
 
     it("should return one task for a filter that sets one", async () => {
@@ -1046,7 +1055,7 @@ describe("Task", async () => {
         {
           name: `${prefix}-a`,
           type: "pagerduty_alert",
-          config: { routingKey: "rk-700", autoStart: false, alerts: [] },
+          config: { routingKey: ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1055,7 +1064,7 @@ describe("Task", async () => {
         one: true,
         schemas,
       });
-      expect(retrieved.config.routingKey).toBe("rk-700");
+      expect(retrieved.config.routingKey).toBe(ROUTING_KEY);
     });
 
     it("should return one task for a plain key beside other fields", async () => {
@@ -1063,7 +1072,7 @@ describe("Task", async () => {
         {
           name: "one-schema",
           type: "pagerduty_alert",
-          config: { routingKey: "rk-600", autoStart: false, alerts: [] },
+          config: { routingKey: OTHER_ROUTING_KEY, autoStart: false, alerts: [] },
         },
         schemas,
       );
@@ -1072,7 +1081,7 @@ describe("Task", async () => {
         internal: false,
         schemas,
       });
-      expect(retrieved.config.routingKey).toBe("rk-600");
+      expect(retrieved.config.routingKey).toBe(OTHER_ROUTING_KEY);
       await expect(
         client.tasks.retrieve({ key: t.key, internal: true, schemas }),
       ).rejects.toThrow(NotFoundError);
@@ -1930,7 +1939,7 @@ describe("Task", async () => {
     it("applies another client's overwrite to a cached task", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const remote = createTestClient();
@@ -1941,18 +1950,18 @@ describe("Task", async () => {
       const off = remote.tasks.onChange(params, vi.fn());
       try {
         expect((await remote.tasks.retrieve(params)).config).toMatchObject({
-          routingKey: "dog",
+          routingKey: ROUTING_KEY,
         });
         await client.tasks.create({
           ...t.payload,
-          config: { ...(t.payload.config as object), routingKey: "cat" },
+          config: { ...(t.payload.config as object), routingKey: OTHER_ROUTING_KEY },
         });
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);
             return query.isLive(cached) ? cached.config : undefined;
           })
-          .toMatchObject({ routingKey: "cat" });
+          .toMatchObject({ routingKey: OTHER_ROUTING_KEY });
       } finally {
         off();
       }
@@ -1963,7 +1972,7 @@ describe("Task", async () => {
       await waitForStreamLive(remote.connection);
       const t = await testRack.createTask({
         name: `dispatch-remote-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
@@ -1973,7 +1982,7 @@ describe("Task", async () => {
         expect(
           await client.tasks.dispatch(
             t.key,
-            task.set({ path: ["config", "routingKey"], value: "cat" }),
+            task.set({ path: ["config", "routingKey"], value: OTHER_ROUTING_KEY }),
           ),
         ).toBe(true);
         const stored = await createTestClient().tasks.retrieve(t.key);
@@ -1996,7 +2005,7 @@ describe("Task", async () => {
       const dest = await client.racks.create({ name: `set-move-dest-${id.create()}` });
       const t = await source.createTask({
         name: `set-move-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const params = { where: { rack: { eq: dest.key } } };
@@ -2010,7 +2019,7 @@ describe("Task", async () => {
             if (!query.isLive(cached)) return undefined;
             return cached.find((v) => v.key === t.key)?.config;
           })
-          .toMatchObject({ routingKey: "dog" });
+          .toMatchObject({ routingKey: ROUTING_KEY });
       } finally {
         off();
       }
@@ -2019,12 +2028,12 @@ describe("Task", async () => {
     it("takes a change to a task the user cannot read with no fetch or error", async () => {
       const readable = await testRack.createTask({
         name: `set-readable-${id.create()}`,
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const denied = await testRack.createTask({
         name: `set-denied-${id.create()}`,
-        config: { routingKey: "cat" },
+        config: { routingKey: OTHER_ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const onError = vi.fn();
@@ -2140,7 +2149,7 @@ describe("status composition", () => {
     const testRack = await client.racks.create({ name: "status-scan-pin" });
     const t = await testRack.createTask({
       name: "test",
-      config: { routingKey: "dog" },
+      config: { routingKey: ROUTING_KEY },
       type: "pagerduty_alert",
     });
     const communicatedStatus: task.Status = {
@@ -2178,7 +2187,7 @@ describe("status composition", () => {
     const testRack = await client.racks.create({ name: "status-tie-break" });
     const t = await testRack.createTask({
       name: `tie-${id.create()}`,
-      config: { routingKey: "dog" },
+      config: { routingKey: ROUTING_KEY },
       type: "pagerduty_alert",
     });
     const params = { key: t.key };

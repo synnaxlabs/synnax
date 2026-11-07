@@ -28,6 +28,8 @@ import (
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -42,9 +44,10 @@ import (
 // stack is a task service over an in-memory database, holding the PagerDuty config
 // store and its own ImEx registry, plus a rack to create tasks on.
 type stack struct {
-	task *task.Service
-	imex *imex.Service
-	rack *rack.Rack
+	task   *task.Service
+	imex   *imex.Service
+	secret *secret.Service
+	rack   *rack.Rack
 }
 
 // openStack opens a stack whose task service excludes excluded from import and export.
@@ -76,7 +79,17 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		HealthCheckInterval: 10 * telem.Millisecond,
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	secretSvc := secrettestutil.OpenService(
+		ctx,
+		db,
+		otg,
+		groupSvc,
+		pagerduty.FindSecretUses,
+	)
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     db,
+		Secret: secretSvc,
+	}))
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
@@ -90,19 +103,20 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	}))
 	r := &rack.Rack{Name: rackName}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, r)).To(Succeed())
-	return stack{task: taskSvc, imex: imexSvc, rack: r}
+	return stack{task: taskSvc, imex: imexSvc, secret: secretSvc, rack: r}
 }
 
 var _ = Describe("ImEx", Ordered, func() {
 	var (
-		svc      *task.Service
-		testRack *rack.Rack
-		imexSvc  *imex.Service
+		svc       *task.Service
+		testRack  *rack.Rack
+		imexSvc   *imex.Service
+		secretSvc *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		s := openStack(ctx, "Test Rack")
-		svc, imexSvc, testRack = s.task, s.imex, s.rack
+		svc, imexSvc, secretSvc, testRack = s.task, s.imex, s.secret, s.rack
 	})
 
 	Describe("Export", func() {
@@ -114,7 +128,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					Name: "Exported Task",
 					Type: pagerduty.AlertTaskType,
 					Config: msgpack.EncodedJSON{
-						"routing_key": "rk-1",
+						"routing_key": routingKey1,
 						"auto_start":  true,
 					},
 				}
@@ -132,11 +146,11 @@ var _ = Describe("ImEx", Ordered, func() {
 				// The driver reads the file as its config, so config fields sit flat
 				// at the top level rather than nested under a "config" key.
 				Expect(body).ToNot(HaveKey("config"))
-				Expect(body["routing_key"]).To(Equal("rk-1"))
+				Expect(body["routing_key"]).To(Equal(routingKey1))
 				Expect(body["auto_start"]).To(BeTrue())
 				Expect(body["type"]).To(Equal(pagerduty.AlertTaskType))
 				Expect(body["name"]).To(Equal("Exported Task"))
-				Expect(body["version"]).To(BeEquivalentTo(1))
+				Expect(body["version"]).To(BeEquivalentTo(2))
 			},
 		)
 
@@ -170,7 +184,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					Name: "Round Trip Task",
 					Type: pagerduty.AlertTaskType,
 					Config: msgpack.EncodedJSON{
-						"routing_key": "rk-rt",
+						"routing_key": routingKey1,
 						"auto_start":  true,
 						"alerts": []any{map[string]any{
 							"key":      "a1",
@@ -187,7 +201,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(imported.Rack).To(Equal(rack.Key(0)))
 				Expect(imported.Name).To(Equal("Round Trip Task"))
 				Expect(imported.Type).To(Equal(pagerduty.AlertTaskType))
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-rt"))
+				Expect(imported.Config).To(HaveKeyWithValue("routing_key", routingKey1))
 				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
 				alerts, ok := imported.Config["alerts"].([]any)
 				Expect(ok).To(BeTrue())
@@ -210,7 +224,15 @@ var _ = Describe("ImEx", Ordered, func() {
 					"alerts": [{"key": "a1", "status": "warning", "enabled": false}]
 				}`)
 				imported := reimport(ctx, legacy)
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
+				Expect(imported.Config).ToNot(HaveKey("plain_routing_key"))
+				Expect(imported.Config["routing_key"]).To(BeAssignableToTypeOf(""))
+				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				var s secret.Secret
+				Expect(secretSvc.NewRetrieve().
+					Where(secret.MatchKeys(routingKey)).
+					Entry(&s).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("Legacy PD Task routing key"))
 				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
 				alerts, ok := imported.Config["alerts"].([]any)
 				Expect(ok).To(BeTrue())
@@ -304,7 +326,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Rack:   excluded.rack.Key,
 				Name:   "Excluded Task",
 				Type:   pagerduty.AlertTaskType,
-				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+				Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 			}
 			Expect(excluded.task.NewWriter(nil).Create(ctx, t)).To(Succeed())
 			Expect(excluded.task.Export(ctx, t.OntologyID())).Error().To(SatisfyAll(

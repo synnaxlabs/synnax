@@ -44,16 +44,17 @@ class TestTaskClient:
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a task and keep its config."""
+        routing_key = str(uuid4())
         task = client.tasks.create(
             name="Before Rename",
             type="pagerduty_alert",
-            config={"routing_key": "abc"},
+            config={"routing_key": routing_key},
         )
         client.tasks.rename(task.key, "After Rename")
         renamed = client.tasks.retrieve(key=task.key)
         assert renamed.name == "After Rename"
         assert renamed.config == task.config
-        assert renamed.config["routing_key"] == "abc"
+        assert renamed.config["routing_key"] == routing_key
 
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         name = str(uuid4())
@@ -367,25 +368,27 @@ class TestTaskClient:
 
     def test_task_configure_saves_without_ack(self, client: sy.Synnax) -> None:
         """Should save the task without waiting for a driver acknowledgement."""
+        routing_key = str(uuid4())
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-50"}
+            name="test", type="pagerduty_alert", config={"routing_key": routing_key}
         )
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.key == tsk.key
         assert res.rack != 0
-        assert res.config["routing_key"] == "rk-50"
+        assert res.config["routing_key"] == routing_key
 
     def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
         """Should overwrite the stored config when configured again."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
+            name="test", type="pagerduty_alert", config={"routing_key": str(uuid4())}
         )
         client.tasks.configure(tsk)
-        tsk.config = {"routing_key": "rk-2"}
+        routing_key = str(uuid4())
+        tsk.config = {"routing_key": routing_key}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
-        assert res.config["routing_key"] == "rk-2"
+        assert res.config["routing_key"] == routing_key
 
     def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
         """Should configure a task with no rack onto the rack of its device."""
@@ -402,7 +405,7 @@ class TestTaskClient:
         """Should configure a task whose config names no device onto the embedded
         rack."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-e"}
+            name="test", type="pagerduty_alert", config={"routing_key": str(uuid4())}
         )
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
@@ -447,7 +450,9 @@ class TestTaskClient:
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="pagerduty_alert", config={"routing_key": "rk-c"}
+            name=original_name,
+            type="pagerduty_alert",
+            config={"routing_key": str(uuid4())},
         )
 
         # Copy the task

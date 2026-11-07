@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -94,11 +94,17 @@ const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
 type Uses = Pick<Base, "key" | "uses">;
 
 const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
+const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  /**
+   * The channels that announce changes to resources that can use a secret. A change on
+   * one refetches the uses the client holds.
+   */
+  usesChannels: string[];
 }
 
 export class Client extends query.Retriever<
@@ -123,9 +129,29 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // The secret table never holds uses. No change stream keeps uses current, so only a
-    // retrieve that asks for them writes or reads this table.
-    const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
+    // The secret table never holds uses, so a retrieve that asks for them reads this one.
+    const usesStore = cache.createTable<Key, Uses>({
+      name: "secret.uses",
+      fetch: async (keys) =>
+        (
+          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
+        ).map(toUses),
+    });
+    // The Core announces no change to uses. The cache handles frames at the same time,
+    // so refetches run one at a time to keep an older reply from overwriting a newer
+    // one. A change that arrives while a refetch waits joins it.
+    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchUses = async () => {
+      if (refetchMu.waiting) return;
+      refetchMu.waiting = true;
+      await refetchMu.runExclusive(async () => {
+        refetchMu.waiting = false;
+        await usesStore.reconcile();
+      });
+    };
+    cfg.usesChannels.forEach((channel) =>
+      cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
+    );
     const usesWatch = query.watch(
       usesStore,
       (event, q: RetrieveRequest | RetrieveSingleParams) =>
@@ -260,7 +286,7 @@ export class Client extends query.Retriever<
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
     const secrets = await this.execRetrieve(req);
     if (req.includeUses !== true) return secrets;
-    this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
+    this.usesStore.set(secrets.map(toUses));
     return secrets.map(stripUses);
   }
 
