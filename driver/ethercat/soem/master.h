@@ -77,6 +77,8 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
+    std::atomic<bool> process_data_held{false};
+    bool held_send = false;
     /// @brief logs slave registers and inputs once per second after OP.
     std::jthread diag;
 

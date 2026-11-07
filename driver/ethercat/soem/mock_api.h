@@ -254,6 +254,7 @@ public:
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
+    int sync_dc(uint8_t, int) override { return 1; }
 
     int write_register(
         uint16_t slave,
