@@ -19,4 +19,9 @@ export const schema: NonNullable<AstroUserConfig["env"]>["schema"] = {
     access: "public",
     default: false,
   }),
+  FLAG_SIFT: envField.boolean({
+    context: "client",
+    access: "public",
+    default: false,
+  }),
 };
