@@ -274,6 +274,7 @@ import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
+import { Sift } from "@/icon/Sift";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
 
@@ -395,6 +396,7 @@ export const Logo = {
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  Sift,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.

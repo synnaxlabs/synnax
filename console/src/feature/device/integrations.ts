@@ -15,6 +15,7 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { Sift } from "@/feature/sift";
 import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Task } from "@/platform/task";
@@ -29,6 +30,7 @@ export const NETWORK: PlatformDevice.Network[] = [
   HTTP.Device.NETWORK,
   ...(FLAGS.kafka ? [Kafka.Device.NETWORK] : []),
   ...(FLAGS.mqtt ? [MQTT.Device.NETWORK] : []),
+  ...(FLAGS.sift ? [Sift.Device.NETWORK] : []),
 ];
 
 export const HARDWARE: Hardware[] = [

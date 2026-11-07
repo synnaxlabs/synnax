@@ -21,6 +21,7 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { Sift } from "@/feature/sift";
 import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
@@ -34,13 +35,17 @@ export const makeZ = z.enum([
   MQTT.Device.MAKE,
   NI.Device.MAKE,
   OPCUA.Device.MAKE,
+  Sift.Device.MAKE,
 ]);
 export type Make = z.infer<typeof makeZ>;
 
-// A build with the MQTT flag off handles an MQTT device as a device of an unknown make.
+// A build with a flag off handles a device of the flagged make as one of an unknown
+// make.
 export const getMake = (make: unknown): Make | null => {
   const parsed = makeZ.safeParse(make).data ?? null;
-  return parsed === MQTT.Device.MAKE && !FLAGS.mqtt ? null : parsed;
+  if (parsed === MQTT.Device.MAKE && !FLAGS.mqtt) return null;
+  if (parsed === Sift.Device.MAKE && !FLAGS.sift) return null;
+  return parsed;
 };
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
@@ -52,6 +57,7 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [MQTT.Device.MAKE]: <Icon.Logo.MQTT />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
   [OPCUA.Device.MAKE]: <Icon.Logo.OPCUA />,
+  [Sift.Device.MAKE]: <Icon.Logo.Sift />,
 };
 
 export const getIcon = (make: Make | null) =>
@@ -70,6 +76,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const modbus = Modbus.Device.useConnectModal();
   const mqtt = MQTT.Device.useConnectModal();
   const opcua = OPCUA.Device.useConnectModal();
+  const sift = Sift.Device.useConnectModal();
   return (make, deviceKey) => {
     const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
       [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
@@ -83,6 +90,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       [NI.Device.MAKE]: ({ deviceKey }) =>
         configure({ deviceKey, integration: NI.Device.INTEGRATION }),
       [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
+      [Sift.Device.MAKE]: ({ deviceKey }) => void sift({ deviceKey }),
     };
     openers[make]({ deviceKey });
   };
@@ -100,6 +108,7 @@ const CONTEXT_MENU_ITEMS: Record<
   [MQTT.Device.MAKE]: MQTT.Device.ContextMenuItems,
   [NI.Device.MAKE]: NI.Device.ContextMenuItems,
   [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
+  [Sift.Device.MAKE]: Sift.Device.ContextMenuItems,
 };
 
 export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
