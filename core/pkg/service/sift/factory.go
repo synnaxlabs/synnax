@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ScanTaskType is the type of the internal task that checks Sift devices and answers
@@ -143,7 +142,11 @@ func (f *factory) ConfigureTask(
 	}
 	st, autoStart, err := f.configureScan(t)
 	if err != nil {
-		f.reportConfigError(ctx, t, cmdKey, err)
+		driver.ConfigReporter{
+			DB:              f.cfg.DB,
+			Status:          f.cfg.Status,
+			Instrumentation: f.cfg.Instrumentation,
+		}.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
 	if autoStart {
@@ -197,36 +200,4 @@ func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 		return nil, false, err
 	}
 	return st, !cfg.Disabled, nil
-}
-
-// reportConfigError logs err when no command asked for the configuration, and
-// otherwise reports it on the status of t.
-func (f *factory) reportConfigError(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	err error,
-) {
-	if cmdKey == driver.NoCommand {
-		f.cfg.L.Warn(
-			"failed to configure task",
-			zap.Stringer("task", t),
-			zap.Error(err),
-		)
-		return
-	}
-	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
-		ctx,
-		cmdKey,
-		status.VariantError,
-		false,
-		"Failed to configure task",
-		err.Error(),
-	); sErr != nil {
-		f.cfg.L.Error(
-			"failed to set configuration status",
-			zap.Stringer("task", t),
-			zap.Error(sErr),
-		)
-	}
 }
