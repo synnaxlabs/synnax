@@ -41,6 +41,7 @@ cc_test(
     ],
     deps = [
         ":color",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

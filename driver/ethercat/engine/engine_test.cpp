@@ -144,7 +144,7 @@ protected:
         auto frame = frame_of({x::telem::INT16_T}, n);
         x::telem::Series times(x::telem::TIMESTAMP_T, n);
         const auto err = reader.read(this->brk, frame, times);
-        EXPECT_FALSE(err) << err.message();
+        EXPECT_NIL(err);
         return times;
     }
 };
@@ -833,8 +833,10 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
     this->master->inject_activate_error(
         x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
     );
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
-    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::SLAVE_CONFIG_ERROR
+    );
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_FALSE(this->engine->running());
 }
@@ -987,8 +989,10 @@ TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
     );
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
-    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STATE_CHANGE_REFUSED
+    );
     const auto log = this->master->call_log();
     EXPECT_GE(std::ranges::count(log, "send"), 1);
     EXPECT_EQ(std::ranges::count(log, "check"), 0);
@@ -1004,8 +1008,10 @@ TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
-    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STATE_CHANGE_ERROR
+    );
     EXPECT_EQ(this->master->call_count("activate"), 3);
     EXPECT_EQ(this->master->call_count("deactivate"), 3);
     EXPECT_EQ(this->master->call_log().back(), "deactivate");
@@ -1261,8 +1267,10 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
-    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(250)),
+        errors::RATE_MISMATCH
+    );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 

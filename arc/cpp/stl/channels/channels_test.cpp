@@ -147,10 +147,10 @@ TEST(ChannelModuleTest, UnknownNodeType) {
 
     channels::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
-    auto [node, create_err] = module.create(
-        runtime::node::Config(ir, ir_node, std::move(state_node))
+    const auto node = ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node))),
+        x::errors::NOT_FOUND
     );
-    ASSERT_OCCURRED_AS(create_err, x::errors::NOT_FOUND);
     EXPECT_EQ(node, nullptr);
 }
 
