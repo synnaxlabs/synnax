@@ -114,10 +114,10 @@ std::string no_slaves_message(API &api, const std::string &iface) {
 }
 }
 
-Master::Master(std::unique_ptr<API> api, std::string interface_name, const Config cfg):
+Master::Master(std::unique_ptr<API> api, std::string interface_name, Config cfg):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
-    cfg(cfg),
+    cfg(std::move(cfg)),
     iomap(DEFAULT_IOMAP_SIZE, 0),
     input_sz(0),
     output_sz(0),
