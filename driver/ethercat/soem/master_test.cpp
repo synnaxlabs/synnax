@@ -521,6 +521,36 @@ TEST_F(SOEMMasterTest, ActivateStartsTheCycleBeforeSAFEOP) {
     EXPECT_TRUE(requests.value().empty());
 }
 
+/// @brief it should exchange no process data until every slave reaches SAFE-OP, and
+/// send the reference clock time until then.
+TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->hasdc = true;
+    this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
+    ASSERT_NIL(this->activate());
+    EXPECT_GT(this->mock->sync_dc_count, 0);
+    ASSERT_FALSE(this->mock->send_states.empty());
+    for (const auto state: this->mock->send_states)
+        EXPECT_GE(state, EC_STATE_SAFE_OP);
+}
+
+/// @brief it should fail a send before SAFE-OP when the reference clock frame does not
+/// come back.
+TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->hasdc = true;
+    this->mock->sync_dc_return = 0;
+    std::optional<x::errors::Error> err;
+    static_cast<void>(this->master->activate([&] { err = this->master->send(); }));
+    ASSERT_TRUE(err.has_value());
+    ASSERT_OCCURRED_AS(*err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err->data, "reference clock frame failed");
+}
+
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
 /// enter SAFE-OP only once the bus cycles, and let the next config_init request PRE-OP.
 TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
