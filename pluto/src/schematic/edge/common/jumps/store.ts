@@ -7,25 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
+import { type Path } from "@/schematic/edge/common/path";
 
-const EMPTY: xy.XY[] = [];
+const EMPTY: Path.Crossing[] = [];
 
-const pointsEqual = (a: xy.XY[], b: xy.XY[]): boolean => {
+const crossingsEqual = (a: Path.Crossing[], b: Path.Crossing[]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++)
-    if (a[i].x !== b[i].x || a[i].y !== b[i].y) return false;
+    if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].radius !== b[i].radius)
+      return false;
   return true;
 };
 
 export interface Store {
   subscribe: (key: string, onChange: () => void) => () => void;
-  get: (key: string) => xy.XY[];
-  commit: (next: Map<string, xy.XY[]>) => void;
+  get: (key: string) => Path.Crossing[];
+  commit: (next: Map<string, Path.Crossing[]>) => void;
 }
 
 export const createStore = (): Store => {
-  let current = new Map<string, xy.XY[]>();
+  let current = new Map<string, Path.Crossing[]>();
   const listeners = new Map<string, Set<() => void>>();
 
   const notify = (key: string): void => listeners.get(key)?.forEach((l) => l());
@@ -44,14 +45,14 @@ export const createStore = (): Store => {
     },
     get: (key) => current.get(key) ?? EMPTY,
     commit: (next) => {
-      const merged = new Map<string, xy.XY[]>();
+      const merged = new Map<string, Path.Crossing[]>();
       const changed: string[] = [];
-      for (const [key, points] of next) {
+      for (const [key, crossings] of next) {
         const prev = current.get(key);
         // Reuse the previous reference for unchanged keys so getSnapshot stays stable.
-        if (prev != null && pointsEqual(prev, points)) merged.set(key, prev);
+        if (prev != null && crossingsEqual(prev, crossings)) merged.set(key, prev);
         else {
-          merged.set(key, points);
+          merged.set(key, crossings);
           changed.push(key);
         }
       }

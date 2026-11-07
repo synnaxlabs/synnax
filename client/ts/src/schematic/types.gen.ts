@@ -199,6 +199,8 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 export const segmentedEdgeConfigZ = z.object({
   /** strokeColor is the stroke color of the edge. */
   strokeColor: color.colorZ.optional(),
+  /** strokeWidth is the stroke width of the edge in pixels. */
+  strokeWidth: z.number().min(1).max(20).default(2),
   /**
    * segments is the ordered list of orthogonal runs that trace the connector path from
    * the source handle to the target handle.

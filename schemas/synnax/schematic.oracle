@@ -90,6 +90,11 @@ SegmentedEdgeConfig struct {
     stroke_color color.Color? {
         @doc value "is the stroke color of the edge."
     }
+    stroke_width float64 = 2 {
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
+    }
     segments     Segment[]    {
         @doc value """
             is the ordered list of orthogonal runs that trace the connector path from

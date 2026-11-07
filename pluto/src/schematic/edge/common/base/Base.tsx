@@ -15,8 +15,12 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
+/** The stroke width in pixels of an edge that sets none. */
+export const DEFAULT_STROKE_WIDTH = 2;
+
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color?: color.Crude;
+  strokeWidth?: number;
 }
 
 const INTERACTION_WIDTH = 30;
@@ -24,6 +28,7 @@ const INTERACTION_WIDTH = 30;
 export const Base = ({
   style: baseStyle,
   color: stroke,
+  strokeWidth = DEFAULT_STROKE_WIDTH,
   className,
   ...props
 }: BaseProps): ReactElement => {
@@ -36,9 +41,10 @@ export const Base = ({
   const symbolColor = rawStroke == null ? color.rgbaString(stroke) : undefined;
   const style: CSSProperties =
     rawStroke != null
-      ? { ...baseStyle, stroke: rawStroke }
+      ? { ...baseStyle, strokeWidth, stroke: rawStroke }
       : {
           ...baseStyle,
+          strokeWidth,
           [Primitive.SYMBOL_COLOR]: symbolColor,
           stroke: "var(--pluto-symbol-display)",
         };

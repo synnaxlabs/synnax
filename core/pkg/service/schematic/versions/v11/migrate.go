@@ -105,5 +105,23 @@ func MigrateScaleIndicatorConfig(
 	return out, nil
 }
 
-// Migration lifts stored schematics from v10 to v11.
-var Migration = migrate.NewEntry("v61_optional_zero_valid_configs", migrateStored)
+// MigrateSegmentedEdgeConfig lifts a v10 edge config to v11, which fills the default
+// stroke width.
+func MigrateSegmentedEdgeConfig(
+	ctx context.Context,
+	old v10.SegmentedEdgeConfig,
+) (SegmentedEdgeConfig, error) {
+	out, err := autoMigrateSegmentedEdgeConfig(ctx, old)
+	if err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
+	out.ApplyDefaults()
+	return out, nil
+}
+
+// Migration lifts stored schematics from v10 to v11, which keeps every stored value and
+// fills the edge stroke width.
+var Migration = migrate.NewEntry(
+	"v61_optional_zero_valid_configs_edge_stroke_width",
+	migrateStored,
+)

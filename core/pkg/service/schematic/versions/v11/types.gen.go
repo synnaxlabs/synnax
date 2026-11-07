@@ -14,6 +14,7 @@ package v11
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
@@ -44,42 +45,386 @@ type Edge = v10.Edge
 type Segment = v10.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig = v10.SegmentedEdgeConfig
+type SegmentedEdgeConfig struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeWidth is the stroke width of the edge in pixels.
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments []Segment `json:"segments" msgpack:"segments"`
+}
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
-type EdgeConfig = v10.EdgeConfig
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SegmentedEdgeConfig) ApplyDefaults() {
+	if s.StrokeWidth == 0 {
+		s.StrokeWidth = 2
+	}
+}
 
-// EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant = v10.EdgeConfigVariant
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SegmentedEdgeConfig) Validate() error {
+	v := validate.New("SegmentedEdgeConfig")
+	v.GreaterThanEq("stroke_width", s.StrokeWidth, 1)
+	v.LessThanEq("stroke_width", s.StrokeWidth, 20)
+	for i := range s.Segments {
+		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType = v10.EdgeConfigType
+type EdgeConfigType string
 
 const (
 	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = v10.PipeEdgeConfigType
+	PipeEdgeConfigType EdgeConfigType = "pipe"
 	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = v10.ElectricEdgeConfigType
+	ElectricEdgeConfigType EdgeConfigType = "electric"
 	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = v10.SecondaryEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = "secondary"
 	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = v10.JacketedEdgeConfigType
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
 	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = v10.HydraulicEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
 	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = v10.PneumaticEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
 	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = v10.DataEdgeConfigType
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
-type PipeEdgeConfig = v10.PipeEdgeConfig
-type ElectricEdgeConfig = v10.ElectricEdgeConfig
-type SecondaryEdgeConfig = v10.SecondaryEdgeConfig
-type JacketedEdgeConfig = v10.JacketedEdgeConfig
-type HydraulicEdgeConfig = v10.HydraulicEdgeConfig
-type PneumaticEdgeConfig = v10.PneumaticEdgeConfig
-type DataEdgeConfig = v10.DataEdgeConfig
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
+type EdgeConfigVariant interface {
+	isEdgeConfigVariant()
+}
+
+type PipeEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PipeEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (p *PipeEdgeConfig) ApplyDefaults() {
+	p.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PipeEdgeConfig) Validate() error {
+	v := validate.New("PipeEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type ElectricEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (ElectricEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (e *ElectricEdgeConfig) ApplyDefaults() {
+	e.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e ElectricEdgeConfig) Validate() error {
+	v := validate.New("ElectricEdgeConfig")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type SecondaryEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SecondaryEdgeConfig) ApplyDefaults() {
+	s.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecondaryEdgeConfig) Validate() error {
+	v := validate.New("SecondaryEdgeConfig")
+	v.Exec(s.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type JacketedEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (JacketedEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (j *JacketedEdgeConfig) ApplyDefaults() {
+	j.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (j JacketedEdgeConfig) Validate() error {
+	v := validate.New("JacketedEdgeConfig")
+	v.Exec(j.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type HydraulicEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (h *HydraulicEdgeConfig) ApplyDefaults() {
+	h.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HydraulicEdgeConfig) Validate() error {
+	v := validate.New("HydraulicEdgeConfig")
+	v.Exec(h.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type PneumaticEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (p *PneumaticEdgeConfig) ApplyDefaults() {
+	p.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PneumaticEdgeConfig) Validate() error {
+	v := validate.New("PneumaticEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type DataEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (DataEdgeConfig) isEdgeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DataEdgeConfig) ApplyDefaults() {
+	d.SegmentedEdgeConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DataEdgeConfig) Validate() error {
+	v := validate.New("DataEdgeConfig")
+	v.Exec(d.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+type EdgeConfig struct {
+	Variant EdgeConfigVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PipeEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
+	case ElectricEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
+	case SecondaryEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
+	case JacketedEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
+	case HydraulicEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
+	case PneumaticEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
+	case DataEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type EdgeConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PipeEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PipeEdgeConfig
+	case ElectricEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricEdgeConfig
+	case SecondaryEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SecondaryEdgeConfig
+	case JacketedEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JacketedEdgeConfig
+	case HydraulicEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HydraulicEdgeConfig
+	case PneumaticEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PneumaticEdgeConfig
+	case DataEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DataEdgeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *EdgeConfig) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case PipeEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case ElectricEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SecondaryEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case JacketedEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case HydraulicEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case PneumaticEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case DataEdgeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u EdgeConfig) Validate() error {
+	switch variant := u.Variant.(type) {
+	case PipeEdgeConfig:
+		return variant.Validate()
+	case ElectricEdgeConfig:
+		return variant.Validate()
+	case SecondaryEdgeConfig:
+		return variant.Validate()
+	case JacketedEdgeConfig:
+		return variant.Validate()
+	case HydraulicEdgeConfig:
+		return variant.Validate()
+	case PneumaticEdgeConfig:
+		return variant.Validate()
+	case DataEdgeConfig:
+		return variant.Validate()
+	}
+	return nil
+}
 
 // FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v10.FlexAlignment
@@ -7597,6 +7942,11 @@ type PipeElementConfig struct {
 
 func (PipeElementConfig) isElementConfigVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (p *PipeElementConfig) ApplyDefaults() {
+	p.SegmentedEdgeConfig.ApplyDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PipeElementConfig) Validate() error {
@@ -7610,6 +7960,11 @@ type ElectricElementConfig struct {
 }
 
 func (ElectricElementConfig) isElementConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (e *ElectricElementConfig) ApplyDefaults() {
+	e.SegmentedEdgeConfig.ApplyDefaults()
+}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -7625,6 +7980,11 @@ type SecondaryElementConfig struct {
 
 func (SecondaryElementConfig) isElementConfigVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SecondaryElementConfig) ApplyDefaults() {
+	s.SegmentedEdgeConfig.ApplyDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s SecondaryElementConfig) Validate() error {
@@ -7638,6 +7998,11 @@ type JacketedElementConfig struct {
 }
 
 func (JacketedElementConfig) isElementConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (j *JacketedElementConfig) ApplyDefaults() {
+	j.SegmentedEdgeConfig.ApplyDefaults()
+}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -7653,6 +8018,11 @@ type HydraulicElementConfig struct {
 
 func (HydraulicElementConfig) isElementConfigVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (h *HydraulicElementConfig) ApplyDefaults() {
+	h.SegmentedEdgeConfig.ApplyDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (h HydraulicElementConfig) Validate() error {
@@ -7667,6 +8037,11 @@ type PneumaticElementConfig struct {
 
 func (PneumaticElementConfig) isElementConfigVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (p *PneumaticElementConfig) ApplyDefaults() {
+	p.SegmentedEdgeConfig.ApplyDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PneumaticElementConfig) Validate() error {
@@ -7680,6 +8055,11 @@ type DataElementConfig struct {
 }
 
 func (DataElementConfig) isElementConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DataElementConfig) ApplyDefaults() {
+	d.SegmentedEdgeConfig.ApplyDefaults()
+}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -9597,6 +9977,27 @@ func (u *ElementConfig) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	case CustomStaticElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case PipeElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case ElectricElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SecondaryElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case JacketedElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case HydraulicElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case PneumaticElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case DataElementConfig:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}

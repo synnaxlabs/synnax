@@ -272,11 +272,13 @@ class SegmentedEdgeConfig(BaseModel):
 
     Attributes:
         stroke_color: Is the stroke color of the edge.
+        stroke_width: Is the stroke width of the edge in pixels.
         segments: Is the ordered list of orthogonal runs that trace the connector path
             from the source handle to the target handle.
     """
 
     stroke_color: color_.Color | None = None
+    stroke_width: float = Field(default=2, ge=1, le=20)
     segments: list[Segment] = Field(default_factory=list)
 
 

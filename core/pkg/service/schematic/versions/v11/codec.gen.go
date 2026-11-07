@@ -24,6 +24,105 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (ec EdgeConfig) EncodeOrc(w *orc.Writer) error {
+	switch v := ec.Variant.(type) {
+	case PipeEdgeConfig:
+		w.String("pipe")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ElectricEdgeConfig:
+		w.String("electric")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SecondaryEdgeConfig:
+		w.String("secondary")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case JacketedEdgeConfig:
+		w.String("jacketed")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HydraulicEdgeConfig:
+		w.String("hydraulic")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PneumaticEdgeConfig:
+		w.String("pneumatic")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case DataEdgeConfig:
+		w.String("data")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("EdgeConfig: nil or unknown variant %T", ec.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ec *EdgeConfig) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "pipe":
+		var v PipeEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "electric":
+		var v ElectricEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "secondary":
+		var v SecondaryEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "jacketed":
+		var v JacketedEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "hydraulic":
+		var v HydraulicEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "pneumatic":
+		var v PneumaticEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "data":
+		var v DataEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := ec.Variant.(type) {
 	case CapElementConfig:
@@ -6777,6 +6876,69 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				s.Configs[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sec SegmentedEdgeConfig) EncodeOrc(w *orc.Writer) error {
+	if sec.StrokeColor != nil {
+		w.Bool(true)
+		if err := sec.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Float64(float64(sec.StrokeWidth))
+	w.Bool(sec.Segments != nil)
+	if sec.Segments != nil {
+		w.Uint32(uint32(len(sec.Segments)))
+		for i := range sec.Segments {
+			if err := sec.Segments[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sec.StrokeColor = &hv
+		}
+	}
+	if sec.StrokeWidth, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			sec.Segments = make([]Segment, n)
+			for i := range sec.Segments {
+				if err = sec.Segments[i].DecodeOrc(r); err != nil {
+					return err
+				}
 			}
 		}
 	}

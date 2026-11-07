@@ -25,9 +25,14 @@ Edge = v7.Edge
 
 Segment = v9.Segment
 
-SegmentedEdgeConfig = v9.SegmentedEdgeConfig
+SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
+    stroke_color
+    stroke_width float64 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
+    }
+}
 
-EdgeConfig = v9.EdgeConfig
+EdgeConfig union on variant extends v9.EdgeConfig {}
 
 FlexAlignment = v9.FlexAlignment
 

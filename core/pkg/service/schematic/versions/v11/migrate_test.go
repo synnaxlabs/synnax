@@ -19,6 +19,7 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/x/border"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -116,6 +117,53 @@ var _ = Describe("Migration", func() {
 			HaveField("NumericTelemConfig.Precision", zero)),
 	)
 
+	It("Should fill the stroke width of a stored edge", func(ctx SpecContext) {
+		pipe := migrateStored(ctx, stored(msgpack.EncodedJSON{"variant": "pipe"}))
+		Expect(pipe).To(HaveField("StrokeWidth", BeEquivalentTo(2)))
+	})
+
+	It("Should keep the segments of a stored edge", func(ctx SpecContext) {
+		edge := migrateStored(ctx, stored(msgpack.EncodedJSON{
+			"variant":  "hydraulic",
+			"segments": []any{map[string]any{"direction": "x", "length": 40.0}},
+		}))
+		Expect(edge).To(HaveField("Segments", HaveLen(1)))
+	})
+
+	It("Should keep a stored symbol 0 and fill an edge in one migration", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		old := v10.Schematic{
+			Key:  uuid.New(),
+			Name: "Feed system",
+			Configs: map[string]v10.ElementConfig{
+				"n1": stored(msgpack.EncodedJSON{
+					"variant": "circle", "stroke_width": 0.0,
+				}),
+				"e1": stored(msgpack.EncodedJSON{"variant": "pipe"}),
+			},
+		}
+		MustSucceed(
+			gorp.OpenTable(ctx, gorp.TableConfig[v10.Key, v10.Schematic]{DB: db}),
+		)
+		Expect(gorp.NewCreate[v10.Key, v10.Schematic]().
+			Entry(&old).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Schematic",
+			Migrations: []gorp.Migration{v11.Migration},
+		})).To(Succeed())
+		var got v11.Schematic
+		Expect(gorp.NewRetrieve[v11.Key, v11.Schematic]().
+			Where(gorp.MatchKeys[v11.Key, v11.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Configs["n1"].Variant).To(HaveField("StrokeWidth", zero))
+		Expect(got.Configs["e1"].Variant).To(
+			HaveField("StrokeWidth", BeEquivalentTo(2)),
+		)
+	})
+
 	It("Should keep a stored default as a set value", func(ctx SpecContext) {
 		box := migrateStored(ctx, stored(msgpack.EncodedJSON{"variant": "box"}))
 		Expect(box).To(SatisfyAll(
@@ -134,6 +182,29 @@ var _ = Describe("Migration", func() {
 			HaveField("End", HaveValue(Equal(spatial.XY{X: 100}))),
 			HaveField("StrokeWidth", HaveValue(BeEquivalentTo(2))),
 		))
+	})
+
+	It("Should fill the stroke width of an imported edge", func(ctx SpecContext) {
+		got := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+			Configs: map[string]v10.ElementConfig{
+				"e1": {Variant: v10.PipeElementConfig{}},
+			},
+		}))
+		Expect(got.Configs["e1"].Variant).To(
+			HaveField("StrokeWidth", BeEquivalentTo(2)),
+		)
+	})
+
+	It("Should keep the schematic's identity", func(ctx SpecContext) {
+		key := uuid.New()
+		out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+			Key:      key,
+			Name:     "Feed system",
+			Snapshot: true,
+		}))
+		Expect(out.Key).To(Equal(key))
+		Expect(out.Name).To(Equal("Feed system"))
+		Expect(out.Snapshot).To(BeTrue())
 	})
 
 	It("Should keep the zero fields of an element config", func(ctx SpecContext) {
@@ -170,5 +241,24 @@ var _ = Describe("Migration", func() {
 
 	It("Should not reuse a v10 migration key", func() {
 		Expect(v11.Migration.Key()).ToNot(Equal(v10.Migration.Key()))
+	})
+})
+
+var _ = Describe("MigrateSegmentedEdgeConfig", func() {
+	It("Should fill the default stroke width", func(ctx SpecContext) {
+		out := MustSucceed(v11.MigrateSegmentedEdgeConfig(
+			ctx, v10.SegmentedEdgeConfig{},
+		))
+		Expect(out.StrokeWidth).To(BeEquivalentTo(2))
+	})
+
+	It("Should keep the stroke color and segments", func(ctx SpecContext) {
+		stroke := color.Color{R: 255, A: 1}
+		segments := []v10.Segment{{Direction: spatial.DirectionX, Length: 40}}
+		out := MustSucceed(v11.MigrateSegmentedEdgeConfig(
+			ctx, v10.SegmentedEdgeConfig{StrokeColor: &stroke, Segments: segments},
+		))
+		Expect(out.StrokeColor).To(HaveValue(Equal(stroke)))
+		Expect(out.Segments).To(Equal(segments))
 	})
 })
