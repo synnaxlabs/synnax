@@ -68,6 +68,11 @@ public:
     /// @return Pair of slave list and error.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover_slaves(const std::string &key);
+
+    /// @brief discovers the slaves on a master again unless its bus is running, and
+    /// returns them.
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover_slaves(const std::string &key);
 };
 
 }

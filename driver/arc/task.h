@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <mutex>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -61,12 +62,23 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+        auto [arc_data, arc_err] = client->arcs.retrieve(
             cfg.arc_key,
             synnax::arc::RetrieveOptions{.include_program = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        if (!arc_data.program.has_value())
+        const auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
+        if (automation == nullptr)
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "Modules cannot be deployed independently. Import \"" +
+                        synnax::arc::base(arc_data).name +
+                        "\" from an automation instead."
+                )
+            };
+        if (!automation->program.has_value())
             return {
                 std::move(cfg),
                 x::errors::Error(
@@ -74,7 +86,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
                     "The Arc program is not compiled."
                 )
             };
-        cfg.program = *arc_data.program;
+        cfg.program = *automation->program;
         return {std::move(cfg), x::errors::NIL};
     }
 };

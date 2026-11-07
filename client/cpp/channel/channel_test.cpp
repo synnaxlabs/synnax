@@ -12,6 +12,7 @@
 
 #include <include/gtest/gtest.h>
 
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
@@ -160,6 +161,18 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
     );
 }
 
+/// @brief it should read a name pattern as an exact name and find no channel.
+TEST(TestChannel, testRetrieveByNamePattern) {
+    const auto client = new_test_client();
+    const auto prefix = make_unique_channel_name("retrieve_by_name_pattern");
+    ASSERT_NIL_P(client.channels.create(prefix + "_a", x::telem::FLOAT64_T, true));
+    ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT64_T, true));
+    ASSERT_OCCURRED_AS_P(
+        client.channels.retrieve(prefix + "_.*"),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should retrieve many channels by their key.
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
@@ -232,22 +245,18 @@ TEST(TestChannel, testRetrieveManyOrder) {
     ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({c.key, a.key, b.key}));
 }
 
-/// @brief it should treat a name that is not a valid channel name as a pattern.
-TEST(TestChannel, testRetrieveManyByNamePattern) {
+/// @brief it should never read a name as a pattern.
+TEST(TestChannel, testRetrieveManyByNameNotPattern) {
     const auto client = new_test_client();
     const auto prefix = make_unique_channel_name("pattern");
     const auto a = ASSERT_NIL_P(
         client.channels.create(prefix + "_a", x::telem::FLOAT32_T, true)
     );
-    const auto b = ASSERT_NIL_P(
-        client.channels.create(prefix + "_b", x::telem::FLOAT32_T, true)
+    ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT32_T, true));
+    const auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<std::string>{a.name, prefix + "_.*"})
     );
-    auto channels = ASSERT_NIL_P(
-        client.channels.retrieve(std::vector<std::string>{prefix + "_.*"})
-    );
-    auto keys = keys_from_channels(channels);
-    std::ranges::sort(keys);
-    ASSERT_EQ(keys, std::vector<Key>({a.key, b.key}));
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
 }
 
 /// @brief it should match a valid channel name exactly.
@@ -302,4 +311,16 @@ TEST(TestChannel, testOntologyId) {
     ASSERT_EQ(id.key, "42");
 }
 
+/// @brief it should fall back to exclusive concurrency when the JSON omits it.
+TEST(TestChannel, testParseMissingConcurrency) {
+    x::json::Parser parser(
+        x::json::json{
+            {"name", "sensor"},
+            {"data_type", "float64"},
+        }
+    );
+    const auto ch = Channel::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(ch.concurrency, x::control::Concurrency::Exclusive);
+}
 }

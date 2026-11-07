@@ -311,8 +311,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_TRUE(ASSERT_NIL_P(client.devices.retrieve(keys)).empty());
 }
 
-/// @brief it should retrieve devices using a device::RetrieveRequest with keys and
-/// names.
+/// @brief it should retrieve devices with a Where on keys and a Where on names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
@@ -348,26 +347,16 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     ASSERT_NIL(client.devices.create(d3));
-    const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .key = x::filter::Set<Key>{.in = std::vector<Key>{d1.key, d3.key}},
-            },
-        }
-    ));
+    const auto devices_keys = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.key = {d1.key, d3.key}})
+    );
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
     ASSERT_TRUE(dm.contains(d1.key));
     ASSERT_TRUE(dm.contains(d3.key));
-    const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .name = x::filter::String{
-                    .in = std::vector<std::string>{d1.name, d2.name},
-                },
-            },
-        }
-    ));
+    const auto devices_names = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.name = {d1.name, d2.name}})
+    );
     ASSERT_EQ(devices_names.size(), 2);
 }
 
@@ -391,16 +380,8 @@ TEST(DeviceTests, testRetrieveWhere) {
         devs.push_back(d);
     }
     const auto devices = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{.make = x::filter::String{.eq = devs[0].make}},
-                        Where{.key = x::filter::Set<Key>{.eq = devs[1].key}},
-                    },
-                .rack = x::filter::Set<rack::Key>{.eq = r.key},
-            },
-        }
+        (Where{.make = devs[0].make} || Where{.key = devs[1].key}) &&
+        Where{.rack = r.key}
     ));
     std::set<Key> keys;
     for (const auto &d: devices)
@@ -449,14 +430,14 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         ASSERT_NIL(client.devices.create(d));
         devices.push_back(d);
     }
-    const auto where = Where{.make = x::filter::String{.eq = make}};
+    const auto where = Where{.make = make};
     const auto devices_limited = ASSERT_NIL_P(
-        client.devices.retrieve(RetrieveRequest{.where = where, .limit = 2})
+        client.devices.retrieve(where, {.limit = 2})
     );
     ASSERT_EQ(devices_limited.size(), 2);
-    const auto devices_offset = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{.where = where, .limit = 2, .offset = 2}
-    ));
+    const auto devices_offset = ASSERT_NIL_P(
+        client.devices.retrieve(where, {.limit = 2, .offset = 2})
+    );
     ASSERT_EQ(devices_offset.size(), 2);
     bool different = true;
     for (const auto &da: devices_limited)
@@ -464,6 +445,81 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
 }
+/// @brief it should reject a filter for one device that more than one device matches.
+TEST(DeviceTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto make = "one_make_" + std::to_string(gen_rand_device());
+    for (int i = 0; i < 2; ++i) {
+        auto d = Device{
+            .key = make + "_" + std::to_string(i),
+            .rack = r.key,
+            .location = "loc",
+            .make = make,
+            .model = "model",
+            .name = "one_device_" + std::to_string(i),
+        };
+        ASSERT_NIL(client.devices.create(d));
+    }
+    ASSERT_OCCURRED_AS_P(
+        client.devices.retrieve(Where{.make = make}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should retrieve the one device that a filter matches.
+TEST(DeviceTests, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto d = Device{
+        .key = "one_d_" + std::to_string(gen_rand_device()),
+        .rack = r.key,
+        .location = "loc",
+        .make = "make",
+        .model = "model",
+        .name = "one_device",
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const auto got = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.key = d.key}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, d.key);
+}
+
+/// @brief it should name the filter in the error when no device matches it.
+TEST(DeviceTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto make = "none_make_" + std::to_string(gen_rand_device());
+    const auto [_, err] = client.devices.retrieve(Where{.make = make}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(device matching {"make":{"case_insensitive":false,"eq":")" + make +
+            R"("}} not found.)"
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one device.
+TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.devices.retrieve("device", options).second,
+              client.devices.retrieve(Where{.key = "device"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();

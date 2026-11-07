@@ -80,7 +80,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Project.useList({
-            initialQuery: { where: { key: { in: keys } } },
+            query: { where: { key: { in: keys } } },
             filter: (p) => keys.includes(p.key),
           }),
         { wrapper },
@@ -282,18 +282,6 @@ describe("queries", () => {
         });
       });
       expect(afterOptimistic).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe("useGroupID", () => {
-    it("should correctly retrieve group ID", async () => {
-      const { result } = await renderHookSuspended(() => Project.useGroupID({}), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current?.type).toEqual("group");
-        expect(result.current?.key).not.toBeFalsy();
-      });
     });
   });
 

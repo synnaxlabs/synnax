@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -30,37 +30,39 @@ MODE_GRAPH: Literal["graph"] = "graph"
 
 Mode = Literal["text", "graph"]
 
+TYPE_AUTOMATION: Literal["automation"] = "automation"
+
+TYPE_MODULE: Literal["module"] = "module"
+
+
+Type = Literal["automation", "module"]
+
 Key: TypeAlias = UUID
 
 
-class Payload(BaseModel):
-    """Is an Arc module combining visual graph representation and text-based source code
-    for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+class TextSource(BaseModel):
+    """Is Arc source code written as text."""
 
-    Attributes:
-        key: Is the unique identifier for this module.
-        name: Is a human-readable name for the module.
-        mode: Specifies the representation mode for this module. Either "text" for
-            text-based Arc code or "graph" for visual dataflow.
-        graph: Is the visual dataflow graph representation of the module.
-        text: Is the text-based Arc source code.
-        program: Is the compiled module output including IR and WebAssembly bytecode.
-    """
-
-    key: Key = Field(default_factory=uuid4)
-    name: str
-    mode: Mode
-    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+    mode: Literal["text"] = "text"
     text: text_.Text = Field(default_factory=lambda: text_.Text())
-    program: program_.Program | None = None
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+
+class GraphSource(BaseModel):
+    """Is Arc source code drawn as a visual dataflow graph."""
+
+    mode: Literal["graph"] = "graph"
+    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+
+
+# Is the source code of an Arc. The mode selects text or a graph.
+Source = Annotated[
+    TextSource | GraphSource,
+    Field(discriminator="mode"),
+]
 
 
 class Where(BaseModel):
-    """Is a filter that selects Arc modules.
+    """Is a filter that selects Arcs.
 
     Attributes:
         and_: Matches when every child matches.
@@ -79,14 +81,37 @@ class Where(BaseModel):
     name: filter.String | None = None
 
 
-class RetrieveResponse(BaseModel):
-    """Holds the arcs a RetrieveRequest selects.
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+    },
+    total=False,
+)
+
+
+class Base(BaseModel):
+    """Carries the fields that every Arc shares.
 
     Attributes:
-        arcs: Are the arcs the request selects.
+        key: Is the unique identifier for this module.
+        name: Is a human-readable name for the module.
+        source: Is the Arc's source code, written as text or drawn as a graph.
     """
 
-    arcs: list[Payload] = Field(default_factory=list)
+    key: Key = Field(default_factory=uuid4)
+    name: str
+    source: Source = Field(default_factory=lambda: TextSource(mode="text"))
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class RetrieveRequest(BaseModel):
@@ -107,6 +132,38 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
+
+
+class AutomationPayload(Base):
+    """Is an Arc that runs on a rack as a task."""
+
+    type: Literal["automation"] = "automation"
+    program: program_.Program | None = None
+
+
+class ModulePayload(Base):
+    """Is an Arc that holds code for other Arcs to import."""
+
+    type: Literal["module"] = "module"
+
+
+# Is an Arc module combining visual graph representation and text-based source
+# code for reactive control systems. Compiles to WebAssembly for sandboxed
+# execution.
+Payload = Annotated[
+    AutomationPayload | ModulePayload,
+    Field(discriminator="type"),
+]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the arcs a RetrieveRequest selects.
+
+    Attributes:
+        arcs: Are the arcs the request selects.
+    """
+
+    arcs: list[Payload] = Field(default_factory=list)
 
 
 Where.model_rebuild()

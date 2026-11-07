@@ -25,20 +25,14 @@ import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
 import { activatePath } from "@/shell";
 import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
-import {
-  date,
-  dateTime,
-  describeEvent,
-  edition,
-  machineName,
-  statusOf,
-} from "@/ui/format";
+import { type Clock, describeEvent, edition, machineName, statusOf } from "@/ui/format";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
 import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
+import { useClock } from "@/ui/useClock";
 
 export interface LicenseProps {
   license: LicenseRecord;
@@ -73,6 +67,7 @@ export const License = ({
   admin,
   now,
 }: LicenseProps): ReactElement => {
+  const clock = useClock();
   const [label, setLabel] = useState(stored.label);
   const [events, setEvents] = useState(loadedEvents);
   const [actors, setActors] = useState(loadedActors);
@@ -155,7 +150,7 @@ export const License = ({
       {rename.error != null && (
         <Status.Summary variant="error" level="small" message={rename.error} />
       )}
-      <LicenseFacts license={lic} held={held.length} />
+      <LicenseFacts license={lic} held={held.length} clock={clock} />
       <Section title="Machines">
         {held.length === 0 ? (
           <Empty
@@ -174,10 +169,10 @@ export const License = ({
                   {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
-                  {date(a.firstSeen)}
+                  {clock.date(a.firstSeen)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
-                  {date(a.lastSeen)}
+                  {clock.date(a.lastSeen)}
                 </Text.Text>
                 <Flex.Box justify="end">
                   <MachineMenu activation={a} label={lic.label} />
@@ -199,13 +194,13 @@ export const License = ({
                   {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
-                  {date(a.firstSeen)}
+                  {clock.date(a.firstSeen)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
-                  {date(a.lastSeen)}
+                  {clock.date(a.lastSeen)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
-                  {date(a.releasedAt)}
+                  {clock.date(a.releasedAt)}
                 </Text.Text>
               </Row>
             ))}
@@ -220,7 +215,7 @@ export const License = ({
             {events.map((e) => (
               <Flex.Box key={e.key} x gap="medium" align="start">
                 <Text.Text level="small" color={9} className="portal-activity__time">
-                  {dateTime(e.at)}
+                  {clock.dateTime(e.at)}
                 </Text.Text>
                 <Text.Text level="small" color={10}>
                   {describeEvent(e, { machines, actors })}
@@ -237,17 +232,21 @@ export const License = ({
 const LicenseFacts = ({
   license: lic,
   held,
+  clock,
 }: {
   license: LicenseRecord;
   held: number;
+  clock: Clock;
 }): ReactElement => (
   <Facts>
     <Fact label="Edition" value={edition(lic.edition)} />
     <Fact label="Term" value={term(lic)} />
     <Fact label="Machines" value={`${held} of ${lic.nodes} seats in use`} />
     <Fact label="Channels per Core" value={channels(lic.channels)} />
-    <Fact label="Issued" value={date(lic.issuedAt)} />
-    {lic.revokedAt != null && <Fact label="Revoked" value={date(lic.revokedAt)} />}
+    <Fact label="Issued" value={clock.date(lic.issuedAt)} />
+    {lic.revokedAt != null && (
+      <Fact label="Revoked" value={clock.date(lic.revokedAt)} />
+    )}
     <Fact label="Key" value={lic.key} code />
   </Facts>
 );

@@ -121,6 +121,8 @@ export class Client {
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys, count, tr) =>
         await this.readLatestNFrame(keys, count, tr),
+      readFirst: async (keys) =>
+        await this.reader.read(TimeRange.MAX, keys, { earliest: 1 }),
     });
   }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, filter } from "@synnaxlabs/x";
 import z from "zod";
 
 import { AccessDeniedError } from "@/errors";
@@ -25,7 +25,12 @@ import {
   type Status,
   statusZ,
 } from "@/status/types.gen";
-import { type Lines, matches, serverComputed } from "@/status/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -46,17 +51,25 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const callerRequestZ = retrieveRequestZ.omit({ includeLabels: true });
 export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), callerRequestZ]);
+const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(callerRequestZ, filterParamsZ);
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
+  .strictObject({ key: keyZ })
   .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
 const retrieveParamsZ = z
-  .union([singleRetrieveParamsZ, callerRequestZ])
+  .union([singleRetrieveParamsZ, requestParamsZ])
   .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is SingleRetrieveParams | OneParams =>
+  query.addressesOne(params);
 export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -165,23 +178,31 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
+    params: (SingleRetrieveParams | OneParams) & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Status[]>;
+  async retrieve(params: Key | SingleRetrieveParams | OneParams): Promise<Status>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | OneParams | FilterParams) & {
+          detailsSchema?: DetailsSchema;
+        }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isOneParams(rest);
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
-      const statuses = await this.execRetrieve<DetailsSchema>(params);
-      checkForMultipleOrNoResults("Status", params, statuses, isSingle);
+      const request = query.dropOne(rest);
+      const statuses = await this.execRetrieve(request, detailsSchema);
+      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
@@ -303,13 +324,14 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+    params: RetrieveParams | OneParams | FilterParams,
+    detailsSchema?: DetailsSchema,
   ): Promise<Status<DetailsSchema>[]> {
     const res = await this.cfg.unary.send(
       "/status/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
+      retrieveResponseZ<DetailsSchema>(detailsSchema),
     );
     return res.statuses as Status<DetailsSchema>[];
   }

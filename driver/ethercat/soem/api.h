@@ -11,7 +11,9 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 
@@ -33,6 +35,16 @@ public:
     /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
     virtual x::errors::Error check_socket(const char *ifname) = 0;
 
+    /// @brief returns true when the DewesoftX "EthercatDAQ Filter" is bound to the
+    /// adapter of ifname. The filter drops EtherCAT replies. Always false outside
+    /// Windows.
+    virtual bool dewesoft_filter_bound(const char *ifname) = 0;
+
+    /// @brief returns the name Windows shows for the adapter of ifname, such as
+    /// "Ethernet 2", or std::nullopt when the name cannot be read. Always std::nullopt
+    /// outside Windows.
+    virtual std::optional<std::string> adapter_name(const char *ifname) = 0;
+
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
 
@@ -41,6 +53,11 @@ public:
 
     /// @brief discovers and initializes all slaves on the network.
     virtual int config_init() = 0;
+
+    /// @brief sets the length of each process data sync manager (SM2 and up) of the
+    /// slaves in the group to zero. config_map_group then gives a sync manager a length
+    /// only from its PDOs, and turns off one that has none.
+    virtual void clear_process_data_sms(uint8_t group) = 0;
 
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
@@ -81,6 +98,15 @@ public:
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
 
+    /// @brief writes data to a register of a slave with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave took the write.
+    virtual int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int timeout
+    ) = 0;
+
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
         uint16_t slave,
@@ -100,6 +126,10 @@ public:
 
     /// @brief reads string from slave EEPROM.
     virtual void siistring(char *str, uint16_t slave, uint16_t sn) = 0;
+
+    /// @brief gives control of the slave EEPROM back to the slave. siigetbyte takes
+    /// control and keeps it.
+    virtual void eeprom2pdi(uint16_t slave) = 0;
 
     /// @brief reads object dictionary list from slave.
     virtual int readODlist(uint16_t slave, ec_ODlistt *od_list) = 0;
@@ -164,6 +194,9 @@ public:
     /// @brief returns the AL status code for a slave.
     [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
+    /// @brief returns true when the slave has a distributed clock.
+    [[nodiscard]] virtual bool slave_hasdc(uint16_t pos) const = 0;
+
     /// @brief returns whether a slave is marked as no longer responding.
     [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
 
@@ -185,6 +218,11 @@ public:
     /// @brief returns true when the group's process data frames carry the reference
     /// clock time.
     [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
+
+    /// @brief makes the process data frames of a group read the reference clock time.
+    /// configdc does this only for the group of the reference slave. Call it after
+    /// configdc.
+    virtual void set_group_dc(uint8_t grp) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -196,11 +234,24 @@ public:
 
     x::errors::Error check_socket(const char *ifname) override;
 
+    bool dewesoft_filter_bound(const char *ifname) override;
+
+    std::optional<std::string> adapter_name(const char *ifname) override;
+
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
     void close() override { ecx_close(&this->context); }
 
     int config_init() override { return ecx_config_init(&this->context); }
+
+    void clear_process_data_sms(const uint8_t group) override {
+        for (int i = 1; i <= this->context.slavecount; ++i) {
+            auto &slave = this->context.slavelist[i];
+            if (slave.group != group) continue;
+            for (int sm = 2; sm < EC_MAXSM; ++sm)
+                slave.SM[sm].SMlength = 0;
+        }
+    }
 
     int config_map_group(void *iomap, uint8_t group) override {
         return ecx_config_map_group(&this->context, iomap, group);
@@ -239,6 +290,22 @@ public:
     bool configdc() override { return ecx_configdc(&this->context); }
 
     [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
+
+    int write_register(
+        uint16_t slave,
+        uint16_t address,
+        std::vector<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPWR(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
 
     int reconfig_slave(uint16_t slave, int timeout) override {
         return ecx_reconfig_slave(&this->context, slave, timeout);
@@ -280,6 +347,8 @@ public:
     void siistring(char *str, uint16_t slave, uint16_t sn) override {
         ecx_siistring(&this->context, str, slave, sn);
     }
+
+    void eeprom2pdi(uint16_t slave) override { ecx_eeprom2pdi(&this->context, slave); }
 
     int readODlist(uint16_t slave, ec_ODlistt *od_list) override {
         return ecx_readODlist(&this->context, slave, od_list);
@@ -360,6 +429,10 @@ public:
         return this->context.slavelist[pos].ALstatuscode;
     }
 
+    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
+        return this->context.slavelist[pos].hasdc;
+    }
+
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {
         return this->context.slavelist[pos].islost;
     }
@@ -386,6 +459,11 @@ public:
 
     [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
         return this->context.grouplist[grp].hasdc;
+    }
+
+    void set_group_dc(uint8_t grp) override {
+        this->context.grouplist[grp].hasdc = this->context.slavelist[0].hasdc;
+        this->context.grouplist[grp].DCnext = this->context.slavelist[0].DCnext;
     }
 };
 

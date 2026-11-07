@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -31,7 +31,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
-import { matches, serverComputed } from "@/log/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -41,11 +41,17 @@ export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
   project: project.keyZ,

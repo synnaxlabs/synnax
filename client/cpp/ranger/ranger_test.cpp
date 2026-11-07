@@ -45,7 +45,7 @@ TEST(RangerTests, testRetrieveByKey) {
         "test",
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
@@ -60,7 +60,7 @@ TEST(RangerTests, testSetEnd) {
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
     ASSERT_NIL(client.ranges.set_end(range.key, x::telem::TimeStamp(500)));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     ASSERT_EQ(got.name, "test");
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(500));
@@ -83,7 +83,7 @@ TEST(RangerTests, testRetrieveByName) {
         rand_name,
         x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(rand_name));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(rand_name));
     ASSERT_EQ(got.name, rand_name);
     ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(10));
@@ -93,9 +93,21 @@ TEST(RangerTests, testRetrieveByName) {
 /// @brief it should return a not found error when retrieving by non-existent name.
 TEST(RangerTests, testRetrieveByNameNotFound) {
     const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(client.ranges.retrieve("not_found"), x::errors::NOT_FOUND);
+}
+
+/// @brief it should reject a name that more than one range has.
+TEST(RangerTests, testRetrieveByNameMultipleFound) {
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    for (int i = 0; i < 2; i++)
+        ASSERT_NIL_P(client.ranges.create(
+            rand_name,
+            x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+        ));
     ASSERT_OCCURRED_AS_P(
-        client.ranges.retrieve_by_name("not_found"),
-        x::errors::NOT_FOUND
+        client.ranges.retrieve(rand_name),
+        x::errors::MULTIPLE_RESULTS
     );
 }
 
@@ -111,9 +123,7 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         rand_name,
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(
-        client.ranges.retrieve_by_name(std::vector{rand_name})
-    );
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(std::vector{rand_name}));
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
     ASSERT_FALSE(got[0].key.is_nil());
@@ -134,9 +144,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     );
     const auto range = ASSERT_NIL_P(client.ranges.create("test", tr));
     const auto range2 = ASSERT_NIL_P(client.ranges.create("test2", tr));
-    const auto got = ASSERT_NIL_P(
-        client.ranges.retrieve_by_key({range.key, range2.key})
-    );
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve({range.key, range2.key}));
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.is_nil());
@@ -160,25 +168,71 @@ TEST(RangerTests, testRetrieveWhere) {
     const auto b = ASSERT_NIL_P(client.ranges.create(rand_name + "_b", tr));
     ASSERT_NIL_P(client.ranges.create(rand_name + "_c", tr));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{.labels = std::vector<label::Key>{x::uuid::create()}},
-                        Where{
-                            .name = x::filter::String{
-                                .in = std::vector<std::string>{a.name, b.name},
-                            },
-                        },
-                    },
-                .not_ = x::mem::indirect<Where>(
-                    Where{.key = x::filter::Set<Key>{.eq = b.key}}
-                ),
-            },
-        }
+        (Where{.labels = x::uuid::create()} || Where{.name = {a.name, b.name}}) &&
+        !Where{.key = b.key}
     ));
     ASSERT_EQ(got.size(), 1);
     ASSERT_EQ(got[0].key, a.key);
+}
+
+/// @brief it should retrieve the one range that a filter matches.
+TEST(RangerTests, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        std::to_string(gen_rand()),
+        x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+    ));
+    const auto got = ASSERT_NIL_P(
+        client.ranges.retrieve({.name = range.name}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, range.key);
+}
+
+/// @brief it should name the filter in the error when no range matches it.
+TEST(RangerTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    const auto [_, err] = client.ranges.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(range matching {"name":{"case_insensitive":false,"eq":")" + name +
+            R"("}} not found.)"
+    );
+}
+
+/// @brief it should return an error when more than one range matches a filter.
+TEST(RangerTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    for (int i = 0; i < 2; i++)
+        ASSERT_NIL_P(client.ranges.create(
+            name,
+            x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+        ));
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve({.name = name}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one range.
+TEST(RangerTests, testRetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.ranges.retrieve("range", options).second,
+              client.ranges.retrieve({.name = "range"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
 }
 
 /// @brief it should set a key-value pair on the range.
@@ -211,7 +265,7 @@ TEST(RangerTests, testGetFromRetrieved) {
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     const auto val = ASSERT_NIL_P(got.kv.get("test"));
     ASSERT_EQ(val, "test");
 }

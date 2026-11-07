@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  filter,
   id,
   primitive,
   type record,
@@ -30,8 +31,8 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
-  keyZ as rackKeyZ,
   ontologyID as rackOntologyID,
+  statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
@@ -59,8 +60,8 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { matches, serverComputed } from "@/task/where.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
@@ -143,12 +144,12 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandsSyncInternalParams<StatusData>,
-  "frameClient" | "name"
+  "frameClient" | "name" | "racks"
 > {}
 
 export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandSyncInternalParams<StatusData>,
-  "frameClient" | "name"
+  "frameClient" | "name" | "racks"
 > {}
 
 /**
@@ -256,6 +257,11 @@ export class Task<S extends Schemas = Schemas> {
     });
   }
 
+  /**
+   * Sends a command and waits for the reply of the task.
+   * @throws once the timeout passes, or with the status of the rack once the Driver
+   * that runs the task goes down.
+   */
   async executeCommandSync(
     params: TaskExecuteCommandSyncParams,
   ): Promise<Status<S["statusData"]>> {
@@ -265,6 +271,7 @@ export class Task<S extends Schemas = Schemas> {
       task: this.key,
       configHash: this.configHash,
       name: this.name,
+      racks: [this.rack],
       statusDataZ: this.schemas.statusData,
     });
   }
@@ -294,69 +301,62 @@ export class Task<S extends Schemas = Schemas> {
   }
 }
 
-/** Names one task in the cache: by key, by name, or by type and rack. */
-type SingleRequest = { key: Key } | { name: string } | { type: string; rack?: RackKey };
+/** Names one task in the cache: by key or by name. */
+type SingleRequest = { key: Key } | { name: string };
 
-const singleWhere = (q: SingleRequest): Where => {
-  if ("key" in q) return { key: { eq: q.key } };
-  if ("name" in q) return { name: { eq: q.name } };
-  return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
-};
+const singleWhere = (q: SingleRequest): Where =>
+  "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
 
 const singleRetrieveParamsZ = z.union([
   z
-    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
     .transform(({ key, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ key }),
       includeStatus,
     })),
   z
-    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .strictObject({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ name }),
       includeStatus,
     })),
-  z
-    .object({ type: z.string(), rack: rackKeyZ.optional() })
-    .transform(({ type, rack }): RetrieveRequest => ({
-      where: singleWhere({ type, rack }),
-    })),
 ]);
-/** Names one task: by key, by name, or by type and rack. */
+/** Names one task: by key or by name. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 /** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
-const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
-  if ("key" in params) return { key: params.key };
-  if ("name" in params) return { name: params.name };
-  return params.rack == null
-    ? { type: params.type }
-    : { type: params.type, rack: params.rack };
-};
+const normalizeSingle = (params: RetrieveSingleParams): SingleRequest =>
+  "key" in params ? { key: params.key } : { name: params.name };
 
 const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
-]);
+const retrieveMultiParamsZ = requestParamsZ.transform(
+  ({ includeStatus: _, ...rest }) => rest,
+);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -499,6 +499,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
@@ -620,24 +621,35 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveSingleParams & RetrieveSchemas<S>,
+    params: (RetrieveSingleParams | OneParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveMultipleParams & RetrieveSchemas<S>,
+    params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
+    rawParams:
+      Key | Key[] | ((RetrieveParams | OneParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
-    const { schemas, ...params } =
-      typeof rawParams === "string" ? { key: rawParams } : rawParams;
-    const isSingle = z.validate(singleRetrieveParamsZ, params);
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as unknown as Task<S>[];
+    if (typeof rawParams === "string")
+      return (await super.retrieve(rawParams)) as Task<S>;
+    const { schemas, ...params } = rawParams;
+    const isSingle = z.validate(singleRetrieveParamsZ, params) || isOneParams(params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      const sugared = await this.execRetrieve<S>(params, schemas);
-      checkForMultipleOrNoResults("Task", params, sugared, isSingle);
+      const request = query.dropOne(params);
+      if (isOneParams(request) && !z.validate(retrieveParamsZ, request)) {
+        const res = singleQueryZ.safeParse(request);
+        if (!res.success) throw singleQueryError("task", request, res.error);
+      }
+      const sugared = await this.execRetrieve<S>(request, schemas);
+      checkForMultipleOrNoResults("Task", request, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -672,7 +684,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
@@ -829,9 +841,8 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleRequest): Promise<Task> {
-    let cached: Omit<Task, "status"> | undefined;
-    if ("key" in q) cached = this.store.get(q.key);
-    else if ("name" in q) [cached] = this.store.get((t) => t.name === q.name);
+    // Task names are not unique, so only a key can answer from the cache.
+    const cached = "key" in q ? this.store.get(q.key) : undefined;
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
     if (cached != null && this.cfg.statuses.store.has(statusKey(cached.key)))
@@ -912,10 +923,20 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Sends commands and waits for the reply of each task.
+   * @throws once the timeout passes, or with the status of a rack once the Driver
+   * that runs one of the tasks goes down.
+   */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
+  /**
+   * Sends a command and waits for the reply of the task.
+   * @throws once the timeout passes, or with the status of the rack once the Driver
+   * that runs the task goes down.
+   */
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData>>;
@@ -935,6 +956,7 @@ export class Client extends query.Retriever<
         commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
         name: retrieveNames,
+        racks: this.racksOf(params.commands.map((c) => c.task)),
       });
     }
     const retrieveName = async () => {
@@ -946,8 +968,14 @@ export class Client extends query.Retriever<
       frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
+      racks: this.racksOf([params.task]),
       configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
+  }
+
+  // Reads only cached tasks: a fetch would make a command need read access to its task.
+  private racksOf(tasks: Key[]): RackKey[] {
+    return tasks.flatMap((t) => this.store.get(t)?.rack ?? []);
   }
 }
 
@@ -1050,11 +1078,13 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   args,
   configHash,
   pinned,
+  racks,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
       commands: [{ args, task, type, configHash, pinned }],
+      racks,
       timeout,
       statusDataZ,
       name: taskName,
@@ -1064,6 +1094,8 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
 interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodNever> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
+  /** The racks of the commanded tasks. The wait fails when one of them goes down. */
+  racks: RackKey[];
   timeout?: CrudeTimeSpan;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
@@ -1072,11 +1104,17 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
+  racks,
   timeout = COMMAND_DEADLINE,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw new Error("Task not created");
+  const rackStatusKeys = new Set(
+    racks
+      .filter((r) => primitive.isNonZero(r))
+      .map((r) => ontology.idToString(rackOntologyID(r))),
+  );
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
@@ -1087,8 +1125,19 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
       // A frame can hold statuses for other tasks and racks, which have a different
       // shape and fail to parse.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
-        const res = statusZ(statusDataZ).safeParse(binary.JSON_CODEC.decodeString(str));
-        if (!res.success) continue;
+        const decoded = binary.JSON_CODEC.decodeString(str);
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) {
+          // A down Driver never replies, so its rack's problem ends the wait.
+          const rackRes = rackStatusZ.safeParse(decoded);
+          if (
+            rackRes.success &&
+            rackStatusKeys.has(rackRes.data.key) &&
+            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
+          )
+            throw status.toError(rackRes.data);
+          continue;
+        }
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         states = [...states.filter((s) => s.key !== state.key), state];

@@ -69,19 +69,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  ontology.ID | undefined
->({
-  name: "project group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Projects")?.id;
-  },
-});
-
 export const formSchema = project.projectZ.partial({ key: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();

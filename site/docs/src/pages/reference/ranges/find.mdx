@@ -95,9 +95,8 @@ button.
 
 ### Single
 
-Retrieve a range by its name or key. In Python, catch `QueryError` when no range or more
-than one range matches. In TypeScript, the client throws `NotFoundError` or
-`MultipleFoundError`.
+Retrieve a range by its name or key. The client raises `NotFoundError` when no range
+matches, and `MultipleFoundError` when more than one range has the name.
 
 <Client.Tabs exclude={["console"]}>
 

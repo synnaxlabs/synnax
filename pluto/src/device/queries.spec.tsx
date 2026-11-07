@@ -137,6 +137,7 @@ describe("queries", () => {
         details: {
           rack: rack.key,
           device: dev.key,
+          connected: true,
         },
       });
       await client.statuses.set(devStatus);
@@ -169,6 +170,7 @@ describe("queries", () => {
         details: {
           rack: rack.key,
           device: dev.key,
+          connected: true,
         },
       });
       await client.statuses.set(devStatus);
@@ -211,7 +213,7 @@ describe("queries", () => {
             key: device.statusKey(dev.key),
             variant: "success",
             message: "Device is happy as a clam",
-            details: { rack: rack.key, device: dev.key },
+            details: { rack: rack.key, device: dev.key, connected: true },
           }),
         );
       });
@@ -391,7 +393,7 @@ describe("queries", () => {
           key: device.statusKey(item.key),
           variant: "success",
           message: "Device connected",
-          details: { rack: rack.key, device: item.key },
+          details: { rack: rack.key, device: item.key, connected: true },
         }),
       );
       const { result } = renderHook(
@@ -690,7 +692,7 @@ describe("queries", () => {
         key: device.statusKey(dev.key),
         variant: "error",
         message: "Device has issues",
-        details: { rack: rack.key, device: dev.key },
+        details: { rack: rack.key, device: dev.key, connected: false },
       });
       await act(async () => {
         await result.current.status.updateAsync({ statuses: devStatus });
@@ -1036,16 +1038,6 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.devices.retrieve(dev.key)).rejects.toThrow(NotFoundError);
-    });
-  });
-
-  describe("useGroupID", () => {
-    it("should retrieve the group ID", async () => {
-      const { result } = await renderHookSuspended(() => Device.useGroupID({}), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current?.type).toEqual("group"));
-      expect(result.current?.key).not.toBeFalsy();
     });
   });
 
@@ -1508,7 +1500,7 @@ describe("queries", () => {
           key: device.statusKey(testDevice.key),
           variant: "warning",
           message: "Device is degraded",
-          details: { rack: rack.key, device: testDevice.key },
+          details: { rack: rack.key, device: testDevice.key, connected: true },
         });
         await client.statuses.set(devStatus);
 
@@ -1542,7 +1534,7 @@ describe("queries", () => {
             name: testDevice.name,
             message: "Device online",
             variant: "success",
-            details: { rack: rack.key, device: testDevice.key },
+            details: { rack: rack.key, device: testDevice.key, connected: true },
           }),
         );
         const { result } = renderHook(
@@ -1581,6 +1573,7 @@ describe("queries", () => {
               details: {
                 rack: get(path.rack).value,
                 device: get(path.key).value,
+                connected: true,
               },
             }),
           );
