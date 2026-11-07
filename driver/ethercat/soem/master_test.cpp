@@ -684,9 +684,31 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
+/// @brief it should read the reference clock time in the frames of the enabled slaves
+/// when the reference slave, the first slave with a distributed clock, is disabled.
+TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
+    MockSlaveInfo reference;
+    reference.state = EC_STATE_PRE_OP;
+    reference.hasdc = true;
+    this->add_slave(reference);
+    MockSlaveInfo enabled;
+    enabled.state = EC_STATE_PRE_OP;
+    enabled.hasdc = true;
+    this->add_slave(enabled);
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_enabled(1, false);
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
