@@ -319,7 +319,7 @@ func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Row
 	if reflect.ValueOf(*r).IsZero() {
@@ -356,7 +356,7 @@ func (c *Column) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (c *Column) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Column
 	if reflect.ValueOf(*c).IsZero() {

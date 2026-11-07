@@ -92,7 +92,7 @@ func (c *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (c *Config) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Config
 	if reflect.ValueOf(*c).IsZero() {
