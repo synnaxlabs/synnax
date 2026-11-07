@@ -136,6 +136,7 @@ describe("queries", () => {
         message: "Device is happy as a clam",
         details: {
           rack: rack.key,
+          connected: true,
         },
       });
       await client.statuses.set(devStatus);
@@ -167,6 +168,7 @@ describe("queries", () => {
         message: "Device is connected",
         details: {
           rack: rack.key,
+          connected: true,
         },
       });
       await client.statuses.set(devStatus);
@@ -209,7 +211,7 @@ describe("queries", () => {
             owner: device.resourceID(dev.key),
             variant: "success",
             message: "Device is happy as a clam",
-            details: { rack: rack.key },
+            details: { rack: rack.key, connected: true },
           }),
         );
       });
@@ -397,7 +399,7 @@ describe("queries", () => {
           owner: device.resourceID(item.key),
           variant: "success",
           message: "Device connected",
-          details: { rack: rack.key },
+          details: { rack: rack.key, connected: true },
         }),
       );
       const { result } = renderHook(
@@ -696,7 +698,7 @@ describe("queries", () => {
         owner: device.resourceID(dev.key),
         variant: "error",
         message: "Device has issues",
-        details: { rack: rack.key },
+        details: { rack: rack.key, connected: false },
       });
       await act(async () => {
         await result.current.status.updateAsync({ statuses: devStatus });
@@ -1504,7 +1506,7 @@ describe("queries", () => {
           owner: device.resourceID(testDevice.key),
           variant: "warning",
           message: "Device is degraded",
-          details: { rack: rack.key },
+          details: { rack: rack.key, connected: true },
         });
         await client.statuses.set(devStatus);
 
@@ -1538,7 +1540,7 @@ describe("queries", () => {
             name: testDevice.name,
             message: "Device online",
             variant: "success",
-            details: { rack: rack.key },
+            details: { rack: rack.key, connected: true },
           }),
         );
         const { result } = renderHook(
@@ -1576,6 +1578,7 @@ describe("queries", () => {
               variant: "success",
               details: {
                 rack: get(path.rack).value,
+                connected: true,
               },
             }),
           );

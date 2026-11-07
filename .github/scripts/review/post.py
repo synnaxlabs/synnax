@@ -30,9 +30,24 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     }
   }
 }"""
+EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
+  repository(owner: $o, name: $r) {
+    pullRequest(number: $p) {
+      userContentEdits(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { editor { __typename login } diff }
+      }
+    }
+  }
+}"""
 OPEN_THREADS = (
     ".data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)"
     " | {path, first: .comments.nodes[0]} | tojson"
+)
+
+
+_SUMMARY = re.compile(
+    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
 )
 
 
@@ -50,8 +65,9 @@ class Target:
     pr: int
     head: str
     base: str
-    check_run: int
-    """The check run that the review completes."""
+    check_run: int | None
+    """The check run that the review completes, or None for a replay, which posts
+    nothing."""
     run_url: str
     bot: str
     """The slug of the GitHub App the review posts as."""
@@ -155,6 +171,37 @@ def open_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
         if title := render.title(first["body"]):
             keys.add((node["path"], title))
     return keys
+
+
+def reviewed(t: Target, gh: GH) -> list[str]:
+    """Returns each commit that the bot reviewed, newest first, from the revisions of
+    the pull request body."""
+    owner, name = t.repo.split("/")
+    out = gh(
+        "api",
+        "graphql",
+        "--paginate",
+        "-f",
+        f"query={EDITS}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-F",
+        f"p={t.pr}",
+        "--jq",
+        ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
+    )
+    commits: list[str] = []
+    for line in out.splitlines():
+        e = json.loads(line)
+        block = _SUMMARY.search(e["diff"] or "")
+        if (e["editor"] or {}).get("login") != t.bot or block is None:
+            continue
+        found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
+        if found and found[-1] not in commits:
+            commits.append(found[-1])
+    return commits
 
 
 def _anchor(f: Finding) -> dict[str, Any]:

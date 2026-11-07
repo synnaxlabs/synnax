@@ -24,8 +24,11 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 message StatusDetails {
   // rack is the key of the rack this device belongs to.
   uint32 rack = 1;
+  // connected is true while the Driver confirms that it can reach the device. A device
+  // whose state is unknown is not connected.
+  bool connected = 2;
   // data contains device-specific status data.
-  optional google.protobuf.Struct data = 2;
+  optional google.protobuf.Struct data = 3;
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.

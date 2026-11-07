@@ -134,6 +134,7 @@ export const Connect = ({
       variant: "success",
       details: {
         rack: get(path.rack).value,
+        connected: true,
       },
     });
     set(path.status, devStatus, { notifyOnChange: false, markTouched: false });

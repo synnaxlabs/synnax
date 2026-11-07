@@ -101,10 +101,10 @@ const useResources = <K extends string, E extends record.Keyed<K>>(
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const taskList = Task.useList({
-    initialQuery: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
+    query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
   const schematicList = Schematic.useList({
-    initialQuery: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
+    query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
   const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.payload);
   const schematics = useResources(

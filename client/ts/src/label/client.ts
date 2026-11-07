@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, unique, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -30,7 +30,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/label/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/label/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -53,11 +53,10 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
@@ -115,6 +114,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     super(cache, {
       name: "label",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

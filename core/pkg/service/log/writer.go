@@ -11,17 +11,41 @@ package log
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// validateWrite adds the one-entry-per-channel rule to Log.Validate, as Oracle has no
+// rule for uniqueness.
+func validateWrite(l Log) error {
+	if err := l.Validate(); err != nil {
+		return err
+	}
+	v := validate.New("Log")
+	seen := make(set.Set[channel.Key], len(l.Channels))
+	for i, e := range l.Channels {
+		v.Ternaryf(
+			"channels."+strconv.Itoa(i)+".channel",
+			seen.Contains(e.Channel),
+			"channel %d already has an entry",
+			e.Channel,
+		)
+		seen.Add(e.Channel)
+	}
+	return v.Error()
+}
 
 // Writer is used to create, update, and delete logs within Synnax. The writer executes
 // all operations within the transaction provided to the Service.NewWriter method. If no
@@ -91,7 +115,7 @@ func (w Writer) create(ctx context.Context, l *Log) error {
 		l.Project = proj
 	}
 	l.ApplyDefaults()
-	if err = l.Validate(); err != nil {
+	if err = validateWrite(*l); err != nil {
 		return err
 	}
 	if err = project.ValidateOwner(l.Project, l.Range); err != nil {

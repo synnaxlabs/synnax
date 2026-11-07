@@ -65,12 +65,12 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
 
 export const SelectMultiple = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialQuery,
+    query,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
@@ -104,12 +104,12 @@ export interface SelectSingleProps
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialQuery,
+    query,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

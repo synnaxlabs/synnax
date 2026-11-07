@@ -125,7 +125,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
-        .details = synnax::device::StatusDetails{.rack = dev.rack},
+        .details = synnax::device::StatusDetails{.rack = dev.rack, .connected = true},
         .owner = synnax::device::resource_id(dev.key),
     };
 

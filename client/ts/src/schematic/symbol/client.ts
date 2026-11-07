@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -39,8 +39,10 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 

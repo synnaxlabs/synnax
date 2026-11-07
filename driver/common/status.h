@@ -27,7 +27,7 @@ namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks. A status that answers no
-/// command is sent at most once per window.
+/// command is sent at most once per window, and only when it changes.
 struct StatusHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<driver::task::Context> ctx;
@@ -216,22 +216,22 @@ private:
 
     /// @brief sends the current status, at most once per window. A status inside the
     /// window waits for the window to end, and only the latest one is sent. A status
-    /// equal to the last one sent is not sent again inside the window.
+    /// equal to the last one sent is not sent again.
     void maybe_set_status() {
         std::lock_guard lock(this->mu);
         if (this->closed) return;
-        const auto now = std::chrono::steady_clock::now();
-        if (now - this->sent_at >= this->window) {
-            this->pending.reset();
-            this->sent_at = now;
-            this->write(this->status);
-            return;
-        }
         if (this->status.variant == this->sent.variant &&
             this->status.message == this->sent.message &&
             this->status.description == this->sent.description &&
             this->status.details.running == this->sent.details.running) {
             this->pending.reset();
+            return;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (now - this->sent_at >= this->window) {
+            this->pending.reset();
+            this->sent_at = now;
+            this->write(this->status);
             return;
         }
         this->pending = this->status;
