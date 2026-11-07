@@ -140,8 +140,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
   it("should ask for a name and not save without one", async () => {
     const slave = await setup();
     fireEvent.change(nameInput(), { target: { value: "" } });
-    await save();
     await screen.findByText("Name is required");
+    await save();
+    expect(screen.getByText("Name is required")).toBeTruthy();
     expect((await retrieve(slave.key)).name).toEqual(slave.name);
   });
 

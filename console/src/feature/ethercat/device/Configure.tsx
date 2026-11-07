@@ -21,7 +21,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, strings, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import {
   autoIndex,
@@ -279,6 +279,8 @@ export const Configure = ({
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
   const checked = useRef(false);
+  // The checks show the platform's messages in place of the stored schema's.
+  useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
   const name = Form.useFieldValue(path.name, { ctx: form });
   const modes = Form.useFieldValue(path.properties.opModes, { ctx: form }) ?? [];
   const choice =
@@ -298,10 +300,8 @@ export const Configure = ({
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
   const save = async (createTask: boolean) => {
-    // A new slave has no identifier, so the checks apply from the first Save on. They
-    // replace the stored schema's messages with the platform's.
+    // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
-      form.addCheck(path.name, Device.nameZ);
       form.addCheck(path.properties.identifier, Device.identifierZ);
       checked.current = true;
     }
