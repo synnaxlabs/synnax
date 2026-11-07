@@ -115,8 +115,7 @@ func probe[K Key, V comparable](
 
 // indexFilter returns a Filter matching entries that hold any of values. The filter
 // resolves its keys through store at Exec time. When store failed to populate, it
-// leaves
-// its keys unbounded, so holds, its eval predicate, scans every entry.
+// leaves its keys unbounded, so holds checks every entry.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
 	holds func(e *E, values []V) bool,

@@ -86,10 +86,11 @@ type changeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
 type changes[K Key, E Entry[K]] []changeFunc[K, E]
 
 func (c changes[K, E]) exec(ctx Context, entry E) (E, error) {
-	var err error
 	for _, change := range c {
+		var err error
 		if entry, err = change(ctx, entry); err != nil {
-			return entry, err
+			var zero E
+			return zero, err
 		}
 	}
 	return entry, nil
