@@ -36,7 +36,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	// Literals register as KindConstant; format strings with placeholders register
 	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
-		exprType := atypes.InferFromExpression(ctx).Unwrap()
+		exprType := atypes.InferFromExpression(ctx).UnwrapChan()
 		t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if strTerm := parser.StringTerminal(lit); strTerm != nil {
@@ -111,7 +111,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	body := ctx.WithScope(blockScope)
 	fnScope.Type.Outputs = types.Params{{
 		Name: ir.DefaultOutputParam,
-		Type: atypes.InferFromExpression(body).Unwrap(),
+		Type: atypes.InferFromExpression(body).UnwrapChan(),
 	}}
 	expression.Analyze(body)
 }
