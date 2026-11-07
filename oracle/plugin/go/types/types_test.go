@@ -1524,8 +1524,8 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 					// The embedded parent already declares Port. Declaring it again
 					// would shadow it with a duplicate json tag, so the override
-					// contributes a default fill alone. The child's fill must run
-					// after the parent's SetDefaults, or the parent would win.
+					// contributes a default fill alone. The child's fill must run after
+					// the parent's SetDefaults, or the parent would win.
 					content := MustContentOf(resp, "types.gen.go")
 					Expect(content).To(ContainSubstring(
 						"type Child struct {\n\tParent\n\tRange float64",

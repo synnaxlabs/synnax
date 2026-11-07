@@ -36,8 +36,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-// labeled holds the LabeledConfig values SetDefaults sets, including the nested
-// label defaults every symbol carries.
+// labeled holds the LabeledConfig values SetDefaults sets, including the nested label
+// defaults every symbol carries.
 var labeled = v9.LabeledConfig{
 	Label: v9.LabelConfig{
 		Level:         "h5",

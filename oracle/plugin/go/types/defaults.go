@@ -51,9 +51,9 @@ type enumCheckData struct {
 // goDefaultFills returns the fills for a field's static default. A scalar default
 // yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
 // yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key), and
-// a fill for a zero leaf that overrides a nested default. It returns nil for
-// fields with no default, nullable/optional fields, defaults that equal the zero value,
-// and non-static defaults such as create/now.
+// a fill for a zero leaf that overrides a nested default. It returns nil for fields
+// with no default, nullable/optional fields, defaults that equal the zero value, and
+// non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -151,10 +151,10 @@ func overrideFills(field resolution.Field, data *templateData) []defaultFillData
 	return nil
 }
 
-// structOverrideFill returns the fill of a field that restates an inherited
-// struct default with a struct literal. It builds the whole value, so no leaf of the
-// parent's default survives: the type's own defaults, then every leaf of the literal.
-// It returns ok=false when the default is not a plain struct literal.
+// structOverrideFill returns the fill of a field that restates an inherited struct
+// default with a struct literal. It builds the whole value, so no leaf of the parent's
+// default survives: the type's own defaults, then every leaf of the literal. It returns
+// ok=false when the default is not a plain struct literal.
 func structOverrideFill(
 	field resolution.Field,
 	data *templateData,
@@ -813,8 +813,8 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 }
 
 // resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry a Validate method — rather than a primitive, a
-// builtin container (Array/Map), or a type parameter.
+// type that can carry a Validate method — rather than a primitive, a builtin container
+// (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
 		return false
