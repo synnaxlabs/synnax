@@ -119,6 +119,32 @@ var _ = Describe("Upload", func() {
 		))
 	})
 
+	It("Should send a plain time span without a run", func(ctx SpecContext) {
+		stat := execCommand(ctx, dt, t, "upload", map[string]any{
+			"device":     dev.Key,
+			"time_range": telem.TimeRange{Start: at(2), End: at(4)},
+			"channels":   []channel.Key{ch.Key()},
+			"asset":      "stand",
+		})
+		Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		key := stat.Details.Data["status"].(string)
+		statusOf(ctx, key).Should(SatisfyAll(
+			HaveField("Name", "stand"),
+			HaveField("Variant", status.VariantSuccess),
+			HaveField("Description", "Sent 2 samples to asset stand."),
+		))
+		Expect(server.Runs()).To(BeEmpty())
+		var parents []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(status.OntologyID(key)).
+			TraverseTo(ontology.ParentsTraverser).
+			Entries(&parents).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(parents).ToNot(ContainElement(
+			HaveField("ID", HaveField("Type", ontology.ResourceTypeRange)),
+		))
+	})
+
 	It("Should run the uploads of one device one at a time", func(ctx SpecContext) {
 		server.Pause()
 		first := upload(ctx)
@@ -199,6 +225,33 @@ var _ = Describe("Upload", func() {
 				"asset":  "stand",
 			}
 		}, "channels"),
+		Entry("no range or time range", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "a range or a time range is required"),
+		Entry("a range and a time range", func() map[string]any {
+			return map[string]any{
+				"device":     dev.Key,
+				"range":      rng.Key,
+				"time_range": telem.TimeRange{Start: at(1), End: at(2)},
+				"channels":   []channel.Key{ch.Key()},
+				"asset":      "stand",
+			}
+		}, "cannot be set with a range"),
+		Entry("a time range in the future", func() map[string]any {
+			return map[string]any{
+				"device": dev.Key,
+				"time_range": telem.TimeRange{
+					Start: telem.Now().Add(telem.Hour),
+					End:   telem.Now().Add(2 * telem.Hour),
+				},
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "time range has no time span to upload"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),

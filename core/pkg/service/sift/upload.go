@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
@@ -44,8 +45,11 @@ type UploadStatus = status.Status[UploadDetails]
 type uploadArgs struct {
 	// Device is the key of the Sift device to send to.
 	Device device.Key `json:"device"`
-	// Range is the key of the range whose data to send.
+	// Range is the key of the range whose data to send. An upload of a range makes a
+	// Sift run of it.
 	Range ranger.Key `json:"range"`
+	// TimeRange is the span of data to send when there is no range.
+	TimeRange telem.TimeRange `json:"time_range"`
 	// Channels are the channels to send.
 	Channels []channel.Key `json:"channels"`
 	// Asset is the name of the Sift asset that receives the data.
@@ -55,7 +59,9 @@ type uploadArgs struct {
 func (a uploadArgs) validate() error {
 	v := validate.New("sift.upload")
 	v.NotEmptyString("device", a.Device)
-	v.Ternary("range", a.Range == uuid.Nil(), "required")
+	hasRange, hasSpan := a.Range != uuid.Nil(), a.TimeRange != telem.TimeRange{}
+	v.Ternary("range", !hasRange && !hasSpan, "a range or a time range is required")
+	v.Ternary("time_range", hasRange && hasSpan, "cannot be set with a range")
 	v.NotEmptySlice("channels", a.Channels)
 	v.NotEmptyString("asset", a.Asset)
 	return v.Error()
@@ -94,42 +100,43 @@ func queueUpload(
 			dev.Name,
 		)
 	}
-	var rng ranger.Range
-	if err := cfg.Ranger.NewRetrieve().
-		Where(ranger.MatchKeys(args.Range)).
-		Entry(&rng).
-		Exec(ctx, nil); err != nil {
-		return "", err
+	// An upload of a plain time span takes the name of its asset and has no parent.
+	name, subject, tr, parent := args.Asset, "time range", args.TimeRange, ontology.ID{}
+	if args.Range != uuid.Nil() {
+		var rng ranger.Range
+		if err := cfg.Ranger.NewRetrieve().
+			Where(ranger.MatchKeys(args.Range)).
+			Entry(&rng).
+			Exec(ctx, nil); err != nil {
+			return "", err
+		}
+		name, subject = rng.Name, "range "+rng.Name
+		tr, parent = rng.TimeRange, ranger.OntologyID(rng.Key)
 	}
-	// A range that has not ended sends the data written so far.
-	tr := rng.TimeRange
+	// A span that has not ended sends the data written so far.
 	tr.End = min(tr.End, telem.Now())
 	if tr.Span() <= 0 {
 		return "", errors.Wrapf(
 			validate.ErrValidation,
-			"range %s has no time span to upload",
-			rng.Name,
+			"%s has no time span to upload",
+			subject,
 		)
 	}
 	s := UploadStatus{
 		Key:     uploadKeyPrefix + uuid.NewV7().String(),
-		Name:    rng.Name,
+		Name:    name,
 		Variant: status.VariantLoading,
 		Message: "Waiting to upload to Sift",
 		Time:    telem.Now(),
 		Details: UploadDetails{
 			Device:    dev.Key,
-			Range:     rng.Key,
+			Range:     args.Range,
 			TimeRange: tr,
 			Channels:  args.Channels,
 			Asset:     args.Asset,
 		},
 	}
-	if err := cfg.Status.NewWriter(nil).SetWithParent(
-		ctx,
-		&s,
-		ranger.OntologyID(rng.Key),
-	); err != nil {
+	if err := cfg.Status.NewWriter(nil).SetWithParent(ctx, &s, parent); err != nil {
 		return "", err
 	}
 	return s.Key, nil
@@ -382,6 +389,10 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
+	// A plain time span makes no run.
+	if d.Range == uuid.Nil() {
+		return nil
+	}
 	tags, err := rangeTags(ctx, u.cfg.Label, d.Range)
 	if err != nil {
 		return err
@@ -433,4 +444,25 @@ func fromPositions(positions []Position) ingest.Positions {
 		p[pos.Index] = pos.Time
 	}
 	return p
+}
+
+// lastAsset returns the asset of the newest upload from dev, or "" when there is none.
+func lastAsset(
+	ctx context.Context,
+	statuses *status.Service,
+	dev device.Key,
+) (string, error) {
+	var uploads []UploadStatus
+	if err := statuses.NewRetrieve[UploadDetails]().
+		WherePrefix(uploadKeyPrefix).
+		Entries(&uploads).
+		Exec(ctx, nil); err != nil {
+		return "", err
+	}
+	for _, s := range slices.Backward(uploads) {
+		if s.Details.Device == dev {
+			return s.Details.Asset, nil
+		}
+	}
+	return "", nil
 }

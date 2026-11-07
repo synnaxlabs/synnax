@@ -49,6 +49,8 @@ type listAssetsArgs struct {
 type listAssetsResult struct {
 	// Assets are the names of the assets, in the order Sift lists them.
 	Assets []string `json:"assets"`
+	// Last is the asset of the newest upload from the device, or empty.
+	Last string `json:"last"`
 }
 
 // listAssetsPageSize is the most assets Sift returns in one page.
@@ -165,6 +167,10 @@ func (s scanner) listAssets(
 			}
 		},
 	); err != nil {
+		return nil, err
+	}
+	var err error
+	if res.Last, err = lastAsset(ctx, s.cfg.Status, dev.Key); err != nil {
 		return nil, err
 	}
 	return msgpack.NewEncodedJSON(res)

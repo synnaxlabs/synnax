@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -212,11 +213,35 @@ var _ = Describe("Factory", func() {
 				})
 				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Details.Data).To(HaveKeyWithValue(
-					"assets",
-					ConsistOf("pad", "stand"),
+				Expect(stat.Details.Data).To(SatisfyAll(
+					HaveKeyWithValue("assets", ConsistOf("pad", "stand")),
+					HaveKeyWithValue("last", ""),
 				))
 			})
+
+			It("Should return the asset of the newest upload from the device",
+				func(ctx SpecContext) {
+					dev := createDevice(ctx, sift.Properties{
+						URI:    server.Address(),
+						APIKey: createAPIKey(ctx, apiKey),
+					})
+					record := func(device, asset string) {
+						s := sift.UploadStatus{
+							Key:     "sift_upload:" + uuid.NewV7().String(),
+							Name:    asset,
+							Variant: status.VariantSuccess,
+							Message: "Uploaded to Sift",
+							Time:    telem.Now(),
+							Details: sift.UploadDetails{Device: device, Asset: asset},
+						}
+						Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+					}
+					record(dev.Key, "stand")
+					record(dev.Key, "pad")
+					record("other", "rig")
+					stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
+					Expect(stat.Details.Data).To(HaveKeyWithValue("last", "pad"))
+				})
 
 			It("Should fail for a device that does not exist", func(ctx SpecContext) {
 				stat := exec(ctx, "list_assets", map[string]any{"device": "missing"})
