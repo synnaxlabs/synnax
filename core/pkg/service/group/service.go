@@ -143,8 +143,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// Ancestors returns every group above the groups with keys on their parent chains, each
-// once. The walk stops at a parent that is not a group.
+// Ancestors returns every group above the groups with keys that is not one of them,
+// each once. The walk stops at a parent that is not a group.
 func (s *Service) Ancestors(
 	ctx context.Context,
 	tx gorp.Tx,
