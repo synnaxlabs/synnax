@@ -401,6 +401,12 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	if err := func() error {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
+		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+			return err
+		}
+		if err := db.cfg.FS.Rename(copyName, name); err != nil {
+			return err
+		}
 		for i, ptr := range db.idx.mu.pointers {
 			if ptr.fileKey == key {
 				if deltaOffset, ok := resolvePointerOffset(
@@ -412,11 +418,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 				}
 			}
 		}
-
-		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
-			return err
-		}
-		return db.cfg.FS.Rename(copyName, name)
+		return nil
 	}(); err != nil {
 		return false, err
 	}

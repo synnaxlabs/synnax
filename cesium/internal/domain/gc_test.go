@@ -1159,9 +1159,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 
-				It(
+				DescribeTable(
 					"Should persist the offsets of a file compacted before a failure",
-					func(ctx SpecContext) {
+					func(ctx SpecContext, fail FaultyFSOption) {
 						Expect(testutil.WriteDomain(
 							ctx,
 							db,
@@ -1177,7 +1177,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							fixedOffset(3),
 							fixedOffset(7),
 						)).To(Succeed())
-						faulty.SetOptions(WithFailWrite("2.domain_gc"))
+						faulty.SetOptions(fail)
 						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 						faulty.SetOptions()
 						Expect(
@@ -1204,6 +1204,8 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							50, 51, 52,
 						}))
 					},
+					Entry("writing the copy", WithFailWrite("2.domain_gc")),
+					Entry("renaming the file", WithFailRename("2.domain")),
 				)
 
 				It("Should surface a failed rejuvenation", func(ctx SpecContext) {

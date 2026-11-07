@@ -16,7 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -93,7 +92,7 @@ func (w preparedWrite) run() (err error) {
 	// An earlier write failed after this one prepared, so a partial write cannot
 	// restore the pointers that write left out. The next prepare rewrites them.
 	if w.start > 0 && w.p.failed.Load() {
-		return errors.New("an earlier write of the index failed")
+		return ErrIndexWriteFailed
 	}
 	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err

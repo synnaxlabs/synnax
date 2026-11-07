@@ -462,6 +462,18 @@ var _ = Describe("Index Persist", Ordered, func() {
 				It(
 					"Should fail a queued write after an earlier write fails",
 					func(ctx SpecContext) {
+						prepared := make(chan struct{}, 1)
+						Expect(db.Close()).To(Succeed())
+						// A domain inserted before the last one notifies the history
+						// change after its write prepares and before it runs.
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              hooked,
+							FileSize:        telem.Megabyte,
+							Instrumentation: PanicLogger(),
+							OnHistoryChange: func(context.Context, telem.TimeRange) {
+								prepared <- struct{}{}
+							},
+						}))
 						Expect(writeSecond(ctx, 1)).To(Succeed())
 						entered := make(chan struct{}, 1)
 						released, release := context.WithTimeout(ctx, 10*time.Second)
@@ -471,20 +483,24 @@ var _ = Describe("Index Persist", Ordered, func() {
 							if blocked.Swap(true) {
 								return nil
 							}
+							defer GinkgoRecover()
 							entered <- struct{}{}
-							<-released.Done()
+							Eventually(
+								released.Done(),
+								10*time.Second,
+							).Should(BeClosed())
 							return ErrFault
 						}
 						earlier, queued := make(chan error, 1), make(chan error, 1)
-						go func() { earlier <- writeSecond(ctx, 2) }()
+						go func() { earlier <- writeSecond(ctx, 3) }()
 						Eventually(entered).Should(Receive())
-						go func() { queued <- writeSecond(ctx, 3) }()
-						Consistently(queued, 50*time.Millisecond).ShouldNot(Receive())
+						go func() { queued <- writeSecond(ctx, 2) }()
+						Eventually(prepared).Should(Receive())
 						release()
 						Eventually(earlier).Should(Receive(MatchError(ErrFault)))
-						Eventually(queued).Should(Receive(MatchError(
-							ContainSubstring("earlier write of the index failed"),
-						)))
+						Eventually(queued).Should(
+							Receive(MatchError(domain.ErrIndexWriteFailed)),
+						)
 						hooked.writeAt = nil
 
 						Expect(writeSecond(ctx, 4)).To(Succeed())
