@@ -185,9 +185,11 @@ var _ = Describe("API keys", func() {
 				"rack:4000000000",
 			),
 		)
-		It("Should reject a subject that is not a user or rack", func(ctx SpecContext) {
+		It("Should reject a channel subject before it checks access", func(
+			ctx SpecContext,
+		) {
 			channel := resource.ID{Type: resource.TypeChannel, Key: "1"}
-			Expect(create(ctx, rootToken, channel)).Error().To(SatisfyAll(
+			Expect(create(ctx, bobToken, channel)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("an API key cannot log in as a channel")),
 			))

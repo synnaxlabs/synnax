@@ -68,6 +68,13 @@ func (s *Service) CreateKey(
 ) (KeyCreateResponse, error) {
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
+	if subject.Type != resource.TypeUser && subject.Type != resource.TypeRack {
+		return KeyCreateResponse{}, errors.Wrapf(
+			validate.ErrValidation,
+			"an API key cannot log in as a %s",
+			subject.Type,
+		)
+	}
 	if err := s.enforceOthers(
 		ctx,
 		caller,
