@@ -9,8 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The same box as the input auto chip. Variants without a color stay gray. */
-.lyra-status-chip {
+/* Variants without a color stay gray. */
+:where(.lyra-badge) {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
@@ -22,7 +22,9 @@
     white-space: nowrap;
     color: var(--pluto-gray-l9);
     background: var(--pluto-gray-l3);
+}
 
+.lyra-badge {
     &.lyra--status-success {
         color: var(--pluto-primary-text);
         background: var(--pluto-primary-z-15);
