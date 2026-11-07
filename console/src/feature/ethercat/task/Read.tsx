@@ -133,7 +133,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
-  // The checks run before any create, so a failed one leaves nothing behind.
+  // The data type and repeated name checks run before any create, so their failure
+  // leaves nothing behind.
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
