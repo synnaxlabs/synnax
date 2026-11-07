@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
@@ -301,6 +302,39 @@ func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
 		return nil, errors.New("fetch cut"), true
 	})
 	return slow
+}
+
+// newLeaderlessCluster starts a cluster that holds topic with one record and answers
+// each offset listing with no leader for each partition.
+func newLeaderlessCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	c := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(c.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(c.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	c.ControlKey(
+		int16(kmsg.ListOffsets),
+		func(kreq kmsg.Request) (kmsg.Response, error, bool) {
+			c.KeepControl()
+			req := kreq.(*kmsg.ListOffsetsRequest)
+			res := req.ResponseKind().(*kmsg.ListOffsetsResponse)
+			for _, rt := range req.Topics {
+				t := kmsg.NewListOffsetsResponseTopic()
+				t.Topic = rt.Topic
+				for _, rp := range rt.Partitions {
+					p := kmsg.NewListOffsetsResponseTopicPartition()
+					p.Partition = rp.Partition
+					p.ErrorCode = kerr.LeaderNotAvailable.Code
+					t.Partitions = append(t.Partitions, p)
+				}
+				res.Topics = append(res.Topics, t)
+			}
+			return res, nil, true
+		},
+	)
+	return c
 }
 
 // closedAddress returns a local address that refuses connections.

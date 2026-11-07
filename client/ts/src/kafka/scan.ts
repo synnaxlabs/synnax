@@ -36,8 +36,8 @@ export const topicZ = z.object({
   /** readable is false when the cluster does not let the Core read the topic. */
   readable: z.boolean(),
   /**
-   * error says why the browse could not read the newest record of each partition of the
-   * topic. Empty when it read them.
+   * error says why the browse could not read the offsets or the newest record of a
+   * partition of the topic. Empty when it read each partition.
    */
   error: z.string(),
 });
@@ -109,8 +109,8 @@ export const sampleResultZ = z.object({
   topics: z.array(sampledTopicZ),
   /**
    * truncated is true when the answer leaves out records that the sample read, or when
-   * the sample stopped at 16 MiB of record values. The shapes come from every record
-   * that the sample holds.
+   * the sample stopped at 16 MiB of record keys, values, and headers. The shapes come
+   * from every record that the sample holds.
    */
   truncated: z.boolean(),
 });

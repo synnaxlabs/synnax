@@ -11,6 +11,7 @@ package kafka_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
@@ -171,6 +173,20 @@ var _ = Describe("Discover", func() {
 				Expect(t.Format).To(BeEmpty())
 				Expect(t.Error).
 					To(Equal("The cluster did not send every record within 3s."))
+			},
+		)
+
+		It("Should report a topic whose offsets the cluster cannot list",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				c := newLeaderlessCluster(ctx, topic)
+				t := named(
+					browse(ctx, kafka.Properties{Brokers: c.ListenAddrs()}),
+					topic,
+				)
+				Expect(t.Records).To(BeZero())
+				Expect(t.Format).To(BeEmpty())
+				Expect(t.Error).To(Equal(kerr.LeaderNotAvailable.Error()))
 			},
 		)
 
@@ -360,19 +376,48 @@ var _ = Describe("Discover", func() {
 			},
 		)
 
-		It("Should stop holding records at 16 MiB of values", func(ctx SpecContext) {
-			topic := uniqueTopic()
-			Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
-			cl := newKafkaClient()
-			pad := strings.Repeat("x", 900<<10)
-			for i := range 20 {
-				produceJSON(ctx, cl, topic, "", map[string]any{"v": i, "pad": pad})
-			}
-			samples, truncated := sample(ctx, []string{topic}, 20)
-			Expect(truncated).To(BeTrue())
-			Expect(samples[0].Shapes).To(HaveLen(1))
-			Expect(samples[0].Shapes[0].Count).To(Equal(18))
-		})
+		It("Should stop holding records at 16 MiB of keys, values, and headers",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				cl := newKafkaClient()
+				pad := strings.Repeat("x", 300<<10)
+				for i := range 20 {
+					value := MustSucceed(
+						json.Marshal(map[string]any{"v": i, "pad": pad}),
+					)
+					rec := &kgo.Record{
+						Topic:   topic,
+						Key:     []byte(pad),
+						Value:   value,
+						Headers: []kgo.RecordHeader{{Key: "pad", Value: []byte(pad)}},
+					}
+					Expect(cl.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+				}
+				samples, truncated := sample(ctx, []string{topic}, 20)
+				Expect(truncated).To(BeTrue())
+				Expect(samples[0].Shapes).To(HaveLen(1))
+				Expect(samples[0].Shapes[0].Count).To(Equal(18))
+			},
+		)
+
+		It("Should report a topic whose offsets the cluster cannot list",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				c := newLeaderlessCluster(ctx, topic)
+				var res struct {
+					Topics []sampledTopic `json:"topics"`
+				}
+				dev := createDevice(ctx, kafka.Properties{Brokers: c.ListenAddrs()})
+				stat := command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{topic},
+				}, &res)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(res.Topics[0].Records).To(BeEmpty())
+				Expect(res.Topics[0].Error).To(Equal(kerr.LeaderNotAvailable.Error()))
+			},
+		)
 
 		It("Should report a topic whose records do not arrive in time",
 			func(ctx SpecContext) {

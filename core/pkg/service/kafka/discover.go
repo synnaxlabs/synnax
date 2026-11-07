@@ -42,8 +42,8 @@ const (
 	sampleWindows = 3
 	// samplePayloadLimit is the most bytes of a record value that a sample returns.
 	samplePayloadLimit = 16 << 10
-	// sampleByteLimit is the most record value bytes that a sample holds while it
-	// reads.
+	// sampleByteLimit is the most bytes of record keys, values, and headers that a
+	// sample holds while it reads.
 	sampleByteLimit = 16 << 20
 )
 
@@ -77,8 +77,8 @@ type browsedTopic struct {
 	Format driver.Format `json:"format,omitempty" msgpack:"format,omitempty"`
 	// Readable is false when the cluster does not let the client read the topic.
 	Readable bool `json:"readable" msgpack:"readable"`
-	// Error says why the browse could not read the newest record of each partition of
-	// the topic. Empty when it read them.
+	// Error says why the browse could not read the offsets or the newest record of a
+	// partition of the topic. Empty when it read each partition.
 	Error string `json:"error" msgpack:"error"`
 }
 
@@ -150,24 +150,22 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	for i := range topics {
 		t := &topics[i]
 		index[t.Name] = i
-		for _, end := range ends[t.Name] {
-			start, _ := starts.Lookup(end.Topic, end.Partition)
-			after, ok := recent.Lookup(end.Topic, end.Partition)
-			if !ok {
-				after = end
+		partitions, err := partitionRanges(t.Name, starts, ends)
+		for _, p := range partitions {
+			t.Records += p.to - p.from
+			after, ok := recent.Lookup(p.topic, p.partition)
+			if ok && after.Err == nil {
+				t.Rate += float64(p.to-after.Offset) / rateWindow.Seconds()
+			} else {
+				err = cmp.Or(err, after.Err)
 			}
-			t.Records += end.Offset - start.Offset
-			t.Rate += float64(end.Offset-after.Offset) / rateWindow.Seconds()
 			// In a topic written in transactions, the last offset holds the control
 			// record that commits the newest records.
-			if end.Offset > start.Offset {
-				newest = append(newest, fetchRange{
-					topic:     end.Topic,
-					partition: end.Partition,
-					from:      max(start.Offset, end.Offset-2),
-					to:        end.Offset,
-				})
-			}
+			p.from = max(p.from, p.to-2)
+			newest = append(newest, p)
+		}
+		if err != nil {
+			t.Error = err.Error()
 		}
 		if rc, err := configs.On(t.Name, nil); err == nil {
 			t.Compacted = compacted(rc)
@@ -183,7 +181,8 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 		return nil, err
 	}
 	for topic, err := range errs {
-		topics[index[topic]].Error = err.Error()
+		t := &topics[index[topic]]
+		t.Error = cmp.Or(t.Error, err.Error())
 	}
 	return topics, nil
 }
@@ -266,6 +265,43 @@ func listOffsets(
 	return starts, ends, nil
 }
 
+// partitionRanges returns the offsets from the start to the end of each partition of
+// topic that holds records, sorted by partition. It leaves out a partition that is not
+// in both starts and ends, or that has an error in either, and returns the first of
+// those errors.
+func partitionRanges(
+	topic string,
+	starts, ends kadm.ListedOffsets,
+) ([]fetchRange, error) {
+	var (
+		ranges []fetchRange
+		err    error
+	)
+	for _, end := range ends[topic] {
+		start, ok := starts.Lookup(topic, end.Partition)
+		if !ok {
+			continue
+		}
+		if listed := cmp.Or(start.Err, end.Err); listed != nil {
+			err = cmp.Or(err, listed)
+			continue
+		}
+		if end.Offset <= start.Offset {
+			continue
+		}
+		ranges = append(ranges, fetchRange{
+			topic:     topic,
+			partition: end.Partition,
+			from:      start.Offset,
+			to:        end.Offset,
+		})
+	}
+	slices.SortFunc(ranges, func(a, b fetchRange) int {
+		return cmp.Compare(a.partition, b.partition)
+	})
+	return ranges, err
+}
+
 // sampleArgs select the records that a sample reads.
 type sampleArgs struct {
 	// Device is the key of the cluster device to read.
@@ -323,16 +359,16 @@ type sampleResult struct {
 	// Topics are the samples, in the order of the topics of the request.
 	Topics []sampledTopic `json:"topics" msgpack:"topics"`
 	// Truncated is true when the answer leaves out records that the sample read, or
-	// when the sample stopped at 16 MiB of record values. The shapes come from every
-	// record that the sample holds.
+	// when the sample stopped at 16 MiB of record keys, values, and headers. The shapes
+	// come from every record that the sample holds.
 	Truncated bool `json:"truncated" msgpack:"truncated"`
 }
 
 // sampleTopics reads up to args.Count records of each topic of args, in windows spread
 // back in time, and infers the shapes of their values. A topic that cannot be read
 // carries the reason and does not stop the others. It holds at most sampleByteLimit
-// bytes of record values. The answer keeps the records that driver.Fit keeps, and the
-// shapes come from every record held.
+// bytes of records. The answer keeps the records that driver.Fit keeps, and the shapes
+// come from every record held.
 func sampleTopics(
 	ctx context.Context,
 	props Properties,
@@ -387,18 +423,25 @@ func sampleTopics(
 		return sampleResult{}, err
 	}
 	var (
-		records = make(map[string][]*kgo.Record)
-		errs    = make(map[string]error)
-		held    int
-		full    bool
+		records    = make(map[string][]*kgo.Record)
+		errs       = make(map[string]error)
+		partitions = make([][]fetchRange, len(readable))
+		held       int
+		full       bool
 	)
-	for _, ranges := range sampleRanges(readable, starts, ends, count) {
+	for i, topic := range readable {
+		if partitions[i], err = partitionRanges(topic, starts, ends); err != nil {
+			errs[topic] = err
+		}
+	}
+	for _, ranges := range sampleRanges(partitions, count) {
 		failed, err := fetch(ctx, props, ranges, func(r *kgo.Record) {
-			if full || held+len(r.Value) > sampleByteLimit {
+			size := recordSize(r)
+			if full || held+size > sampleByteLimit {
 				full = true
 				return
 			}
-			held += len(r.Value)
+			held += size
 			records[r.Topic] = append(records[r.Topic], r)
 		})
 		if err != nil {
@@ -445,6 +488,15 @@ func sampleTopics(
 	return res, nil
 }
 
+// recordSize returns the bytes of the key, value, and headers of r.
+func recordSize(r *kgo.Record) int {
+	n := len(r.Key) + len(r.Value)
+	for _, h := range r.Headers {
+		n += len(h.Key) + len(h.Value)
+	}
+	return n
+}
+
 func newSampledRecord(r *kgo.Record) sampledRecord {
 	s := sampledRecord{
 		Partition: r.Partition,
@@ -466,35 +518,19 @@ func newSampledRecord(r *kgo.Record) sampledRecord {
 
 // sampleRanges splits count records of each topic among its partitions, and the records
 // of each partition among up to sampleWindows windows spread evenly from its start to
-// its end. A partition gives one range to each window it reads.
-func sampleRanges(
-	topics []string,
-	starts, ends kadm.ListedOffsets,
-	count int64,
-) [][]fetchRange {
+// its end. Each element of topics holds the partitionRanges of one topic. A partition
+// gives one range to each window it reads.
+func sampleRanges(topics [][]fetchRange, count int64) [][]fetchRange {
 	windows := make([][]fetchRange, sampleWindows)
-	for _, topic := range topics {
-		var partitions []kadm.ListedOffset
-		for _, end := range ends[topic] {
-			if start, _ := starts.Lookup(
-				topic,
-				end.Partition,
-			); end.Offset > start.Offset {
-				partitions = append(partitions, end)
-			}
-		}
-		slices.SortFunc(partitions, func(a, b kadm.ListedOffset) int {
-			return cmp.Compare(a.Partition, b.Partition)
-		})
+	for _, partitions := range topics {
 		n := int64(len(partitions))
-		for i, end := range partitions {
+		for i, p := range partitions {
 			budget := count / n
 			if int64(i) < count%n {
 				budget++
 			}
-			start, _ := starts.Lookup(end.Topic, end.Partition)
-			for w, r := range partitionWindows(start.Offset, end.Offset, budget) {
-				r.topic, r.partition = end.Topic, end.Partition
+			for w, r := range partitionWindows(p.from, p.to, budget) {
+				r.topic, r.partition = p.topic, p.partition
 				windows[w] = append(windows[w], r)
 			}
 		}
