@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <map>
 #include <optional>
@@ -94,6 +95,13 @@ public:
     bool init_called = false;
     int send_count = 0;
     int receive_count = 0;
+    /// @brief the lowest slave state that readstate last read.
+    std::atomic<uint16_t> read_state{EC_STATE_INIT};
+    /// @brief read_state at each send_processdata call.
+    std::vector<uint16_t> send_states;
+    int sync_dc_count = 0;
+    /// @brief the working counter sync_dc returns.
+    int sync_dc_return = 1;
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     std::optional<uint8_t> mapped_group;
@@ -179,6 +187,7 @@ public:
 
     int send_processdata(uint8_t group) override {
         this->send_count++;
+        this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
         return this->send_return;
     }
@@ -208,6 +217,7 @@ public:
             }
             lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
         }
+        this->read_state.store(lowest);
         return lowest;
     }
 
@@ -221,6 +231,11 @@ public:
     }
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
+
+    int sync_dc(uint8_t, int) override {
+        this->sync_dc_count++;
+        return this->sync_dc_return;
+    }
 
     int write_register(
         uint16_t slave,
@@ -465,8 +480,13 @@ public:
         return group == this->mapped_group ? this->inputs_wkc : 0;
     }
 
+    /// @brief like ecx_configdc, true for the group of the first slave with a
+    /// distributed clock.
     [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        return group == this->mapped_group && this->hasdc;
+        if (group != this->mapped_group) return false;
+        if (this->hasdc) return true;
+        const auto ref = std::ranges::find_if(this->slave_infos, &MockSlaveInfo::hasdc);
+        return ref != this->slave_infos.end() && ref->group == group;
     }
 };
 
