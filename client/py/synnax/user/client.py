@@ -227,7 +227,7 @@ class Client:
             offset=offset,
         )
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
-        return sole("user", req.where, res.users) if single else res.users
+        return sole("user", req, res.users) if single else res.users
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)

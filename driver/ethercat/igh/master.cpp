@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <format>
 
 #include "absl/log/log.h"
 
@@ -111,12 +112,14 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
-        this->disabled_slaves.erase(position);
+    this->disabled_slaves.clear();
+    this->chosen_modes.clear();
+    for (auto &[position, config]: configs) {
+        if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+    }
 }
 
 x::errors::Error
@@ -134,7 +137,27 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
         const auto pos = slave.properties.position;
         {
             std::lock_guard lock(this->mu);
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (this->disabled_slaves.contains(pos) || this->left_out.contains(pos))
+                continue;
+            const auto choice = this->chosen_modes.find(pos);
+            if (choice != this->chosen_modes.end()) {
+                const auto err = choice->second.assign_activate != 0
+                                   ? x::errors::Error(
+                                         errors::SLAVE_CONFIG_ERROR,
+                                         "the IgH master does not run DC sync"
+                                     )
+                                   : dc::check_cycles({}, choice->second.cycles);
+                if (err)
+                    return x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        std::format(
+                            "slave {} ({}) cannot use its chosen mode: {}",
+                            pos,
+                            slave.properties.name,
+                            err.data
+                        )
+                    );
+            }
         }
         if (this->get_or_create_slave_config(pos) == nullptr)
             return x::errors::Error(
@@ -201,6 +224,11 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle();
     return x::errors::NIL;
+}
+
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
+    std::lock_guard lock(this->mu);
+    this->left_out = std::move(slaves);
 }
 
 void Master::deactivate() {
@@ -278,6 +306,16 @@ std::span<uint8_t> Master::output_data() {
 std::pair<pdo::Offset, x::errors::Error>
 Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
+    const auto pos = entry.slave_position;
+    if (const auto it = this->left_out.find(pos); it != this->left_out.end())
+        return {
+            {},
+            master::left_out_error(
+                pos,
+                this->cached_slaves.at(pos).properties.name,
+                it->second
+            )
+        };
     return pdo::find_offset(this->pdo_offsets, entry);
 }
 
@@ -309,6 +347,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             .lost = state.online == 0,
         });
     }
+    std::lock_guard lock(this->mu);
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 

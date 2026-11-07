@@ -81,7 +81,8 @@ export const analyzeParams = <
 /**
  * Checks that a retrieve of one record found exactly one.
  * @param name - The name of the record type, such as "range".
- * @param where - The filter that the retrieve sent. The errors describe it.
+ * @param request - The request that the retrieve sent. The errors describe its search
+ * term and filter.
  * @param results - The records that the retrieve found.
  * @param isSingle - Whether the retrieve was for one record. If false, nothing is
  * checked.
@@ -90,13 +91,15 @@ export const analyzeParams = <
  */
 export const checkForMultipleOrNoResults = <R>(
   name: string,
-  where: object | undefined,
+  { where, searchTerm }: { where?: object; searchTerm?: string },
   results: R[],
   isSingle: boolean,
 ): void => {
   if (!isSingle || results.length === 1) return;
   const description = where == null ? "" : filter.describe(where);
-  const clause = description === "" ? "" : ` where ${description}`;
+  let clause = description === "" ? "" : ` where ${description}`;
+  if (searchTerm != null && searchTerm !== "")
+    clause = ` matching ${JSON.stringify(searchTerm)}${clause}`;
   if (results.length === 0) throw new NotFoundError(`Found no ${name}${clause}`);
   throw new MultipleFoundError(
     `Expected one ${name}${clause}, but found ${results.length}`,

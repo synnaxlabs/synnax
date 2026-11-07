@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <span>
 #include <string>
@@ -62,6 +63,12 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
     std::unordered_set<uint16_t> disabled_slaves;
+    /// @brief the mode the user chose for each slave that has a choice, keyed by
+    /// position.
+    std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why the bus starts without each slave that leave_out() names, keyed by
+    /// position.
+    std::map<uint16_t, slave::Refusal> left_out;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -86,7 +93,7 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
     /// @brief does what master::Master::activate does, but ignores period and starts no
     /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.
@@ -94,6 +101,15 @@ public:
         x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
     ) override;
+
+    /// @brief returns no refusals, since the IgH master moves the slaves to OP on its
+    /// own after activate() returns.
+    std::map<uint16_t, slave::Refusal> refusals() const override { return {}; }
+
+    /// @brief returns false, since the IgH master reports no refusals.
+    bool dc_sync_refused() const override { return false; }
+
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;
 
