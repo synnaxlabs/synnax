@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening the NI task config service.
+// ServiceConfig is the configuration for opening the NI service.
 type ServiceConfig struct {
 	// DB is the database config records, chassis, and devices are stored in.
 	// [REQUIRED]
@@ -90,9 +90,9 @@ type Service struct {
 	closer  xio.MultiCloser
 }
 
-// OpenService opens the NI task config service with the provided configuration. If
-// error is nil, the service is ready for use and must be closed by calling Close to
-// prevent resource leaks.
+// OpenService opens the NI service with the provided configuration. If error is nil,
+// the service is ready for use and must be closed by calling Close to prevent resource
+// leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := xconfig.New(ServiceConfig{}, cfgs...)
 	if err != nil {
