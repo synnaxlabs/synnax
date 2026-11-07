@@ -224,10 +224,14 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 }
 
 // ExpressionNameParts returns the head and tail of the name expr reads when expr is a
-// lone name, and ("", "") otherwise.
+// lone name, and ("", "") otherwise. A call or an index is not a lone name.
 func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
 	pe := GetPrimaryExpression(expr)
 	if pe == nil {
+		return "", ""
+	}
+	if postfix, ok := pe.GetParent().(IPostfixExpressionContext); ok &&
+		(len(postfix.AllFunctionCallSuffix()) > 0 || len(postfix.AllIndexOrSlice()) > 0) {
 		return "", ""
 	}
 	return PrimaryNameParts(pe)

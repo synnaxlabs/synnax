@@ -58,6 +58,28 @@ var _ = Describe("User modules", func() {
 		out, _ := h.Flush()
 		return out
 	}
+	// pulses ingests one trigger sample per value, settles the program after each,
+	// and returns what it wrote after each sample.
+	pulses := func(
+		ctx SpecContext,
+		h *runtimeHarness,
+		values ...uint8,
+	) []telem.Frame[uint32] {
+		GinkgoHelper()
+		elapsed := telem.TimeSpan(0)
+		frames := make([]telem.Frame[uint32], 0, len(values))
+		for _, v := range values {
+			h.Ingest(trig, telem.NewSeriesV[uint8](v))
+			for range 3 {
+				elapsed += telem.Millisecond
+				h.Tick(ctx, elapsed)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			frames = append(frames, out)
+		}
+		return frames
+	}
 
 	It("Should call an exported function and activate an exported sequence", func(
 		ctx SpecContext,
@@ -178,6 +200,173 @@ x -> seq_out
 		defer h.Close(ctx)
 		vals := last(run(ctx, h, 1), seqOut).Unmarshal[uint8]()
 		Expect(vals[len(vals)-1]).To(Equal(uint8(1)))
+	})
+
+	It("Should alias an exported channel alias inside a function", func(
+		ctx SpecContext,
+	) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+func f() u8 {
+    x := m.b
+    return x
+}
+
+trig -> f() -> seq_out
+`, map[string]string{"m": "export b := trig"}, resolver, digests...)
+		defer h.Close(ctx)
+		vals := last(run(ctx, h, 1), seqOut).Unmarshal[uint8]()
+		Expect(vals[len(vals)-1]).To(Equal(uint8(1)))
+	})
+
+	It("Should bind a variable to an exported function that reads a channel", func(
+		ctx SpecContext,
+	) {
+		h := newModuleRuntimeHarness(ctx, `
+import m
+
+x := m.f()
+x + 1 -> fn_out
+`, map[string]string{"m": "export func f() i64 { return i64(trig) * 2 }"},
+			resolver, digests...)
+		defer h.Close(ctx)
+		vals := last(run(ctx, h, 1), fnOut).Unmarshal[int64]()
+		Expect(vals[len(vals)-1]).To(Equal(int64(3)))
+	})
+
+	Describe("Triggers", func() {
+		It("Should fire an expression on each sample of an exported alias", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+i64(m.b) * 2 -> fn_out
+`, map[string]string{"m": "export b := trig"}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 3)
+			Expect(
+				last(frames[0], fnOut).Unmarshal[int64](),
+			).To(ContainElement(int64(2)))
+			Expect(
+				last(frames[1], fnOut).Unmarshal[int64](),
+			).To(ContainElement(int64(6)))
+		})
+
+		It(
+			"Should fire an expression on each value of an exported expression variable",
+			func(
+				ctx SpecContext,
+			) {
+				h := newModuleRuntimeHarness(ctx, `
+import m
+
+m.doubled + 1 -> fn_out
+`, map[string]string{"m": "export doubled := i64(trig) * 2"}, resolver, digests...)
+				defer h.Close(ctx)
+				frames := pulses(ctx, h, 1, 2)
+				Expect(
+					last(frames[0], fnOut).Unmarshal[int64](),
+				).To(ContainElement(int64(3)))
+				Expect(
+					last(frames[1], fnOut).Unmarshal[int64](),
+				).To(ContainElement(int64(5)))
+			},
+		)
+
+		It("Should fire a flow from a variable bound to an exported alias", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+x := m.b
+x -> seq_out
+`, map[string]string{"m": "export b := trig"}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 4)
+			Expect(
+				last(frames[0], seqOut).Unmarshal[uint8](),
+			).To(ContainElement(uint8(1)))
+			Expect(
+				last(frames[1], seqOut).Unmarshal[uint8](),
+			).To(ContainElement(uint8(4)))
+		})
+
+		It("Should fire a flow from a variable bound to an exported function", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+x := m.f()
+x -> fn_out
+`, map[string]string{"m": "export func f() i64 { return i64(trig) * 2 }"},
+				resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 3)
+			Expect(
+				last(frames[0], fnOut).Unmarshal[int64](),
+			).To(ContainElement(int64(2)))
+			Expect(
+				last(frames[1], fnOut).Unmarshal[int64](),
+			).To(ContainElement(int64(6)))
+		})
+
+		It("Should transition on an exported expression variable", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+sequence main {
+    stage wait {
+        m.doubled > 2 => next
+    }
+    stage done {
+        u8(1) -> seq_out
+    }
+}
+
+trig == 1 => main
+`, map[string]string{"m": "export doubled := i64(trig) * 2"}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 2)
+			Expect(frames[0].Get(seqOut).Series).To(BeEmpty())
+			Expect(
+				last(frames[1], seqOut).Unmarshal[uint8](),
+			).To(ContainElement(uint8(1)))
+		})
+
+		It("Should transition a module sequence on a dependency's variable", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import a
+
+trig == 1 => a.s
+`, map[string]string{
+				"a": `
+import b
+
+export sequence s {
+    stage wait {
+        b.doubled > 2 => next
+    }
+    stage done {
+        u8(1) -> seq_out
+    }
+}`,
+				"b": "export doubled := i64(trig) * 2",
+			}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 2)
+			Expect(frames[0].Get(seqOut).Series).To(BeEmpty())
+			Expect(
+				last(frames[1], seqOut).Unmarshal[uint8](),
+			).To(ContainElement(uint8(1)))
+		})
 	})
 
 	It("Should run an exported function that formats a channel it reads", func(
