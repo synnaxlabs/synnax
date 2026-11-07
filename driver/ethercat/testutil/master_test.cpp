@@ -15,6 +15,15 @@
 #include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat::testutil {
+namespace {
+/// @brief the bus cycle the specs activate the master with.
+const auto PERIOD = x::telem::MILLISECOND;
+
+/// @brief returns a bus cycle that sends one frame, which activate() waits for.
+std::function<void()> one_frame(Master &master) {
+    return [&master] { ASSERT_NIL(master.send()); };
+}
+}
 
 TEST(MasterConstruction, DefaultInterfaceName) {
     Master master;
@@ -131,21 +140,24 @@ TEST(MasterInitialization, InitializeWithInjectedErrorDoesNotSetInitialized) {
 
 TEST(MasterActivation, ActivateRequiresInitialization) {
     Master master;
-    ASSERT_OCCURRED_AS(master.activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        master.activate(PERIOD, one_frame(master)),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST(MasterActivation, ActivateSetsActivatedTrue) {
     Master master;
     ASSERT_NIL(master.initialize());
     EXPECT_FALSE(master.is_activated());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_TRUE(master.is_activated());
 }
 
 TEST(MasterActivation, ActivateLogsCall) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_TRUE(master.was_called("activate"));
 }
 
@@ -154,7 +166,7 @@ TEST(MasterActivation, ActivateTransitionsSlavesToOp) {
     master.add_slave(slave::Properties{.position = 0});
     master.add_slave(slave::Properties{.position = 1});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(master.slave_state(0), slave::State::OP);
     EXPECT_EQ(master.slave_state(1), slave::State::OP);
 }
@@ -165,7 +177,10 @@ TEST(MasterActivation, ActivateWithInjectedError) {
     master.inject_activate_error(
         x::errors::Error(errors::ACTIVATION_ERROR, "test error")
     );
-    ASSERT_OCCURRED_AS(master.activate(), errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(
+        master.activate(PERIOD, one_frame(master)),
+        errors::ACTIVATION_ERROR
+    );
 }
 
 TEST(MasterActivation, ActivateWithTransitionFailure) {
@@ -174,7 +189,7 @@ TEST(MasterActivation, ActivateWithTransitionFailure) {
     master.add_slave(slave::Properties{.position = 1});
     master.set_slave_transition_failure(1, slave::State::OP);
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(master.slave_state(0), slave::State::OP);
     EXPECT_EQ(master.slave_state(1), slave::State::SAFE_OP);
 }
@@ -202,7 +217,7 @@ TEST(MasterActivation, ActivateAllocatesIoMaps) {
         }
     );
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_GE(master.input_data().size(), 2);
     EXPECT_GE(master.output_data().size(), 4);
 }
@@ -210,7 +225,7 @@ TEST(MasterActivation, ActivateAllocatesIoMaps) {
 TEST(MasterDeactivation, DeactivateResetsState) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.deactivate();
     EXPECT_FALSE(master.is_initialized());
     EXPECT_FALSE(master.is_activated());
@@ -219,7 +234,7 @@ TEST(MasterDeactivation, DeactivateResetsState) {
 TEST(MasterDeactivation, DeactivateLogsCall) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.deactivate();
     EXPECT_TRUE(master.was_called("deactivate"));
 }
@@ -228,7 +243,7 @@ TEST(MasterDeactivation, DeactivateTransitionsSlavesToInit) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(master.slave_state(0), slave::State::OP);
     master.deactivate();
     EXPECT_EQ(master.slave_state(0), slave::State::INIT);
@@ -238,7 +253,7 @@ TEST(MasterDeactivation, DeactivateClearsIoMaps) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.deactivate();
     EXPECT_TRUE(master.input_data().empty());
     EXPECT_TRUE(master.output_data().empty());
@@ -247,7 +262,7 @@ TEST(MasterDeactivation, DeactivateClearsIoMaps) {
 TEST(MasterSendReceive, SendLogsCall) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_NIL(master.send());
     EXPECT_TRUE(master.was_called("send"));
 }
@@ -255,7 +270,7 @@ TEST(MasterSendReceive, SendLogsCall) {
 TEST(MasterSendReceive, SendWithInjectedError) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.inject_send_error(x::errors::Error(errors::MASTER_INIT_ERROR, "send error"));
     ASSERT_OCCURRED_AS(master.send(), errors::MASTER_INIT_ERROR);
 }
@@ -263,7 +278,7 @@ TEST(MasterSendReceive, SendWithInjectedError) {
 TEST(MasterSendReceive, ReceiveLogsCall) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_NIL(master.receive());
     EXPECT_TRUE(master.was_called("receive"));
 }
@@ -271,7 +286,7 @@ TEST(MasterSendReceive, ReceiveLogsCall) {
 TEST(MasterSendReceive, ReceiveWithInjectedError) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.inject_receive_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "receive error")
     );
@@ -301,7 +316,7 @@ TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
         }
     );
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     const auto first = ASSERT_NIL_P(
         master.pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T))
     );
@@ -316,7 +331,7 @@ TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
 TEST(MasterPdoOffset, ReturnsMappingErrorForUnmappedEntry) {
     Master master;
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_OCCURRED_AS_P(
         master.pdo_offset(pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)),
         errors::PDO_MAPPING_ERROR
@@ -341,7 +356,7 @@ TEST(MasterPdoOffset, SkipsDisabledSlave) {
     );
     master.replace_slave_configs({{0, {.enabled = false}}});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_OCCURRED_AS_P(
         master.pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)),
         errors::PDO_MAPPING_ERROR
@@ -353,7 +368,7 @@ TEST(MasterIoMap, SetInputReachesImageOnReceive) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     master.set_input<int16_t>(0, 0x1234);
     int16_t value = 0;
     std::memcpy(&value, master.input_data().data(), sizeof(value));
@@ -368,7 +383,7 @@ TEST(MasterIoMap, GetOutputReadsSentOutputs) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     auto data = master.output_data();
     ASSERT_GE(data.size(), 4);
     auto write_val = static_cast<int32_t>(0xDEADBEEF);
@@ -404,7 +419,7 @@ TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
     this->master.add_slave(slave::Properties{.position = 1});
     this->master.replace_slave_configs({{1, {.enabled = false}}});
     ASSERT_NIL(this->master.initialize());
-    ASSERT_NIL(this->master.activate());
+    ASSERT_NIL(this->master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(
         this->master.check(this->brk),
         (std::vector<slave::Health>{{.position = 0, .state = slave::State::OP}})
@@ -415,7 +430,7 @@ TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
 TEST_F(MasterCheckTest, ReportsFaultThenRecoversSlave) {
     this->master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(this->master.initialize());
-    ASSERT_NIL(this->master.activate());
+    ASSERT_NIL(this->master.activate(PERIOD, one_frame(master)));
     this->master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
     EXPECT_EQ(
         this->master.check(this->brk),
@@ -435,7 +450,7 @@ TEST_F(MasterCheckTest, KeepsBlockedSlaveOutOfOp) {
     this->master.add_slave(slave::Properties{.position = 0});
     this->master.set_slave_transition_failure(0, slave::State::OP);
     ASSERT_NIL(this->master.initialize());
-    ASSERT_NIL(this->master.activate());
+    ASSERT_NIL(this->master.activate(PERIOD, one_frame(master)));
     EXPECT_EQ(this->master.check(this->brk)[0].state, slave::State::SAFE_OP);
     EXPECT_EQ(this->master.check(this->brk)[0].state, slave::State::SAFE_OP);
     this->master.clear_transition_failures();
@@ -447,7 +462,7 @@ TEST_F(MasterCheckTest, KeepsBlockedSlaveOutOfOp) {
 TEST_F(MasterCheckTest, TakesNoRecoveryStepOnceBreakerStops) {
     this->master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(this->master.initialize());
-    ASSERT_NIL(this->master.activate());
+    ASSERT_NIL(this->master.activate(PERIOD, one_frame(master)));
     this->master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
     this->brk.stop();
     EXPECT_TRUE(this->master.check(this->brk)[0].faulted);
@@ -483,7 +498,7 @@ TEST(MasterErrorInjection, ClearInjectedErrorsResetsAllErrors) {
     master.inject_receive_error(x::errors::Error(errors::MASTER_INIT_ERROR, "receive"));
     master.clear_injected_errors();
     ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master.activate(PERIOD, one_frame(master)));
     ASSERT_NIL(master.send());
     ASSERT_NIL(master.receive());
 }

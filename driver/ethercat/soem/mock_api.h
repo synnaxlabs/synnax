@@ -10,12 +10,17 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <cstring>
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
+
+#include "x/cpp/binary/binary.h"
 
 #include "driver/ethercat/soem/api.h"
 
@@ -49,8 +54,11 @@ struct MockSlaveInfo {
 struct RegisterWrite {
     uint16_t slave = 0;
     uint16_t address = 0;
-    std::vector<uint8_t> data;
-    /// @brief true when the write came after config_map_group, which requests SAFE-OP.
+    /// @brief the value of the written bytes, read as a little-endian integer.
+    int64_t value = 0;
+    /// @brief the number of bytes written.
+    size_t size = 0;
+    /// @brief true when the write came after config_map_group.
     bool mapped = false;
 
     bool operator==(const RegisterWrite &) const = default;
@@ -93,9 +101,20 @@ public:
     bool init_called = false;
     int send_count = 0;
     int receive_count = 0;
+    /// @brief the lowest slave state that readstate last read.
+    std::atomic<uint16_t> read_state{EC_STATE_INIT};
+    /// @brief read_state at each send_processdata call.
+    std::vector<uint16_t> send_states;
+    int sync_dc_count = 0;
+    /// @brief the working counter sync_dc returns.
+    int sync_dc_return = 1;
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     std::optional<uint8_t> mapped_group;
+    /// @brief the latest value given to set_manual_state_change.
+    bool manual_state_change = false;
+    /// @brief manual_state_change at the latest config_map_group call.
+    std::optional<bool> manual_at_map;
     /// @brief the group of the latest clear_process_data_sms call.
     std::optional<uint8_t> sm_cleared_group;
     /// @brief whether config_map_group came after clear_process_data_sms for its group.
@@ -127,6 +146,16 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief slaves whose register writes return a working counter of 0.
+    std::set<uint16_t> unwritable_slaves;
+    /// @brief the number of state change requests before each register write, in the
+    /// order of register_writes.
+    std::vector<size_t> requests_before_write;
+    /// @brief the values read_register gives, keyed by slave and address. A register
+    /// missing from the map reads as zero.
+    std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
+    /// @brief the working counter read_register returns.
+    int read_register_return = 1;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -166,11 +195,17 @@ public:
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->sms_cleared_at_map = this->sm_cleared_group == group;
         this->mapped_group = group;
+        this->manual_at_map = this->manual_state_change;
         return this->config_map_return;
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->manual_state_change = manual;
     }
 
     int send_processdata(uint8_t group) override {
         this->send_count++;
+        this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
         return this->send_return;
     }
@@ -200,6 +235,7 @@ public:
             }
             lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
         }
+        this->read_state.store(lowest);
         return lowest;
     }
 
@@ -221,16 +257,43 @@ public:
 
     [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
+    int sync_dc(uint8_t, int) override {
+        this->sync_dc_count++;
+        return this->sync_dc_return;
+    }
+
     int write_register(
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
         int
     ) override {
-        this->register_writes.push_back(
-            {slave, address, std::move(data), this->mapped_group.has_value()}
-        );
+        std::array<uint8_t, sizeof(int64_t)> padded{};
+        std::ranges::copy(data, padded.begin());
+        this->register_writes.push_back({
+            .slave = slave,
+            .address = address,
+            .value = x::binary::from_little_endian<int64_t>(padded),
+            .size = data.size(),
+            .mapped = this->mapped_group.has_value(),
+        });
+        this->requests_before_write.push_back(this->state_change_requests.size());
+        if (this->unwritable_slaves.contains(slave)) return 0;
         return this->write_register_return;
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int
+    ) override {
+        const auto it = this->register_values.find({slave, address});
+        const auto bytes = x::binary::to_little_endian(
+            it == this->register_values.end() ? int64_t{0} : it->second
+        );
+        std::copy_n(bytes.begin(), data.size(), data.begin());
+        return this->read_register_return;
     }
 
     int reconfig_slave(uint16_t slave, int) override {

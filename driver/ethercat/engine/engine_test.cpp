@@ -27,6 +27,9 @@
 
 namespace driver::ethercat::engine {
 namespace {
+/// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
+const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
+
 /// @brief a loader for a network with no saved slave settings.
 const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
     return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
@@ -134,6 +137,29 @@ protected:
         EXPECT_FALSE(err) << err.message();
         return times;
     }
+
+    /// @brief samples, for 3 s and at most every 20 ms, how far the latest frame passed
+    /// the reference clock from half a period after a SYNC0 event, with SYNC0 events at
+    /// shift after multiples of the period. Returns the share of samples within a
+    /// quarter period. A 10 ms period that drifts 0.5% slips through one and a half
+    /// periods in that time.
+    [[nodiscard]] double share_in_phase(
+        const x::telem::TimeSpan period,
+        const x::telem::TimeSpan shift = x::telem::TimeSpan(0)
+    ) const {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+        int samples = 0;
+        int in_phase = 0;
+        while (std::chrono::steady_clock::now() < end) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            const auto dc = this->master->dc_time().value_or(master::DC_EPOCH);
+            const auto phase = ((dc - master::DC_EPOCH - shift) % period + period) %
+                               period;
+            if ((phase - period / 2).abs() < period / 4) ++in_phase;
+            ++samples;
+        }
+        return static_cast<double>(in_phase) / samples;
+    }
 };
 
 /// @brief it should decode 16-bit, 32-bit, 24-bit, and 4-bit input entries into samples
@@ -211,6 +237,74 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
         EXPECT_GT(spacing, x::telem::MICROSECOND * 9'900);
         EXPECT_LT(spacing, x::telem::MICROSECOND * 10'100);
     }
+}
+
+/// @brief it should hold each frame half a period after a SYNC0 event, with the SYNC0
+/// shift, while the distributed clock runs 0.5% faster than the host clock.
+TEST_F(EngineTest, LocksTheCycleToTheDistributedClock) {
+    auto sync = SYNC0_AT_10MS;
+    sync.sync0_shift = 5'000'000;
+    this->master->set_dc_sync({sync});
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(
+        this->share_in_phase(x::telem::MILLISECOND * 10, x::telem::MILLISECOND * 5),
+        0.8
+    );
+}
+
+/// @brief it should lock the cycle to SYNC0 events of 100 us or more, and not to a
+/// faster SYNC0 that clocks hardware in a slave.
+TEST_F(EngineTest, LocksTheCycleOnlyToSYNC0EventsThatMarkData) {
+    this->master->set_dc_sync(
+        {SYNC0_AT_10MS, {.assign_activate = 0x0300, .sync0_cycle = 1'000}}
+    );
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+}
+
+/// @brief it should leave the cycle unlocked when no slave runs SYNC0.
+TEST_F(EngineTest, LeavesTheCycleUnlockedWithoutSYNC0) {
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+}
+
+/// @brief it should lock the cycle to the distributed clock while the slaves move to
+/// OP and the working counter falls short.
+TEST_F(EngineTest, LocksTheCycleWhileTheSlavesMoveToOP) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    this->master->set_start_frames(400);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread start([&] {
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    });
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
+    EXPECT_EQ(this->master->call_count("op"), 0);
+    start.join();
+    ASSERT_NIL(res.second);
+}
+
+/// @brief it should not move the cycle on a frame with a short working counter after
+/// the start, as the frame can miss the reference clock.
+TEST_F(EngineTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    EXPECT_LT(this->share_in_phase(x::telem::MILLISECOND * 10), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
@@ -665,6 +759,27 @@ TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
+/// @brief it should activate the master with the period of the bus rate.
+TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->activated_period(), x::telem::MILLISECOND * 10);
+}
+
+/// @brief it should return at once, without a retry, when the config of a slave cannot
+/// run.
+TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
@@ -677,6 +792,49 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_EQ(res.second.data, "inconsistent settings");
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should cycle the bus while the slaves move to OP.
+TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto log = this->master->call_log();
+    const auto op = std::ranges::find(log, "op");
+    ASSERT_NE(op, log.end());
+    EXPECT_LT(std::ranges::find(log, "send"), op);
+}
+
+/// @brief it should run no slave recovery while the slaves move to OP, and stop the
+/// cycle before it deactivates the master when a slave refuses a state.
+TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    const auto log = this->master->call_log();
+    EXPECT_GE(std::ranges::count(log, "send"), 1);
+    EXPECT_EQ(std::ranges::count(log, "check"), 0);
+    EXPECT_EQ(std::ranges::count(log, "deactivate"), 1);
+    EXPECT_EQ(log.back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(0));
+}
+
+/// @brief it should stop the cycle and retry when the slaves do not reach OP in time.
+TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+    EXPECT_EQ(this->master->call_log().back(), "deactivate");
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -858,6 +1016,80 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     ASSERT_EQ(times.size(), 5);
     const auto span = x::telem::TimeSpan(times.at<int64_t>(4) - times.at<int64_t>(0));
     EXPECT_GE(span, x::telem::MILLISECOND * 20);
+}
+
+/// @brief it should refuse a task that needs another bus rate while a slave runs DC
+/// sync, until every task on the port stops.
+TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+    reader.reset();
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(250))
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
+}
+
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
+/// while a slave runs DC sync.
+TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
+/// @brief it should keep the bus rate when a faster task closes and when a slower task
+/// opens while a slave runs DC sync.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(1000))
+    );
+    const auto slow = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    writer.reset();
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+}
+
+/// @brief it should keep the bus rate while a slave runs a SYNC0 too fast to mark
+/// process data, since its SYNC1 cycle comes from the bus period.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
+    this->master->set_dc_sync(
+        {{.assign_activate = 0x0700, .sync0_cycle = 1'000, .sync1_cycle = 9'999'000}}
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
 /// @brief it should report the health of each enabled slave and leave out disabled

@@ -118,10 +118,14 @@ void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
 }
 
-x::errors::Error Master::activate() {
+x::errors::Error
+Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
-    if (this->activated) return x::errors::NIL;
+    if (this->activated) {
+        start_cycle();
+        return x::errors::NIL;
+    }
     if (!this->output_domain || !this->input_domain)
         return x::errors::Error(errors::ACTIVATION_ERROR, "domains not created");
 
@@ -193,7 +197,8 @@ x::errors::Error Master::activate() {
                 << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
-
+    // The IgH master moves the slaves to OP on its own while the caller cycles.
+    start_cycle();
     return x::errors::NIL;
 }
 

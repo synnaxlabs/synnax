@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <span>
@@ -88,7 +89,12 @@ public:
 
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
-    x::errors::Error activate() override;
+    /// @brief does what master::Master::activate does, but ignores period and starts no
+    /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.
+    x::errors::Error activate(
+        x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override;
 
     void deactivate() override;
 
@@ -111,6 +117,8 @@ public:
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
+
+    std::vector<dc::Registers> dc_sync() const override { return {}; }
 
     std::string interface_name() const override;
 

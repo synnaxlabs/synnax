@@ -86,6 +86,10 @@ public:
         return {telem::TimeSpan(elapsed), true};
     }
 
+    /// @brief moves the end of the next wait by offset. A positive offset delays it.
+    /// Has no effect before the first wait(), which always lasts one interval.
+    void shift(const telem::TimeSpan &offset) { this->last += offset.chrono(); }
+
     /// @brief Fine-grained sleep that ends early when the breaker stops.
     /// @returns false if the breaker stopped before or during the sleep.
     bool precise_sleep(const telem::TimeSpan &dur, const breaker::Breaker &breaker) {

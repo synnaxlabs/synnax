@@ -133,7 +133,11 @@ class Engine {
 
     /// @brief runs while the bus cycles. Stopping it wakes the supervisor.
     x::breaker::Breaker bus;
-    std::atomic<double> cycle_hz{0};
+    /// @brief true while the slaves move to OP, when the working counter is expected to
+    /// fall short.
+    std::atomic<bool> starting{false};
+    /// @brief the bus rate in millihertz, or zero when the bus is not running.
+    std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
     std::thread supervisor_thread;
 
@@ -160,14 +164,24 @@ class Engine {
     void run();
     void supervise();
     void apply_rt(x::telem::TimeSpan period) const;
+    /// @param mhz the bus rate in millihertz.
     [[nodiscard]] x::errors::Error
-    start_locked(x::telem::Rate rate, std::map<uint16_t, slave::Config> configs);
+    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
-    void publish_schedule_locked(x::telem::Rate rate);
+    /// @param mhz the bus rate in millihertz.
+    void publish_schedule_locked(uint64_t mhz);
+    /// @brief returns the bus rate in millihertz for tasks at reads and writes: the
+    /// slowest rate they allow, or the current rate while a slave runs DC sync.
+    /// @returns errors::RATE_MISMATCH when no rate serves them, or when a slave runs DC
+    /// sync and the current rate does not serve them.
+    [[nodiscard]] std::pair<uint64_t, x::errors::Error> rate_locked(
+        const std::vector<x::telem::Rate> &reads,
+        const std::vector<x::telem::Rate> &writes
+    ) const;
     /// @brief stops the bus when no reader or writer is open, and otherwise moves it to
-    /// the slowest rate the open ones allow.
+    /// the rate that rate_locked() gives the open ones.
     void reschedule_locked();
     void write_outputs();
     void rebuild_outputs_locked();
@@ -259,8 +273,9 @@ public:
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running.
-    /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz or no bus rate
-    /// suits every open task, errors::PDO_MAPPING_ERROR when an entry is not in the
+    /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
+    /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
+    /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
     /// process image, or the error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
@@ -270,7 +285,8 @@ public:
 
     /// @brief opens a writer for the entries. The bus cycles at least as fast as
     /// execution_rate while the writer is open. Starts the bus when it is not running.
-    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task,
+    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
+    /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
     /// error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
