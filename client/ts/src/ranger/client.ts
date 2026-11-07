@@ -23,7 +23,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
@@ -207,10 +207,10 @@ export class Range {
    * @throws {NotFoundError} if no channel has the given key or name.
    * @throws {MultipleFoundError} if more than one channel has the given name.
    */
-  async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
-    const ch = await this.channels(channel);
-    checkForMultipleOrNoResults("channel", channel, ch, true);
-    await this.rangeClient.setAlias(this.key, ch[0].key, alias);
+  async setAlias(ch: channel.Key | Name, alias: string): Promise<void> {
+    const found = await this.channels(ch);
+    checkForMultipleOrNoResults("channel", channel.singleWhere(ch), found, true);
+    await this.rangeClient.setAlias(this.key, found[0].key, alias);
   }
 
   async deleteAlias(...channels: channel.Key[]): Promise<void> {
@@ -797,7 +797,7 @@ export class Client extends query.Retriever<
     const cached = this.store.get(key);
     if (cached != null) return this.composeOne(cached);
     const ranges = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Range", key, ranges, true);
+    checkForMultipleOrNoResults("range", { key: { eq: key } }, ranges, true);
     return this.composeOne(ranges[0]);
   }
 
