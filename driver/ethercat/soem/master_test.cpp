@@ -42,8 +42,8 @@ std::vector<uint8_t> bytes(const T value) {
     return out;
 }
 
-/// @brief the only mode of a module that runs in DC mode alone: SYNC0 of 1 us and
-/// SYNC1 of 1000 bus cycles.
+/// @brief the only mode of a module that runs in DC mode alone: SYNC0 of 1 us and SYNC1
+/// of 1000 bus cycles.
 const dc::OpMode DC_ONLY{
     .name = "DC",
     .assign_activate = 0x0700,
@@ -860,8 +860,8 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
 }
 
 /// @brief it should start SYNC0 and SYNC1 on a slave that lists only a DC mode, before
-/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC0 cycle at least
-/// 100 ms after the system time of the slave.
+/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC0 cycle at least 100
+/// ms after the system time of the slave.
 TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
     this->initialize_with_dc_slave({DC_ONLY});
     ASSERT_NIL(this->activate());
@@ -906,6 +906,17 @@ TEST_F(SOEMMasterTest, ActivateKeepsTheFirstSYNC0EventAheadWithANegativeShift) {
     ASSERT_NIL(this->activate());
     ASSERT_EQ(this->mock->register_writes.size(), 7);
     EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(5'101'000'000));
+}
+
+/// @brief it should start the cyclic unit 100 ms after the system time of the slave
+/// when the mode leaves SYNC0 off, since there is no SYNC0 cycle to align to.
+TEST_F(SOEMMasterTest, ActivateStartsTheCyclicUnitOfAModeWithSYNC0Off) {
+    this->initialize_with_dc_slave({{.name = "DC", .assign_activate = 0x0100}});
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].data, bytes<uint32_t>(0));
+    EXPECT_EQ(this->mock->register_writes[5].data, bytes<uint64_t>(5'100'000'000));
+    EXPECT_EQ(this->mock->register_writes[6].data, std::vector<uint8_t>{0x01});
 }
 
 /// @brief it should leave DC sync off on a slave that lists an SM mode.
@@ -1022,8 +1033,8 @@ TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
     EXPECT_EQ(this->mock->register_writes, expected);
 }
 
-/// @brief it should turn DC sync off on every slave when it stops the bus, also after
-/// a slave fails a write.
+/// @brief it should turn DC sync off on every slave when it stops the bus, also after a
+/// slave fails a write.
 TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
     MockSlaveInfo dc;
     dc.state = EC_STATE_PRE_OP;
