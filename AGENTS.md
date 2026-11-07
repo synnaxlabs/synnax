@@ -46,6 +46,8 @@ package or needing broader context:
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
   golangci-lint fmt (Go), clang-format (C++).
+- **Commits run `scripts/fix.sh`** through the `pre-commit` hook. If CI still fails on
+  format or copyright headers, run `scripts/fix.sh`. Never fix them by hand.
 - **BDD-style tests** with the language's framework; co-located with source where the
   language allows.
 - **Absolute imports** in TypeScript (`@/components`).
