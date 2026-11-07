@@ -97,10 +97,7 @@ compile_text(const synnax::Synnax &client, const std::string &source) {
 
     synnax::arc::RetrieveOptions opts;
     opts.include_program = true;
-    auto [compiled, err] = client.arcs.retrieve_by_key(
-        synnax::arc::base(arc).key,
-        opts
-    );
+    auto [compiled, err] = client.arcs.retrieve(synnax::arc::base(arc).key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
     const auto &program = std::get<synnax::arc::AutomationArc>(compiled).program;
     if (!program.has_value()) throw std::runtime_error("Compiled arc has no program");

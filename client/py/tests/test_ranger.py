@@ -392,26 +392,6 @@ class TestRangeClient:
             """Should access a channel by name"""
             assert rng[two_channels[0].name].name == two_channels[0].name
 
-        def test_access_by_regex(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should access a channel by regex"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            channels = rng[f"test_{prefix}_.*"]
-            found = 0
-            for _ in channels:
-                found += 1
-            assert found == 2
-
-        def test_single_channel_operation_on_regex_matches(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should raise a MultipleFoundError when a single channel operation runs
-            on a query that matches more than one channel"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            with pytest.raises(sy.MultipleFoundError):
-                rng[f"test_{prefix}_.*"].to_numpy()
-
         def test_repeated_access_retrieves_once(
             self,
             counted_client: tuple[sy.Synnax, RetrieveCounter],
@@ -518,9 +498,8 @@ class TestRangeClient:
             ):
                 rng.set_alias("not_found", "test")
 
-        def test_scoped_channel_multiple_found(self, client: sy.Synnax) -> None:
-            """Should raise MultipleFoundError when a scoped channel matches two
-            channels and is used as one."""
+        def test_scoped_channel_pattern(self, client: sy.Synnax) -> None:
+            """Should read a scoped channel pattern as an exact name and find none."""
             prefix = random_name()
             for suffix in ("a", "b"):
                 client.channels.create(
@@ -530,11 +509,11 @@ class TestRangeClient:
                 name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.MultipleFoundError, match="Multiple channels found"):
+            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
                 rng[f"{prefix}_.*"].to_numpy()
 
-        def test_set_alias_multiple_found(self, client: sy.Synnax) -> None:
-            """Should raise MultipleFoundError when a name matches two channels."""
+        def test_set_alias_pattern(self, client: sy.Synnax) -> None:
+            """Should read a pattern as an exact name when it sets an alias."""
             prefix = random_name()
             for suffix in ("a", "b"):
                 client.channels.create(
@@ -544,9 +523,7 @@ class TestRangeClient:
                 name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(
-                sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
-            ):
+            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
                 rng.set_alias(f"{prefix}_.*", "test")
 
         def test_resolve_missing_alias(self, client: sy.Synnax) -> None:

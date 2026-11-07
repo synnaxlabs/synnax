@@ -138,6 +138,20 @@ struct RetrieveResponse {
     from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching ranges to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_labels includes the labels of each record.
+    bool include_labels = false;
+    /// @brief include_parent includes the parent of each record.
+    bool include_parent = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve ranges.
 struct RetrieveRequest {
     /// @brief where selects the ranges to retrieve. An absent where selects all of
@@ -153,6 +167,18 @@ struct RetrieveRequest {
     bool include_labels = false;
     /// @brief include_parent includes the parent of each record.
     bool include_parent = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_labels = options.include_labels,
+            .include_parent = options.include_parent,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
