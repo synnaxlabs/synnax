@@ -419,7 +419,11 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     std::map<uint16_t, slave::Refusal> left_out;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
+    const auto &clock = this->config.host_clock;
+    const auto started = clock.steady();
+    x::telem::TimeSpan longest_try(0);
     while (true) {
+        const auto try_started = clock.steady();
         this->master->leave_out(left_out);
         auto err = this->master->initialize();
         bool dc_sync_refused = false;
@@ -443,9 +447,15 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
                 continue;
             }
         }
-        // A retry cannot clear a refused state or a slave config that cannot run.
+        const auto now = clock.steady();
+        longest_try = std::max(longest_try, x::telem::TimeSpan(now - try_started));
+        const auto next_try_end = x::telem::TimeSpan(now - started) +
+                                  this->config.start_retry.max_interval + longest_try;
+        // A retry cannot clear a refused state or a slave config that cannot run. A try
+        // that ends after start_timeout hides its error behind the task timeout.
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
-            err.matches(errors::SLAVE_CONFIG_ERROR) || !retry.wait(err)) {
+            err.matches(errors::SLAVE_CONFIG_ERROR) ||
+            next_try_end > this->config.start_timeout || !retry.wait(err)) {
             retry.stop();
             return start_error(err, left_out, dc_sync_refused);
         }

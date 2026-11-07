@@ -40,6 +40,7 @@ struct Config {
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief how the engine retries starting the bus before open_reader or open_writer
     /// returns the error. A slave that refuses a state change fails the start at once.
+    /// start_timeout can stop the retries before max_retries.
     x::breaker::Config start_retry{
         .name = "ethercat_engine",
         .base_interval = x::telem::MILLISECOND * 100,
@@ -47,6 +48,11 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief the longest a bus start can take. The engine tries a failed start again
+    /// only while one more try, as long as the longest failed try so far, ends inside
+    /// it. Set it to the task operation timeout, so that a failed start returns its own
+    /// error.
+    x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
     x::loop::HostClock host_clock;
     /// @brief returns the settings of each slave, keyed by position. An open_reader or

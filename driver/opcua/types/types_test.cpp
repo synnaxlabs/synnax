@@ -78,14 +78,12 @@ TEST(TypesTest, NodeIdMoveSemantics) {
 
 /// @brief it should parse NodeId strings in various formats.
 TEST(TypesTest, NodeIdParsing) {
-    auto [numeric, err1] = NodeId::parse("NS=1;I=1000");
-    ASSERT_NIL(err1);
+    const auto numeric = ASSERT_NIL_P(NodeId::parse("NS=1;I=1000"));
     EXPECT_EQ(numeric.resolve({}).value().namespaceIndex, 1);
     EXPECT_EQ(numeric.resolve({}).value().identifierType, UA_NODEIDTYPE_NUMERIC);
     EXPECT_EQ(numeric.resolve({}).value().identifier.numeric, 1000);
 
-    auto [string_node, err2] = NodeId::parse("NS=2;S=TestNode");
-    ASSERT_NIL(err2);
+    const auto string_node = ASSERT_NIL_P(NodeId::parse("NS=2;S=TestNode"));
     EXPECT_EQ(string_node.resolve({}).value().namespaceIndex, 2);
     EXPECT_EQ(string_node.resolve({}).value().identifierType, UA_NODEIDTYPE_STRING);
 
