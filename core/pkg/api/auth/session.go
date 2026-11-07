@@ -205,7 +205,7 @@ func (s *Service) DeleteSessions(
 	); err != nil {
 		return struct{}{}, err
 	}
-	if lo.Contains(req.Keys, GetSessionKey(ctx)) {
+	if lo.Contains(req.Keys, getSession(ctx).Key) {
 		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{})
 	}
 	return struct{}{}, s.auth.Logout(ctx, req.Keys...)

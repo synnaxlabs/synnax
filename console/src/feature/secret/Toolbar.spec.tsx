@@ -12,9 +12,11 @@ import {
   NotFoundError,
   secret,
   type Synnax as Client,
+  user,
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { Access } from "@synnaxlabs/pluto";
 import {
   act,
   cleanup,
@@ -33,6 +35,7 @@ import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   assertDefined,
+  awaitGranted,
   awaitTextEditing,
   CaptureStatuses,
   clickAndSettle,
@@ -252,6 +255,30 @@ describe("secret/Toolbar", () => {
     );
   });
 
+  it("opens the users of a secret from the context menu", async () => {
+    const s = await createSecret(client, createdSecrets);
+    await renderToolbar();
+    await openMenu(s.name);
+    await clickAndSettle("Used by");
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Nothing uses this secret.");
+  });
+
+  it("opens the users on hover and closes them after the pointer leaves", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.pointerEnter(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(c.name);
+    fireEvent.pointerLeave(count);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("renames a certificate through the inline editor", async () => {
     const { certificate: c } = await createCertificate();
     await renderToolbar();
@@ -295,5 +322,37 @@ describe("secret/Toolbar", () => {
       }),
     });
     await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("hides the toolbar from a user who can read no credentials", async () => {
+    const { useVisible } = Secret.TOOLBAR;
+    assertDefined(useVisible);
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: useVisible(),
+        resolved: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+      }),
+      { client: await createTestClientWithGrants(client) },
+    );
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
+
+  it("offers to create a secret when there are no credentials", async () => {
+    const creator = await createTestClientWithGrants(client, {
+      create: [secret.TYPE_ONTOLOGY_ID],
+    });
+    await renderToolbar(creator);
+    await screen.findByText("No credentials");
+    fireEvent.click(await screen.findByText("Create secret"));
+    await screen.findByLabelText("Secret name");
+  });
+
+  it("offers no create action to a user who cannot create secrets", async () => {
+    const outsider = await createTestClientWithGrants(client);
+    await awaitGranted(outsider, user.TYPE_ONTOLOGY_ID, "retrieve");
+    await renderToolbar(outsider);
+    await screen.findByText("No credentials");
+    expect(screen.queryByText("Create secret")).toBeNull();
   });
 });
