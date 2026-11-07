@@ -151,8 +151,39 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
 			len(synth.Channels.Read) > 0 {
 			sym.Type = types.ReadChan(sym.Type)
+			return
 		}
 	}
+	// A flow would read the variable as a channel that does not exist.
+	if readsModuleConstant(ctx, expr) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"'%s' cannot be initialized from %s outside a function",
+			ident,
+			expr.GetText(),
+		))
+	}
+}
+
+func readsModuleConstant[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	tree antlr.Tree,
+) bool {
+	if qid, ok := tree.(parser.IQualifiedIdentifierContext); ok {
+		head, tail := parser.QualifiedNameParts(qid)
+		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
+			if sym, err := module.Resolve(ctx, tail); err == nil &&
+				sym.Kind == symbol.KindConstant {
+				return true
+			}
+		}
+	}
+	for _, child := range tree.GetChildren() {
+		if readsModuleConstant(ctx, child) {
+			return true
+		}
+	}
+	return false
 }
 
 // rhsTracksChannel reports whether expr binds a channel or reads one via a
