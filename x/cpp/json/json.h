@@ -9,13 +9,16 @@
 
 #pragma once
 
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 
 #include "nlohmann/json.hpp"
@@ -129,6 +132,11 @@ struct is_indirect<x::mem::indirect<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_indirect_v = is_indirect<T>::value;
 
+/// @brief true for the integer types whose range the parser checks.
+template<typename T>
+inline constexpr bool is_ranged_integer_v = std::is_integral_v<T> &&
+                                            !std::is_same_v<T, bool>;
+
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
 class Parser {
@@ -163,13 +171,61 @@ class Parser {
     template<typename T>
     T parse_value(const std::string &path, const json &j);
 
+    template<typename T>
+    void range_err(const std::string &path) const {
+        field_err(
+            path,
+            "must be between " + std::to_string(+std::numeric_limits<T>::min()) +
+                " and " + std::to_string(+std::numeric_limits<T>::max())
+        );
+    }
+
+    /// @returns whether j holds T after the truncation that get<T> applies.
+    template<typename T>
+    static bool fits(const json &j) {
+        if (j.is_number_unsigned()) return std::in_range<T>(j.get<uint64_t>());
+        if (j.is_number_integer()) return std::in_range<T>(j.get<int64_t>());
+        const double v = std::trunc(j.get<double>());
+        const double upper = std::ldexp(1.0, std::numeric_limits<T>::digits);
+        return v >= (std::is_signed_v<T> ? -upper : 0.0) && v < upper;
+    }
+
+    enum class IntegerRead { ok, not_a_number, out_of_range };
+
+    /// @brief reads an integer from text as std::istream reads one, then checks that it
+    /// fits T.
+    template<typename T>
+    static std::pair<T, IntegerRead> read_integer(const std::string &text) {
+        long long wide = 0;
+        if (std::istringstream wide_in(text); wide_in >> wide) {
+            if (std::in_range<T>(wide)) return {static_cast<T>(wide), IntegerRead::ok};
+            return {T(), IntegerRead::out_of_range};
+        }
+        // A failed read stores 0 when the text is not a number, else the limit it
+        // passed.
+        if (wide == 0) return {T(), IntegerRead::not_a_number};
+        unsigned long long above = 0;
+        if (std::istringstream above_in(text);
+            wide > 0 && above_in >> above && std::in_range<T>(above))
+            return {static_cast<T>(above), IntegerRead::ok};
+        return {T(), IntegerRead::out_of_range};
+    }
+
     /// @brief Helper to convert JSON key to map key type
     template<typename K>
     std::pair<K, bool>
     convert_key(const std::string &json_key, const std::string &path) {
         if constexpr (std::is_same_v<K, std::string>)
             return {json_key, true};
-        else if constexpr (std::is_arithmetic_v<K>) {
+        else if constexpr (is_ranged_integer_v<K>) {
+            const auto [map_key, read] = read_integer<K>(json_key);
+            if (read == IntegerRead::ok) return {map_key, true};
+            if (read == IntegerRead::out_of_range)
+                range_err<K>(path);
+            else
+                field_err(path, "Invalid numeric key: '" + json_key + "'");
+            return {K{}, false};
+        } else if constexpr (std::is_arithmetic_v<K>) {
             try {
                 K map_key;
                 if constexpr (std::is_integral_v<K>)
@@ -587,7 +643,21 @@ T Parser::parse_value(const std::string &path, const json &j) {
             return T::parse(child_parser);
     } else {
         try {
-            if constexpr (std::is_arithmetic_v<T>) {
+            if constexpr (is_ranged_integer_v<T>) {
+                if (j.is_string()) {
+                    const auto text = j.get<std::string>();
+                    const auto [value, read] = read_integer<T>(text);
+                    if (read == IntegerRead::not_a_number)
+                        field_err(path, "expected a number, got '" + text + "'");
+                    else if (read == IntegerRead::out_of_range)
+                        range_err<T>(path);
+                    return value;
+                }
+                if (j.is_number() && !fits<T>(j)) {
+                    range_err<T>(path);
+                    return T();
+                }
+            } else if constexpr (std::is_arithmetic_v<T>) {
                 if (j.is_string()) {
                     T value;
                     std::istringstream iss(j.get<std::string>());
