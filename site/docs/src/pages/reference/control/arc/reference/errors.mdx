@@ -180,11 +180,12 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item message={"'<name>' cannot be initialized from <expr> outside a function"}>
   <Problem.Cause>
-    A top-level or sequence variable reads a module constant such as `math.inf`, and no
-    channel.
+    A top-level or sequence variable reads an expression on a module constant, such as
+    `math.inf * 2.0`, and no channel. A constant on its own, such as `-math.inf`, is
+    allowed.
   </Problem.Cause>
   <Problem.Fix>
-    Use the constant in a function, or in an expression that reads a channel.
+    Use the expression in a function, or in an expression that reads a channel.
   </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"stateful variables cannot be declared at the top level"}>
