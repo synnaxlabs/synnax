@@ -27,6 +27,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// floatLiteral returns the type of an untyped float literal or constant.
+func floatLiteral() types.Type {
+	c := types.FloatConstraint()
+	return types.Variable("float", &c)
+}
+
+// integerLiteral returns the type of an untyped integer literal.
+func integerLiteral() types.Type {
+	c := types.IntegerConstraint()
+	return types.Variable("integer", &c)
+}
+
 // inferExprType is a helper that parses an expression and infers its type.
 func inferExprType(
 	bCtx context.Context,
@@ -922,6 +934,11 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
 			Entry(
 				"series to channel",
 				types.Chan(types.I32()),
@@ -950,6 +967,11 @@ var _ = Describe("Type Inference", func() {
 			},
 			Entry("same type f32", types.F32(), types.F32(), true),
 			Entry("same type i32", types.I32(), types.I32(), true),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
 			Entry("signed int to unsigned", types.U32(), types.I64(), true),
 			Entry("int to float", types.F64(), types.I64(), true),
 			Entry("float to wider float", types.F32(), types.F64(), true),

@@ -971,7 +971,13 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
 		sym, err := ctx.ResolveQualified(parser.IdentifierParts(idNode))
-		if err != nil || sym.Kind != symbol.KindChannel {
+		if err != nil {
+			return types.Type{}
+		}
+		if sym.Kind == symbol.KindConstant {
+			return constantType(ctx, idNode, sym)
+		}
+		if sym.Kind != symbol.KindChannel {
 			return types.Type{}
 		}
 		return sym.Type.Unwrap()

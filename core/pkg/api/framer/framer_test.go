@@ -291,6 +291,53 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Delete", func() {
+		It("Should delete data by exact name and not read a name as a pattern", func(
+			ctx SpecContext,
+		) {
+			index := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				telem.NewSeriesV[float32](1, 2, 3),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			hasData := func() bool {
+				GinkgoHelper()
+				iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				return iter.SeekFirst()
+			}
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name + ".*", data.Name + ".*"},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeTrue())
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name, data.Name},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeFalse())
+		})
+	})
+
 	Describe("Stream", func() {
 		var (
 			readable = ontology.ID{Type: ontology.ResourceTypeTask, Key: "readable"}

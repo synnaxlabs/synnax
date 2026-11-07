@@ -16,6 +16,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createRunningRack, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import { findDialogTrigger } from "@/testutil";
 
 const path = deep.path<{ config: { device: string } }>();
@@ -59,5 +60,22 @@ describe("EtherCAT.Device.SelectSlave", () => {
     fireEvent.click(await screen.findByText("Connect EtherCAT network"));
     await screen.findByText(sameNetwork.name);
     expect(screen.queryByText(otherNetwork.name)).toBeNull();
+  });
+
+  it("should configure a found slave in the EtherCAT form", async () => {
+    const rack = await createRunningRack(client, EtherCAT.Device.HARDWARE.key);
+    const found = await createSlaveDevice(client, rack.key, { network: "eth0" }, false);
+    await renderWithDeviceForm(
+      <>
+        <EtherCAT.Device.SelectSlave path={path.config.device} />
+        <Modals.Stack />
+      </>,
+      { deviceKey: "", client },
+    );
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await screen.findByText("Connect EtherCAT network"));
+    await screen.findByText(found.name);
+    fireEvent.click(findButton("Configure"));
+    expect(await screen.findByText("General")).toBeTruthy();
   });
 });
