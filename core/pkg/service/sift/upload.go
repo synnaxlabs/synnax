@@ -381,7 +381,7 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
-	_, err = e.CreateRun(ctx, ingest.Run{
+	_, err = e.SetRun(ctx, ingest.Run{
 		Key:       d.Range.String(),
 		Name:      s.Name,
 		TimeRange: d.TimeRange,
