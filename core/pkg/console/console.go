@@ -39,7 +39,7 @@ type Config struct {
 	// updater manifest latest.json and the files that it names.
 	UpdateFS fs.FS
 	// Insecure is true when the Core serves HTTP without TLS. It sets the scheme of the
-	// download URLs in the update manifest.
+	// download URLs in the update manifest when a request has no X-Forwarded-Proto.
 	Insecure *bool
 }
 
