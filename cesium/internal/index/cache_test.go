@@ -66,14 +66,6 @@ var _ = Describe("Cache", func() {
 				Expect(reads()).To(BeZero())
 			},
 		)
-
-		It("Should not cache an error", func(ctx SpecContext) {
-			missing := (20 * telem.SecondTS).Range(30 * telem.SecondTS)
-			Expect(cache.Distance(ctx, idx, missing, index.MustBeContinuous)).
-				Error().To(MatchError(index.ErrDiscontinuous))
-			Expect(cache.Distance(ctx, idx, missing, index.MustBeContinuous)).
-				Error().To(MatchError(index.ErrDiscontinuous))
-		})
 	})
 
 	Describe("Stamp", func() {
@@ -142,16 +134,52 @@ var _ = Describe("Cache", func() {
 		})
 	})
 
-	Describe("Nil", func() {
-		It("Should read the index on each lookup", func(ctx SpecContext) {
-			var nilCache *index.Cache
-			expected := MustSucceed(idx.Distance(ctx, tr, index.MustBeContinuous))
-			reads()
+	// A lookup runs one Cache lookup at ts.
+	type lookup func(SpecContext, *index.Cache, telem.TimeStamp) error
+	var (
+		distance lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
+			_, err := c.Distance(
+				ctx,
+				idx,
+				ts.Range(ts+telem.SecondTS),
+				index.MustBeContinuous,
+			)
+			return err
+		}
+		stamp lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
+			_, err := c.Stamp(ctx, idx, ts, 1, index.MustBeContinuous)
+			return err
+		}
+		segments lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
+			_, err := c.AppendSegments(ctx, idx, nil, ts, 0, 1)
+			return err
+		}
+	)
+
+	DescribeTable(
+		"Should not cache an error",
+		func(ctx SpecContext, run lookup) {
 			for range 2 {
-				Expect(nilCache.Distance(ctx, idx, tr, index.MustBeContinuous)).
-					To(Equal(expected))
+				Expect(run(ctx, cache, 20*telem.SecondTS)).
+					To(MatchError(index.ErrDiscontinuous))
+			}
+		},
+		Entry("Distance", distance),
+		Entry("Stamp", stamp),
+		Entry("AppendSegments", segments),
+	)
+
+	DescribeTable(
+		"Should read the index on each lookup of a nil Cache",
+		func(ctx SpecContext, run lookup) {
+			var nilCache *index.Cache
+			for range 2 {
+				Expect(run(ctx, nilCache, 2*telem.SecondTS)).To(Succeed())
 				Expect(reads()).To(BeNumerically(">", 0))
 			}
-		})
-	})
+		},
+		Entry("Distance", distance),
+		Entry("Stamp", stamp),
+		Entry("AppendSegments", segments),
+	)
 })
