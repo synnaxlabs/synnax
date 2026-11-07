@@ -34,6 +34,30 @@ const (
 	TickTypeTime TickType = v7.TickTypeTime
 )
 
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation = v7.Aggregation
+
+const (
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = v7.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
+	AggregationAverage Aggregation = v7.AggregationAverage
+)
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail = v7.Detail
+
+const (
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = v7.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
+	DetailMedium Detail = v7.DetailMedium
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = v7.DetailHigh
+)
+
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v7.XAxisKey
 
@@ -206,27 +230,3 @@ func (l LinePlot) Validate() error {
 	}
 	return v.Error()
 }
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation = v7.Aggregation
-
-const (
-	// AggregationMinMax draws the lowest and highest sample of each pixel group.
-	AggregationMinMax Aggregation = v7.AggregationMinMax
-	// AggregationAverage draws the mean of each pixel group.
-	AggregationAverage Aggregation = v7.AggregationAverage
-)
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail = v7.Detail
-
-const (
-	// DetailLow draws one sample group per four pixel columns.
-	DetailLow Detail = v7.DetailLow
-	// DetailMedium draws one sample group per two pixel columns.
-	DetailMedium Detail = v7.DetailMedium
-	// DetailHigh draws one sample group per pixel column.
-	DetailHigh Detail = v7.DetailHigh
-)

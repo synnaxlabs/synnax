@@ -25,6 +25,9 @@ import (
 // Key is a unique identifier for a saved view configuration.
 type Key = v1.Key
 
+// Base carries the fields shared by every view variant.
+type Base = v1.Base
+
 // Type names the resource that a view lists.
 type Type string
 
@@ -204,6 +207,3 @@ func (u *View) SetBase(base Base) {
 		panic(errors.Newf("View: cannot set the base of variant %T", variant))
 	}
 }
-
-// Base carries the fields shared by every view variant.
-type Base = v1.Base
