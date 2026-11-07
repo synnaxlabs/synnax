@@ -4289,9 +4289,8 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					),
 					))
-					_, _, err := w.Commit()
-					Expect(err).To(MatchError(validate.ErrValidation))
-					err = w.Close()
+					Expect(w.Commit()).Error().To(MatchError(validate.ErrValidation))
+					err := w.Close()
 					Expect(err).To(MatchError(validate.ErrValidation))
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
@@ -4363,9 +4362,11 @@ var _ = Describe("Writer Behavior", func() {
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 								},
 							)))
-							_, _, err := w.Commit()
-							Expect(err).To(MatchError(validate.ErrValidation))
-							err = w.Close()
+							Expect(
+								w.Commit(),
+							).Error().
+								To(MatchError(validate.ErrValidation))
+							err := w.Close()
 							Expect(err).To(MatchError(validate.ErrValidation))
 							Expect(err).To(MatchError(
 								ContainSubstring(fmt.Sprintf(
@@ -4393,9 +4394,11 @@ var _ = Describe("Writer Behavior", func() {
 									telem.NewSeriesV[float32](10, 11, 12, 13),
 								},
 							)))
-							_, _, err := w.Commit()
-							Expect(err).To(MatchError(validate.ErrValidation))
-							err = w.Close()
+							Expect(
+								w.Commit(),
+							).Error().
+								To(MatchError(validate.ErrValidation))
+							err := w.Close()
 							Expect(err).To(MatchError(validate.ErrValidation))
 							Expect(err).To(MatchError(
 								ContainSubstring(fmt.Sprintf(
@@ -4551,8 +4554,10 @@ var _ = Describe("Writer Behavior", func() {
 								telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 							},
 						)))
-						_, _, err := w.Commit()
-						Expect(err).To(MatchError(index.ErrDiscontinuous))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(index.ErrDiscontinuous))
 						Expect(w.Close()).To(MatchError(index.ErrDiscontinuous))
 					})
 					Specify("Index not defined at all", func(ctx SpecContext) {
