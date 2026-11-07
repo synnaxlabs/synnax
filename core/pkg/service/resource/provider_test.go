@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -45,6 +47,33 @@ func (e rackEntry) name() string { return e.Name }
 type entry interface {
 	gorp.Entry[string]
 	name() string
+}
+
+// laggingKV ignores the OnApplied option, as Aspen does, and calls applied after each
+// commit, before Gorp applies the index changes of the commit.
+type laggingKV struct {
+	kv.DB
+	applied func()
+}
+
+func (d laggingKV) OpenTx() kv.Tx {
+	return laggingTx{Tx: d.DB.OpenTx(), applied: d.applied}
+}
+
+type laggingTx struct {
+	kv.Tx
+	applied func()
+}
+
+func (t laggingTx) Commit(ctx context.Context, opts ...any) error {
+	if err := t.Tx.Commit(ctx, lo.Reject(opts, func(o any, _ int) bool {
+		_, ok := o.(kv.OnApplied)
+		return ok
+	})...); err != nil {
+		return err
+	}
+	t.applied()
+	return nil
 }
 
 // fixture is a Gorp table of E with the TableProvider for its records.
@@ -269,6 +298,43 @@ var _ = Describe("TableProvider", func() {
 					db,
 					search.Query[resource.ID]{Term: "pump", Limit: 2},
 				)).Keys).To(ConsistOf(channels.id("1"), channels.id("6")))
+			},
+		)
+
+		It(
+			"Should leave out a key that the index still holds after a delete",
+			func(ctx SpecContext) {
+				var (
+					armed     bool
+					searchErr error
+					lagging   *gorp.DB
+					p         *resource.TableProvider[string, channelEntry]
+				)
+				lagging = DeferClose(gorp.Wrap(
+					laggingKV{DB: memkv.New(), applied: func() {
+						if armed {
+							armed = false
+							_, searchErr = p.Search(
+								ctx,
+								lagging,
+								search.Query[resource.ID]{Term: "pump"},
+							)
+						}
+					}},
+					gorp.WithCodec(msgpack.Codec),
+					gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
+				))
+				f := openFixture[channelEntry](ctx, lagging, resource.TypeChannel)
+				cfg := f.config(resource.TypeChannel)
+				cfg.Hidden = func(*channelEntry) bool { return false }
+				p = resource.NewTableProvider(cfg)
+				f.create(ctx, lagging, channelEntry{Key: "1", Name: "pump"})
+				armed = true
+				Expect(f.table.NewDelete().
+					Where(gorp.MatchKeys[string, channelEntry]("1")).
+					Exec(ctx, lagging)).To(Succeed())
+				Expect(armed).To(BeFalse())
+				Expect(searchErr).ToNot(HaveOccurred())
 			},
 		)
 
