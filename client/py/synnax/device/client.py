@@ -24,7 +24,6 @@ from synnax.device.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.resource import ID as ResourceID
 from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
 from x.lists import normalize
