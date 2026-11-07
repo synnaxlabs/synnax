@@ -138,6 +138,18 @@ struct Operation {
     from_proto(const ::service::channel::pb::Operation &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching channels to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve channels.
 struct RetrieveRequest {
     /// @brief where selects the channels to retrieve. An absent where selects all of
@@ -151,6 +163,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

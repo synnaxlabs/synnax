@@ -426,6 +426,7 @@ type RequestManager struct {
 }
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	keys = keys.Unique()
 	added, removed := lo.Difference(keys, r.currKeys)
 	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
 		return err

@@ -12,6 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -94,6 +95,13 @@ func (s *mapScanner) Exec(
 		return msgpack.EncodedJSON{"latency_ms": 4.0}, nil
 	case "browse":
 		return nil, errors.New("broker refused the subscription")
+	case "test":
+		return nil, driver.Failure{
+			Message:     "Authentication failed",
+			Description: "Check the username and the password.",
+		}
+	case "huge":
+		return msgpack.EncodedJSON{"payload": strings.Repeat("x", 2<<20)}, nil
 	case "wait":
 		n := s.waiting.Add(1)
 		defer s.waiting.Add(-1)
@@ -138,6 +146,34 @@ func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
 	}
 	return t.Tx.Commit(ctx, opts...)
 }
+
+var _ = Describe("Fit", func() {
+	It("Should keep every item that fits", func() {
+		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{{"a", "b"}, {"c"}}))
+		Expect(kept).To(Equal([][]string{{"a", "b"}, {"c"}}))
+		Expect(truncated).To(BeFalse())
+	})
+
+	It("Should take one item of each list in turn", func() {
+		item := strings.Repeat("x", 300<<10)
+		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{
+			{item + "a", item + "b", item + "c"},
+			{item + "d"},
+		}))
+		Expect(kept).To(Equal([][]string{{item + "a", item + "b"}, {item + "d"}}))
+		Expect(truncated).To(BeTrue())
+	})
+
+	It("Should leave room for the rest of the answer", func() {
+		item := strings.Repeat("x", 300<<10)
+		rest := map[string]string{"shapes": strings.Repeat("y", 600<<10)}
+		kept, truncated := MustSucceed2(
+			driver.Fit(rest, [][]string{{item + "a", item + "b"}}),
+		)
+		Expect(kept).To(Equal([][]string{{item + "a"}}))
+		Expect(truncated).To(BeTrue())
+	})
+})
 
 var _ = Describe("ScanTask", func() {
 	var (
@@ -462,6 +498,41 @@ var _ = Describe("ScanTask", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
 					g.Expect(stat.Message).To(Equal("broker refused the subscription"))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should answer a failure with its message and description",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				Expect(st.Exec(ctx, task.Command{Type: "test", Key: "cmd-test"})).
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-test"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Authentication failed"))
+					g.Expect(stat.Description).
+						To(Equal("Check the username and the password."))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should answer a command whose data is over 1 MiB with an error",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				Expect(st.Exec(ctx, task.Command{Type: "huge", Key: "cmd-huge"})).
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-huge"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Answer too large"))
+					g.Expect(stat.Description).To(Equal(
+						"The answer holds 2.0 MiB of JSON, and a command answers with " +
+							"at most 1 MiB. Ask for less data, such as fewer topics.",
+					))
+					g.Expect(stat.Details.Data).To(BeNil())
 				}).Should(Succeed())
 			},
 		)
