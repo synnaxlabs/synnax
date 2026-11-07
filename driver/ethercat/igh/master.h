@@ -63,6 +63,9 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
     std::unordered_set<uint16_t> disabled_slaves;
+    /// @brief the mode the user chose for each slave that has a choice, keyed by
+    /// position.
+    std::map<uint16_t, dc::Choice> chosen_modes;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.

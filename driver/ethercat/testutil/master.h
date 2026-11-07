@@ -36,6 +36,7 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
+    std::map<uint16_t, dc::Choice> chosen_modes;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -264,14 +265,26 @@ public:
     void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
         std::lock_guard lock(this->mu);
         this->disabled_slaves.clear();
-        for (auto &[position, config]: configs)
+        this->chosen_modes.clear();
+        for (auto &[position, config]: configs) {
             if (!config.enabled) this->disabled_slaves.insert(position);
+            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+        }
     }
 
     /// @brief returns whether the latest settings enable the slave at a position.
     [[nodiscard]] bool slave_enabled(const uint16_t position) const {
         std::lock_guard lock(this->mu);
         return !this->disabled_slaves.contains(position);
+    }
+
+    /// @brief returns the mode that the latest settings choose for the slave at a
+    /// position, or nullopt when they choose none.
+    [[nodiscard]] std::optional<dc::Choice> chosen_mode(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        const auto it = this->chosen_modes.find(position);
+        if (it == this->chosen_modes.end()) return std::nullopt;
+        return it->second;
     }
 
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as

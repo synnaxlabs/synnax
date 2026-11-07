@@ -184,6 +184,54 @@ TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
+/// @brief it should fail activation on a chosen DC mode, as the IgH master does not run
+/// DC sync.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}}
+    );
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) cannot use its chosen mode: the IgH master does not run "
+        "DC sync"
+    );
+}
+
+/// @brief it should fail activation on a chosen cycle for an SM mode, as the SOEM
+/// master does.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs({{
+        0,
+        {.op_mode = dc::Choice{
+             .index = 0,
+             .assign_activate = 0,
+             .cycles = {.sync0 = x::telem::MILLISECOND},
+         }},
+    }});
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) cannot use its chosen mode: mode (AssignActivate 0x0000) "
+        "does not run SYNC0, so it cannot use a SYNC0 cycle of 1ms"
+    );
+    EXPECT_EQ(this->mock_api->slave_config_count(), 0u);
+}
+
+/// @brief it should run a slave in a chosen SM mode.
+TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs(
+        {{0, {.op_mode = dc::Choice{.index = 0, .assign_activate = 0}}}}
+    );
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
 /// @brief it should return an activation error that names the slave when its
 /// configuration fails.
 TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {

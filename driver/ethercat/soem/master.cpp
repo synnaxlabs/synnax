@@ -78,11 +78,13 @@ constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
 constexpr std::string_view
     DC_SYNC_ADVICE = "A slave that reports \"Invalid DC SYNC configuration\" "
                      "expects a synchronization mode that the Driver did not "
-                     "set up. The Driver uses SM sync when a slave lists an "
-                     "SM mode, and DC sync when it lists only DC modes. Set "
-                     "the slave to the mode that the Driver uses (in "
-                     "DewesoftX for Dewesoft modules), or disable the slave "
-                     "so the rest of the bus can run.";
+                     "set up. Set the DC mode of the slave in its device "
+                     "settings. With no setting, the Driver uses SM sync when "
+                     "the slave lists an SM mode, and its first DC mode when "
+                     "it lists only DC modes. If the slave does not list the "
+                     "mode it expects, change its mode with the configuration "
+                     "tool of its vendor, or disable the slave so the rest of "
+                     "the bus can run.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -182,8 +184,11 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();
-    for (auto &[position, config]: configs)
+    this->chosen_modes.clear();
+    for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+    }
 }
 
 x::errors::Error Master::activate(
@@ -1114,9 +1119,30 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
         if (this->disabled_slaves.contains(props.position)) continue;
-        const auto mode = dc::select(props.op_modes).first;
+        std::optional<dc::Choice> choice;
+        if (const auto it = this->chosen_modes.find(props.position);
+            it != this->chosen_modes.end())
+            choice = it->second;
+        const auto [mode, select_err] = dc::select(props.op_modes, choice);
+        if (select_err)
+            return {
+                {},
+                x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    std::format(
+                        "slave {} ({}) cannot use its chosen mode: {}",
+                        props.position,
+                        props.name,
+                        select_err.data
+                    )
+                )
+            };
         if (!mode) continue;
-        auto [regs, err] = dc::resolve(*mode, period);
+        auto [regs, err] = dc::resolve(
+            *mode,
+            period,
+            choice ? choice->cycles : dc::Cycles{}
+        );
         if (err)
             return {
                 {},

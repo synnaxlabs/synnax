@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <format>
 
 #include "absl/log/log.h"
 
@@ -114,8 +115,11 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
 void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
     this->disabled_slaves.clear();
-    for (auto &[position, config]: configs)
+    this->chosen_modes.clear();
+    for (auto &[position, config]: configs) {
         if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+    }
 }
 
 x::errors::Error
@@ -134,6 +138,25 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
         {
             std::lock_guard lock(this->mu);
             if (this->disabled_slaves.contains(pos)) continue;
+            const auto choice = this->chosen_modes.find(pos);
+            if (choice != this->chosen_modes.end()) {
+                const auto err = choice->second.assign_activate != 0
+                                   ? x::errors::Error(
+                                         errors::SLAVE_CONFIG_ERROR,
+                                         "the IgH master does not run DC sync"
+                                     )
+                                   : dc::check_cycles({}, choice->second.cycles);
+                if (err)
+                    return x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        std::format(
+                            "slave {} ({}) cannot use its chosen mode: {}",
+                            pos,
+                            slave.properties.name,
+                            err.data
+                        )
+                    );
+            }
         }
         if (this->get_or_create_slave_config(pos) == nullptr)
             return x::errors::Error(

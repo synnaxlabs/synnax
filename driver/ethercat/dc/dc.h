@@ -127,7 +127,6 @@ struct Cycles {
     bool operator==(const Cycles &) const = default;
 };
 
-namespace details {
 /// @brief returns errors::SLAVE_CONFIG_ERROR when cycles gives a cycle to a mode that
 /// cannot use it: one that does not run SYNC0, or one that gives the sync unit to the
 /// PDI.
@@ -153,7 +152,6 @@ inline x::errors::Error check_cycles(const OpMode &mode, const Cycles &cycles) {
                 )
             );
     return x::errors::NIL;
-}
 }
 
 /// @brief the mode that a user chose for a slave.
@@ -212,7 +210,7 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
     if (choice->index < modes.size() &&
         modes[choice->index].assign_activate == choice->assign_activate) {
         const auto &mode = modes[choice->index];
-        if (const auto err = details::check_cycles(mode, choice->cycles))
+        if (const auto err = check_cycles(mode, choice->cycles))
             return {std::nullopt, err};
         if (mode.assign_activate == 0) return {std::nullopt, x::errors::NIL};
         return {mode, x::errors::NIL};

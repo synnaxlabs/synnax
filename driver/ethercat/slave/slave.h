@@ -73,6 +73,8 @@ inline State from_al_state(const uint16_t al_state) {
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
 
     bool operator==(const Config &) const = default;
 };
@@ -103,13 +105,17 @@ struct Properties {
     std::vector<pdo::Properties> output_pdos;
     /// @brief synchronization modes the slave lists in its SII, in SII order.
     std::vector<dc::OpMode> op_modes;
+    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    std::optional<dc::Choice> op_mode;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
 
     /// @brief returns the settings the master applies to the slave when the bus starts.
-    [[nodiscard]] Config config() const { return {.enabled = this->enabled}; }
+    [[nodiscard]] Config config() const {
+        return {.enabled = this->enabled, .op_mode = this->op_mode};
+    }
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
@@ -138,6 +144,7 @@ struct Properties {
         props.position = static_cast<uint16_t>(parser.field<int>("position"));
         props.enabled = parser.field<bool>("enabled");
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
+        props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
@@ -169,6 +176,7 @@ struct Properties {
         for (const auto &mode: this->op_modes)
             op_modes.push_back(mode.to_json());
         props["op_modes"] = op_modes;
+        if (this->op_mode) props["op_mode"] = this->op_mode->to_json();
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)

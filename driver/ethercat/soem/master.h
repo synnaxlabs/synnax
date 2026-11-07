@@ -68,6 +68,9 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
     std::set<uint16_t> disabled_slaves;
+    /// @brief the mode the user chose for each slave that has a choice, keyed by
+    /// position.
+    std::map<uint16_t, dc::Choice> chosen_modes;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -203,11 +206,12 @@ private:
     /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
     x::errors::Error clear_dc_activation();
 
-    /// @brief returns the DC registers of each enabled slave that dc::select puts in a
-    /// DC mode, at a bus cycle of period.
-    /// @returns errors::SLAVE_CONFIG_ERROR when a mode gives values the registers
-    /// cannot hold, or when the SYNC0 cycles that mark process data share no
-    /// dc::MIN_EVENT_CYCLE grid or longer with the period.
+    /// @brief returns the DC registers of each enabled slave that runs a DC mode, the
+    /// chosen mode or the one dc::select picks, at a bus cycle of period.
+    /// @returns errors::SLAVE_CONFIG_ERROR when a slave cannot use its chosen mode,
+    /// when a mode gives values the registers cannot hold, or when the SYNC0 cycles
+    /// that mark process data share no dc::MIN_EVENT_CYCLE grid or longer with the
+    /// period.
     std::pair<std::vector<DCSetup>, x::errors::Error>
     resolve_dc(x::telem::TimeSpan period) const;
 

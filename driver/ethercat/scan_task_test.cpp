@@ -477,6 +477,41 @@ TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
     EXPECT_EQ(this->master->call_count("deactivate"), 0);
 }
 
+/// @brief it should keep the chosen mode of a slave when a scan finds the slave again.
+TEST_F(EtherCATScanStatusTest, KeepsTheChosenModeOnARescan) {
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    const dc::Choice choice{.index = 1, .assign_activate = 0x0700};
+    dev.properties["op_mode"] = choice.to_json();
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_EQ(rescanned.at(0).properties.at("op_mode"), choice.to_json());
+}
+
+/// @brief it should keep the invalid properties error of a saved device on a rescan.
+TEST_F(EtherCATScanStatusTest, KeepsTheInvalidPropertiesErrorOnARescan) {
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    dev.properties["op_mode"] = {
+        {"index", 1},
+        {"assign_activate", 0x0700},
+        {"sync0_cycle", -1},
+    };
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    const auto status = rescanned.at(0).status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Invalid device properties");
+    EXPECT_EQ(status.description, "op_mode.sync0_cycle: must be 0 or more");
+    EXPECT_FALSE(status.details.connected);
+}
+
 /// @brief it should not discover the slaves again while every slave has its PDOs.
 TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
     for (size_t i = 0; i < 13; ++i)

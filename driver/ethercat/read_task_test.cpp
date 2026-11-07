@@ -793,6 +793,38 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     read_task->exec(stop);
 }
 
+/// @brief it should run a slave in the mode chosen on its saved device when the bus
+/// starts.
+TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
+    const dc::Choice choice{.index = 1, .assign_activate = 0x0700};
+    auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    saved.properties["op_mode"] = choice.to_json();
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_EQ(this->mock_master->chosen_mode(1), choice);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+}
+
 /// @brief it should drop the settings of a deleted device at the next bus start.
 TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
