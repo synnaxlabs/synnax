@@ -106,6 +106,23 @@ var _ = Describe("Service", func() {
 				To(Succeed())
 		})
 
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grant(ctx, access.ActionCreate, user.OntologyID(u.Key), deviceType)
+			res := MustSucceed(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apidevice.CreateRequest{Devices: []device.Device{{
+					Rack:   svc.Rack.EmbeddedKey,
+					Name:   "Module",
+					Serial: uuid.New().String(),
+					Status: &device.Status{Message: "Connected"},
+				}}},
+			))
+			Expect(res.Devices[0].Status).To(BeNil())
+			Expect(svc.NI.Devices.NewWriter(nil).Delete(ctx, res.Devices[0].Key)).
+				To(Succeed())
+		})
+
 		It("Should reject the request when create is not granted", func(
 			ctx SpecContext,
 		) {
