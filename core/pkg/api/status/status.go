@@ -137,8 +137,7 @@ type SetResponse struct {
 }
 
 // Set creates or updates statuses in the cluster. It returns a validation error and
-// writes nothing if a status keyed by a rack, device, task, or channel carries details
-// that resource cannot decode.
+// writes nothing if a status carries details that its resolved owner cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -154,14 +153,18 @@ func (s *Service) Set(
 	}); err != nil {
 		return SetResponse{}, err
 	}
-	for i, st := range req.Statuses {
-		if err := validateDetails(st); err != nil {
+	w := s.internal.NewWriter(tx)
+	for i := range req.Statuses {
+		if err := w.Resolve(ctx, &req.Statuses[i]); err != nil {
+			return SetResponse{}, err
+		}
+		if err := validateDetails(req.Statuses[i]); err != nil {
 			return SetResponse{}, validate.PathedError(
 				err, "statuses", strconv.Itoa(i), "details",
 			)
 		}
 	}
-	if err := s.internal.NewWriter(tx).SetMany(ctx, &req.Statuses); err != nil {
+	if err := w.SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
 	}
 	return SetResponse(req), nil

@@ -77,7 +77,7 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 		if err := w.validate(*s); err != nil {
 			return err
 		}
-		if err := w.resolve(ctx, s); err != nil {
+		if err := w.Resolve(ctx, s); err != nil {
 			return err
 		}
 		if err := w.table.NewCreate().
@@ -143,7 +143,9 @@ func (w Writer) ownedKey(ctx context.Context, owner resource.ID) (Key, error) {
 	return keys[0], nil
 }
 
-func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
+// Resolve sets the key, labels, and owner of s to the ones Set would write, without
+// writing anything. Calling it again on the result changes nothing.
+func (w Writer) Resolve[D any](ctx context.Context, s *Status[D]) error {
 	if s.Owner != nil {
 		key, err := w.ownedKey(ctx, *s.Owner)
 		if err == nil {

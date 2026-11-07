@@ -116,6 +116,29 @@ var _ = Describe("Service.Set", func() {
 	)
 
 	It(
+		"Should check details against the stored owner on an update with no owner",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			valid := map[string]any{"running": true}
+			stored := MustSucceed(set(ctx, newStatus(&owner, valid))).Statuses[0]
+			update := newStatus(nil, "not an object")
+			update.Key = stored.Key
+			Expect(set(ctx, update)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.0.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			var res status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](stored.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Details).To(HaveKeyWithValue("running", true))
+		},
+	)
+
+	It(
 		"Should write nothing when one status in a batch is invalid",
 		func(ctx SpecContext) {
 			valid := newStatus(nil, nil)
