@@ -95,9 +95,8 @@ func componentFill(
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
 // component and a SetOnly fill per zero leaf that overrides a nested default. prefix is
-// the Go selector to the struct field (e.g. "X1"), structRef its
-// type, and val the literal. Nested struct components recurse with an extended
-// selector.
+// the Go selector to the struct field (e.g. "X1"), structRef its type, and val the
+// literal. Nested struct components recurse with an extended selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -113,8 +112,7 @@ func structDefaultFills(
 		return nil
 	}
 	// SetDefaults fills a type that sets defaults before these fills run, so a zero
-	// leaf
-	// must be written out to override it.
+	// leaf must be written out to override it.
 	defaulted := typeSetsDefaults(structRef, data, set.New[string]())
 	var fills []defaultFillData
 	for _, comp := range val.Fields {
@@ -146,8 +144,8 @@ func structDefaultFills(
 }
 
 // overrideFills returns the fills of a field that restates an inherited field's
-// default.
-// SetDefaults sets the parent's default first, so a zero default must be written out.
+// default. SetDefaults sets the parent's default first, so a zero default must be
+// written out.
 func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
 	if fill, ok := structOverrideFill(field, data); ok {
 		apply := goDefaultFills(field, data)
