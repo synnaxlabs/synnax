@@ -502,6 +502,16 @@ func analyzeIdentifierByRole(
 		if !isSink && isConstVar(sym) {
 			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
 		}
+		// A value variable with no node and no compile-time value has no channel to
+		// read or write.
+		if sym.IsLiteral() {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"cannot use '%s' in a flow: its initializer is not a compile-time constant",
+				name,
+			))
+			return flowNodeResult{}, false
+		}
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			if e := shell.varNodes[sym]; ok && e.register != nil {
