@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -27,12 +28,16 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/change"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/version"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("txn", func() {
@@ -445,6 +450,58 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("Recovery", func() {
+		It("Should return a cancel without logging an error", func(ctx SpecContext) {
+			MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			cCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			core, logs := observer.New(zap.InfoLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core, zap.Hooks(func(e zapcore.Entry) error {
+					if e.Message == "recovering lost key-value operations" {
+						cancel()
+					}
+					return nil
+				})),
+			}))
+			Expect(builder.New(
+				cCtx,
+				kv.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				},
+				cluster.Config{},
+			)).Error().To(MatchError(context.Canceled))
+			Expect(logs.FilterMessage("recovery failed").Len()).To(BeZero())
+		})
+
+		It("Should log a cancel that a peer returns on a live context", func(
+			ctx SpecContext,
+		) {
+			MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			for _, c := range builder.ClusterAPIs {
+				builder.RecoveryNet.StreamServer(c.Host().Address).BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[kv.RecoveryRequest, kv.RecoveryResponse],
+				) error {
+					if _, err := stream.Receive(); err != nil {
+						return err
+					}
+					return context.Canceled
+				})
+			}
+			core, logs := observer.New(zap.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			Expect(builder.New(
+				ctx,
+				kv.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				},
+				cluster.Config{},
+			)).Error().To(MatchError(context.Canceled))
+			Expect(logs.FilterMessage("recovery failed").Len()).To(Equal(1))
+		})
+
 		It("Should recover the state of the key-value store", func(ctx SpecContext) {
 			kv1 := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
