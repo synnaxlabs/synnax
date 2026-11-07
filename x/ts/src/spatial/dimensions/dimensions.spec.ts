@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { dimensions } from "@/spatial/dimensions";
 
@@ -20,14 +20,14 @@ describe("Dimensions", () => {
       ["from signed dimensions", { signedWidth: 1, signedHeight: 2 }],
       ["from XY", { x: 1, y: 2 }],
     ].forEach(([name, arg]) => {
-      test(name as string, () => {
+      it(name as string, () => {
         const xy = dimensions.construct(arg as dimensions.Crude);
         expect(xy.width).toEqual(1);
         expect(xy.height).toEqual(2);
       });
     });
   });
-  test("couple", () => {
+  it("couple", () => {
     const d = dimensions.construct([1, 2]);
     expect(dimensions.couple(d)).toEqual([1, 2]);
   });
@@ -41,7 +41,7 @@ describe("Dimensions", () => {
       [{ width: 1, height: 12 }, { signedWidth: 1, signedHeight: 12 }, true],
     ];
     TESTS.forEach(([one, two, expected], i) =>
-      test(`equals ${i}`, () => expect(dimensions.equals(one, two)).toEqual(expected)),
+      it(`equals ${i}`, () => expect(dimensions.equals(one, two)).toEqual(expected)),
     );
   });
 });

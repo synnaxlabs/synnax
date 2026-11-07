@@ -16,7 +16,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, test, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { NotFoundError, PathError, ValidationError } from "@/index";
@@ -39,7 +39,7 @@ const remote = createTestClient();
 
 describe("Channel", () => {
   describe("create", () => {
-    test("create one", async () => {
+    it("create one", async () => {
       const name = id.create();
       const channel = await client.channels.create({
         name,
@@ -52,7 +52,7 @@ describe("Channel", () => {
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     });
 
-    test("create calculated", async () => {
+    it("create calculated", async () => {
       const chOneName = id.create();
       let chOne = new channel.Channel({
         name: chOneName,
@@ -72,7 +72,7 @@ describe("Channel", () => {
       expect(calculatedCH.expression).toEqual(`return ${chOneName} * 2`);
     });
 
-    test("create calculated channel with constant expression", async () => {
+    it("create calculated channel with constant expression", async () => {
       // Calculated channels can now have constant expressions that don't
       // reference other channels
       const calculatedCH = await client.channels.create({
@@ -85,7 +85,7 @@ describe("Channel", () => {
       expect(calculatedCH.expression).toEqual(`return 2`);
     });
 
-    test("create index and indexed pair", async () => {
+    it("create index and indexed pair", async () => {
       const one = await client.channels.create({
         name: id.create(),
         isIndex: true,
@@ -100,7 +100,7 @@ describe("Channel", () => {
       expect(two.key).not.toEqual(0);
     });
 
-    test("create bool channel", async () => {
+    it("create bool channel", async () => {
       const idx = await client.channels.create({
         name: id.create(),
         isIndex: true,
@@ -116,7 +116,7 @@ describe("Channel", () => {
       expect(retrieved.dataType.equals(DataType.BOOLEAN)).toBe(true);
     });
 
-    test("create many", async () => {
+    it("create many", async () => {
       const names = [id.create(), id.create()];
       const channels = await client.channels.create([
         { name: names[0], leaseholder: 1, virtual: true, dataType: DataType.FLOAT32 },
@@ -127,7 +127,7 @@ describe("Channel", () => {
       expect(channels[1].name).toEqual(names[1]);
     });
 
-    test("create instances of channels", async () => {
+    it("create instances of channels", async () => {
       const timeIndexChannel = await client.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -228,7 +228,7 @@ describe("Channel", () => {
   });
 
   describe("retrieve", () => {
-    test("retrieve by key", async () => {
+    it("retrieve by key", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         leaseholder: 1,
@@ -241,12 +241,12 @@ describe("Channel", () => {
       expect(retrieved.virtual).toEqual(true);
       expect(retrieved.dataType).toEqual(DataType.FLOAT32);
     });
-    test("retrieve by key - not found", async () => {
+    it("retrieve by key - not found", async () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
-    test("reject a condition whose operator is undefined", async () => {
+    it("reject a condition whose operator is undefined", async () => {
       const name: string | undefined = undefined;
       await expect(
         client.channels.retrieve({ where: { name: { eq: name } } }),
@@ -257,7 +257,7 @@ describe("Channel", () => {
         ),
       );
     });
-    test("retrieve by name", async () => {
+    it("retrieve by name", async () => {
       const name = id.create();
       await client.channels.create({
         name,
@@ -269,12 +269,12 @@ describe("Channel", () => {
       expect(retrieved.length).toBe(1);
       expect(retrieved[0].name).toEqual(name);
     });
-    test("retrieve by key - not found", async () => {
+    it("retrieve by key - not found", async () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
-    test("retrieve by search term", async () => {
+    it("retrieve by search term", async () => {
       const prefix = id.create();
       const names = [`${prefix}_1`, `${prefix}_2`];
       await client.channels.create(
@@ -287,7 +287,7 @@ describe("Channel", () => {
         })
         .toEqual(names);
     });
-    test("retrieve by where", async () => {
+    it("retrieve by where", async () => {
       const prefix = `qry_${id.create()}`;
       const [a, , c] = await client.channels.create([
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
@@ -299,7 +299,7 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
-    test("retrieve by a flat filter", async () => {
+    it("retrieve by a flat filter", async () => {
       const prefix = `qry_${id.create()}`;
       const [a, , c] = await client.channels.create([
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
@@ -312,7 +312,7 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
-    test("match each name in a list exactly, never as a pattern", async () => {
+    it("match each name in a list exactly, never as a pattern", async () => {
       const prefix = `qry_${id.create()}`;
       const [a] = await client.channels.create([
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
@@ -321,7 +321,7 @@ describe("Channel", () => {
       const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
       expect(res.map((ch) => ch.key)).toEqual([a.key]);
     });
-    test("retrieve virtual channels without calculated channels", async () => {
+    it("retrieve virtual channels without calculated channels", async () => {
       const prefix = `qry_${id.create()}`;
       const virtual = await client.channels.create({
         name: `${prefix}_virtual`,
@@ -348,7 +348,7 @@ describe("Channel", () => {
   });
 
   describe("delete", async () => {
-    test("delete by key", async () => {
+    it("delete by key", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         leaseholder: 1,
@@ -360,7 +360,7 @@ describe("Channel", () => {
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(NotFoundError);
     });
-    test("delete by name", async () => {
+    it("delete by name", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         leaseholder: 1,
@@ -374,7 +374,7 @@ describe("Channel", () => {
     });
   });
   describe("rename", async () => {
-    test("single rename", async () => {
+    it("single rename", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         leaseholder: 1,
@@ -386,7 +386,7 @@ describe("Channel", () => {
       const renamed = await client.channels.retrieve(channel.key);
       expect(renamed.name).toEqual(newName);
     });
-    test("multiple rename", async () => {
+    it("multiple rename", async () => {
       const names = [id.create(), id.create()];
       const channels = await client.channels.create([
         { name: names[0], leaseholder: 1, virtual: true, dataType: DataType.FLOAT32 },
@@ -408,7 +408,7 @@ describe("Channel", () => {
   });
 
   describe("update calculations", () => {
-    test("update virtual channel expression", async () => {
+    it("update virtual channel expression", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         virtual: true,
@@ -434,7 +434,7 @@ describe("Channel", () => {
       expect(retrieved.expression).toEqual("return 2");
     });
 
-    test("update calculated channel name", async () => {
+    it("update calculated channel name", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         dataType: DataType.FLOAT32,

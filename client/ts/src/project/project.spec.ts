@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
@@ -20,7 +20,7 @@ const client = createTestClient();
 
 describe("Project", () => {
   describe("create", () => {
-    test("create one", async () => {
+    it("create one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -29,7 +29,7 @@ describe("Project", () => {
     });
   });
   describe("rename", () => {
-    test("rename one", async () => {
+    it("rename one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -39,7 +39,7 @@ describe("Project", () => {
     });
   });
   describe("delete", () => {
-    test("delete one", async () => {
+    it("delete one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -48,7 +48,7 @@ describe("Project", () => {
     });
   });
   describe("retrieve", () => {
-    test("retrieve projects by search term", async () => {
+    it("retrieve projects by search term", async () => {
       const prefix = `searchable-project-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.projects.create(names.map((name) => ({ name })));
@@ -59,14 +59,14 @@ describe("Project", () => {
         })
         .toEqual(names);
     });
-    test("throw a NotFoundError for a missing key in a key list", async () => {
+    it("throw a NotFoundError for a missing key in a key list", async () => {
       const proj = await client.projects.create({ name: "survivor" });
       const missing = uuid.create();
       await expect(client.projects.retrieve([proj.key, missing])).rejects.toThrow(
         new NotFoundError(`project with key ${missing} not found`),
       );
     });
-    test("omit missing keys from a filter on keys", async () => {
+    it("omit missing keys from a filter on keys", async () => {
       const proj = await client.projects.create({ name: "survivor" });
       const res = await client.projects.retrieve({
         where: { key: { in: [proj.key, uuid.create()] } },
@@ -82,7 +82,7 @@ describe("Project", () => {
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 
-    test("export documents and panels as a zip bundle", async () => {
+    it("export documents and panels as a zip bundle", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
       const l = await client.logs.create(proj.key, { name: "Metrics Log" });
       await client.panels.create({
@@ -107,7 +107,7 @@ describe("Project", () => {
       expect(archive).toContain("Controls.json");
     });
 
-    test("grouped members export into directories", async () => {
+    it("grouped members export into directories", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
       const g = await client.groups.create({
         parent: project.ontologyID(proj.key),
@@ -123,7 +123,7 @@ describe("Project", () => {
       expect(archive).toContain("Propulsion/Pressure.json");
     });
 
-    test("suffixes the second of two members taking one file name", async () => {
+    it("suffixes the second of two members taking one file name", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
       await client.logs.create(proj.key, { name: "Pressure" });
       await client.logs.create(proj.key, { name: "pressure" });
@@ -133,7 +133,7 @@ describe("Project", () => {
     });
   });
   describe("import", () => {
-    test("imports an exported bundle back as a fresh project", async () => {
+    it("imports an exported bundle back as a fresh project", async () => {
       const src = await client.projects.create({ name: `import-${id.create()}` });
       const l = await client.logs.create(src.key, { name: "Metrics" });
       await client.panels.create({
@@ -164,7 +164,7 @@ describe("Project", () => {
       expect(children.map(({ name }) => name).sort()).toEqual(["Controls", "Metrics"]);
     });
 
-    test("recreates group directories as groups", async () => {
+    it("recreates group directories as groups", async () => {
       const src = await client.projects.create({ name: `import-${id.create()}` });
       const g = await client.groups.create({
         parent: project.ontologyID(src.key),
@@ -190,7 +190,7 @@ describe("Project", () => {
       expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
     });
 
-    test("rejects a bundle without a manifest", async () => {
+    it("rejects a bundle without a manifest", async () => {
       // The 22-byte end-of-central-directory record alone: a valid, empty archive.
       const emptyArchive = new Uint8Array(22);
       emptyArchive.set([0x50, 0x4b, 0x05, 0x06]);

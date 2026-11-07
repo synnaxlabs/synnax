@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -31,7 +31,7 @@ const mkValue = (units?: string): table.CellConfig =>
 
 describe("Table", () => {
   describe("create", () => {
-    test("create one", async () => {
+    it("create one", async () => {
       const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
@@ -44,7 +44,7 @@ describe("Table", () => {
   });
 
   describe("rename", () => {
-    test("rename one", async () => {
+    it("rename one", async () => {
       const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
@@ -56,7 +56,7 @@ describe("Table", () => {
   });
 
   describe("delete", () => {
-    test("delete one", async () => {
+    it("delete one", async () => {
       const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
@@ -67,7 +67,7 @@ describe("Table", () => {
   });
 
   describe("cell config round-trip", () => {
-    test("round-trips a fully-populated value cell config", async () => {
+    it("round-trips a fully-populated value cell config", async () => {
       const proj = await client.projects.create({ name: "ConfigTest" });
       const t = await client.tables.create(proj.key, {
         name: "ConfigTest",
@@ -107,7 +107,7 @@ describe("Table", () => {
       expect(cfg.stalenessTimeout).toEqual(5);
     });
 
-    test("rejects a cell config that matches no variant", async () => {
+    it("rejects a cell config that matches no variant", async () => {
       const proj = await client.projects.create({ name: "BadConfig" });
       await expect(
         client.tables.create(proj.key, {
@@ -137,14 +137,14 @@ describe("Table", () => {
       });
     };
 
-    test("rename applies via dispatch", async () => {
+    it("rename applies via dispatch", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.rename({ name: "renamed" })]);
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("renamed");
     });
 
-    test("addRow appends a row and its cells", async () => {
+    it("addRow appends a row and its cells", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.addRow({
@@ -163,7 +163,7 @@ describe("Table", () => {
       expect(res.cells.c).toEqual(mkText("C"));
     });
 
-    test("addRow derives the same bootstrap column keys as the Core", async () => {
+    it("addRow derives the same bootstrap column keys as the Core", async () => {
       const proj = await client.projects.create({ name: "Dispatch" });
       const t = await client.tables.create(proj.key, { name: "Dispatch" });
       const action = table.addRow({
@@ -179,7 +179,7 @@ describe("Table", () => {
       expect(res.columns).toEqual(table.reduceAll(t, [action]).next.columns);
     });
 
-    test("removeRow drops the row and its cells", async () => {
+    it("removeRow drops the row and its cells", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.removeRow({ key: "r0" })]);
       const res = await client.tables.retrieve(t.key);
@@ -187,7 +187,7 @@ describe("Table", () => {
       expect(Object.keys(res.cells)).toEqual([]);
     });
 
-    test("addCol inserts a column at the given index across every row", async () => {
+    it("addCol inserts a column at the given index across every row", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.addCol({
@@ -202,7 +202,7 @@ describe("Table", () => {
       expect(res.rows[0].cells).toEqual(["a", "mid-1", "b"]);
     });
 
-    test("removeCol drops every cell in that column", async () => {
+    it("removeCol drops every cell in that column", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [table.removeCol({ key: "c0" })]);
       const res = await client.tables.retrieve(t.key);
@@ -211,7 +211,7 @@ describe("Table", () => {
       expect(res.cells.a).toBeUndefined();
     });
 
-    test("resize actions update size in place", async () => {
+    it("resize actions update size in place", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.resizeRow({ key: "r0", size: 55 }),
@@ -222,7 +222,7 @@ describe("Table", () => {
       expect(res.columns[1].size).toEqual(200);
     });
 
-    test("setCell replaces an existing cell", async () => {
+    it("setCell replaces an existing cell", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.setCell({
@@ -233,7 +233,7 @@ describe("Table", () => {
       expect(res.cells.a).toEqual(mkValue("psi"));
     });
 
-    test("setCell is a no-op for an unknown key", async () => {
+    it("setCell is a no-op for an unknown key", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.setCell({ cell: { key: "ghost", config: mkText() } }),
@@ -243,7 +243,7 @@ describe("Table", () => {
       expect(Object.keys(res.cells).sort()).toEqual(["a", "b"]);
     });
 
-    test("multi-action sequence applies atomically", async () => {
+    it("multi-action sequence applies atomically", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.rename({ name: "multi" }),
@@ -320,7 +320,7 @@ describe("Table", () => {
     };
 
     describe("inverses", () => {
-      test("rename produces a rename inverse with the old name", () => {
+      it("rename produces a rename inverse with the old name", () => {
         const { next, inverse } = table.reduceAll(emptyState("before"), [
           table.rename({ name: "after" }),
         ]);
@@ -332,7 +332,7 @@ describe("Table", () => {
         );
       });
 
-      test("addRow inverse removes the added row by its key", () => {
+      it("addRow inverse removes the added row by its key", () => {
         const { inverse } = table.reduceAll(emptyState(), [
           table.addRow({
             index: 0,
@@ -344,7 +344,7 @@ describe("Table", () => {
         expect(inverse).toEqual([table.removeRow({ key: "n" })]);
       });
 
-      test("setCell inverse restores the previous cell value", () => {
+      it("setCell inverse restores the previous cell value", () => {
         const { next, inverse } = table.reduceAll(
           {
             ...emptyState(),
@@ -368,7 +368,7 @@ describe("Table", () => {
           });
       });
 
-      test("setCell on an unknown key returns no inverse", () => {
+      it("setCell on an unknown key returns no inverse", () => {
         const { inverse } = table.reduceAll(emptyState(), [
           table.setCell({ cell: { key: "ghost", config: mkText() } }),
         ]);
@@ -377,7 +377,7 @@ describe("Table", () => {
     });
 
     describe("bootstrap", () => {
-      test("addRow on an empty table bootstraps one default column per cell", () => {
+      it("addRow on an empty table bootstraps one default column per cell", () => {
         const { next } = table.reduceAll(emptyState(), [
           table.addRow({
             index: 0,
@@ -397,7 +397,7 @@ describe("Table", () => {
         expect(next.rows[0].cells).toEqual(["a", "b"]);
       });
 
-      test("addCol on an empty table bootstraps one default row per cell", () => {
+      it("addCol on an empty table bootstraps one default row per cell", () => {
         const { next } = table.reduceAll(emptyState(), [
           table.addCol({
             index: 0,
@@ -423,7 +423,7 @@ describe("Table", () => {
         config: mkText("t"),
       };
 
-      test("addRow replicates the template across existing columns", () => {
+      it("addRow replicates the template across existing columns", () => {
         const { next } = table.reduceAll(
           {
             ...emptyState(),
@@ -443,7 +443,7 @@ describe("Table", () => {
         expect(next.cells[DERIVED_KEY_0]).toEqual(mkText("t"));
       });
 
-      test("addCol replicates the template across existing rows", () => {
+      it("addCol replicates the template across existing rows", () => {
         const { next } = table.reduceAll(
           {
             ...emptyState(),
@@ -463,7 +463,7 @@ describe("Table", () => {
         expect(next.rows[1].cells).toEqual(["b", DERIVED_KEY_1]);
       });
 
-      test("addCol with template adds an empty column when rows are empty", () => {
+      it("addCol with template adds an empty column when rows are empty", () => {
         const { next } = table.reduceAll(
           {
             ...emptyState(),
@@ -479,7 +479,7 @@ describe("Table", () => {
         expect(next.cells).toEqual({});
       });
 
-      test("addRow with template adds an empty row when columns are empty", () => {
+      it("addRow with template adds an empty row when columns are empty", () => {
         const { next } = table.reduceAll(
           { ...emptyState(), rows: [{ key: "r0", size: 36, cells: [] }] },
           [table.addRow({ index: 1, size: 36, cells: [], cellTemplate: template })],
@@ -489,7 +489,7 @@ describe("Table", () => {
         expect(next.cells).toEqual({});
       });
 
-      test("addRow with template on an empty table produces a 1x1 grid", () => {
+      it("addRow with template on an empty table produces a 1x1 grid", () => {
         const { next } = table.reduceAll(emptyState(), [
           table.addRow({
             index: 0,
@@ -516,7 +516,7 @@ describe("Table", () => {
         columns: [{ key: "c0", size: 80 }],
         cells: { a: mkText() },
       };
-      test.for<{
+      it.for<{
         name: string;
         state: table.Table;
         action: table.Action;
@@ -563,7 +563,7 @@ describe("Table", () => {
     describe("move", () => {
       const cellsOf = (t: table.Table): string[][] => t.rows.map((r) => r.cells);
 
-      test.for<{ name: string; action: table.Action; expected: string[][] }>([
+      it.for<{ name: string; action: table.Action; expected: string[][] }>([
         {
           name: "moveRow forward",
           action: table.moveRow({ key: "r0", to: 2 }),
@@ -627,7 +627,7 @@ describe("Table", () => {
         expect(restored).toEqual(original);
       });
 
-      test("moveRow carries the row's key and size", () => {
+      it("moveRow carries the row's key and size", () => {
         const state = createTable3x3();
         state.rows[0].size = 50;
         const { next } = table.reduceAll(state, [table.moveRow({ key: "r0", to: 2 })]);
@@ -638,7 +638,7 @@ describe("Table", () => {
         ]);
       });
 
-      test("moveCol carries the column's key and size", () => {
+      it("moveCol carries the column's key and size", () => {
         const state = createTable3x3();
         state.columns[0].size = 120;
         const { next } = table.reduceAll(state, [table.moveCol({ key: "c0", to: 2 })]);
@@ -649,7 +649,7 @@ describe("Table", () => {
         ]);
       });
 
-      test("undo returns the moved row after another session moves a row", () => {
+      it("undo returns the moved row after another session moves a row", () => {
         const { next, inverse } = table.reduceAll(createTable3x3(), [
           table.moveRow({ key: "r0", to: 2 }),
         ]);
@@ -658,7 +658,7 @@ describe("Table", () => {
         expect(undone.rows.map((r) => r.key)).toEqual(["r0", "r2", "r1"]);
       });
 
-      test("moveCol leaves a row missing a cell at either index unchanged", () => {
+      it("moveCol leaves a row missing a cell at either index unchanged", () => {
         const state = createTable3x3();
         state.rows[1].cells = ["d", "e"];
         const { next, inverse } = table.reduceAll(state, [
@@ -674,7 +674,7 @@ describe("Table", () => {
     });
 
     describe("keys", () => {
-      test.for<{ name: string; action: table.Action; targets: string[] }>([
+      it.for<{ name: string; action: table.Action; targets: string[] }>([
         {
           name: "addRow",
           action: table.addRow({
@@ -720,7 +720,7 @@ describe("Table", () => {
         expect([...result.targets].sort()).toEqual(targets);
       });
 
-      test.for<{ name: string; action: table.Action }>([
+      it.for<{ name: string; action: table.Action }>([
         { name: "removeRow", action: table.removeRow({ key: "c0" }) },
         { name: "removeCol", action: table.removeCol({ key: "r0" }) },
         { name: "resizeRow", action: table.resizeRow({ key: "ghost", size: 50 }) },
@@ -736,7 +736,7 @@ describe("Table", () => {
     });
 
     describe("eraseCells", () => {
-      test.for<{
+      it.for<{
         name: string;
         cells: string[];
         rows: number;
@@ -780,7 +780,7 @@ describe("Table", () => {
         if (row0 != null) expect(next.rows[0].cells).toEqual(row0);
       });
 
-      test("resets surviving cells to the template variant", () => {
+      it("resets surviving cells to the template variant", () => {
         const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["b", "e"], template: textTemplate }),
         ]);
@@ -789,14 +789,14 @@ describe("Table", () => {
         expect(next.cells.a.variant).toEqual("value");
       });
 
-      test("drops cells from the map when their row is fully removed", () => {
+      it("drops cells from the map when their row is fully removed", () => {
         const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["d", "e", "f"], template: textTemplate }),
         ]);
         for (const k of ["d", "e", "f"]) expect(next.cells[k]).toBeUndefined();
       });
 
-      test("inverse restores the prior state on undo", () => {
+      it("inverse restores the prior state on undo", () => {
         const state = createTable3x3();
         const { next, inverse } = table.reduceAll(state, [
           table.eraseCells({
@@ -809,14 +809,14 @@ describe("Table", () => {
         expect(restored).toEqual(state);
       });
 
-      test("empty selection returns no inverse", () => {
+      it("empty selection returns no inverse", () => {
         const { inverse } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: [], template: textTemplate }),
         ]);
         expect(inverse).toEqual([]);
       });
 
-      test("inverse round-trips when payload.cells contains duplicates", () => {
+      it("inverse round-trips when payload.cells contains duplicates", () => {
         const state = createTable3x3();
         const { next, inverse } = table.reduceAll(state, [
           table.eraseCells({ cells: ["b", "b", "b"], template: textTemplate }),
@@ -835,7 +835,7 @@ describe("Table", () => {
         expect(restored).toEqual(original);
       };
 
-      test.for<{ name: string; action: table.Action }>([
+      it.for<{ name: string; action: table.Action }>([
         { name: "rename", action: table.rename({ name: "after" }) },
         {
           name: "addRow",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { box } from "@/spatial/box";
 import { type location } from "@/spatial/location";
@@ -126,7 +126,7 @@ describe("sticky", () => {
       },
     ];
     SPECS.forEach(({ pos, expected }, i) => {
-      test(`toCSS ${i}`, () => {
+      it(`toCSS ${i}`, () => {
         expect(sticky.toCSS(pos)).toEqual(expected);
       });
     });
@@ -170,7 +170,7 @@ describe("sticky", () => {
       { value: { x: 10, y: 20, units: { x: "px", y: "invalid" } }, valid: false },
     ];
     SPECS.forEach(({ value, valid }, i) => {
-      test(`xy schema ${i}`, () => {
+      it(`xy schema ${i}`, () => {
         expect(sticky.xyZ.validate(value)).toBe(valid);
       });
     });
@@ -231,7 +231,7 @@ describe("sticky", () => {
       },
     ];
     SPECS.forEach(({ value, valid }, i) => {
-      test(`completeXY schema ${i}`, () => {
+      it(`completeXY schema ${i}`, () => {
         expect(sticky.completeXYZ.validate(value)).toBe(valid);
       });
     });
@@ -345,7 +345,7 @@ describe("sticky", () => {
       },
     ];
     SPECS.forEach(({ position, element, container, expected }, i) => {
-      test(`toDecimal ${i}`, () => {
+      it(`toDecimal ${i}`, () => {
         const result = sticky.toDecimal({ position, element, container });
         expect(result.x).toBeCloseTo(expected.x, 4);
         expect(result.y).toBeCloseTo(expected.y, 4);
@@ -477,7 +477,7 @@ describe("sticky", () => {
       },
     ];
     SPECS.forEach(({ position, element, container, expected }, i) => {
-      test(`calculate ${i}`, () => {
+      it(`calculate ${i}`, () => {
         const result = sticky.calculate({ position, element, container });
         expect(result).not.toBeNull();
         if (result == null) return;
@@ -613,7 +613,7 @@ describe("sticky", () => {
         { position, element, container, lowerThreshold, upperThreshold, expected },
         i,
       ) => {
-        test(`calculate with custom thresholds ${i}`, () => {
+        it(`calculate with custom thresholds ${i}`, () => {
           const result = sticky.calculate({
             position,
             element,

@@ -9,7 +9,7 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, onTestFinished, test, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
@@ -132,13 +132,13 @@ describe("Ontology", () => {
   });
 
   describe("retrieve", () => {
-    test("retrieve", async () => {
+    it("retrieve", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(name);
     });
-    test("reject a malformed ID", async () => {
+    it("reject a malformed ID", async () => {
       await expect(
         // @ts-expect-error - "bad" is not a resource type.
         client.ontology.retrieve({ type: "bad", key: "1" }),
@@ -148,13 +148,13 @@ describe("Ontology", () => {
           '  ✗ "type": "bad",  × expected one of [',
       );
     });
-    test("retrieve by string ID", async () => {
+    it("retrieve by string ID", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const g2 = await client.ontology.retrieve(`group:${g.key}`);
       expect(g2.name).toEqual(name);
     });
-    test("retrieve children", async () => {
+    it("retrieve children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
@@ -168,7 +168,7 @@ describe("Ontology", () => {
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
-    test("retrieve parents", async () => {
+    it("retrieve parents", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
@@ -182,7 +182,7 @@ describe("Ontology", () => {
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
-    test("retrieve by search term", async () => {
+    it("retrieve by search term", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       await expect
@@ -192,7 +192,7 @@ describe("Ontology", () => {
         })
         .toMatchObject({ name, id: { type: "group", key: g.key } });
     });
-    test("retrieve by search term under a root", async () => {
+    it("retrieve by search term under a root", async () => {
       const name = randomName();
       const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -213,7 +213,7 @@ describe("Ontology", () => {
         )
         .toEqual([inside.key]);
     });
-    test("refetch a subscribed search under a root when a parent link changes", async () => {
+    it("refetch a subscribed search under a root when a parent link changes", async () => {
       const match: ontology.Resource = {
         key: "group:match",
         id: { type: "group", key: "match" },
@@ -250,7 +250,7 @@ describe("Ontology", () => {
         off();
       }
     });
-    test("retrieve by search term for the given types only", async () => {
+    it("retrieve by search term for the given types only", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const found = async (types: ontology.ResourceType[]): Promise<boolean> =>
@@ -260,7 +260,7 @@ describe("Ontology", () => {
       await expect.poll(async () => await found(["group"])).toBe(true);
       expect(await found(["channel"])).toBe(false);
     });
-    test("page through search results with a limit and an offset", async () => {
+    it("page through search results with a limit and an offset", async () => {
       const token = `page${Math.random().toString(36).slice(2)}`;
       const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -506,7 +506,7 @@ describe("Ontology", () => {
   });
 
   describe("write", () => {
-    test("add children", async () => {
+    it("add children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
@@ -524,7 +524,7 @@ describe("Ontology", () => {
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
-    test("remove children", async () => {
+    it("remove children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
@@ -545,7 +545,7 @@ describe("Ontology", () => {
       });
       expect(children.length).toEqual(0);
     });
-    test("move children", async () => {
+    it("move children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();

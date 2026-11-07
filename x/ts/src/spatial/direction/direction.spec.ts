@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { direction } from "@/spatial/direction";
 
@@ -19,7 +19,7 @@ describe("Direction", () => {
       ["from literal", "y"],
     ];
     TESTS.forEach(([name, arg]) =>
-      test(name, () => expect(direction.construct(arg)).toEqual("y")),
+      it(name, () => expect(direction.construct(arg)).toEqual("y")),
     );
   });
 

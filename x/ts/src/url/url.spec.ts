@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { url } from "@/url";
 
 describe("URL", () => {
-  test("URL - child", () => {
+  it("URL - child", () => {
     const endpoint = new url.URL({
       host: "localhost",
       port: 8080,
@@ -22,7 +22,7 @@ describe("URL", () => {
     expect(endpoint.child("test").toString()).toEqual("http://localhost:8080/api/test");
   });
 
-  test("URL - child with trailing slash", () => {
+  it("URL - child with trailing slash", () => {
     const endpoint = new url.URL({
       host: "localhost",
       port: 8080,
@@ -33,7 +33,7 @@ describe("URL", () => {
     expect(child.toString()).toEqual("http://localhost:8080/api/test");
   });
 
-  test("URL - replacing protocol", () => {
+  it("URL - replacing protocol", () => {
     const endpoint = new url.URL({
       host: "localhost",
       port: 8080,
@@ -47,17 +47,17 @@ describe("URL", () => {
 });
 
 describe("base64", () => {
-  test("encodeBase64 - produces unpadded url-safe output", () => {
+  it("encodeBase64 - produces unpadded url-safe output", () => {
     const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
     expect(encoded).not.toMatch(/[+/=]/);
   });
 
-  test("encodeBase64 / decodeBase64 - round trips", () => {
+  it("encodeBase64 / decodeBase64 - round trips", () => {
     const value = JSON.stringify({ is_block: true, name: "valve ⚡" });
     expect(url.decodeBase64(url.encodeBase64(value))).toEqual(value);
   });
 
-  test("encodeBase64 - stable through URI canonicalization", () => {
+  it("encodeBase64 - stable through URI canonicalization", () => {
     const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
     const uri = `arc://block/test#${encoded}`;
     expect(new globalThis.URL(uri).toString()).toEqual(uri);

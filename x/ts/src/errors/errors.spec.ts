@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { errors } from "@/errors";
 
@@ -53,7 +53,7 @@ describe("errors", () => {
       expect(ErrorOne.matches(decoded)).toBe(true);
     });
 
-    test("should correctly encode/decode a null error", () => {
+    it("should correctly encode/decode a null error", () => {
       const encoded = errors.encode(null);
       expect(encoded.type).toEqual(errors.NONE);
       expect(encoded.data).toEqual("");

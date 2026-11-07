@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
@@ -15,49 +15,49 @@ import { type xy } from "@/spatial/xy";
 
 describe("Box", () => {
   describe("construction", () => {
-    test("from dom rect", () => {
+    it("from dom rect", () => {
       const b = box.construct({ left: 0, top: 0, right: 10, bottom: 10 });
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from two points", () => {
+    it("from two points", () => {
       const b = box.construct({ x: 0, y: 0 }, { x: 10, y: 10 });
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from point and dimensions", () => {
+    it("from point and dimensions", () => {
       const b = box.construct({ x: 0, y: 0 }, { width: 10, height: 10 });
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from point and width and height", () => {
+    it("from point and width and height", () => {
       const b = box.construct({ x: 0, y: 0 }, 10, 10);
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from raw params", () => {
+    it("from raw params", () => {
       const b = box.construct(0, 0, 10, 10);
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from first coordinate and raw params", () => {
+    it("from first coordinate and raw params", () => {
       const b = box.construct({ x: 0, y: 0 }, 10, 10);
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
-    test("from first coordinate and raw params 2", () => {
+    it("from first coordinate and raw params 2", () => {
       const b = box.construct({ x: 0, y: 0 }, undefined, 10, 10);
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
@@ -96,7 +96,7 @@ describe("Box", () => {
       const v: location.Outer[] = ["left", "right", "top", "bottom"];
       const expected: number[] = [20, 60, 30, 80];
       v.forEach((v, i) => {
-        test(`loc-${v}`, () => expect(box.loc(b, v)).toEqual(expected[i]));
+        it(`loc-${v}`, () => expect(box.loc(b, v)).toEqual(expected[i]));
       });
     });
     describe("xyLoc", () => {
@@ -121,7 +121,7 @@ describe("Box", () => {
         { x: 60, y: 30 },
       ];
       v.forEach((v, i) => {
-        test(`xyLoc-${location.xyToString(v)}`, () =>
+        it(`xyLoc-${location.xyToString(v)}`, () =>
           expect(box.xyLoc(b, v)).toEqual(expected[i]));
       });
     });
@@ -441,7 +441,7 @@ describe("Box", () => {
       },
     ];
     SPECS.forEach(({ box: b, loc, expected }) => {
-      test(`edgePoints-${loc}`, () => {
+      it(`edgePoints-${loc}`, () => {
         expect(box.edgePoints(b, loc)).toEqual(expected);
       });
     });

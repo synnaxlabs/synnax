@@ -17,7 +17,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
 import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
@@ -48,7 +48,7 @@ const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
 
 describe("Streamer", () => {
   describe("standard", () => {
-    test("happy path", async () => {
+    it("happy path", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
@@ -64,7 +64,7 @@ describe("Streamer", () => {
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
     });
 
-    test("bool stream round-trip", async () => {
+    it("bool stream round-trip", async () => {
       const ch = await newVirtualBoolChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
@@ -83,7 +83,7 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
-    test("should stamp each sample of a virtual series 1ns apart with the Core's clock", async () => {
+    it("should stamp each sample of a virtual series 1ns apart with the Core's clock", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
@@ -115,7 +115,7 @@ describe("Streamer", () => {
       const after = TimeStamp.now().add(skew);
       expect(series.timeRange.start.beforeEq(after)).toBe(true);
     });
-    test("should deliver series stamped with the index's time range", async () => {
+    it("should deliver series stamped with the index's time range", async () => {
       const channels = await newIndexedPair(client);
       const [index, data] = channels;
       const streamer = await client.openStreamer(channels.map((c) => c.key));
@@ -137,7 +137,7 @@ describe("Streamer", () => {
       streamer.close();
     });
 
-    test("open with config", async () => {
+    it("open with config", async () => {
       const ch = await newVirtualChannel(client);
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
     });
@@ -259,7 +259,7 @@ describe("Streamer", () => {
       });
     });
     describe("excludeGroups", () => {
-      test("should filter out frames from a writer whose group matches", async () => {
+      it("should filter out frames from a writer whose group matches", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -283,7 +283,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("should deliver frames from a writer whose group does not match", async () => {
+      it("should deliver frames from a writer whose group does not match", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -304,7 +304,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("should deliver frames from a writer with group 0 even if 0 is excluded", async () => {
+      it("should deliver frames from a writer with group 0 even if 0 is excluded", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -328,12 +328,12 @@ describe("Streamer", () => {
     describe("downsampling", () => {
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
-      test.each([-1, 1.5, 2 ** 32])("rejects a factor of %s", (factor) => {
+      it.each([-1, 1.5, 2 ** 32])("rejects a factor of %s", (factor) => {
         expect(() =>
           framer.streamerConfigZ.parse({ channels: [], downsampleFactor: factor }),
         ).toThrow();
       });
-      test("downsample factor of 1", async () => {
+      it("downsample factor of 1", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -351,7 +351,7 @@ describe("Streamer", () => {
         const d = await streamer.read();
         expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3, 4, 5]);
       });
-      test("downsample factor of 2", async () => {
+      it("downsample factor of 2", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -369,7 +369,7 @@ describe("Streamer", () => {
         const d = await streamer.read();
         expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5, 7, 9]);
       });
-      test("downsample factor of 10", async () => {
+      it("downsample factor of 10", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -390,7 +390,7 @@ describe("Streamer", () => {
     });
 
     describe("throttling", () => {
-      test("throttle at 60Hz", async () => {
+      it("throttle at 60Hz", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -431,7 +431,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("no throttling with rate of 0", async () => {
+      it("no throttling with rate of 0", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -451,7 +451,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("combine throttling and downsampling", async () => {
+      it("combine throttling and downsampling", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
           channels: ch.key,
@@ -474,7 +474,7 @@ describe("Streamer", () => {
     });
 
     describe("calculations", () => {
-      test("basic calculated channel streaming", async () => {
+      it("basic calculated channel streaming", async () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
@@ -528,7 +528,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("calculated channel with constant", async () => {
+      it("calculated channel with constant", async () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
@@ -578,7 +578,7 @@ describe("Streamer", () => {
         }
       });
 
-      test("calculated channel with multiple operations", async () => {
+      it("calculated channel with multiple operations", async () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
@@ -1452,7 +1452,7 @@ describe("Streamer", () => {
       expect(mockStreamer.closeMock).toHaveBeenCalled();
     });
 
-    test("should apply transform function to frames", async () => {
+    it("should apply transform function to frames", async () => {
       const mockStreamer = new MockStreamer();
       const frame1 = new framer.Frame({ 1: new Series([1, 2, 3]) });
       const frame2 = new framer.Frame({ 1: new Series([4, 5, 6]) });
@@ -1487,7 +1487,7 @@ describe("Streamer", () => {
       await observable.close();
     });
 
-    test("should handle multiple observers", async () => {
+    it("should handle multiple observers", async () => {
       const mockStreamer = new MockStreamer();
       const frame1 = new framer.Frame({ 1: new Series([10, 20]) });
 
@@ -1515,7 +1515,7 @@ describe("Streamer", () => {
       await observable.close();
     });
 
-    test("should update channels on underlying streamer", async () => {
+    it("should update channels on underlying streamer", async () => {
       const mockStreamer = new MockStreamer();
       mockStreamer.keys = [1, 2];
 
@@ -1528,7 +1528,7 @@ describe("Streamer", () => {
       await observable.close();
     });
 
-    test("should handle empty frame stream gracefully", async () => {
+    it("should handle empty frame stream gracefully", async () => {
       const mockStreamer = new MockStreamer();
       mockStreamer.keys = [1];
 
@@ -1545,7 +1545,7 @@ describe("Streamer", () => {
       await observable.close();
     });
 
-    test("should properly close and cleanup resources", async () => {
+    it("should properly close and cleanup resources", async () => {
       const mockStreamer = new MockStreamer();
       const frame1 = new framer.Frame({ 1: new Series([1]) });
 
@@ -1564,7 +1564,7 @@ describe("Streamer", () => {
       expect(mockStreamer.closeMock).toHaveBeenCalled();
     });
 
-    test("should report the failure that ended the stream", async () => {
+    it("should report the failure that ended the stream", async () => {
       const mockStreamer = new MockStreamer();
       mockStreamer.responses = [
         [new framer.Frame(), new AccessDeniedError("access revoked")],
@@ -1578,7 +1578,7 @@ describe("Streamer", () => {
       await observable.close();
     });
 
-    test("should not report a stream the caller closed", async () => {
+    it("should not report a stream the caller closed", async () => {
       const mockStreamer = new MockStreamer();
       const onDead = vi.fn();
       const observable = new framer.ObservableStreamer(mockStreamer, undefined, onDead);

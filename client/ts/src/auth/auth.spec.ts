@@ -9,7 +9,7 @@
 
 import { type Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { auth } from "@/auth";
 import {
@@ -30,7 +30,7 @@ const DUMMY_CTX: Context = {
 };
 
 describe("auth", () => {
-  test("valid credentials", async () => {
+  it("valid credentials", async () => {
     const transport = new Transport(
       new url.URL({
         host: TEST_CLIENT_PARAMS.host,
@@ -43,7 +43,7 @@ describe("auth", () => {
     expect(res).toEqual(DUMMY_CTX);
   });
 
-  test("invalid credentials", async () => {
+  it("invalid credentials", async () => {
     const transport = new Transport(
       new url.URL({
         host: TEST_CLIENT_PARAMS.host,

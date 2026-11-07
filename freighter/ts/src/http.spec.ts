@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, url, zod } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { HTTPClient, Unreachable } from "@/index";
@@ -33,7 +33,7 @@ const encodeJSON = (value: unknown): Uint8Array<ArrayBuffer> =>
   new TextEncoder().encode(JSON.stringify(value));
 
 describe("http", () => {
-  test("echo", async () => {
+  it("echo", async () => {
     const response = await client.send(
       "/echo",
       { id: 1, message: "hello" },
@@ -43,20 +43,20 @@ describe("http", () => {
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
-  test("not found", async () => {
+  it("not found", async () => {
     await expect(client.send("/not-found", {}, messageZ, messageZ)).rejects.toThrow(
       "Not Found",
     );
   });
 
-  test("response parse failures name the target", async () => {
+  it("response parse failures name the target", async () => {
     const mismatchedZ = z.object({ id: z.string() });
     await expect(
       client.send("/echo", { id: 1, message: "hello" }, messageZ, mismatchedZ),
     ).rejects.toThrow("Failed to parse /echo response");
   });
 
-  test("request params", async () => {
+  it("request params", async () => {
     const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
     const response = await c.send("/middlewareCheck", {}, messageZ, messageZ, {
       Test: "test",
@@ -64,12 +64,12 @@ describe("http", () => {
     expect(response.message).toEqual("");
   });
 
-  test("request params missing", async () => {
+  it("request params missing", async () => {
     const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
     await expect(c.send("/middlewareCheck", {}, messageZ, messageZ)).rejects.toThrow();
   });
 
-  test("middleware", async () => {
+  it("middleware", async () => {
     client.use(async (md, next) => {
       md.params.Test = "test";
       return await next(md);
@@ -78,7 +78,7 @@ describe("http", () => {
     expect(response.message).toEqual("");
   });
 
-  test("unreachable", async () => {
+  it("unreachable", async () => {
     const c = new HTTPClient(
       new url.URL({
         host: "127.0.0.1",
@@ -94,7 +94,7 @@ describe("http", () => {
   });
 
   describe("upload", () => {
-    test("blob body", async () => {
+    it("blob body", async () => {
       const body = new Blob([JSON.stringify({ id: 1, message: "hello" })], {
         type: "application/json",
       });
@@ -107,7 +107,7 @@ describe("http", () => {
       expect(response).toEqual({ id: 2, message: "hello" });
     });
 
-    test("bytes body", async () => {
+    it("bytes body", async () => {
       const body = encodeJSON({ id: 1, message: "hello" });
       const response = await client.upload(
         "/echo",
@@ -118,7 +118,7 @@ describe("http", () => {
       expect(response).toEqual({ id: 2, message: "hello" });
     });
 
-    test("readable stream body", async () => {
+    it("readable stream body", async () => {
       const bytes = encodeJSON({ id: 1, message: "hello" });
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
@@ -135,13 +135,13 @@ describe("http", () => {
       expect(response).toEqual({ id: 2, message: "hello" });
     });
 
-    test("not found", async () => {
+    it("not found", async () => {
       await expect(
         client.upload("/not-found", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow("Not Found");
     });
 
-    test("params reach the server as a single JSON request param", async () => {
+    it("params reach the server as a single JSON request param", async () => {
       const response = await client.upload(
         "/paramEcho",
         encodeJSON({ message: "params" }),
@@ -158,7 +158,7 @@ describe("http", () => {
       });
     });
 
-    test("the server sees no request params when params are omitted", async () => {
+    it("the server sees no request params when params are omitted", async () => {
       const response = await client.upload(
         "/paramEcho",
         encodeJSON({ message: "params" }),
@@ -168,7 +168,7 @@ describe("http", () => {
       expect(response.message).toEqual("");
     });
 
-    test("params failing their schema reject before the request is sent", async () => {
+    it("params failing their schema reject before the request is sent", async () => {
       await expect(
         client.upload(
           "/paramEcho",
@@ -183,7 +183,7 @@ describe("http", () => {
       ).rejects.toThrow(zod.ParseError);
     });
 
-    test("unreachable", async () => {
+    it("unreachable", async () => {
       const c = new HTTPClient(
         new url.URL({
           host: "127.0.0.1",
@@ -200,7 +200,7 @@ describe("http", () => {
   });
 
   describe("download", () => {
-    test("returns the response body as a byte stream", async () => {
+    it("returns the response body as a byte stream", async () => {
       const stream = await client.download(
         "/echo",
         { id: 1, message: "hello" },
@@ -212,7 +212,7 @@ describe("http", () => {
       expect(decoded).toEqual({ id: 2, message: "hello" });
     });
 
-    test("sends a contentType encoding verbatim as the Accept header", async () => {
+    it("sends a contentType encoding verbatim as the Accept header", async () => {
       const stream = await client.download(
         "/echo",
         { id: 1, message: "hello" },
@@ -223,7 +223,7 @@ describe("http", () => {
       expect(decoded).toEqual({ id: 2, message: "hello" });
     });
 
-    test("rejects a contentType the server cannot produce", async () => {
+    it("rejects a contentType the server cannot produce", async () => {
       await expect(
         client.download("/echo", {}, messageZ, {
           encoding: { contentType: "application/vnd.unknown" },
@@ -231,7 +231,7 @@ describe("http", () => {
       ).rejects.toThrow("Not Acceptable");
     });
 
-    test("params reach the server as a single JSON request param", async () => {
+    it("params reach the server as a single JSON request param", async () => {
       const stream = await client.download(
         "/paramEcho",
         { message: "params" },
@@ -249,7 +249,7 @@ describe("http", () => {
       });
     });
 
-    test("the server sees no request params when params are omitted", async () => {
+    it("the server sees no request params when params are omitted", async () => {
       const stream = await client.download(
         "/paramEcho",
         { message: "params" },
@@ -260,7 +260,7 @@ describe("http", () => {
       expect(decoded.message).toEqual("");
     });
 
-    test("not found", async () => {
+    it("not found", async () => {
       await expect(
         client.download("/not-found", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow("Not Found");
@@ -268,13 +268,13 @@ describe("http", () => {
 
     const TRUNCATED = { encoding: { contentType: "application/x-truncated" } };
 
-    test("rejects with the error of an encoder that fails before it writes", async () => {
+    it("rejects with the error of an encoder that fails before it writes", async () => {
       await expect(
         client.download("/truncated", { id: 0, message: "ab" }, messageZ, TRUNCATED),
       ).rejects.toThrow("truncating encoder failed partway");
     });
 
-    test("rejects a body the server cuts short", async () => {
+    it("rejects a body the server cuts short", async () => {
       const read = async (): Promise<ArrayBuffer> => {
         const stream = await client.download(
           "/truncated",
@@ -293,7 +293,7 @@ describe("http", () => {
       );
     });
 
-    test("unreachable", async () => {
+    it("unreachable", async () => {
       const c = new HTTPClient(
         new url.URL({
           host: "127.0.0.1",

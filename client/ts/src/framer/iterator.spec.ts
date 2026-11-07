@@ -14,7 +14,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { framer } from "@/framer";
 import {
@@ -29,7 +29,7 @@ const client = createTestClient();
 const MAX_FACTOR = 2 ** 32 - 1;
 
 describe("Iterator", () => {
-  test("happy path", async () => {
+  it("happy path", async () => {
     const channels = await newIndexedPair(client);
     const writer = await client.openWriter({
       start: TimeStamp.SECOND,
@@ -72,7 +72,7 @@ describe("Iterator", () => {
       await iter.close();
     }
   });
-  test("chunk size", async () => {
+  it("chunk size", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
     const writer = await client.openWriter({
@@ -110,7 +110,7 @@ describe("Iterator", () => {
     }
   });
   describe("stride", () => {
-    test("should keep every second sample under a factor of 2", async () => {
+    it("should keep every second sample under a factor of 2", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -134,7 +134,7 @@ describe("Iterator", () => {
         await iter.close();
       }
     });
-    test("should keep every third sample under a factor of 3", async () => {
+    it("should keep every third sample under a factor of 3", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -156,7 +156,7 @@ describe("Iterator", () => {
         await iter.close();
       }
     });
-    test("should keep every sample under a factor of 1", async () => {
+    it("should keep every sample under a factor of 1", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -184,17 +184,17 @@ describe("Iterator", () => {
       const stride = (factor: number) => ({
         reduction: { variant: "stride" as const, factor },
       });
-      test("defaults to no reduction", () => {
+      it("defaults to no reduction", () => {
         expect(framer.iteratorConfigZ.parse({}).reduction).toBeUndefined();
       });
-      test.each([0, 1, 2, 10, MAX_FACTOR])("accepts %i", (factor) => {
+      it.each([0, 1, 2, 10, MAX_FACTOR])("accepts %i", (factor) => {
         expect(framer.iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
           stride(factor).reduction,
         );
       });
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
-      test.each([-1, 1.5, MAX_FACTOR + 1])("rejects %s", (factor) => {
+      it.each([-1, 1.5, MAX_FACTOR + 1])("rejects %s", (factor) => {
         expect(() => framer.iteratorConfigZ.parse(stride(factor))).toThrow(/factor/);
       });
     });
@@ -227,25 +227,25 @@ describe("Iterator", () => {
       }
     };
 
-    test("min_max keeps the extremes of each group in order", async () => {
+    it("min_max keeps the extremes of each group in order", async () => {
       const data = await readReduced("min_max", 4);
       expect(Array.from(data)).toEqual([1, 8, 2, 7]);
       expect(data.alignmentMultiple).toEqual(2n);
     });
 
-    test("average keeps the mean of each group", async () => {
+    it("average keeps the mean of each group", async () => {
       const data = await readReduced("average", 4);
       expect(Array.from(data)).toEqual([2.5, 5.5, 3.5, 6.5]);
       expect(data.alignmentMultiple).toEqual(2n);
     });
 
-    test("decimate keeps the first sample of each group", async () => {
+    it("decimate keeps the first sample of each group", async () => {
       const data = await readReduced("decimate", 2);
       expect(Array.from(data)).toEqual([4, 5]);
       expect(data.alignmentMultiple).toEqual(4n);
     });
 
-    test("returns every sample under the point limit", async () => {
+    it("returns every sample under the point limit", async () => {
       const data = await readReduced("min_max", 8);
       expect(Array.from(data)).toEqual([4, 1, 3, 8, 5, 2, 6, 7]);
       expect(data.alignmentMultiple).toEqual(1n);
@@ -255,14 +255,14 @@ describe("Iterator", () => {
       const limit = (pointLimit: number) => ({
         reduction: { variant: "limit" as const, pointLimit },
       });
-      test("defaults the aggregation to min_max", () => {
+      it("defaults the aggregation to min_max", () => {
         expect(framer.iteratorConfigZ.parse(limit(4)).reduction).toEqual({
           variant: "limit",
           aggregation: "min_max",
           pointLimit: 4,
         });
       });
-      test.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
+      it.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
         expect(() => framer.iteratorConfigZ.parse(limit(pointLimit))).toThrow(
           /pointLimit/,
         );

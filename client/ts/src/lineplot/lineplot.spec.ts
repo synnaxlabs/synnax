@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
@@ -19,7 +19,7 @@ const client = createTestClient();
 
 describe("LinePlot", () => {
   describe("create", () => {
-    test("create one", async () => {
+    it("create one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
@@ -29,7 +29,7 @@ describe("LinePlot", () => {
     });
   });
   describe("rename", () => {
-    test("rename one", async () => {
+    it("rename one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
@@ -40,7 +40,7 @@ describe("LinePlot", () => {
     });
   });
   describe("delete", () => {
-    test("delete one", async () => {
+    it("delete one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });

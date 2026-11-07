@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errors, id, uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   AccessDeniedError,
@@ -77,32 +77,32 @@ describe("error", () => {
       [LicenseLimitError.TYPE, new LicenseLimitError("message"), LicenseLimitError],
     ];
     ERRORS.forEach(([typeName, error, type]) =>
-      test(`matches ${typeName}`, () => {
+      it(`matches ${typeName}`, () => {
         expect(type.matches(error)).toBe(true);
       }),
     );
   });
 
   describe("encode", () => {
-    test("encodes synnax errors into a payload", () => {
+    it("encodes synnax errors into a payload", () => {
       const payload = errors.encode(new NotFoundError("nope"));
       expect(payload.type).toBe(NotFoundError.TYPE);
       expect(payload.data).toBe("nope");
     });
 
-    test("round trips a synnax error through the registry", () => {
+    it("round trips a synnax error through the registry", () => {
       const decoded = errors.decode(errors.encode(new NotFoundError("nope")));
       expect(NotFoundError.matches(decoded)).toBe(true);
     });
 
-    test("round trips a path error through the registry", () => {
+    it("round trips a path error through the registry", () => {
       const original = new PathError("field", new ValidationError("bad"));
       const decoded = errors.decode(errors.encode(original));
       expect(PathError.matches(decoded)).toBe(true);
       expect((decoded as PathError).path).toEqual(["field"]);
     });
 
-    test("returns null for foreign typed errors so the registry falls through", () => {
+    it("returns null for foreign typed errors so the registry falls through", () => {
       class ForeignError extends errors.createTyped("foreign") {}
       const payload = errors.encode(new ForeignError("boom"));
       expect(payload.type).toBe(errors.UNKNOWN);
@@ -112,7 +112,7 @@ describe("error", () => {
 });
 
 describe("AccessDeniedError", () => {
-  test("should lead the description with a plain denial", () => {
+  it("should lead the description with a plain denial", () => {
     const err = new AccessDeniedError("access denied: auth error");
     const stat = status.fromException(err, "Failed to delete range");
     expect(stat.variant).toBe("error");
@@ -122,7 +122,7 @@ describe("AccessDeniedError", () => {
     );
   });
 
-  test("should survive the wire as a denial that still renders", () => {
+  it("should survive the wire as a denial that still renders", () => {
     const decoded = errors.decode(errors.encode(new AccessDeniedError("nope")));
     expect(AccessDeniedError.matches(decoded)).toBe(true);
     expect(status.fromException(decoded, "Failed to delete range").description).toBe(
@@ -133,7 +133,7 @@ describe("AccessDeniedError", () => {
 
 const client = createTestClient();
 
-test("client", async () => {
+it("client", async () => {
   expect.assertions(2);
   try {
     await client.channels.retrieve(id.create());

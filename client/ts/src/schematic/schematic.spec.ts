@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -27,7 +27,7 @@ const client = createTestClient();
 
 describe("Schematic", () => {
   describe("create", () => {
-    test("create one", async () => {
+    it("create one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -42,7 +42,7 @@ describe("Schematic", () => {
   });
 
   describe("rename", () => {
-    test("rename one", async () => {
+    it("rename one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -56,7 +56,7 @@ describe("Schematic", () => {
   });
 
   describe("delete", () => {
-    test("delete one", async () => {
+    it("delete one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -71,7 +71,7 @@ describe("Schematic", () => {
   });
 
   describe("config case preservation", () => {
-    test("preserves element key casing and round-trips telem args", async () => {
+    it("preserves element key casing and round-trips telem args", async () => {
       const proj = await client.projects.create({ name: "CaseTest" });
       const schem = await client.schematics.create(proj.key, {
         name: "CaseTest",
@@ -90,7 +90,7 @@ describe("Schematic", () => {
   });
 
   describe("copy", () => {
-    test("copy one", async () => {
+    it("copy one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
       });
@@ -131,7 +131,7 @@ describe("Schematic", () => {
   });
 
   describe("dispatch", () => {
-    test("setNodePosition moves the matching node", async () => {
+    it("setNodePosition moves the matching node", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
@@ -144,7 +144,7 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 100, y: 200 });
     });
 
-    test("setNode inserts a node and writes its config", async () => {
+    it("setNode inserts a node and writes its config", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -161,7 +161,7 @@ describe("Schematic", () => {
       });
     });
 
-    test("removeNode removes the node and drops its config", async () => {
+    it("removeNode removes the node and drops its config", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -186,7 +186,7 @@ describe("Schematic", () => {
       });
     });
 
-    test("removeNode splices the removed member from its group on the Core", async () => {
+    it("removeNode splices the removed member from its group on the Core", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
@@ -203,7 +203,7 @@ describe("Schematic", () => {
       expect(res.configs.g1).toMatchObject({ variant: "group_box", members: ["n2"] });
     });
 
-    test("removeNode leaves former members intact when their group is removed", async () => {
+    it("removeNode leaves former members intact when their group is removed", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -227,7 +227,7 @@ describe("Schematic", () => {
       expect(res.nodes).toHaveLength(1);
     });
 
-    test("a members write dispatched after the removal wins on the Core", async () => {
+    it("a members write dispatched after the removal wins on the Core", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
@@ -252,7 +252,7 @@ describe("Schematic", () => {
       });
     });
 
-    test("the client and Core reducers agree across a cascade storm", async () => {
+    it("the client and Core reducers agree across a cascade storm", async () => {
       const { schem } = await newProjectSchematic(client);
       const n = (key: string) => ({ key, position: { x: 0, y: 0 } });
       const group = (
@@ -305,7 +305,7 @@ describe("Schematic", () => {
       }
     });
 
-    test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
+    it("addEdge appends new edges and is a no-op on duplicate keys", async () => {
       const { schem } = await newProjectSchematic(client);
       const e = (
         key: string,
@@ -334,7 +334,7 @@ describe("Schematic", () => {
       ]);
     });
 
-    test("removeEdge removes the matching edge", async () => {
+    it("removeEdge removes the matching edge", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.addEdge({
@@ -352,7 +352,7 @@ describe("Schematic", () => {
       expect(res.edges).toEqual([]);
     });
 
-    test("setConfig replaces the config under the given key", async () => {
+    it("setConfig replaces the config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
@@ -374,7 +374,7 @@ describe("Schematic", () => {
     const tank = (extra: object = {}): schematic.ElementConfig =>
       schematic.elementConfigZ.parse({ variant: "tank", ...extra });
 
-    test("setChanged keeps a concurrent edit to another field", async () => {
+    it("setChanged keeps a concurrent edit to another field", async () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ label: { label: "Original" } });
       await client.schematics.dispatch(schem.key, [
@@ -398,7 +398,7 @@ describe("Schematic", () => {
       expect(res.configs.n1).toEqual(tank({ ...replaced, ...red }));
     });
 
-    test("setChanged removes a field that next does not hold", async () => {
+    it("setChanged removes a field that next does not hold", async () => {
       const { schem } = await newProjectSchematic(client);
       const base = tank({ strokeColor: "#ff0000" });
       await client.schematics.dispatch(schem.key, [
@@ -412,7 +412,7 @@ describe("Schematic", () => {
       expect(res.configs.n1).toEqual(tank());
     });
 
-    test("applies a multi-action sequence atomically", async () => {
+    it("applies a multi-action sequence atomically", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -442,7 +442,7 @@ describe("Schematic", () => {
       });
     });
 
-    test("converges to the final position after a 30-action drag storm", async () => {
+    it("converges to the final position after a 30-action drag storm", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -457,7 +457,7 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
-    test("round-trips telem args through dispatch", async () => {
+    it("round-trips telem args through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
