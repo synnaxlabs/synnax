@@ -324,57 +324,6 @@ Compare it: `start_cmd == 1 => press`.
 
 <Divider.Divider x />
 
-## Graph editor
-
-### A block appears in the top-left corner
-
-<Problem.Body>
-<Problem.Cause>
-
-A click on a block in the menu puts it at the top-left corner of the graph.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Drag the block from the menu to where you want it.
-
-</Problem.Fix>
-</Problem.Body>
-
-### An Add, Subtract, Multiply, Divide, or Not block does not compile
-
-<Problem.Body>
-<Problem.Cause>
-
-A known bug in these blocks.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Write the expression in a text automation. See
-[compute values from channels](/reference/control/arc/compute-values).
-
-</Problem.Fix>
-</Problem.Body>
-
-### A Change status block fires on every value
-
-<Problem.Body>
-<Problem.Cause>
-
-Graph edges pass every value, true or false.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Connect a **Select** block, and connect each Change status block to its true or false
-output. See [build an alarm](/reference/control/arc/graph-editor#build-an-alarm).
-
-</Problem.Fix>
-</Problem.Body>
-
-<Divider.Divider x />
-
 ## Python
 
 ### Controller commands do nothing and raise no error

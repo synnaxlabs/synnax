@@ -224,9 +224,10 @@ TEST(ResourceID, testProtoRoundTripTypedDevices) {
 /// @brief it should return an error for an unrecognized type in to_proto.
 TEST(ResourceID, testToProtoUnrecognizedType) {
     const ID id{.type = "nonexistent", .key = "42"};
-    const auto [pb, err] = id.to_proto();
-    ASSERT_TRUE(err);
-    ASSERT_NE(err.type.find("unrecognized"), std::string::npos);
+    ASSERT_OCCURRED_AS_P(
+        id.to_proto(),
+        x::errors::Error("unrecognized Type value: nonexistent")
+    );
 }
 
 /// @brief it should convert a zero ID to protobuf and back.

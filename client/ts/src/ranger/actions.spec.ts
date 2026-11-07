@@ -145,6 +145,13 @@ describe("ranger.reduceAll", () => {
       const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
       expect(next).toEqual(created);
     });
+
+    it("should keep the labels so a late create echo cannot undo a label write", () => {
+      const prev = { ...createRange(), labels: [LABEL] };
+      const created = { ...createRange(), name: "Created" };
+      const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
+      expect(next).toEqual({ ...created, labels: [LABEL] });
+    });
   });
 });
 

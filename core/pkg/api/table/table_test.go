@@ -317,4 +317,16 @@ var _ = Describe("SetProject", func() {
 			Expect(retrieveTable(ctx, e.Key).Project).To(Equal(&dest.Key))
 		},
 	)
+	It(
+		"Should refuse a move out of a group the subject cannot update",
+		func(ctx SpecContext) {
+			u := newCreator(ctx)
+			e := createTable(ctx, "Set project grouped")
+			g := createGroup(ctx, "Set project grouped")
+			Expect(svc.Table.NewWriter(nil).SetGroup(ctx, &g.Key, e.Key)).To(Succeed())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), table.ResourceID(e.Key))
+			Expect(setProject(ctx, u, proj.Key, e.Key)).To(MatchError(access.ErrDenied))
+			Expect(retrieveTable(ctx, e.Key).Group).To(Equal(&g.Key))
+		},
+	)
 })

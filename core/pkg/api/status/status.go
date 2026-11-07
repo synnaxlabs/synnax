@@ -86,14 +86,6 @@ func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
 	return ids
 }
 
-func labelAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
-	var ids []resource.ID
-	for _, s := range statuses {
-		ids = append(ids, label.ResourceIDs(s.Labels)...)
-	}
-	return ids
-}
-
 func decodeDetails[D any](details any) error {
 	b, err := json.Marshal(details)
 	if err != nil {
@@ -136,36 +128,37 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates statuses in the cluster. It returns a validation error and
-// writes nothing if a status carries details that its resolved owner cannot decode.
+// Set creates or updates the statuses in order, and checks each one against the state
+// that its write sees. It returns a validation error if a status carries details that
+// its resolved owner cannot decode. On error, tx keeps the writes of earlier statuses.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
-	labelIDs := labelAccessResourceIDs(req.Statuses)
 	w := s.internal.NewWriter(tx)
+	enforcer := s.access.NewEnforcer(tx)
 	for i := range req.Statuses {
-		if err := w.Resolve(ctx, &req.Statuses[i]); err != nil {
+		st := &req.Statuses[i]
+		labelIDs := label.ResourceIDs(st.Labels)
+		if err := w.Resolve(ctx, st); err != nil {
 			return SetResponse{}, err
 		}
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: append(statusAccessResourceIDs(req.Statuses), labelIDs...),
-	}); err != nil {
-		return SetResponse{}, err
-	}
-	for i, st := range req.Statuses {
-		if err := validateDetails(st); err != nil {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: append([]resource.ID{st.ResourceID()}, labelIDs...),
+		}); err != nil {
+			return SetResponse{}, err
+		}
+		if err := validateDetails(*st); err != nil {
 			return SetResponse{}, validate.PathedError(
 				err, "statuses", strconv.Itoa(i), "details",
 			)
 		}
-	}
-	if err := w.SetMany(ctx, &req.Statuses); err != nil {
-		return SetResponse{}, err
+		if err := w.Set(ctx, st); err != nil {
+			return SetResponse{}, err
+		}
 	}
 	return SetResponse(req), nil
 }
