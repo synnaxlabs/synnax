@@ -379,9 +379,8 @@ void Engine::supervise() {
     }
 }
 
-x::errors::Error Engine::start_locked(const uint64_t mhz) {
-    auto [configs, configs_err] = this->config.slave_configs();
-    if (configs_err) return configs_err;
+x::errors::Error
+Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> configs) {
     this->master->replace_slave_configs(std::move(configs));
     const auto start_cycle = [this, mhz] {
         {
@@ -578,14 +577,19 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const x::telem::Rate sample_rate,
     const size_t samples_per_read
 ) {
+    // The loader can block, so it runs before the lock.
+    auto [configs, configs_err] = this->config.slave_configs();
     std::lock_guard lock(this->mu);
     auto reads = this->read_rates_locked();
     reads.push_back(sample_rate);
     const auto [mhz, rate_err] = this->rate_locked(reads, this->write_rates_locked());
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
-    if (started)
-        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
+    if (started) {
+        if (configs_err) return {nullptr, configs_err};
+        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+            return {nullptr, err};
+    }
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,
@@ -610,14 +614,19 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate execution_rate
 ) {
+    // The loader can block, so it runs before the lock.
+    auto [configs, configs_err] = this->config.slave_configs();
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
     const auto [mhz, rate_err] = this->rate_locked(this->read_rates_locked(), writes);
     if (rate_err) return {nullptr, rate_err};
     const bool started = !this->running();
-    if (started)
-        if (auto err = this->start_locked(mhz); err) return {nullptr, err};
+    if (started) {
+        if (configs_err) return {nullptr, configs_err};
+        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+            return {nullptr, err};
+    }
     auto [offsets, err] = resolve_offsets(
         *this->master,
         entries,

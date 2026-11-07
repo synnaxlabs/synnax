@@ -617,6 +617,32 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should open a reader on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
+}
+
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
