@@ -564,10 +564,10 @@ func checkPinCurrency(
 	checkOmittedPinCurrency(ctx, r, resolver, chain)
 }
 
-// checkOmittedPinCurrency fails a pin in the current version file that only omitted
-// fields use when it lags its dependency's current version. The current package types
-// those fields at the pin, and the Core assigns the dependency's root type to them.
-// Omitted fields leave the stored bytes alone, so the fix is an in-place pin bump.
+// checkOmittedPinCurrency fails a pin that an omitted field of a current-surface member
+// uses when it lags its dependency's current version. The member may be declared in an
+// earlier version file that the current one aliases. The current package types those
+// fields at the pin, and the Core assigns the dependency's root type to them.
 func checkOmittedPinCurrency(
 	ctx context.Context,
 	r *GateReport,
@@ -575,38 +575,55 @@ func checkOmittedPinCurrency(
 	chain versions.Chain,
 ) {
 	path := chain.FilePath(chain.Current()) + ".oracle"
-	f, err := resolver.File(ctx, chain.LivePath(), chain.Current())
+	surf, err := resolver.Surface(ctx, chain.LivePath(), chain.Current())
 	if err != nil {
 		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 		return
 	}
-	stored, referenced := classifyDeps(f)
-	for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
-		ns := filepath.Base(depLive)
-		depChain, ok := resolver.Chains()[depLive]
-		if !ok || stored.Contains(ns) || !referenced.Contains(ns) {
-			continue
+	byVersion := make(map[int][]string)
+	for name, def := range surf {
+		byVersion[def.Version] = append(byVersion[def.Version], name)
+	}
+	for _, n := range slices.Sorted(maps.Keys(byVersion)) {
+		f, err := resolver.File(ctx, chain.LivePath(), n)
+		if err != nil {
+			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+			return
 		}
-		pv := f.Pins[depLive]
-		if pv == depChain.Current() || pinAliasCurrent(
-			ctx, resolver, depLive, pv, depChain.Current(), membersOf(f, ns, true),
-		) {
-			continue
+		members := &versions.File{Chain: f.Chain, N: f.N, Pins: f.Pins}
+		for _, name := range byVersion[n] {
+			if t, ok := versions.DefinedType(f, name); ok {
+				members.Defined = append(members.Defined, t)
+			}
 		}
-		r.fail(Finding{
-			Path:     path,
-			Severity: SeverityError,
-			Message: fmt.Sprintf(
-				"%s's current surface resolves %s at v%d for omitted fields, but "+
-					"%s's current version is v%d",
-				chain.LivePath(), ns, pv, depLive, depChain.Current(),
-			),
-			FixHint: fmt.Sprintf(
-				"omitted fields leave the stored bytes alone: bump the pin in "+
-					"v%d in place",
-				chain.Current(),
-			),
-		})
+		for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
+			ns := filepath.Base(depLive)
+			depChain, ok := resolver.Chains()[depLive]
+			omitted := membersOf(members, ns, true)
+			if !ok || len(omitted) == len(membersOf(members, ns, false)) {
+				continue
+			}
+			pv := f.Pins[depLive]
+			if pv == depChain.Current() || pinAliasCurrent(
+				ctx, resolver, depLive, pv, depChain.Current(), omitted,
+			) {
+				continue
+			}
+			r.fail(Finding{
+				Path:     path,
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"%s's current surface resolves %s at v%d for omitted fields, "+
+						"but %s's current version is v%d",
+					chain.LivePath(), ns, pv, depLive, depChain.Current(),
+				),
+				FixHint: fmt.Sprintf(
+					"omitted fields leave the stored bytes alone: bump the pin in "+
+						"v%d in place, redeclaring any member it aliases",
+					chain.Current(),
+				),
+			})
+		}
 	}
 }
 
