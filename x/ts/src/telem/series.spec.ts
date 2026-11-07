@@ -11,15 +11,18 @@ import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
+  type CrudeSeries,
   DataType,
+  isCrudeSeries,
+  MultiSeries,
+  Series,
   Size,
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@/telem/telem";
+} from "@/telem";
 import { MockGLBufferController } from "@/testutil";
 
 // More items than a call takes as arguments.

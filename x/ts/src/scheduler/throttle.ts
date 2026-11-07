@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type DebouncedFn } from "@/scheduler/debounce";
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
+import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem";
 
 /** The function returned by throttle. It carries the same handles as a debounce. */
 export type ThrottledFn<Args extends unknown[]> = DebouncedFn<Args>;
