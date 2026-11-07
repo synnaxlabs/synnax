@@ -290,8 +290,11 @@ func (l *tcpListener) Serve(establish listeners.EstablishFn) {
 				close(served)
 				l.serving.Done()
 			}()
-			// A client that leaves ends establish with an error.
-			_ = establish(l.cfg.ID, c)
+			// A client that leaves ends establish with an error, so the error only
+			// shows in the output of a failed spec.
+			if err := establish(l.cfg.ID, c); err != nil {
+				GinkgoWriter.Println(err)
+			}
 		}()
 	}
 }
@@ -308,6 +311,7 @@ func (l *tcpListener) awaitServed(c net.Conn) {
 }
 
 func (l *tcpListener) Close(closeClients listeners.CloseFn) {
+	GinkgoHelper()
 	l.mu.Lock()
 	l.mu.closed = true
 	l.closeErr = l.listen.Close()
@@ -315,7 +319,7 @@ func (l *tcpListener) Close(closeClients listeners.CloseFn) {
 		l.closeErr = errors.Combine(l.closeErr, errors.Skip(c.Close(), net.ErrClosed))
 	}
 	l.mu.Unlock()
-	<-l.accepting
+	Eventually(l.accepting).Should(BeClosed())
 	// Clients.GetByListener takes its read lock two times, so mochi deadlocks when it
 	// closes its clients while one of them leaves. Every client must be gone first.
 	l.serving.Wait()
