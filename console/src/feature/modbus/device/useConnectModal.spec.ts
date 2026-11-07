@@ -115,6 +115,7 @@ describe("Modbus.Device.useConnectModal", () => {
         message: "Device connected",
         details: {
           rack: dev.rack,
+          connected: true,
           data: {
             stats: {
               requests: 41,
@@ -260,6 +261,30 @@ describe("Modbus.Device.useConnectModal", () => {
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
+  it("should mark the device it connected as connected", async () => {
+    const rack = await createRunningRack(client, "modbus");
+    const scan = await rack.createTask({
+      name: uniqueName("modbus_scan"),
+      type: Modbus.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      Modbus.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("localhost"), {
+      target: { value: "localhost" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
   });
 
   it("should report a device it connected", async () => {

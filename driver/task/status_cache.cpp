@@ -29,6 +29,12 @@ StatusCache::entry_for(const synnax::task::Status &status) {
     return entry;
 }
 
+x::errors::Error StatusCache::write(synnax::task::Status &status) {
+    const auto err = this->client.set<synnax::task::StatusDetails>(status);
+    if (err) this->stale_ = true;
+    return err;
+}
+
 x::errors::Error StatusCache::set(synnax::task::Status &status) {
     const auto entry = this->entry_for(status);
     if (entry == nullptr) return x::errors::NIL;
@@ -37,10 +43,12 @@ x::errors::Error StatusCache::set(synnax::task::Status &status) {
     if (entry->dropped) return x::errors::NIL;
     entry->status = status;
     entry->status.details.cmd.clear();
-    return this->client.set<synnax::task::StatusDetails>(status);
+    return this->write(status);
 }
 
 x::errors::Error StatusCache::resend() {
+    // Cleared first, so a write that fails during the re-send marks the cache again.
+    this->stale_ = false;
     std::vector<std::shared_ptr<Entry>> entries;
     {
         std::lock_guard lock{this->mu};
@@ -55,9 +63,7 @@ x::errors::Error StatusCache::resend() {
         if (entry->dropped) continue;
         auto status = entry->status;
         status.time = x::telem::TimeStamp::now();
-        if (const auto err = this->client.set<synnax::task::StatusDetails>(status);
-            err && !first_err)
-            first_err = err;
+        if (const auto err = this->write(status); err && !first_err) first_err = err;
     }
     return first_err;
 }

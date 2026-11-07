@@ -290,7 +290,7 @@ class Frame:
         for k in cols:
             if k in index_cols.values():
                 continue
-            t = _time_index(times[indexes[k]])
+            t = _time_index(_sample_times(self[k], self[indexes[k]]))
             values = _column_values(self[k])
             if len(t) == len(merged):
                 data[names[k]] = pd.Series(values, index=t)
@@ -317,6 +317,36 @@ def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object
     if series.data_type.has_np:
         return series.to_numpy()
     return list(series)
+
+
+def _alignments(series: MultiSeries) -> npt.NDArray[np.uint64]:
+    return np.concatenate(
+        [
+            np.empty(0, dtype=np.uint64),
+            *(
+                np.uint64(int(s.alignment))
+                + np.arange(len(s), dtype=np.uint64) * np.uint64(s.alignment_multiple)
+                for s in series.series
+            ),
+        ]
+    )
+
+
+def _sample_times(series: MultiSeries, index: MultiSeries) -> npt.NDArray[np.int64]:
+    """Returns the timestamp of each sample in series. A channel can hold fewer samples
+    than its index, so samples match index samples by alignment.
+    """
+    stamps = index.to_numpy()
+    alignments = _alignments(series)
+    index_alignments = _alignments(index)
+    if np.array_equal(alignments, index_alignments):
+        return stamps
+    shared, _, positions = np.intersect1d(
+        alignments, index_alignments, return_indices=True
+    )
+    if len(shared) != len(alignments):
+        raise ValueError("A channel has samples at alignments its index does not hold.")
+    return stamps[positions]
 
 
 def _time_index(stamps: npt.NDArray[np.int64]) -> pd.DatetimeIndex:

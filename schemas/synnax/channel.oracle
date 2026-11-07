@@ -286,24 +286,17 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual       bool        {
+    virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
     }
-    name_patterns string[]    {
-        @doc value """
-            matches channels whose name matches any of the given patterns. A valid
-            channel name matches exactly, and any other pattern is a regular expression,
-            anchored when unanchored.
-        """
-    }
-    groups        group.Key[] {
+    groups      group.Key[] {
         @cpp omit
         @doc value "matches the channels in any of the given groups."
     }
-    grouped       bool        {
+    grouped     bool        {
         @cpp omit
         @doc value "matches the channels in a group, or in no group when false."
     }

@@ -128,6 +128,7 @@ interface Entry<
   /** Invokes issued before the create message flushed. The worker cannot resolve a path
    * it has not seen, so they ride out immediately after it. */
   pendingInvokes: aether.MainInvokeRequest[];
+  invokeTimeout?: CrudeTimeSpan;
 }
 
 /** Arguments accepted by {@link Store.stage}. */
@@ -146,6 +147,8 @@ export interface StageParams<
   initialTransfer?: Transferable[];
   /** Optional method-call schema; powers `methods` on the returned handle. */
   methodsSchema?: Methods;
+  /** Timeout for async methods. Defaults to the store's timeout. */
+  invokeTimeout?: CrudeTimeSpan;
   /** Ref to a callback fired on worker-pushed state changes only. */
   onReceiveRef?: { current: ((state: z.infer<StateSchema>) => void) | undefined };
 }
@@ -367,6 +370,7 @@ export class Store {
       initialState,
       initialTransfer = [],
       methodsSchema,
+      invokeTimeout,
     } = params;
     if (path.length === 0 || path[path.length - 1].length === 0)
       throw new ValidationError(
@@ -392,6 +396,7 @@ export class Store {
       displaced: false,
       transfer: [...initialTransfer],
       pendingInvokes: [],
+      invokeTimeout,
     };
     return this.buildHandle(entry, methodsSchema);
   }
@@ -541,7 +546,9 @@ export class Store {
       method: string,
       args: unknown[],
       signal: AbortSignal = AbortSignal.timeout(
-        new TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+        new TimeSpan(
+          entry.invokeTimeout ?? this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT,
+        ).milliseconds,
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {

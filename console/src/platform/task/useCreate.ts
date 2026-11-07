@@ -60,7 +60,7 @@ const create = async <S extends task.Schemas = task.Schemas>({
   CreateUseCreateParams<S> & { client: Synnax }): Promise<task.Task> => {
   if (deviceKey == null && config == null && deviceMake != null) {
     const devices = await client.devices.retrieve({
-      where: { make: { eq: deviceMake } },
+      make: deviceMake,
       limit: 2,
     });
     // Picking a device in the form opens its configure dialog; a preset one skips it.

@@ -263,6 +263,52 @@ var _ = Describe("Parser", func() {
 		})
 	})
 
+	Describe("Export", func() {
+		It("Should parse an exported function", func() {
+			prog := mustParseProgram(`export func f() {}`)
+			item := prog.TopLevelItem(0)
+			Expect(item.EXPORT()).NotTo(BeNil())
+			Expect(item.FunctionDeclaration().IDENTIFIER().GetText()).To(Equal("f"))
+		})
+
+		It("Should parse an exported sequence", func() {
+			prog := mustParseProgram(`export sequence s { stage a {} }`)
+			item := prog.TopLevelItem(0)
+			Expect(item.EXPORT()).NotTo(BeNil())
+			Expect(item.SequenceDeclaration().IDENTIFIER().GetText()).To(Equal("s"))
+		})
+
+		It("Should parse an exported stage", func() {
+			prog := mustParseProgram(`export stage s {}`)
+			item := prog.TopLevelItem(0)
+			Expect(item.EXPORT()).NotTo(BeNil())
+			Expect(item.StageDeclaration().IDENTIFIER().GetText()).To(Equal("s"))
+		})
+
+		It("Should parse an exported variable", func() {
+			prog := mustParseProgram(`export x := 1`)
+			item := prog.TopLevelItem(0)
+			Expect(item.EXPORT()).NotTo(BeNil())
+			local := item.VariableDeclaration().LocalVariable()
+			Expect(local.IDENTIFIER().GetText()).To(Equal("x"))
+		})
+
+		It("Should leave export nil on a plain declaration", func() {
+			prog := mustParseProgram(`func f() {}`)
+			Expect(prog.TopLevelItem(0).EXPORT()).To(BeNil())
+		})
+
+		DescribeTable("Should reject export on other items",
+			func(code, want string) {
+				Expect(parser.Parse(code)).Error().
+					To(MatchError(ContainSubstring(want)))
+			},
+			Entry("import", "export import time", "at input 'export import'"),
+			Entry("authority", "export authority 255", "at input 'export authority'"),
+			Entry("flow", "export trig -> out", "at input 'trig ->'"),
+		)
+	})
+
 	Describe("Authority", func() {
 		It("Should parse simple authority declaration", func() {
 			prog := mustParseProgram(`authority 200`)
@@ -2225,6 +2271,20 @@ sequence main {
 			Expect(primary.QualifiedIdentifier()).To(BeNil())
 			Expect(primary.Literal()).ToNot(BeNil())
 			Expect(primary.Literal().NumericLiteral()).ToNot(BeNil())
+		})
+
+		It("Should parse a qualified identifier as a flow node", func() {
+			prog := mustParseProgram("trig -> m.f")
+			id := prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
+			Expect(id.IDENTIFIER()).To(BeNil())
+			Expect(id.QualifiedIdentifier().GetText()).To(Equal("m.f"))
+		})
+
+		It("Should parse a bare identifier as a flow node", func() {
+			prog := mustParseProgram("trig -> out")
+			id := prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
+			Expect(id.QualifiedIdentifier()).To(BeNil())
+			Expect(id.IDENTIFIER().GetText()).To(Equal("out"))
 		})
 
 		It("Should parse a bare identifier without a dot", func() {

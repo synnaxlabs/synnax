@@ -65,7 +65,6 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
-  namePatterns?: string[];
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -99,12 +98,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
-  /**
-   * namePatterns matches channels whose name matches any of the given patterns. A valid
-   * channel name matches exactly, and any other pattern is a regular expression,
-   * anchored when unanchored.
-   */
-  namePatterns: zod.nullToUndefined(z.string().array()),
   /** groups matches the channels in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the channels in a group, or in no group when false. */

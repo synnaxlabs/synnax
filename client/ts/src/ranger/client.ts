@@ -14,6 +14,7 @@ import {
   type CrudeTimeRange,
   deep,
   type destructor,
+  filter,
   type Series,
   TimeRange,
   zod,
@@ -48,7 +49,7 @@ import {
   retrieveResponseZ,
 } from "@/ranger/types.gen";
 import { LINES } from "@/ranger/where";
-import { matches, retrieveInputZ, serverComputed } from "@/ranger/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { type resource } from "@/resource";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -245,20 +246,18 @@ export type RetrieveMultipleParams = z.infer<typeof retrieveRequestZ>;
  * comes before the request, which would read a time range as an empty request.
  */
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  z
-    .string()
-    .array()
-    .transform((names): RetrieveMultipleParams => ({ where: { name: { in: names } } })),
   TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
     where: { overlaps },
   })),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
-const isKeyParams = (params: object): params is { key: Key } =>
-  "key" in params && typeof params.key === "string";
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
 
 const isParentChange = (rel: ontology.Relationship, id: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -285,7 +284,7 @@ export class Client extends query.Retriever<
   Key,
   Range,
   Range,
-  Key | Name | { key: Key }
+  { key: Key }
 > {
   readonly type: string = "range";
   /** The range alias table; injected into sibling clients at wiring. */
@@ -331,18 +330,18 @@ export class Client extends query.Retriever<
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    const single = cache.queries<Key | Name, Range, Key, Range>({
+    const single = cache.queries<Key, Range, Key, Range>({
       name: "range",
       table: ranges,
-      fetch: async (query) => [(await this.fetchSingle(query)).key],
+      fetch: async (key) => [(await this.fetchSingle(key)).key],
       compose: ([record]) => record,
-      keyOf: (query) => (z.validate(keyZ, query) ? query : null),
-      matches: (r, query) => r.key === query || r.name === query,
+      keyOf: (key) => key,
       single: true,
     });
     super(cache, {
       name: "range",
       table: ranges,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.execRetrieve(query),
@@ -351,7 +350,7 @@ export class Client extends query.Retriever<
       },
       single: {
         schema: z.union([
-          z.string(),
+          keyZ,
           z.strictObject({ key: keyZ }).transform(({ key }) => key),
         ]),
         space: single,
@@ -482,7 +481,7 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name | { key: Key }): Promise<Range>;
+  async retrieve(params: Key | Name | OneParams): Promise<Range>;
   async retrieve(
     params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
@@ -490,13 +489,13 @@ export class Client extends query.Retriever<
     params:
       | Key
       | Name
-      | { key: Key }
+      | OneParams
       | Name[]
       | CrudeTimeRange
       | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
-    if (typeof params === "string" || isKeyParams(params))
+    if (typeof params === "string" || isOneParams(params))
       return await super.retrieve(params);
     return await super.retrieve(params);
   }
@@ -533,18 +532,11 @@ export class Client extends query.Retriever<
     return new KVClient(key, this.cfg.unary, this.kvPairs);
   }
 
-  private async fetchSingle(query: Key | Name): Promise<Range> {
-    const cached = this.store.get(query);
+  private async fetchSingle(key: Key): Promise<Range> {
+    const cached = this.store.get(key);
     if (cached != null) return cached;
-    if (z.validate(keyZ, query)) {
-      const ranges = await this.store.retrieve([query]);
-      checkForMultipleOrNoResults("Range", query, ranges, true);
-      return ranges[0];
-    }
-    const since = this.store.stamp();
-    const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
-    checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.store.ingest(ranges, { since });
+    const ranges = await this.store.retrieve([key]);
+    checkForMultipleOrNoResults("Range", key, ranges, true);
     return ranges[0];
   }
 

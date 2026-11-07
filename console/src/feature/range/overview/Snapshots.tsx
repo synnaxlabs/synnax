@@ -90,7 +90,7 @@ const taskKeyOf = (id: string): task.Key | null => {
 /** Lists the task snapshots in the range as resources, keyed by resource ID. */
 const useTaskSnapshots = (rangeKey: ranger.Key) => {
   const { retrieve, status, ...source } = Task.useList({
-    initialQuery: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
+    query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
   const data = List.useTransformedData({
     source,
@@ -104,7 +104,7 @@ const useTaskSnapshots = (rangeKey: ranger.Key) => {
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const tasks = useTaskSnapshots(rangeKey);
   const others = Ontology.useListChildren({
-    initialQuery: { id: ranger.resourceID(rangeKey) },
+    query: { id: ranger.resourceID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
   const { fetchMore: fetchMoreTasks } = List.usePager({ retrieve: tasks.retrieve });

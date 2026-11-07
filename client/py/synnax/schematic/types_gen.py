@@ -11,11 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import group as group_
@@ -24,6 +24,7 @@ from synnax.schematic import symbol
 from x import border, filter, spatial, text
 from x import color as color_
 from x import notation as notation_
+from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -242,6 +243,27 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+    },
+    total=False,
+)
 
 
 class Edge(BaseModel):

@@ -36,7 +36,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            query: { id: project.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -55,7 +55,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            query: { id: project.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -84,7 +84,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: project.resourceID(parent.key) },
+            query: { id: project.resourceID(parent.key) },
           }),
         { wrapper },
       );

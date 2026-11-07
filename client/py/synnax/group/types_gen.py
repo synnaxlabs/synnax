@@ -11,15 +11,16 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import resource
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -70,6 +71,29 @@ class Where(BaseModel):
     scope: filter.Set[resource.Type] | None = None
     parents: list[resource.ID] | None = None
     nested: bool | None = None
+
+    @field_validator("parents", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "scope": filter.SetInput[resource.Type],
+        "parents": resource.ID | list[resource.ID],
+        "nested": bool,
+    },
+    total=False,
+)
 
 
 class RetrieveResponse(BaseModel):

@@ -53,6 +53,7 @@ protected:
         this->master = std::make_shared<testutil::Master>("eth0");
         this->master->add_slave(
             slave::Properties{
+                .network = "eth0",
                 .position = 0,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
@@ -420,6 +421,7 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
@@ -429,6 +431,7 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to discover PDOs");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "No PDO objects found in object dictionary. Channels can use only the entries "
@@ -476,6 +479,7 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Operational");
+    EXPECT_TRUE(status.details.connected);
 }
 
 /// @brief it should show a faulted slave as an error and put its AL status in the
@@ -492,6 +496,7 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Error in SAFE-OP");
     EXPECT_EQ(status.description, "Sync manager watchdog");
+    EXPECT_TRUE(status.details.connected);
     this->master->clear_transition_failures();
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && engine->health()[0].operational()
@@ -530,6 +535,7 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Not responding");
+    EXPECT_FALSE(status.details.connected);
     EXPECT_EQ(status.description, "Check the power and cabling of the device.");
 }
 
@@ -548,6 +554,40 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "In PRE-OP");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
+}
+/// @brief it should show a disabled slave as not connected.
+TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
+    auto dev = ASSERT_NIL_P(this->scanner->scan(common::ScannerContext{.count = 1}))
+                   .at(0);
+    dev.properties["enabled"] = false;
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 2, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    const auto &status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(status.message, "Device disabled");
+    EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should keep an enabled slave connected when its device is edited.
+TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan(common::ScannerContext{.count = 1})
+    )
+                         .at(0);
+    this->scanner->on_device_set(dev);
+    const auto status = ASSERT_NIL_P(
+        this->client->statuses.retrieve_by_owner<synnax::device::StatusDetails>(
+            synnax::device::resource_id(dev.key)
+        )
+    );
+    EXPECT_EQ(status.message, "Device enabled");
+    EXPECT_TRUE(status.details.connected);
 }
 }

@@ -16,6 +16,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -96,6 +97,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
+	w.String(string(lv.TimeZone))
 	if lv.Group != nil {
 		w.Bool(true)
 		w.Write((*lv.Group)[:])
@@ -140,6 +142,13 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	}
 	if lv.TimestampsHidden, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lv.TimeZone = telem.TimeZone(rawV)
 	}
 	{
 		present, err := r.Bool()

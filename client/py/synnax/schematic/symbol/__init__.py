@@ -17,6 +17,7 @@ from synnax.schematic.symbol.types_gen import (
     State,
     Symbol,
     Where,
+    WhereInput,
     resource_id,
 )
 
@@ -30,5 +31,6 @@ __all__ = [
     "State",
     "Symbol",
     "Where",
+    "WhereInput",
     "resource_id",
 ]

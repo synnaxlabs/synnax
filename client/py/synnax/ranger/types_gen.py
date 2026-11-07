@@ -11,16 +11,17 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
 from synnax.resource import ID
 from x import color as color_
 from x import filter, telem
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -77,6 +78,29 @@ class Where(BaseModel):
     overlaps: telem.TimeRange | None = None
     labels: list[label.Key] | None = None
     parents: list[Key] | None = None
+
+    @field_validator("labels", "parents", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "overlaps": telem.TimeRange,
+        "labels": label.Key | list[label.Key],
+        "parents": Key | list[Key],
+    },
+    total=False,
+)
 
 
 class KeyRef(BaseModel):

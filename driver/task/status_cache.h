@@ -42,10 +42,13 @@ class StatusCache {
     std::unordered_map<synnax::resource::ID, std::shared_ptr<Entry>> entries;
     /// @brief the tasks that left this Driver and were not claimed again.
     std::unordered_set<synnax::resource::ID> released;
+    std::atomic<bool> stale_ = false;
 
     /// @brief returns the entry of the task of status, creating it with status if
     /// absent. Returns null for a released task.
     std::shared_ptr<Entry> entry_for(const synnax::task::Status &status);
+
+    x::errors::Error write(synnax::task::Status &status);
 
 public:
     explicit StatusCache(synnax::status::Client client);
@@ -62,8 +65,12 @@ public:
     /// the latest status, so a failed write is repaired too. Writes one task at a time,
     /// so a task waits on at most one re-send write.
     /// @returns the first error of the writes. An error does not stop the writes of the
-    /// other tasks.
+    /// other tasks, and leaves the cache stale.
     [[nodiscard]] x::errors::Error resend();
+
+    /// @brief returns true when a write failed, a re-send included, and no re-send has
+    /// started since.
+    [[nodiscard]] bool stale() const { return this->stale_; }
 
     /// @brief returns the latest status of the task, with no command key, or nullopt
     /// when the task has none or left this Driver. Waits for a write of the task's own

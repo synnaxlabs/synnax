@@ -53,7 +53,7 @@ describe("Device", async () => {
         description: "Device is connected",
         time: TimeStamp.now(),
         labels: [],
-        details: { rack: 0 },
+        details: { rack: 0, connected: true },
       };
       const d = await client.devices.create({
         rack: testRack.key,
@@ -112,7 +112,7 @@ describe("Device", async () => {
           owner: device.resourceID(d.key),
           variant: "success",
           message: "Device is running",
-          details: { rack: d.rack },
+          details: { rack: d.rack, connected: true },
         }),
       );
       const created = await local.devices.create(d);
@@ -413,6 +413,58 @@ describe("Device", async () => {
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
+    });
+
+    it("should retrieve devices by a key list in key order", async () => {
+      const [d1, d2] = await client.devices.create(
+        ["Dev1", "Dev2"].map((location) => ({
+          key: id.create(),
+          rack: testRack.key,
+          location,
+          name: location,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        })),
+      );
+      const retrieved = await client.devices.retrieve([d2.key, d1.key]);
+      expect(retrieved.map(({ key }) => key)).toEqual([d2.key, d1.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const missing = id.create();
+      await expect(client.devices.retrieve([d.key, missing])).rejects.toThrow(
+        new NotFoundError(`device with key ${missing} not found`),
+      );
+    });
+
+    it("should return one device for a plain key beside other fields", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const retrieved: device.Device = await client.devices.retrieve({
+        key: d.key,
+        make: "ni",
+      });
+      expect(retrieved.key).toEqual(d.key);
+      await expect(
+        client.devices.retrieve({ key: d.key, make: "labjack" }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should treat a missing key as a non-match", async () => {
@@ -788,6 +840,74 @@ describe("Device", async () => {
         });
         expect(retrieved.properties.rate).toBe(1000);
         expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
+      });
+
+      it("should retrieve devices by a flat filter with schemas", async () => {
+        const location = `flat-${id.create()}`;
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location,
+            name: "flat-schema",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          location,
+          make: "ni",
+          schemas,
+        });
+        expect(retrieved.map(({ key }) => key)).toEqual([d.key]);
+        expect(retrieved[0].properties.rate).toBe(100);
+      });
+
+      it("should return one device for a key list that sets one", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "one-option",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 200, channels: [] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          key: [d.key],
+          one: true,
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(200);
+      });
+
+      it("should return one device for a plain key beside other fields", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "one-schema",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const retrieved = await client.devices.retrieve({
+          key: d.key,
+          make: "ni",
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(100);
+        await expect(
+          client.devices.retrieve({ key: d.key, make: "labjack", schemas }),
+        ).rejects.toThrow(NotFoundError);
       });
 
       it("should create and retrieve with typed make and model", async () => {
