@@ -169,6 +169,6 @@ func lowest() {x f64} f64 {
 }
 ```
 
-To test for NaN, use `is_nan`. `x == math.nan` is always `false` and `x != math.nan` is
-always `true`, so both give warning ARC2004. Write `math.is_nan(x)` and
-`not math.is_nan(x)`.
+To test for NaN, use `is_nan`. `x != math.nan` is always `true`, and `==`, `<`, `>`,
+`<=`, or `>=` with `math.nan` is always `false`, so each gives warning ARC2004. Write
+`math.is_nan(x)` and `not math.is_nan(x)`.

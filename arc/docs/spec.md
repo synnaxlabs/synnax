@@ -314,9 +314,9 @@ whose initializer reads a constant must also read a channel, as
 `scaled := raw * math.inf` does: a flow has no value to read for `limit := math.inf`,
 which fails with `'limit' cannot be initialized from math.inf outside a function`. A
 function input value and a `$=` initializer in a sequence or stage must be literals, and
-the constants are not literals. `x == math.nan` is always `false` and `x != math.nan` is
-always `true`, so both give warning ARC2004: use `math.is_nan(x)` and
-`not math.is_nan(x)`.
+the constants are not literals. `x != math.nan` is always `true`, and `==`, `<`, `>`,
+`<=`, or `>=` with `math.nan` is always `false`, so each gives warning ARC2004: test
+with `math.is_nan(x)` or `not math.is_nan(x)`.
 
 ```arc
 import math
