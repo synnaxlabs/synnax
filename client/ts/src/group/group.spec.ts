@@ -20,6 +20,19 @@ const client = createTestClient();
 const createTopLevel = async (): Promise<group.Group> =>
   await client.groups.create({ name: `group-${id.create()}`, scope: "channel" });
 
+const createChain = async (): Promise<group.Group[]> => {
+  const root = await createTopLevel();
+  const mid = await client.groups.create({
+    name: "mid",
+    parent: group.resourceID(root.key),
+  });
+  const leaf = await client.groups.create({
+    name: "leaf",
+    parent: group.resourceID(mid.key),
+  });
+  return [root, mid, leaf];
+};
+
 describe("Group", () => {
   describe("request builders", () => {
     const RACK: resource.ID = { type: "rack", key: "1" };
@@ -176,6 +189,40 @@ describe("Group", () => {
       expect(await client.groups.retrieve({ parents: [parentID], limit: 0 })).toEqual(
         [],
       );
+    });
+  });
+  describe("getCachedAncestors", () => {
+    it("should return each cached group above the groups once", async () => {
+      const [root, mid, leaf] = await createChain();
+      expect(client.groups.getCachedAncestors([leaf.key, mid.key])).toEqual([
+        mid,
+        root,
+      ]);
+    });
+    it("should return undefined when a group above is not cached", async () => {
+      const [, , leaf] = await createChain();
+      const other = createTestClient();
+      await other.groups.retrieve({ key: leaf.key });
+      expect(other.groups.getCachedAncestors(leaf.key)).toBeUndefined();
+    });
+  });
+  describe("onAncestorsChange", () => {
+    it("should call the handler after a rename or a move above the group", async () => {
+      const [root, mid, leaf] = await createChain();
+      const handler = vi.fn();
+      const stop = client.groups.onAncestorsChange(leaf.key, handler);
+      await client.groups.rename(root.key, "renamed");
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([
+          expect.objectContaining({ key: mid.key }),
+          expect.objectContaining({ key: root.key, name: "renamed" }),
+        ]);
+      await client.groups.setParent(mid.key, null);
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([expect.objectContaining({ key: mid.key })]);
+      stop();
     });
   });
   describe("rename", () => {
