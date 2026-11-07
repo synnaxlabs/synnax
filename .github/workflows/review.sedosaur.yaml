@@ -112,8 +112,8 @@ jobs:
       # head that has one. The reviews of one pull request take turns, so a head needs
       # no other review when its last review for this pull request and base succeeded.
       # A repeat needs one only when that review began before the repeat was requested,
-      # so one review answers two requests that come together. The check run's external
-      # ID names the pull request and base.
+      # so one review answers two requests that come together. A re-run is a new
+      # request. The check run's external ID names the pull request and base.
       - name: Decide whether to review
         id: skip
         env:
@@ -129,7 +129,7 @@ jobs:
             SINCE=""
             if [ "$REPEAT" = true ]; then
               SINCE=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-                --jq .created_at)
+                --jq .run_started_at)
             fi
             export SINCE
             runs="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
@@ -222,6 +222,7 @@ jobs:
     runs-on: [self-hosted, review]
     timeout-minutes: 30
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     env:
@@ -241,15 +242,20 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      # The review reads the pull request after this start time, so a repeat requested
-      # before it needs no other review.
+      # The check run starts when GitHub started this job. The review reads the pull
+      # request after that, so a repeat requested before it needs no other review.
       - name: Start the check run
         if: ${{ !inputs.replay }}
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          JOBS_TOKEN: ${{ github.token }}
         run: |
+          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          jobs+="/attempts/$GITHUB_RUN_ATTEMPT/jobs"
+          started=$(GH_TOKEN=$JOBS_TOKEN gh api "$jobs" \
+            --jq '.jobs[] | select(.name == "Review") | .started_at')
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
-            -f status=in_progress -f started_at="$(date -u +%FT%TZ)" --silent
+            -f status=in_progress -f started_at="$started" --silent
 
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
       # holds the scripts and the policy: the pull request and its base are not trusted.
