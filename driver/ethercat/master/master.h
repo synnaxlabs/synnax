@@ -105,6 +105,11 @@ public:
     /// the bus cannot start without all of them.
     [[nodiscard]] virtual std::map<uint16_t, slave::Refusal> refusals() const = 0;
 
+    /// @brief returns whether a slave that kept the last activate() from finishing
+    /// reports "Invalid DC SYNC configuration", so that the error of a failed start
+    /// ends with DC_SYNC_ADVICE.
+    [[nodiscard]] virtual bool dc_sync_refused() const = 0;
+
     /// @brief leaves each slave in slaves out of the next activate() as if it were
     /// disabled, with why the bus starts without it. Until the activate() after that,
     /// pdo_offset() returns left_out_error() for an entry on a left-out slave, and

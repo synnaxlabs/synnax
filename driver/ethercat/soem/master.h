@@ -75,6 +75,9 @@ class Master final : public master::Master {
     std::map<uint16_t, slave::Refusal> left_out;
     /// @brief why each slave refused a state in the last activate(), keyed by position.
     std::map<uint16_t, slave::Refusal> start_refusals;
+    /// @brief whether a slave that failed the last activate() reports "Invalid DC SYNC
+    /// configuration".
+    bool start_dc_sync_refused = false;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -119,6 +122,8 @@ public:
     ) override;
 
     [[nodiscard]] std::map<uint16_t, slave::Refusal> refusals() const override;
+
+    [[nodiscard]] bool dc_sync_refused() const override;
 
     void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
@@ -253,7 +258,8 @@ private:
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
     /// cannot clear. Records each such slave for refusals() unless every enabled slave
-    /// refused.
+    /// refused, and records for dc_sync_refused() whether a failed slave reports
+    /// "Invalid DC SYNC configuration".
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 

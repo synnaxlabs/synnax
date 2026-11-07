@@ -220,6 +220,7 @@ x::errors::Error Master::activate(
     {
         std::lock_guard lock(this->mu);
         this->start_refusals.clear();
+        this->start_dc_sync_refused = false;
     }
     auto [dc_setups, dc_err] = this->resolve_dc(period);
     if (dc_err) return dc_err;
@@ -283,6 +284,11 @@ x::errors::Error Master::activate(
 std::map<uint16_t, slave::Refusal> Master::refusals() const {
     std::lock_guard lock(this->mu);
     return this->start_refusals;
+}
+
+bool Master::dc_sync_refused() const {
+    std::lock_guard lock(this->mu);
+    return this->start_dc_sync_refused;
 }
 
 void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
@@ -1375,13 +1381,13 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
-    if (dc_sync_refused) msg.append(". ").append(master::DC_SYNC_ADVICE);
     std::size_t enabled = 0;
     for (int i = 1; i <= this->api->slave_count(); ++i)
         enabled += this->api->slave_group(i) == ENABLED_GROUP ? 1 : 0;
-    if (refusing.size() < enabled) {
+    {
         std::lock_guard lock(this->mu);
-        this->start_refusals = refusing;
+        if (refusing.size() < enabled) this->start_refusals = refusing;
+        this->start_dc_sync_refused = dc_sync_refused;
     }
     return x::errors::Error(
         refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,

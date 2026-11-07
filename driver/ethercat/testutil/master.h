@@ -16,6 +16,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <ranges>
 #include <set>
 #include <span>
 #include <unordered_map>
@@ -42,6 +43,7 @@ class Master final : public master::Master {
     std::map<uint16_t, slave::Refusal> refusing;
     std::map<uint16_t, slave::Refusal> left_out;
     std::map<uint16_t, slave::Refusal> start_refusals;
+    bool start_dc_sync_refused{false};
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -325,6 +327,7 @@ public:
             this->calls.emplace_back("activate");
             this->period = period;
             this->start_refusals.clear();
+            this->start_dc_sync_refused = false;
             if (this->inject_activate_err) return this->inject_activate_err;
             if (!this->initialized)
                 return x::errors::Error(
@@ -360,6 +363,10 @@ public:
         }
         if (!refused.empty()) {
             if (refused.size() < on_bus) this->start_refusals = refused;
+            this->start_dc_sync_refused = std::ranges::any_of(
+                refused | std::views::values,
+                &slave::Refusal::dc_sync_invalid
+            );
             return x::errors::Error(
                 errors::STATE_CHANGE_REFUSED,
                 "failed to reach SAFE-OP: " + refused.begin()->second.reason
@@ -484,6 +491,11 @@ public:
     std::map<uint16_t, slave::Refusal> refusals() const override {
         std::lock_guard lock(this->mu);
         return this->start_refusals;
+    }
+
+    bool dc_sync_refused() const override {
+        std::lock_guard lock(this->mu);
+        return this->start_dc_sync_refused;
     }
 
     void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {

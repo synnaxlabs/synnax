@@ -106,6 +106,9 @@ public:
     /// own after activate() returns.
     std::map<uint16_t, slave::Refusal> refusals() const override { return {}; }
 
+    /// @brief returns false, since the IgH master reports no refusals.
+    bool dc_sync_refused() const override { return false; }
+
     void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;

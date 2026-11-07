@@ -576,6 +576,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
+    EXPECT_FALSE(this->master->dc_sync_refused());
 }
 
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
@@ -681,9 +682,9 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     EXPECT_TRUE(this->master->refusals().empty());
 }
 
-/// @brief it should add the DC sync advice once when slaves refuse SAFE-OP with
-/// "Invalid DC SYNC configuration".
-TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
+/// @brief it should report that slaves refused SAFE-OP with "Invalid DC SYNC
+/// configuration", and leave the advice out of its error.
+TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
     MockSlaveInfo first;
     first.state = EC_STATE_PRE_OP;
     first.name = "FirstSlave";
@@ -703,13 +704,9 @@ TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
         err.data,
         "failed to reach SAFE-OP: slave 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
-        "configuration. A slave that reports \"Invalid DC SYNC configuration\" "
-        "expects a synchronization mode that the Driver did not set up. Set the DC "
-        "mode of the slave in its device settings. With no setting, the Driver uses SM "
-        "sync when the slave lists an SM mode, and its first DC mode when it lists "
-        "only DC modes. If the slave does not list the mode it expects, change its "
-        "mode with the configuration tool of its vendor."
+        "configuration"
     );
+    EXPECT_TRUE(this->master->dc_sync_refused());
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.

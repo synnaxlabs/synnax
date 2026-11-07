@@ -711,30 +711,37 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
 }
 
-/// @brief it should give the DC sync advice once, at the end, when left-out slaves and
-/// the slaves of the last start pass all report "Invalid DC SYNC configuration".
+/// @brief it should give the DC sync advice once, at the end, when two left-out slaves
+/// report "Invalid DC SYNC configuration".
 TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
     this->master->add_slave(io_slave(1));
     this->master->add_slave(io_slave(2));
     this->master->refuse(1, DC_SYNC_REFUSAL);
     this->master->refuse(2, DC_SYNC_REFUSAL);
-    const std::string advice(master::DC_SYNC_ADVICE);
     this->master->inject_state_change_error(
-        x::errors::Error(
-            errors::STATE_CHANGE_REFUSED,
-            "failed to reach SAFE-OP: slave 0 (Slave0) is in PRE-OP: Invalid DC SYNC "
-            "configuration. " +
-                advice
-        )
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach SAFE-OP: slave 0 (Slave0) is in PRE-OP: Invalid DC SYNC "
-        "configuration. The Driver left out slave 1 because it refused SAFE-OP: "
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
-            advice
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should end the error of a failed start with the DC sync advice when every
+/// slave refuses SAFE-OP with "Invalid DC SYNC configuration".
+TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
+    this->master->refuse(0, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }

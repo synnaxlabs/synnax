@@ -122,25 +122,23 @@ bool serves(
            });
 }
 
-/// @brief adds a sentence to the error of a failed start for each slave that the start
-/// left out. The error ends with master::DC_SYNC_ADVICE once when it or a left-out
-/// slave needs the advice.
-x::errors::Error with_left_out(
+/// @brief returns err, the error of the last pass of a failed start, with a sentence
+/// for each slave that the start left out. The error ends with master::DC_SYNC_ADVICE
+/// once when dc_sync_refused is true or a left-out slave needs the advice.
+x::errors::Error start_error(
     x::errors::Error err,
-    const std::map<uint16_t, slave::Refusal> &left_out
+    const std::map<uint16_t, slave::Refusal> &left_out,
+    bool dc_sync_refused
 ) {
-    if (left_out.empty()) return err;
-    const auto advice = " " + std::string(master::DC_SYNC_ADVICE);
-    // The master ends its error with the advice when one of its slaves needs it.
-    bool advice_needed = err.data.ends_with(advice);
-    if (advice_needed) err.data.resize(err.data.size() - advice.size());
-    if (!err.data.ends_with('.')) err.data += '.';
     for (const auto &[pos, refusal]: left_out) {
+        if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + refusal.reason + ".";
-        advice_needed |= refusal.dc_sync_invalid;
+        dc_sync_refused |= refusal.dc_sync_invalid;
     }
-    if (advice_needed) err.data += advice;
+    if (!dc_sync_refused) return err;
+    if (!err.data.ends_with('.')) err.data += '.';
+    err.data.append(" ").append(master::DC_SYNC_ADVICE);
     return err;
 }
 
@@ -417,6 +415,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
     while (true) {
         this->master->leave_out(left_out);
         auto err = this->master->initialize();
+        bool dc_sync_refused = false;
         if (!err) {
             err = this->master->activate(
                 x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
@@ -424,6 +423,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
             );
             if (!err) break;
             const auto refused = this->master->refusals();
+            dc_sync_refused = this->master->dc_sync_refused();
             if (this->bus.running())
                 this->stop_locked();
             else
@@ -440,7 +440,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) || !retry.wait(err)) {
             retry.stop();
-            return with_left_out(err, left_out);
+            return start_error(err, left_out, dc_sync_refused);
         }
     }
     retry.stop();
