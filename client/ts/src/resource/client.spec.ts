@@ -109,8 +109,9 @@ describe("Resource", () => {
       return () => latest;
     };
 
+    // The Core holds groups from other specs, so the list takes the most it can.
     it("should add a created resource to a subscribed list", async () => {
-      const read = await subscribe({ searchTerm: "", types: ["group"] });
+      const read = await subscribe({ searchTerm: "", types: ["group"], limit: 1000 });
       const g = await createGroup(randomToken());
       await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(g);
     });

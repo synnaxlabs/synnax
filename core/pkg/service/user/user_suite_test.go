@@ -43,7 +43,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db,
+		DB:       db,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(

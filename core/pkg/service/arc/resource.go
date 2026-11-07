@@ -11,6 +11,7 @@ package arc
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -21,8 +22,16 @@ func (s *Service) Resources() *resource.TableProvider[Key, Arc] {
 		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
-		Name:   func(a *Arc) string { return a.Name },
+		Name:   func(a *Arc) string { return a.Base().Name },
 	})
+}
+
+// DirectoryResources returns the resource.Provider of Arc directories.
+func (s *Service) DirectoryResources() *resource.TableProvider[
+	directory.Key,
+	directory.Directory,
+] {
+	return s.directories.Resources()
 }
 
 // ResourceID returns the resource ID of the Arc with key.

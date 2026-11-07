@@ -61,7 +61,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db,
+		DB:       db,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(

@@ -72,15 +72,6 @@ func (r refInfo) ZeroOperand() string {
 	return r.Zero
 }
 
-// FilterName returns the name of the filter that matches the entries that hold any
-// of a set of targets, without its Match prefix.
-func (r refInfo) FilterName() string {
-	if r.IsSlice {
-		return pluralizeDistinct(singularize(r.GoName))
-	}
-	return pluralizeDistinct(r.GoName)
-}
-
 // TargetType returns the Go type of one target: the key type for a reference to one
 // table, or gorp.Target for a reference to resource IDs.
 func (r refInfo) TargetType() string {
@@ -172,7 +163,8 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 			continue
 		}
 		rt.names.Add(name)
-		for _, f := range retrieveFields(typ, table) {
+		fields, _ := resolution.RecordFields(typ, table)
+		for _, f := range fields {
 			if plugindomain.HasDomainFromField(f, "key") {
 				if _, ok := rt.byKey[f.Type.Name]; ok {
 					rt.conflicts[f.Type.Name] = name

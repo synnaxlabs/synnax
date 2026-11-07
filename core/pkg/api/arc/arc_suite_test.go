@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -67,7 +69,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db,
+		DB:       db,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -152,4 +155,20 @@ func grantOn(
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b arc.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
+
+// graphOf returns the graph of the graph-mode Arc b, failing the spec otherwise.
+func graphOf(b arc.Base) graph.Graph {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(arc.GraphSource)
+	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
+	return src.Graph
 }

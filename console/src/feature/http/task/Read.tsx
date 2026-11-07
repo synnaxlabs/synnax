@@ -33,7 +33,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Form as PlatformForm } from "@/platform/form";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -46,7 +46,7 @@ const RATE_INPUT_PROPS = {
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <PForm.NumericField
         path={root.config.rate}
         label="Rate"
@@ -202,7 +202,7 @@ interface FieldPaneProps {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue(path);
+  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
   const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
@@ -219,6 +219,7 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             channel={fieldChannel}
             namePath={path.name}
             defaultName={defaultName}
+            skipped={disabled}
           />
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />
@@ -331,9 +332,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "HTTP read task",
+  label: "Read",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateRead,
-});
+};

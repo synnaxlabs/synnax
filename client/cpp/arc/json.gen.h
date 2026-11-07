@@ -11,10 +11,15 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <variant>
+#include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/program/json.gen.h"
@@ -22,26 +27,178 @@
 
 namespace synnax::arc {
 
-inline Arc Arc::parse(x::json::Parser parser) {
-    return Arc{
+inline Base Base::parse(x::json::Parser parser) {
+    return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .mode = parser.field<std::string>("mode"),
-        .graph = parser.field<::arc::graph::Graph>("graph"),
-        .text = parser.field<::arc::text::Text>("text"),
-        .program = parser.field<std::optional<::arc::program::Program>>("program"),
+        .source = parser.has("source") ? parse_source(parser.child("source"))
+                                       : Source{TextSource{}},
+        .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),
     };
 }
 
-inline x::json::json Arc::to_json() const {
-    x::json::json j;
+inline x::json::json Base::to_json() const {
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
-    j["mode"] = this->mode;
-    j["graph"] = this->graph.to_json();
-    j["text"] = this->text.to_json();
-    if (this->program.has_value()) j["program"] = this->program->to_json();
+    j["source"] = ::synnax::arc::to_json(this->source);
+    if (this->directory.has_value()) j["directory"] = this->directory->to_json();
     return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .directories = parser.field<std::optional<std::vector<x::uuid::UUID>>>(
+            "directories"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->directories.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->directories)
+            arr.push_back(item.to_json());
+        j["directories"] = arr;
+    }
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_program = parser.field<bool>("include_program", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["offset"] = this->offset;
+    j["include_program"] = this->include_program;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .arcs = [&] {
+            std::vector<Arc> result;
+            if (parser.has("arcs"))
+                parser.iter("arcs", [&result](x::json::Parser &p) {
+                    result.push_back(parse_arc(p));
+                });
+            return result;
+        }(),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->arcs)
+            arr.push_back(::synnax::arc::to_json(item));
+        j["arcs"] = arr;
+    }
+    return j;
+}
+
+inline TextSource TextSource::parse(x::json::Parser parser) {
+    TextSource result;
+    result.text = parser.field<::arc::text::Text>("text", ::arc::text::Text{});
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json TextSource::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["text"] = this->text.to_json();
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline GraphSource GraphSource::parse(x::json::Parser parser) {
+    GraphSource result;
+    result.graph = parser.field<::arc::graph::Graph>("graph", ::arc::graph::Graph{});
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json GraphSource::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["graph"] = this->graph.to_json();
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
+    AutomationArc result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.program = parser.field<std::optional<::arc::program::Program>>("program");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AutomationArc::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    if (this->program.has_value()) j["program"] = this->program->to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
+    ModuleArc result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ModuleArc::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline Source parse_source(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("mode");
+    if (discriminator == "text") return TextSource::parse(parser);
+    if (discriminator == "graph") return GraphSource::parse(parser);
+    parser.field_err("mode", "unknown Source mode: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Source &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Arc parse_arc(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "automation") return AutomationArc::parse(parser);
+    if (discriminator == "module") return ModuleArc::parse(parser);
+    parser.field_err("type", "unknown Arc type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Arc &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

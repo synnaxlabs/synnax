@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,8 +38,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db,
+		DB:       db,
+		Password: passwordSvc,
 	}))
 	svc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,

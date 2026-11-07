@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -21,39 +21,36 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/panel/actions.gen";
-import { type Key, keyZ, type New, type Panel, panelZ } from "@/panel/types.gen";
+import {
+  type Key,
+  keyZ,
+  type New,
+  type Panel,
+  panelZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/panel/types.gen";
+import { type Lines, matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
-
-/**
- * Client-side matching for a request: key, group, and owner sets. Server-computed
- * shapes (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const inGroup = group.createMemberMatcher(req);
-  const owned = project.createOwnerMatcher(req);
-  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p) && owned(p);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -76,8 +73,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const store = cache.createTable<Key, Panel>({
       name: "panels",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
@@ -96,7 +92,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (panel, req) => requestFilter(req)(panel),
+        matches: (panel, req) => matches(LINES, panel, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -262,8 +259,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const res = await this.cfg.unary.send(
       "/panel/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.panels;
   }

@@ -36,8 +36,8 @@ func (*Service) Match(body map[string]any) bool {
 // discarded so every import mints a new resource. An unknown envelope version is a
 // path-scoped validation error.
 //
-// opts.Parent is ignored: an Arc is never parented, so there is nothing to attach it
-// under. The API layer still enforces update access on the parent the caller declared.
+// opts.Parent is ignored: the writer puts every new Arc in the root directory. The API
+// layer still enforces update access on the parent the caller declared.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -51,5 +51,5 @@ func (s *Service) Import(
 	if err = s.NewWriter(tx).Create(ctx, &a); err != nil {
 		return resource.ID{}, err
 	}
-	return ResourceID(a.Key), nil
+	return a.ResourceID(), nil
 }

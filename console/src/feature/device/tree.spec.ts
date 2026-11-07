@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device as deviceClient, NotFoundError } from "@synnaxlabs/client";
+import { device as deviceClient, NotFoundError, query } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -46,7 +46,7 @@ const hostDevices = (...devices: { key: string }[]) =>
   createHostItems((c) => [
     Tree.createSource(
       c.devices,
-      { keys: devices.map((d) => d.key) },
+      query.keysRequest(devices.map((d) => d.key)),
       Tree.toResource("device"),
     ),
   ]);

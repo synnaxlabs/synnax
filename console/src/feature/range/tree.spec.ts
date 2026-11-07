@@ -42,7 +42,7 @@ const createHostedRange = async () => {
   const items = {
     ...Range.TREE_ITEMS,
     ...createHostItems((c) => [
-      Tree.createSource(c.ranges, { keys: [rng.key] }, (r) =>
+      Tree.createSource(c.ranges, [rng.key], (r) =>
         Tree.toResource("range")(r.payload),
       ),
     ]),

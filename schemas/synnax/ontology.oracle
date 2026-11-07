@@ -15,6 +15,7 @@ import "schemas/synnax/resource"
 @go output "core/pkg/service/ontology"
 
 RelationshipType string {
+    @doc value "is the kind of link between two resources."
     @go hand
 }
 

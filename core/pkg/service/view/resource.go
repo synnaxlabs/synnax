@@ -11,7 +11,6 @@ package view
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -19,7 +18,7 @@ import (
 func (s *Service) Resources() *resource.TableProvider[Key, View] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, View]{
 		Table:  s.table,
-		Search: s.search,
+		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(v *View) string { return v.Base().Name },
@@ -46,10 +45,4 @@ func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 // ResourceIDsFromViews converts a slice of views to a slice of resource IDs.
 func ResourceIDsFromViews(views []View) []resource.ID {
 	return lo.Map(views, func(v View, _ int) resource.ID { return v.ResourceID() })
-}
-
-func newSearchIndex() *gorp.SearchIndex[Key, View] {
-	return gorp.NewSearchIndex("search", func(e *View) []string {
-		return []string{e.Base().Name}
-	})
 }

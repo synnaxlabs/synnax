@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -24,13 +25,13 @@ import (
 // Retrieve is used to retrieve Task records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, Task]
-	search  *gorp.SearchIndex[Key, Task]
-	indexes indexes
-	configs config.Registry
-	entry   *Task
-	entries *[]Task
+	baseTX    gorp.Tx
+	gorp      gorp.Retrieve[Key, Task]
+	indexes   indexes
+	configs   config.Registry
+	matchArcs func(arcs ...uuid.UUID) Filter
+	entry     *Task
+	entries   *[]Task
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -57,16 +58,6 @@ func Or(fs ...Filter) Filter { return gorp.OrBound(fs...) }
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter { return gorp.NotBound(f) }
 
-// Search filters the tasks to those whose name or type matches term, closest match
-// first. An empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
-}
-
 // MatchKeys returns a filter that restricts results to tasks whose key matches any of
 // the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
@@ -90,6 +81,19 @@ func MatchRacks(vals ...rack.Key) Filter {
 func MatchRanges(vals ...ranger.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+// keys.
+func MatchArcs(arcs ...uuid.UUID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		if r.matchArcs == nil {
+			return gorp.MatchKeysFunc[Key, Task](func(gorp.Context) ([]Key, error) {
+				return nil, errors.New("this task service cannot filter tasks by Arc")
+			})
+		}
+		return r.matchArcs(arcs...)(r)
 	}
 }
 
@@ -158,6 +162,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // Offset sets the starting index of the tasks to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no task as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

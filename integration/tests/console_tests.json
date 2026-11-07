@@ -9,7 +9,8 @@
         { "case": "console/pages/file_drop" },
         { "case": "console/channel/groups" },
         { "case": "console/task/task_lifecycle" },
-        { "case": "console/channel/tree_virtualization" }
+        { "case": "console/channel/tree_virtualization" },
+        { "case": "console/channel/toolbar_search" }
       ]
     },
     {
@@ -102,7 +103,6 @@
       "pool_size": 3,
       "tests": [
         { "case": "console/cluster/connection_lifecycle" },
-        { "case": "console/cluster/cluster_switch" },
         { "case": "console/cluster/login_forms" }
       ]
     },

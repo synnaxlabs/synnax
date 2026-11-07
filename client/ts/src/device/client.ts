@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -19,11 +19,14 @@ import {
   keyZ,
   type New,
   resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
+import { LINES } from "@/device/where";
+import { matches, serverComputed } from "@/device/where.gen";
 import { group } from "@/group";
 import { query } from "@/query";
-import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -52,26 +55,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = group.memberFilterZ.extend({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  makes: z.string().array().optional(),
-  models: z.string().array().optional(),
-  locations: z.string().array().optional(),
-  racks: rackKeyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
-  /** Keeps only the devices held by any of these devices. */
-  parents: keyZ.array().optional(),
-  /**
-   * Keeps only the devices held by another device when true, and only the devices that
-   * sit directly on their rack when false.
-   */
-  nested: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -87,23 +71,18 @@ const retrieveResZ = <
   });
 
 const singleRetrieveParamsZ = z
-  .object({
-    key: keyZ,
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ key, includeStatus }) => ({
-    keys: [key],
+  .object({ key: keyZ, includeStatus: z.boolean().optional() })
+  .transform(({ key, includeStatus }): RetrieveRequest => ({
+    where: { key: { eq: key } },
     includeStatus,
   }));
 
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 type SingleQuery = { key: Key; includeStatus?: boolean };
 
@@ -140,38 +119,6 @@ export const toUpdate = <D extends Pick<Device, "status">>({
   ...device
 }: D): Omit<D, "status"> => device;
 
-/**
- * Client-side matching for a request: key, name, make, model, location, rack, parent,
- * nesting, and group sets. Server-computed shapes (search and pagination) never reach
- * this filter; they refetch instead.
- */
-const requestFilter = (
-  req: RetrieveRequest,
-): ((d: Omit<Device, "status">) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  const makeSet = primitive.isNonZero(req.makes) ? new Set(req.makes) : undefined;
-  const modelSet = primitive.isNonZero(req.models) ? new Set(req.models) : undefined;
-  const locationSet = primitive.isNonZero(req.locations)
-    ? new Set(req.locations)
-    : undefined;
-  const rackSet = primitive.isNonZero(req.racks) ? new Set(req.racks) : undefined;
-  const parentSet = primitive.isNonZero(req.parents) ? new Set(req.parents) : undefined;
-  const inGroup = group.createMemberMatcher(req);
-  return (d) => {
-    if (keySet != null && !keySet.has(d.key)) return false;
-    if (nameSet != null && !nameSet.has(d.name)) return false;
-    if (makeSet != null && !makeSet.has(d.make)) return false;
-    if (modelSet != null && !modelSet.has(d.model)) return false;
-    if (locationSet != null && !locationSet.has(d.location)) return false;
-    if (rackSet != null && !rackSet.has(d.rack)) return false;
-    if (parentSet != null && (d.parent == null || !parentSet.has(d.parent)))
-      return false;
-    if (req.nested != null && (d.parent != null) !== req.nested) return false;
-    return inGroup(d);
-  };
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -203,7 +150,7 @@ export class Client extends query.Retriever<
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
-      fetch: async (keys) => await this.fetchThrough({ keys }),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
           value: ({ status: _, ...device }) => device,
@@ -237,7 +184,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => requestFilter(req)(d),
+        matches: (d, req) => matches(LINES, d, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {
@@ -286,9 +234,8 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const devices = await this.execRetrieve(rest, schemas);
+      const devices = await this.fetchThrough(rest, schemas);
       checkForMultipleOrNoResults("Device", rest, devices, isSingle);
-      this.writeThrough(devices);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -415,13 +362,6 @@ export class Client extends query.Retriever<
     return { ...cached, status: parsed.data };
   }
 
-  private writeThrough(devices: Device[]): void {
-    this.store.ingest(devices.map(stripStatus));
-    devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st);
-    });
-  }
-
   private async execRetrieve(
     params: RetrieveParams,
     schemas?: DeviceSchemas,
@@ -435,9 +375,17 @@ export class Client extends query.Retriever<
     return res.devices;
   }
 
-  private async fetchThrough(req: RetrieveRequest): Promise<Device[]> {
-    const devices = await this.execRetrieve(req);
-    this.writeThrough(devices);
+  private async fetchThrough(
+    req: RetrieveParams,
+    schemas?: DeviceSchemas,
+  ): Promise<Device[]> {
+    const since = this.store.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
+    const devices = await this.execRetrieve(req, schemas);
+    this.store.ingest(devices.map(stripStatus), { since });
+    devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
+    });
     return devices;
   }
 
@@ -448,9 +396,8 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Device", q, devices, true);
       return devices[0];
     }
-    const devices = await this.execRetrieve(q);
+    const devices = await this.fetchThrough(q);
     checkForMultipleOrNoResults("Device", q, devices, true);
-    this.writeThrough(devices);
     return devices[0];
   }
 }

@@ -37,26 +37,27 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// serviceConfig builds a channel ServiceConfig for the node, opening the group, label,
-// and status services the channel service depends on. It also returns the group
+// serviceConfig builds a channel ServiceConfig for the node on db, opening the group,
+// label, and status services the channel service depends on. It also returns the group
 // service.
 func serviceConfig(
 	ctx context.Context,
 	node testutil.Node,
+	db *gorp.DB,
 ) (channel.ServiceConfig, *group.Service) {
 	GinkgoHelper()
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: node.DB,
+		DB: db,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: node.DB,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: node.DB,
+		DB: db,
 	}))
 	return channel.ServiceConfig{
 		Channel:      node.Channel,
-		DB:           node.DB,
+		DB:           db,
 		HostProvider: node.Cluster,
 		Status:       statusSvc,
 	}, groupSvc
@@ -72,7 +73,7 @@ func openService(
 	cfgs ...channel.ServiceConfig,
 ) *channel.Service {
 	GinkgoHelper()
-	cfg, _ := serviceConfig(ctx, node)
+	cfg, _ := serviceConfig(ctx, node, node.DB)
 	return MustOpen(channel.OpenService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,

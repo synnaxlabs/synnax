@@ -17,37 +17,70 @@ import "github.com/synnaxlabs/x/validate"
 type Type string
 
 const (
-	TypeArc             Type = "arc"
-	TypeBuiltin         Type = "builtin"
-	TypeChannel         Type = "channel"
-	TypeDevice          Type = "device"
-	TypeFramer          Type = "framer"
-	TypeGroup           Type = "group"
-	TypeLabel           Type = "label"
-	TypeLineplot        Type = "lineplot"
-	TypeLog             Type = "log"
-	TypeNode            Type = "node"
-	TypePanel           Type = "panel"
-	TypePolicy          Type = "policy"
-	TypeProject         Type = "project"
-	TypeRack            Type = "rack"
-	TypeRange           Type = "range"
-	TypeRangeAlias      Type = "range-alias"
-	TypeRole            Type = "role"
-	TypeSchematic       Type = "schematic"
+	// TypeArc identifies an Arc module.
+	TypeArc Type = "arc"
+	// TypeBuiltin identifies a resource that the Core defines.
+	TypeBuiltin Type = "builtin"
+	// TypeChannel identifies a channel.
+	TypeChannel Type = "channel"
+	// TypeDevice identifies a device.
+	TypeDevice Type = "device"
+	// TypeFramer identifies the telemetry of a channel.
+	TypeFramer Type = "framer"
+	// TypeGroup identifies a group of resources.
+	TypeGroup Type = "group"
+	// TypeLabel identifies a label.
+	TypeLabel Type = "label"
+	// TypeLineplot identifies a line plot.
+	TypeLineplot Type = "lineplot"
+	// TypeLog identifies a log.
+	TypeLog Type = "log"
+	// TypeNode identifies a node of a cluster.
+	TypeNode Type = "node"
+	// TypePanel identifies a panel.
+	TypePanel Type = "panel"
+	// TypePolicy identifies an access control policy.
+	TypePolicy Type = "policy"
+	// TypeProject identifies a project.
+	TypeProject Type = "project"
+	// TypeRack identifies a rack.
+	TypeRack Type = "rack"
+	// TypeRange identifies a range.
+	TypeRange Type = "range"
+	// TypeRangeAlias identifies an alias of a channel on a range.
+	TypeRangeAlias Type = "range-alias"
+	// TypeRole identifies an access control role.
+	TypeRole Type = "role"
+	// TypeSchematic identifies a schematic.
+	TypeSchematic Type = "schematic"
+	// TypeSchematicSymbol identifies a schematic symbol.
 	TypeSchematicSymbol Type = "schematic_symbol"
-	TypeStatus          Type = "status"
-	TypeTable           Type = "table"
-	TypeTask            Type = "task"
-	TypeUser            Type = "user"
-	TypeView            Type = "view"
+	// TypeStatus identifies a status.
+	TypeStatus Type = "status"
+	// TypeTable identifies a table.
+	TypeTable Type = "table"
+	// TypeTask identifies a task.
+	TypeTask Type = "task"
+	// TypeUser identifies a user.
+	TypeUser Type = "user"
+	// TypeView identifies a view.
+	TypeView           Type = "view"
+	TypeEthercatMaster Type = "ethercat_master"
+	TypeEthercatSlave  Type = "ethercat_slave"
+	TypeHTTPServer     Type = "http_server"
+	TypeLabjackDevice  Type = "labjack_device"
+	TypeModbusServer   Type = "modbus_server"
+	TypeNiChassis      Type = "ni_chassis"
+	TypeNiDevice       Type = "ni_device"
+	TypeOpcuaServer    Type = "opcua_server"
+	TypeArcDirectory   Type = "arc_directory"
 )
 
 // IsValid reports whether t is one of the defined Type
 // values.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView:
+	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory:
 		return true
 	default:
 		return false

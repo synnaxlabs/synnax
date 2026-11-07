@@ -20,11 +20,100 @@ import (
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Where", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Where) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Where
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Where{
+				And: []v2.Where{
+					{
+						And: []v2.Where{{}},
+						Or:  []v2.Where{{}},
+						Not: new(v2.Where{}),
+						Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_6")), In: []string{"test_7"}}),
+						Variant: new(filter.Set[v2.Variant]{
+							Eq: new(v2.Variant("success")),
+							In: []v2.Variant{v2.Variant("success")},
+						}),
+						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
+						Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_14"}},
+					},
+				},
+				Or: []v2.Where{
+					{
+						And: []v2.Where{{}},
+						Or:  []v2.Where{{}},
+						Not: new(v2.Where{}),
+						Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_20")), In: []string{"test_21"}}),
+						Variant: new(filter.Set[v2.Variant]{
+							Eq: new(v2.Variant("success")),
+							In: []v2.Variant{v2.Variant("success")},
+						}),
+						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+						Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_28"}},
+					},
+				},
+				Not: new(v2.Where{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_34")), In: []string{"test_35"}}),
+					Variant: new(filter.Set[v2.Variant]{
+						Eq: new(v2.Variant("success")),
+						In: []v2.Variant{v2.Variant("success")},
+					}),
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567827")},
+					Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_42"}},
+				}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_44")), In: []string{"test_45"}}),
+				Variant: new(filter.Set[v2.Variant]{
+					Eq: new(v2.Variant("success")),
+					In: []v2.Variant{v2.Variant("success")},
+				}),
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+				Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_52"}},
+			}),
+			Entry("zero values", v2.Where{
+				And:     []v2.Where{},
+				Or:      []v2.Where{},
+				Not:     nil,
+				Key:     nil,
+				Variant: nil,
+				Labels:  []uuid.UUID{},
+				Owners:  []resource.ID{},
+			}),
+			Entry("empty collections", v2.Where{
+				And: []v2.Where{},
+				Or:  []v2.Where{},
+				Not: new(v2.Where{
+					And:     []v2.Where{},
+					Or:      []v2.Where{},
+					Not:     new(v2.Where{}),
+					Key:     new(filter.Set[v2.Key]{Eq: new(v2.Key("test_8")), In: []string{}}),
+					Variant: new(filter.Set[v2.Variant]{Eq: new(v2.Variant("success")), In: []v2.Variant{}}),
+					Labels:  []uuid.UUID{},
+					Owners:  []resource.ID{},
+				}),
+				Key:     new(filter.Set[v2.Key]{Eq: new(v2.Key("test_16")), In: []string{}}),
+				Variant: new(filter.Set[v2.Variant]{Eq: new(v2.Variant("success")), In: []v2.Variant{}}),
+				Labels:  []uuid.UUID{},
+				Owners:  []resource.ID{},
+			}),
+		)
+	})
 	Describe("Status", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.Status[string]) {
@@ -167,6 +256,190 @@ func FuzzDecodeStatus(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Status[string]
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func BenchmarkEncodeDecodeWhere(b *testing.B) {
+	seed := v2.Where{
+		And: []v2.Where{
+			{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_6")), In: []string{"test_7"}}),
+				Variant: new(filter.Set[v2.Variant]{
+					Eq: new(v2.Variant("success")),
+					In: []v2.Variant{v2.Variant("success")},
+				}),
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
+				Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_14"}},
+			},
+		},
+		Or: []v2.Where{
+			{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_20")), In: []string{"test_21"}}),
+				Variant: new(filter.Set[v2.Variant]{
+					Eq: new(v2.Variant("success")),
+					In: []v2.Variant{v2.Variant("success")},
+				}),
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+				Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_28"}},
+			},
+		},
+		Not: new(v2.Where{
+			And: []v2.Where{{}},
+			Or:  []v2.Where{{}},
+			Not: new(v2.Where{}),
+			Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_34")), In: []string{"test_35"}}),
+			Variant: new(filter.Set[v2.Variant]{
+				Eq: new(v2.Variant("success")),
+				In: []v2.Variant{v2.Variant("success")},
+			}),
+			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567827")},
+			Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_42"}},
+		}),
+		Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_44")), In: []string{"test_45"}}),
+		Variant: new(filter.Set[v2.Variant]{
+			Eq: new(v2.Variant("success")),
+			In: []v2.Variant{v2.Variant("success")},
+		}),
+		Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+		Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_52"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Where
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeWhere(f *testing.F) {
+	{
+		seed := v2.Where{
+			And: []v2.Where{
+				{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_6")), In: []string{"test_7"}}),
+					Variant: new(filter.Set[v2.Variant]{
+						Eq: new(v2.Variant("success")),
+						In: []v2.Variant{v2.Variant("success")},
+					}),
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
+					Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_14"}},
+				},
+			},
+			Or: []v2.Where{
+				{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_20")), In: []string{"test_21"}}),
+					Variant: new(filter.Set[v2.Variant]{
+						Eq: new(v2.Variant("success")),
+						In: []v2.Variant{v2.Variant("success")},
+					}),
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+					Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_28"}},
+				},
+			},
+			Not: new(v2.Where{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_34")), In: []string{"test_35"}}),
+				Variant: new(filter.Set[v2.Variant]{
+					Eq: new(v2.Variant("success")),
+					In: []v2.Variant{v2.Variant("success")},
+				}),
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567827")},
+				Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_42"}},
+			}),
+			Key: new(filter.Set[v2.Key]{Eq: new(v2.Key("test_44")), In: []string{"test_45"}}),
+			Variant: new(filter.Set[v2.Variant]{
+				Eq: new(v2.Variant("success")),
+				In: []v2.Variant{v2.Variant("success")},
+			}),
+			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+			Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_52"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Where{
+			And:     []v2.Where{},
+			Or:      []v2.Where{},
+			Not:     nil,
+			Key:     nil,
+			Variant: nil,
+			Labels:  []uuid.UUID{},
+			Owners:  []resource.ID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Where{
+			And: []v2.Where{},
+			Or:  []v2.Where{},
+			Not: new(v2.Where{
+				And:     []v2.Where{},
+				Or:      []v2.Where{},
+				Not:     new(v2.Where{}),
+				Key:     new(filter.Set[v2.Key]{Eq: new(v2.Key("test_8")), In: []string{}}),
+				Variant: new(filter.Set[v2.Variant]{Eq: new(v2.Variant("success")), In: []v2.Variant{}}),
+				Labels:  []uuid.UUID{},
+				Owners:  []resource.ID{},
+			}),
+			Key:     new(filter.Set[v2.Key]{Eq: new(v2.Key("test_16")), In: []string{}}),
+			Variant: new(filter.Set[v2.Variant]{Eq: new(v2.Variant("success")), In: []v2.Variant{}}),
+			Labels:  []uuid.UUID{},
+			Owners:  []resource.ID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Where
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Where
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

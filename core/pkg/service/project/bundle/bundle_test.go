@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -102,10 +103,15 @@ func createTask(ctx SpecContext, name string) task.Task {
 
 func createArc(ctx SpecContext, name, source string) arc.Arc {
 	GinkgoHelper()
-	a := arc.Arc{Name: name, Mode: arc.ModeText, Text: text.Text{Raw: source}}
+	a := arc.Arc{Variant: arc.AutomationArc{
+		Base: arc.Base{
+			Name:   name,
+			Source: arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: source}}},
+		},
+	}}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 	})
 	return a
 }
@@ -286,8 +292,11 @@ var _ = Describe("Export", func() {
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Startup.json"))
 		Expect(decode(files["Startup.json"])).To(SatisfyAll(
-			HaveKeyWithValue("type", "arc"),
-			HaveKeyWithValue("text", map[string]any{"raw": "x := 1"}),
+			HaveKeyWithValue("type", "arc-automation"),
+			HaveKeyWithValue("source", map[string]any{
+				"mode": "text",
+				"text": map[string]any{"raw": "x := 1"},
+			}),
 		))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(root["tabs"]).To(ConsistOf(
@@ -596,8 +605,8 @@ var _ = Describe("Import", func() {
 				Where(arc.MatchKeys(MustSucceed(uuid.Parse(arcID.Key)))).
 				Entry(&a).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(a.Name).To(Equal("Startup Sequence"))
-			Expect(a.Text.Materialize().Raw).
+			Expect(a.Base().Name).To(Equal("Startup Sequence"))
+			Expect(textOf(a.Base()).Materialize().Raw).
 				To(Equal("stage chamber_pressure -> ok\n"))
 			Expect(refs[1].Type).To(Equal(resource.TypeTask))
 		})
@@ -734,13 +743,17 @@ var _ = Describe("Import", func() {
 		))
 	})
 
-	It("Should leave imported Arcs unparented", func(ctx SpecContext) {
+	It("Should parent imported Arcs under Arcs", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		// The import lands beside the original, where the name is taken.
+		Expect(arcSvc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+			arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+		})).To(Succeed())
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		children := childrenOf(ctx, project.ResourceID(proj.Key))
@@ -755,8 +768,27 @@ var _ = Describe("Import", func() {
 			Where(arc.MatchKeys(key)).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
-		Expect(res.Name).To(Equal("Startup"))
-		Expect(res.Text.Materialize().Raw).To(Equal("x := 1"))
+		Expect(res.Base().Name).To(Equal("Startup"))
+		Expect(textOf(res.Base()).Materialize().Raw).To(Equal("x := 1"))
+		var root directory.Directory
+		Expect(arcSvc.NewDirectoryRetrieve().
+			Where(directory.MatchNested(false)).
+			Entry(&root).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(root.Name).To(Equal("Arcs"))
+		Expect(res.Base().Directory).To(HaveValue(Equal(root.Key)))
+	})
+
+	It("Should reject a bundle whose Arc name is taken", func(ctx SpecContext) {
+		src := createProject(ctx, "Taken Arcs")
+		a := createArc(ctx, "Startup", "x := 1")
+		createPanel(
+			ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())),
+		)
+		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+			To(MatchError(ContainSubstring(`name "Startup" is already used`)))
 	})
 
 	It("Should ignore files that are not members", func(ctx SpecContext) {

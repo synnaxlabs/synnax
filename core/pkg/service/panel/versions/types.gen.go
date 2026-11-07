@@ -30,7 +30,11 @@ type View = v3.View
 // (name, icon, closability) are resolved at render time from the content. A resource
 // may back at most one tab per panel; views may repeat.
 type Tab = v3.Tab
+
+// TabVariant is implemented by every Tab variant.
 type TabVariant = v3.TabVariant
+
+// TabType is the "variant" value that selects a variant of Tab.
 type TabType = v3.TabType
 
 const (
@@ -55,7 +59,11 @@ type ViewTab = v3.ViewTab
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
 type Node = v3.Node
+
+// NodeVariant is implemented by every Node variant.
 type NodeVariant = v3.NodeVariant
+
+// NodeType is the "variant" value that selects a variant of Node.
 type NodeType = v3.NodeType
 
 const (

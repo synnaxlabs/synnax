@@ -55,7 +55,7 @@ describe("label/tree", () => {
           ...Range.TREE_ITEMS,
           ...Status.TREE_ITEMS,
           ...createHostItems((c) => [
-            Tree.createSource(c.labels, { keys: [lbl.key] }, Tree.toResource("label")),
+            Tree.createSource(c.labels, [lbl.key], Tree.toResource("label")),
           ]),
         },
       });

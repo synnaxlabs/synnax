@@ -21,6 +21,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
 import { type Status } from "@/status";
+import { renderHighlight } from "@/text/highlight";
 import { isValidElement } from "@/util/children";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
@@ -53,6 +54,11 @@ export interface ExtensionProps
   status?: Status.Variant;
   /** Truncates past this many lines, fading the end of the last one. */
   lineClamp?: number;
+  /**
+   * A search term. Tints the start of each word that a token of the term begins, with
+   * words split at whitespace, '_', '-', and '.'. Applies to string children only.
+   */
+  highlight?: string;
 }
 
 /** Props for {@link Text}, on top of the props of the element it renders as. */
@@ -149,6 +155,8 @@ export const Text = <E extends Generic.ElementType = "p">({
   autoFormatHref,
   status,
   lineClamp,
+  highlight,
+  children,
   ...rest
 }: TextProps<E>): ReactElement => {
   const formattedStyle = formatStyle(style, weight, lineClamp);
@@ -166,10 +174,14 @@ export const Text = <E extends Generic.ElementType = "p">({
         status != null && CSS.M("status", status),
         className,
       )}
-      square={isSquare(rest.children)}
+      square={isSquare(children)}
       gap="small"
       href={formatHref(href, autoFormatHref)}
       {...(rest as Flex.BoxProps<E>)}
-    />
+    >
+      {highlight != null && typeof children === "string"
+        ? renderHighlight(children, highlight)
+        : children}
+    </Flex.Box>
   );
 };

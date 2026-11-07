@@ -106,10 +106,18 @@ var _ = Describe("NewMigration", func() {
 
 	createArc := func(ctx SpecContext) arc.Key {
 		GinkgoHelper()
-		a := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}
+		a := arc.Arc{
+			Variant: arc.AutomationArc{
+				Base: arc.Base{
+					Key:    uuid.New(),
+					Name:   "Stored Arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			},
+		}
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
 			To(Succeed())
-		return a.Key
+		return a.Base().Key
 	}
 
 	It(

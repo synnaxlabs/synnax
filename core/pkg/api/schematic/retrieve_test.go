@@ -20,24 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var _ = Describe("Retrieve", func() {
-	It(
-		"Should return no schematics for a request with no filter",
-		func(ctx SpecContext) {
-			s := schematic.Schematic{Project: &proj.Key, Name: "unfiltered"}
-			Expect(schematicSvc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
-			res := MustSucceed(apiSvc.Retrieve(
-				AuthedCtx(ctx, author),
-				apischematic.RetrieveRequest{},
-			))
-			Expect(res.Schematics).To(BeEmpty())
-			Expect(res.Schematics).ToNot(BeNil())
-		},
-	)
-})
 
 var _ = Describe("Retrieve by snapshot and page", func() {
 	var (
@@ -62,7 +47,10 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 	})
 	retrieve := func(ctx SpecContext, req apischematic.RetrieveRequest) []string {
 		GinkgoHelper()
-		req.Projects = []project.Key{paged.Key}
+		if req.Where == nil {
+			req.Where = &schematic.Where{}
+		}
+		req.Where.Projects = []project.Key{paged.Key}
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
 		return lo.Map(res.Schematics, func(s schematic.Schematic, _ int) string {
 			return s.Name
@@ -74,16 +62,20 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 		snapshot bool,
 		name string,
 	) {
-		Expect(retrieve(ctx, apischematic.RetrieveRequest{Snapshot: &snapshot})).
-			To(Equal([]string{name}))
+		Expect(retrieve(ctx, apischematic.RetrieveRequest{
+			Where: &schematic.Where{Snapshot: &filter.Bool{Eq: &snapshot}},
+		})).To(Equal([]string{name}))
 	},
 		Entry("snapshots", true, "snap"),
 		Entry("editable schematics", false, "editable"),
 	)
 
 	It("Should page the matching schematics", func(ctx SpecContext) {
-		first := retrieve(ctx, apischematic.RetrieveRequest{Limit: 1})
-		second := retrieve(ctx, apischematic.RetrieveRequest{Limit: 1, Offset: 1})
+		first := retrieve(ctx, apischematic.RetrieveRequest{Limit: new(uint32(1))})
+		second := retrieve(ctx, apischematic.RetrieveRequest{
+			Limit:  new(uint32(1)),
+			Offset: 1,
+		})
 		Expect(first).To(HaveLen(1))
 		Expect(second).To(HaveLen(1))
 		Expect(append(first, second...)).To(ConsistOf("editable", "snap"))

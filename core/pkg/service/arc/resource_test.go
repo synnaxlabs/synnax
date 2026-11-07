@@ -25,10 +25,10 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each Arc by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := arc.Arc{Name: "resource-arc", Mode: arc.ModeText}
+		a := newAutomation(arc.Base{Name: "resource-arc"})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{a.ResourceID()})).
-			To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Name}}))
+			To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Base().Name}}))
 	})
 
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
@@ -44,22 +44,22 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no Arc", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := arc.Arc{Name: "listed-arc", Mode: arc.ModeText}
+		a := newAutomation(arc.Base{Name: "listed-arc"})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		missing := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
 			ctx,
 			tx,
 			[]resource.ID{missing, a.ResourceID()},
-		)).To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Name}}))
+		)).To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Base().Name}}))
 	})
 
 	It("Should list each Arc by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := arc.Arc{Name: "listed-arc", Mode: arc.ModeText}
+		a := newAutomation(arc.Base{Name: "listed-arc"})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
-			resource.Resource{ID: a.ResourceID(), Name: a.Name},
+			resource.Resource{ID: a.ResourceID(), Name: a.Base().Name},
 		))
 	})
 })
@@ -69,9 +69,11 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		a := arc.Arc{Name: name, Mode: arc.ModeText}
+		a := newAutomation(
+			arc.Base{Name: name, Source: arc.Source{Variant: arc.TextSource{}}},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-		return arc.ResourceID(a.Key)
+		return a.ResourceID()
 	}
 
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {

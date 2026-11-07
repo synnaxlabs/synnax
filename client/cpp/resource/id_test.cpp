@@ -10,6 +10,7 @@
 #include <unordered_set>
 
 #include "client/cpp/resource/id.h"
+#include "client/cpp/resource/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::resource {
@@ -193,6 +194,24 @@ TEST(ResourceID, testProtoRoundTrip) {
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
     EXPECT_EQ(parsed, original);
+}
+
+/// @brief it should round-trip every typed device resource type through protobuf.
+TEST(ResourceID, testProtoRoundTripTypedDevices) {
+    for (const auto &type:
+         {TYPE_ETHERCAT_MASTER,
+          TYPE_ETHERCAT_SLAVE,
+          TYPE_HTTP_SERVER,
+          TYPE_LABJACK_DEVICE,
+          TYPE_MODBUS_SERVER,
+          TYPE_NI_CHASSIS,
+          TYPE_NI_DEVICE,
+          TYPE_OPCUA_SERVER}) {
+        const ID original{.type = type, .key = "key"};
+        const auto pb = ASSERT_NIL_P(original.to_proto());
+        const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
+        EXPECT_EQ(parsed, original);
+    }
 }
 
 /// @brief it should return an error for an unrecognized type in to_proto.

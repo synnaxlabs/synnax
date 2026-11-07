@@ -23,10 +23,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({
   update: async ({ data, client }) => await client.groups.create(data),
 });
 
-export type ListQuery = Pick<
-  group.RetrieveRequest,
-  "parents" | "scopes" | "nested" | "searchTerm" | "offset" | "limit"
->;
+export type ListQuery = group.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
   name: PLURAL_RESOURCE_NAME,
@@ -35,6 +32,33 @@ export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
   onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
   getCached: ({ client, query }) => client.groups.getCached(query),
   onChangeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  group.Group[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
+  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
+  getCached: ({ client, query }) => client.groups.getCached(query),
+});
+
+export type RetrieveAncestorsQuery = { keys: group.Key[] };
+
+/** Retrieves the groups with the keys and every group above them. */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  RetrieveAncestorsQuery,
+  group.Group[]
+>({
+  name: "group ancestors",
+  retrieve: async ({ client, query: { keys } }) => {
+    const [groups, ancestors] = await Promise.all([
+      client.groups.retrieve(keys),
+      client.groups.retrieveAncestors(keys),
+    ]);
+    return [...groups, ...ancestors];
+  },
 });
 
 export interface DeleteParams {

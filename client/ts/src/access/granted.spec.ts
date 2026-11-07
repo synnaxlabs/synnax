@@ -72,7 +72,7 @@ describe("Granted", () => {
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieve({ for: subject });
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -96,7 +96,7 @@ describe("Granted", () => {
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieve({ for: subject });
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -119,7 +119,7 @@ describe("Granted", () => {
     });
     const handler = vi.fn();
     const stop = client.access.granted.onChange(subject, RETRIEVE_RANGES, handler);
-    await client.access.policies.retrieve({ for: subject });
+    await client.access.policies.retrieve({ where: { subjects: [subject] } });
     await expect
       .poll(() => handler.mock.calls.length, { timeout: 5000 })
       .toBeGreaterThan(0);

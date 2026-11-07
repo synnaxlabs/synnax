@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
@@ -34,19 +35,17 @@ func MatchCalculated() Filter {
 	})
 }
 
-// MatchNames returns a filter for channels whose Name matches any of the provided
-// patterns. Each pattern may be a literal channel name or a Go regular expression;
-// unanchored patterns are wrapped in ^...$ before compilation.
+// MatchNamePatterns returns a filter for channels whose Name matches any of the
+// provided patterns. Each pattern may be a literal channel name or a Go regular
+// expression; unanchored patterns are wrapped in ^...$ before compilation.
 //
-// When every input is a literal channel name, MatchNames routes through the per-Service
-// name index (r.indexes.name) for an O(1) candidate-key lookup instead of a full scan.
-// If any input contains regex metacharacters, MatchNames compiles each pattern and
-// falls back to a scan that tests every decoded channel.
-func MatchNames(names ...string) Filter {
+// When every input is a literal channel name, MatchNamePatterns routes through the
+// name index for an O(1) candidate-key lookup instead of a full scan. If any input
+// contains regex metacharacters, it compiles each pattern and falls back to a scan that
+// tests every decoded channel.
+func MatchNamePatterns(names ...string) Filter {
 	if len(names) > 0 && allLiteralNames(names) {
-		return func(r Retrieve) gorp.Filter[Key, Channel] {
-			return r.indexes.name.Filter(names...)
-		}
+		return MatchNames(names...)
 	}
 	matchers := make([]func(string) bool, len(names))
 	for i, name := range names {
@@ -59,14 +58,14 @@ func MatchNames(names ...string) Filter {
 	})
 }
 
-// allLiteralNames reports whether every input is accepted by validNamePattern, the
-// character set enforced during channel creation and renaming. A channel's stored Name
-// always matches it, so such inputs are literal exact-match targets routable through
-// the in-memory name index; anything else contains regex metacharacters and must fall
-// back to the regex matcher to preserve the historical contract.
+// allLiteralNames reports whether every input is an identifier, the character set
+// enforced during channel creation and renaming. A channel's stored Name always is one,
+// so such inputs are literal exact-match targets routable through the in-memory name
+// index; anything else contains regex metacharacters and must fall back to the regex
+// matcher to preserve the historical contract.
 func allLiteralNames(names []string) bool {
 	for _, n := range names {
-		if !validNamePattern.MatchString(n) {
+		if !validate.IsIdentifier(n) {
 			return false
 		}
 	}

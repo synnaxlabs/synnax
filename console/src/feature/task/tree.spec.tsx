@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type task } from "@synnaxlabs/client";
+import { NotFoundError, query, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -67,7 +67,7 @@ const renderTaskTree = async (t: task.Task) =>
     items: {
       ...Task.TREE_ITEMS,
       ...createHostItems((c) => [
-        Tree.createSource(c.tasks, { keys: [t.key] }, (tsk) =>
+        Tree.createSource(c.tasks, query.keysRequest([t.key]), (tsk) =>
           Tree.toResource("task")(tsk.payload),
         ),
       ]),
@@ -203,7 +203,7 @@ describe("task tree", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+        const tasks = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
         expect(tasks.some((s) => s.snapshot)).toBe(true);
       });
       await waitFor(() =>

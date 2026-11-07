@@ -62,7 +62,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 				password.OpenService(ctx, password.ServiceConfig{DB: db}),
 			)
 			userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB: db,
+				DB:       db,
+				Password: passwordSvc,
 			}))
 			MustSucceed2(
 				user.ProvisionRoot(
@@ -189,7 +190,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB: db,
+			DB:       db,
+			Password: passwordSvc,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(
@@ -235,7 +237,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB: db,
+			DB:       db,
+			Password: passwordSvc,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(

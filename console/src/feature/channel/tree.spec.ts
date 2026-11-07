@@ -12,6 +12,7 @@ import {
   DataType,
   lineplot,
   NotFoundError,
+  query,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -65,8 +66,10 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 // Hosts the channels under the host root, outside any group.
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
   createHostItems((c) => [
-    Tree.createSource(c.channels, { keys: channels.map((ch) => ch.key) }, (ch) =>
-      Tree.toResource("channel")(ch.payload),
+    Tree.createSource(
+      c.channels,
+      query.keysRequest(channels.map((ch) => ch.key)),
+      (ch) => Tree.toResource("channel")(ch.payload),
     ),
   ]);
 

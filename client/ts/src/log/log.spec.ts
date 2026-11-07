@@ -52,7 +52,7 @@ describe("Log", () => {
       const dest = await client.projects.create({ name: "Log" });
       const v = await client.logs.create({ project: proj.key, name: "Log" });
       await client.batch.send([client.logs.setProjectRequest(v.key, dest.key)]);
-      const res = await client.logs.retrieve({ keys: [v.key] });
+      const res = await client.logs.retrieve([v.key]);
       expect(res[0].project).toEqual(dest.key);
     });
 

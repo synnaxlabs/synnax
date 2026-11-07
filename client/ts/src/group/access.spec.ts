@@ -71,5 +71,23 @@ describe("group", () => {
         AccessDeniedError.matches,
       );
     });
+
+    it("should retrieve a page of children past a child the caller cannot read", async () => {
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: `test-${id.create()}`,
+      });
+      const parentID = group.resourceID(parent.key);
+      await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const [first] = await client.groups.retrieve({ parents: [parentID], limit: 1 });
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [group.resourceID(first.key)],
+        actions: ["retrieve"],
+      });
+      const page = await userClient.groups.retrieve({ parents: [parentID], limit: 1 });
+      expect(page).toEqual([first]);
+    });
   });
 });

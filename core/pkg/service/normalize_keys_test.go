@@ -10,6 +10,8 @@
 package service_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -47,7 +49,7 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},
 	Entry("alias", aliasversions.Migrations),
-	Entry("arc", arcversions.Migrations),
+	Entry("arc", arcversions.NewMigrations(uuid.Nil())),
 	Entry("auth", authversions.Migrations),
 	Entry("channel", channelversions.Migrations),
 	Entry("device", deviceversions.NewMigrations(deviceversions.MigrationsConfig{})),

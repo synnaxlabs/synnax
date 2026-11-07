@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type group,
   NotFoundError,
   resource,
   type Synnax as Client,
@@ -24,12 +25,14 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { Access, Synnax } from "@synnaxlabs/pluto";
-import { array, compare, type destructor, type observe } from "@synnaxlabs/x";
+import { Access, Group, Synnax } from "@synnaxlabs/pluto";
+import { array, compare, type destructor, type observe, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -37,16 +40,37 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { type Source } from "@/platform/tree/children";
-import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
+import {
+  DefaultContextMenu,
+  type DefaultContextMenuProps,
+} from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
+import {
+  type CreateSearchParams,
+  groupsAbove,
+  type Match,
+  type Matches,
+  matchKey,
+  MatchProvider,
+  placeInGroups,
+  type Placement,
+  type ResultNodes,
+  type Search,
+  type SearchAnswer,
+  type SearchLayout,
+  useGroupMatches,
+  type UseSearch,
+} from "@/platform/tree/search";
 import {
   type BaseProps,
   type ContextMenuProps,
@@ -57,8 +81,21 @@ import {
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
-interface InternalProps extends Omit<TreeProps, "root"> {
+/** The resource types the tree sorts first. */
+const FOLDER_TYPES = new Set<resource.Type>(["group", "arc_directory"]);
+
+interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   root: resource.ID;
+  /**
+   * Lists the children of the root. Defaults to the children the item of the root's
+   * type lists, for a root that is a resource.
+   */
+  listRoot?: (client: Client) => Source[];
+  emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
+  results?: ResultNodes;
+  className?: string;
 }
 
 interface ContextValue {
@@ -148,12 +185,18 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 
 const itemRenderProp = Component.renderProp(TreeItem);
 
-// Returns the keys that sit inside another key in the same set. Depth cannot answer
-// this: two nodes at different depths are often unrelated.
-const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<string> => {
+// Returns the keys that sit inside another key in the same set, in the tree or in the
+// ancestors of a search match. Depth cannot answer this: two nodes at different depths
+// are often unrelated.
+const findContainedKeys = (
+  tree: Base.Node<string>[],
+  keys: string[],
+  ancestors: Map<string, Set<string>> = new Map(),
+): Set<string> => {
   const all = new Set(keys);
   const contained = new Set<string>();
   keys.forEach((key) => {
+    if ([...(ancestors.get(key) ?? [])].some((a) => all.has(a))) contained.add(key);
     const node = Base.findNode({ tree, key });
     if (node?.children == null) return;
     Base.getDescendants(...node.children).forEach(({ key: descendant }) => {
@@ -320,6 +363,46 @@ const filterVisible = (
     return visible == null || visible(r);
   });
 
+// No answer holds a node the Core has not heard of yet, so a node that a placeholder
+// backs stays. The nodes moved under it leave the answer.
+const keepPlaceholders = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+  isPlaceholder: (key: string) => boolean,
+): Base.Node<string>[] => {
+  const nextKeys = new Set(next.map(({ key }) => key));
+  const kept = prev.filter(({ key }) => !nextKeys.has(key) && isPlaceholder(key));
+  const moved = new Set(Base.getDescendants(...kept).map(({ key }) => key));
+  return [...kept, ...next.filter(({ key }) => !moved.has(key))];
+};
+
+// A watched group keeps the children its answer gave, since they are every child and
+// not only the matches.
+const keepWatchedChildren = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+  watched: Map<string, unknown>,
+  isPlaceholder: (key: string) => boolean,
+): Base.Node<string>[] =>
+  keepPlaceholders(
+    prev,
+    next.map((node) => {
+      const existing = prev.find(({ key }) => key === node.key);
+      if (existing?.children == null || node.children == null) return node;
+      if (watched.has(node.key)) return { ...node, children: existing.children };
+      return {
+        ...node,
+        children: keepWatchedChildren(
+          existing.children,
+          node.children,
+          watched,
+          isPlaceholder,
+        ),
+      };
+    }),
+    isPlaceholder,
+  );
+
 const toNodes = (
   resources: Resource[],
   resolveItem: (type: resource.Type) => Item,
@@ -329,14 +412,24 @@ const toNodes = (
     children: resolveItem(r.id.type).hasChildren ? [] : undefined,
   }));
 
-// Groups come first, then resources by name.
+// Folders come first, then resources by name.
 const compareResources = (a: Resource, b: Resource): number => {
-  if (a.id.type === "group" && b.id.type !== "group") return -1;
-  if (a.id.type !== "group" && b.id.type === "group") return 1;
+  const aFolder = FOLDER_TYPES.has(a.id.type);
+  const bFolder = FOLDER_TYPES.has(b.id.type);
+  if (aFolder !== bFolder) return aFolder ? -1 : 1;
   return a.name.localeCompare(b.name);
 };
 
-const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement => {
+const Internal = ({
+  root,
+  listRoot,
+  emptyContent,
+  rootContextMenu: RootContextMenu = DefaultContextMenu,
+  results,
+  className,
+  ref,
+  onKeyDown,
+}: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: resource.Type): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -358,7 +451,7 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
   // The retained answer seeds the first render, not an effect: an effect runs
   // after the commit paints, so the tree would still show one empty frame.
   const [seed] = useState<Watch | null>(() =>
-    client == null ? null : createWatch(listChildren(client, root)),
+    client == null || results != null ? null : createWatch(listChildren(client, root)),
   );
   const watchesRef = useInitializerRef(
     () => new Map<string, Watch>(seed == null ? [] : [[rootKey, seed]]),
@@ -378,7 +471,9 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   const getResourceByKey = (key: string): Resource | undefined =>
-    owners.ownerOf(key)?.get(key) ?? placeholders.getItem(key);
+    owners.ownerOf(key)?.get(key) ??
+    placeholders.getItem(key) ??
+    results?.resources.get(key);
 
   // A row reads its resource from a source that lists it. When the key moves to another
   // source, the row subscribes to that one.
@@ -455,7 +550,12 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     // resource renders only its own row.
     const moves = watch.order == null || !compare.arraysEqual(order, watch.order);
     watch.order = order;
-    const next = toNodes(answer.resources, resolveItem);
+    // Results keep the order of the matches, so the tree does not sort them, and the
+    // children of a group arrive sorted instead.
+    const next = toNodes(
+      results == null ? answer.resources : answer.resources.toSorted(compareResources),
+      resolveItem,
+    );
     const nextKeys = new Set(next.map(({ key }) => key));
     // The answer is the authority on its parent's membership. A node it omits
     // survives only while a placeholder backs it, since an optimistic row the Core
@@ -544,7 +644,7 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
   };
 
   useEffect(() => {
-    void watchChildren(root);
+    if (results == null) void watchChildren(root);
     return () => [...watchesRef.current.keys()].forEach(dropWatch);
   }, [client, rootKey]);
 
@@ -559,6 +659,7 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
 
   const handleExpand = ({ action, clicked }: Base.HandleExpandProps) => {
     if (action === "contract") return pauseWatch(clicked);
+    if (results?.fixed.has(clicked) === true) return;
     setLoading(clicked);
     void watchChildren(resource.parseID(clicked));
   };
@@ -579,9 +680,8 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     return resources;
   }) as GetResource;
 
-  const getItem = List.createGetItem<string, Resource>(
-    getResourceByKey,
-    (keys) => keys.map(getResourceByKey).filter((r) => r != null),
+  const getItem = List.createGetItem<string, Resource>(getResourceByKey, (keys) =>
+    keys.map(getResourceByKey).filter((r) => r != null),
   );
 
   const sorted = readResources(nodes, getResourceByKey);
@@ -600,10 +700,47 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
-    sort,
+    sort: results == null ? sort : undefined,
   });
   const { shape, expand, contract, expanded } = treeProps;
   const expandedRef = useSyncedRef(expanded);
+
+  // Groups open on arrival once, so a group the user closes stays closed.
+  const openedRef = useInitializerRef(() => new Set<string>());
+  useEffect(() => {
+    if (results == null) return;
+    owners.notify([...results.resources.keys()]);
+    // A group that now holds only matches drops every child its watch gave.
+    [...watchesRef.current.keys()]
+      .filter((key) => results.fixed.has(key))
+      .forEach(dropWatch);
+    const next = keepWatchedChildren(
+      nodesRef.current,
+      results.nodes,
+      watchesRef.current,
+      placeholders.hasItem,
+    );
+    // A group the results leave out loses its watch, so it loads its children again
+    // when it comes back.
+    [...watchesRef.current.keys()]
+      .filter((key) => Base.findNode({ tree: next, key }) == null)
+      .forEach(dropWatch);
+    setNodes(next);
+    // An open group that starts to match gets no expand, so it loads its children here.
+    expanded
+      .filter(
+        (key) =>
+          !results.fixed.has(key) &&
+          watchesRef.current.get(key)?.release == null &&
+          Base.findNode({ tree: results.nodes, key }) != null,
+      )
+      .forEach((key) => void watchChildren(resource.parseID(key)));
+    results.expanded.forEach((key) => {
+      if (openedRef.current.has(key)) return;
+      openedRef.current.add(key);
+      expand(key);
+    });
+  }, [results]);
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
   const pinned = shape.keys.filter(placeholders.hasItem);
@@ -632,14 +769,17 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     handleError,
   });
 
+  // A result at the top of the tree sits in groups the tree does not show.
   const findAncestors = (tree: Base.Node<string>[], key: string): resource.ID[] => {
     const ancestors: resource.ID[] = [];
+    let top = key;
     let parent = Base.findNodeParent({ tree, key });
     while (parent != null) {
       ancestors.push(resource.parseID(parent.key));
+      top = parent.key;
       parent = Base.findNodeParent({ tree, key: parent.key });
     }
-    ancestors.push(root);
+    ancestors.push(...(results?.paths.get(top) ?? []), root);
     return ancestors;
   };
 
@@ -660,6 +800,7 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     const contained = findContainedKeys(
       nodesSnapshot,
       dropped.map(({ key }) => key),
+      results?.ancestors,
     );
     const haulMoved = dropped.filter(({ key }) => !contained.has(key));
     const moved = haulMoved.map(({ key }) => ({
@@ -695,36 +836,38 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
     startDrag([Base.createHaulItem(itemKey), ...haulItems]);
   };
 
-  const renderContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const renderContextMenu = ({ keys: clicked }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
-    // In the case where we right clicked the menu, but it's not in the current
-    // selection, we only display a context menu for that item.
-    if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
-    // Because we're using a virtualized tree, the keys from the context menu
-    // might not actually be accurate (because we're missing DOM elements), so instead
-    // we pull directly from the list selected state.
-    else keys = selected;
+    if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
+    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    // A right-click outside the selection shows a menu for that item alone. Otherwise
+    // the selection state gives the keys, since the virtual tree can lack the DOM
+    // elements.
+    const keys =
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
 
     const ids = keys.map((key) => resource.parseID(key));
 
-    // We want to find the parent of the node with the lowest depth, since we
-    // might be selecting nodes AND their children.
-    const [shallowest] = keys.toSorted(Base.compareDepth(shape));
-    // TODO: we might be selecting two nodes that are not ascendants or descendants of
-    // the other ones. We need to change this function to implement recursion.
-    const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
+    // A selected node's own children do not count, since an action on the node carries
+    // them along. Flat search results show both at the same depth.
+    const contained = findContainedKeys(nodes, keys, results?.ancestors);
+    const top = Base.getAllNodesOfMinDepth(
+      Base.filterShape(shape, (key) => keys.includes(key) && !contained.has(key)),
+    );
+    const parents = unique.by(
+      top.map((key) => findAncestors(nodes, key)[0]),
+      (id) => resource.idToString(id),
+    );
+    const parentID = parents.length === 1 ? parents[0] : null;
 
-    const parentID = parent == null ? root : resource.parseID(parent.key);
-
-    const firstID = resource.parseID(shallowest);
+    const firstID = ids[0];
 
     const props: ContextMenuProps = {
       selection: {
         rootID: root,
         parentID,
         ids,
+        top: top.map((key) => resource.parseID(key)),
       },
       state,
       ...getBaseProps(client),
@@ -765,13 +908,302 @@ const Internal = ({ root, listRoot, emptyContent }: InternalProps): ReactElement
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
-        emptyContent={rootAnswered ? emptyContent : null}
+        emptyContent={rootAnswered || results != null ? emptyContent : null}
+        className={className}
         pinned={pinned}
         onContextMenu={menuProps.open}
+        ref={ref}
+        onKeyDown={onKeyDown}
       >
         {itemRenderProp}
       </Base.Tree>
     </Context>
+  );
+};
+
+const LIMIT = 100;
+const DEBOUNCE_MS = 120;
+const NO_GROUPS: group.Group[] = [];
+
+type FoundMatches = Extract<Matches, { variant: "success" }>;
+type FailedMatches = Extract<Matches, { variant: "error" }>;
+
+const isFound = (matches: Matches): matches is FoundMatches =>
+  matches.variant === "success";
+
+const isFailed = (matches: Matches): matches is FailedMatches =>
+  matches.variant === "error";
+
+const isFolderNode = ({ key }: Base.Node<string>): boolean =>
+  FOLDER_TYPES.has(resource.parseID(key).type);
+
+const foldersFirst = (nodes: Base.Node<string>[]): Base.Node<string>[] =>
+  [...nodes.filter(isFolderNode), ...nodes.filter((node) => !isFolderNode(node))].map(
+    (node) =>
+      node.children == null ? node : { ...node, children: foldersFirst(node.children) },
+  );
+
+interface BuildResultsParams {
+  matches: Resource[];
+  ancestry: Placement;
+  layout: SearchLayout;
+  hasChildren: (id: resource.ID) => boolean;
+}
+
+interface Built {
+  results: ResultNodes;
+  groups: Map<string, string>;
+}
+
+const buildResults = ({
+  matches,
+  ancestry: { resources, paths },
+  layout,
+  hasChildren,
+}: BuildResultsParams): Built => {
+  const names = new Map(resources.map(({ key, name }) => [key, name]));
+  const ids = matches.map(({ id }) => id);
+  const matched = new Set(resource.idToString(ids));
+  const nodes: Base.Node<string>[] = [];
+  const above = new Map<string, resource.ID[]>();
+  const ancestors = new Map<string, Set<string>>();
+  const groups = new Map<string, string>();
+  const fixed = new Set<string>();
+  const expanded = new Set<string>();
+  const toNode = (id: resource.ID): Base.Node<string> => ({
+    key: resource.idToString(id),
+    children: hasChildren(id) ? [] : undefined,
+  });
+  ids.forEach((id) => {
+    const key = resource.idToString(id);
+    const idPaths = paths[key] ?? [];
+    // The tree shows only what sits under its root.
+    if (idPaths.length === 0) return;
+    const parent = idPaths[0].at(-1);
+    above.set(key, idPaths[0].toReversed());
+    ancestors.set(key, new Set(idPaths.flatMap((path) => resource.idToString(path))));
+    if (layout === "flat") {
+      const group = parent == null ? undefined : names.get(resource.idToString(parent));
+      if (group != null) groups.set(key, group);
+      nodes.push(toNode(id));
+      return;
+    }
+    idPaths.forEach((path) => {
+      let level = nodes;
+      path.forEach((groupID) => {
+        const groupKey = resource.idToString(groupID);
+        expanded.add(groupKey);
+        if (!matched.has(groupKey)) fixed.add(groupKey);
+        let node = level.find((n) => n.key === groupKey);
+        if (node == null) {
+          node = { key: groupKey, children: [] };
+          level.push(node);
+        }
+        node.children ??= [];
+        level = node.children;
+      });
+      if (!level.some((n) => n.key === key)) level.push(toNode(id));
+    });
+  });
+  return {
+    results: {
+      nodes: foldersFirst(nodes),
+      fixed,
+      expanded: [...expanded],
+      paths: above,
+      resources: new Map([...resources, ...matches].map((r) => [r.key, r])),
+      ancestors,
+    },
+    groups,
+  };
+};
+
+interface Held {
+  key: string;
+  layout: SearchLayout;
+  groups: group.Group[] | null;
+  results: ResultNodes;
+  match: Match;
+  more: boolean;
+}
+
+const useDebounced = (value: string): string => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebounced(value), DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [value]);
+  return debounced;
+};
+
+/**
+ * Declares the search of a tree. Call it at module scope, and call the hook it returns
+ * where both the search field and the tree can read its state.
+ */
+export const createSearch = ({
+  noun,
+  useMatches = useGroupMatches,
+}: CreateSearchParams): UseSearch => {
+  const useSearch = (root: resource.ID | null): Search => {
+    const items = useItems();
+    const [open, setOpen] = useState(false);
+    const [term, setTerm] = useState("");
+    const [layout, setLayout] = useState<SearchLayout>("flat");
+    const fieldRef = useRef<HTMLInputElement>(null);
+    const resultsRef = useRef<HTMLDivElement>(null);
+    const treeRef = useRef<HTMLDivElement>(null);
+    const searching = open && term.trim() !== "";
+    const trimmed = useDebounced(term).trim();
+    const sources = useMatches(
+      !open || root == null || trimmed === ""
+        ? null
+        : { term: trimmed, root, limit: LIMIT + 1 },
+    );
+    const found = sources.every(isFound)
+      ? unique.by(
+          sources.flatMap(({ resources }) => resources),
+          ({ key }) => key,
+        )
+      : null;
+    const shown = found?.slice(0, LIMIT) ?? null;
+    const above = shown == null ? [] : groupsAbove(shown);
+    const ancestors = Group.useResultAncestors(
+      above.length === 0 ? null : { keys: above },
+    );
+    let groups: group.Group[] | null = null;
+    if (above.length === 0) groups = NO_GROUPS;
+    else if (ancestors.variant === "success") groups = ancestors.data;
+    const key = shown == null ? null : [trimmed, ...shown.map(matchKey)].join("\n");
+    const more = found != null && found.length > LIMIT;
+
+    // The last answer shows until the next one is placed, so the results never blank
+    // between keystrokes.
+    const [held, setHeld] = useState<Held | null>(null);
+    if (!searching) {
+      if (held != null) setHeld(null);
+    } else if (
+      root != null &&
+      key != null &&
+      shown != null &&
+      groups != null &&
+      (held?.key !== key ||
+        held.groups !== groups ||
+        held.layout !== layout ||
+        held.more !== more)
+    ) {
+      const { results, groups: groupNames } = buildResults({
+        matches: shown,
+        ancestry: placeInGroups(shown, groups, root),
+        layout,
+        hasChildren: (id) => (items[id.type] ?? DefaultItem).hasChildren,
+      });
+      setHeld({
+        key,
+        layout,
+        groups,
+        results,
+        match: { term: trimmed, groups: groupNames },
+        more,
+      });
+    }
+
+    const failure =
+      sources.find(isFailed) ??
+      (ancestors.variant === "error" ? ancestors.status : null);
+    let answer: SearchAnswer | null = null;
+    if (searching && failure != null)
+      answer = { variant: "error", description: failure.description };
+    else if (searching && held != null)
+      answer = {
+        variant: "success",
+        results: held.results,
+        match: held.match,
+        more: held.more,
+      };
+    return {
+      noun,
+      open,
+      term,
+      layout,
+      loading: searching && failure == null && (key == null || held?.key !== key),
+      answer,
+      start: () => setOpen(true),
+      close: () => {
+        // A hidden tree cannot take the focus, so the close renders first.
+        flushSync(() => {
+          setOpen(false);
+          setTerm("");
+        });
+        treeRef.current?.focus({ preventScroll: true });
+      },
+      setTerm,
+      setLayout,
+      fieldRef,
+      resultsRef,
+      treeRef,
+    };
+  };
+  return useSearch;
+};
+
+interface NoMatchesProps {
+  noun: string;
+  term: string;
+}
+
+const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
+  <Text.Text level="small" color={9} className={CSS.BE("tree-search", "message")}>
+    No {noun} match “{term}”
+  </Text.Text>
+);
+
+interface ResultsProps extends Pick<
+  Search,
+  "noun" | "layout" | "fieldRef" | "resultsRef"
+> {
+  root: resource.ID;
+  answer: SearchAnswer;
+}
+
+const Results = ({
+  root,
+  noun,
+  layout,
+  answer,
+  fieldRef,
+  resultsRef,
+}: ResultsProps): ReactElement => {
+  // A second Escape, in the field, closes the search.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Escape" || e.target !== e.currentTarget) return;
+    e.stopPropagation();
+    fieldRef.current?.focus();
+  };
+  if (answer.variant === "error")
+    return (
+      <Status.Summary
+        className={CSS.BE("tree-search", "message")}
+        variant="error"
+        message={`Failed to search ${noun}`}
+        description={answer.description}
+      />
+    );
+  return (
+    <MatchProvider value={answer.match}>
+      <Internal
+        key={layout}
+        root={root}
+        results={answer.results}
+        ref={resultsRef}
+        onKeyDown={handleKeyDown}
+        emptyContent={<NoMatches noun={noun} term={answer.match.term} />}
+      />
+      {answer.more && (
+        <Text.Text level="small" color={9} className={CSS.BE("tree-search", "more")}>
+          Showing the first {LIMIT} matches. Type more to narrow the search.
+        </Text.Text>
+      )}
+    </MatchProvider>
   );
 };
 
@@ -783,9 +1215,42 @@ export interface TreeProps {
    */
   listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
+  /** Shows the search answer in place of the tree while the search has one. */
+  search?: Search;
 }
 
-export const Tree = ({ root, ...rest }: TreeProps): ReactElement | null => {
+export const Tree = ({
+  root,
+  listRoot,
+  emptyContent,
+  rootContextMenu,
+  search,
+}: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} {...rest} />;
+  return (
+    <>
+      {/* The results come ahead of the hidden tree, so a lookup by item ID, such as
+          the start of a rename, finds the result first. */}
+      {search?.answer != null && (
+        <Results
+          root={root}
+          noun={search.noun}
+          layout={search.layout}
+          answer={search.answer}
+          fieldRef={search.fieldRef}
+          resultsRef={search.resultsRef}
+        />
+      )}
+      <Internal
+        root={root}
+        listRoot={listRoot}
+        ref={search?.treeRef}
+        emptyContent={emptyContent}
+        rootContextMenu={rootContextMenu}
+        className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
+      />
+    </>
+  );
 };

@@ -61,3 +61,23 @@ message Channel {
   // group is the group the channel sits in, if any.
   optional string group = 14;
 }
+
+// RetrieveRequest is a request to retrieve channels.
+message RetrieveRequest {
+  // where selects the channels to retrieve. An absent where selects all of them.
+  optional .service.channel.pb.Where where = 1;
+  // search_term keeps the channels that match the term, closest match first.
+  string search_term = 2;
+  // limit is the most channels to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching channels to skip.
+  uint32 offset = 4;
+  // include_status includes the status of each record.
+  bool include_status = 5;
+}
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+message RetrieveResponse {
+  // channels are the channels the request selects.
+  repeated Channel channels = 1;
+}

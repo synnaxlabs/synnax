@@ -64,6 +64,7 @@ func deleteOntologyChannels(
 	ch *channel.Service,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return ch.NewWriter(tx).DeleteManyByNames(ctx, ontologyChannelNames, true)
+		return ch.NewWriter(tx).
+			DeleteManyByNamePatterns(ctx, ontologyChannelNames, true)
 	})
 }

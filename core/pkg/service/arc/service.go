@@ -21,8 +21,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -30,10 +32,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -142,10 +146,16 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table    *gorp.Table[Key, Arc]
-	indexes  indexes
-	closer   xio.MultiCloser
-	cfg      ServiceConfig
+	table   *gorp.Table[Key, Arc]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	// directories stores the directories below root.
+	directories *directory.Table
+	// root is the directory that holds every Arc.
+	root directory.Key
+	// reserved holds the standard module names, which no entry of root may take.
+	reserved set.Set[string]
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -157,15 +167,14 @@ type Service struct {
 // A root resolves each channel name the same way for its lifetime, so build one per
 // analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	syms := slices.Concat(
-		stl.NewSymbols(),
-		arcstatus.NewSymbols(),
-		ranges.NewSymbols(),
-	)
 	return symbol.NewRoot(
 		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx)),
-		syms,
+		standardSymbols(),
 	)
+}
+
+func standardSymbols() []*symbol.Symbol {
+	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
@@ -199,31 +208,46 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// NewDirectoryRetrieve opens a query for Arc directories.
+func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
+	return s.directories.NewRetrieve()
+}
+
 // AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
 // is permitted exactly when channel-name validation is disabled.
 func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
 
-// CompileProgram retrieves an Arc program by key and compiles its Module. The returned
-// Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
+// CompileProgram retrieves the automation with key and compiles its program. A module
+// is a validation error.
+func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
 	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
+	}
+	automation, ok := entry.Variant.(AutomationArc)
+	if !ok {
+		return AutomationArc{}, errors.Wrapf(
+			validate.ErrValidation,
+			"modules cannot be deployed independently. Import %q from an "+
+				"automation instead",
+			entry.Base().Name,
+		)
 	}
 	var prog arc.Program
-	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil),
+	switch src := automation.Source.Variant.(type) {
+	case TextSource:
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
+	case GraphSource:
+		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
 	}
-	entry.Program = &prog
-	return entry, nil
+	automation.Program = &prog
+	return automation, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -243,10 +267,13 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](cfg.DB),
-		table:   cfg.Table.table,
-		indexes: cfg.Table.indexes,
+		cfg:         cfg,
+		reserved:    reservedNames(),
+		state:       actions.NewState[Key, Action](cfg.DB),
+		table:       cfg.Table.table,
+		indexes:     cfg.Table.indexes,
+		directories: cfg.Table.directories,
+		root:        cfg.Table.root,
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -265,6 +292,11 @@ func OpenService(
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
+	for _, t := range []Type{TypeAutomation, TypeModule} {
+		if err = cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
+			return nil, err
+		}
+	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishActions(
@@ -279,6 +311,12 @@ func OpenService(
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
 		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+			return nil, err
+		}
+		dirCfg := signals.GorpPublisherConfigUUID(s.directories.Observe())
+		dirCfg.SetName = directory.SetChannelName
+		dirCfg.DeleteName = directory.DeleteChannelName
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, dirCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -299,14 +337,17 @@ func (s *Service) OnAction(
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		tasks:      s.cfg.Task,
-		matchTasks: s.cfg.MatchTasks,
-		status:     s.cfg.Status,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
-		sweeper:    s.sweeper,
-		taskSync:   s.taskSync,
+		tx:          gorp.OverrideTx(s.cfg.DB, tx),
+		root:        s.root,
+		directories: s.directories,
+		reserved:    s.reserved,
+		tasks:       s.cfg.Task,
+		matchTasks:  s.cfg.MatchTasks,
+		status:      s.cfg.Status,
+		table:       s.table,
+		dispatcher:  s.state.Dispatcher(),
+		sweeper:     s.sweeper,
+		taskSync:    s.taskSync,
 	}
 }
 

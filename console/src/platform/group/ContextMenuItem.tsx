@@ -19,6 +19,7 @@ import { isScope } from "@/platform/group/move";
 export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
   ids: resource.ID[];
   rootID: resource.ID;
+  parentID: resource.ID | null;
   shape: Tree.Shape;
 }
 
@@ -26,10 +27,16 @@ export const ContextMenuItem = ({
   ids,
   shape,
   rootID,
+  parentID,
   ...rest
 }: ContextMenuItemProps): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
-  if (!hasCreatePermission || !canGroupSelection(ids, shape, rootID)) return null;
+  if (
+    !hasCreatePermission ||
+    parentID == null ||
+    !canGroupSelection(ids, shape, rootID)
+  )
+    return null;
   return (
     <Menu.Item itemKey="group" {...rest}>
       <Icon.Group />

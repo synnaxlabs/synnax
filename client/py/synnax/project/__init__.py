@@ -12,6 +12,7 @@ from synnax.project.types_gen import (
     TYPE_RESOURCE_ID,
     Key,
     Project,
+    Where,
     resource_id,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "Client",
     "Key",
     "Project",
+    "Where",
     "resource_id",
 ]

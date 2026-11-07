@@ -45,3 +45,45 @@ type WriteConfig = v3.WriteConfig
 
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = v3.ScanConfig
+
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
+type Scale = v3.Scale
+
+// ScaleVariant is implemented by every Scale variant.
+type ScaleVariant = v3.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
+type ScaleType = v3.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = v3.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = v3.MapScaleType
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = v3.PolynomialScaleType
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = v3.TableScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = v3.NoneScaleType
+)
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale = v3.LinearScale
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale = v3.MapScale
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale = v3.PolynomialScale
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale = v3.TableScale
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale = v3.NoneScale

@@ -10,15 +10,22 @@
 from typing import Any, Literal, overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, JsonValue
 from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_
 from synnax import rack as rack_
-from synnax.device.types_gen import Device, Key
-from synnax.exceptions import NotFoundError
+from synnax.device.types_gen import (
+    Device,
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from synnax.util import one, one_or_none
+from x import filter
 from x.lists import all_none, normalize, override
 
 
@@ -36,28 +43,6 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[str]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[str] | None = None
-    names: list[str] | None = None
-    makes: list[str] | None = None
-    models: list[str] | None = None
-    locations: list[str] | None = None
-    racks: list[int] | None = None
-    parents: list[Key] | None = None
-    nested: bool | None = None
-    groups: list[UUID] | None = None
-    grouped: bool | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    ignore_not_found: bool = False
-    include_status: bool = False
-
-
-class _RetrieveResponse(BaseModel):
-    devices: list[Device] = Field(default_factory=list)
 
 
 class _SetGroupRequest(BaseModel):
@@ -261,6 +246,7 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
@@ -271,11 +257,10 @@ class Client:
         nested: bool | None = None,
         groups: list[group_.Key] | None = None,
         grouped: bool | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
-        ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
     def retrieve(
@@ -286,6 +271,7 @@ class Client:
         make: str | None = None,
         model: str | None = None,
         location: str | None = None,
+        where: Where | None = None,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
@@ -296,15 +282,17 @@ class Client:
         nested: bool | None = None,
         groups: list[group_.Key] | None = None,
         grouped: bool | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device] | Device | None:
         """Retrieves devices matching the given filters. Returns one device when a key,
-        name, make, model, or location is given, and a list otherwise.
+        name, make, model, or location is given, and a list otherwise. A filter left as
+        None does not filter.
 
+        :param where: Keeps devices that match this filter tree.
         :param racks: Only return devices on the racks with these keys.
         :param parents: Only return devices that the devices with these keys hold.
         :param nested: Only return devices that another device holds when True, and
@@ -321,56 +309,64 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single device is requested and none matches.
+        :raises MultipleFoundError: If a single device is requested and more than one
+            matches, even when ignore_not_found is set.
         """
         is_single = not all_none(key, name, make, model, location)
         if sum(v is not None for v in (key, name, make, model, location)) > 1:
             raise ValueError(
                 "only one of key, name, make, model, and location can be given"
             )
-        if is_single and not all_none(
-            keys,
-            names,
-            makes,
-            models,
-            locations,
-            racks,
-            parents,
-            nested,
-            groups,
-            grouped,
-            search_term,
-            limit,
-            offset,
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(
+                where,
+                keys,
+                names,
+                makes,
+                models,
+                locations,
+                racks,
+                parents,
+                nested,
+                groups,
+                grouped,
+                limit,
+            )
         ):
             raise ValueError(
                 "key, name, make, model, and location cannot be combined with list "
                 "filters; use their plural forms instead"
             )
-        res = self._client.send(
-            "/device/retrieve",
-            _RetrieveRequest(
-                keys=override(key, keys),
-                makes=override(make, makes),
-                models=override(model, models),
-                locations=override(location, locations),
-                names=override(name, names),
-                racks=racks,
-                parents=parents,
-                nested=nested,
-                groups=groups,
-                grouped=grouped,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                ignore_not_found=ignore_not_found,
-                include_status=include_status,
-            ),
-            _RetrieveResponse,
+        keys = override(key, keys)
+        names = override(name, names)
+        makes = override(make, makes)
+        models = override(model, models)
+        locations = override(location, locations)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            make=None if makes is None else filter.String(in_=makes),
+            model=None if models is None else filter.String(in_=models),
+            location=None if locations is None else filter.String(in_=locations),
+            rack=None if racks is None else filter.Set[rack_.Key](in_=racks),
+            parents=parents,
+            nested=nested,
+            groups=groups,
+            grouped=grouped,
         )
-        if is_single:
-            if len(res.devices) > 0:
-                return res.devices[0]
-            if ignore_not_found:
-                return None
-            raise NotFoundError("Device not found")
-        return res.devices
+        req = RetrieveRequest(
+            where=filter.merge(where, flat),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_status=include_status,
+        )
+        res = self._client.send("/device/retrieve", req, RetrieveResponse)
+        if not is_single:
+            return res.devices
+        query = next(v for v in (key, name, make, model, location) if v is not None)
+        if ignore_not_found:
+            return one_or_none("Device", query, res.devices)
+        return one("Device", query, res.devices)

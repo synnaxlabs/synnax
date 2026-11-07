@@ -7,23 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, primitive, type record } from "@synnaxlabs/x";
+import { array, type destructor, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type batch } from "@/batch";
 import { type Key, keyZ } from "@/project/types.gen";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
-
-/** Retrieve request fields that filter visualizations by the project or range they
- * belong to. */
-export const ownerFilterZ = z.object({
-  /** Keeps visualizations that belong to any of these projects. */
-  projects: keyZ.array().optional(),
-  /** Keeps visualizations that belong to any of these ranges. */
-  ranges: ranger.keyZ.array().optional(),
-});
-export interface OwnerFilter extends z.infer<typeof ownerFilterZ> {}
+import { type ranger } from "@/ranger";
 
 /** A visualization, which belongs to exactly one project or range. */
 export interface Owned {
@@ -31,17 +21,12 @@ export interface Owned {
   range?: ranger.Key;
 }
 
-/** Returns a predicate that tells whether a visualization passes the filter. */
-export const createOwnerMatcher = (
-  filter: OwnerFilter,
-): ((owned: Owned) => boolean) => {
-  const projects = primitive.isNonZero(filter.projects)
-    ? new Set(filter.projects)
-    : null;
-  const ranges = primitive.isNonZero(filter.ranges) ? new Set(filter.ranges) : null;
-  return ({ project, range }) =>
-    (projects == null || (project != null && projects.has(project))) &&
-    (ranges == null || (range != null && ranges.has(range)));
+/** The typed lines of a visualization Where that match by project or range. */
+export const OWNER_LINES = {
+  projects: ({ project }: Owned, keys: Key[]): boolean =>
+    project != null && keys.includes(project),
+  ranges: ({ range }: Owned, keys: ranger.Key[]): boolean =>
+    range != null && keys.includes(range),
 };
 
 /** Schema of a set-project request for visualizations keyed by the given schema. */

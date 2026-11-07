@@ -62,6 +62,20 @@ x::errors::Error StatusCache::resend() {
     return first_err;
 }
 
+std::optional<synnax::task::Status> StatusCache::latest(const synnax::task::Key &key) {
+    std::shared_ptr<Entry> entry;
+    {
+        std::lock_guard lock{this->mu};
+        const auto it = this->entries.find(synnax::task::resource_id(key));
+        if (it == this->entries.end()) return std::nullopt;
+        entry = it->second;
+    }
+    std::lock_guard lock{entry->mu};
+    // drop can run between the lookup and the lock.
+    if (entry->dropped) return std::nullopt;
+    return entry->status;
+}
+
 void StatusCache::drop(const synnax::task::Key &key) {
     const auto owner = synnax::task::resource_id(key);
     std::lock_guard lock{this->mu};

@@ -11,7 +11,6 @@ package label
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -19,7 +18,7 @@ import (
 func (s *Service) Resources() *resource.TableProvider[Key, Label] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Label]{
 		Table:  s.table,
-		Search: s.search,
+		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(l *Label) string { return l.Name },
@@ -35,10 +34,4 @@ func ResourceID(k Key) resource.ID {
 // keys.
 func ResourceIDs(keys []Key) []resource.ID {
 	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
-func newSearchIndex() *gorp.SearchIndex[Key, Label] {
-	return gorp.NewSearchIndex("search", func(e *Label) []string {
-		return []string{e.Name}
-	})
 }

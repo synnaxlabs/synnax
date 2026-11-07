@@ -23,13 +23,13 @@ namespace arc::types {
 
 inline FunctionProperties FunctionProperties::parse(x::json::Parser parser) {
     return FunctionProperties{
-        .inputs = parser.field<Params>("inputs"),
-        .outputs = parser.field<Params>("outputs"),
+        .inputs = parser.field<Params>("inputs", Params{}),
+        .outputs = parser.field<Params>("outputs", Params{}),
     };
 }
 
 inline x::json::json FunctionProperties::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     return j;
@@ -48,9 +48,9 @@ inline Type Type::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Type::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: FunctionProperties::to_json().items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = FunctionProperties::to_json(); parent.is_object())
+        j.update(parent);
     j["kind"] = this->kind;
     j["name"] = this->name;
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();
@@ -69,7 +69,7 @@ inline Param Param::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Param::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["name"] = this->name;
     j["type"] = this->type.to_json();
     j["value"] = this->value;
@@ -84,7 +84,7 @@ inline Channels Channels::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Channels::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["read"] = this->read;
     j["write"] = this->write;
     return j;
@@ -104,7 +104,7 @@ inline Dimensions Dimensions::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Dimensions::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["length"] = this->length;
     j["mass"] = this->mass;
     j["time"] = this->time;
@@ -125,7 +125,7 @@ inline Unit Unit::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Unit::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["dimensions"] = this->dimensions.to_json();
     j["scale"] = this->scale;
     j["name"] = this->name;

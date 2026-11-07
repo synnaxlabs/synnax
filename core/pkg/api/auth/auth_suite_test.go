@@ -51,10 +51,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	db := node.DB
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db,
-	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB: db, Password: passwordSvc,
+	}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{

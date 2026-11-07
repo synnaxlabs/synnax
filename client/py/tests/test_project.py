@@ -17,7 +17,9 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax import project
 from synnax.exceptions import NotFoundError
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -59,6 +61,16 @@ class TestProject:
         p2 = client.projects.create(name="Project B")
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep projects that match a filter tree and the given keys."""
+        p1 = client.projects.create(name="Where A")
+        p2 = client.projects.create(name="Where B")
+        where = project.Where(
+            not_=project.Where(key=filter.Set[project.Key](eq=p1.key))
+        )
+        projects = client.projects.retrieve(where=where, keys=[p1.key, p2.key])
+        assert [p.key for p in projects] == [p2.key]
 
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for projects by name."""
@@ -106,8 +118,7 @@ class TestProject:
         p1 = client.projects.create(name="Delete 1")
         p2 = client.projects.create(name="Delete 2")
         client.projects.delete([p1.key, p2.key])
-        with pytest.raises(NotFoundError):
-            client.projects.retrieve(keys=[p1.key, p2.key])
+        assert client.projects.retrieve(keys=[p1.key, p2.key]) == []
 
 
 def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) -> None:

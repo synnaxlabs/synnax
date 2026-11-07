@@ -19,14 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -47,45 +41,13 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: node.DB,
-	}))
-	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: node.DB,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: node.DB,
-	}))
-	channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
-	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: node.DB,
-	}))
-	rbacSvc := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
-		DB:     node.DB,
-		User:   userSvc,
-		Status: statusSvc,
-	})).RBAC
-	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:    node.DB,
-		Group: groupSvc,
-	}))
-	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
-		DB:              node.DB,
-		Channel:         channelSvc,
-		ParentRetriever: rangerSvc,
-	}))
+	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
-		RBAC:    rbacSvc,
-		Channel: channelSvc,
-		Ranger:  rangerSvc,
-		Alias:   aliasSvc,
-		Status:  statusSvc,
+		RBAC:    svc.RBAC,
+		Channel: svc.Channel,
+		Status:  svc.Status,
+		Alias:   svc.Alias,
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {

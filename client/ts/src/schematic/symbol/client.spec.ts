@@ -107,9 +107,9 @@ describe("Symbol Client", () => {
         ],
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        keys: created.map((s) => s.key),
-      });
+      const retrieved = await client.schematics.symbols.retrieve(
+        created.map((s) => s.key),
+      );
       expect(retrieved).toHaveLength(2);
     });
 
@@ -131,6 +131,25 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name).sort();
         })
         .toEqual(names);
+    });
+
+    it("should retrieve symbols by where", async () => {
+      const prefix = `where-symbol-${id.create()}`;
+      const [first] = await client.schematics.symbols.create({
+        symbols: [
+          { name: `${prefix}-1`, data: SYMBOL_DATA, group: symbolGroup.key },
+          { name: `${prefix}-2`, data: SYMBOL_DATA, group: symbolGroup.key },
+        ],
+      });
+      await expect
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            searchTerm: prefix,
+            where: { not: { key: { eq: first.key } } },
+          });
+          return results.map((s) => s.name);
+        })
+        .toEqual([`${prefix}-2`]);
     });
   });
 
@@ -174,6 +193,47 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name);
         })
         .toEqual([`${prefix}-valve`]);
+    });
+
+    it("should combine a group with a where", async () => {
+      const g = await createSymbolGroup();
+      const [kept] = await client.schematics.symbols.create({
+        symbols: [
+          { name: "valve", data: SYMBOL_DATA, group: g.key },
+          { name: "pump", data: SYMBOL_DATA, group: g.key },
+        ],
+      });
+      const outsider = await client.schematics.symbols.create({
+        name: "valve",
+        data: SYMBOL_DATA,
+        group: (await createSymbolGroup()).key,
+      });
+      const retrieved = await client.schematics.symbols.retrieve({
+        where: {
+          and: [{ groups: [g.key] }, { key: { in: [kept.key, outsider.key] } }],
+        },
+      });
+      expect(retrieved.map((s) => s.key)).toEqual([kept.key]);
+    });
+
+    it("should combine a group with a flat filter", async () => {
+      const g = await createSymbolGroup();
+      const [kept] = await client.schematics.symbols.create({
+        symbols: [
+          { name: "valve", data: SYMBOL_DATA, group: g.key },
+          { name: "pump", data: SYMBOL_DATA, group: g.key },
+        ],
+      });
+      const outsider = await client.schematics.symbols.create({
+        name: "valve",
+        data: SYMBOL_DATA,
+        group: (await createSymbolGroup()).key,
+      });
+      const retrieved = await client.schematics.symbols.retrieve({
+        groups: [g.key],
+        key: [kept.key, outsider.key],
+      });
+      expect(retrieved.map((s) => s.key)).toEqual([kept.key]);
     });
 
     it("should return an empty list for an empty group", async () => {

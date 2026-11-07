@@ -28,6 +28,15 @@ _SCROLL_STEP = 200
 _SCROLL_SETTLE_MS = 150
 _POLL_MS = 100
 _DEFAULT_TIMEOUT_MS = 5000
+# A search result shows the name of its group after its own name. The name drops it.
+_MOUNTED_JS = """(els) => els
+    .filter((el) => el.checkVisibility())
+    .map((el) => {
+        const text = el.innerText.trim();
+        const group = el.querySelector(".console-tree-item__group");
+        if (group == null) return [el.id, text];
+        return [el.id, text.slice(0, -group.innerText.length).trim()];
+    })"""
 _SCROLL_TO_TOP_JS = """(el) => {
     const tree = el.closest(".lyra-tree");
     tree.scrollTop += el.getBoundingClientRect().top - tree.getBoundingClientRect().top;
@@ -90,8 +99,7 @@ class Tree:
     def _mounted(self, prefix: str) -> list[tuple[str, str]]:
         """The mounted rows for a prefix, as (ID, text) pairs, deduplicated by ID."""
         rows: list[list[str]] = self.page.locator(f"div[id^='{prefix}']").evaluate_all(
-            "(els) => els.filter((el) => el.checkVisibility())"
-            ".map((el) => [el.id, el.innerText.trim()])"
+            _MOUNTED_JS
         )
         seen: set[str] = set()
         deduped: list[tuple[str, str]] = []

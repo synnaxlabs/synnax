@@ -90,6 +90,14 @@ func (i indexes) references() []gorp.Reference[Key, Rack] {
 	}
 }
 
+// MatchSearch matches the racks whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -128,8 +136,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -164,9 +171,8 @@ func MatchEmbedded(v bool) Filter {
 	}
 }
 
-// MatchIntegration returns a filter for
-// racks whose Integrations contains the provided
-// value.
+// MatchIntegration returns a filter for racks whose
+// Integrations contains the provided value.
 func MatchIntegration(v string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
@@ -255,6 +261,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no rack as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

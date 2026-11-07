@@ -8,27 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key, keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
+import {
+  type Key,
+  keyZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Role,
+  roleZ,
+} from "@/access/role/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/access/role/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
-  internal: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
-
-const keyRetrieveRequestZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -39,15 +42,10 @@ export const createParamsZ = z.union([singleCreateParamsZ, multipleCreateParamsZ
 export type CreateParams = z.input<typeof createParamsZ>;
 
 const createResZ = z.object({ roles: roleZ.array() });
-const retrieveResZ = z.object({ roles: roleZ.array().default(() => []) });
 
-export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
-
-export const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const deleteResZ = z.object({});
 
@@ -55,19 +53,6 @@ const deleteParamsZ = keyZ
   .transform((key) => ({ keys: [key] }))
   .or(keyZ.array().transform((keys) => ({ keys })));
 export type DeleteParams = z.input<typeof deleteParamsZ>;
-
-/**
- * Client-side matching for a request: key sets and the internal flag. Server-computed
- * shapes (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (r) => {
-    if (keySet != null && !keySet.has(r.key)) return false;
-    if (req.internal != null && r.internal !== req.internal) return false;
-    return true;
-  };
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -82,7 +67,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     const { cache } = cfg;
     const store = cache.createTable<Key, Role>({
       name: "roles",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, roleZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -94,7 +79,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (role, req) => requestFilter(req)(role),
+        matches: (role, req) => matches(role, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -145,12 +131,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     rename();
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Role[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Role[]> {
     const res = await this.cfg.unary.send(
       "/access/role/retrieve",
       params,
       retrieveRequestZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.roles;
   }

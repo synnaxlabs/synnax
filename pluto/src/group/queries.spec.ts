@@ -86,7 +86,7 @@ describe("Group queries", () => {
         scope: "project",
         name: `other-${uuid.create()}`,
       });
-      const query: Group.ListQuery = { scopes: ["channel"], nested: false };
+      const query: Group.ListQuery = { scope: "channel", nested: false };
       const { result } = renderHook(() => Group.useList({ initialQuery: query }), {
         wrapper,
       });

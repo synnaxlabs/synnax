@@ -419,10 +419,12 @@ export const createList = <
         const keys = value.map((v) => v.key);
 
         // An answer replaces a page the cache answered in either mode, and any older
-        // page for the same query.
+        // page for the same query. A pending page belongs to a retrieve in flight,
+        // which closes or keeps it.
         closePages(
           (p) =>
             p !== page &&
+            p.pending !== true &&
             (mode === "replace" || p.cached === true || p.hash === page.hash),
         );
         value.forEach((v) => dataRef.current.set(v.key, v));

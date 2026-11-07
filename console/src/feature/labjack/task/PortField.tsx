@@ -53,9 +53,7 @@ export const PortField = <C extends Channel>({
           claims: claims(channels, model),
           selected: [key],
           describe: Task.Port.describer(channels, name),
-          onClick: (cell: Task.Port.Cell) => {
-            if (!preview) onChange(cell.key);
-          },
+          onMove: preview ? undefined : (cell: Task.Port.Cell) => onChange(cell.key),
         };
         return tabbed ? (
           <BankTabs key={key} port={value} {...props} />

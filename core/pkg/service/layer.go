@@ -467,18 +467,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, roles) {
 		return nil, err
 	}
-	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		Instrumentation: cfg.Child("user"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-	}); !ok(err, l.User) {
-		return nil, err
-	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
 		Instrumentation: cfg.Child("password"),
 		DB:              cfg.Distribution.DB,
 		FIPS:            cfg.FIPS,
 	}); !ok(err, l.Password) {
+		return nil, err
+	}
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Password:        l.Password,
+		Signals:         l.Signals,
+	}); !ok(err, l.User) {
 		return nil, err
 	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
@@ -719,6 +720,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 		Configs:         taskConfigs,
+		MatchArcs:       l.ArcTask.MatchArcs,
 		// An Arc task holds a key and hash pointing at an Arc document, so it has no
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
@@ -764,6 +766,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB: cfg.Distribution.DB,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
+			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeChannel:         l.Channel.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),

@@ -21,8 +21,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	It("Should reject the request when retrieve is not granted on a match", func(
+		ctx SpecContext,
+	) {
+		r := table.Table{Project: &proj.Key, Name: "unretrievable"}
+		Expect(svc.Table.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
+			Where: &table.Where{Key: &filter.Set[table.Key]{Eq: &r.Key}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Create", func() {
 	It("Should stamp the dispatch key onto the create broadcast", func(

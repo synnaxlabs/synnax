@@ -252,6 +252,47 @@ var _ = Describe("Parser", func() {
 				asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText(),
 			).To(Equal("B"))
 		})
+
+		It("Should parse actions in a union body beside its variants", func() {
+			schema := MustSucceed(parser.Parse(`
+				Shape union on type {
+					circle {
+						radius float64
+					}
+					square Square
+
+					action Rename {
+						name string
+					}
+
+					action Move extends Offset {}
+				}
+			`))
+			body := schema.Definition(0).UnionDef().UnionBody()
+			Expect(body.AllUnionVariant()).To(HaveLen(2))
+			actions := body.AllActionDef()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Rename"))
+			Expect(actions[1].IDENT().GetText()).To(Equal("Move"))
+			Expect(actions[1].EXTENDS()).NotTo(BeNil())
+		})
+
+		It("Should parse a union action with only domains as an action", func() {
+			schema := MustSucceed(parser.Parse(`
+				Shape union on type {
+					circle {}
+
+					action Reset {
+						@doc value "resets the shape."
+					}
+				}
+			`))
+			body := schema.Definition(0).UnionDef().UnionBody()
+			Expect(body.AllUnionVariant()).To(HaveLen(1))
+			actions := body.AllActionDef()
+			Expect(actions).To(HaveLen(1))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Reset"))
+		})
 	})
 
 	Describe("Inline Field Domains", func() {

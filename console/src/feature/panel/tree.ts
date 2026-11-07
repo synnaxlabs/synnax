@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  panel,
-  query,
-  type resource,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { panel, query, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type destructor, type record } from "@synnaxlabs/x";
 
@@ -47,7 +42,7 @@ interface TabsQuery {
 const followTabs = <D extends record.Keyed<string>>(
   client: Client,
   type: resource.Type,
-  records: Tree.Retriever<{ keys: string[] }, D>,
+  records: Tree.Retriever<{ where: { key: { in: string[] } } }, D>,
 ): Tree.Retriever<TabsQuery, D> => {
   const keysOf = (pan: panel.Panel): string[] =>
     tabResources(pan.root)
@@ -55,7 +50,7 @@ const followTabs = <D extends record.Keyed<string>>(
       .map(({ key }) => key);
   const list = async (pan: panel.Panel): Promise<D[]> => {
     const keys = keysOf(pan);
-    return keys.length === 0 ? [] : await records.retrieve({ keys });
+    return keys.length === 0 ? [] : await records.retrieve(query.keysRequest(keys));
   };
   function onChange(
     key: string,

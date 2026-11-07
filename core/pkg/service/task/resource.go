@@ -14,7 +14,6 @@ import (
 	"encoding/json/v2"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -24,7 +23,7 @@ import (
 func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Task]{
 		Table:  s.table,
-		Search: s.search,
+		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(t *Task) string { return t.Name },
@@ -64,11 +63,5 @@ func ResourceIDsFromTasks(tasks []Task) []resource.ID {
 func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
 		return resource.ParseUUIDKey(id)
-	})
-}
-
-func newSearchIndex() *gorp.SearchIndex[Key, Task] {
-	return gorp.NewSearchIndex("search", func(e *Task) []string {
-		return []string{e.Name, e.Type}
 	})
 }

@@ -198,6 +198,17 @@ var _ = Describe("Service", func() {
 				).To(MatchError(access.ErrDenied))
 			})
 
+			It("Should deny a subject that does not exist", func(ctx SpecContext) {
+				req := access.Request{
+					Subject: resource.ID{Type: "user", Key: uuid.New().String()},
+					Objects: []resource.ID{obj1},
+					Action:  access.ActionRetrieve,
+				}
+				Expect(
+					rbacSvc.NewEnforcer(tx).Enforce(ctx, req),
+				).To(MatchError(access.ErrDenied))
+			})
+
 			It("Should name the subject, action, and denied object", func(
 				ctx SpecContext,
 			) {
@@ -636,6 +647,90 @@ var _ = Describe("Service", func() {
 				Where(policy.MatchRoles(rbacSvc.Builtin.DriverKey)).
 				Exists(ctx, tx)).To(BeFalse())
 		})
+	})
+
+	Describe("NewPolicyRetrieve", func() {
+		var (
+			held, other         *role.Role
+			heldPolicy, outside policy.Policy
+			subject             resource.ID
+		)
+		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
+			held = &role.Role{Name: "held"}
+			other = &role.Role{Name: "other"}
+			rw := rbacSvc.Role.NewWriter(tx, true)
+			Expect(rw.Create(ctx, held)).To(Succeed())
+			Expect(rw.Create(ctx, other)).To(Succeed())
+			pw := rbacSvc.Policy.NewWriter(tx, true)
+			heldPolicy = policy.Policy{
+				Role:    held.Key,
+				Name:    "held-policy",
+				Objects: []resource.ID{{Type: resource.TypeChannel}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			outside = policy.Policy{
+				Role:    other.Key,
+				Name:    "outside-policy",
+				Objects: []resource.ID{{Type: resource.TypeChannel}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(pw.Create(ctx, &heldPolicy)).To(Succeed())
+			Expect(pw.Create(ctx, &outside)).To(Succeed())
+			subject = createUser(ctx, tx)
+			assignRole(ctx, tx, subject, held.Key)
+		})
+
+		retrieve := func(ctx SpecContext, f policy.Filter) []policy.Policy {
+			GinkgoHelper()
+			var ps []policy.Policy
+			Expect(rbacSvc.NewPolicyRetrieve().
+				Where(f).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			return ps
+		}
+
+		It("Should match the policies of a subject's roles", func(ctx SpecContext) {
+			Expect(retrieve(ctx, policy.MatchSubjects(subject))).
+				To(ConsistOf(heldPolicy))
+		})
+
+		It("Should match no policies for a subject that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := user.ResourceID(uuid.New())
+			Expect(retrieve(ctx, policy.Or(
+				policy.MatchSubjects(missing),
+				policy.MatchKeys(outside.Key),
+			))).To(ConsistOf(outside))
+		})
+
+		It("Should compose MatchSubjects under Not", func(ctx SpecContext) {
+			Expect(retrieve(ctx, policy.And(
+				policy.MatchKeys(heldPolicy.Key, outside.Key),
+				policy.Not(policy.MatchSubjects(subject)),
+			))).To(ConsistOf(outside))
+		})
+
+		It("Should match the policies of several subjects", func(ctx SpecContext) {
+			second := createUser(ctx, tx)
+			assignRole(ctx, tx, second, other.Key)
+			Expect(retrieve(ctx, policy.MatchSubjects(subject, second))).
+				To(ConsistOf(heldPolicy, outside))
+		})
+
+		It(
+			"Should fail to filter by subject on a retrieve that cannot read roles",
+			func(ctx SpecContext) {
+				var ps []policy.Policy
+				Expect(rbacSvc.Policy.NewRetrieve().
+					Where(policy.MatchSubjects(subject)).
+					Entries(&ps).
+					Exec(ctx, tx)).
+					To(MatchError(ContainSubstring("cannot filter by subject")))
+			},
+		)
 	})
 
 	Describe("RolesOf", func() {

@@ -1056,6 +1056,17 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host2"), 8081);
 }
 
+/// @brief it should write string keys as they are.
+TEST(testMapKey, testString) {
+    ASSERT_EQ(map_key(std::string("host")), "host");
+}
+
+/// @brief it should write integer keys as their decimal form.
+TEST(testMapKey, testInteger) {
+    ASSERT_EQ(map_key(8080), "8080");
+    ASSERT_EQ(map_key(std::uint64_t{18446744073709551615U}), "18446744073709551615");
+}
+
 /// @brief it should parse maps with numeric string keys as integer keys.
 TEST(testConfig, testMapWithIntKeys) {
     const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
@@ -1662,6 +1673,38 @@ TEST(testConfig, testToArrayWithPrimitives) {
     EXPECT_EQ(arr[2], 3);
 }
 
+/// @brief it should convert std::monostate items to null.
+TEST(testConfig, testToArrayWithMonostate) {
+    const std::vector<std::monostate> items(2);
+    EXPECT_EQ(to_array(items), json::parse("[null, null]"));
+}
+
+/// @brief it should call to_json() on a value that has one.
+TEST(testConfig, testToJSONWithToJSON) {
+    struct Item {
+        std::string name;
+        [[nodiscard]] json to_json() const { return {{"name", this->name}}; }
+    };
+    EXPECT_EQ(x::json::to_json(Item{"alpha"}), json({{"name", "alpha"}}));
+}
+
+/// @brief it should assign a value that has no to_json() directly.
+TEST(testConfig, testToJSONWithPrimitive) {
+    EXPECT_EQ(x::json::to_json(std::string("alpha")), json("alpha"));
+    EXPECT_EQ(x::json::to_json(42), json(42));
+}
+
+/// @brief it should convert std::monostate to null.
+TEST(testConfig, testToJSONWithMonostate) {
+    EXPECT_TRUE(x::json::to_json(std::monostate{}).is_null());
+}
+
+/// @brief it should keep a JSON object as is.
+TEST(testConfig, testToJSONWithObject) {
+    const json::object_t obj = {{"a", 1}};
+    EXPECT_EQ(x::json::to_json(obj), json({{"a", 1}}));
+}
+
 /// @brief it should return the default value when a field is null.
 TEST(testConfig, testFieldWithDefaultReturnsDefaultOnNull) {
     const json j = {{"name", "test"}, {"args", nullptr}};
@@ -1679,5 +1722,82 @@ TEST(testConfig, testMonostate) {
     const auto result = parser.field<std::monostate>("data");
     EXPECT_TRUE(parser.ok());
     (void) result;
+}
+
+namespace {
+struct DefaultedFields {
+    std::string name;
+    int count = 0;
+
+    static DefaultedFields parse(Parser parser) {
+        return DefaultedFields{
+            .name = parser.field<std::string>("name", ""),
+            .count = parser.field<int>("count", 0),
+        };
+    }
+};
+
+struct ScalarWrapper {
+    std::int64_t value = 0;
+
+    static ScalarWrapper parse(Parser parser) {
+        return ScalarWrapper{.value = parser.field<std::int64_t>()};
+    }
+};
+
+struct ArrayWrapper {
+    std::vector<int> values;
+
+    static ArrayWrapper parse(Parser parser) {
+        return ArrayWrapper{.values = parser.field<std::vector<int>>()};
+    }
+};
+}
+
+/// @brief it should bind one error when a keyed parse receives a scalar.
+TEST(testConfig, testStaticParseRejectsScalar) {
+    for (const json &bad: {json(false), json("bad"), json(1)}) {
+        Parser parser(json{{"child", bad}});
+        parser.field<DefaultedFields>("child");
+        ASSERT_EQ(parser.errors->size(), 1);
+        EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
+    }
+}
+
+/// @brief it should bind one error when a keyed parse receives an array.
+TEST(testConfig, testStaticParseRejectsArray) {
+    Parser parser(json{{"child", json::array()}});
+    parser.field<DefaultedFields>("child");
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
+}
+
+/// @brief it should fall back to defaults when a keyed parse receives an empty object.
+TEST(testConfig, testStaticParseAcceptsEmptyObject) {
+    Parser parser(json{{"child", json::object()}});
+    const auto child = parser.field<DefaultedFields>("child");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(child.count, 0);
+}
+
+/// @brief it should keep parsing a root scalar through a static parse.
+TEST(testConfig, testStaticParseAcceptsRootScalar) {
+    Parser parser(json{{"child", 12}});
+    EXPECT_EQ(parser.field<ScalarWrapper>("child").value, 12);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should keep parsing a root array through a static parse.
+TEST(testConfig, testStaticParseAcceptsRootArray) {
+    Parser parser(json{{"child", json::array({1, 2})}});
+    EXPECT_EQ(parser.field<ArrayWrapper>("child").values.size(), 2);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should treat a null value as missing in a keyed parse.
+TEST(testConfig, testNullParserReadsFieldsAsMissing) {
+    Parser parser(json(nullptr));
+    EXPECT_EQ(parser.field<int>("count", 3), 3);
+    EXPECT_TRUE(parser.ok());
 }
 }

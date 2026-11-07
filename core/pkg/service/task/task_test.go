@@ -91,10 +91,18 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
-		a := arc.Arc{Key: uuid.New(), Name: "Test Arc"}
+		a := arc.Arc{
+			Variant: arc.AutomationArc{
+				Base: arc.Base{
+					Key:    uuid.New(),
+					Name:   "Test Arc",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			},
+		}
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
 			To(Succeed())
-		testArc = a.Key
+		testArc = a.Base().Key
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 		configs = MustSucceed(config.NewRegistry(

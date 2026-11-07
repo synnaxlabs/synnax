@@ -20,10 +20,17 @@ type Key = v2.Key
 // for labeling and categorizing telemetry data within specific time periods.
 type Range = v2.Range
 
+// Where is a filter that selects ranges.
+type Where = v2.Where
+
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = v2.Ref
+
+// RefVariant is implemented by every Ref variant.
 type RefVariant = v2.RefVariant
+
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType = v2.RefType
 
 const (

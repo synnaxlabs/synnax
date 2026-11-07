@@ -203,10 +203,18 @@ var _ = Describe("Migrations", func() {
 			cmdKey, stateKey, tcKey, freqKey := keys[0], keys[1], keys[2], keys[3]
 
 			MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
-			arcModule := arc.Arc{Key: uuid.New(), Name: "Stored Arc"}
+			arcModule := arc.Arc{
+				Variant: arc.AutomationArc{
+					Base: arc.Base{
+						Key:    uuid.New(),
+						Name:   "Stored Arc",
+						Source: arc.Source{Variant: arc.TextSource{}},
+					},
+				},
+			}
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&arcModule).Exec(ctx, db)).
 				To(Succeed())
-			arcModuleKey := arcModule.Key.String()
+			arcModuleKey := arcModule.Base().Key.String()
 			pdTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 1),
 				Name: "Stored PD Task",

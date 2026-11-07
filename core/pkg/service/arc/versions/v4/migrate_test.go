@@ -38,12 +38,12 @@ var _ = Describe("MigrateArc", func() {
 			Mode: v3.ModeText,
 			Text: text.Text{Doc: text.Create(oldText)},
 		}
-		got := migrateFromV3(ctx, seed)
+		got := migrateFromV3(ctx, seed).Base()
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Mode).To(Equal(seed.Mode))
-		Expect(got.Text.Materialize().Raw).To(Equal(newText))
-		Expect(got.Text.Raw).To(BeEmpty())
+		src := textOf(got)
+		Expect(src.Materialize().Raw).To(Equal(newText))
+		Expect(src.Raw).To(BeEmpty())
 	})
 
 	It("Should seed the document of an exported Arc from its raw text", func(
@@ -53,20 +53,36 @@ var _ = Describe("MigrateArc", func() {
 			Name: "exported",
 			Mode: v3.ModeText,
 			Text: text.Text{Raw: oldText},
+		})).Base()
+		src := textOf(got)
+		Expect(src.Materialize().Raw).To(Equal(newText))
+		Expect(src.Raw).To(BeEmpty())
+	})
+
+	It("Should lift a v3 Arc as an automation", func(ctx SpecContext) {
+		key := uuid.New()
+		migrated := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
+			Key:  key,
+			Name: "legacy",
+			Mode: v3.ModeText,
 		}))
-		Expect(got.Text.Materialize().Raw).To(Equal(newText))
-		Expect(got.Text.Raw).To(BeEmpty())
+		automation, ok := migrated.Variant.(v4.AutomationArc)
+		Expect(ok).To(BeTrue())
+		Expect(automation.Key).To(Equal(key))
+		Expect(automation.Name).To(Equal("legacy"))
+		Expect(automation.Source.Mode()).To(Equal(v4.ModeText))
 	})
 
 	It("Should leave an Arc with no text untouched", func(ctx SpecContext) {
-		got := MustSucceed(v4.MigrateArc(ctx, v3.Arc{Name: "empty", Mode: v3.ModeText}))
-		Expect(got.Text.Doc.Inserts).To(BeEmpty())
-		Expect(got.Text.Raw).To(BeEmpty())
+		got := MustSucceed(
+			v4.MigrateArc(ctx, v3.Arc{Name: "empty", Mode: v3.ModeText}),
+		).Base()
+		src := textOf(got)
+		Expect(src.Doc.Inserts).To(BeEmpty())
+		Expect(src.Raw).To(BeEmpty())
 	})
 
-	It("Should rewrite the text of a graph-mode Arc and keep its graph", func(
-		ctx SpecContext,
-	) {
+	It("Should keep only the graph of a graph-mode Arc", func(ctx SpecContext) {
 		seed := v3.Arc{
 			Key:   uuid.New(),
 			Name:  "graph",
@@ -74,12 +90,36 @@ var _ = Describe("MigrateArc", func() {
 			Graph: graph.Graph{Nodes: graph.Nodes{{Key: "n1"}}},
 			Text:  text.Text{Doc: text.Create(oldText)},
 		}
-		got := migrateFromV3(ctx, seed)
-		Expect(got.Mode).To(Equal(v3.ModeGraph))
-		Expect(got.Graph).To(Equal(seed.Graph))
-		Expect(got.Text.Materialize().Raw).To(Equal(newText))
+		got := migrateFromV3(ctx, seed).Base()
+		Expect(got.Source.Variant).To(Equal(v4.GraphSource{Graph: seed.Graph}))
+	})
+
+	It("Should keep only the text of a text-mode Arc", func(ctx SpecContext) {
+		got := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
+			Name:  "text",
+			Mode:  v3.ModeText,
+			Graph: graph.Graph{Nodes: graph.Nodes{{Key: "n1"}}},
+			Text:  text.Text{Raw: oldText},
+		})).Base()
+		Expect(textOf(got).Materialize().Raw).To(Equal(newText))
+	})
+
+	It("Should lift an Arc with no mode as a graph", func(ctx SpecContext) {
+		seed := graph.Graph{Nodes: graph.Nodes{{Key: "n1"}}}
+		got := MustSucceed(
+			v4.MigrateArc(ctx, v3.Arc{Name: "modeless", Graph: seed}),
+		).Base()
+		Expect(got.Source.Variant).To(Equal(v4.GraphSource{Graph: seed}))
 	})
 })
+
+// textOf returns the text of b, failing the spec when b is not text-mode.
+func textOf(b v4.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(v4.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
 
 // migrateFromV3 runs the v4 migration over a gorp-seeded v3 Arc and returns the
 // migrated current Arc.
@@ -99,3 +139,47 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
+
+var _ = Describe("NewRootMigration", func() {
+	It("Should put every Arc in no directory into the root", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		root, sub := uuid.New(), uuid.New()
+		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
+			DB: db,
+		}))
+		orphan := v4.Arc{Variant: v4.AutomationArc{
+			Base: v4.Base{
+				Key:    uuid.New(),
+				Name:   "orphan",
+				Source: v4.Source{Variant: v4.TextSource{}},
+			},
+		}}
+		placed := v4.Arc{Variant: v4.ModuleArc{
+			Base: v4.Base{
+				Key:       uuid.New(),
+				Name:      "placed",
+				Source:    v4.Source{Variant: v4.TextSource{}},
+				Directory: &sub,
+			},
+		}}
+		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, db)).To(Succeed())
+		Expect(table.NewCreate().Entry(&placed).Exec(ctx, db)).To(Succeed())
+		Expect(table.Close()).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Arc",
+			Migrations: []gorp.Migration{v4.NewRootMigration(root)},
+		})).To(Succeed())
+		directoryOf := func(key v4.Key) *uuid.UUID {
+			GinkgoHelper()
+			var a v4.Arc
+			Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
+				Where(gorp.MatchKeys[v4.Key, v4.Arc](key)).
+				Entry(&a).
+				Exec(ctx, db)).To(Succeed())
+			return a.Base().Directory
+		}
+		Expect(directoryOf(orphan.Base().Key)).To(HaveValue(Equal(root)))
+		Expect(directoryOf(placed.Base().Key)).To(HaveValue(Equal(sub)))
+	})
+})
