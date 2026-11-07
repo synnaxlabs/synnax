@@ -51,4 +51,34 @@ var _ = Describe("Literal expressions in flows", func() {
 			3.0,
 		),
 	)
+
+	DescribeTable("Should write a stage reassignment at the variable's type",
+		func(ctx SpecContext, decl, value string, dt types.Type, expected float64) {
+			dataType := dt.ToTelem()
+			h := newRuntimeHarness(ctx, "sequence main {\n "+decl+"\n stage a {\n v = "+
+				value+"\n v -> out\n }\n}\ngo => main",
+				channelSymbols(map[string]channelDef{
+					"go":  {types.Bool(), 100},
+					"out": {dt, 200},
+				}),
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
+				channels.Digest{Key: 200, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			for range 3 {
+				h.Ingest(100, telem.NewSeriesV(true))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			series := out.Get(200).Series
+			Expect(series).ToNot(BeEmpty())
+			want := telem.NewSeriesFromAny(expected, dataType).Data
+			last := series[len(series)-1].Data
+			Expect(last[len(last)-len(want):]).To(Equal(want))
+		},
+		Entry("i32", "v i32 := 0", "1 + 2", types.I32(), 3.0),
+		Entry("f32", "v f32 := 0.0", "1.5 * 2.0", types.F32(), 3.0),
+		Entry("stateful f32", "v f32 $= 0.0", "1.5 * 2.0", types.F32(), 3.0),
+	)
 })
