@@ -319,9 +319,13 @@ Doc struct {
 
 		It("Should keep the schema hash under its scheme", func(ctx SpecContext) {
 			// A failure means hashSchema changed what it hashes: bump schemaScheme in
-			// frozen.go, then update this value.
-			Expect(compute(ctx, v0File, v1File).Sums[0].Schema).To(Equal(
+			// frozen.go, then update these values. v1 covers its predecessor.
+			sums := compute(ctx, v0File, v1File).Sums
+			Expect(sums[0].Schema).To(Equal(
 				"s3:487eb228a32ab57f114bbba53ce7c3f99dad6c7cfe0a224117bdbac67f7d8259",
+			))
+			Expect(sums[1].Schema).To(Equal(
+				"s3:4efd8d5f87e7ed88729ec10160ed0f56a3ec3a95d8a6fc066e4de559832feb04",
 			))
 		})
 
