@@ -184,6 +184,29 @@ describe("local server", () => {
     for (let id = 0; id < 10; id++) expect((await stream.receive()).id).toEqual(id);
   });
 
+  test("should reject receive when a message does not decode", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    ws.send(Buffer.from("not json"));
+    await expect(stream.receive()).rejects.toThrow(SyntaxError);
+  });
+
+  test("should keep the flow control limits in a client from withCodec", async () => {
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient(
+      new url.URL({ host: "127.0.0.1", port }),
+      new binary.JSONCodec(),
+      false,
+      { receiveQueueLimit: 1024 },
+    ).withCodec(new binary.JSONCodec());
+    const stream = await c.stream("stream", messageSchema, messageSchema);
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    for (let id = 0; id < 10; id++) sendData(ws, { id, message: "x".repeat(256) });
+    await closed;
+    await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
+  });
+
   test("should fail the stream when unread messages pass the limit", async () => {
     const stream = await dial({ receiveQueueLimit: 1024 });
     const { ws } = await connected;
