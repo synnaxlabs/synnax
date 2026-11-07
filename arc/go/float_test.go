@@ -223,6 +223,11 @@ var _ = Describe("NaN and infinity", func() {
 			)).Error().To(MatchError(ContainSubstring(message)))
 		},
 		Entry("constant as a sink", "x -> math.nan", "math.nan is not a channel"),
+		Entry(
+			"a flow literal by its generated name",
+			"x -> 1.5 -> y\nx -> constant_0 -> y",
+			"constant_0 is not a channel",
+		),
 		Entry("unknown member", "x -> math.foo -> y", "undefined symbol: foo"),
 	)
 
@@ -297,6 +302,63 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("float, inf, integer, f64", types.F64(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("float, inf, integer, f32", types.F32(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("negated inf first, f64", types.F64(), "[-math.inf, 1]", 0, -inf),
+	)
+
+	It("Should resolve a constant that only feeds a transition", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		sequence main {
+			stage a {
+				x -> math.inf => b
+			}
+			stage b {
+				1 -> out
+			}
+		}
+		x => main`, channelSymbols(map[string]channelDef{
+			"x":   {types.F64(), 100},
+			"out": {types.U8(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float64T},
+			channels.Digest{Key: 200, DataType: telem.Uint8T},
+		)
+		defer h.Close(ctx)
+		for range 5 {
+			h.Ingest(100, telem.NewSeriesV(1.5))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series).ToNot(BeEmpty())
+	})
+
+	It(
+		"Should type a constant that only feeds a transition as f64",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: `
+		import math
+		sequence main {
+			stage a {
+				x -> math.inf => b
+			}
+			stage b {
+			}
+		}
+		x => main`}, root))
+			var constants []types.Type
+			for _, n := range prog.Nodes {
+				if n.Type == "constant" {
+					constants = append(constants, n.Outputs[0].Type)
+				}
+			}
+			Expect(constants).To(Equal([]types.Type{types.F64()}))
+		},
 	)
 
 	DescribeTable("Should send a routed constant at the input's width",
