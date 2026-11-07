@@ -484,6 +484,67 @@ var _ = Describe("SetGroup", func() {
 			Expect(retrieveSchematic(ctx, s.Key).Group).To(Equal(&g.Key))
 		},
 	)
+	Context("Into a group under another project", func() {
+		var (
+			u    user.User
+			x    schematic.Schematic
+			dest project.Project
+			g    group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = newUser(ctx)
+			x = createSchematic(ctx, "Cross project")
+			dest = project.Project{Name: "Destination"}
+			Expect(projectSvc.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+			Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		})
+		move := func(ctx SpecContext) (struct{}, error) {
+			return apiSvc.SetGroup(
+				AuthedCtx(ctx, u),
+				db,
+				apischematic.SetGroupRequest{
+					Group: &g.Key,
+					Keys:  []schematic.Key{x.Key},
+				},
+			)
+		}
+		DescribeTable(
+			"Should refuse the move without update on both projects",
+			func(ctx SpecContext, projects func() []resource.ID) {
+				objects := projects()
+				grantUpdateOn(ctx, u.ResourceID(), append(
+					objects,
+					schematic.ResourceID(x.Key),
+					g.ResourceID(),
+				)...)
+				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveSchematic(ctx, x.Key).Project).To(Equal(&proj.Key))
+			},
+			Entry("without the destination", func() []resource.ID {
+				return []resource.ID{project.ResourceID(proj.Key)}
+			}),
+			Entry("without the source", func() []resource.ID {
+				return []resource.ID{dest.ResourceID()}
+			}),
+		)
+		It(
+			"Should move the schematic with update on both projects",
+			func(ctx SpecContext) {
+				objects := []resource.ID{
+					project.ResourceID(proj.Key),
+					dest.ResourceID(),
+				}
+				grantUpdateOn(ctx, u.ResourceID(), append(
+					objects,
+					schematic.ResourceID(x.Key),
+					g.ResourceID(),
+				)...)
+				MustSucceed(move(ctx))
+				Expect(retrieveSchematic(ctx, x.Key).Project).To(Equal(&dest.Key))
+			},
+		)
+	})
 })
 
 var _ = Describe("Create in a group", func() {

@@ -107,6 +107,35 @@ func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	return MoveObjects(nil, nil, joined...)
 }
 
+// SetGroupObjects returns the owners that moving visualizations of type t into the
+// group with key needs update access on, as a project move does. owners holds the
+// stored owner of each visualization. For each visualization that the move takes to a
+// new project, the result holds its owner and the group's project. It returns nothing
+// for a nil key, and the errors of GroupProject.
+func SetGroupObjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	key *group.Key,
+	t resource.Type,
+	owners []*resource.ID,
+) ([]resource.ID, error) {
+	p, err := GroupProject(ctx, tx, key, t)
+	if err != nil || p == nil {
+		return nil, err
+	}
+	to := ResourceID(*p)
+	var from []*resource.ID
+	for _, o := range owners {
+		if o == nil || *o != to {
+			from = append(from, o)
+		}
+	}
+	if len(from) == 0 {
+		return nil, nil
+	}
+	return MoveObjects(nil, from, &to), nil
+}
+
 // MoveObjects returns the resources that moving the visualizations with ids to the
 // owners in to needs update access on: the visualizations, each owner in from that
 // holds one of them, and each owner in to. A nil owner adds nothing.

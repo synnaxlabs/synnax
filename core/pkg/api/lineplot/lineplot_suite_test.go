@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -36,6 +37,7 @@ func TestAPILinePlot(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
 	proj   project.Project
@@ -45,7 +47,9 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilineplot.NewService(apilineplot.ServiceConfig{
 		RBAC:     svc.RBAC,
 		LinePlot: svc.LinePlot,

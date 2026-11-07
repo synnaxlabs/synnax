@@ -223,7 +223,8 @@ type SetGroupRequest struct {
 	Keys  []panel.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the panels with the given keys into a group.
+// SetGroup moves the panels with the given keys into a group. A move into a group under
+// another project also requires update access on the stored owner and on that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -244,6 +245,25 @@ func (s *Service) SetGroup(
 			lo.Map(panels, func(e panel.Panel, _ int) *group.Key { return e.Group }),
 			req.Group,
 		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypePanel,
+		lo.Map(panels, func(e panel.Panel, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
 	}); err != nil {
 		return struct{}{}, err
 	}

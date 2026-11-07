@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -111,7 +112,7 @@ var _ = Describe("Group", func() {
 			u := newUser(ctx, grant(update, objects...))
 			return apiSvc.SetParent(
 				AuthedCtx(ctx, u),
-				nil,
+				db,
 				apigroup.SetParentRequest{
 					Keys:   []group.Key{moved.Key},
 					Parent: new(dest.ResourceID()),
@@ -141,6 +142,66 @@ var _ = Describe("Group", func() {
 				var g group.Group
 				Expect(svc.Group.NewRetrieve().
 					Where(group.MatchKeys(moved.Key)).
+					Entry(&g).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(g.Parent).To(Equal(new(dest.ResourceID())))
+			},
+		)
+	})
+
+	Describe("SetParent to another project", func() {
+		var (
+			from, to             project.Project
+			source, dest, nested group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			from, to = project.Project{Name: "From"}, project.Project{Name: "To"}
+			Expect(svc.Project.NewWriter(nil).Create(ctx, &from)).To(Succeed())
+			Expect(svc.Project.NewWriter(nil).Create(ctx, &to)).To(Succeed())
+			source = group.Group{Name: "source", Parent: new(from.ResourceID())}
+			Expect(svc.Group.NewWriter(nil).Create(ctx, &source)).To(Succeed())
+			dest = group.Group{Name: "dest", Parent: new(to.ResourceID())}
+			Expect(svc.Group.NewWriter(nil).Create(ctx, &dest)).To(Succeed())
+			nested = newGroup(ctx, resource.TypeProject, &source)
+		})
+		move := func(ctx SpecContext, projects ...resource.ID) (struct{}, error) {
+			u := newUser(ctx, grant(update, append(
+				projects,
+				nested.ResourceID(),
+				source.ResourceID(),
+				dest.ResourceID(),
+			)...))
+			return apiSvc.SetParent(
+				AuthedCtx(ctx, u),
+				db,
+				apigroup.SetParentRequest{
+					Keys:   []group.Key{nested.Key},
+					Parent: new(dest.ResourceID()),
+				},
+			)
+		}
+
+		DescribeTable(
+			"Should refuse a nested group move without update on both projects",
+			func(ctx SpecContext, projects func() []resource.ID) {
+				Expect(move(ctx, projects()...)).Error().
+					To(MatchError(access.ErrDenied))
+			},
+			Entry("without the destination", func() []resource.ID {
+				return []resource.ID{from.ResourceID()}
+			}),
+			Entry("without the source", func() []resource.ID {
+				return []resource.ID{to.ResourceID()}
+			}),
+		)
+
+		It(
+			"Should move a nested group with update on both projects",
+			func(ctx SpecContext) {
+				MustSucceed(move(ctx, from.ResourceID(), to.ResourceID()))
+				var g group.Group
+				Expect(svc.Group.NewRetrieve().
+					Where(group.MatchKeys(nested.Key)).
 					Entry(&g).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(g.Parent).To(Equal(new(dest.ResourceID())))

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -36,6 +37,7 @@ func TestAPITable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apitable.Service
 	proj   project.Project
@@ -45,7 +47,9 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apitable.NewService(apitable.ServiceConfig{
 		RBAC:  svc.RBAC,
 		Table: svc.Table,

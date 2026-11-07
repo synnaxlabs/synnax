@@ -209,7 +209,9 @@ type SetGroupRequest struct {
 	Keys  []lineplot.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the line plots with the given keys into a group.
+// SetGroup moves the line plots with the given keys into a group. A move into a group
+// under another project also requires update access on the stored owner and on that
+// project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -233,6 +235,25 @@ func (s *Service) SetGroup(
 			),
 			req.Group,
 		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypeLineplot,
+		lo.Map(plots, func(e lineplot.LinePlot, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
 	}); err != nil {
 		return struct{}{}, err
 	}
