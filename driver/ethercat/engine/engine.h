@@ -46,11 +46,11 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
-    /// @brief returns the settings of each slave, keyed by position. Each open_reader
-    /// and open_writer calls it outside the engine's lock, so it can run on several
-    /// threads at once. Only an open that starts the bus uses the result, and only that
-    /// open fails on an error. A slave missing from the map runs with the defaults of
-    /// slave::Config.
+    /// @brief returns the settings of each slave, keyed by position. An open_reader or
+    /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
+    /// can run on several threads at once. Only an open that then starts the bus uses
+    /// the result, and only that open fails on an error. A slave missing from the map
+    /// runs with the defaults of slave::Config.
     std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
         slave_configs = [] {
             return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
@@ -133,6 +133,8 @@ class Engine {
 
     /// @brief runs while the bus cycles. Stopping it wakes the supervisor.
     x::breaker::Breaker bus;
+    /// @brief the number of times the bus stopped, guarded by mu.
+    uint64_t stops = 0;
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
@@ -168,6 +170,11 @@ class Engine {
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
+    /// @brief returns the slave settings while the bus is stopped, read after the bus
+    /// last stopped, or empty settings while it runs. Unlocks lock while the loader
+    /// runs, since the loader can block, and returns with lock held.
+    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    read_slave_configs(std::unique_lock<std::mutex> &lock) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
     /// @param mhz the bus rate in millihertz.

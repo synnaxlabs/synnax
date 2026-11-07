@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <future>
 #include <map>
 #include <memory>
 #include <string>
@@ -656,6 +657,39 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
     );
     EXPECT_TRUE(this->engine->running());
     EXPECT_EQ(this->master->init_call_count(), 1);
+}
+
+/// @brief it should read the slave settings again when the bus ran and stopped while an
+/// open read them.
+TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
+    this->master->add_slave(io_slave(1));
+    const auto calls = std::make_shared<std::atomic<int>>(0);
+    const auto disabled = std::make_shared<std::atomic<bool>>(false);
+    std::promise<void> release;
+    Config cfg;
+    cfg.slave_configs = [calls, disabled, released = release.get_future().share()] {
+        std::map<uint16_t, slave::Config> configs;
+        if (disabled->load()) configs[1] = {.enabled = false};
+        if (calls->fetch_add(1) == 0) released.wait();
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
+    std::thread opening([&] {
+        late = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    });
+    ASSERT_EVENTUALLY_EQ(calls->load(), 1);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    disabled->store(true);
+    release.set_value();
+    opening.join();
+    ASSERT_OCCURRED_AS(late.second, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(calls->load(), 3);
 }
 
 /// @brief it should read the slave settings again each time a writer starts the bus.
