@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	Describe("Arc Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			a := newAutomation(arc.Base{
 				Name:   "test-retrieve",
 				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
@@ -39,6 +41,7 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			arcs := []arc.Arc{
 				newAutomation(arc.Base{
 					Name:   "arc-multi-1",

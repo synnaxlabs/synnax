@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -38,6 +39,13 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// table's observer pipeline for the lifetime of the table. See NewLookupIndex,
 	// NewSortedIndex, and NewSearchIndex for constructing index values.
 	Indexes []Index[K, E]
+	// Name names the table for references. A Reference names its target tables by
+	// this name, and two open tables on one DB cannot share it. Defaults to the name
+	// of E.
+	Name string
+	// References are the fields of E that hold the keys of other entries. See
+	// NewKeyReference and NewTargetReference.
+	References []Reference[K, E]
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -48,8 +56,15 @@ type Table[K Key, E Entry[K]] struct {
 	db *DB
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes registered on the Table.
+	// indexes is the set of secondary indexes registered on the Table, references
+	// included.
 	indexes []Index[K, E]
+	// name is the name of the table in the DB's registry.
+	name string
+	// references are the references registered on the Table.
+	references []Reference[K, E]
+	// registered is true when the table is in the DB's registry.
+	registered bool
 	// disconnectObserver releases the index observer subscription. Nil when no observer
 	// was installed.
 	disconnectObserver func()
@@ -62,6 +77,7 @@ type Table[K Key, E Entry[K]] struct {
 // waits for it to exit, and releases related resources.
 func (t *Table[K, E]) Close() error {
 	var err error
+	t.unregister()
 	if t.populateShutdown != nil {
 		err = t.populateShutdown.Close()
 		t.populateShutdown = nil
@@ -81,24 +97,41 @@ func (t *Table[K, E]) Close() error {
 // index from the same scan.
 //
 // idx.Filter inside Retrieve blocks the query until the index has finished populating.
-// After populate completes the index serves queries normally. If populate fails,
-// idx.Filter falls back to a sequential scan with a synthesized predicate so queries
-// continue to return correct results, and the failure is logged via
-// cfg.Instrumentation.
+// After populate completes the index serves queries normally. If populate fails, the
+// failure is logged via cfg.Instrumentation, and idx.Filter falls back to a sequential
+// scan with a synthesized predicate so queries continue to return correct results.
+// Every other read of a failed index returns ErrIndexInvalid: idx.Get, Dependents, and
+// the reference checks of each write and delete.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
+	t := &Table[K, E]{
+		db:         cfg.DB,
+		keyPrefix:  key.Prefix[E](),
+		indexes:    slices.Clone(cfg.Indexes),
+		name:       cfg.Name,
+		references: cfg.References,
+	}
+	if t.name == "" {
+		t.name = types.Name[E]()
+	}
+	// The migrations of other tables can write references to the table while its own
+	// migrations run.
+	if err := t.register(cfg.Name != ""); err != nil {
+		return nil, err
+	}
 	if err := Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),
 		Migrations:      cfg.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
+		t.unregister()
 		return nil, err
 	}
-	t := &Table[K, E]{db: cfg.DB, keyPrefix: key.Prefix[E](), indexes: cfg.Indexes}
-	if len(cfg.Indexes) == 0 {
+	t.registerReferences()
+	if len(t.indexes) == 0 {
 		return t, nil
 	}
 	// Acquire each index's populate lock synchronously before attaching the observer.
@@ -107,17 +140,17 @@ func OpenTable[K Key, E Entry[K]](
 	// leaving the bulk-load path to double-insert when the iterator later sees the same
 	// row.
 	var (
-		inserts  = make([]func(E), 0, len(cfg.Indexes))
-		finishes = make([]func(error), 0, len(cfg.Indexes))
+		inserts  = make([]func(E), 0, len(t.indexes))
+		finishes = make([]func(error), 0, len(t.indexes))
 	)
-	for _, idx := range cfg.Indexes {
+	for _, idx := range t.indexes {
 		insert, finish := idx.populate()
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
 	t.disconnectObserver = cfg.DB.attachIndexObserver(
 		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
-		cfg.Indexes,
+		t.indexes,
 	)
 	// Populate runs on an isolated signal context: the caller's ctx is the
 	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
@@ -135,8 +168,7 @@ func OpenTable[K Key, E Entry[K]](
 }
 
 // runPopulate scans the table once and feeds every registered index from the same scan.
-// Populate failures are recoverable: queries fall back to sequential scan, and the
-// terminal scan error is logged and passed to each index's finish closure.
+// The terminal scan error is logged and passed to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	ins alamos.Instrumentation,
@@ -147,7 +179,8 @@ func (t *Table[K, E]) runPopulate(
 	defer func() {
 		if scanErr != nil {
 			ins.L.Error(
-				"gorp index populate failed; queries fall back to sequential scan",
+				"gorp index populate failed; filters fall back to a sequential scan, and "+
+					"reference checks fail",
 				zap.Error(scanErr),
 			)
 		}
@@ -202,8 +235,16 @@ func (db *DB) attachIndexObserver[K Key, E Entry[K]](
 func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
 	c.keyPrefix = t.keyPrefix
-	c.indexes = t.indexes
+	c.table = t
 	return c
+}
+
+// NewUncheckedWriter returns a Writer that keeps the table's indexes current and skips
+// its reference checks and delete plans. Use it only in a migration that writes before
+// a target of the table's references opens.
+func (t *Table[K, E]) NewUncheckedWriter(tx Tx) *Writer[K, E] {
+	w := t.writer(tx, false)
+	return &w
 }
 
 // NewRetrieve returns a Retrieve query builder bound to this Table.
@@ -219,7 +260,7 @@ func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
 	u.retrieve.keyPrefix = t.keyPrefix
-	u.indexes = t.indexes
+	u.table = t
 	return u
 }
 
@@ -229,6 +270,6 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
 	d.retrieve.keyPrefix = t.keyPrefix
-	d.indexes = t.indexes
+	d.table = t
 	return d
 }

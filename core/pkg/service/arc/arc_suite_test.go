@@ -48,7 +48,6 @@ var (
 	writer     arc.Writer
 	groupSvc   *group.Service
 	channelSvc *channel.Service
-	tx         gorp.Tx
 	taskSvc    *task.Service
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
@@ -57,77 +56,74 @@ var (
 	arcClock   = telem.Now
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
-		db = node.DB
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-		}))
-		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
-		}))
-		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
-		}))
-		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               groupSvc,
-			HostProvider:        testutil.NewStaticHostProvider(1),
-			Status:              statusSvc,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
-		}))
-		imexSvc = imex.NewService()
-		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-			DB: db,
-		}))
-		configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Rack:         rackSvc,
-			Status:       statusSvc,
-			ImEx:         imexSvc,
-			Configs:      configs,
-			ImExExcluded: []string{arctask.Type},
-		}))
-		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
-		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Channel:             channelSvc,
-			Task:                taskSvc,
-			Status:              statusSvc,
-			ImEx:                imexSvc,
-			TextSweepQuiescence: 5 * telem.Second,
-			TextSweepThreshold:  1,
-			TaskSyncDebounce:    5 * telem.Millisecond,
-			Now:                 func() telem.TimeStamp { return arcClock() },
-		}))
-		writer = svc.NewWriter(nil)
-	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Status:       statusSvc,
+	}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Group:               groupSvc,
+		HostProvider:        testutil.NewStaticHostProvider(1),
+		Status:              statusSvc,
+		HealthCheckInterval: 10 * telem.Millisecond,
+		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+	}))
+	imexSvc = imex.NewService()
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+		DB: db,
+	}))
+	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:           db,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Rack:         rackSvc,
+		Status:       statusSvc,
+		ImEx:         imexSvc,
+		Configs:      configs,
+		ImExExcluded: []string{arctask.Type},
+	}))
+	testRack = &rack.Rack{Name: "Test Rack"}
+	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Channel:             channelSvc,
+		Task:                taskSvc,
+		Status:              statusSvc,
+		ImEx:                imexSvc,
+		TextSweepQuiescence: 5 * telem.Second,
+		TextSweepThreshold:  1,
+		TaskSyncDebounce:    5 * telem.Millisecond,
+		Now:                 func() telem.TimeStamp { return arcClock() },
+	}))
+	writer = svc.NewWriter(nil)
+})
 
 // newAutomation returns an automation that holds b.
 func newAutomation(b arc.Base) arc.Arc {

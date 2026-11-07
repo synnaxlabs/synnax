@@ -68,6 +68,7 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should retrieve a panel as an ontology resource", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "resource", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
@@ -76,6 +77,7 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should carry the icon and the color", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			c := MustSucceed(color.FromHex("#dc136c"))
 			p := panel.Panel{
 				Name: "styled", Parent: &parentID, Icon: new("valve"), Color: &c,
@@ -90,6 +92,7 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should omit an unset icon and color", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "plain", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
@@ -100,6 +103,7 @@ var _ = Describe("Ontology", func() {
 		It(
 			"Should error when retrieving a resource with a non-UUID key",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
 					To(MatchError(ContainSubstring("invalid uuid")))
 			},

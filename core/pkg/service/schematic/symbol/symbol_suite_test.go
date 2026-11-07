@@ -37,7 +37,6 @@ var (
 	svc      *symbol.Service
 	imexSvc  *imex.Service
 	groupSvc *group.Service
-	tx       gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -69,7 +68,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
-
-var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

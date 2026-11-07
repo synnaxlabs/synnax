@@ -268,7 +268,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createArc(ctx, "no-policy")
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -287,7 +287,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "with-policy")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -318,7 +318,7 @@ var _ = Describe("Service", func() {
 					b := createArc(ctx, "no-policy-target")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -339,7 +339,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "multi-action")
 					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -370,7 +370,7 @@ var _ = Describe("Service", func() {
 					missing := uuid.New()
 					grantUpdateOn(ctx, author.ResourceID(), arc.ResourceID(missing))
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         missing,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
@@ -397,7 +397,7 @@ var _ = Describe("Service", func() {
 						}),
 					)
 					Expect(apiSvc.Dispatch(
-						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
+						AuthedCtx(ctx, author), apiarc.DispatchRequest{
 							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",
 							Actions: []arc.Action{

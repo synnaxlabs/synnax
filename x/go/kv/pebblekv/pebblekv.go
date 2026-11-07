@@ -175,10 +175,15 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.NewIter(parseIterOpts(opts))
 }
 
-func (d db) apply(ctx context.Context, txn *tx) error {
+func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
 	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
+	}
+	for _, o := range opts {
+		if applied, ok := o.(kv.OnApplied); ok {
+			applied()
+		}
 	}
 	if d.Observer != nil {
 		// We need to notify with a generator so that each subscriber gets a fresh
@@ -239,7 +244,7 @@ func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 // Commit implements kv.Writer.
 func (txn *tx) Commit(ctx context.Context, opts ...any) error {
 	txn.committed = true
-	return txn.db.apply(ctx, txn)
+	return txn.db.apply(ctx, txn, opts)
 }
 
 func (txn *tx) Close() error {

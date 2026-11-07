@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -43,13 +44,14 @@ var _ = Describe("Writer", func() {
 		GinkgoHelper()
 		var res table.Table
 		Expect(
-			svc.NewRetrieve().Where(table.MatchKeys(key)).Entry(&res).Exec(ctx, tx),
+			svc.NewRetrieve().Where(table.MatchKeys(key)).Entry(&res).Exec(ctx, db),
 		).To(Succeed())
 		return res
 	}
 
 	Describe("Create", func() {
 		It("Should create a Table", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			t := table.Table{
 				Name:    "test",
 				Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
@@ -65,6 +67,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				t := table.Table{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).
 					To(MatchError(ContainSubstring("name: required")))
@@ -72,6 +75,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should create a Table without a project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			t := table.Table{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
@@ -80,6 +84,7 @@ var _ = Describe("Writer", func() {
 		DescribeTable(
 			"Should reject a table whose rows or columns share a key",
 			func(ctx SpecContext, rows []table.Row, cols []table.Column, msg string) {
+				tx := DeferClose(db.OpenTx())
 				t := table.Table{Name: "test", Rows: rows, Columns: cols}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -103,6 +108,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[table.Key, table.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := table.Table{Name: "broadcast"}
@@ -138,6 +144,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("CreateMany", func() {
 		It("Should create multiple tables", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			tables := []table.Table{
 				{Name: "table-1"},
 				{Name: "table-2"},

@@ -18,6 +18,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Role table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "role"
+
 // Retrieve is used to retrieve Role records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

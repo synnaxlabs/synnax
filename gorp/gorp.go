@@ -11,13 +11,16 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"go.uber.org/zap"
 )
 
 // Wrap wraps the provided key-value database in a DB.
@@ -25,25 +28,65 @@ func Wrap(
 	kv kv.DB,
 	opts ...Option,
 ) *DB {
-	return &DB{DB: kv, options: newOptions(opts)}
+	return &DB{DB: kv, options: newOptions(opts), registry: newRegistry()}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
-// the transaction (Tx) interface. Using a DB as a Tx will execute the query
-// directly against the underlying key-value store, outside the isolated context of
-// a transaction.
+// the transaction (Tx) interface. A query that writes through a DB used as a Tx runs in
+// a transaction of its own, and a read through it sees committed state only.
+//
+// Transactions of one DB run one at a time: each holds the write lock of the DB from
+// OpenTx until it commits or closes.
 type DB struct {
 	// DB is the underlying key-value store.
 	kv.DB
 	// options carries the encoding/instrumentation configuration applied
 	// to every Tx opened from this DB.
 	options
+	// registry holds the tables that take part in references.
+	registry *registry
+	// lock is the write lock that each open transaction holds.
+	lock sync.Mutex
 }
 
 var _ Tx = (*DB)(nil)
 
-// OpenTx begins a new Tx against the DB.
-func (db *DB) OpenTx() Tx { return &tx{Tx: db.DB.OpenTx(), options: db.options} }
+// lockWaitWarning is the wait for the write lock past which OpenTx logs a warning.
+const lockWaitWarning = 500 * time.Millisecond
+
+// OpenTx begins a new Tx against the DB. It blocks until no other Tx of the DB is open.
+// A goroutine that opens a second Tx, or writes through the DB, while its first Tx is
+// open deadlocks.
+func (db *DB) OpenTx() Tx {
+	start := time.Now()
+	db.lock.Lock()
+	if wait := time.Since(start); wait > lockWaitWarning {
+		db.Instrumentation.L.Warn(
+			"gorp transaction waited long for the write lock",
+			zap.Duration("wait", wait),
+		)
+	}
+	return &tx{Tx: db.DB.OpenTx(), options: db.options, unlock: db.lock.Unlock}
+}
+
+// Set sets key to value in a transaction of its own.
+func (db *DB) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	return db.WithTx(ctx, func(tx Tx) error { return tx.Set(ctx, key, value, opts...) })
+}
+
+// Delete deletes key in a transaction of its own.
+func (db *DB) Delete(ctx context.Context, key []byte, opts ...any) error {
+	return db.WithTx(ctx, func(tx Tx) error { return tx.Delete(ctx, key, opts...) })
+}
+
+// inTx runs f against tx. When tx is a DB, f runs in a transaction of its own, so its
+// reads and writes hold the write lock together.
+func inTx(ctx context.Context, tx Tx, f func(tx Tx) error) error {
+	if db, ok := tx.(*DB); ok {
+		return db.WithTx(ctx, f)
+	}
+	return f(tx)
+}
 
 // txIdentity returns nil. DB has no per-tx state because operations against
 // it commit directly.
@@ -63,19 +106,16 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	return err
 }
 
-// OnCommit runs fn after tx commits, and never when tx closes without a commit. When tx
-// is a DB used directly, its writes have already committed, so fn runs at once.
+// OnCommit runs fn after tx commits and releases the write lock, and never when tx
+// closes without a commit. When tx is a DB used directly, its writes have already
+// committed, so fn runs at once.
 func OnCommit(tx Tx, fn func()) {
 	state := tx.txIdentity()
 	if state == nil {
 		fn()
 		return
 	}
-	state.OnCleanup(func(committed bool) {
-		if committed {
-			fn()
-		}
-	})
+	state.onCommit(fn)
 }
 
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
@@ -135,13 +175,17 @@ type Context struct {
 // transaction commits or closes. The pointer is stable for the lifetime
 // of the transaction, so callers can use it as a map key. Cleanups
 // receive committed=true if Commit succeeded and committed=false
-// otherwise; they fire after the underlying commit attempt completes.
+// otherwise; they fire after the underlying commit attempt completes and
+// before the transaction releases the write lock.
 type txState struct {
-	// mu guards cleanups.
+	// mu guards cleanups and commits.
 	mu sync.Mutex
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// commits is the list of hooks to invoke after the owning tx commits and
+	// releases the write lock, in registration order.
+	commits []func()
 	// committing is true during a commit attempt.
 	committing atomic.Bool
 }
@@ -173,6 +217,24 @@ func (s *txState) runCleanups(committed bool) {
 	}
 }
 
+func (s *txState) onCommit(fn func()) {
+	s.mu.Lock()
+	s.commits = append(s.commits, fn)
+	s.mu.Unlock()
+}
+
+// runCommits invokes every hook that onCommit registered, in registration order, and
+// then clears the list.
+func (s *txState) runCommits() {
+	s.mu.Lock()
+	hooks := s.commits
+	s.commits = nil
+	s.mu.Unlock()
+	for _, h := range hooks {
+		h()
+	}
+}
+
 // tx is the concrete Tx returned by DB.OpenTx.
 type tx struct {
 	// Tx is the underlying key-value transaction.
@@ -183,6 +245,8 @@ type tx struct {
 	// state is the per-tx ephemeral state used to register and run
 	// cleanups (e.g. index delta flushes).
 	state txState
+	// unlock releases the write lock of the DB. It is nil once the transaction ends.
+	unlock func()
 }
 
 var _ Tx = (*tx)(nil)
@@ -190,23 +254,40 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit commits the transaction. Hooks registered via state.OnCleanup
-// run after the commit attempt completes, with committed=true on
-// success and committed=false otherwise.
+// Commit commits the transaction and releases the write lock. Hooks registered via
+// state.OnCleanup run before the release, with committed=true on success and
+// committed=false otherwise. The release comes before the store notifies observers,
+// because an observer can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	t.state.committing.Store(true)
-	err := t.Tx.Commit(ctx, opts...)
-	t.state.runCleanups(err == nil)
+	applied := kv.OnApplied(func() { t.end(true) })
+	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
+	t.end(err == nil)
 	t.state.committing.Store(false)
+	if err == nil {
+		t.state.runCommits()
+	}
 	return err
 }
 
-// Close closes the transaction. Hooks registered via state.OnCleanup
-// run with committed=false.
+// Close closes the transaction. When it has not committed, hooks registered via
+// state.OnCleanup run with committed=false, and the transaction releases the write
+// lock.
 func (t *tx) Close() error {
 	err := t.Tx.Close()
-	t.state.runCleanups(false)
+	t.end(false)
 	return err
+}
+
+// end runs the cleanups of the transaction and releases the write lock. Calls after the
+// first do nothing.
+func (t *tx) end(committed bool) {
+	if t.unlock == nil {
+		return
+	}
+	t.state.runCleanups(committed)
+	t.unlock()
+	t.unlock = nil
 }
 
 func checkForNilTx(method string, tx Tx) {

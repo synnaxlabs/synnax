@@ -20,6 +20,7 @@ import (
 )
 
 var _ = Describe("Search", func() {
+	BeforeEach(openTx)
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
 		r := ranger.Range{

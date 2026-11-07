@@ -114,7 +114,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apilabel.DispatchRequest{Key: l.Key, DispatchKey: "dk", Actions: rename},
 		))
 		Expect(retrieveLabel(ctx, l.Key).Name).To(Equal("Anomaly"))
@@ -124,7 +123,6 @@ var _ = Describe("Dispatch", func() {
 		l := createLabel(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apilabel.DispatchRequest{Key: l.Key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveLabel(ctx, l.Key).Name).To(Equal("Nominal"))
@@ -135,7 +133,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), label.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apilabel.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})

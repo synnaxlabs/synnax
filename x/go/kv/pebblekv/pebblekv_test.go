@@ -334,6 +334,28 @@ var _ = Describe("PebbleKV", func() {
 				},
 			)
 
+			It(
+				"Should call OnApplied after the commit applies and before observers",
+				func(ctx SpecContext) {
+					var calls []string
+					disconnect := db.OnChange(func(context.Context, kv.TxReader) {
+						calls = append(calls, "observer")
+					})
+					defer disconnect()
+					key := []byte("applied-key")
+					tx := db.OpenTx()
+					Expect(tx.Set(ctx, key, []byte("applied-value"))).To(Succeed())
+					Expect(tx.Commit(ctx, kv.OnApplied(func() {
+						v, closer := MustSucceed2(db.Get(ctx, key))
+						Expect(v).To(Equal([]byte("applied-value")))
+						Expect(closer.Close()).To(Succeed())
+						calls = append(calls, "applied")
+					}))).To(Succeed())
+					Expect(tx.Close()).To(Succeed())
+					Expect(calls).To(Equal([]string{"applied", "observer"}))
+				},
+			)
+
 			It("Should notify observers on Delete operations", func(ctx SpecContext) {
 				notified := false
 				var receivedChanges []kv.Change

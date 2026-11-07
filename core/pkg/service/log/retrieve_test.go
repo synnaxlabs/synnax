@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Log", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		l := log.Log{
 			Name: "test",
 			Channels: []log.ChannelEntry{

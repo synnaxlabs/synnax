@@ -27,6 +27,7 @@ import (
 
 var _ = Describe("Directories", func() {
 	var (
+		tx   gorp.Tx
 		w    arc.Writer
 		root directory.Key
 	)
@@ -65,6 +66,7 @@ var _ = Describe("Directories", func() {
 		return a
 	}
 	BeforeEach(func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 		var roots []ontology.Resource
 		Expect(otg.NewRetrieve().
@@ -305,32 +307,6 @@ var _ = Describe("Directories", func() {
 			a.SetBase(b)
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring("already used")))
 		})
-		It("Should reject a dispatched rename that duplicates a name", func(
-			ctx SpecContext,
-		) {
-			taken := newAutomation(
-				arc.Base{
-					Name:   "dispatch_taken",
-					Source: arc.Source{Variant: arc.TextSource{}},
-				},
-			)
-			Expect(writer.Create(ctx, &taken)).To(Succeed())
-			renamed := newAutomation(
-				arc.Base{
-					Name:   "dispatch_free",
-					Source: arc.Source{Variant: arc.TextSource{}},
-				},
-			)
-			Expect(writer.Create(ctx, &renamed)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
-				).To(Succeed())
-			})
-			Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
-				arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
-			})).To(MatchError(ContainSubstring("already used")))
-		})
 	})
 
 	Describe("Ownership", func() {
@@ -346,5 +322,34 @@ var _ = Describe("Directories", func() {
 				ctx, "g", directory.ResourceID(root),
 			)).Error().To(MatchError(validate.ErrValidation))
 		})
+	})
+})
+
+var _ = Describe("Dispatched Arc names", func() {
+	It("Should reject a dispatched rename that duplicates a name", func(
+		ctx SpecContext,
+	) {
+		taken := newAutomation(
+			arc.Base{
+				Name:   "dispatch_taken",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			},
+		)
+		Expect(writer.Create(ctx, &taken)).To(Succeed())
+		renamed := newAutomation(
+			arc.Base{
+				Name:   "dispatch_free",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			},
+		)
+		Expect(writer.Create(ctx, &renamed)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(
+				writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
+			).To(Succeed())
+		})
+		Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
+			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
+		})).To(MatchError(ContainSubstring("already used")))
 	})
 })

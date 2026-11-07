@@ -67,6 +67,7 @@ func lineKeysOf(lines []lineplot.Line) []string {
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a LinePlot", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			plot := lineplot.LinePlot{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil()))
@@ -74,6 +75,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				plot := lineplot.LinePlot{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).
 					To(MatchError(ContainSubstring("name: required")))
@@ -82,6 +84,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should populate lines from channel and range bindings supplied at creation",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
@@ -105,6 +108,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[lineplot.Key, lineplot.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				v := lineplot.LinePlot{Name: "broadcast"}
@@ -140,6 +144,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("CreateMany", func() {
 		It("Should create multiple line plots", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			plots := []lineplot.LinePlot{
 				{Name: "plot-1"},
 				{Name: "plot-2"},
@@ -177,7 +182,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(lineKeysOf(res.Lines)).
@@ -206,7 +211,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
@@ -237,7 +242,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
@@ -265,7 +270,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 20, 5)))
@@ -298,7 +303,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewRetrieve().
 					Where(lineplot.MatchKeys(other.Key)).
 					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(res.Name).To(Equal("other"))
 			},
 		)
@@ -320,7 +325,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Name).To(Equal("test"))
@@ -342,7 +347,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Name).To(Equal("renamed"))
@@ -363,7 +368,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Title.Level).To(Equal(text.LevelH2))
@@ -386,7 +391,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Title.Visible).To(BeTrue())
@@ -409,7 +414,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Legend.Position.X).To(Equal(10.0))
@@ -432,7 +437,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Legend.Hidden).To(BeTrue())
@@ -460,7 +465,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(
@@ -487,7 +492,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Channels.Y2).To(ConsistOf(channel.Key(7)))
@@ -532,7 +537,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Channels.Y3).To(ConsistOf(channel.Key(2)))
@@ -563,7 +568,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Channels.Y1).To(Equal([]channel.Key{2, 4}))
@@ -596,7 +601,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
@@ -637,7 +642,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
@@ -689,7 +694,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Channels.X1).To(BeEquivalentTo(99))
@@ -739,7 +744,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Ranges).To(Equal(refs(r2)))
@@ -770,7 +775,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Ranges).To(Equal(refs(r2, r3)))
@@ -800,7 +805,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 5)))
@@ -837,7 +842,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(res.Ranges).To(Equal([]ranger.Ref{window(telem.Hour)}))
 					Expect(res.Lines).To(Equal(plot.Lines))
@@ -863,7 +868,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).To(Succeed())
 					Expect(res.Ranges).To(Equal(refs(rk1)))
 				},
@@ -911,7 +916,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Axes.Y1.Label).To(Equal("pressure"))
@@ -962,7 +967,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
@@ -1000,7 +1005,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Lines[0].StrokeWidth).To(Equal(5.0))
@@ -1023,7 +1028,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Lines[0].Color).To(BeNil())
@@ -1052,7 +1057,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					stored := res.Lines[0]
@@ -1079,7 +1084,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
@@ -1124,7 +1129,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Rules[0].Label).To(Equal("max"))
@@ -1140,7 +1145,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Rules).To(BeEmpty())
@@ -1188,7 +1193,7 @@ var _ = Describe("Writer", func() {
 						svc.NewRetrieve().
 							Where(lineplot.MatchKeys(plot.Key)).
 							Entry(&res).
-							Exec(ctx, tx),
+							Exec(ctx, db),
 					).
 						To(Succeed())
 					Expect(res.Rules).To(HaveLen(1))
@@ -1222,7 +1227,7 @@ var _ = Describe("Writer", func() {
 					svc.NewRetrieve().
 						Where(lineplot.MatchKeys(plot.Key)).
 						Entry(&res).
-						Exec(ctx, tx),
+						Exec(ctx, db),
 				).
 					To(Succeed())
 				Expect(res.Channels.X1).To(BeEquivalentTo(1))

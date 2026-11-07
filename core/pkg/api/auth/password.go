@@ -80,10 +80,10 @@ func (s *Service) SetPassword(
 		return PasswordSetResponse{}, err
 	}
 	if subject == caller {
-		if _, err := s.password.Authenticate(ctx, proofOf(Credentials{
+		if _, err := s.password.Verify(ctx, tx, auth.PasswordProof{
 			Username: current.Username,
 			Password: req.CurrentPassword,
-		})); err != nil {
+		}); err != nil {
 			return PasswordSetResponse{}, err
 		}
 	}

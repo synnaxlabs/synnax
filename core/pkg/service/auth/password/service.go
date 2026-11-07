@@ -122,27 +122,8 @@ func (s *Service) Authenticate(
 			proof.Variant,
 		)
 	}
-	if err := creds.Validate(); err != nil {
-		return auth.Identity{}, err
-	}
-	var p Password
-	if err := s.NewRetrieve().
-		Where(MatchUsernames(creds.Username)).
-		Entry(&p).
-		Exec(ctx, nil); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return auth.Identity{}, auth.ErrInvalidCredentials
-		}
-		return auth.Identity{}, err
-	}
-	h, ok := s.verifierFor(p.Hash)
-	if !ok {
-		return auth.Identity{}, errors.Wrap(
-			auth.ErrInvalidCredentials,
-			"the stored hash uses an algorithm this Core does not accept",
-		)
-	}
-	if err := h.verify(p.Hash, creds.Password); err != nil {
+	p, h, err := s.verify(ctx, nil, creds)
+	if err != nil {
 		return auth.Identity{}, err
 	}
 	if h != s.current {
@@ -150,11 +131,54 @@ func (s *Service) Authenticate(
 			return auth.Identity{}, err
 		}
 	}
-	return auth.Identity{
-		Subject:    p.Subject,
-		Credential: p.Key,
-		Version:    p.Created,
-	}, nil
+	return identityOf(p), nil
+}
+
+// Verify returns the identity that creds prove, reading through tx. It returns the
+// errors of Authenticate, and it never stores a new hash, so it can run in an open
+// transaction.
+func (s *Service) Verify(
+	ctx context.Context,
+	tx gorp.Tx,
+	creds auth.PasswordProof,
+) (auth.Identity, error) {
+	p, _, err := s.verify(ctx, tx, creds)
+	return identityOf(p), err
+}
+
+func (s *Service) verify(
+	ctx context.Context,
+	tx gorp.Tx,
+	creds auth.PasswordProof,
+) (Password, verifier, error) {
+	if err := creds.Validate(); err != nil {
+		return Password{}, nil, err
+	}
+	var p Password
+	if err := s.NewRetrieve().
+		Where(MatchUsernames(creds.Username)).
+		Entry(&p).
+		Exec(ctx, tx); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return Password{}, nil, auth.ErrInvalidCredentials
+		}
+		return Password{}, nil, err
+	}
+	h, ok := s.verifierFor(p.Hash)
+	if !ok {
+		return Password{}, nil, errors.Wrap(
+			auth.ErrInvalidCredentials,
+			"the stored hash uses an algorithm this Core does not accept",
+		)
+	}
+	if err := h.verify(p.Hash, creds.Password); err != nil {
+		return Password{}, nil, err
+	}
+	return p, h, nil
+}
+
+func identityOf(p Password) auth.Identity {
+	return auth.Identity{Subject: p.Subject, Credential: p.Key, Version: p.Created}
 }
 
 // DeleteFor implements [auth.Authenticator].

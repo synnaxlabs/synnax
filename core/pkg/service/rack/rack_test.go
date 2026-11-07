@@ -38,7 +38,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -155,27 +154,6 @@ var _ = Describe("Driver role", func() {
 	})
 })
 
-// gatedDB holds observers of a write whose value contains match until hold is done. The
-// write commits before its observers run.
-type gatedDB struct {
-	kv.DB
-	match []byte
-	hold  *sync.WaitGroup
-}
-
-func (d gatedDB) OnChange(
-	handler func(context.Context, kv.TxReader),
-) observe.Disconnect {
-	return d.DB.OnChange(func(ctx context.Context, reader kv.TxReader) {
-		for ch := range reader {
-			if bytes.Contains(ch.Value, d.match) {
-				d.hold.Wait()
-			}
-		}
-		handler(ctx, reader)
-	})
-}
-
 // failingDB rejects each commit that fail returns an error for.
 type failingDB struct {
 	kv.DB
@@ -241,11 +219,11 @@ var _ = Describe("Rack", Ordered, func() {
 		svc, stat, otg = s.rack, s.status, s.otg
 		noTxWriter = svc.NewWriter(nil)
 	})
-	BeforeEach(func(ctx SpecContext) {
-		frozenNow.Store(0)
+	BeforeEach(func(ctx SpecContext) { frozenNow.Store(0) })
+	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
-	})
+	}
 	Describe("Key", func() {
 		It(
 			"Should correctly construct a key from its components",
@@ -331,6 +309,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 	})
 	Describe("Create", func() {
+		BeforeEach(openTx)
 		It("Should create a rack and assign it a key", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -351,6 +330,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("CreateMany", func() {
+		BeforeEach(openTx)
 		It("Should create multiple racks", func(ctx SpecContext) {
 			racks := []rack.Rack{
 				{Name: "rack-many-1"},
@@ -367,6 +347,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		It("Should retrieve a rack by its key", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack3"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -710,6 +691,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Search", func() {
+		BeforeEach(openTx)
 		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			r := rack.Rack{Name: name}
@@ -742,6 +724,7 @@ var _ = Describe("Rack", Ordered, func() {
 	})
 
 	Describe("Create with Integrations", func() {
+		BeforeEach(openTx)
 		It("Should persist integrations on the rack", func(ctx SpecContext) {
 			r := &rack.Rack{
 				Name:         "persist-integ-rack",
@@ -776,6 +759,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should rename the embedded rack and its status, keeping every other field",
 			func(ctx SpecContext) {
+				openTx()
 				var before rack.Rack
 				Expect(svc.NewRetrieve().
 					Where(rack.MatchKeys(svc.EmbeddedKey)).
@@ -804,6 +788,7 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It("Should keep a rack's integrations", func(ctx SpecContext) {
+			openTx()
 			r := &rack.Rack{Name: "rename-integ-rack", Integrations: []string{"ni"}}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Rename(ctx, r.Key, "renamed-integ-rack")).To(Succeed())
@@ -816,12 +801,14 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Integrations).To(Equal([]string{"ni"}))
 		})
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			openTx()
 			r := &rack.Rack{Name: "rename-empty-rack"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Rename(ctx, r.Key, "")).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should return a not found error for a missing rack", func(ctx SpecContext) {
+			openTx()
 			Expect(writer.Rename(ctx, rack.NewKey(1, 60000), "renamed")).
 				To(MatchError(query.ErrNotFound))
 		})
@@ -847,6 +834,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Delete", func() {
+		BeforeEach(openTx)
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
@@ -882,6 +870,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 	Describe("Embedded Rack", func() {
 		It("Should correctly create the node embedded rack", func(ctx SpecContext) {
+			openTx()
 			Expect(svc.EmbeddedKey).ToNot(Equal(rack.Key(0)))
 			var embeddedRack rack.Rack
 			Expect(
@@ -1016,6 +1005,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should restore a missing status row when the rack is re-configured",
 			func(ctx SpecContext) {
+				openTx()
 				r := rack.Rack{Name: "heal rack"}
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
@@ -1040,6 +1030,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should not clobber a live status row on a no-op re-configure",
 			func(ctx SpecContext) {
+				openTx()
 				r := rack.Rack{
 					Name: "live status rack",
 					Status: &rack.Status{
@@ -1066,6 +1057,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It(
 			"Should change only the status name when create renames a rack",
 			func(ctx SpecContext) {
+				openTx()
 				r := rack.Rack{
 					Name: "old name",
 					Status: &rack.Status{
@@ -1390,7 +1382,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		DescribeTable(
-			"Should report a silent rack again after a rename overwrites its outage",
+			"Should report a silent rack once a rename in flight commits",
 			func(
 				ctx SpecContext,
 				rename func(context.Context, rack.Writer, rack.Key, string) error,
@@ -1410,16 +1402,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(rename(ctx, svc.NewWriter(renameTx), r.Key, "renamed")).
 					To(Succeed())
 				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
-				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
-					g.Expect(s.Message).To(Equal("Driver not running"))
-				}).Should(Succeed())
-
 				Expect(renameTx.Commit(ctx)).To(Succeed())
-				s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
-				Expect(s.Message).To(Equal("Driver is running"))
-
-				frozenNow.Store(int64(start.Add(24 * telem.Millisecond)))
 				Eventually(func(g Gomega) {
 					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
@@ -1438,58 +1421,6 @@ var _ = Describe("Rack", Ordered, func() {
 					return w.Rename(ctx, k, n)
 				},
 			),
-		)
-
-		It(
-			"Should report a silent rack again when a rename outruns its outage",
-			func(ctx SpecContext) {
-				var hold sync.WaitGroup
-				hold.Add(1)
-				release := sync.OnceFunc(hold.Done)
-				gatedKV := gatedDB{
-					DB:    memkv.New(),
-					match: []byte("Driver not running"),
-					hold:  &hold,
-				}
-				gatedGorp := DeferClose(gorp.Wrap(gatedKV))
-				start := telem.Now()
-				var now atomic.Int64
-				now.Store(int64(start))
-				gated := DeferClose(openStack(ctx, gatedGorp, rack.ServiceConfig{
-					HealthCheckInterval: 10 * telem.Millisecond,
-					Now: func() telem.TimeStamp {
-						return telem.TimeStamp(now.Load())
-					},
-				}))
-				DeferCleanup(release)
-				r := rack.Rack{
-					Name: "outrun rack",
-					Status: &rack.Status{
-						Variant: status.VariantSuccess,
-						Message: "Driver is running",
-						Time:    telem.SecondTS,
-					},
-				}
-				Expect(gated.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-				renameTx := DeferClose(gatedGorp.OpenTx())
-				Expect(gated.rack.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
-					To(Succeed())
-				now.Store(int64(start.Add(12 * telem.Millisecond)))
-				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
-					g.Expect(s.Message).To(Equal("Driver not running"))
-				}).Should(Succeed())
-
-				Expect(renameTx.Commit(ctx)).To(Succeed())
-				release()
-
-				now.Store(int64(start.Add(24 * telem.Millisecond)))
-				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
-					g.Expect(s.Message).To(Equal("Driver not running"))
-					g.Expect(s.Name).To(Equal("renamed"))
-				}).Should(Succeed())
-			},
 		)
 
 		It(

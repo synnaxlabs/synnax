@@ -70,8 +70,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -83,8 +82,7 @@ var _ = Describe("Rename", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: ""},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -93,16 +91,14 @@ var _ = Describe("Rename", func() {
 		key := uuid.New()
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
 		Expect(apiSvc.Rename(
-			AuthedCtx(ctx, u), nil,
-			apitask.RenameRequest{Key: t.Key, Name: "After"},
+			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 	})
@@ -132,7 +128,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -155,7 +150,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -170,7 +164,6 @@ var _ = Describe("Dispatch", func() {
 		t := createDraft(ctx)
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         t.Key,
 				DispatchKey: "dk",
@@ -185,7 +178,6 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
-			nil,
 			apitask.DispatchRequest{
 				Key:         key,
 				DispatchKey: "dk",

@@ -47,7 +47,7 @@ func RetrieveKey(typ Type) (TypeRef, bool) {
 		return TypeRef{}, false
 	}
 	name := expr.Values[0].StringValue
-	if !strings.Contains(name, ".") {
+	if !strings.Contains(name, ".") && !IsPrimitive(name) {
 		name = typ.Namespace + "." + name
 	}
 	return TypeRef{Name: name}, true

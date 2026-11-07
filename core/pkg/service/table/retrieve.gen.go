@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Table table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "table"
+
 // Retrieve is used to retrieve Table records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

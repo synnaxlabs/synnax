@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -47,7 +48,7 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 var _ = Describe("DeleteGroup", func() {
 	// The api reads the members through the same tx it deletes under, which every spec
 	// below mirrors.
-	deleteGroup := func(ctx SpecContext, key group.Key) error {
+	deleteGroup := func(ctx SpecContext, tx gorp.Tx, key group.Key) error {
 		GinkgoHelper()
 		return svc.DeleteGroup(ctx, tx, key, MustSucceed(
 			svc.RetrieveGroupSymbols(ctx, tx, key),
@@ -56,7 +57,8 @@ var _ = Describe("DeleteGroup", func() {
 	It("Should delete the group and every symbol in it", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
 		sym := createSymbol(ctx, g)
-		Expect(deleteGroup(ctx, g.Key)).To(Succeed())
+		tx := DeferClose(db.OpenTx())
+		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
 		Expect(svc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
@@ -64,13 +66,15 @@ var _ = Describe("DeleteGroup", func() {
 	})
 	It("Should delete an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
-		Expect(deleteGroup(ctx, g.Key)).To(Succeed())
+		tx := DeferClose(db.OpenTx())
+		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
 	})
 	It("Should move a child that is not a schematic symbol to the permanent group",
 		func(ctx SpecContext) {
 			g := createGroup(ctx, proj.ResourceID())
 			stray := createGroup(ctx, g.ResourceID())
-			Expect(deleteGroup(ctx, g.Key)).To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(stray.ResourceID()).
@@ -83,6 +87,7 @@ var _ = Describe("DeleteGroup", func() {
 	)
 	It("Should reject an id no symbol key can come from", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
+		tx := DeferClose(db.OpenTx())
 		Expect(svc.DeleteGroup(ctx, tx, g.Key, []resource.ID{
 			{Type: resource.TypeSchematicSymbol, Key: "not-a-uuid"},
 		})).To(MatchError(ContainSubstring("invalid uuid")))
@@ -93,21 +98,25 @@ var _ = Describe("RetrieveGroupSymbols", func() {
 	It("Should return the group's symbols", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
 		sym := createSymbol(ctx, g)
+		tx := DeferClose(db.OpenTx())
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
 			To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	It("Should return nothing for an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
+		tx := DeferClose(db.OpenTx())
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).To(BeEmpty())
 	})
 	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.ResourceID())
 		createGroup(ctx, g.ResourceID())
 		sym := createSymbol(ctx, g)
+		tx := DeferClose(db.OpenTx())
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
 			To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().
 			To(MatchError(query.ErrNotFound))
 	})

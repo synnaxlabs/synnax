@@ -154,10 +154,9 @@ type DispatchResponse = actions.DispatchResponse[task.Action]
 // carry its stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
-	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
+	enforcer := s.access.NewEnforcer(nil)
 	request := access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -223,10 +222,9 @@ type RenameRequest struct {
 // Rename renames the task. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{task.ResourceID(req.Key)},

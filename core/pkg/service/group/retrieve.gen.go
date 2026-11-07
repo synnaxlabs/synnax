@@ -18,6 +18,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Group table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "group"
+
 // Retrieve is used to retrieve Group records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	Describe("Create", func() {
 		It("Should create a project", func(ctx SpecContext) {
 			proj := project.Project{Name: "test"}

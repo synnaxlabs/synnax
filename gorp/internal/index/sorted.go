@@ -15,6 +15,8 @@ import (
 	"slices"
 	"sort"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 type entry[K comparable, V cmp.Ordered] struct {
@@ -35,7 +37,6 @@ type Sorted[S Scope, K comparable, V cmp.Ordered] struct {
 	entries []entry[K, V]
 	reverse map[K]V
 	overlay overlay[S, *delta[K, V]]
-	announcements[K, V]
 }
 
 // NewSorted returns an empty Sorted index that waits for its bulk load.
@@ -92,7 +93,7 @@ func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 		s.Set(key, value)
 		return
 	}
-	s.overlay.load(scope).set(key, value)
+	s.overlay.load(scope).set(key, []V{value})
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -118,19 +119,19 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	if err := s.population.err; err != nil {
 		return nil, err
 	}
-	var committed []K
+	committed := set.New[K]()
 	for _, v := range values {
 		for i, hi := s.lowerBound(v), s.upperBound(v); i < hi; i++ {
-			committed = append(committed, s.entries[i].key)
+			committed.Add(s.entries[i].key)
 		}
 	}
 	return mergeValues(&s.overlay, scope, committed, values), nil
 }
 
-// Committing returns the keys that a transaction in its commit or an announced write
-// maps to any of values. See Lookup.Committing for its contract.
+// Committing returns the keys that a transaction in its commit maps to any of values.
+// See Lookup.Committing for its contract.
 func (s *Sorted[S, K, V]) Committing(values ...V) []K {
-	return s.appendKeys(committingKeys(&s.overlay, values), values)
+	return committingKeys(&s.overlay, values)
 }
 
 // Walk returns up to limit committed keys in ascending value order, or in descending
@@ -224,6 +225,6 @@ func (s *Sorted[S, K, V]) flush(d *delta[K, V]) {
 			s.remove(k)
 			continue
 		}
-		s.put(k, st.value)
+		s.put(k, st.values[0])
 	}
 }
