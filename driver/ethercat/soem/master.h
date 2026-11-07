@@ -242,11 +242,12 @@ private:
     /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
     x::errors::Error clear_dc_activation();
 
-    /// @brief returns the DC registers of each enabled slave that dc::select puts in a
-    /// DC mode with its chosen mode, at a bus cycle of period.
-    /// @returns errors::SLAVE_CONFIG_ERROR when a mode gives values the registers
-    /// cannot hold, or when the SYNC0 cycles that mark process data share no
-    /// dc::MIN_EVENT_CYCLE grid or longer with the period.
+    /// @brief returns the DC registers of each enabled slave that runs a DC mode, the
+    /// chosen mode or the one dc::select picks, at a bus cycle of period.
+    /// @returns errors::SLAVE_CONFIG_ERROR when a slave cannot use its chosen mode,
+    /// when a mode gives values the registers cannot hold, or when the SYNC0 cycles
+    /// that mark process data share no dc::MIN_EVENT_CYCLE grid or longer with the
+    /// period.
     std::pair<std::vector<DCSetup>, x::errors::Error>
     resolve_dc(x::telem::TimeSpan period) const;
 
