@@ -76,13 +76,13 @@ class CRIOCase(HardwareCase):
     def start_driver(self) -> None:
         """Starts the Driver in the background with the state from the last start."""
         conn = self.synnax_connection
+        # Only the Driver runs in the background, so the session ends and $! is its PID.
         self.ssh(
-            f"cd {_DIR} && chmod +x synnax-driver && nohup ./synnax-driver start "
+            f"cd {_DIR} && chmod +x synnax-driver && {{ nohup ./synnax-driver start "
             f"--standalone --host {conn.server_address} --port {conn.port} "
             f"--username {conn.username} --password {conn.password} "
             f"--state-file {_DIR}/state.json --disable-stdin-stop "
-            f">> driver.log 2>&1 < /dev/null & "
-            f"echo $! > {_DIR}/driver.pid"
+            f">> driver.log 2>&1 < /dev/null & echo $! > driver.pid; }}"
         )
 
     def stop_driver(self) -> None:
