@@ -12,8 +12,8 @@ package deleter
 import (
 	"context"
 
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -63,7 +63,7 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 	tr telem.TimeRange,
 ) error {
 	addr, err := lp.HostResolver.Resolve(target)
-	if errors.Is(err, aspen.ErrNodeNotFound) {
+	if errors.Is(err, cluster.ErrNodeNotFound) {
 		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", keys)
 	}
 	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})

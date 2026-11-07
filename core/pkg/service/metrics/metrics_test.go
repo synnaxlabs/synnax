@@ -99,7 +99,7 @@ var _ = Describe("Metrics", func() {
 					CollectionInterval: 100 * time.Millisecond,
 				}),
 			)
-			names = getNames(dist.Cluster.HostKey())
+			names = getNames(dist.Identity.HostKey)
 		})
 		JustAfterEach(func(ctx SpecContext) {
 			Expect(svc.Close()).To(Succeed())
@@ -230,14 +230,14 @@ var _ = Describe("Metrics", func() {
 				metricsGroup := MustSucceed(
 					groupSvc.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel),
 				)
-				Expect(retrieve(ctx, getNames(dist.Cluster.HostKey())[1]).Group).
+				Expect(retrieve(ctx, getNames(dist.Identity.HostKey)[1]).Group).
 					To(Equal(&metricsGroup.Key))
 				Expect(svc.Close()).To(Succeed())
 			},
 		)
 
 		It("Should keep a channel in the group it was moved to", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			svc := open(ctx)
 			mem := retrieve(ctx, names[2])
 			custom := MustSucceed(groupSvc.CreateOrRetrieve(
@@ -272,7 +272,7 @@ var _ = Describe("Metrics", func() {
 				}
 				return holders
 			}).Should(ContainElement(fmt.Sprintf(
-				"Node %v Metrics Writer", dist.Cluster.HostKey(),
+				"Node %v Metrics Writer", dist.Identity.HostKey,
 			)))
 		})
 	})
@@ -324,7 +324,7 @@ var _ = Describe("Metrics", func() {
 				CollectionInterval: 50 * time.Millisecond,
 			}))
 			var channels []channel.Channel
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
@@ -344,7 +344,7 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should write metrics at configured interval", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
+			names := getNames(dist.Identity.HostKey)
 			var channels []channel.Channel
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).

@@ -25,7 +25,6 @@ import (
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -46,13 +45,8 @@ var _ = Describe("Status", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		// Like the Core on the node that leases each write, the indexes see only the
-		// writes made through their table.
 		store = memkv.New()
-		db = DeferClose(gorp.Wrap(
-			store,
-			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
-		))
+		db = DeferClose(gorp.Wrap(store))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

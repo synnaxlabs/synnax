@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package cluster exposes a thin domain layer over aspen's cluster-membership view.
-// The node domain type itself lives in pkg/distribution/node.
+// Package cluster names a Core and resolves the address of its host node. The node
+// domain type itself lives in pkg/distribution/node.
 package cluster
 
 import (
@@ -16,6 +16,8 @@ import (
 
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Identity names a Core: the cluster it belongs to and its own node in that cluster.
@@ -27,13 +29,6 @@ type Identity struct {
 }
 
 type (
-	// Cluster is the cluster-membership view as observed by the host node. It resolves
-	// node addresses, exposes the current set of Nodes, and emits Change events as
-	// topology evolves. Cluster is safe for concurrent use.
-	Cluster = aspen.Cluster
-	// Change is a batch of node-level changes emitted by Cluster.OnChange when the
-	// gossip layer integrates new state from a peer.
-	Change = aspen.ClusterChange
 	// Resolver maps a node key to the network address at which that node can be
 	// reached.
 	Resolver = aspen.Resolver
@@ -41,3 +36,26 @@ type (
 	// is running on (its key and full node record).
 	HostResolver = aspen.HostResolver
 )
+
+// ErrNodeNotFound is returned when a key names no node.
+var ErrNodeNotFound = aspen.ErrNodeNotFound
+
+// Host is the host node of a Core, the only node it resolves.
+type Host struct{ Node node.Node }
+
+var _ HostResolver = Host{}
+
+// Host implements HostResolver.
+func (h Host) Host() node.Node { return h.Node }
+
+// HostKey implements HostResolver.
+func (h Host) HostKey() node.Key { return h.Node.Key }
+
+// Resolve implements HostResolver. It returns ErrNodeNotFound for any key other than
+// the host's.
+func (h Host) Resolve(key node.Key) (address.Address, error) {
+	if key != h.Node.Key {
+		return "", errors.Wrapf(ErrNodeNotFound, "node %d", key)
+	}
+	return h.Node.Address, nil
+}

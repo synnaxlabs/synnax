@@ -21,23 +21,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
-			peerOnlyScenario,
-			mixedScenario,
 		}
 		for i, sF := range scenarios {
 			var s scenario
@@ -205,30 +202,6 @@ var _ = Describe("Iterator", func() {
 	})
 })
 
-// openFaultyCluster opens a two-node cluster whose nodes each store telemetry on their
-// own fault-injecting file system, keyed by node.
-func openFaultyCluster(
-	ctx context.Context,
-) (*testutil.Cluster, map[node.Key]*FaultyFS) {
-	GinkgoHelper()
-	var (
-		cluster = testutil.OpenCluster(ctx, 0)
-		faulty  = make(map[node.Key]*FaultyFS)
-	)
-	for range 2 {
-		var (
-			nodeFS = WrapFaultyFS(xfs.NewMem())
-			store  = &storage.Layer{
-				KV: DeferClose(memkv.New()),
-				TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: nodeFS}))),
-			}
-			n = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
-		)
-		faulty[n.Cluster.HostKey()] = nodeFS
-	}
-	return cluster, faulty
-}
-
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
 		s := DeferClose(gatewayOnlyScenario(ctx))
@@ -246,56 +219,43 @@ var _ = Describe("Close", func() {
 })
 
 var _ = Describe("Read failure", func() {
-	DescribeTable(
-		"Should return the read error from Close",
-		func(ctx SpecContext, faultyNode node.Key, leaseholders ...node.Key) {
-			cluster, faulty := openFaultyCluster(ctx)
-			defer func() { Expect(cluster.Close()).To(Succeed()) }()
-			channels := make([]channel.Channel, len(leaseholders))
-			for i, leaseholder := range leaseholders {
-				channels[i] = channel.Channel{
-					Name:        fmt.Sprintf("failure_%d", i),
-					IsIndex:     true,
-					DataType:    telem.TimestampT,
-					Leaseholder: leaseholder,
-				}
-			}
-			gateway := cluster.Nodes[1]
-			channels = MustSucceed(gateway.Channel.Create(ctx, channels))
-			keys := channel.KeysFromChannels(channels)
-			w := MustSucceed(gateway.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  keys,
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			series := make([]telem.Series, len(keys))
-			for i := range keys {
-				series[i] = telem.NewSeriesSecondsTSV(10, 11, 12)
-			}
-			Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
-			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
+	It("Should return the read error from Close", func(ctx SpecContext) {
+		faulty := WrapFaultyFS(xfs.NewMem())
+		store := &storage.Layer{
+			KV: DeferClose(storagetestutil.OpenKV()),
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+		}
+		gateway := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
+		channels := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{{
+			Name:     "failure",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		}}))
+		keys := channel.KeysFromChannels(channels)
+		w := MustSucceed(gateway.Framer.OpenWriter(ctx, writer.Config{
+			Keys:  keys,
+			Start: 10 * telem.SecondTS,
+			Sync:  new(true),
+		}))
+		series := make([]telem.Series, len(keys))
+		for i := range keys {
+			series[i] = telem.NewSeriesSecondsTSV(10, 11, 12)
+		}
+		Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
+		MustSucceed(w.Commit())
+		Expect(w.Close()).To(Succeed())
 
-			iter := MustSucceed(gateway.Framer.OpenIterator(ctx, iterator.Config{
-				Keys:   keys,
-				Bounds: telem.TimeRangeMax,
-			}))
-			Expect(iter.SeekFirst()).To(BeTrue())
-			faulty[faultyNode].SetOptions(WithFailReadAt())
-			for iter.Next(iterator.AutoSpan) {
-			}
-			Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
-			Expect(iter.Close()).To(Succeed())
-		},
-		Entry("on the gateway", node.Key(1), node.Key(1)),
-		Entry("on a peer", node.Key(2), node.Key(2)),
-		Entry(
-			"on a peer beside a healthy gateway",
-			node.Key(2),
-			node.Key(1),
-			node.Key(2),
-		),
-	)
+		iter := MustSucceed(gateway.Framer.OpenIterator(ctx, iterator.Config{
+			Keys:   keys,
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		faulty.SetOptions(WithFailReadAt())
+		for iter.Next(iterator.AutoSpan) {
+		}
+		Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
+		Expect(iter.Close()).To(Succeed())
+	})
 })
 
 type scenario struct {
@@ -321,59 +281,14 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	builder := testutil.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	dist := testutil.OpenNode(ctx)
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		name:     "Gateway Only",
 		keys:     keys,
 		dist:     dist,
-		close:    builder,
-		channels: channels,
-	}
-}
-
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	builder := testutil.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 2)
-		channels[i] = ch
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Peer Only",
-		keys:     keys,
-		dist:     dist,
-		close:    builder,
-		channels: channels,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := []channel.Channel{
-		{
-			Name:        "mixed_gateway",
-			IsIndex:     true,
-			DataType:    telem.TimestampT,
-			Leaseholder: 1,
-		},
-		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimestampT, Leaseholder: 2},
-	}
-	builder := testutil.OpenCluster(ctx, 2)
-	dist := builder.Nodes[1]
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Mixed Gateway and Peer",
-		keys:     keys,
-		dist:     dist,
-		close:    builder,
+		close:    dist,
 		channels: channels,
 	}
 }

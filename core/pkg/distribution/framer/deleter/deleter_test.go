@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +29,6 @@ import (
 var _ = Describe("Deleter", Ordered, func() {
 	scenarios := []func(context.Context) scenario{
 		gatewayOnlyScenario,
-		peerOnlyScenario,
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
@@ -150,93 +148,6 @@ var _ = Describe("Deleter", Ordered, func() {
 			})
 		})
 	}
-
-	Describe("Mixed Gateway and Peer", Ordered, func() {
-		var s scenario
-		BeforeAll(func(ctx SpecContext) {
-			ShouldNotLeakGoroutines()
-			s = DeferClose(mixedScenario(context.Background()))
-		})
-
-		It(
-			"Should delete channels across gateway and peer nodes",
-			func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-					},
-				))).To(BeTrue())
-				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-				Expect(w.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(
-						ctx,
-						s.keys,
-						(10 * telem.SecondTS).Range(12*telem.SecondTS),
-					),
-				).To(Succeed())
-
-				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-					Keys:   s.keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(i.SeekFirst()).To(BeTrue())
-				Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-				for _, key := range s.keys {
-					Expect(i.Value().Get(key).Len()).To(Equal(int64(1)))
-					Expect(
-						i.Value().Get(key).TimeRange(),
-					).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
-				}
-				Expect(i.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
-				).To(Succeed())
-			},
-		)
-
-		It(
-			"Should delete all data across gateway and peer nodes",
-			func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-					},
-				))).To(BeTrue())
-				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-				Expect(w.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
-				).To(Succeed())
-
-				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-					Keys:   s.keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(i.SeekFirst()).To(BeFalse())
-				Expect(i.Close()).To(Succeed())
-			},
-		)
-	})
 })
 
 type scenario struct {
@@ -284,47 +195,5 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		names:    names,
 		dist:     dist,
 		closer:   dist,
-	}
-}
-
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 4)
-	dist := cluster.Nodes[1]
-	for i := range channels {
-		channels[i].Leaseholder = node.Key(i + 2)
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
-	return scenario{
-		name:     "Peer Only",
-		keys:     keys,
-		channels: channels,
-		names:    names,
-		dist:     dist,
-		closer:   cluster,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	builder := testutil.OpenCluster(ctx, 3)
-	dist := builder.Nodes[1]
-	for i := range channels {
-		channels[i].Leaseholder = node.Key(i + 1)
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
-	return scenario{
-		name:     "Mixed Gateway and Peer",
-		keys:     keys,
-		channels: channels,
-		names:    names,
-		dist:     dist,
-		closer:   builder,
 	}
 }

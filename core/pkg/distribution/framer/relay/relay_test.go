@@ -44,8 +44,6 @@ var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
-			peerOnlyScenario,
-			mixedScenario,
 			freeScenario,
 		}
 		for i, sF := range scenarios {
@@ -886,42 +884,6 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		channels: channels,
 		dist:     node,
 		close:    node,
-	}
-}
-
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 4)
-	dist := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 2)
-		channels[i] = ch
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	return scenario{
-		name:     "Peer Only",
-		channels: channels,
-		dist:     dist,
-		close:    cluster,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 3)
-	gateway := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 1)
-		channels[i] = ch
-	}
-	channels = MustSucceed(gateway.Channel.Create(ctx, channels))
-	return scenario{
-		name:     "Mixed Gateway and Peer",
-		channels: channels,
-		dist:     gateway,
-		close:    cluster,
 	}
 }
 

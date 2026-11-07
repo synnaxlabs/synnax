@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -325,7 +324,6 @@ var _ = Describe("TableProvider", func() {
 						}
 					}},
 					gorp.WithCodec(msgpack.Codec),
-					gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 				))
 				f := openFixture[channelEntry](ctx, lagging, resource.TypeChannel)
 				cfg := f.config(resource.TypeChannel)

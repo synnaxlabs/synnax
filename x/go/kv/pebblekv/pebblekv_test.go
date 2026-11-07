@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -527,6 +528,23 @@ var _ = Describe("PebbleKV", func() {
 					disconnect()
 				},
 			)
+		})
+
+		It("Should deliver commits through the given observer", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			observer := observe.New[kv.TxReader]()
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			var keys [][]byte
+			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
+				for ch := range r {
+					keys = append(keys, ch.Key)
+				}
+			})
+			defer disconnect()
+			Expect(db.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(keys).To(Equal([][]byte{[]byte("key")}))
 		})
 	})
 })

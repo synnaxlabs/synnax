@@ -24,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -439,7 +437,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("NewUncheckedWriter", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It("Should keep the indexes current without checks", func(ctx SpecContext) {
@@ -464,7 +462,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("Get", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It(

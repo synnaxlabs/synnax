@@ -10,42 +10,54 @@
 package testutil_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Node", func() {
-	Describe("OpenNode", func() {
-		It(
-			"Should open a single-node cluster bootstrapped as the first node",
-			func(ctx SpecContext) {
-				n := DeferClose(testutil.OpenNode(ctx))
-				Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
-				Expect(n.Layer).ToNot(BeNil())
-				Expect(n.Storage).ToNot(BeNil())
-			},
-		)
-
-		It(
-			"Should tear down the underlying cluster and storage on Close",
-			func(ctx SpecContext) {
-				n := testutil.OpenNode(ctx)
-				Expect(n.Close()).To(Succeed())
-			},
-		)
+	It("Should open a node with host key 1", func(ctx SpecContext) {
+		n := DeferClose(testutil.OpenNode(ctx))
+		Expect(n.Identity.HostKey).To(Equal(node.KeyBootstrapper))
+		Expect(n.Host.HostKey()).To(Equal(node.KeyBootstrapper))
 	})
 
-	Describe("NewNode", func() {
-		It(
-			"Should open a node and register its teardown with the spec",
-			func(ctx SpecContext) {
-				n := testutil.NewNode(ctx)
-				Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
-				Expect(n.Storage).ToNot(BeNil())
-			},
-		)
+	It("Should create channels in the storage layer", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		ch := MustSucceed(n.Channel.Create(ctx, []channel.Channel{{
+			Name:        "SG_01",
+			DataType:    telem.Float64T,
+			Virtual:     true,
+			Leaseholder: 1,
+		}}))[0]
+		Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
+		chs := MustSucceed(n.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
+		Expect(chs).To(HaveLen(1))
+	})
+
+	It(
+		"Should create channels while a transaction holds the write lock",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			tx := DeferClose(n.DB.OpenTx())
+			Expect(n.Channel.Create(ctx, []channel.Channel{{
+				Name:        "SG_02",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: 1,
+			}})).To(HaveLen(1))
+			Expect(tx.Commit(ctx)).To(Succeed())
+		},
+		NodeTimeout(10*time.Second),
+	)
+
+	It("Should close the distribution and storage layers", func(ctx SpecContext) {
+		Expect(testutil.OpenNode(ctx).Close()).To(Succeed())
 	})
 })

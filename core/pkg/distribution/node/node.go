@@ -24,10 +24,6 @@ type (
 	// network address. Nodes report a state that reflects their current reachability as
 	// observed by the host Core.
 	Node = aspen.Node
-	// Change describes a single mutation to a Node's record (a node joining, leaving,
-	// or transitioning state). Changes are emitted by the cluster-membership view as
-	// part of a cluster.Change batch.
-	Change = aspen.NodeChange
 )
 
 const (

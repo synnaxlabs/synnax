@@ -11,8 +11,6 @@ package control_test
 
 import (
 	"context"
-	"sync/atomic"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,8 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	mockcontrol "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil/control"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/breaker"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -82,49 +78,15 @@ func holders(states []control.State) map[channel.Key]string {
 	return out
 }
 
-// fastBreaker retries as often as the real one but without the wait, so a spec that
-// depends on a reopen does not pay the default backoff.
-var fastBreaker = breaker.Config{
-	BaseInterval: time.Millisecond,
-	Scale:        1,
-	MaxRetries:   breaker.InfiniteRetries,
-}
-
-// openIsolated opens a control service on n backed by net rather than the cluster's own
-// transport, so a spec can decide which peers the service can reach.
-func openIsolated(
-	ctx context.Context,
-	n testutil.Node,
-	net *mockcontrol.Network,
-	addr address.Address,
-) *control.Service {
-	GinkgoHelper()
-	return MustOpen(control.OpenService(ctx, control.ServiceConfig{
-		Cluster:   n.Cluster,
-		TS:        n.Storage.TS,
-		Transport: net.New(addr, 1),
-		Breaker:   fastBreaker,
-	}))
-}
-
-// peerState is the state a stub peer reports for key under the given subject.
-func peerState(key channel.Key, subject string) control.State {
-	return control.State{
-		Subject:   xcontrol.Subject{Key: subject, Name: subject},
-		Resource:  key,
-		Authority: xcontrol.AuthorityAbsolute,
-	}
-}
-
 var _ = Describe("Control", func() {
 	Describe("ServiceConfig", func() {
 		full := func(ctx context.Context) control.ServiceConfig {
 			GinkgoHelper()
 			n := testutil.NewNode(ctx)
 			return control.ServiceConfig{
-				Cluster:   n.Cluster,
-				TS:        n.Storage.TS,
-				Transport: mockcontrol.NewNetwork().New("gateway"),
+				HostResolver: n.Host,
+				TS:           n.Storage.TS,
+				Transport:    mockcontrol.NewNetwork().New("gateway"),
 			}
 		}
 
@@ -142,9 +104,9 @@ var _ = Describe("Control", func() {
 				)
 			},
 			Entry(
-				"cluster",
-				func(c *control.ServiceConfig) { c.Cluster = nil },
-				"cluster",
+				"host resolver",
+				func(c *control.ServiceConfig) { c.HostResolver = nil },
+				"host_resolver",
 			),
 			Entry("ts", func(c *control.ServiceConfig) { c.TS = nil }, "ts"),
 			Entry(
@@ -159,7 +121,7 @@ var _ = Describe("Control", func() {
 		It("Should return the state of a channel the host arbitrates", func(
 			ctx SpecContext,
 		) {
-			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewNode(ctx)
 			ch := createChannel(ctx, gw, "gateway", 1)
 			w := openWriter(ctx, gw, "philadelphia", ch.Key())
 			Expect(MustSucceed(gw.Control.Retrieve(ctx, ch.Key()))).To(ConsistOf(
@@ -177,7 +139,7 @@ var _ = Describe("Control", func() {
 		})
 
 		It("Should omit channels that no subject controls", func(ctx SpecContext) {
-			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewNode(ctx)
 			held := createChannel(ctx, gw, "held", 1)
 			free := createChannel(ctx, gw, "unheld", 1)
 			w := openWriter(ctx, gw, "denver", held.Key())
@@ -192,29 +154,13 @@ var _ = Describe("Control", func() {
 		It("Should return the state of every channel when no keys are given", func(
 			ctx SpecContext,
 		) {
-			cluster := testutil.NewCluster(ctx, 2)
-			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
-			local := createChannel(ctx, gw, "local", 1)
-			remote := createChannel(ctx, gw, "remote", 2)
-			gwWriter := openWriter(ctx, gw, "boulder", local.Key())
-			DeferClose(gwWriter)
-			peerWriter := openWriter(ctx, peer, "seattle", remote.Key())
-			DeferClose(peerWriter)
+			gw := testutil.NewNode(ctx)
+			first := createChannel(ctx, gw, "first", 1)
+			second := createChannel(ctx, gw, "second", 1)
+			DeferClose(openWriter(ctx, gw, "boulder", first.Key()))
+			DeferClose(openWriter(ctx, gw, "seattle", second.Key()))
 			Expect(holders(MustSucceed(gw.Control.Retrieve(ctx)))).To(Equal(
-				map[channel.Key]string{local.Key(): "boulder", remote.Key(): "seattle"},
-			))
-		})
-
-		It("Should route to the leaseholder of a channel held by a peer", func(
-			ctx SpecContext,
-		) {
-			cluster := testutil.NewCluster(ctx, 2)
-			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
-			ch := createChannel(ctx, gw, "remote", 2)
-			w := openWriter(ctx, peer, "austin", ch.Key())
-			DeferClose(w)
-			Expect(holders(MustSucceed(gw.Control.Retrieve(ctx, ch.Key())))).To(Equal(
-				map[channel.Key]string{ch.Key(): "austin"},
+				map[channel.Key]string{first.Key(): "boulder", second.Key(): "seattle"},
 			))
 		})
 	})
@@ -223,7 +169,7 @@ var _ = Describe("Control", func() {
 		It("Should notify handlers when the host acquires and releases control", func(
 			ctx SpecContext,
 		) {
-			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewNode(ctx)
 			ch := createChannel(ctx, gw, "gateway", 1)
 			updates := collect(gw.Control)
 			w := openWriter(ctx, gw, "chicago", ch.Key())
@@ -239,140 +185,6 @@ var _ = Describe("Control", func() {
 			Expect(release.Transfers).To(HaveLen(1))
 			Expect(release.Transfers[0].To).To(BeNil())
 			Expect(release.Transfers[0].From.Resource).To(Equal(ch.Key()))
-		})
-
-		It("Should notify handlers when a peer acquires and releases control", func(
-			ctx SpecContext,
-		) {
-			cluster := testutil.NewCluster(ctx, 2)
-			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
-			ch := createChannel(ctx, gw, "remote", 2)
-			updates := collect(gw.Control)
-			w := openWriter(ctx, peer, "portland", ch.Key())
-			Eventually(updates).Should(Receive(WithTransform(
-				func(u control.Update) []control.Transfer { return u.Transfers },
-				ConsistOf(control.Transfer{To: &control.State{
-					Subject:   xcontrol.Subject{Key: "portland", Name: "portland"},
-					Resource:  ch.Key(),
-					Authority: xcontrol.AuthorityAbsolute,
-				}}),
-			)))
-			Expect(w.Close()).To(Succeed())
-			Eventually(updates).Should(Receive(WithTransform(
-				func(u control.Update) []control.Transfer { return u.Transfers },
-				ConsistOf(control.Transfer{From: &control.State{
-					Subject:   xcontrol.Subject{Key: "portland", Name: "portland"},
-					Resource:  ch.Key(),
-					Authority: xcontrol.AuthorityAbsolute,
-				}}),
-			)))
-		})
-	})
-
-	// These specs replace the cluster's own control transport with a network that binds
-	// the gateway alone, so the peer is unreachable until the spec binds it.
-	Describe("Unreachable peers", func() {
-		var (
-			cluster  *testutil.Cluster
-			gw, peer testutil.Node
-			net      *mockcontrol.Network
-			peerAddr address.Address
-			svc      *control.Service
-		)
-		BeforeEach(func(ctx SpecContext) {
-			cluster = testutil.NewCluster(ctx, 2)
-			gw, peer = cluster.Nodes[1], cluster.Nodes[2]
-			net = mockcontrol.NewNetwork()
-			peerAddr = MustSucceed(gw.Cluster.Resolve(peer.Cluster.HostKey()))
-			svc = openIsolated(ctx, gw, net, MustSucceed(
-				gw.Cluster.Resolve(gw.Cluster.HostKey()),
-			))
-		})
-
-		It("Should return an error when a keyed retrieve cannot reach the peer", func(
-			ctx SpecContext,
-		) {
-			ch := createChannel(ctx, gw, "remote", 2)
-			Expect(svc.Retrieve(ctx, ch.Key())).Error().To(MatchError(
-				ContainSubstring("failed to retrieve control state from 2"),
-			))
-		})
-
-		It("Should return an error when retrieving every channel", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.Retrieve(ctx)).Error().To(MatchError(
-				ContainSubstring("failed to retrieve control state from 2"),
-			))
-		})
-
-		It("Should deliver a peer's transfers once its subscription opens", func(
-			ctx SpecContext,
-		) {
-			ch := createChannel(ctx, gw, "remote", 2)
-			updates := collect(svc)
-			// The service has been retrying against an unbound address since it opened.
-			// Binding the peer lets the next attempt through.
-			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
-				streamCtx context.Context,
-				stream control.SubscribeStream,
-			) error {
-				if err := stream.Send(control.SubscribeResponse{
-					States: []control.State{peerState(ch.Key(), "reno")},
-				}); err != nil {
-					return err
-				}
-				<-streamCtx.Done()
-				return nil
-			})
-			Eventually(updates).Should(Receive(WithTransform(
-				func(u control.Update) []control.Transfer { return u.Transfers },
-				ConsistOf(control.Transfer{
-					To: new(peerState(ch.Key(), "reno")),
-				}),
-			)))
-		})
-
-		It("Should reopen a dropped subscription and emit only the diff", func(
-			ctx SpecContext,
-		) {
-			first := createChannel(ctx, gw, "first", 2)
-			second := createChannel(ctx, gw, "second", 2)
-			updates := collect(svc)
-			var opens atomic.Int32
-			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
-				streamCtx context.Context,
-				stream control.SubscribeStream,
-			) error {
-				// The first open sends one state and ends, dropping the stream. The
-				// reopen reports both, so the service must emit the second alone.
-				states := []control.State{peerState(first.Key(), "reno")}
-				if opens.Add(1) > 1 {
-					states = append(states, peerState(second.Key(), "tahoe"))
-				}
-				if err := stream.Send(
-					control.SubscribeResponse{States: states},
-				); err != nil {
-					return err
-				}
-				if opens.Load() == 1 {
-					return nil
-				}
-				<-streamCtx.Done()
-				return nil
-			})
-			Eventually(updates).Should(Receive(WithTransform(
-				func(u control.Update) []control.Transfer { return u.Transfers },
-				ConsistOf(control.Transfer{
-					To: new(peerState(first.Key(), "reno")),
-				}),
-			)))
-			Eventually(updates).Should(Receive(WithTransform(
-				func(u control.Update) []control.Transfer { return u.Transfers },
-				ConsistOf(control.Transfer{
-					To: new(peerState(second.Key(), "tahoe")),
-				}),
-			)))
 		})
 	})
 })

@@ -52,7 +52,7 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 }
 
 type openOptions struct {
-	enableObserver bool
+	observer observe.Observer[kv.TxReader]
 }
 
 // OpenOption configures behavior when wrapping a pebble.DB.
@@ -63,20 +63,22 @@ type OpenOption func(*openOptions)
 // disabled, OnChange is a safe no-op: registered handlers are never invoked and the
 // returned Disconnect is a no-op as well.
 func DisableObservation() OpenOption {
-	return func(o *openOptions) { o.enableObserver = false }
+	return func(o *openOptions) { o.observer = nil }
+}
+
+// WithObserver sets the observer that delivers each commit to OnChange handlers. The
+// default runs the handlers on the committing goroutine, before Commit returns.
+func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
+	return func(o *openOptions) { o.observer = observer }
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
-	o := &openOptions{enableObserver: true}
+	o := &openOptions{observer: observe.New[kv.TxReader]()}
 	for _, opt := range opts {
 		opt(o)
 	}
-	wrapped := &db{DB: base}
-	if o.enableObserver {
-		wrapped.Observer = observe.New[kv.TxReader]()
-	}
-	return wrapped
+	return &db{DB: base, Observer: o.observer}
 }
 
 // OnChange implements kv.Observable. When observation has been disabled via

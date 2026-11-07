@@ -26,7 +26,7 @@ import (
 func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 	node := testutil.NewNode(ctx)
 	return channel.ServiceConfig{
-		HostResolver: node.Cluster,
+		HostResolver: node.Host,
 		KV:           node.DB,
 		TS:           node.Storage.TS,
 		Transport:    tmock.NewNetwork().New("mock"),

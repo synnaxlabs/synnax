@@ -7,19 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package cluster re-exports the cluster-membership primitives defined in
-// pkg/distribution/cluster. Consumers in the service and API layers should reach for
-// these aliases so they only depend on a single cluster package.
+// Package cluster re-exports the identity of a Core from pkg/distribution/cluster, so
+// that the service and API layers depend on one cluster package.
 package cluster
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 
-type (
-	// Cluster is the cluster-membership view as observed by the host node.
-	Cluster = cluster.Cluster
-	// Change is a batch of node-level changes emitted by Cluster.OnChange.
-	Change = cluster.Change
-	// Identity names a Core: the cluster it belongs to and its own node in that
-	// cluster.
-	Identity = cluster.Identity
-)
+// Identity names a Core: the cluster it belongs to and its own node in that cluster.
+type Identity = cluster.Identity

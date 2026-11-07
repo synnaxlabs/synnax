@@ -30,11 +30,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIFramer(t *testing.T) {
@@ -62,13 +62,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	faultyFS = WrapFaultyFS(xfs.NewMem())
 	store := &storage.Layer{
-		KV: DeferClose(memkv.New()),
+		KV: DeferClose(storagetestutil.OpenKV()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := testutil.NewCluster(ctx, 0).Provision(
-		ctx,
-		distribution.LayerConfig{Storage: store},
-	)
+	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 	}))
