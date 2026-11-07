@@ -112,3 +112,23 @@ func opaque(t reflect.Type) bool {
 	}
 	return false
 }
+
+// Prefill sets the defaults of *v outside its default groups, as a decode does before
+// it reads its input. It leaves a value whose type has no defaults as it is.
+func Prefill[T any](v *T) {
+	switch s := any(v).(type) {
+	case grouped:
+		s.SetUngroupedDefaults()
+	case setter:
+		s.SetDefaults()
+	}
+}
+
+// FillGroups sets the defaults of each default group of *v whose members are all zero,
+// as a decode does after it reads its input. It leaves a value whose type has no
+// default group as it is.
+func FillGroups[T any](v *T) {
+	if g, ok := any(v).(grouped); ok {
+		g.DefaultGroups()
+	}
+}
