@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, color, type patch } from "@synnaxlabs/x";
+import { caseconv, color, type patch, zod } from "@synnaxlabs/x";
 import { type Draft, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -165,6 +165,19 @@ describe("applyPath", () => {
       actions.applyPath(draft, inverse[0], docZ);
     });
     expect(restored.bands[0].fillColor).toEqual(red);
+  });
+
+  it("should reject a bad wire color instead of storing it", () => {
+    const colorDocZ = z.object({ fillColor: color.colorZ });
+    expect(() =>
+      produce({ fillColor: color.construct("#000000ff") }, (draft) => {
+        actions.applyPath(
+          draft,
+          { type: "set", set: { path: ["fill_color"], value: "#zz", guards: [] } },
+          colorDocZ,
+        );
+      }),
+    ).toThrow(zod.ParseError);
   });
 
   it("should keep the case of a key the schema preserves", () => {

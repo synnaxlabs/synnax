@@ -11,6 +11,7 @@ import { type z } from "zod";
 
 import { narrow } from "@/narrow";
 import { type record } from "@/record";
+import { zod } from "@/zod";
 
 /** Marks Zod schemas whose keys must not be converted. */
 const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
@@ -78,10 +79,9 @@ export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
 
 /**
  * Marks a Zod schema so camelToSnake writes each array value it parses through encode,
- * as a color tuple is written as a hex string. snakeToCamel leaves the value as it is,
- * except that snakeToCamelPath parses a value at the end of a path through the schema,
- * which must accept the encoded form. The mark carries through optional, nullable, and
- * default wrappers.
+ * as a color tuple is written as a hex string. snakeToCamel and snakeToCamelPath parse
+ * the encoded value back through the schema, which must accept the encoded form. The
+ * mark carries through optional, nullable, and default wrappers.
  */
 export const encodeWith = <T extends z.ZodType>(
   schema: T,
@@ -215,9 +215,11 @@ const snakeToCamelStr = (str: string): string => {
 };
 
 // decodeMarked parses a value read off the wire, which holds its encoded form, back
-// through its marked schema. A value the schema rejects stays as it is, so the caller's
-// own parse rejects it with its label and path.
-const decodeMarked = (schema: z.ZodType, value: unknown): unknown => {
+// through its marked schema. A strict decode throws a zod.ParseError for a value the
+// schema rejects. Otherwise the value stays as it is, for the caller's own parse to
+// reject with its label and path.
+const decodeMarked = (schema: z.ZodType, value: unknown, strict: boolean): unknown => {
+  if (strict) return zod.parse(schema, value);
   const result = schema.safeParse(value);
   return result.success ? result.data : value;
 };
@@ -225,6 +227,7 @@ const decodeMarked = (schema: z.ZodType, value: unknown): unknown => {
 const createConverter = (
   f: (v: string) => string,
   encodes: boolean = false,
+  strict: boolean = false,
 ): (<V>(obj: V, opt?: Options) => V) => {
   const encoderOf = (schema: z.ZodType | undefined) =>
     encodes ? getEncoder(schema) : undefined;
@@ -233,7 +236,7 @@ const createConverter = (
   ): ((value: unknown) => unknown) | undefined =>
     encodes || schema == null || getEncoder(schema) == null
       ? undefined
-      : (value) => decodeMarked(schema, value);
+      : (value) => decodeMarked(schema, value, strict);
   const mapArray = (arr: unknown[], elemOpt: Options): unknown[] => {
     const encode = encoderOf(elemOpt.schema);
     const decode = decoderOf(elemOpt.schema);
@@ -426,8 +429,8 @@ export interface ConvertedPath {
   path: string[];
   /**
    * Converts a value at the end of the path the way the document converts it.
-   * @throws {z.ZodError} from snakeToCamelPath, if a schema marked with encodeWith
-   * rejects the value.
+   * @throws {zod.ParseError} from snakeToCamelPath, if a schema marked with encodeWith
+   * rejects a value inside it.
    */
   convert: <V>(value: V) => V;
 }
@@ -479,7 +482,7 @@ const convertChild = <V>(
   encodes: boolean,
 ): V => {
   if (!encodes && schema != null && getEncoder(schema) != null)
-    return decodeMarked(schema, value) as V;
+    return decodeMarked(schema, value, true) as V;
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });
   if (!Array.isArray(value)) return value;
@@ -492,10 +495,14 @@ const convertChild = <V>(
 /**
  * Converts a snake_case path into a document the way {@link snakeToCamel} converts the
  * keys of the whole document with the same schema. A segment into a list, into a record
- * with preserved keys, or under a preserved-case schema stays as it is. Its convert
- * throws a z.ZodError when a schema marked with encodeWith rejects the value.
+ * with preserved keys, or under a preserved-case schema stays as it is. Nothing parses
+ * the converted value after it, so its convert throws a zod.ParseError when a schema
+ * marked with encodeWith rejects a value inside it.
  */
-export const snakeToCamelPath = createPathConverter(snakeToCamelStr, snakeToCamel);
+export const snakeToCamelPath = createPathConverter(
+  snakeToCamelStr,
+  createConverter(snakeToCamelStr, false, true),
+);
 
 /**
  * Converts a camelCase path into a document the way {@link camelToSnake} converts the

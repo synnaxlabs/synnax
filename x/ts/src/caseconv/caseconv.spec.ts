@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { record } from "@/record";
+import { zod } from "@/zod";
 
 // Recursive record type for accessing case-converted results in tests.
 // Case conversion changes key names, so we can't use the original type.
@@ -407,13 +408,25 @@ describe("caseconv", () => {
         });
       });
 
-      it("Should leave a marked value the schema rejects for the caller to reject", () => {
+      it("Should leave a rejected marked value for the caller's parse", () => {
         expect(
           caseconv.snakeToCamel(
-            { nested: { inner_pair: 7 }, pair_list: [], pairs: {} },
+            { nested: { inner_pair: [1, 2, 3] }, pair_list: [], pairs: {} },
             { schema: docZ },
           ),
-        ).toEqual({ nested: { innerPair: 7 }, pairList: [], pairs: {} });
+        ).toEqual({ nested: { innerPair: [1, 2, 3] }, pairList: [], pairs: {} });
+      });
+
+      it("Should throw a parse error for a rejected marked value at a path", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+          schema: docZ,
+        });
+        expect(() => convert([1, 2, 3])).toThrow(zod.ParseError);
+      });
+
+      it("Should throw a parse error for a rejected marked value inside a path value", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
+        expect(() => convert({ inner_pair: [1, 2, 3] })).toThrow(zod.ParseError);
       });
 
       it("Should decode a marked value inside an object set at a path", () => {
