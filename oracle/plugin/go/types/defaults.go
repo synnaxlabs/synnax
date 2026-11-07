@@ -481,7 +481,11 @@ func scalarFill(
 		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			fill := defaultFillData{GoName: goName + ".Variant", ZeroLit: "nil", Expr: expr}
+			fill := defaultFillData{
+				GoName:  goName + ".Variant",
+				ZeroLit: "nil",
+				Expr:    expr,
+			}
 			if defaulted {
 				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
 				fill.Expr = "v0"
@@ -514,7 +518,7 @@ func emptyVariant(
 	ident string,
 	typeRef resolution.TypeRef,
 	data *templateData,
-) (expr string, defaulted bool, ok bool) {
+) (expr string, defaulted, ok bool) {
 	uv, ok := validation.ResolveUnionVariant(ident, typeRef, data.table)
 	if !ok {
 		return "", false, false

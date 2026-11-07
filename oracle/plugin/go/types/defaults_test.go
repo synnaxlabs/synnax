@@ -1481,7 +1481,7 @@ var _ = Describe("Decode-time default generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (p *Panel) SetDefaults() {\n\t{\n\t\tv0 := LeafNode{}\n"+
+				"func (p *Panel) SetDefaults() {\n\t{\n\t\tv0 := LeafNode{}\n" +
 					"\t\tv0.SetDefaults()\n\t\tp.Root.Variant = v0\n\t}\n}",
 			)
 		},
