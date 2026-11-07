@@ -12,6 +12,7 @@ package schematic
 import (
 	"context"
 	stdio "io"
+	"maps"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -200,6 +201,8 @@ func (s *Service) Dispatch(
 							}
 						}
 					}
+					// Reduce edits the configs map in place, so keep the stored ones.
+					stored := maps.Clone(sch.Configs)
 					reduced, err := Reduce(sch, acts...)
 					if err != nil {
 						return Schematic{}, err
@@ -207,7 +210,10 @@ func (s *Service) Dispatch(
 					if err = reduced.Validate(); err != nil {
 						return Schematic{}, err
 					}
-					if err = validateScales(reduced); err != nil {
+					if err = validateScales(
+						Schematic{Configs: stored},
+						reduced,
+					); err != nil {
 						return Schematic{}, err
 					}
 					return reduced, nil

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ImEx", func() {
@@ -141,14 +140,19 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It("Should reject a file whose config has a zero scale", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
+		It("Should import a zero scale as the default", func(ctx SpecContext) {
+			id := MustSucceed(imexSvc.Import(ctx, db,
 				LoadEnvelope("versions/testdata/import_v10_zero_scale.json"),
 				imex.ImportOptions{Parent: proj.OntologyID()},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("must be positive")),
 			))
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			valve, ok := res.Configs["v1"].Variant.(schematic.ValveElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(valve.Scale).To(Equal(1.0))
 		})
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
