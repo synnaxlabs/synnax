@@ -331,6 +331,46 @@ describe("Group queries", () => {
     });
   });
 
+  describe("useResultAncestors", () => {
+    it("should keep the groups and the groups above them live", async () => {
+      const root = await client.groups.create({ scope: "channel", name: "root" });
+      const mid = await client.groups.create({
+        parent: group.resourceID(root.key),
+        name: "mid",
+      });
+      const leaf = await client.groups.create({
+        parent: group.resourceID(mid.key),
+        name: "leaf",
+      });
+      const keysOf = (groups?: group.Group[]): group.Key[] =>
+        (groups ?? []).map(({ key }) => key).sort();
+      const { result } = renderHook(
+        () => Group.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(keysOf(result.current.data)).toEqual(
+          [leaf.key, mid.key, root.key].sort(),
+        );
+      });
+      await act(async () => {
+        await client.groups.rename(root.key, "renamed");
+      });
+      await waitFor(() =>
+        expect(result.current.data).toContainEqual(
+          expect.objectContaining({ key: root.key, name: "renamed" }),
+        ),
+      );
+      await act(async () => {
+        await client.groups.setParent(mid.key, null);
+      });
+      await waitFor(() =>
+        expect(keysOf(result.current.data)).toEqual([leaf.key, mid.key].sort()),
+      );
+    });
+  });
+
   describe("Flux store integration", () => {
     it("should cache retrieved groups", async () => {
       const parent = await client.groups.create({

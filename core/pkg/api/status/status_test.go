@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -43,8 +44,8 @@ var _ = Describe("Service.Set", func() {
 		statuses ...status.Status[any],
 	) (apistatus.SetResponse, error) {
 		GinkgoHelper()
-		return apiSvc.Set(
-			AuthedCtx(ctx, author), db, apistatus.SetRequest{Statuses: statuses},
+		return fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
+			AuthedCtx(ctx, author), apistatus.SetRequest{Statuses: statuses},
 		)
 	}
 	newStatus := func(owner *resource.ID, details any) status.Status[any] {
@@ -151,9 +152,8 @@ var _ = Describe("Service.Set", func() {
 			grantOn(ctx, u.ResourceID(),
 				[]access.Action{access.ActionCreate},
 				status.ResourceID(req.Key))
-			Expect(apiSvc.Set(
+			Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Set)(
 				AuthedCtx(ctx, u),
-				db,
 				apistatus.SetRequest{Statuses: []status.Status[any]{req}},
 			)).Error().To(MatchError(access.ErrDenied))
 			var res status.Status[any]
@@ -162,6 +162,26 @@ var _ = Describe("Service.Set", func() {
 				Entry(&res).
 				Exec(ctx, db)).To(Succeed())
 			Expect(res.Message).To(Equal("Running"))
+		},
+	)
+
+	It(
+		"Should check details against an owner from an earlier status in the batch",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			owned := newStatus(&owner, map[string]any{"running": true})
+			update := newStatus(nil, "not an object")
+			update.Key = owned.Key
+			Expect(set(ctx, owned, update)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.1.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](owned.Key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 	)
 
