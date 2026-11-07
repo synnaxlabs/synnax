@@ -100,7 +100,7 @@ type (
 	}
 	// CreateResponse carries the created devices with their keys.
 	CreateResponse struct {
-		// Devices are the stored devices.
+		// Devices are the stored devices, without their statuses.
 		Devices []device.Device `json:"devices" msgpack:"devices"`
 	}
 )
@@ -164,6 +164,7 @@ func (s *Service) Create(
 	}
 	w := s.cfg.Device.NewWriter(tx)
 	for i := range req.Devices {
+		req.Devices[i].Status = nil
 		if err := w.Create(ctx, &req.Devices[i]); err != nil {
 			return CreateResponse{}, err
 		}
