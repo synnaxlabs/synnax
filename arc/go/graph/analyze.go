@@ -251,13 +251,13 @@ func Analyze(
 		irRoot.Strata = []ir.Members{members}
 	}
 	out := ir.IR{
-		Functions:    g.Functions,
-		Edges:        irEdges,
-		Nodes:        irNodes,
-		Symbols:      aCtx.Scope,
-		Root:         irRoot,
-		TypeMap:      aCtx.TypeMap,
-		Placeholders: aCtx.Placeholders,
+		Functions:  g.Functions,
+		Edges:      irEdges,
+		Nodes:      irNodes,
+		Symbols:    aCtx.Scope,
+		Root:       irRoot,
+		TypeMap:    aCtx.TypeMap,
+		FmtStrings: aCtx.FmtStrings,
 	}
 	if len(irNodes) > 0 {
 		if d := stratifier.Stratify(aCtx, &out, aCtx.Diagnostics); d != nil && !d.Ok() {

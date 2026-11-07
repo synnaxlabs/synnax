@@ -37,9 +37,9 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Writer   *wasm.Writer
 	Module   *wasm.Module
 	TypeMap  map[antlr.ParserRuleContext]types.Type
-	// Placeholders holds the format string placeholders the analyzer parsed and typed.
-	Placeholders parser.Placeholders
-	WriterID     int
+	// FmtStrings holds the format string placeholders the analyzer parsed and typed.
+	FmtStrings parser.FmtStrings
+	WriterID   int
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	Hint             types.Type
@@ -64,7 +64,7 @@ func (ctx Context[P]) Child[ASTNode antlr.ParserRuleContext](
 		Writer:           ctx.Writer,
 		Module:           ctx.Module,
 		TypeMap:          ctx.TypeMap,
-		Placeholders:     ctx.Placeholders,
+		FmtStrings:       ctx.FmtStrings,
 		AST:              node,
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,

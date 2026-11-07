@@ -87,7 +87,7 @@ func (i *IR) IsZero() bool {
 		i.Root.IsZero() &&
 		i.Symbols == nil &&
 		i.TypeMap == nil &&
-		i.Placeholders == nil
+		i.FmtStrings == nil
 }
 
 // String returns the string representation of the IR.

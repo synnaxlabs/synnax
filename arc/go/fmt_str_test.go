@@ -841,6 +841,11 @@ trig -> f()`, "v=false"),
 				"3 8 4 true x",
 			),
 			Entry("the same shape twice", `f"{1 + a}{1 + c}"`, "35"),
+			Entry("after doubled braces", `f"{{a}{1 + a}"`, "{a}3"),
+			Entry("after an escape", `f"\t{1 + a}"`, "\t3"),
+			Entry("an escaped brace as text", `f"\u007B{1 + a}}"`, "{3}"),
+			Entry("after non-ASCII text", `f"°C: {1 + a}"`, "°C: 3"),
+			Entry("after CJK text", `f"温度{a + 1}温度{1 + c}"`, "温度3温度5"),
 		)
 	})
 })

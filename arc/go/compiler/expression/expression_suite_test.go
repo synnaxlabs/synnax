@@ -154,7 +154,7 @@ func compileWithAnalyzer(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	compilerCtx.Placeholders = analyzerCtx.Placeholders
+	compilerCtx.FmtStrings = analyzerCtx.FmtStrings
 	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 	return FinalizeContext(compilerCtx), exprType
 }

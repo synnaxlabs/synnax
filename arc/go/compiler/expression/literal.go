@@ -51,6 +51,9 @@ func compileStringLiteral(
 	if !ok {
 		return types.Type{}, errors.Newf("invalid string literal: %s", text)
 	}
+	if flags.Format {
+		return EmitFmtSegments(ctx, strTerm)
+	}
 	value := body
 	if !flags.Raw {
 		var err error
@@ -58,13 +61,6 @@ func compileStringLiteral(
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "invalid string literal %s", text)
 		}
-	}
-	if flags.Format {
-		segments, err := literal.FmtStrParse(value)
-		if err != nil {
-			return types.Type{}, err
-		}
-		return EmitFmtSegments(ctx, strTerm, segments)
 	}
 	emitLiteralSegment(ctx, value)
 	return types.String(), nil

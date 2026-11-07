@@ -164,9 +164,9 @@ func LiftFmtStrVarReads[T antlr.ParserRuleContext](
 	if strTerm == nil {
 		return
 	}
-	for _, expr := range ctx.Placeholders[strTerm] {
-		if expr != nil {
-			LiftVarReads(ctx, fn, expr)
+	for _, seg := range ctx.FmtStrings[strTerm] {
+		if seg.Expr != nil {
+			LiftVarReads(ctx, fn, seg.Expr)
 		}
 	}
 }

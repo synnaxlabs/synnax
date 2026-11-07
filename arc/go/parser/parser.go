@@ -258,7 +258,15 @@ func (p *ArcParser) CalleeTouchesParen() bool {
 		p.TokensAdjacent(stream.LT(nameIndex), paren)
 }
 
-// Placeholders maps a format string token to the parsed expression of each of its
-// segments, in order. A literal segment, or a placeholder that failed to parse, has a
-// nil expression.
-type Placeholders map[antlr.TerminalNode][]IExpressionContext
+// FmtSegment is one piece of a format string: literal text, or a placeholder.
+type FmtSegment struct {
+	// Text is the literal text with its escapes applied, or the placeholder's source.
+	Text string
+	// Spec is the placeholder's format spec, or empty.
+	Spec string
+	// Expr is the placeholder's parsed expression, or nil for literal text.
+	Expr IExpressionContext
+}
+
+// FmtStrings maps each analyzed format string token to its segments, in order.
+type FmtStrings map[antlr.TerminalNode][]FmtSegment

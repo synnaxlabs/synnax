@@ -12,39 +12,33 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EmitFmtSegments lowers the parsed segments of strTerm into WASM on ctx.Writer:
-// literals emit string.from_literal, and placeholders compile the expressions the
-// analyzer parsed and typed. Assumes the analyzer has already run
+// EmitFmtSegments lowers the segments the analyzer stored for strTerm into WASM on
+// ctx.Writer: literals emit string.from_literal, and placeholders compile the
+// expressions the analyzer parsed and typed. Assumes the analyzer has already run
 // literal.FmtStrValidateSpec on every placeholder spec; the compiler emits spec bytes
 // verbatim without revalidation.
 func EmitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	strTerm antlr.TerminalNode,
-	segments []literal.FmtStrSegment,
 ) (types.Type, error) {
+	segments, ok := ctx.FmtStrings[strTerm]
+	if !ok {
+		return types.Type{}, errors.Newf(
+			"format string %s was not analyzed",
+			strTerm.GetText(),
+		)
+	}
 	if len(segments) == 0 {
 		emitLiteralSegment(ctx, "")
 		return types.String(), nil
 	}
-	exprs := ctx.Placeholders[strTerm]
 	for i, seg := range segments {
-		var expr parser.IExpressionContext
-		if seg.IsPlaceholder {
-			if i >= len(exprs) || exprs[i] == nil {
-				return types.Type{}, errors.Newf(
-					"placeholder %q was not analyzed",
-					seg.Text,
-				)
-			}
-			expr = exprs[i]
-		}
-		if err := emitFmtSegment(ctx, seg, expr); err != nil {
+		if err := emitFmtSegment(ctx, seg); err != nil {
 			return types.Type{}, err
 		}
 		if i > 0 {
@@ -56,14 +50,13 @@ func EmitFmtSegments[T antlr.ParserRuleContext](
 
 func emitFmtSegment[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	seg literal.FmtStrSegment,
-	expr parser.IExpressionContext,
+	seg parser.FmtSegment,
 ) error {
-	if !seg.IsPlaceholder {
+	if seg.Expr == nil {
 		emitLiteralSegment(ctx, seg.Text)
 		return nil
 	}
-	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
+	t, err := Compile(ctx.Child(seg.Expr).WithHint(types.Type{}))
 	if err != nil {
 		return err
 	}

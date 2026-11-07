@@ -110,13 +110,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 				expr1 := MustSucceed(parser.ParseExpression(`100`))
 				ctx1 := context.Context[parser.IExpressionContext]{
-					Context:      bCtx,
-					Scope:        ctx.Scope,
-					Diagnostics:  ctx.Diagnostics,
-					Constraints:  ctx.Constraints,
-					TypeMap:      ctx.TypeMap,
-					Placeholders: ctx.Placeholders,
-					AST:          expr1,
+					Context:     bCtx,
+					Scope:       ctx.Scope,
+					Diagnostics: ctx.Diagnostics,
+					Constraints: ctx.Constraints,
+					TypeMap:     ctx.TypeMap,
+					FmtStrings:  ctx.FmtStrings,
+					AST:         expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
 
@@ -192,13 +192,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 			expr1 := MustSucceed(parser.ParseExpression(`pressure < 50`))
 			ctx1 := context.Context[parser.IExpressionContext]{
-				Context:      bCtx,
-				Scope:        ctx.Scope,
-				Diagnostics:  ctx.Diagnostics,
-				Constraints:  ctx.Constraints,
-				TypeMap:      ctx.TypeMap,
-				Placeholders: ctx.Placeholders,
-				AST:          expr1,
+				Context:     bCtx,
+				Scope:       ctx.Scope,
+				Diagnostics: ctx.Diagnostics,
+				Constraints: ctx.Constraints,
+				TypeMap:     ctx.TypeMap,
+				FmtStrings:  ctx.FmtStrings,
+				AST:         expr1,
 			}
 			flow.AnalyzeSingleExpression(ctx1)
 
@@ -303,13 +303,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 				expr1 := MustSucceed(parser.ParseExpression(`f"{ox_pt_2}"`))
 				ctx1 := context.Context[parser.IExpressionContext]{
-					Context:      bCtx,
-					Scope:        ctx.Scope,
-					Diagnostics:  ctx.Diagnostics,
-					Constraints:  ctx.Constraints,
-					TypeMap:      ctx.TypeMap,
-					Placeholders: ctx.Placeholders,
-					AST:          expr1,
+					Context:     bCtx,
+					Scope:       ctx.Scope,
+					Diagnostics: ctx.Diagnostics,
+					Constraints: ctx.Constraints,
+					TypeMap:     ctx.TypeMap,
+					FmtStrings:  ctx.FmtStrings,
+					AST:         expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
 

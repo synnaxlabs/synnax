@@ -48,7 +48,7 @@ var _ = Describe("IR", func() {
 				ir.IR{Symbols: &symbol.Symbol{}}, false),
 			Entry("a type map",
 				ir.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
-			Entry("placeholders", ir.IR{Placeholders: parser.Placeholders{}}, false),
+			Entry("placeholders", ir.IR{FmtStrings: parser.FmtStrings{}}, false),
 		)
 	})
 

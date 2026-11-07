@@ -41,7 +41,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -87,7 +86,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
 	compCtx.Config = o.config
-	compCtx.Placeholders = program.Placeholders
+	compCtx.FmtStrings = program.FmtStrings
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))
@@ -271,10 +270,6 @@ func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	segments, err := literal.FmtStrParse(fn.Body.Raw)
-	if err != nil {
-		return compiledFunction{}, err
-	}
 	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
 	if err != nil {
 		return compiledFunction{}, err
@@ -297,7 +292,7 @@ func compileFmtStrSynthetic(
 		)
 	}
 	strTerm := parser.StringTerminal(lit)
-	if _, err := expression.EmitFmtSegments(ctx, strTerm, segments); err != nil {
+	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{

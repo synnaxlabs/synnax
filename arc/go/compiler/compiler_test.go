@@ -3669,6 +3669,38 @@ var _ = Describe("Compiler", func() {
 			_, strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
+		It("Should fail to compile a format function with no literal", func(
+			ctx SpecContext,
+		) {
+			resolver := []symbol.Symbol{
+				{
+					Name: "trig",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   100,
+				},
+				{
+					Name: "log",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+					ID:   101,
+				},
+			}
+			prog := MustSucceed(text.Parse(text.Text{Raw: `trig -> f"v={42}" -> log`}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i := range inter.Functions {
+				if strings.HasPrefix(
+					inter.Functions[i].Key,
+					compiler.FmtStrSyntheticPrefix,
+				) {
+					inter.Functions[i].Body.AST = nil
+				}
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().
+				To(MatchError(ContainSubstring("has no literal")))
+		})
+
 		It(
 			"Compiles a flow-form raw string with a single literal placeholder",
 			func(ctx SpecContext) {

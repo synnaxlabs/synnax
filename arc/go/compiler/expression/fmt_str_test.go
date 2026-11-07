@@ -250,8 +250,8 @@ var _ = Describe("Format String Compilation", func() {
 			expr := MustSucceed(parser.ParseExpression(`f"{s}"`))
 			strTerm := parser.StringTerminal(parser.GetLiteral(expr))
 			placeholder := MustSucceed(parser.ParseExpression("s"))
-			ctx.Placeholders = parser.Placeholders{
-				strTerm: {placeholder},
+			ctx.FmtStrings = parser.FmtStrings{
+				strTerm: {{Text: "s", Expr: placeholder}},
 			}
 			Expect(expression.Compile(ctx.Child(expr))).Error().
 				To(MatchError(ContainSubstring(
@@ -260,27 +260,12 @@ var _ = Describe("Format String Compilation", func() {
 		})
 	})
 
-	It("Should fail to compile a placeholder the analyzer did not parse", func(
+	It("Should fail to compile a format string the analyzer did not split", func(
 		bCtx SpecContext,
 	) {
 		expr := MustSucceed(parser.ParseExpression(`f"{1}"`))
 		ctx := NewContext(bCtx)
 		Expect(expression.Compile(ctx.Child(expr))).Error().
-			To(MatchError(ContainSubstring(`placeholder "1" was not analyzed`)))
-	})
-
-	Describe("Malformed Format String Body", func() {
-		It(
-			"propagates literal.FmtStrParse errors from compileRawStringLiteral",
-			func(bCtx SpecContext) {
-				// `{` parses as a raw-string token, but the body is malformed:
-				// literal.FmtStrParse rejects an unmatched '{', exercising the second
-				// error branch in compileRawStringLiteral.
-				expr := MustSucceed(parser.ParseExpression(`f"{"`))
-				ctx := NewContext(bCtx)
-				Expect(expression.Compile(ctx.Child(expr))).Error().
-					To(MatchError(ContainSubstring("unmatched '{'")))
-			},
-		)
+			To(MatchError(ContainSubstring(`format string f"{1}" was not analyzed`)))
 	})
 })
