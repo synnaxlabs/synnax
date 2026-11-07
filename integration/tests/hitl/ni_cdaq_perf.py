@@ -11,15 +11,17 @@
 
 import time
 
-import numpy as np
-
 import synnax as sy
+from tests.hitl import latency
 from tests.hitl.ni_cdaq import CDAQDigitalWrite
 
 _COMMANDS = 500
 # The first commands are slow while the Core opens its relay to the Driver.
 _WARMUP = 20
 _STATE_TIMEOUT_S = 5
+# About three times what the station measures.
+_MAX_MEDIAN_MS = 6
+_MAX_P99_MS = 10
 _CMD = "hitl_cdaq_do_cmd_0"
 _STATE = "hitl_cdaq_do_state_0"
 
@@ -54,8 +56,10 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
                     if frame[_STATE].to_numpy()[-1] == value:
                         break
                 latencies_ms.append((time.perf_counter() - start) * 1000)
-        measured = np.array(latencies_ms[_WARMUP:])
-        self.metrics["command_to_state_median_ms"] = float(np.median(measured))
-        self.metrics["command_to_state_p99_ms"] = float(np.percentile(measured, 99))
-        self.metrics["command_to_state_max_ms"] = float(measured.max())
-        self.log(f"command to state in ms: {self.metrics}")
+        latency.check(
+            self,
+            "command_to_state",
+            latencies_ms[_WARMUP:],
+            max_median_ms=_MAX_MEDIAN_MS,
+            max_p99_ms=_MAX_P99_MS,
+        )
