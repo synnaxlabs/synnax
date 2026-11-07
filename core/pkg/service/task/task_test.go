@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -1808,6 +1810,45 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("MatchArcs", func() {
+	It(
+		"Should filter tasks by Arc through the configured matcher",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			var (
+				want  task.Key
+				asked []arc.Key
+			)
+			tasks := MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+				DB:     db,
+				Stores: pd.Stores(),
+				MatchArcs: func(arcs ...arc.Key) task.Filter {
+					asked = append(asked, arcs...)
+					return task.MatchKeys(want)
+				},
+			}))
+			create := func() task.Key {
+				GinkgoHelper()
+				return MustSucceed(tasks.Create(ctx, pd.Alert, msgpack.EncodedJSON{
+					"routing_key": "rk",
+				}))
+			}
+			want = create()
+			create()
+			arcKey := uuid.New()
+			var res []task.Task
+			Expect(tasks.NewRetrieve().
+				Where(task.MatchArcs(arcKey)).
+				Entries(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })).
+				To(Equal([]task.Key{want}))
+			Expect(asked).To(Equal([]arc.Key{arcKey}))
+		},
+	)
 })
 
 var _ = Describe("Writer with no transaction", func() {
