@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -42,11 +43,11 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DefineResources(ctx, r.OntologyID()); err != nil {
+	if err := w.otg.DefineResources(ctx, r.ResourceID()); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationships(
-		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID(),
+		ctx, w.group.ResourceID(), ontology.RelationshipTypeParentOf, r.ResourceID(),
 	)
 }
 
@@ -78,17 +79,17 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 // AssignRole assigns a role to a subject (typically a user) by creating an ontology
 // relationship. The relationship is idempotent - calling this multiple times with the
 // same subject and role has no effect.
-func (w Writer) AssignRole(ctx context.Context, subject ontology.ID, role Key) error {
+func (w Writer) AssignRole(ctx context.Context, subject resource.ID, role Key) error {
 	return w.otg.DefineRelationships(
-		ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject,
+		ctx, ResourceID(role), ontology.RelationshipTypeParentOf, subject,
 	)
 }
 
 // UnassignRole removes a role from a subject by deleting the ontology relationship. If
 // the relationship does not exist, this is a no-op.
-func (w Writer) UnassignRole(ctx context.Context, subject ontology.ID, role Key) error {
+func (w Writer) UnassignRole(ctx context.Context, subject resource.ID, role Key) error {
 	return w.otg.DeleteRelationships(ctx, ontology.Relationship{
-		From: OntologyID(role),
+		From: ResourceID(role),
 		Type: ontology.RelationshipTypeParentOf,
 		To:   subject,
 	})

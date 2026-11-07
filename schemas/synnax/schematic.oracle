@@ -1021,7 +1021,7 @@ Schematic struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "schematic"
+    @resource type "schematic"
     @retrieve
 }
 

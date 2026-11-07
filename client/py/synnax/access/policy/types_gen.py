@@ -17,9 +17,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import ontology
+from synnax import resource
 from synnax.access import action
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
 
@@ -41,7 +41,7 @@ class Policy(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    objects: list[ontology.ID] = Field(default_factory=list)
+    objects: list[resource.ID] = Field(default_factory=list)
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
 
@@ -69,7 +69,7 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     internal: filter.Bool | None = None
-    subjects: list[ontology.ID] | None = None
+    subjects: list[resource.ID] | None = None
 
     @field_validator("subjects", mode="before")
     @classmethod
@@ -87,7 +87,7 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "internal": filter.BoolInput,
-        "subjects": ontology.ID | list[ontology.ID],
+        "subjects": resource.ID | list[resource.ID],
     },
     total=False,
 )
@@ -124,8 +124,8 @@ class RetrieveRequest(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="policy")
+TYPE_RESOURCE_ID = ID(type="policy")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="policy", key=str(key))

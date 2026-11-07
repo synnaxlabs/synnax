@@ -73,7 +73,7 @@ func (s *Service) retrieveRunning(
 ) ([]task.Key, error) {
 	// Status details are caller-provided, so a stop target must come from keys.
 	byStatus := lo.SliceToMap(keys, func(k task.Key) (string, task.Key) {
-		return task.OntologyID(k).String(), k
+		return task.ResourceID(k).String(), k
 	})
 	var statuses []task.Status
 	if err := s.status.NewRetrieve[task.StatusDetails]().

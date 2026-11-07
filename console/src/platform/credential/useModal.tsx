@@ -9,7 +9,7 @@
 
 import "@/platform/credential/useModal.css";
 
-import { type auth, type ontology, status, TimeStamp } from "@synnaxlabs/client";
+import { type auth, type resource, status, TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -26,7 +26,7 @@ import { Modals } from "@/platform/modals";
 
 export interface ModalParams {
   /** The user or rack whose credentials to manage. */
-  subject: ontology.ID;
+  subject: resource.ID;
   title?: string | string[];
 }
 

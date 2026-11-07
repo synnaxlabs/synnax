@@ -32,7 +32,7 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -110,7 +110,7 @@ export interface UpdateTaskParams {
 
 const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
   ontology.matchRelationship(rel, {
-    from: ontologyID(arcKey),
+    from: resourceID(arcKey),
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "task" },
   });
@@ -211,9 +211,9 @@ export class Client extends query.Retriever<
       matches: (t, q) =>
         this.cfg.ontology.cache.relationships.has(
           ontology.relationshipToString({
-            from: ontologyID(q),
+            from: resourceID(q),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: task.ontologyID(t.key),
+            to: task.resourceID(t.key),
           }),
         ),
       watch: [
@@ -445,7 +445,7 @@ export class Client extends query.Retriever<
     let children: ontology.Resource[];
     try {
       children = await this.cfg.ontology.children.retrieve({
-        ids: ontologyID(arcKey),
+        ids: resourceID(arcKey),
         types: ["task"],
       });
     } catch (e) {

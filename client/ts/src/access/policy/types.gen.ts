@@ -13,7 +13,7 @@ import { filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access/action";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -29,7 +29,7 @@ export const policyZ = z.object({
   /** name is a human-readable name for the policy. */
   name: z.string().min(1, "name is required"),
   /** objects is the list of ontology resources this policy applies to. */
-  objects: ontology.idZ.array().default(() => []),
+  objects: resource.idZ.array().default(() => []),
   /** actions is the list of actions this policy permits. */
   actions: access.actionZ.array().default(() => []),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
@@ -44,7 +44,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   internal?: filter.Bool;
-  subjects?: ontology.ID[];
+  subjects?: resource.ID[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -64,7 +64,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** internal selects by internal. */
   internal: filter.boolZ.optional(),
   /** subjects matches the policies of the roles that any of the given subjects hold. */
-  subjects: zod.nullToUndefined(ontology.idZ.array()),
+  subjects: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface New extends z.input<typeof policyZ> {}
 
@@ -88,5 +88,5 @@ export const retrieveRequestZ = z.strictObject({
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("policy");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("policy");
+export const TYPE_RESOURCE_ID = resourceID("");

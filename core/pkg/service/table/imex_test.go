@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/query"
@@ -39,7 +39,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a table as a versioned envelope", func(ctx SpecContext) {
 			t := table.Table{Name: "exported"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &t)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, table.OntologyID(t.Key)))
+			env := MustSucceed(svc.Export(ctx, table.ResourceID(t.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
@@ -49,15 +49,15 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{
-				Type: ontology.ResourceTypeTable,
+			id := resource.ID{
+				Type: resource.TypeTable,
 				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeTable, Key: "not-a-uuid"}
+			id := resource.ID{Type: resource.TypeTable, Key: "not-a-uuid"}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
@@ -68,7 +68,7 @@ var _ = Describe("ImEx", func() {
 		) table.Table {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeTable))
+			Expect(id.Type).To(Equal(resource.TypeTable))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res table.Table
 			Expect(svc.NewRetrieve().
@@ -82,7 +82,7 @@ var _ = Describe("ImEx", func() {
 			res := importAndRetrieve(
 				ctx,
 				"versions/testdata/import_v1.json",
-				imex.ImportOptions{Parent: proj.OntologyID()},
+				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Rows).To(Equal([]table.Row{
@@ -99,7 +99,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_typed_console.json",
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Rows).To(HaveLen(1))
@@ -115,7 +115,7 @@ var _ = Describe("ImEx", func() {
 					"versions/testdata/import_v0_state.json",
 					imex.ImportOptions{
 						FileName: "Legacy Table.json",
-						Parent:   proj.OntologyID(),
+						Parent:   proj.ResourceID(),
 					},
 				)
 				Expect(res.Name).To(Equal("Legacy Table"))
@@ -148,7 +148,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("table version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -165,7 +165,7 @@ var _ = Describe("ImEx", func() {
 					LoadEnvelope(
 						"versions/testdata/import_v1.json",
 					),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -184,12 +184,12 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
 				).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, table.OntologyID(original.Key)))
+				env := MustSucceed(svc.Export(ctx, table.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
 					WireRoundTrip(env),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

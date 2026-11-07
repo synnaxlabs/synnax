@@ -83,8 +83,8 @@ Rack struct {
     """
     @go marshal
     @go migrate
-    @ontology type   "rack"
     @py name         "Base"
+    @resource type   "rack"
     @retrieve custom
     @ts name         "Payload"
 }

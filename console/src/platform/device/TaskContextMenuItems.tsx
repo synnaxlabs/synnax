@@ -65,7 +65,7 @@ export const TaskContextMenuItems = ({
   selection: { ids },
   items,
 }: TaskContextMenuItemsProps) => {
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const firstID = ids[0];
   const maybeConfigure = () => {
     if (getResource(firstID).data?.configured !== true) onConfigure(firstID.key);

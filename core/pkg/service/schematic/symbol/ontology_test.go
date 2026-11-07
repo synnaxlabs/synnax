@@ -12,21 +12,21 @@ package symbol_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Search", func() {
-	create := func(ctx SpecContext, name string) ontology.ID {
+	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
 		s := symbol.Symbol{
 			Name: name,
 			Data: symbol.Spec{SVG: "<svg></svg>", Variant: "valve"},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &s, proj.OntologyID())).To(Succeed())
-		return symbol.OntologyID(s.Key)
+		Expect(svc.NewWriter(tx).Create(ctx, &s, proj.ResourceID())).To(Succeed())
+		return symbol.ResourceID(s.Key)
 	}
 
 	It(
@@ -34,12 +34,12 @@ var _ = Describe("Search", func() {
 		func(ctx SpecContext) {
 			a := create(ctx, "turbopump test")
 			b := create(ctx, "turbopump")
-			q := search.Query[ontology.ID]{Term: "turbopump"}
+			q := search.Query[resource.ID]{Term: "turbopump"}
 			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-				To(Equal([]ontology.ID{b, a}))
+				To(Equal([]resource.ID{b, a}))
 			q.Limit = 1
 			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-				To(Equal([]ontology.ID{b}))
+				To(Equal([]resource.ID{b}))
 		},
 	)
 
@@ -47,7 +47,7 @@ var _ = Describe("Search", func() {
 		"Should not match a staged symbol outside its transaction",
 		func(ctx SpecContext) {
 			create(ctx, "injector")
-			q := search.Query[ontology.ID]{Term: "injector"}
+			q := search.Query[resource.ID]{Term: "injector"}
 			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 		},
 	)

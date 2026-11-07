@@ -73,7 +73,7 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-			Where(status.MatchKeys[v0.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchKeys[v0.StatusDetails](t.ResourceID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -92,7 +92,7 @@ var _ = Describe("Migration", func() {
 				Entry(&t).
 				Exec(ctx, db)).To(Succeed())
 			existing := status.Status[v0.StatusDetails]{
-				Key:     t.OntologyID().String(),
+				Key:     t.ResourceID().String(),
 				Name:    t.Name,
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -107,7 +107,7 @@ var _ = Describe("Migration", func() {
 
 			var taskStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](t.OntologyID().String())).
+				Where(status.MatchKeys[v0.StatusDetails](t.ResourceID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
@@ -151,7 +151,7 @@ var _ = Describe("Status backfill", func() {
 			// legacy data where the key was encoded as a MessagePack float64 instead of
 			// uint64.
 			legacyStatus := status.Status[any]{
-				Key:     taskKey.OntologyID().String(),
+				Key:     taskKey.ResourceID().String(),
 				Name:    "Legacy Task",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -180,7 +180,7 @@ var _ = Describe("Status backfill", func() {
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](taskKey.OntologyID().String())).
+				Where(status.MatchKeys[v0.StatusDetails](taskKey.ResourceID().String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Details.Task).To(Equal(taskKey))

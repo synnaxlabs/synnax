@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is used to retrieve Password records from the database using a
@@ -31,7 +31,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject  *gorp.LookupIndex[Key, Password, ontology.ID]
+	subject  *gorp.LookupIndex[Key, Password, resource.ID]
 	username *gorp.LookupIndex[Key, Password, string]
 }
 
@@ -40,9 +40,9 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[Key, Password, ontology.ID](
+		subject: gorp.NewLookupIndex[Key, Password, resource.ID](
 			"subject",
-			func(e *Password) ontology.ID { return e.Subject },
+			func(e *Password) resource.ID { return e.Subject },
 		),
 		username: gorp.NewLookupIndex[Key, Password, string](
 			"username",
@@ -106,7 +106,7 @@ func MatchKeys(keys ...Key) Filter {
 // MatchSubjects returns a filter for
 // passwords whose Subject matches any of the
 // provided values.
-func MatchSubjects(vals ...ontology.ID) Filter {
+func MatchSubjects(vals ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Password] {
 		return r.indexes.subject.Filter(vals...)
 	}

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -107,7 +108,7 @@ var _ = Describe("Layer", func() {
 				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
 			)
 			Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
-				Set(ctx, ontology.Resource{ID: alice.OntologyID()})).To(Succeed())
+				Set(ctx, ontology.Resource{ID: alice.ResourceID()})).To(Succeed())
 			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
 			Expect(gorp.WrapWriter[userv0.Key, userv0.User](legacyDB).Set(ctx, alice)).
 				To(Succeed())
@@ -121,7 +122,7 @@ var _ = Describe("Layer", func() {
 					Credentials: auth.Credentials{Username: "alice", Password: "p"},
 				},
 			}))
-			Expect(session.Subject).To(Equal(alice.OntologyID()))
+			Expect(session.Subject).To(Equal(alice.ResourceID()))
 		},
 	)
 
@@ -135,7 +136,7 @@ var _ = Describe("Layer", func() {
 			node := testutil.NewNode(ctx)
 			db := node.DB
 			lpKey := uuid.New().String()
-			lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey}
+			lpID := resource.ID{Type: resource.TypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
 				Set(ctx, ontology.Resource{ID: lpID})).To(Succeed())
 			ws := projectv0.Workspace{
@@ -191,14 +192,14 @@ var _ = Describe("Layer", func() {
 			Expect(rt.Resource).To(Equal(lpID))
 
 			By("Parenting the panel under the migrated project")
-			projectID := ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectID := resource.ID{
+				Type: resource.TypeProject,
 				Key:  ws.Key.String(),
 			}
 			rel := ontology.Relationship{
 				From: projectID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   panels[0].OntologyID(),
+				To:   panels[0].ResourceID(),
 			}
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Relationship]().
 				Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).

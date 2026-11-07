@@ -46,7 +46,7 @@ describe("status", () => {
     it("should allow the caller to retrieve statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["retrieve"],
       });
       const randomStatus = await client.statuses.set({
@@ -64,7 +64,7 @@ describe("status", () => {
     it("should allow the caller to set statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["create"],
       });
       await userClient.statuses.set({
@@ -79,7 +79,7 @@ describe("status", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: [],
       });
       await expect(
@@ -96,7 +96,7 @@ describe("status", () => {
     it("should allow the caller to delete statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomStatus = await client.statuses.set({
@@ -115,7 +115,7 @@ describe("status", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: [],
       });
       const randomStatus = await client.statuses.set({
@@ -139,9 +139,9 @@ describe("status", () => {
         {
           name: "test",
           objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            status.ontologyID(""),
+            channel.TYPE_RESOURCE_ID,
+            framer.TYPE_RESOURCE_ID,
+            status.resourceID(""),
           ],
           actions: ["retrieve"],
         },
@@ -157,7 +157,7 @@ describe("status", () => {
         time: TimeStamp.now(),
       });
       onTestFinished(userClient.statuses.onChange(st.key, vi.fn()));
-      await client.labels.label(status.ontologyID(st.key), [lbl.key]);
+      await client.labels.label(status.resourceID(st.key), [lbl.key]);
       await expect.poll(() => fetches.length).toBeGreaterThan(0);
       for (const fetch of fetches)
         await expect(fetch).rejects.toSatisfy(AccessDeniedError.matches);

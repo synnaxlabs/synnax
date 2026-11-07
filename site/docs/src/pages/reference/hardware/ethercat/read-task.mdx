@@ -52,12 +52,17 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 <Client.Tabs>
   <Fragment slot="console">
 
-1. In the devices toolbar, right-click a module and select **Create read task**.
+1. In the devices toolbar, right-click a module and select **Create read task**. The
+   task starts with a channel for each input of the module. To remove a channel,
+   right-click it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click **Add channel**, then select the module in **Slave device**. A new channel
    starts with the module of the last channel.
 4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
 5. Click <Icon.Play /> (**Start**).
+
+To add every input of a module at once, right-click one of its channels and select **Add
+every input of** _module name_.
 
 The Console creates the channels and names them after the identifier of the module and
 the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
@@ -200,10 +205,11 @@ setting, with its Python field under it.
 
 Reads one input entry at its CoE address.
 
-| Setting                                   | Default | Notes                                        |
-| ----------------------------------------- | ------- | -------------------------------------------- |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.        |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
+| Setting                                   | Default | Notes                                                              |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
 
 </Channel.Type>
 
@@ -212,6 +218,55 @@ Reads one input entry at its CoE address.
 A task from an earlier release can also hold an `unresolved` channel
 (`UnresolvedReadChannel`). It has the name of an entry, but no address. See
 [troubleshooting](#a-channel-from-an-earlier-release-has-no-entry).
+
+### Scales
+
+A scale converts the raw value of an entry into engineering units:
+
+| Scale type     | Parameters                                                     | Result                                                |
+| -------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| `"none"`       | -                                                              | The raw value                                         |
+| `"linear"`     | `slope`, `offset`                                              | `raw × slope + offset`                                |
+| `"map"`        | `pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max` | The raw range mapped linearly onto the scaled range   |
+| `"polynomial"` | `coeffs`, from c0 up                                           | `c0 + c1 × raw + c2 × raw² + ...`                     |
+| `"table"`      | `pre_scaled_vals`, `scaled_vals`                               | Straight lines between the pairs, clipped at each end |
+
+A scaled channel writes float values, so its Synnax channel must be `float32` or
+`float64`. The Console creates a `float64` channel for it, apart from the raw channel.
+
+<Client.Tabs exclude={["console"]}>
+  <Fragment slot="python">
+
+```python
+ethercat.EntryReadChannel(
+    device=module.key,
+    index=0x3101,
+    sub_index=0x02,
+    data_type=sy.DataType.INT16,
+    channel=volts.key,  # a float64 channel
+    # Counts to volts for a ±10 V input
+    scale=sy.task.LinearScale(slope=10 / 32767, offset=0),
+)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const channel = {
+  type: "entry",
+  device: module.key,
+  index: 0x3101,
+  subIndex: 0x02,
+  dataType: "int16",
+  channel: volts.key, // a float64 channel
+  // Counts to volts for a ±10 V input
+  scale: { type: "linear", slope: 10 / 32767, offset: 0 },
+};
+```
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 

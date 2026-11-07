@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -109,7 +110,7 @@ func newSymbol(name string) symbol.Symbol {
 func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
 	sym := newSymbol(name)
-	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
+	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.ResourceID())).To(Succeed())
 	return sym
 }
 
@@ -128,9 +129,9 @@ func createUser(ctx SpecContext) user.User {
 // transaction, observe them.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
@@ -150,22 +151,22 @@ func grantOn(
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 }
 
-func grantCreateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantCreateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionCreate, objects...)
 }
 
-func grantRetrieveOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantRetrieveOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionRetrieve, objects...)
 }
 
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }
 
-func grantDeleteOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
 }

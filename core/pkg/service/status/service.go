@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -231,12 +232,12 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 func (s *Service) Join[D any](
 	ctx context.Context,
 	tx gorp.Tx,
-	ids []ontology.ID,
+	ids []resource.ID,
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
 	if err := s.NewRetrieve[D]().
 		SkipMissingKeys().
-		Where(MatchKeys[D](ontology.IDsToKeys(ids)...)).
+		Where(MatchKeys[D](resource.IDsToKeys(ids)...)).
 		Entries(&statuses).
 		Exec(ctx, tx); err != nil {
 		return nil, err

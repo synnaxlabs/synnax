@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
 
@@ -115,8 +115,8 @@ class RetrieveRequest(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="user")
+TYPE_RESOURCE_ID = ID(type="user")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="user", key=str(key))

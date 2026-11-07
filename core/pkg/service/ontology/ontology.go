@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -97,7 +98,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	o := &Ontology{
 		cfg:              cfg,
 		resourceObserver: observe.New[iter.Seq[Change]](),
-		registrar:        serviceRegistrar{ResourceTypeBuiltin: builtin},
+		registrar:        serviceRegistrar{resource.TypeBuiltin: builtin},
 		services:         []Service{builtin},
 		relIndexes:       newRelationshipIndexes(),
 		owned:            newOwnedTypes(),
@@ -207,9 +208,9 @@ type SearchQuery struct {
 	// Term is the text that a resource must match.
 	Term string
 	// Types limits the search to resources of these types. Empty searches every type.
-	Types []ResourceType
+	Types []resource.Type
 	// Root, when non-zero, limits the search to the descendants of Root.
-	Root ID
+	Root resource.ID
 	// Limit is the maximum number of IDs to return. Zero returns at most 100.
 	Limit int
 	// Offset is the number of closest matches to skip.
@@ -223,7 +224,7 @@ func (o *Ontology) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	q SearchQuery,
-) ([]ID, error) {
+) ([]resource.ID, error) {
 	v := validate.New("ontology.search")
 	v.GreaterThanEq("limit", q.Limit, 0)
 	v.GreaterThanEq("offset", q.Offset, 0)
@@ -237,18 +238,18 @@ func (o *Ontology) Search(
 	}
 	var (
 		scope  *descendants
-		except func(ID) bool
+		except func(resource.ID) bool
 	)
 	if !q.Root.IsZero() {
 		scope = o.newDescendants(tx, q.Root)
 		except = scope.except
 	}
-	results := make([]search.Result[ID], 0, len(o.services))
+	results := make([]search.Result[resource.ID], 0, len(o.services))
 	for _, svc := range o.services {
 		if len(q.Types) > 0 && !slices.Contains(q.Types, svc.Type()) {
 			continue
 		}
-		res, err := svc.Search(ctx, tx, search.Query[ID]{
+		res, err := svc.Search(ctx, tx, search.Query[resource.ID]{
 			Term:   q.Term,
 			Except: except,
 			Limit:  q.Offset + limit,
@@ -281,19 +282,19 @@ func (o *Ontology) Close() error {
 // the index lets the traverse dispatcher pick the index uniformly without
 // special-casing direction.
 type relationshipIndexes struct {
-	byTo   *gorp.LookupIndex[string, Relationship, ID]
-	byFrom *gorp.LookupIndex[string, Relationship, ID]
+	byTo   *gorp.LookupIndex[string, Relationship, resource.ID]
+	byFrom *gorp.LookupIndex[string, Relationship, resource.ID]
 }
 
 func newRelationshipIndexes() relationshipIndexes {
 	return relationshipIndexes{
 		byTo: gorp.NewLookupIndex(
 			"relationship_by_to",
-			func(r *Relationship) ID { return r.To },
+			func(r *Relationship) resource.ID { return r.To },
 		),
 		byFrom: gorp.NewLookupIndex(
 			"relationship_by_from",
-			func(r *Relationship) ID { return r.From },
+			func(r *Relationship) resource.ID { return r.From },
 		),
 	}
 }

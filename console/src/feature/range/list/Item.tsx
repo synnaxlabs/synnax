@@ -38,7 +38,7 @@ const Base = ({
   const { itemKey } = props;
   const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
-  const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(itemKey));
   const { update: rename } = Session.Range.useRename();
   const { update: setTimeRange } = Ranger.useSetTimeRange();
   if (item == null) return null;
@@ -46,7 +46,7 @@ const Base = ({
   const { name, parent, labels, timeRange } = item;
 
   const handleActivate = () =>
-    openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
+    openTab({ variant: "resource", resource: ranger.resourceID(itemKey) });
 
   return (
     <Select.Item<ranger.Key>
