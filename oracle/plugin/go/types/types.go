@@ -1477,8 +1477,8 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
 
-// UnmarshalJSONFrom decodes the input over {{$s.Receiver}}. A zero {{$s.Receiver}} first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over {{$s.Receiver}}. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func ({{$s.Receiver}} *{{$s.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain {{$s.Name}}
 	if reflect.ValueOf(*{{$s.Receiver}}).IsZero() {

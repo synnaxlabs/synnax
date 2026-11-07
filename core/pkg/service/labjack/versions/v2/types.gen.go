@@ -629,8 +629,8 @@ func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {
@@ -682,8 +682,8 @@ func (w *WriteConfig) SetDefaults() {
 	w.StateRate = 10
 }
 
-// UnmarshalJSONFrom decodes the input over w. A zero w first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over w. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain WriteConfig
 	if reflect.ValueOf(*w).IsZero() {
@@ -723,8 +723,8 @@ func (s *ScanConfig) SetDefaults() {
 	s.TCPScanMultiplier = 10
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over s. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {

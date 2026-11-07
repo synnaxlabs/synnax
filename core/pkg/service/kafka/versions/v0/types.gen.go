@@ -86,8 +86,8 @@ func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over s. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {
@@ -138,8 +138,8 @@ func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadField
 	if reflect.ValueOf(*r).IsZero() {
@@ -189,8 +189,8 @@ func (r *ReadConfig) SetDefaults() {
 	r.StartOffset = StartOffsetLatest
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {
@@ -246,8 +246,8 @@ func (w *WriteChannel) SetDefaults() {
 	w.JSONType = http.JSONTypeNumber
 }
 
-// UnmarshalJSONFrom decodes the input over w. A zero w first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over w. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (w *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain WriteChannel
 	if reflect.ValueOf(*w).IsZero() {
@@ -308,8 +308,8 @@ func (r *Record) SetDefaults() {
 	r.TimeFormat = http.TimeFormatUnixNs
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *Record) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Record
 	if reflect.ValueOf(*r).IsZero() {
@@ -371,8 +371,8 @@ func (w *WriteConfig) SetDefaults() {
 	w.RecordKey = RecordKeyChannelName
 }
 
-// UnmarshalJSONFrom decodes the input over w. A zero w first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over w. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain WriteConfig
 	if reflect.ValueOf(*w).IsZero() {

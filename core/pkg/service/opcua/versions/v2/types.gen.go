@@ -48,8 +48,8 @@ func (r *ReadChannel) SetDefaults() {
 	r.BaseChannel.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadChannel
 	if reflect.ValueOf(*r).IsZero() {
@@ -111,8 +111,8 @@ func (r *ReadConfig) SetDefaults() {
 	r.ArraySize = 1
 }
 
-// UnmarshalJSONFrom decodes the input over r. A zero r first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over r. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {

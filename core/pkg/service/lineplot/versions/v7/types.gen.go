@@ -211,8 +211,8 @@ func (l *Line) SetDefaults() {
 	l.Detail = DetailMedium
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over l. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Line
 	if reflect.ValueOf(*l).IsZero() {
@@ -288,8 +288,8 @@ func (l *LinePlot) SetDefaults() {
 	l.Axes.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over l. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LinePlot
 	if reflect.ValueOf(*l).IsZero() {

@@ -5341,8 +5341,8 @@ func (a *AnalogReadConfig) SetDefaults() {
 	a.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over a. A zero a first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over a. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (a *AnalogReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain AnalogReadConfig
 	if reflect.ValueOf(*a).IsZero() {
@@ -5391,8 +5391,8 @@ func (c *CounterReadConfig) SetDefaults() {
 	c.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over c. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (c *CounterReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain CounterReadConfig
 	if reflect.ValueOf(*c).IsZero() {
@@ -5459,8 +5459,8 @@ func (a *AnalogWriteConfig) SetDefaults() {
 	a.WriteConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over a. A zero a first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over a. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (a *AnalogWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain AnalogWriteConfig
 	if reflect.ValueOf(*a).IsZero() {
@@ -5507,8 +5507,8 @@ func (d *DigitalReadConfig) SetDefaults() {
 	d.ReadConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over d. A zero d first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over d. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (d *DigitalReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain DigitalReadConfig
 	if reflect.ValueOf(*d).IsZero() {
@@ -5543,8 +5543,8 @@ func (d *DigitalWriteConfig) SetDefaults() {
 	d.WriteConfig.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over d. A zero d first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over d. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (d *DigitalWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain DigitalWriteConfig
 	if reflect.ValueOf(*d).IsZero() {
@@ -5583,8 +5583,8 @@ func (s *ScanConfig) SetDefaults() {
 	s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero s first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over s. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {

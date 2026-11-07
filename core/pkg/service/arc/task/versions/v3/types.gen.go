@@ -82,8 +82,8 @@ func (c *Config) SetDefaults() {
 	c.CPUAffinity = -1
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over c. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (c *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Config
 	if reflect.ValueOf(*c).IsZero() {

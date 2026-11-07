@@ -263,8 +263,8 @@ func (p *Properties) SetDefaults() {
 	p.Sasl.Variant = NoneSASL{}
 }
 
-// UnmarshalJSONFrom decodes the input over p. A zero p first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over p. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Properties
 	if reflect.ValueOf(*p).IsZero() {

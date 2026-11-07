@@ -487,8 +487,8 @@ func (l *LabelConfig) SetDefaults() {
 	l.Align = FlexAlignmentCenter
 }
 
-// UnmarshalJSONFrom decodes the input over l. A zero l first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over l. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain LabelConfig
 	if reflect.ValueOf(*l).IsZero() {
@@ -653,8 +653,8 @@ func (c *ControlStateConfig) SetDefaults() {
 	c.Orientation = spatial.LocationBottom
 }
 
-// UnmarshalJSONFrom decodes the input over c. A zero c first takes the schema
-// defaults, so a member the input omits takes its default and an explicit zero stays.
+// UnmarshalJSONFrom decodes the input over c. A zero value first takes
+// the schema defaults, so an omitted member takes its default and a zero stays.
 func (c *ControlStateConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain ControlStateConfig
 	if reflect.ValueOf(*c).IsZero() {
