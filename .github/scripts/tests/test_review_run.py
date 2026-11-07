@@ -378,12 +378,17 @@ class TestLenses:
         assert "# Your focus" not in prompt
 
     def lenses(
-        self, races: FakeClaude | None = None, edges: FakeClaude | None = None
+        self,
+        races: FakeClaude | None = None,
+        edges: FakeClaude | None = None,
+        pr: PullRequest | None = None,
     ) -> tuple[LensClaude, Any]:
         claude = LensClaude(
             {"Races": races or FakeClaude(), "Edges": edges or FakeClaude()}
         )
-        got, usage = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        got, usage = run(
+            config(lenses=LENSES), pr or pull(), claude=claude, workdir=WORK
+        )
         return claude, (got, usage)
 
     def test_should_give_each_pass_the_review_prompt_and_its_focus(self) -> None:
@@ -409,31 +414,62 @@ class TestLenses:
             "P2 at 3",
         ]
 
-    def test_should_drop_a_finding_that_overlaps_a_more_severe_one(self) -> None:
+    def test_should_keep_the_more_severe_of_two_passes_on_one_line(self) -> None:
         races = FakeClaude(5, [at("P2", 12, start=10)])
         edges = FakeClaude(5, [at("P1", 12)])
         _, (got, _) = self.lenses(races, edges)
         assert [f.title for f in got.findings] == ["P1 at 12"]
 
-    def test_should_take_the_lowest_score_and_the_first_summary(self) -> None:
+    def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
+        both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
+        _, (got, _) = self.lenses(FakeClaude(5, both))
+        assert [f.title for f in got.findings] == ["P1 at 12", "Other"]
+
+    def test_should_keep_overlapping_findings_that_end_on_other_lines(self) -> None:
+        races = FakeClaude(5, [at("P1", 12, start=5)])
+        edges = FakeClaude(5, [at("P2", 10)])
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == ["P1 at 12", "P2 at 10"]
+
+    def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
+        races = FakeClaude(5, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P1", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P2 at 12"]
+
+    def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."
-        edges = FakeClaude(3)
+        edges = FakeClaude(5, [at("P0", 1)])
+        edges.out["structured_output"]["verdict"] = "From edges."
         _, (got, _) = self.lenses(races, edges)
-        assert (got.score, got.verdict) == (3, "From races.")
+        assert (got.score, got.verdict) == (2, "From edges.")
 
-    def test_should_cap_the_score_by_the_findings_of_every_pass(self) -> None:
-        _, (got, _) = self.lenses(edges=FakeClaude(5, [at("P0", 1)]))
-        assert got.score == 2
+    def test_should_take_the_first_summary_when_the_scores_tie(self) -> None:
+        races = FakeClaude(4)
+        races.out["structured_output"]["verdict"] = "From races."
+        _, (got, _) = self.lenses(races, FakeClaude(4))
+        assert (got.score, got.verdict) == (4, "From races.")
 
     def test_should_add_up_the_usage_of_every_pass(self) -> None:
         races = FakeClaude()
         races.limits = [limits(0.5, "allowed")]
         edges = FakeClaude()
         edges.out["duration_ms"] = 90_000
+        edges.limits = [limits(0.7, "allowed")]
         _, (_, usage) = self.lenses(races, edges)
         assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.0, 24, 90_000)
         assert usage.output_tokens == 4_000
+        assert usage.limits["seven_day"].utilization == 0.7
+
+    def test_should_take_the_limits_of_a_pass_that_reported_any(self) -> None:
+        races = FakeClaude()
+        races.limits = [limits(0.5, "allowed")]
+        edges = FakeClaude()
+        edges.out["duration_ms"] = 90_000
+        edges.limits = []
+        _, (_, usage) = self.lenses(races, edges)
         assert usage.limits["seven_day"].utilization == 0.5
 
 

@@ -90,8 +90,7 @@ class Config:
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each pass. With none, one pass reviews the pull request. With
-    some, one pass runs for each in parallel, and the review takes the findings of
-    every pass and the verdict and summary of the first."""
+    some, one pass runs for each in parallel, and the review joins their findings."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -123,7 +122,8 @@ class Usage:
     @classmethod
     def combine(cls, passes: list["Usage"]) -> "Usage":
         """Adds up the usage of passes that ran in parallel. The duration is the
-        longest pass, and the limits are those of the first."""
+        longest pass, and the limits are those of the last pass to end that reported
+        any."""
         return cls(
             cost_usd=sum(u.cost_usd for u in passes),
             duration_ms=max(u.duration_ms for u in passes),
@@ -132,7 +132,11 @@ class Usage:
             output_tokens=sum(u.output_tokens for u in passes),
             cache_read_tokens=sum(u.cache_read_tokens for u in passes),
             cache_creation_tokens=sum(u.cache_creation_tokens for u in passes),
-            limits=passes[0].limits,
+            limits=max(
+                (u for u in passes if u.limits),
+                key=lambda u: u.duration_ms,
+                default=passes[0],
+            ).limits,
         )
 
     @classmethod
@@ -336,16 +340,26 @@ def _focused(text: str, lens: Lens) -> str:
     )
 
 
-def _merge(reviews: list[Review]) -> Review:
-    """Joins the reviews of parallel passes. A finding whose lines overlap a more
-    severe or earlier finding in the same file is a duplicate and goes."""
-    kept: list[Finding] = []
-    every = [f for r in reviews for f in r.findings]
-    for f in sorted(every, key=lambda f: SEVERITIES.index(f.severity)):
-        if not any(k.path == f.path and set(k.lines) & set(f.lines) for k in kept):
-            kept.append(f)
-    first = reviews[0]
-    return replace(first, score=min(r.score for r in reviews), findings=kept)
+def _merge(
+    reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
+) -> Review:
+    """Joins the reviews of parallel passes. Findings of two passes that end on the
+    same line of a file are one finding: the review keeps the one that continues an
+    open thread, else the more severe. The verdict and summary come from the pass with
+    the lowest capped score."""
+
+    def rank(f: Finding) -> tuple[bool, int]:
+        return (f.path, f.title) not in open, SEVERITIES.index(f.severity)
+
+    kept: list[tuple[int, Finding]] = []
+    every = [(i, f) for i, r in enumerate(reviews) for f in r.findings]
+    for i, f in sorted(every, key=lambda t: rank(t[1])):
+        if not any(j != i and k.path == f.path and k.line == f.line for j, k in kept):
+            kept.append((i, f))
+    lead = min(reviews, key=lambda r: _cap(r, caps).score)
+    return replace(
+        lead, score=min(r.score for r in reviews), findings=[f for _, f in kept]
+    )
 
 
 def _pass(
@@ -397,5 +411,5 @@ def run(
                 config.lenses,
             )
         )
-    review = _merge([r for r, _ in passes])
+    review = _merge([r for r, _ in passes], caps=config.caps, open=pr.open)
     return _cap(review, config.caps), Usage.combine([u for _, u in passes])
