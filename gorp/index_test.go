@@ -495,6 +495,17 @@ var _ = Describe("Index", func() {
 			)
 
 			It(
+				"Should return an entry once for a repeated value",
+				func(ctx SpecContext) {
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(nameIdx.Filter("a", "a")).
+						Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+					Expect(idsOf(res)).To(ConsistOf(int32(1), int32(3)))
+				},
+			)
+
+			It(
 				"Should return an empty result when no values match",
 				func(ctx SpecContext) {
 					var res []indexedEntry

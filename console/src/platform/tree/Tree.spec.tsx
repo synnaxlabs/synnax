@@ -1195,6 +1195,40 @@ describe("Tree.Tree search", () => {
     expect(await findTreeRow(names.golf)).toBeTruthy();
   });
 
+  it("should show the new name of a group above a match", async () => {
+    const { root, bravo, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    const renamed = uniqueName("bravo");
+    await client.groups.rename(bravo, renamed);
+    await waitFor(async () =>
+      expect((await findTreeRow(itemName(names.charlie))).textContent).toContain(
+        renamed,
+      ),
+    );
+  });
+
+  it("should drop a match when a group above it moves out of the root", async () => {
+    const { root, bravo, tok, names } = await createSearchTree();
+    const other = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("other"),
+    });
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    await client.groups.setParent(bravo, group.resourceID(other.key));
+    await waitFor(() =>
+      expect(
+        screen.queryByText(itemName(names.charlie), {
+          ignore: ".console-tree--hidden *",
+        }),
+      ).toBeNull(),
+    );
+    expect(await findTreeRow(itemName(names.delta))).toBeTruthy();
+  });
+
   it("should bring the tree back as it was when the search closes", async () => {
     const { root, tok, names } = await createSearchTree();
     await renderSearchable(root);

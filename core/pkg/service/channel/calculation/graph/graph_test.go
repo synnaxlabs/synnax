@@ -150,7 +150,7 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
 	Expect(
-		channelWriter.DeleteManyByNamePatterns(ctx, []string{depName}, false),
+		channelWriter.DeleteManyByNames(ctx, []string{depName}, false),
 	).To(Succeed())
 }
 

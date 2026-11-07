@@ -184,7 +184,7 @@ describe("queries", () => {
       }
 
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { where: { key: { in: keys } } } }),
+        () => Ranger.useList({ query: { where: { key: { in: keys } } } }),
         {
           wrapper,
         },
@@ -281,7 +281,7 @@ describe("queries", () => {
       });
       await client.labels.label(ranger.resourceID(r.key), [label.key]);
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { where: { labels: [label.key] } } }),
+        () => Ranger.useList({ query: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {

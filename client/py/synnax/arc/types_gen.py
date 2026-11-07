@@ -11,17 +11,18 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 MODE_TEXT: Literal["text"] = "text"
 
@@ -81,6 +82,27 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
     directories: list[UUID] | None = None
+
+    @field_validator("directories", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "directories": UUID | list[UUID],
+    },
+    total=False,
+)
 
 
 class Base(BaseModel):

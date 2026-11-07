@@ -126,6 +126,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Device connected");
+    EXPECT_TRUE(devices[0].status.value().details.connected);
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -160,6 +161,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
+    EXPECT_FALSE(devices[0].status.value().details.connected);
 }
 
 namespace {

@@ -44,7 +44,7 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
     <ListItem key={key} {...props} items={items} />
   );
   const listProps = Resource.useList({
-    initialQuery: { types: record.keys(items) },
+    query: { types: record.keys(items) },
   });
   return (
     <Palette.BaseList

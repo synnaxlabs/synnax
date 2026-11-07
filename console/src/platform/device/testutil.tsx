@@ -11,7 +11,7 @@ import { device, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, TimeSpan } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -19,7 +19,7 @@ import {
   type RenderResult,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
@@ -39,6 +39,17 @@ export interface CreateTestDeviceOptions extends Partial<
   Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
 > {}
 
+const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
+  await client.statuses.set(
+    status.create({
+      owner: rack.resourceID(r.key),
+      name: r.name,
+      variant: "success",
+      message: "Driver is running",
+    }),
+  );
+};
+
 /**
  * Creates a rack on the live Core whose Driver reports as running with the integration.
  * The Core marks it not running after one health check interval (5 s) without a new
@@ -52,15 +63,23 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
-  await client.statuses.set(
-    status.create({
-      owner: rack.resourceID(r.key),
-      name: r.name,
-      variant: "success",
-      message: "Driver is running",
-    }),
-  );
+  await reportRackRunning(client, r);
   return r;
+};
+
+const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
+
+/** Reports the rack as running at the rate of a Driver until the test ends. */
+export const startRackHeartbeat = async (
+  client: Synnax,
+  r: rack.Rack,
+): Promise<void> => {
+  await reportRackRunning(client, r);
+  const interval = setInterval(
+    () => void reportRackRunning(client, r),
+    HEARTBEAT_PERIOD.milliseconds,
+  );
+  onTestFinished(() => clearInterval(interval));
 };
 
 /**
@@ -109,7 +128,7 @@ export const setTestDeviceStatus = async (
       name,
       variant: "success",
       message: TEST_DEVICE_STATUS_MESSAGE,
-      details: { rack },
+      details: { rack, connected: true },
     }),
   );
 };

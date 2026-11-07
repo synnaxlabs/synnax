@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, type destructor, record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -35,8 +35,10 @@ export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });

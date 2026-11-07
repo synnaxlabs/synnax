@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
@@ -162,15 +164,19 @@ type Service struct {
 	taskSync *debounce.Keyed[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules
-// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
-// A root resolves each channel name the same way for its lifetime, so build one per
-// analysis or compile.
+// NewRoot builds the production analysis root: the STL, status, and ranges modules,
+// the Core channel resolver, and the user modules below Arcs. tx is consulted for
+// lookups; nil uses the DB. A root resolves each channel name and module the same
+// way for its lifetime, so build one per analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	return symbol.NewRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx)),
-		standardSymbols(),
-	)
+	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx))
+	modules := arctext.NewLoader(arctext.LoaderConfig{
+		Source:   s.moduleSource(tx),
+		Channels: channels,
+		Ambient:  standardSymbols,
+		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
+	})
+	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
 }
 
 func standardSymbols() []*symbol.Symbol {

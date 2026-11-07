@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
+import { NotFoundError, type Synnax } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
@@ -421,7 +421,7 @@ describe("range", () => {
         await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
       });
 
-      it("should reject a name pattern that matches two channels", async () => {
+      it("should read a name pattern as an exact channel name", async () => {
         const prefix = `alias_${id.create()}`;
         await client.channels.create([
           { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
@@ -431,9 +431,10 @@ describe("range", () => {
           name: "My New One Second Range",
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         });
-        await expect(rng.setAlias(`${prefix}_.*`, "myalias")).rejects.toThrow(
-          MultipleFoundError,
-        );
+        const name = `${prefix}_.*`;
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
       });
     });
     describe("deleteAlias", () => {

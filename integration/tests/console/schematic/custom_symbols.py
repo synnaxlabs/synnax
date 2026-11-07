@@ -262,7 +262,7 @@ class CustomSymbols(ConsoleCase):
             min_version=1,
             name=self.test_symbol_name,
         )
-        assert "data" in exported, "Exported symbol should contain 'data'"
+        sy.schematic.symbol.Symbol.model_validate(exported)
 
     def test_delete_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test deleting a symbol via context menu."""

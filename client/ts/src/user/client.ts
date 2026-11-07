@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, unique } from "@synnaxlabs/x";
+import { array, filter, type observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { role } from "@/access/role";
@@ -32,8 +32,10 @@ import { type Lines, matches, retrieveInputZ, serverComputed } from "@/user/wher
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 const keyRetrieveRequestZ = z

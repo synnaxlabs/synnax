@@ -18,9 +18,10 @@ import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
 const createChannel = async (
   dataType: DataType = DataType.FLOAT32,
+  name: string = id.create(),
 ): Promise<channel.Key> => {
   const ch = await client.channels.create({
-    name: id.create(),
+    name,
     dataType,
     virtual: true,
   });
@@ -132,6 +133,53 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByLabelText(`Clear ${toCh.name}`)).toBeDefined();
     expect(screen.queryByLabelText(`Clear ${fromCh.name}`)).toBeNull();
     expect(channelRows()).toHaveLength(1);
+  });
+
+  it("omits a channel already in the log from a row's select", async () => {
+    const prefix = id.create();
+    const row = await createChannel(DataType.FLOAT32, `${prefix}_row`);
+    const other = await createChannel(DataType.FLOAT32, `${prefix}_other`);
+    await createChannel(DataType.FLOAT32, `${prefix}_free`);
+    await renderChannels([entry(row), entry(other)]);
+    await screen.findByLabelText(`Clear ${prefix}_row`);
+    fireEvent.click(screen.getAllByText(`${prefix}_row`)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByRole("option", { name: new RegExp(`${prefix}_free`) });
+    expect(
+      screen.queryByRole("option", { name: new RegExp(`${prefix}_other`) }),
+    ).toBeNull();
+  });
+
+  it("offers a free channel past a page of channels in the log", async () => {
+    const prefix = id.create();
+    const used = await Promise.all(
+      Array.from({ length: 11 }, (_, i) =>
+        createChannel(DataType.FLOAT32, `${prefix}_${i}`),
+      ),
+    );
+    // Search ranks a longer name lower, so this one misses the first page.
+    const free = `${prefix}_free_channel_with_a_much_longer_name`;
+    await createChannel(DataType.FLOAT32, free);
+    await renderChannels(used.map((key) => entry(key)));
+    await screen.findByLabelText(`Clear ${prefix}_0`);
+    fireEvent.click(screen.getAllByText(`${prefix}_0`)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByRole("option", { name: new RegExp(free) });
+  });
+
+  it("offers a channel again once its row is removed", async () => {
+    const prefix = id.create();
+    const row = await createChannel(DataType.FLOAT32, `${prefix}_row`);
+    const removed = await createChannel(DataType.FLOAT32, `${prefix}_removed`);
+    await renderChannels([entry(row), entry(removed)]);
+    fireEvent.click(await screen.findByLabelText(`Clear ${prefix}_removed`));
+    await waitFor(() => expect(channelRows()).toHaveLength(1));
+    fireEvent.click(screen.getAllByText(`${prefix}_row`)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByRole("option", { name: new RegExp(`${prefix}_removed`) });
   });
 
   it("removes the row of a deleted channel with the clear button", async () => {

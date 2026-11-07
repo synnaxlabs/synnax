@@ -11,11 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from synnax import device as device_
 from synnax import rack as rack_
@@ -23,6 +23,7 @@ from synnax import ranger
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter, telem
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -140,6 +141,32 @@ class Where(BaseModel):
     snapshot: filter.Bool | None = None
     ranges: list[ranger.Key] | None = None
     arcs: list[UUID] | None = None
+
+    @field_validator("ranges", "arcs", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "type": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "internal": filter.BoolInput,
+        "snapshot": filter.BoolInput,
+        "ranges": ranger.Key | list[ranger.Key],
+        "arcs": UUID | list[UUID],
+    },
+    total=False,
+)
 
 
 class Command(BaseModel):

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -24,7 +24,7 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { LINES } from "@/device/where";
-import { matches, serverComputed } from "@/device/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
 import { group } from "@/group";
 import { query } from "@/query";
 import { type status } from "@/status";
@@ -55,7 +55,16 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -71,7 +80,7 @@ const retrieveResZ = <
   });
 
 const singleRetrieveParamsZ = z
-  .object({ key: keyZ, includeStatus: z.boolean().optional() })
+  .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
   .transform(({ key, includeStatus }): RetrieveRequest => ({
     where: { key: { eq: key } },
     includeStatus,
@@ -80,7 +89,7 @@ const singleRetrieveParamsZ = z
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -210,32 +219,41 @@ export class Client extends query.Retriever<
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: (RetrieveSingleParams | OneParams) &
+      RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: (RetrieveMultipleParams | FilterParams) &
+      RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Array<Device>>;
 
   async retrieve(
-    rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | OneParams | FilterParams) & { schemas?: DeviceSchemas }),
   ): Promise<Device | Array<Device>> {
+    if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isOneParams(rest);
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const devices = await this.fetchThrough(rest, schemas);
-      checkForMultipleOrNoResults("Device", rest, devices, isSingle);
+      const request = query.dropOne(rest);
+      const devices = await this.fetchThrough(request, schemas);
+      checkForMultipleOrNoResults("Device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -363,7 +381,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(
-    params: RetrieveParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const res = await this.cfg.unary.send(
@@ -376,7 +394,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(
-    req: RetrieveParams,
+    req: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const since = this.store.stamp();

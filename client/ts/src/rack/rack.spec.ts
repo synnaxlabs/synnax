@@ -10,7 +10,7 @@
 import { id, sleep, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
@@ -152,6 +152,24 @@ describe("Rack", () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a rack by its name", async () => {
+      const created = await client.racks.create({ name: `named-rack-${id.create()}` });
+      const retrieved = await client.racks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
+    it("retrieves racks by a list of names", async () => {
+      const prefix = `named-racks-${id.create()}`;
+      const created = await client.racks.create([
+        { name: `${prefix}-a` },
+        { name: `${prefix}-b` },
+      ]);
+      const retrieved = await client.racks.retrieve(created.map((r) => r.name));
+      expect(retrieved.map((r) => r.key).sort()).toEqual(
+        created.map((r) => r.key).sort(),
+      );
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await client.racks.create({ name: "coalesce-a" }),
@@ -195,6 +213,31 @@ describe("Rack", () => {
       const retrieved = await client.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
+    });
+    it("should reject a page on a plain name", async () => {
+      const name = `rack-page-${id.create()}`;
+      await client.racks.create([{ name }, { name }]);
+      await expect(
+        // @ts-expect-error - a page could hide a second rack with the name.
+        client.racks.retrieve({ name, limit: 1 }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "a query for one record takes no limit or offset, since a page could hide a " +
+            "second match",
+        ),
+      );
+    });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.racks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - embedded takes a boolean.
+        client.racks.retrieve({ embedded: "yes" }),
+      ).rejects.toThrow('✗ "embedded": "yes"  × expected boolean');
     });
     it("should retrieve racks that match any branch of an or", async () => {
       const [a, b, c] = await client.racks.create([
@@ -257,6 +300,19 @@ describe("Rack", () => {
       const keys = results.map((r) => r.key);
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);
+    });
+    it("should filter racks by integration in a flat filter", async () => {
+      const [r1, r2] = await Promise.all(
+        [["ni", "opc"], ["modbus"]].map(
+          async (integrations) =>
+            await client.racks.create({ name: "rack-flat", integrations }),
+        ),
+      );
+      const results = await client.racks.retrieve({
+        key: [r1.key, r2.key],
+        integrations: "ni",
+      });
+      expect(results.map((r) => r.key)).toEqual([r1.key]);
     });
     it("should update integrations on upsert", async () => {
       const r = await client.racks.create({

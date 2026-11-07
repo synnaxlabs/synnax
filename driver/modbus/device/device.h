@@ -506,6 +506,9 @@ private:
     /// @brief whether a late reply or the rest of a garbled frame can still arrive.
     /// Touched only while holding the turn.
     bool stale = false;
+    /// @brief when a TCP connection stops waiting for a late reply. Touched only while
+    /// holding the turn.
+    Clock::time_point stale_until;
     /// @brief when the last request ended. Touched only while holding the turn.
     Clock::time_point last_request;
     /// @brief when the last attempt sent its request. Touched only while holding the
@@ -574,6 +577,28 @@ private:
         this->connected = false;
     }
 
+    /// @brief sets the longest wait for a reply, and for a connect.
+    void set_timeout(const std::chrono::microseconds timeout) {
+        modbus_set_response_timeout(
+            this->ctx,
+            static_cast<std::uint32_t>(timeout.count() / 1000000),
+            static_cast<std::uint32_t>(timeout.count() % 1000000)
+        );
+    }
+
+    /// @brief waits for the reply of a timed-out TCP request until stale_until and
+    /// discards it. A request sent first would read that reply as its own and lose the
+    /// socket. A lost socket fails the request that follows.
+    void discard_late_reply() {
+        const auto left = std::chrono::duration_cast<std::chrono::microseconds>(
+            this->stale_until - Clock::now()
+        );
+        if (left <= std::chrono::microseconds::zero()) return;
+        this->set_timeout(left);
+        std::uint8_t reply[MODBUS_TCP_MAX_ADU_LENGTH];
+        modbus_receive_confirmation(this->ctx, reply);
+    }
+
     /// @brief the result of one attempt of a request.
     struct Attempt {
         /// @brief 0 on success, or the error number.
@@ -589,11 +614,7 @@ private:
         const auto timeout = std::chrono::duration_cast<std::chrono::microseconds>(
             cfg.timeout.chrono()
         );
-        modbus_set_response_timeout(
-            this->ctx,
-            static_cast<std::uint32_t>(timeout.count() / 1000000),
-            static_cast<std::uint32_t>(timeout.count() % 1000000)
-        );
+        this->set_timeout(timeout);
         if (this->connected && this->transport == Transport::RTU &&
             canonical_port(this->serial.port) != this->opened)
             this->disconnect();
@@ -612,6 +633,10 @@ private:
             this->stale = false;
         }
         if (this->stale) {
+            if (this->transport == Transport::TCP) {
+                this->discard_late_reply();
+                this->set_timeout(timeout);
+            }
             modbus_flush(this->ctx);
             this->stale = false;
         }
@@ -620,9 +645,10 @@ private:
         clear_error();
         if (request(this->ctx) != -1) return {0, true};
         const int errnum = last_error();
-        if (errnum == ETIMEDOUT || errnum == EMBBADCRC)
+        if (errnum == ETIMEDOUT || errnum == EMBBADCRC) {
             this->stale = true;
-        else if (classify(errnum).matches(UNREACHABLE))
+            this->stale_until = Clock::now() + cfg.timeout.chrono();
+        } else if (classify(errnum).matches(UNREACHABLE))
             this->disconnect();
         return {errnum, true};
     }
@@ -729,9 +755,11 @@ public:
 
     /// @brief runs a request for a unit, connecting first if needed. A temporary fault
     /// retries at once, up to cfg.retries times. After a timeout or a bad CRC, the next
-    /// request first discards any late bytes. Any other lost connection closes the
-    /// socket or port. A unit with DEMOTE_AFTER timed-out attempts in a row is demoted.
-    /// A serial port whose link moved to another file reopens first.
+    /// attempt first discards any late bytes. On TCP, that attempt first waits for the
+    /// late reply, up to one more timeout, and holds the connection while it waits. A
+    /// reply later than that loses sync. Any other lost connection closes the socket or
+    /// port. A unit with DEMOTE_AFTER timed-out attempts in a row is demoted. A serial
+    /// port whose link moved to another file reopens first.
     /// @param cfg the unit, timeout, and retries of the request.
     /// @param delay the wait after the previous request on the connection. A serial
     /// connection waits at least its frame gap.

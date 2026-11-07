@@ -19,27 +19,51 @@ import synnax as sy
 from console.layout import LayoutClient
 from framework.utils import read_json_object, read_latest_value
 
-PageType = Literal[
-    "Control sequence",
-    "Line plot",
-    "Schematic",
-    "Log",
-    "Table",
-    "NI analog read task",
-    "NI analog write task",
-    "NI counter read task",
-    "NI digital read task",
-    "NI digital write task",
-    "LabJack read task",
-    "LabJack write task",
-    "Modbus read task",
-    "Modbus write task",
-    "OPC UA read task",
-    "OPC UA write task",
-    "MQTT read task",
-    "MQTT write task",
-    "Sparkplug edge node",
-]
+PageType = (
+    sy.schematic.PageType
+    | Literal[
+        "ni_analog_read",
+        "ni_analog_write",
+        "ni_counter_read",
+        "ni_digital_read",
+        "ni_digital_write",
+        "labjack_read",
+        "labjack_write",
+        "modbus_read",
+        "modbus_write",
+        "opc_read",
+        "opc_write",
+        "mqtt_read",
+        "mqtt_write",
+        "mqtt_sparkplug_edge",
+    ]
+)
+
+_PAGE_LABELS: dict[PageType, str] = {
+    "lineplot": "Line plot",
+    "schematic": "Schematic",
+    "log": "Log",
+    "table": "Table",
+    "ni_analog_read": "NI analog read task",
+    "ni_analog_write": "NI analog write task",
+    "ni_counter_read": "NI counter read task",
+    "ni_digital_read": "NI digital read task",
+    "ni_digital_write": "NI digital write task",
+    "labjack_read": "LabJack read task",
+    "labjack_write": "LabJack write task",
+    "modbus_read": "Modbus read task",
+    "modbus_write": "Modbus write task",
+    "opc_read": "OPC UA read task",
+    "opc_write": "OPC UA write task",
+    "mqtt_read": "MQTT read task",
+    "mqtt_write": "MQTT write task",
+    "mqtt_sparkplug_edge": "Sparkplug edge node",
+}
+
+
+def page_label(page_type: PageType) -> str:
+    """Return the name the Console shows for a page type."""
+    return _PAGE_LABELS[page_type]
 
 
 class ConsolePage:

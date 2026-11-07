@@ -7,15 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax import ranger
-from synnax.log.types_gen import Key, Log, RetrieveRequest, RetrieveResponse, Where
-from synnax.util import one
+from synnax.log.types_gen import (
+    Key,
+    Log,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -95,56 +102,84 @@ class Client:
         return res.logs[0] if is_single else res.logs
 
     @overload
-    def retrieve(self, *, key: Key) -> Log: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        one: bool = ...,
+    ) -> Log: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
+        key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[True],
+    ) -> Log: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[False] = ...,
     ) -> list[Log]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
         where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> Log | list[Log]:
-        """Retrieves logs. With no arguments, it retrieves all of them.
+        """Retrieves logs. With no arguments, retrieves every log.
 
-        :param key: The key of a single log to retrieve.
-        :param keys: The keys of the logs to retrieve.
-        :param where: A filter that the logs must also match.
-        :param projects: The keys of projects. Only the logs these projects own
-            are returned.
-        :param ranges: The keys of ranges. Only the logs these ranges own are
-            returned.
-        :returns: The log when ``key`` is provided, otherwise a list.
-            The list leaves out keys that do not exist.
-        :raises NotFoundError: If ``key`` is provided and no log has it.
+        Each filter field takes a value, a list of values, or an operator, and a log
+        must match every field. A plain ``key`` returns one log.
+
+        :param key: Keeps logs with this key.
+        :param and_: Keeps logs that match every filter in the list.
+        :param or_: Keeps logs that match any filter in the list.
+        :param not_: Keeps logs that do not match the filter.
+        :param where: A filter tree that the logs must also match.
+        :param keys: Keeps logs with one of these keys.
+        :param projects: Keeps the logs owned by any of these projects.
+        :param ranges: Keeps the logs owned by any of these ranges.
+        :param one: Returns one log for any filter.
+        :returns: One log for a plain ``key`` or when ``one`` is set, otherwise a list
+            of logs. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one log is wanted and none matches.
+        :raises MultipleFoundError: If one log is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        flat = Where(
-            key=None if keys is None else filter.Set[Key](in_=keys),
-            projects=projects,
-            ranges=ranges,
+        single = returns_one(fields, one, None, 0)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields)
         )
-        res = self._client.send(
-            "/log/retrieve",
-            RetrieveRequest(where=filter.merge(where, flat)),
-            RetrieveResponse,
-        )
-        if not is_single:
-            return res.logs
-        return one("Log", key, res.logs)
+        res = self._client.send("/log/retrieve", req, RetrieveResponse)
+        return sole("Log", fields, res.logs) if single else res.logs
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a log.

@@ -260,6 +260,40 @@ TEST(TestStatusWindow, testSuppressesIdenticalWarnings) {
     EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_WARNING);
 }
 
+/// @brief it should send an unchanged warning once, however many windows pass.
+TEST(TestStatusWindow, testSuppressesIdenticalWarningsAcrossWindows) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "http_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+
+    for (int i = 0; i < 4; i++) {
+        handler.send_warning("Failed to read some data", "Field /a not found");
+        std::this_thread::sleep_for((2 * window).chrono());
+    }
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+}
+
+/// @brief it should send a warning again after it clears.
+TEST(TestStatusWindow, testSendsWarningAgainAfterClear) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "http_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+
+    handler.send_warning("Failed to read some data", "Field /a not found");
+    std::this_thread::sleep_for((2 * window).chrono());
+    handler.clear_warning();
+    std::this_thread::sleep_for((2 * window).chrono());
+    handler.send_warning("Failed to read some data", "Field /a not found");
+    std::this_thread::sleep_for((2 * window).chrono());
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 3);
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_WARNING);
+}
+
 /// @brief it should send a change inside the window once the window ends.
 TEST(TestStatusWindow, testDelaysChangeUntilWindowEnds) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -469,23 +503,6 @@ TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
     ASSERT_GE(statuses.size(), 2);
     for (size_t i = 1; i < statuses.size(); i++)
         EXPECT_GE(statuses[i].time - statuses[i - 1].time, window / 2) << i;
-}
-
-/// @brief it should send the same status again once the window ends.
-TEST(TestStatusWindow, testWindowExpires) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task, 1 * x::telem::MILLISECOND);
-
-    handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->snapshot().size(), 1);
-
-    handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->snapshot().size(), 1);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->snapshot().size(), 2);
 }
 
 /// @brief it should send a warning and then an error with the same message, as the
