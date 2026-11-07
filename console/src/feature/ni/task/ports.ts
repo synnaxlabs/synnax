@@ -14,11 +14,13 @@ import { type Device } from "@/feature/ni/device/types";
 import { getAIChannelSuffix } from "@/feature/ni/task/getAIChannelDeviceKey";
 import {
   type AIChannel,
+  AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type CIChannel,
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
+  isGenerated,
   type TerminalConfig,
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
@@ -258,7 +260,10 @@ export const ANALOG_OUTPUT: PortKind<AOChannel> = {
   prefix: "ao",
   ports: (hardware) => numbered(hardware.analogOutputs),
   holds: ({ port }) => [`ao${port}`],
-  name: (c, d) => named(c.cmdChannelName, () => `${identifierOf(d)}_ao_${c.port}_cmd`),
+  name: (c, d) =>
+    isGenerated(c)
+      ? AO_CHANNEL_TYPE_NAMES[c.type]
+      : named(c.cmdChannelName, () => `${identifierOf(d)}_ao_${c.port}_cmd`),
 };
 
 export const COUNTER_INPUT: PortKind<CIChannel> = {

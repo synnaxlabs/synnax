@@ -389,6 +389,31 @@ describe("AnalogWrite function generators", () => {
     );
   });
 
+  it("should name a function generator by its type in the ports", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const { identifier } = dev.properties;
+    await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_func_gen", 0, { cmdChannelName: "" }),
+          createChannel("ao_voltage", 0, { cmdChannelName: "" }),
+        ],
+        dev.key,
+      ),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
+    const cell = within(grid).getByRole("button", { name: "ao0" });
+    fireEvent.pointerOver(cell, { pointerType: "mouse" });
+    expect(
+      await screen.findByText(
+        `ao0 is used by Function generator and ${identifier}_ao_0_cmd`,
+      ),
+    ).toBeTruthy();
+  });
+
   it("should clear the channel names when the type becomes function generator", async () => {
     await renderAnalogWrite(
       createConfig([createChannel("ao_voltage", 2, { cmdChannelName: "named_cmd" })]),
