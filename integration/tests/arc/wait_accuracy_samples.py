@@ -81,8 +81,9 @@ class _WaitSamples(ArcCase):
     def verify_sequence_execution(self) -> None:
         writes = list(range(1, len(self.waits_ms) + 2))
         self.wait_for_eq("ws_cmd", writes[-1], timeout=30 * sy.TimeSpan.SECOND)
+        # The Driver stamps samples with its own clock, which can run ahead of this one.
         frame = self.client.read(
-            sy.TimeRange(self.start, sy.TimeStamp.now()), ["ws_cmd_time", "ws_cmd"]
+            sy.TimeRange(self.start, sy.TimeStamp.MAX), ["ws_cmd_time", "ws_cmd"]
         )
         times = frame["ws_cmd_time"].to_numpy().astype(np.int64)
         values = frame["ws_cmd"].to_numpy().tolist()
