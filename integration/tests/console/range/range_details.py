@@ -57,7 +57,6 @@ class RangeDetails(HardwareCase, ConsoleCase):
             config=sy.ni.AnalogReadConfig(),
         )
         self.track_test_tasks([task])
-        sy.sleep(1)  # noqa: TID251 settle, no condition to poll
 
         self.console.ranges.favorite(self.parent_range_name)
         self.console.ranges.set_active(self.parent_range_name)

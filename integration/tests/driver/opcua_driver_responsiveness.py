@@ -158,7 +158,13 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             psutil.Process(pid).suspend()
         else:
             os.kill(pid, signal.SIGSTOP)
-        sy.sleep(0.5)  # noqa: TID251 settle, no condition to poll
+
+        def stopped() -> bool | None:
+            status = psutil.Process(pid).status()
+            return True if status == psutil.STATUS_STOPPED else None
+
+        if sy.poll(stopped, timeout=5, interval=0.05) is None:
+            self.fail(f"The OPC UA simulator (pid={pid}) did not stop")
 
     def _check_driver_responsive(self) -> None:
         """Start a Modbus read task and verify it streams data.

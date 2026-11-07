@@ -77,9 +77,10 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
         self.assert_device_deleted(device_key=device.key)
 
         self.log("Test 2 - Reconnect Device")
+        recreated = sy.TimeStamp.now()
         reconnected_device = client.devices.create(device)
         self.assert_device_exists(device_key=reconnected_device.key)
-        sy.sleep(3)  # noqa: TID251 gives the Driver time to reconnect
+        self._wait_for_connected(reconnected_device.key, since=recreated)
 
         self.log("Test 3 - Run Task After Device Reconnection")
         client.tasks.configure(tsk)
@@ -99,6 +100,19 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
 
         client.devices.delete([reconnected_device.key])
         self.assert_device_deleted(device_key=reconnected_device.key)
+
+    def _wait_for_connected(self, key: str, *, since: sy.TimeStamp) -> None:
+        """Wait for a Driver status newer than since that reports the device
+        connected."""
+
+        def connected() -> bool | None:
+            status = self.client.devices.retrieve(key=key, include_status=True).status
+            if status is None or status.time <= since or status.details is None:
+                return None
+            return True if status.details.connected else None
+
+        if sy.poll(connected, timeout=15, interval=0.5) is None:
+            self.fail(f"The Driver did not reconnect to device {key}")
 
 
 class DisconnectOpcua(DisconnectTask[sy.opcua.ReadTask], OPCUAReadMixed):

@@ -15,7 +15,12 @@ from examples.http_sim import HTTPSim
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_in_range
+from tests.driver.task import (
+    ReadTaskCase,
+    WriteTaskCase,
+    assert_sample_counts_in_range,
+    collect_samples,
+)
 
 
 class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
@@ -73,18 +78,10 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
         """
         channel_keys = self._channel_keys(task)
 
-        def collect() -> sy.TimeStamp:
-            with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=30)
-                if frame is None:
-                    raise AssertionError("Task did not start — no data received")
-            sy.sleep(1)  # noqa: TID251 settle, no condition to poll
-            start = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
-            return start
-
         with task.run():
-            start_time = collect()
+            start_time = collect_samples(
+                self.client, channel_keys, duration=duration * 1.25, frame_size=1
+            )
 
         end_time = sy.TimeStamp.now()
         expected_samples = int(task.config.rate * duration.seconds)

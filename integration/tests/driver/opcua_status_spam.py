@@ -61,16 +61,15 @@ class StatusRateLimit(OPCUAReadArray):
         warning_count = 0
         with self.client.open_streamer(["sy_status_set"]) as streamer:
             with self.tsk.run():
-                # Wait for the task to start producing data before beginning
-                # the timed window. On slow CI machines, setup overhead can
-                # consume most of a fixed window if the timer starts earlier.
-                sy.sleep(2)  # noqa: TID251 settle, no condition to poll
+                # The window starts at the first warning, not at the task start.
                 timer = sy.Timer()
                 while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
                     frame = streamer.read(timeout=1)
                     if frame is None:
                         continue
                     for status in _warnings_for_task(frame, task_key):
+                        if warning_count == 0:
+                            timer = sy.Timer()
                         warning_count += 1
                         msg = f"{status.message}: {status.description}"
                         if last is not None and status.time - last < MIN_GAP:
