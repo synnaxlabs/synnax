@@ -979,6 +979,52 @@ var _ = Describe("Task", Ordered, func() {
 			})).Error().To(MatchError(validate.ErrValidation))
 			Expect(*frames).To(BeEmpty())
 		})
+
+		It("Should hash and broadcast a config that a status delete detaches", func(
+			ctx SpecContext,
+		) {
+			sw := stat.NewWriter(nil)
+			Expect(sw.Set(ctx, &status.Status[any]{
+				Key:     "st-detach",
+				Name:    "st-detach",
+				Variant: status.VariantInfo,
+				Time:    telem.Now(),
+			})).To(Succeed())
+			detached := &task.Task{
+				Type: testType,
+				Rack: testRack.Key,
+				Name: "Detached",
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-1",
+					"alerts": []any{
+						map[string]any{"key": "a", "status": "st-detach"},
+					},
+				},
+			}
+			createCommitted(ctx, detached)
+			frames := collect()
+			Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+			stored := retrieve(ctx, detached.Key)
+			Expect(stored.Config["alerts"]).To(HaveExactElements(
+				HaveKeyWithValue("status", ""),
+			))
+			twin := &task.Task{
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Twin",
+				Config: stored.Config,
+			}
+			Expect(svc.NewWriter(DeferClose(db.OpenTx())).Create(ctx, twin)).
+				To(Succeed())
+			Expect(stored.ConfigHash).To(Equal(twin.ConfigHash))
+			Expect(stored.ConfigHash).ToNot(Equal(detached.ConfigHash))
+			Expect(*frames).To(HaveLen(1))
+			Expect((*frames)[0].Key).To(Equal(detached.Key))
+			Expect((*frames)[0].Actions).To(Equal([]task.Action{
+				set([]string{"config"}, stored.Config),
+				set([]string{"config_hash"}, stored.ConfigHash),
+			}))
+		})
 	})
 
 	Describe("Retrieve", func() {

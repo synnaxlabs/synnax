@@ -23,6 +23,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -73,6 +74,10 @@ type Store interface {
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
+	// ObserveDetaches returns an observable that notifies the key of each record that a
+	// delete of one of its targets detached. Handlers run synchronously after the
+	// delete's transaction commits.
+	ObserveDetaches() observe.Observable[uuid.UUID]
 }
 
 // Record is a validated configuration record that is not written yet. Only a Store
@@ -364,6 +369,16 @@ func (s *Service[E]) Normalize(
 
 // Version implements Store.
 func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
+
+// ObserveDetaches implements Store.
+func (s *Service[E]) ObserveDetaches() observe.Observable[uuid.UUID] {
+	return observe.Translator[E, uuid.UUID]{
+		Observable: s.table.ObserveDetaches(),
+		Translate: func(_ context.Context, e E) (uuid.UUID, bool) {
+			return e.GorpKey(), true
+		},
+	}
+}
 
 // Copy implements Store.
 func (s *Service[E]) Copy(
