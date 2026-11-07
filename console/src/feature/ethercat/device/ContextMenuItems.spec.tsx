@@ -13,11 +13,11 @@ import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
-import { type Device } from "@/platform/device";
+import { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
@@ -45,6 +45,19 @@ const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
   return data == null ? null : <span>{`loaded:${deviceKey}`}</span>;
 };
 
+/** The menu items, with Configure opening the dialog as the slave select opens it. */
+const Items = (props: Omit<Device.ContextMenuItemsProps, "onConfigure">) => {
+  const configure = Device.useConfigureModal();
+  return (
+    <EtherCAT.Device.ContextMenuItems
+      {...props}
+      onConfigure={(deviceKey) =>
+        configure({ deviceKey, hardware: EtherCAT.Device.HARDWARE })
+      }
+    />
+  );
+};
+
 /**
  * Mounts the context menu in two phases: first loads the slaves into the flux device
  * cache (the tree does this in production before a menu can open), then mounts the
@@ -63,11 +76,10 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const resources = devices.map((d) =>
     createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
   );
-  const props: Device.ContextMenuItemsProps = {
+  const props = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: resources.map((r) => r.id) }),
     state: createState(resources),
-    onConfigure: vi.fn(),
   };
   // The menu suspends on the slaves fetch; a tree that suspends inside a sync
   // act never commits, so the mount needs an async act (see renderHookSuspended).
@@ -76,7 +88,7 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
       <Triggers.Provider>
         {loaders}
         <PMenu.Menu>
-          <EtherCAT.Device.ContextMenuItems {...props} />
+          <Items {...props} />
         </PMenu.Menu>
         <Modals.Stack />
       </Triggers.Provider>,
@@ -259,6 +271,19 @@ describe("EtherCAT device ContextMenuItems", () => {
       });
       expect(updated.properties.enabled).toBe(true);
     });
+  });
+
+  it("should offer one Configure item for a new slave", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(client, rack.key, { network: "eth0" }, false);
+    await renderContextMenu([slave]);
+    expect(await screen.findAllByText("Configure")).toHaveLength(1);
+  });
+
+  it("should offer Configure and not Change identifier for a configured slave", async () => {
+    await renderContextMenu([await createSlave(true)]);
+    await screen.findByText("Configure");
+    expect(screen.queryByText("Change identifier")).toBeNull();
   });
 
   describe("sync mode", () => {

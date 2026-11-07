@@ -9,7 +9,7 @@
 
 import "@/feature/ethercat/device/Configure.css";
 
-import { type device, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -19,10 +19,11 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { TimeSpan } from "@synnaxlabs/x";
+import { deep, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
+import { z } from "zod";
 
-import { useResultSlave, useUpdateOpMode } from "@/feature/ethercat/device/queries";
+import { useConfigure, useResultSlave } from "@/feature/ethercat/device/queries";
 import {
   autoIndex,
   choose,
@@ -40,8 +41,10 @@ import {
   type OpModeChoice,
   type SlaveDevice,
 } from "@/feature/ethercat/device/types";
+import { FLAGS } from "@/flags";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
+import { Device } from "@/platform/device";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
@@ -222,17 +225,36 @@ const Help = ({ text, problem }: HelpProps): ReactElement => (
     {text}
   </Text.Text>
 );
+const generalZ = z.object({ name: Device.nameZ, identifier: Device.identifierZ });
+const path = deep.path<z.infer<typeof generalZ>>();
 
-interface InternalProps {
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "EtherCAT slave",
+  "aria-label": "Name",
+} as const;
+
+interface InternalProps extends Omit<Device.ConfigureProps, "deviceKey"> {
   slave: SlaveDevice;
-  close: () => void;
 }
 
-const Internal = ({ slave, close }: InternalProps): ReactElement => {
+const Internal = ({
+  slave,
+  close,
+  onBack,
+  onCreateTask,
+}: InternalProps): ReactElement => {
+  const methods = Form.use<typeof generalZ>({
+    values: { name: slave.name, identifier: slave.properties.identifier },
+    schema: generalZ,
+  });
+  const name = Form.useFieldValue(path.name, { ctx: methods });
+  const { capture } = Analytics.use();
+  const { updateAsync, variant } = useConfigure();
   const [choice, setChoice] = useState<OpModeChoice | null>(
     () => slave.properties.opMode ?? null,
   );
-  const { update, variant } = useUpdateOpMode({ afterSuccess: () => close() });
   const modes = slave.properties.opModes;
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes) : choice.index;
@@ -245,12 +267,25 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const handleSave = () => {
-    if (stale || cycleError != null) return;
-    // A mode that takes no cycles fails the start with any cycle.
-    if (choice != null && mode == null)
-      update({ key: slave.key, opMode: choose(modes, choice.index) });
-    else update({ key: slave.key, opMode: choice ?? undefined });
+  const save = async (createTask: boolean) => {
+    if (!methods.validate()) return;
+    let opMode = slave.properties.opMode;
+    if (FLAGS.ethercatSyncMode) {
+      if (stale || cycleError != null) return;
+      // A mode that takes no cycles fails the start with any cycle.
+      if (choice != null && mode == null) opMode = choose(modes, choice.index);
+      else opMode = choice ?? undefined;
+    }
+    const saved = await updateAsync({
+      key: slave.key,
+      name: methods.get(path.name).value,
+      identifier: methods.get(path.identifier).value,
+      opMode,
+    });
+    if (!saved) return;
+    if (!slave.configured) capture("device_configured", { make: slave.make });
+    if (createTask) onCreateTask?.(slave.key);
+    close();
   };
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
@@ -263,51 +298,103 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
         {[slave.name, "Configure"]}
       </Modal.Header>
-      <Modal.Body align="stretch">
-        <Form.Sections>
-          <Form.Section title="Sync mode">
-            <Input.Item label="Mode" padHelpText={false}>
-              <ModeSelect
-                modes={modes}
-                choice={choice}
-                stale={stale}
-                onChange={setChoice}
+      <Modal.Body align="stretch" gap="large">
+        <Form.Form<typeof generalZ> {...methods}>
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          <Form.Sections>
+            <Form.Section title="General">
+              <Form.TextField
+                path={path.identifier}
+                label="Identifier"
+                padHelpText={false}
+                inputProps={{ placeholder: "dev1" }}
               />
-            </Input.Item>
-            {mode != null && index != null && (
-              <Flex.Box x>
-                <CycleField
-                  label="SYNC0 cycle"
-                  value={choice == null ? 0 : choice.sync0Cycle}
-                  problem={sync0Problem == null ? undefined : severity}
-                  onChange={(ns) =>
-                    setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
-                  }
-                />
-                <CycleField
-                  label="SYNC1 cycle"
-                  value={choice == null ? 0 : choice.sync1Cycle}
-                  problem={sync1Problem == null ? undefined : severity}
-                  onChange={(ns) =>
-                    setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
-                  }
-                />
+              <Flex.Box y gap="small">
+                <Text.Text level="small" color={9}>
+                  A short prefix for every channel on this device.
+                </Text.Text>
+                <Flex.Box x align="center">
+                  <Icon.Bolt />
+                  {strings.createShortIdentifiers(name).map((id) => (
+                    <Button.Button
+                      key={id}
+                      onClick={() => methods.set(path.identifier, id)}
+                      size="small"
+                      variant="text"
+                    >
+                      {id}
+                    </Button.Button>
+                  ))}
+                </Flex.Box>
               </Flex.Box>
+            </Form.Section>
+            {FLAGS.ethercatSyncMode && (
+              <Form.Section title="Sync mode">
+                <Input.Item label="Mode" padHelpText={false}>
+                  <ModeSelect
+                    modes={modes}
+                    choice={choice}
+                    stale={stale}
+                    onChange={setChoice}
+                  />
+                </Input.Item>
+                {mode != null && index != null && (
+                  <Flex.Box x>
+                    <CycleField
+                      label="SYNC0 cycle"
+                      value={choice == null ? 0 : choice.sync0Cycle}
+                      problem={sync0Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                      }
+                    />
+                    <CycleField
+                      label="SYNC1 cycle"
+                      value={choice == null ? 0 : choice.sync1Cycle}
+                      problem={sync1Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                      }
+                    />
+                  </Flex.Box>
+                )}
+                <Flex.Box y gap="small">
+                  <Help {...help} />
+                  <Text.Text level="small" color={9}>
+                    {APPLY_NOTE}
+                  </Text.Text>
+                </Flex.Box>
+              </Form.Section>
             )}
-            <Flex.Box y gap="small">
-              <Help {...help} />
-              <Text.Text level="small" color={9}>
-                {APPLY_NOTE}
-              </Text.Text>
-            </Flex.Box>
-          </Form.Section>
-        </Form.Sections>
+          </Form.Sections>
+        </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Nav.Bar.End>
+        <Nav.Bar.Start gap="small">
+          {onBack != null && (
+            <Button.Button variant="text" onClick={onBack}>
+              <Icon.Arrow.Left />
+              Back
+            </Button.Button>
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End gap="small">
+          {onCreateTask != null && !slave.configured && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => void save(true)}
+            >
+              Save and create read task
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
-            onClick={handleSave}
+            onClick={() => void save(false)}
             variant="filled"
             trigger={Triggers.SAVE}
             triggerIndicator
@@ -321,18 +408,12 @@ const Internal = ({ slave, close }: InternalProps): ReactElement => {
   );
 };
 
-interface ConfigureParams {
-  deviceKey: device.Key;
-}
-
-const Configure = ({
+/** The form that sets the name, identifier, and sync mode of one EtherCAT slave. */
+export const Configure = ({
   deviceKey,
-  close,
-}: Modals.ContentProps<ConfigureParams, void>): ReactElement | null => {
+  ...rest
+}: Device.ConfigureProps): ReactElement | null => {
   const { data: slave } = useResultSlave({ key: deviceKey });
   if (slave == null) return null;
-  return <Internal slave={slave} close={close} />;
+  return <Internal slave={slave} {...rest} />;
 };
-
-/** Opens the form that sets the settings of one EtherCAT slave. */
-export const useConfigureModal = Modals.create(Configure);

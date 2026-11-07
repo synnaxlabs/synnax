@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, verbs } from "@synnaxlabs/x";
+import { array, deep, primitive, verbs } from "@synnaxlabs/x";
 
 import {
   type OpModeChoice,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
@@ -54,30 +55,40 @@ export const useCommonNetwork = (channels: Channel[]) => {
   return slave?.properties?.network ?? "";
 };
 
-export interface UpdateOpModeParams {
+export interface ConfigureParams {
   key: device.Key;
+  name: string;
+  identifier: string;
   /** The mode the Driver sets up. Undefined lets the Driver pick it. */
   opMode?: OpModeChoice;
 }
 
-export const { useUpdate: useUpdateOpMode } = Flux.createUpdate<
-  UpdateOpModeParams,
+/** Saves the settings of a slave and marks it configured. */
+export const { useUpdate: useConfigure } = Flux.createUpdate<
+  ConfigureParams,
   SlaveDevice
 >({
-  name: "sync mode",
+  name: "device",
   verbs: verbs.UPDATE,
-  update: async ({ data: { key, opMode }, client, onOptimisticComplete }) => {
+  update: async ({
+    data: { key, name, identifier, opMode },
+    client,
+    onOptimisticComplete,
+  }) => {
     const dev = await client.devices.retrieve({
       key,
       includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });
     const { opMode: _, ...rest } = dev.properties;
+    const properties = { ...deep.copy(ZERO_SLAVE_PROPERTIES), ...rest, identifier };
     const updated: SlaveDevice = {
       ...dev,
-      properties: opMode == null ? rest : { ...rest, opMode },
+      name,
+      configured: true,
+      properties: opMode == null ? properties : { ...properties, opMode },
     };
-    return await client.devices.create(updated, SLAVE_SCHEMAS, {
+    return await client.devices.create(device.toUpdate(updated), SLAVE_SCHEMAS, {
       onOptimistic: async () => await onOptimisticComplete(updated),
     });
   },

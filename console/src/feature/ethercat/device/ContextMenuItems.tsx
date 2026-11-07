@@ -13,24 +13,19 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
-import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
-import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 
-interface ConfigureItemProps {
+interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
   deviceKey: device.Key;
 }
 
-const ConfigureItem = ({ deviceKey }: ConfigureItemProps) => {
-  const configure = useConfigureModal();
-  return (
-    <Menu.Item itemKey="ethercat.configure" onClick={() => configure({ deviceKey })}>
-      <Icon.Hardware />
-      Configure
-    </Menu.Item>
-  );
-};
+const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
+  <Menu.Item itemKey="ethercat.configure" onClick={() => onConfigure(deviceKey)}>
+    <Icon.Hardware />
+    Configure
+  </Menu.Item>
+);
 
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
@@ -62,10 +57,8 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
-      {FLAGS.ethercatSyncMode && hasUpdatePermission && keys.length === 1 && (
-        <ConfigureItem deviceKey={keys[0]} />
+      {hasUpdatePermission && keys.length === 1 && (
+        <ConfigureItem deviceKey={keys[0]} onConfigure={props.onConfigure} />
       )}
       <Menu.Divider />
       <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
