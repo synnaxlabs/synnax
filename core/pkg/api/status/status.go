@@ -126,7 +126,7 @@ func validateDetails(s status.Status[any]) error {
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
 	// Statuses are the statuses to set. A status with an owner goes to the status its
-	// owner holds, whatever key it carries.
+	// owner holds, whatever key it carries. An update keeps the stored owner.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
@@ -143,22 +143,22 @@ func (s *Service) Set(
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: append(
-			statusAccessResourceIDs(req.Statuses),
-			labelAccessResourceIDs(req.Statuses)...,
-		),
-	}); err != nil {
-		return SetResponse{}, err
-	}
+	labelIDs := labelAccessResourceIDs(req.Statuses)
 	w := s.internal.NewWriter(tx)
 	for i := range req.Statuses {
 		if err := w.Resolve(ctx, &req.Statuses[i]); err != nil {
 			return SetResponse{}, err
 		}
-		if err := validateDetails(req.Statuses[i]); err != nil {
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: append(statusAccessResourceIDs(req.Statuses), labelIDs...),
+	}); err != nil {
+		return SetResponse{}, err
+	}
+	for i, st := range req.Statuses {
+		if err := validateDetails(st); err != nil {
 			return SetResponse{}, validate.PathedError(
 				err, "statuses", strconv.Itoa(i), "details",
 			)

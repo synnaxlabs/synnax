@@ -226,6 +226,32 @@ var _ = Describe("Status", Ordered, func() {
 						Expect(retrieve(ctx, s.Key).Owner).To(HaveValue(Equal(owner)))
 					},
 				)
+				It(
+					"Should keep the stored owner when an update carries another",
+					func(ctx SpecContext) {
+						held, other := createRack(ctx, 14), createRack(ctx, 15)
+						s := newStatus("")
+						s.Owner = &held
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						next.Owner = &other
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(HaveValue(Equal(held)))
+						Expect(retrieve(ctx, s.Key).Owner).To(HaveValue(Equal(held)))
+					},
+				)
+				It(
+					"Should give no owner to a stored status that has none",
+					func(ctx SpecContext) {
+						s := newStatus("")
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						next.Owner = new(createRack(ctx, 16))
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(BeNil())
+						Expect(retrieve(ctx, s.Key).Owner).To(BeNil())
+					},
+				)
 				It("Should reject an owner that does not exist", func(ctx SpecContext) {
 					s := newStatus("")
 					s.Owner = new(rack.Key(99).ResourceID())
