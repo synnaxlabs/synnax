@@ -110,6 +110,7 @@ jobs:
           version: latest-known
 
       - name: Start Core
+        id: core
         timeout-minutes: 1
         shell: powershell
         env:
@@ -119,7 +120,7 @@ jobs:
         run:
           integration/scripts/StartCore.ps1 -Listen "${env:CORE_HOST}:${env:CORE_PORT}"
 
-      - name: Test conductor
+      - name: Correctness tests
         timeout-minutes: 45
         shell: cmd
         working-directory: integration
@@ -129,6 +130,18 @@ jobs:
         run: >-
           uv run test-conductor --name tc_hitl --server %CORE_HOST% --port %CORE_PORT%
           hitl
+
+      - name: Performance tests
+        if: ${{ !cancelled() && steps.core.outcome == 'success' }}
+        timeout-minutes: 15
+        shell: cmd
+        working-directory: integration
+        env:
+          PYTHONIOENCODING: utf-8
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: >-
+          uv run test-conductor --name tc_hitl_perf --server %CORE_HOST% --port
+          %CORE_PORT% hitl_perf
 
       - name: Upload test results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
