@@ -22,8 +22,7 @@ import (
 )
 
 // RetrieveDirectories retrieves Arc directories. The caller must hold retrieve access
-// to
-// each directory it returns.
+// to each directory it returns.
 func (s *Service) RetrieveDirectories(
 	ctx context.Context,
 	req apidirectory.RetrieveRequest,
