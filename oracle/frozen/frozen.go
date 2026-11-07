@@ -76,6 +76,15 @@ func (c Chain) Moved(n int, recorded Sum) bool {
 	return !ok || (sum.Schema == recorded.Schema && sum.Output != recorded.Output)
 }
 
+// Unrecorded reports whether frozen version n generates but has no line in a sum file
+// that exists. Only `oracle sync --refreeze` records such a line, because sync cannot
+// tell a removed line from a new one.
+func (c Chain) Unrecorded(n int, recorded map[int]Sum) bool {
+	_, generates := c.Sums[n]
+	_, has := recorded[n]
+	return recorded != nil && n < c.Current && generates && !has
+}
+
 // Versions returns every version in c.Sums or recorded, ascending.
 func (c Chain) Versions(recorded map[int]Sum) []int {
 	merged := maps.Clone(c.Sums)
@@ -147,8 +156,8 @@ func Compute(
 // Pin replaces the generated content of each frozen package with the bytes on disk, so
 // a generator change does not reach the package. It skips a package whose version
 // files, live inputs, or disk bytes no longer match its recorded sum, so a sync puts it
-// back. A package with no recorded sum takes its disk bytes as the record, and a file
-// that is not on disk keeps its generated content. Run `oracle sync --refreeze` to skip
+// back. A package with no recorded line and a file that is not on disk keep their
+// generated content. Run `oracle sync --refreeze` to skip
 // Pin and accept a generator change.
 func Pin(ctx context.Context, res *pipeline.Result, repoRoot string) error {
 	chains, err := Compute(ctx, res, repoRoot)
@@ -163,7 +172,7 @@ func Pin(ctx context.Context, res *pipeline.Result, repoRoot string) error {
 		}
 		for n, sum := range c.Sums {
 			old, has := recorded[n]
-			if n < c.Current && (!has || sum == old) {
+			if n < c.Current && has && sum == old {
 				pinned.Add(c.Package(n))
 			}
 		}
@@ -281,8 +290,12 @@ func Update(chains []Chain, repoRoot string, refreeze bool) error {
 		b.WriteString(header)
 		for _, n := range c.Versions(recorded) {
 			sum, current := c.Sums[n]
-			if old, ok := recorded[n]; ok && !refreeze && c.Moved(n, old) {
+			old, ok := recorded[n]
+			if ok && !refreeze && c.Moved(n, old) {
 				sum, current = old, true
+			}
+			if !ok && !refreeze && c.Unrecorded(n, recorded) {
+				current = false
 			}
 			if current {
 				fmt.Fprintf(&b, "v%d %s %s %s\n", n, sum.Schema, sum.Live, sum.Output)

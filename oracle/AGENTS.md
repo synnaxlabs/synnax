@@ -144,7 +144,8 @@ that moves the demoted package fail it.
   it only for a change that must reach frozen packages, such as a security fix in the
   generator or a live rule on a type the current version aliases, and say why in the PR.
 - A merge conflict in a sum file: take either side, then run `oracle sync`.
-- A frozen package with no line keeps its disk bytes, and the next sync records them.
+- A frozen package with no line in an existing sum file fails the gate, and sync does
+  not add the line. Restore it, or run `oracle sync --refreeze`.
 
 ## Field optionality
 

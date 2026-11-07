@@ -73,6 +73,16 @@ func checkSum(r *GateReport, c frozen.Chain, n int, recorded map[int]frozen.Sum)
 	if ok && current && old == sum {
 		return
 	}
+	if c.Unrecorded(n, recorded) {
+		r.fail(Finding{
+			Path:     c.Package(n),
+			Severity: SeverityError,
+			Message:  "frozen package has no line in " + c.Path,
+			FixHint: "restore the line. If the package must change, run " +
+				"`oracle sync --refreeze`",
+		})
+		return
+	}
 	if ok && c.Moved(n, old) {
 		r.fail(Finding{
 			Path:     c.Package(n),

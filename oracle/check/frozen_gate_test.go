@@ -11,6 +11,7 @@ package check_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -153,6 +154,18 @@ Doc struct {
 		Expect(frozen.Update(chains, root, false)).To(Succeed())
 		Expect(run(ctx, res).Status).To(Equal(check.StatusPass))
 		Expect(os.ReadFile(filepath.Join(root, v0File))).To(Equal([]byte("v0")))
+	})
+
+	It("Should fail on a removed line of a frozen package", func(ctx SpecContext) {
+		recorded := MustSucceed(frozen.Read(sumFile, root))
+		write(sumFile, fmt.Sprintf(
+			"v1 %s %s %s\n", recorded[1].Schema, recorded[1].Live, recorded[1].Output,
+		))
+		r := run(ctx, result(ctx, v0File, v1File))
+		Expect(r.Status).To(Equal(check.StatusFail))
+		Expect(r.Findings).To(HaveLen(1))
+		Expect(r.Findings[0].Path).To(Equal(v0Dir))
+		Expect(r.Findings[0].FixHint).To(ContainSubstring("--refreeze"))
 	})
 
 	It("Should fail on a sum file that no chain owns", func(ctx SpecContext) {

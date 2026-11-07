@@ -112,6 +112,19 @@ Doc struct {
 			Expect(c.Moved(0, frozen.Sum{Schema: "s"})).To(BeTrue())
 		})
 
+		DescribeTable("Unrecorded",
+			func(n int, recorded map[int]frozen.Sum, unrecorded bool) {
+				c := frozen.Chain{Current: 2, Sums: map[int]frozen.Sum{0: {}, 2: {}}}
+				Expect(c.Unrecorded(n, recorded)).To(Equal(unrecorded))
+			},
+			Entry("a frozen version missing from a sum file", 0,
+				map[int]frozen.Sum{2: {}}, true),
+			Entry("a recorded frozen version", 0, map[int]frozen.Sum{0: {}}, false),
+			Entry("a missing sum file", 0, map[int]frozen.Sum(nil), false),
+			Entry("the current version", 2, map[int]frozen.Sum{}, false),
+			Entry("a version that does not generate", 1, map[int]frozen.Sum{}, false),
+		)
+
 		It("Should list computed and recorded versions in order", func() {
 			c := frozen.Chain{Sums: map[int]frozen.Sum{2: {}}}
 			Expect(c.Versions(map[int]frozen.Sum{1: {}, 2: {}})).To(Equal([]int{1, 2}))
@@ -189,9 +202,9 @@ Doc struct {
 			},
 		)
 
-		It("Should keep the disk bytes of a frozen package with no recorded sum",
+		It("Should regenerate a frozen package with no recorded line",
 			func(ctx SpecContext) {
-				Expect(pin(ctx)[v0File]).To(Equal("v0"))
+				Expect(pin(ctx)[v0File]).To(Equal("new v0"))
 			},
 		)
 
@@ -358,6 +371,22 @@ Doc struct {
 			Expect(
 				read()[0],
 			).To(Equal(frozen.Sum{Schema: "t0", Live: "l", Output: "x"}))
+		})
+
+		It("Should not record a removed line of a frozen package", func() {
+			write(sumFile, "v1 s1 l o1\n")
+			Expect(
+				frozen.Update([]frozen.Chain{chain(recorded)}, root, false),
+			).To(Succeed())
+			Expect(read()).To(Equal(map[int]frozen.Sum{1: recorded[1]}))
+		})
+
+		It("Should record a removed line of a frozen package on refreeze", func() {
+			write(sumFile, "v1 s1 l o1\n")
+			Expect(
+				frozen.Update([]frozen.Chain{chain(recorded)}, root, true),
+			).To(Succeed())
+			Expect(read()).To(Equal(recorded))
 		})
 
 		It("Should keep the sum of a frozen package that stopped generating", func() {
