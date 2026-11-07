@@ -499,6 +499,15 @@ TEST_F(SOEMMasterTest, ActivateHappyPath) {
     this->activate_master();
 }
 
+/// @brief it should give each process data sync manager of the enabled slaves a length
+/// only from its PDOs, since a slave can refuse SAFE-OP for a sync manager that is on
+/// with no PDOs.
+TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sms_cleared_at_map);
+}
+
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
     ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
@@ -1252,7 +1261,7 @@ TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
     enabled.hasdc = true;
     this->add_slave(enabled);
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(1, false);
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
     EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));

@@ -81,13 +81,13 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const synnax::rack::Key rack,
     const std::string &network
 ) {
-    auto [devices, dev_err] = client->devices.retrieve({
-        .where = synnax::device::Where{
-            .make = x::filter::String{.eq = DEVICE_MAKE},
-            .model = x::filter::String{.eq = SLAVE_DEVICE_MODEL},
-            .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
-        },
-    });
+    auto [devices, dev_err] = client->devices.retrieve(
+        synnax::device::Where{
+            .make = DEVICE_MAKE,
+            .model = SLAVE_DEVICE_MODEL,
+            .rack = rack,
+        }
+    );
     if (dev_err) return {{}, dev_err};
     std::map<uint16_t, slave::Config> configs;
     std::map<uint16_t, std::string> labels;
