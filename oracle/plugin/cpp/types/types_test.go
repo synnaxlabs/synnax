@@ -141,6 +141,27 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
+		It("Should give a retrieve request its options", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"struct RetrieveOptions {\n"+
+					"    /// @brief limit is the most things to return.\n"+
+					"    std::optional<std::uint32_t> limit;\n"+
+					"    /// @brief offset is the number of matching things to skip.\n"+
+					"    std::uint32_t offset = 0;\n"+
+					"};",
+				"static RetrieveRequest\n"+
+					"    from(Where where, const RetrieveOptions &options = {}) {\n"+
+					"        return {\n"+
+					"            .where = std::move(where),\n"+
+					"            .limit = options.limit,\n"+
+					"            .offset = options.offset,\n"+
+					"        };\n"+
+					"    }",
+			)
+		})
+
 		It("Should not combine a struct that is not a filter", func(ctx SpecContext) {
 			source := `
 				@cpp output "out"

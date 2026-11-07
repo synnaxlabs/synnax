@@ -13,10 +13,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::{Config, backup};
+use super::Config;
 
 /// The suffix of a directory that was retired and waits for removal.
 const ERASED: &str = ".erased";
+
+/// The folder of the work directory where earlier releases kept metadata backups. The
+/// Core keeps its own backups in the data directory.
+const LEGACY_BACKUPS: &str = "backups";
 
 /// Erases the Core data and its backups, and leaves an empty data directory. Call it
 /// only while no Core runs. Each directory is first renamed, which is atomic, so a
@@ -49,7 +53,7 @@ pub fn sweep(cfg: &Config) -> io::Result<()> {
 }
 
 fn targets(cfg: &Config) -> [PathBuf; 2] {
-    [cfg.data_dir.clone(), backup::dir(cfg)]
+    [cfg.data_dir.clone(), cfg.work_dir.join(LEGACY_BACKUPS)]
 }
 
 fn retire(dir: &Path) -> io::Result<()> {
@@ -72,7 +76,6 @@ mod tests {
     fn cfg(root: &Path) -> Config {
         Config::new(
             root.join("program"),
-            "0.58.0".to_string(),
             root.join("work"),
             root.join("work").join("core"),
             root.join("logs"),
@@ -85,7 +88,9 @@ mod tests {
         let cfg = cfg(root.path());
         std::fs::create_dir_all(cfg.data_dir.join("kv")).unwrap();
         std::fs::write(cfg.data_dir.join("kv").join("MANIFEST"), "data").unwrap();
-        std::fs::create_dir_all(backup::dir(&cfg).join("0000000001-0.57.0")).unwrap();
+        std::fs::create_dir_all(cfg.data_dir.join("backups").join("0000000001-0.59.0")).unwrap();
+        std::fs::create_dir_all(cfg.work_dir.join(LEGACY_BACKUPS).join("0000000001-0.57.0"))
+            .unwrap();
         std::fs::write(cfg.work_dir.join("session.json"), "{}").unwrap();
 
         run(&cfg).unwrap();
