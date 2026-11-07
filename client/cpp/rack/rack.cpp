@@ -24,39 +24,19 @@ Client::Client(
     rack_delete_client(std::move(rack_delete_client)),
     tasks(std::move(tasks)) {}
 
-std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
-    return retrieve(key, RetrieveOptions{});
-}
-
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-        },
-        "key " + std::to_string(key)
-    );
-}
-
-std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return retrieve(name, RetrieveOptions{});
+    return this->retrieve_one(Where{.key = key}, options, "key " + std::to_string(key));
 }
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_status = options.include_status,
-        },
-        "name " + name
-    );
+    return this->retrieve_one(Where{.name = name}, options, "name " + name);
 }
 
 std::pair<std::vector<Rack>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto [pb_req, pb_err] = req.to_proto();
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Rack>(), pb_err};
     grpc::rack::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
@@ -69,9 +49,22 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.racks), x::errors::NIL};
 }
 
-std::pair<Rack, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [racks, err] = this->retrieve(req);
+std::pair<Rack, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve_one(where, options, where.to_json().dump());
+}
+
+std::pair<Rack, x::errors::Error> Client::retrieve_one(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::string &query
+) const {
+    if (options.limit.has_value() || options.offset != 0)
+        return {Rack{}, errors::paged_one_error()};
+    auto [racks, err] = this->retrieve(where, options);
     if (err) return {Rack{}, err};
     if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
     if (racks.size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};

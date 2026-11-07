@@ -143,6 +143,8 @@ interface UseProps {
   onEdit?: (changes: readonly Monaco.editor.IModelContentChange[]) => void;
   language: string;
   isBlock?: boolean;
+  /** isModule marks the document as an Arc module for the language server. */
+  isModule?: boolean;
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
   extensions?: EditorExtension[];
@@ -271,6 +273,15 @@ const createBlockURI = (): string => {
   return `arc://block/${id}#${encoded}`;
 };
 
+const createModuleURI = (): string =>
+  `arc://module/${Math.random().toString(36).substring(7)}`;
+
+const createCustomURI = (isBlock: boolean, isModule: boolean): string | undefined => {
+  if (isBlock) return createBlockURI();
+  if (isModule) return createModuleURI();
+  return undefined;
+};
+
 const setValueSuppressed = (
   model: Monaco.editor.ITextModel,
   next: string,
@@ -353,6 +364,7 @@ const use = ({
   onEdit,
   language,
   isBlock = false,
+  isModule = false,
   scrollBeyondLastLine = false,
   openContextMenu,
   extensions,
@@ -376,7 +388,7 @@ const use = ({
   );
   const cursorRenameable = useRenameAvailable(editor, monaco);
 
-  const [customURI] = useState(() => (isBlock ? createBlockURI() : undefined));
+  const [customURI] = useState(() => createCustomURI(isBlock, isModule));
 
   useEffect(() => {
     if (containerRef.current == null) return;
@@ -488,6 +500,7 @@ const EditorInternal = ({
   className,
   language,
   isBlock,
+  isModule,
   scrollBeyondLastLine,
   extensions,
   placeholder,
@@ -503,6 +516,7 @@ const EditorInternal = ({
     onValueChange,
     language,
     isBlock,
+    isModule,
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
     extensions,
