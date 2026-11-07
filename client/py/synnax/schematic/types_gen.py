@@ -848,110 +848,164 @@ class VacuumPumpNodeConfig(ToggleSymbolConfig):
 
 
 class BurstDiscNodeConfig(StaticSymbolConfig):
+    """Is the configuration for burst disc symbols."""
+
     variant: Literal["burst_disc"] = "burst_disc"
 
 
 class FlameArrestorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for flame arrestor symbols."""
+
     variant: Literal["flame_arrestor"] = "flame_arrestor"
 
 
 class FlameArrestorDetonationNodeConfig(StaticSymbolConfig):
+    """Is the configuration for detonation-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_detonation"] = "flame_arrestor_detonation"
 
 
 class FlameArrestorExplosionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for explosion-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_explosion"] = "flame_arrestor_explosion"
 
 
 class FlameArrestorFireResNodeConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_fire_res"] = "flame_arrestor_fire_res"
 
 
 class FlameArrestorFireResDetonationNodeConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant and detonation-proof flame arrestor
+    symbols.
+    """
+
     variant: Literal["flame_arrestor_fire_res_detonation"] = (
         "flame_arrestor_fire_res_detonation"
     )
 
 
 class IsoBurstDiscNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO burst disc symbols."""
+
     variant: Literal["iso_burst_disc"] = "iso_burst_disc"
 
 
 class AngledValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for angled valve symbols."""
+
     variant: Literal["angled_valve"] = "angled_valve"
 
 
 class AngledReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled relief valve symbols."""
+
     variant: Literal["angled_relief_valve"] = "angled_relief_valve"
 
 
 class AngledSpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled spring loaded relief valve symbols."""
+
     variant: Literal["angled_spring_loaded_relief_valve"] = (
         "angled_spring_loaded_relief_valve"
     )
 
 
 class BallValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ball valve symbols."""
+
     variant: Literal["ball_valve"] = "ball_valve"
 
 
 class BreatherValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for breather valve symbols."""
+
     variant: Literal["breather_valve"] = "breather_valve"
 
 
 class ButterflyValveOneNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for remote butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_one"] = "butterfly_valve_one"
 
 
 class ButterflyValveTwoNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for manual butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_two"] = "butterfly_valve_two"
 
 
 class CheckValveNodeConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols."""
+
     variant: Literal["check_valve"] = "check_valve"
 
 
 class CheckValveWithArrowNodeConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols drawn with an arrow."""
+
     variant: Literal["check_valve_with_arrow"] = "check_valve_with_arrow"
 
 
 class ElectricRegulatorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for electric regulator symbols."""
+
     variant: Literal["electric_regulator"] = "electric_regulator"
 
 
 class ElectricRegulatorMotorizedNodeConfig(StaticSymbolConfig):
+    """Is the configuration for motorized electric regulator symbols."""
+
     variant: Literal["electric_regulator_motorized"] = "electric_regulator_motorized"
 
 
 class FourWayValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for four way valve symbols."""
+
     variant: Literal["four_way_valve"] = "four_way_valve"
 
 
 class GateValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for gate valve symbols."""
+
     variant: Literal["gate_valve"] = "gate_valve"
 
 
 class IsoCheckValveNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO check valve symbols."""
+
     variant: Literal["iso_check_valve"] = "iso_check_valve"
 
 
 class ManualValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for manual valve symbols."""
+
     variant: Literal["manual_valve"] = "manual_valve"
 
 
 class NeedleValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for needle valve symbols."""
+
     variant: Literal["needle_valve"] = "needle_valve"
 
 
 class RegulatorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for regulator symbols."""
+
     variant: Literal["regulator"] = "regulator"
 
 
 class RegulatorManualNodeConfig(StaticSymbolConfig):
+    """Is the configuration for manual regulator symbols."""
+
     variant: Literal["regulator_manual"] = "regulator_manual"
 
 
 class ReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for relief valve symbols."""
+
     variant: Literal["relief_valve"] = "relief_valve"
 
 
@@ -963,22 +1017,32 @@ class SolenoidValveNodeConfig(ToggleSymbolConfig):
 
 
 class SpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for spring loaded relief valve symbols."""
+
     variant: Literal["spring_loaded_relief_valve"] = "spring_loaded_relief_valve"
 
 
 class ThreeWayValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for three way valve symbols."""
+
     variant: Literal["three_way_valve"] = "three_way_valve"
 
 
 class ThreeWayBallValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for three-way ball valve symbols."""
+
     variant: Literal["three_way_ball_valve"] = "three_way_ball_valve"
 
 
 class ValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for generic valve symbols."""
+
     variant: Literal["valve"] = "valve"
 
 
 class CrossJunctionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for cross junction symbols."""
+
     variant: Literal["cross_junction"] = "cross_junction"
 
 
@@ -1034,6 +1098,8 @@ class TankNodeConfig(LabeledConfig):
 
 
 class TJunctionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for T junction symbols."""
+
     variant: Literal["t_junction"] = "t_junction"
 
 
@@ -1583,110 +1649,164 @@ class VacuumPumpElementConfig(ToggleSymbolConfig):
 
 
 class BurstDiscElementConfig(StaticSymbolConfig):
+    """Is the configuration for burst disc symbols."""
+
     variant: Literal["burst_disc"] = "burst_disc"
 
 
 class FlameArrestorElementConfig(StaticSymbolConfig):
+    """Is the configuration for flame arrestor symbols."""
+
     variant: Literal["flame_arrestor"] = "flame_arrestor"
 
 
 class FlameArrestorDetonationElementConfig(StaticSymbolConfig):
+    """Is the configuration for detonation-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_detonation"] = "flame_arrestor_detonation"
 
 
 class FlameArrestorExplosionElementConfig(StaticSymbolConfig):
+    """Is the configuration for explosion-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_explosion"] = "flame_arrestor_explosion"
 
 
 class FlameArrestorFireResElementConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_fire_res"] = "flame_arrestor_fire_res"
 
 
 class FlameArrestorFireResDetonationElementConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant and detonation-proof flame arrestor
+    symbols.
+    """
+
     variant: Literal["flame_arrestor_fire_res_detonation"] = (
         "flame_arrestor_fire_res_detonation"
     )
 
 
 class IsoBurstDiscElementConfig(StaticSymbolConfig):
+    """Is the configuration for ISO burst disc symbols."""
+
     variant: Literal["iso_burst_disc"] = "iso_burst_disc"
 
 
 class AngledValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for angled valve symbols."""
+
     variant: Literal["angled_valve"] = "angled_valve"
 
 
 class AngledReliefValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled relief valve symbols."""
+
     variant: Literal["angled_relief_valve"] = "angled_relief_valve"
 
 
 class AngledSpringLoadedReliefValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled spring loaded relief valve symbols."""
+
     variant: Literal["angled_spring_loaded_relief_valve"] = (
         "angled_spring_loaded_relief_valve"
     )
 
 
 class BallValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for ball valve symbols."""
+
     variant: Literal["ball_valve"] = "ball_valve"
 
 
 class BreatherValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for breather valve symbols."""
+
     variant: Literal["breather_valve"] = "breather_valve"
 
 
 class ButterflyValveOneElementConfig(ToggleSymbolConfig):
+    """Is the configuration for remote butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_one"] = "butterfly_valve_one"
 
 
 class ButterflyValveTwoElementConfig(ToggleSymbolConfig):
+    """Is the configuration for manual butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_two"] = "butterfly_valve_two"
 
 
 class CheckValveElementConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols."""
+
     variant: Literal["check_valve"] = "check_valve"
 
 
 class CheckValveWithArrowElementConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols drawn with an arrow."""
+
     variant: Literal["check_valve_with_arrow"] = "check_valve_with_arrow"
 
 
 class ElectricRegulatorElementConfig(StaticSymbolConfig):
+    """Is the configuration for electric regulator symbols."""
+
     variant: Literal["electric_regulator"] = "electric_regulator"
 
 
 class ElectricRegulatorMotorizedElementConfig(StaticSymbolConfig):
+    """Is the configuration for motorized electric regulator symbols."""
+
     variant: Literal["electric_regulator_motorized"] = "electric_regulator_motorized"
 
 
 class FourWayValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for four way valve symbols."""
+
     variant: Literal["four_way_valve"] = "four_way_valve"
 
 
 class GateValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for gate valve symbols."""
+
     variant: Literal["gate_valve"] = "gate_valve"
 
 
 class IsoCheckValveElementConfig(StaticSymbolConfig):
+    """Is the configuration for ISO check valve symbols."""
+
     variant: Literal["iso_check_valve"] = "iso_check_valve"
 
 
 class ManualValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for manual valve symbols."""
+
     variant: Literal["manual_valve"] = "manual_valve"
 
 
 class NeedleValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for needle valve symbols."""
+
     variant: Literal["needle_valve"] = "needle_valve"
 
 
 class RegulatorElementConfig(StaticSymbolConfig):
+    """Is the configuration for regulator symbols."""
+
     variant: Literal["regulator"] = "regulator"
 
 
 class RegulatorManualElementConfig(StaticSymbolConfig):
+    """Is the configuration for manual regulator symbols."""
+
     variant: Literal["regulator_manual"] = "regulator_manual"
 
 
 class ReliefValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for relief valve symbols."""
+
     variant: Literal["relief_valve"] = "relief_valve"
 
 
@@ -1698,22 +1818,32 @@ class SolenoidValveElementConfig(ToggleSymbolConfig):
 
 
 class SpringLoadedReliefValveElementConfig(DummyToggleSymbolConfig):
+    """Is the configuration for spring loaded relief valve symbols."""
+
     variant: Literal["spring_loaded_relief_valve"] = "spring_loaded_relief_valve"
 
 
 class ThreeWayValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for three way valve symbols."""
+
     variant: Literal["three_way_valve"] = "three_way_valve"
 
 
 class ThreeWayBallValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for three-way ball valve symbols."""
+
     variant: Literal["three_way_ball_valve"] = "three_way_ball_valve"
 
 
 class ValveElementConfig(ToggleSymbolConfig):
+    """Is the configuration for generic valve symbols."""
+
     variant: Literal["valve"] = "valve"
 
 
 class CrossJunctionElementConfig(StaticSymbolConfig):
+    """Is the configuration for cross junction symbols."""
+
     variant: Literal["cross_junction"] = "cross_junction"
 
 
@@ -1769,6 +1899,8 @@ class TankElementConfig(LabeledConfig):
 
 
 class TJunctionElementConfig(StaticSymbolConfig):
+    """Is the configuration for T junction symbols."""
+
     variant: Literal["t_junction"] = "t_junction"
 
 
