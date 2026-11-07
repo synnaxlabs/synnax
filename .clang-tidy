@@ -30,6 +30,10 @@
 # - include-cleaner and inconsistent-declaration-parameter-name: the result differs
 #   between libc++ and libstdc++.
 # - Brace, parameter, literal, and declaration style: clang-format and review own it.
+#
+# CustomChecks at the end holds our own checks, written as clang-query AST matchers.
+# Each runs as custom-<Name>. The wrapper passes --experimental-custom-checks to enable
+# them. Syntax: clang.llvm.org/extra/clang-tidy/QueryBasedCustomChecks.html.
 ---
 Checks: |
     -*,
@@ -47,6 +51,7 @@ Checks: |
     cppcoreguidelines-rvalue-reference-param-not-moved,
     cppcoreguidelines-slicing,
     cppcoreguidelines-virtual-class-destructor,
+    custom-*,
     misc-*,
     -misc-const-correctness,
     -misc-include-cleaner,
@@ -125,3 +130,100 @@ CheckOptions:
     misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$;(^|/)vendor/
     # std::from_chars takes the end of the range.
     bugprone-suspicious-stringview-data-usage.AllowedCallees: ::std::from_chars
+CustomChecks:
+    # Tests check an x::errors::Error with ASSERT_NIL, EXPECT_NIL, or
+    # ASSERT_OCCURRED_AS, which print the error on failure. GoogleTest's boolean and
+    # equality assertions do not. An error from a std::pair takes the _P form, which
+    # also returns the value, unless the test reads the error again.
+    - Name: error-assertion
+      Query: |
+          let errorType hasType(hasUnqualifiedDesugaredType(recordType(
+              hasDeclaration(cxxRecordDecl(hasName("::x::errors::Error"))))))
+          let error anyOf(
+              expr(errorType),
+              cxxMemberCallExpr(callee(cxxConversionDecl()), on(expr(errorType))))
+          let ok cxxMemberCallExpr(
+              on(expr(errorType)),
+              callee(cxxMethodDecl(hasName("ok"))))
+          let isNil anyOf(
+              ok,
+              unaryOperator(
+                  hasOperatorName("!"),
+                  hasUnaryOperand(ignoringParenImpCasts(error))))
+          let isErr anyOf(
+              error,
+              unaryOperator(
+                  hasOperatorName("!"),
+                  hasUnaryOperand(ignoringParenImpCasts(ok))))
+          let inTrue anyOf(
+              isExpandedFromMacro("EXPECT_TRUE"),
+              isExpandedFromMacro("ASSERT_TRUE"))
+          let inFalse anyOf(
+              isExpandedFromMacro("EXPECT_FALSE"),
+              isExpandedFromMacro("ASSERT_FALSE"))
+          let inNil anyOf(
+              isExpandedFromMacro("ASSERT_NIL"),
+              isExpandedFromMacro("EXPECT_NIL"))
+          let inHelper anyOf(inNil, isExpandedFromMacro("ASSERT_OCCURRED_AS"))
+          let condition cxxConstructExpr(
+              hasDeclaration(cxxConstructorDecl(
+                  ofClass(hasName("::testing::AssertionResult")))),
+              unless(inHelper))
+          let nilArg hasArgument(0, ignoringParenImpCasts(expr(isNil).bind("nil")))
+          let errNilArg hasArgument(0, ignoringParenImpCasts(expr(isErr).bind("nil")))
+          let errArg hasArgument(0, ignoringParenImpCasts(expr(isErr).bind("occurred")))
+          let nilErrArg hasArgument(
+              0,
+              ignoringParenImpCasts(expr(isNil).bind("occurred")))
+          match cxxConstructExpr(condition, anyOf(
+              allOf(inTrue, nilArg),
+              allOf(inFalse, errNilArg),
+              allOf(inTrue, errArg),
+              allOf(inFalse, nilErrArg)))
+          match callExpr(
+              callee(functionDecl(hasAnyName(
+                  "::testing::internal::EqHelper::Compare",
+                  "::testing::internal::CmpHelperNE"))),
+              hasAnyArgument(ignoringParenImpCasts(expr(errorType).bind("compare"))))
+          let pair hasUnqualifiedDesugaredType(recordType(hasDeclaration(
+              classTemplateSpecializationDecl(hasName("::std::pair")))))
+          let pairType anyOf(hasType(pair), hasType(references(qualType(pair))))
+          let pairCall ignoringImplicit(
+              callExpr(pairType, unless(cxxOperatorCallExpr())))
+          let pairVar varDecl(hasInitializer(pairCall)).bind("pairVar")
+          let fromPair hasInitializer(ignoringParenImpCasts(anyOf(
+              memberExpr(
+                  member(hasName("second")),
+                  hasObjectExpression(anyOf(pairCall, declRefExpr(to(pairVar))))),
+              declRefExpr(to(
+                  bindingDecl(forDecomposition(pairVar)).bind("errBinding"))))))
+          let errUse expr(
+              unless(inHelper),
+              anyOf(
+                  declRefExpr(to(bindingDecl(equalsBoundNode("errBinding")))),
+                  memberExpr(
+                      member(hasName("second")),
+                      hasObjectExpression(
+                          declRefExpr(to(varDecl(equalsBoundNode("pairVar"))))))))
+          let checkOnly unless(hasAncestor(functionDecl(hasDescendant(errUse))))
+          match varDecl(inNil, fromPair, checkOnly).bind("nilPair")
+          match varDecl(
+              isExpandedFromMacro("ASSERT_OCCURRED_AS"),
+              fromPair,
+              checkOnly).bind("occurredPair")
+      Diagnostic:
+          - BindName: nil
+            Message: use ASSERT_NIL, ASSERT_NIL_P, or EXPECT_NIL to check a nil error
+            Level: Warning
+          - BindName: occurred
+            Message: use ASSERT_OCCURRED_AS or ASSERT_OCCURRED_AS_P to check an error
+            Level: Warning
+          - BindName: compare
+            Message: use ASSERT_NIL or ASSERT_OCCURRED_AS to compare an x::errors::Error
+            Level: Warning
+          - BindName: nilPair
+            Message: use ASSERT_NIL_P to check the error in a std::pair
+            Level: Warning
+          - BindName: occurredPair
+            Message: use ASSERT_OCCURRED_AS_P to check the error in a std::pair
+            Level: Warning
