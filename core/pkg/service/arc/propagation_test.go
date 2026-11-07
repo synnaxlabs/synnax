@@ -75,11 +75,15 @@ var _ = Describe("Change propagation", Ordered, func() {
 		})).To(Succeed())
 		return tsk.Key
 	}
-	createDirectory := func(ctx SpecContext, name string) directory.Directory {
+	createDirectory := func(
+		ctx SpecContext,
+		name string,
+		parent directory.Key,
+	) directory.Directory {
 		GinkgoHelper()
 		d := directory.Directory{Name: name}
 		Expect(write(ctx, func(w arc.Writer) error {
-			return w.CreateDirectory(ctx, &d, root)
+			return w.CreateDirectory(ctx, &d, parent)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(write(ctx, func(w arc.Writer) error {
@@ -105,6 +109,18 @@ var _ = Describe("Change propagation", Ordered, func() {
 			}
 			return tsk.ConfigHash
 		}
+	}
+	// settledHash waits out the resync that creating or deploying an Arc schedules
+	// and returns the task's config hash once it holds still.
+	settledHash := func(ctx SpecContext, key task.Key) string {
+		GinkgoHelper()
+		var hash string
+		Eventually(func(g Gomega) {
+			hash = configHash(ctx, key)()
+			g.Consistently(configHash(ctx, key), 30*time.Millisecond, 5*time.Millisecond).
+				Should(Equal(hash))
+		}).Should(Succeed())
+		return hash
 	}
 	// setup creates the module and a deployed importer and returns the importer's
 	// task key.
@@ -186,7 +202,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 			ctx SpecContext,
 		) {
 			m, key := setup(ctx)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			overwrite(ctx, m, moduleV2)
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
@@ -197,7 +213,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 			m := createArc(ctx, arc.TypeModule, "pt_m", "")
 			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
 			key := deploy(ctx, a)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			client := crdt.New(2)
 			var acts []arc.Action
 			for _, op := range client.Insert(0, moduleV1) {
@@ -219,7 +235,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 			)
 			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
 			key := deploy(ctx, a)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			overwrite(ctx, m, moduleV2)
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
@@ -245,7 +261,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 			ctx SpecContext,
 		) {
 			m, key := setup(ctx)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
 				arc.NewRenameAction(arc.RenamePayload{Name: "pt_renamed"}),
 			})).To(Succeed())
@@ -255,9 +271,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 		It("Should drift the importer when the module is moved", func(
 			ctx SpecContext,
 		) {
-			d := createDirectory(ctx, "pt_lib")
+			d := createDirectory(ctx, "pt_lib", root)
 			m, key := setup(ctx)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			move(ctx, m, d.Key)
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
@@ -265,7 +281,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 		It("Should drift the importer when the module's directory is renamed", func(
 			ctx SpecContext,
 		) {
-			d := createDirectory(ctx, "pt_lib")
+			d := createDirectory(ctx, "pt_lib", root)
 			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
 			move(ctx, m, d.Key)
 			a := createArc(
@@ -275,7 +291,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 				"import pt_lib.pt_m\n\npt_trig -> pt_m.f() -> pt_out",
 			)
 			key := deploy(ctx, a)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			Expect(write(ctx, func(w arc.Writer) error {
 				return w.RenameDirectory(ctx, d.Key, "pt_lib2")
 			})).To(Succeed())
@@ -290,7 +306,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 				To(Succeed())
 			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
 			key := deploy(ctx, a)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			Expect(write(ctx, func(w arc.Writer) error {
 				return w.Delete(ctx, m.Base().Key)
 			})).To(Succeed())
@@ -302,7 +318,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 		) {
 			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
 			key := deploy(ctx, a)
-			before := configHash(ctx, key)()
+			before := settledHash(ctx, key)
 			createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
@@ -320,6 +336,19 @@ var _ = Describe("Change propagation", Ordered, func() {
 				}
 				return stat
 			}
+		}
+		// settledVariant waits out the resync that creating an Arc schedules and
+		// returns the module's status variant once it holds still.
+		settledVariant := func(ctx SpecContext, key arc.Key) status.Variant {
+			GinkgoHelper()
+			variant := func() status.Variant { return moduleStatus(ctx, key)().Variant }
+			var settled status.Variant
+			Eventually(func(g Gomega) {
+				settled = variant()
+				g.Consistently(variant, 30*time.Millisecond, 5*time.Millisecond).
+					Should(Equal(settled))
+			}).Should(Succeed())
+			return settled
 		}
 
 		It("Should store a success status for a module that compiles", func(
@@ -357,12 +386,82 @@ var _ = Describe("Change propagation", Ordered, func() {
 				"pt_m",
 				"import pt_inner\n\nexport func f() {t u8} i64 { return pt_inner.f(t) }",
 			)
-			Expect(moduleStatus(ctx, m.Base().Key)().Variant).
-				To(Equal(status.VariantSuccess))
+			Expect(settledVariant(ctx, m.Base().Key)).To(Equal(status.VariantSuccess))
 			overwrite(ctx, inner, "export func g() i64 { return 1 }")
 			Eventually(func() status.Variant {
 				return moduleStatus(ctx, m.Base().Key)().Variant
 			}).Should(Equal(status.VariantError))
+		})
+
+		It("Should update the status of an importer in a directory", func(
+			ctx SpecContext,
+		) {
+			lib := createDirectory(ctx, "pt_lib", root)
+			sub := createDirectory(ctx, "pt_sub", lib.Key)
+			inner := createArc(ctx, arc.TypeModule, "pt_inner", moduleV1)
+			move(ctx, inner, sub.Key)
+			m := createArc(
+				ctx,
+				arc.TypeModule,
+				"pt_m",
+				"import pt_lib.pt_sub.pt_inner\n\n"+
+					"export func f() {t u8} i64 { return pt_inner.f(t) }",
+			)
+			move(ctx, m, lib.Key)
+			Expect(settledVariant(ctx, m.Base().Key)).To(Equal(status.VariantSuccess))
+			overwrite(ctx, inner, "export func g() i64 { return 1 }")
+			Eventually(func() status.Variant {
+				return moduleStatus(ctx, m.Base().Key)().Variant
+			}).Should(Equal(status.VariantError))
+		})
+
+		It("Should fail every module above a renamed export in a chain", func(
+			ctx SpecContext,
+		) {
+			l1 := createDirectory(ctx, "pt_l1", root)
+			l2 := createDirectory(ctx, "pt_l2", l1.Key)
+			l3 := createDirectory(ctx, "pt_l3", l2.Key)
+			c := createArc(
+				ctx,
+				arc.TypeModule,
+				"pt_c",
+				"export func value() i64 { return 40 }",
+			)
+			move(ctx, c, l3.Key)
+			b := createArc(
+				ctx,
+				arc.TypeModule,
+				"pt_b",
+				"import pt_l1.pt_l2.pt_l3.pt_c\n\n"+
+					"export doubled := pt_out * 2\n\n"+
+					"export func value() i64 { return pt_c.value() + 1 }",
+			)
+			move(ctx, b, l2.Key)
+			a := createArc(ctx, arc.TypeModule, "pt_a", "import pt_l1.pt_l2.pt_b\n\n"+
+				"export func value() {t u8} i64 { return pt_b.value() + 1 }\n\n"+
+				"export stage relay { pt_b.doubled + 1 -> pt_out }")
+			move(ctx, a, l1.Key)
+			auto := createArc(
+				ctx,
+				arc.TypeAutomation,
+				"pt_auto",
+				"import pt_l1.pt_a\n\npt_trig -> pt_a.value() -> pt_out\n"+
+					"pt_trig == 1 => pt_a.relay",
+			)
+			key := deploy(ctx, auto)
+			before := configHash(ctx, key)()
+			for _, m := range []arc.Arc{a, b, c} {
+				Expect(
+					settledVariant(ctx, m.Base().Key),
+				).To(Equal(status.VariantSuccess))
+			}
+			overwrite(ctx, c, "export func renamed() i64 { return 40 }")
+			for _, m := range []arc.Arc{b, a} {
+				Eventually(func() status.Variant {
+					return moduleStatus(ctx, m.Base().Key)().Variant
+				}).Should(Equal(status.VariantError))
+			}
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
 
 		It("Should delete the status with the module", func(ctx SpecContext) {

@@ -29,6 +29,7 @@ from pydantic import ValidationError
 import synnax as sy
 from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
+from synnax.status import Variant
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
 
@@ -187,6 +188,47 @@ class ArcCase(SimDaqCase, TestCase):
             path = f"{parent.path}.{name}"
         self._modules.append(ModuleHandle(path=path, arc_key=module.key))
         return path
+
+    def _module(self, path: str) -> ModuleHandle:
+        for module in self._modules:
+            if module.path == path:
+                return module
+        raise KeyError(f"no tracked module at {path!r}")
+
+    def overwrite_module(self, path: str, source: str) -> None:
+        """Replace the text of the module at path, which load_module created."""
+        self.log(f"Overwriting Arc module: {path}")
+        self.client.arcs.create(
+            sy.arc.Module(
+                key=self._module(path).arc_key,
+                name=path.rsplit(".", 1)[-1],
+                source=sy.arc.TextSource(text=sy.Text(raw=source)),
+            )
+        )
+
+    def wait_for_module_status(
+        self, path: str, variant: Variant, timeout: sy.CrudeTimeSpan
+    ) -> sy.Status:
+        """Fail unless the compile status of the module at path reaches variant in
+        time. Returns that status."""
+        key = self._module(path).arc_key
+        timer = sy.Timer()
+        while True:
+            module = self.client.arcs.retrieve(key=key, include_status=True)
+            assert isinstance(module, sy.arc.Module)
+            if module.status is not None and module.status.variant == variant:
+                return module.status
+            if timer.elapsed() > sy.TimeSpan(timeout):
+                self.fail(f"module {path} status is {module.status}, not {variant}")
+
+    def wait_for_config_hash_change(
+        self, task_key: sy.task.Key, before: str, timeout: sy.CrudeTimeSpan
+    ) -> None:
+        """Fail unless the task's stored config hash moves away from before in time."""
+        timer = sy.Timer()
+        while self.client.tasks.retrieve(task_key).config_hash == before:
+            if timer.elapsed() > sy.TimeSpan(timeout):
+                self.fail(f"task {task_key} kept config hash {before}")
 
     def start_arc_task(self, task: sy.task.Task) -> None:
         """Start the task and block until the runtime reports it running.
