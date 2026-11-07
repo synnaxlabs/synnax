@@ -76,11 +76,14 @@ func pemError(format string, args ...any) error {
 	)
 }
 
-// checkPrivateKey returns a validation error unless key is a PEM private key that
-// matches leaf.
+// checkPrivateKey returns a validation error unless key holds a PEM private key that
+// matches leaf. It skips the blocks before the key, such as EC PARAMETERS.
 func checkPrivateKey(leaf *x509.Certificate, key []byte) error {
-	block, _ := pem.Decode(key)
-	if block == nil || !strings.HasSuffix(block.Type, "PRIVATE KEY") {
+	block, rest := pem.Decode(key)
+	for block != nil && !strings.HasSuffix(block.Type, "PRIVATE KEY") {
+		block, rest = pem.Decode(rest)
+	}
+	if block == nil {
 		return keyError("is not a PEM private key")
 	}
 	priv, ok := parsePrivateKey(block)
