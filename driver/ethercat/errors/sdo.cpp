@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <array>
 #include <format>
 #include <string_view>
@@ -61,13 +60,8 @@ constexpr std::array<std::pair<uint32_t, std::string_view>, 32> ABORT_REASONS{{
 
 std::string sdo_abort_reason(const uint32_t code) {
     if (code == 0) return "no response";
-    const auto *const it = std::ranges::find(
-        ABORT_REASONS,
-        code,
-        &decltype(ABORT_REASONS)::value_type::first
-    );
-    if (it == ABORT_REASONS.end())
-        return std::format("unknown abort code 0x{:08X}", code);
-    return std::string(it->second);
+    for (const auto &[known, reason]: ABORT_REASONS)
+        if (known == code) return std::string(reason);
+    return std::format("unknown abort code 0x{:08X}", code);
 }
 }
