@@ -67,7 +67,7 @@ class CRIOCase(HardwareCase):
         # run that the conductor abandoned can leave its Driver running.
         self.ssh(
             f"date -u -s @{sy.TimeStamp.now() / 1e9:.3f} && "
-            f"(kill -9 $(cat {_DIR}/driver.pid) 2>/dev/null; rm -rf {_DIR}) && "
+            f"(pkill -9 -x synnax-driver; rm -rf {_DIR}) && "
             f"mkdir -p {_DIR}"
         )
         self._scp([str(DRIVER), f"{HOST}:{_DIR}/synnax-driver"])
