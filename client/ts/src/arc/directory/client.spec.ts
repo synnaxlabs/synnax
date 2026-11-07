@@ -11,8 +11,9 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { NotFoundError, ValidationError } from "@/index";
-import { createTestClient } from "@/testutil";
+import { NotFoundError, type Synnax, ValidationError } from "@/index";
+import { query } from "@/query";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -120,5 +121,60 @@ describe("arc.directory", () => {
     ).rejects.toSatisfy(ValidationError.matches);
     const res = await client.arcs.retrieve({ key: a.key });
     expect(res.directory).toBe(root.key);
+  });
+
+  describe("cache of another client", () => {
+    const watchDirectory = async (): Promise<{
+      watcher: Synnax;
+      root: arc.directory.Directory;
+      dir: arc.directory.Directory;
+    }> => {
+      const root = await client.arcs.directories.retrieveRoot();
+      const dir = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const watcher = createTestClient();
+      await watcher.connect();
+      await waitForStreamLive(watcher.connection);
+      await watcher.arcs.directories.retrieve([dir.key]);
+      return { watcher, root, dir };
+    };
+    const cachedOf = (
+      watcher: Synnax,
+      key: arc.directory.Key,
+    ): arc.directory.Directory | undefined => {
+      const cached = watcher.arcs.directories.getCached(key);
+      return query.isLive(cached) ? cached : undefined;
+    };
+
+    it("should take a rename", async () => {
+      const { watcher, dir } = await watchDirectory();
+      const name = uniqueName();
+      await client.arcs.directories.rename(dir.key, name);
+      await expect.poll(() => cachedOf(watcher, dir.key)?.name).toBe(name);
+    });
+
+    it("should take a move", async () => {
+      const { watcher, root, dir } = await watchDirectory();
+      const dest = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      await client.arcs.directories.move(
+        arc.directory.resourceID(root.key),
+        arc.directory.resourceID(dest.key),
+        arc.directory.resourceID(dir.key),
+      );
+      await expect.poll(() => cachedOf(watcher, dir.key)?.parent).toBe(dest.key);
+    });
+
+    it("should take a delete", async () => {
+      const { watcher, dir } = await watchDirectory();
+      await client.arcs.directories.delete(dir.key);
+      await expect
+        .poll(() => query.Deleted.matches(watcher.arcs.directories.getCached(dir.key)))
+        .toBe(true);
+    });
   });
 });
