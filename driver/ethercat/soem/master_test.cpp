@@ -1476,6 +1476,25 @@ TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
     EXPECT_TRUE(health[1].al_status.empty());
 }
 
+/// @brief it should set the clock of a DC slave that comes back from a power loss from
+/// the DC time of the latest frame with a matching working counter.
+TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->hasdc = true;
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    this->mock->receive_return = 2;
+    this->mock->host_dc_offset = 9'000'000'000;
+    ASSERT_NIL(this->master->send());
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = bytes<int64_t>(2'000);
+    this->master->check(this->brk);
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
 /// @brief it should leave the clock registers of a slave without DC alone when it
 /// reconfigures the slave.
 TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveWithoutDC) {
@@ -1523,6 +1542,46 @@ TEST_F(SOEMMasterTest, DeactivateWaitsForInitAfterFault) {
     this->master->deactivate();
     EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_INIT);
     EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
+/// @brief it should not set the clock of a DC slave that comes back from a power loss
+/// from a DC time that the master saved before it deactivated.
+TEST_F(SOEMMasterTest, DeactivateDropsTheSavedDCTime) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->hasdc = true;
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    this->master->deactivate();
+    ASSERT_NIL(this->master->initialize());
+    this->mock->receive_return = 2;
+    ASSERT_NIL(this->activate());
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(
+        health[0].al_status,
+        "Failed to restore the distributed clock: no frame has carried the DC time to "
+        "set the clock from"
+    );
+}
+
+/// @brief it should stop reporting a restore failure once the master deactivates.
+TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    ASSERT_TRUE(this->master->check(this->brk)[0].faulted);
+    this->master->deactivate();
+    this->mock->latch_return = 1;
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_FALSE(health[0].faulted);
+    EXPECT_TRUE(health[0].al_status.empty());
 }
 
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {
