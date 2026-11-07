@@ -246,6 +246,39 @@ describe("block", () => {
       });
     });
 
+    describe("trim", () => {
+      it("should drop the series before the alignment and cover from start", () => {
+        const block = new RawBlock(1, 0);
+        const kept = fetched(2, [3, 4], seconds(3).range(seconds(5)));
+        block.fill(
+          [fetched(0, [1, 2], seconds(1).range(seconds(3))), kept],
+          seconds(5),
+          4,
+        );
+        block.trim(blockAlignment(0, 2), seconds(3));
+        expect(block.fetched).toEqual([kept]);
+        expect(block.coveredCount).toBe(4);
+        expect(block.covers(seconds(3).range(seconds(5)))).toBe(true);
+        expect(block.covers(seconds(1).range(seconds(5)))).toBe(false);
+      });
+    });
+
+    describe("split", () => {
+      it("should split the series that holds the alignment into two views", () => {
+        const block = new RawBlock(1, 0);
+        const whole = fetched(0, [1, 2, 3, 4], seconds(1).range(seconds(5)));
+        block.fill([whole], seconds(5), 4);
+        block.split(blockAlignment(0, 1), seconds(2));
+        const [head, tail] = block.fetched;
+        expect(Array.from(head)).toEqual([1]);
+        expect(head.timeRange).toEqual(seconds(1).range(seconds(2)));
+        expect(Array.from(tail)).toEqual([2, 3, 4]);
+        expect(tail.alignment).toBe(blockAlignment(0, 1));
+        expect(tail.timeRange).toEqual(seconds(2).range(seconds(5)));
+        expect(tail.data.buffer).toBe(whole.data.buffer);
+      });
+    });
+
     describe("fill", () => {
       it("should record the covered end and the index samples before it", () => {
         const block = new RawBlock(1, 0);

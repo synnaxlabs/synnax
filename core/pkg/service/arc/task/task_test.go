@@ -45,6 +45,8 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -77,6 +79,36 @@ func buildGraphNodes(
 
 func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, error) {
 	return svcarc.AutomationArc{}, query.ErrNotFound
+}
+
+var errCommit = errors.New("commit failed")
+
+// uncommittableDB is a kv.DB whose transactions fail to commit.
+type uncommittableDB struct{ kv.DB }
+
+func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
+
+type uncommittableTx struct{ kv.Tx }
+
+func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
+
+// cancelingDB is a kv.DB whose transactions call cancel once they commit.
+type cancelingDB struct {
+	kv.DB
+	cancel context.CancelFunc
+}
+
+func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type cancelingTx struct {
+	kv.Tx
+	db cancelingDB
+}
+
+func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
+	err := t.Tx.Commit(ctx, opts...)
+	t.db.cancel()
+	return err
 }
 
 var _ = Describe("Task", Ordered, func() {
@@ -152,7 +184,10 @@ var _ = Describe("Task", Ordered, func() {
 		}}, cfgs...)...))
 	}
 
-	newGraphFactory := func(g graph.Graph) driver.Factory {
+	newGraphFactory := func(
+		g graph.Graph,
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
@@ -169,6 +204,7 @@ var _ = Describe("Task", Ordered, func() {
 					Program: &module,
 				}, nil
 			},
+			cfgs...,
 		)
 	}
 
@@ -594,6 +630,36 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should answer the configuring command when an auto-start fails",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "auto_start_fail", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-auto-start-fail",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						AutoStart:   true,
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				Expect(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(`unknown performance "unknown"`))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						svcTask.OntologyID().String(),
+					)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				Expect(stat.Details.Running).To(BeFalse())
+			},
+		)
+
+		It(
 			"Should not write a terminal status when stopped silently",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
@@ -947,7 +1013,7 @@ var _ = Describe("Task", Ordered, func() {
 				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
-					To(MatchError(`unknown performance "unknown"`))
+					To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
@@ -962,14 +1028,51 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
-		It("Should fail to start when its context is canceled", func(ctx SpecContext) {
-			ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
-			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
-			cancelCtx, cancel := context.WithCancel(ctx)
-			cancel()
-			Expect(t.Exec(cancelCtx, task.Command{Type: "start"})).
-				To(MatchError(context.Canceled))
-		})
+		It("Should return the error from Exec for a start it could not answer",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "start_unanswered", telem.Float32T)
+				t := newTask(ctx, newGraphFactory(
+					simpleGraph(ch.Key()),
+					arctask.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
+				))
+				DeferCleanup(func() { Expect(t.Stop(false)).To(Succeed()) })
+				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(MatchError(errCommit))
+			},
+		)
+
+		It("Should return no error from Exec for a start answered before ctx ended",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-start-canceled",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				cmdCtx, cancel := context.WithCancel(ctx)
+				t := MustSucceed(newGraphFactory(
+					simpleGraph(ch.Key()),
+					arctask.FactoryConfig{
+						DB: gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
+					},
+				).ConfigureTask(ctx, svcTask, "cmd-1"))
+				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(Succeed())
+				Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						svcTask.OntologyID().String(),
+					)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
+			},
+		)
 	})
 
 	Describe("Alarm Flow", func() {
