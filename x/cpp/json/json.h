@@ -190,7 +190,7 @@ class Parser {
         return v >= (std::is_signed_v<T> ? -upper : 0.0) && v < upper;
     }
 
-    enum class IntegerRead { ok, not_a_number, out_of_range };
+    enum class IntegerRead { VALID, NOT_A_NUMBER, OUT_OF_RANGE };
 
     /// @brief reads an integer from text as std::istream reads one, then checks that it
     /// fits T.
@@ -198,17 +198,18 @@ class Parser {
     static std::pair<T, IntegerRead> read_integer(const std::string &text) {
         long long wide = 0;
         if (std::istringstream wide_in(text); wide_in >> wide) {
-            if (std::in_range<T>(wide)) return {static_cast<T>(wide), IntegerRead::ok};
-            return {T(), IntegerRead::out_of_range};
+            if (std::in_range<T>(wide))
+                return {static_cast<T>(wide), IntegerRead::VALID};
+            return {T(), IntegerRead::OUT_OF_RANGE};
         }
         // A failed read stores 0 when the text is not a number, else the limit it
         // passed.
-        if (wide == 0) return {T(), IntegerRead::not_a_number};
+        if (wide == 0) return {T(), IntegerRead::NOT_A_NUMBER};
         unsigned long long above = 0;
         if (std::istringstream above_in(text);
             wide > 0 && above_in >> above && std::in_range<T>(above))
-            return {static_cast<T>(above), IntegerRead::ok};
-        return {T(), IntegerRead::out_of_range};
+            return {static_cast<T>(above), IntegerRead::VALID};
+        return {T(), IntegerRead::OUT_OF_RANGE};
     }
 
     /// @brief Helper to convert JSON key to map key type
@@ -219,8 +220,8 @@ class Parser {
             return {json_key, true};
         else if constexpr (is_ranged_integer_v<K>) {
             const auto [map_key, read] = read_integer<K>(json_key);
-            if (read == IntegerRead::ok) return {map_key, true};
-            if (read == IntegerRead::out_of_range)
+            if (read == IntegerRead::VALID) return {map_key, true};
+            if (read == IntegerRead::OUT_OF_RANGE)
                 range_err<K>(path);
             else
                 field_err(path, "Invalid numeric key: '" + json_key + "'");
@@ -647,9 +648,9 @@ T Parser::parse_value(const std::string &path, const json &j) {
                 if (j.is_string()) {
                     const auto text = j.get<std::string>();
                     const auto [value, read] = read_integer<T>(text);
-                    if (read == IntegerRead::not_a_number)
+                    if (read == IntegerRead::NOT_A_NUMBER)
                         field_err(path, "expected a number, got '" + text + "'");
-                    else if (read == IntegerRead::out_of_range)
+                    else if (read == IntegerRead::OUT_OF_RANGE)
                         range_err<T>(path);
                     return value;
                 }
