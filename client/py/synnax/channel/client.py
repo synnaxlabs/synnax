@@ -492,8 +492,7 @@ class Client:
         or name as ``channel``, returns one channel.
 
         :param channel: The key or name of one channel, or a list of keys or names. A
-            name that is not a valid channel name is a regular expression, anchored
-            when unanchored.
+            name matches exactly. To match a pattern, use where with a name regex.
         :param key: Keeps channels with this key.
         :param name: Keeps channels with this name.
         :param leaseholder: Keeps channels whose leaseholder is this node.
@@ -533,7 +532,7 @@ class Client:
         single = returns_one(fields, one or positional, limit, offset)
         flat = Where(
             key=selected.key,
-            name_patterns=selected.name_patterns,
+            name=selected.name,
             leaseholder=(
                 None if node_key is None else filter.Set[node.Key](eq=node_key)
             ),

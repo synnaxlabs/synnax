@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, filter } from "@synnaxlabs/x";
 import z from "zod";
 
 import { AccessDeniedError } from "@/errors";
@@ -53,19 +53,16 @@ export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
 const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(callerRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  callerRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 const singleRetrieveParamsZ = z
   .strictObject({ key: keyZ })
   .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
 const retrieveParamsZ = z
-  .union([singleRetrieveParamsZ, callerRequestZ, filterParamsZ])
+  .union([singleRetrieveParamsZ, requestParamsZ])
   .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
