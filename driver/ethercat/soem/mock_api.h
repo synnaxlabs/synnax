@@ -450,8 +450,13 @@ public:
         return group == this->mapped_group ? this->inputs_wkc : 0;
     }
 
+    /// @brief like ecx_configdc, true for the group of the first slave with a
+    /// distributed clock.
     [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        return group == this->mapped_group && this->hasdc;
+        if (group != this->mapped_group) return false;
+        if (this->hasdc) return true;
+        const auto ref = std::ranges::find_if(this->slave_infos, &MockSlaveInfo::hasdc);
+        return ref != this->slave_infos.end() && ref->group == group;
     }
 };
 
