@@ -209,7 +209,8 @@ A variable's kind is inferred from its initializer:
 
 - **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
   into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals and `math.nan` or `math.inf` can be stateful.
+  entries; only literals and float constants can be stateful. A float constant is
+  `math.nan` or `math.inf`, with an optional minus sign or `f32` or `f64` cast.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -404,7 +405,8 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 - Positionally by declaration order: `filter(50.0)` sets the first input;
   `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
-- Values must be literals or channel identifiers (resolved at compile time).
+- Values must be literals, float constants such as `-math.inf`, or channel identifiers
+  (resolved at compile time).
 
 ### Triggers
 
@@ -464,8 +466,8 @@ func counter() i64 {
 }
 ```
 
-A `$=` initializer must be a literal value; only literal variables can be stateful.
-`true` and `false` are literals.
+A `$=` initializer must be a literal value or a float constant such as `math.nan`; only
+literal variables can be stateful. `true` and `false` are literals.
 
 ### Channel operations in functions
 

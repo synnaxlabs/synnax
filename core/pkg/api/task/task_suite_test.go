@@ -35,13 +35,14 @@ func TestAPITask(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	node   testutil.Node
 	svc    *service.Layer
 	apiSvc *apitask.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apitask.NewService(apitask.ServiceConfig{
 		Task:   svc.Task,
