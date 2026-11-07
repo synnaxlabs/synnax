@@ -124,8 +124,6 @@ and then the field is the only one enabled. On Kafka, a raw write is an empty
   gets a strict form. `variable_samples` (`driver/opcua/telem/telem.cpp:99`) moves to
   `Series`.
 
-OPC UA has bytes and UUID through `data_type`. Modbus, NI, LabJack, and EtherCAT stay.
-
 ## 4 Kinds
 
 `payload.KindOf` maps a data type to its kind. Each check and correction uses it.
@@ -151,8 +149,10 @@ does not allow, a fill or entry that does not fit the channel's width, and a fil
 index channel. It clears `data_type`.
 
 **Core config**, in `ValidateEntry`: Labels and channel field values are unique. `json`
-text and `bytes` text are valid. A `bytes` field with an empty pointer has no other
-enabled field.
+and `bytes` text is valid. A raw `bytes` field is the only one enabled. A static `float`
+value is finite, because JSON has no NaN; fills and entries are never written as
+numbers. A non-finite `float` channel sample fails its write with an error: Go's encoder
+does this today, and C++ `from_sample_value`, which writes `null`, gains the same check.
 
 **Kafka and MQTT** run in the Core. The `ch.DataType` check at task configure becomes a
 kind check. Both gain fill: Kafka skips an absent value today (`read_task.go:767`).
@@ -163,9 +163,8 @@ format, fill-needs-optional, `json_type`, and enum shape errors, and adds `BOOLE
 JSON and UUID samples are strings (`driver/opcua/telem/telem.h:36`), so a new
 `Series(SampleValue, DataType)` keeps the channel's type, and writes read `uuids()`.
 
-**Console**: The data type select sets the kind, each variant shows its own inputs, and
-`DataTypeField` stops hiding JSON, UUID, and bytes. Phase 12 is atomic across four
-languages, so a Console adapter keeps it near 400 lines. Phase 14 deletes it.
+**Console**: The data type select sets the kind, and `DataTypeField` shows every type.
+An adapter keeps the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
 
 ## 6 Migration
 
