@@ -133,8 +133,7 @@ protected:
         this->master = std::make_shared<testutil::Master>("eth0", this->clock.now());
         this->master->add_slave(io_slave(0));
         Config cfg;
-        cfg.cycle_clock = this->clock.loop();
-        cfg.now = this->clock.now();
+        cfg.host_clock = HostClock(this->clock.loop());
         this->engine = std::make_shared<Engine>(this->master, cfg);
         this->brk.start();
     }

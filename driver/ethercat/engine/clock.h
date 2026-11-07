@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <optional>
+#include <utility>
+
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
 namespace driver::ethercat::engine {
@@ -36,6 +40,37 @@ public:
         } else
             this->offset += residual / GAIN;
         return dc + this->offset;
+    }
+};
+
+/// @brief the host clocks the engine reads: steady time for the bus cycle and wall time
+/// for frame stamps. A default HostClock reads the host.
+class HostClock {
+    x::telem::TimeStamp wall_start;
+    hs_clock::time_point steady_start;
+    std::optional<x::loop::Clock> steady;
+
+public:
+    HostClock() = default;
+
+    /// @brief reads both times from source. The wall time starts at the host's wall
+    /// time and then moves with source.
+    explicit HostClock(x::loop::Clock source):
+        wall_start(x::telem::TimeStamp::now()),
+        steady_start(source.now()),
+        steady(std::move(source)) {}
+
+    /// @brief returns the clock for the bus cycle to wait on, or nothing for the host's
+    /// steady clock.
+    [[nodiscard]] const std::optional<x::loop::Clock> &cycle() const {
+        return this->steady;
+    }
+
+    /// @brief returns the wall time.
+    [[nodiscard]] x::telem::TimeStamp now() const {
+        if (!this->steady) return x::telem::TimeStamp::now();
+        return this->wall_start +
+               x::telem::TimeSpan(this->steady->now() - this->steady_start);
     }
 };
 }
