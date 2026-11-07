@@ -125,7 +125,7 @@ std::unique_ptr<InputChan> parse_thermocouple(
     };
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
 }
 
@@ -140,7 +140,7 @@ std::unique_ptr<InputChan> parse_analog(const double range) {
     };
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
 }
 
@@ -1077,7 +1077,7 @@ protected:
             .name = "my_device",
         };
         const auto create_err = this->client->devices.create(device);
-        EXPECT_FALSE(create_err) << create_err;
+        EXPECT_NIL(create_err);
         auto j = basic_read_task_config();
         j["device"] = device.key;
         j["channels"] = channels;

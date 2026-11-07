@@ -122,11 +122,9 @@ yet.
   why, and a task that uses the module does not start. The other tasks start. The Driver
   tries the module again the next time the network starts. If every module with inputs
   or outputs refuses, or a module does not reach OP in time, no task on the port starts.
-- **DC sync** -> The Driver runs a module in SM sync when the module lists an SM sync
-  mode. With the built-in master, it runs a module that lists only DC sync modes in DC
-  sync, and starts SYNC0 and SYNC1 before the module goes to SAFE-OP. A module that is
-  set to DC sync but also lists an SM sync mode does not start. See
-  ["Invalid DC SYNC configuration"](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+- **DC sync** -> The Driver runs each module in its [sync mode](#sync-mode). With the
+  built-in master, it starts SYNC0 and SYNC1 of a module in DC sync before the module
+  goes to SAFE-OP.
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
@@ -174,7 +172,9 @@ When no task uses the network, the status shows what the scan found, such as
    that the Driver found, click <Icon.Add /> and select **EtherCAT network**.
 2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
    click one of the identifiers that the Console suggests.
-3. Click **Save**. To also open a read task for the module, click **Save and create read
+3. To run the module in a mode other than the default, set its
+   [**Sync mode**](#sync-mode).
+4. Click **Save**. To also open a read task for the module, click **Save and create read
    task**.
 
 Configure each module that a task uses.
@@ -215,6 +215,47 @@ Configure modules in the Console. TypeScript returns device properties in camel 
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Sync mode
+
+The sync mode sets what times the data exchange of a module: each frame from the Driver
+(SM sync), or the clock ticks of the module (DC sync). The modes that a module lists
+show under **Sync mode** in the Configure dialog.
+
+- **Auto** -> The default. The Driver runs SM sync when the module lists an SM sync
+  mode, and else the first mode that the module lists.
+- **A listed mode** -> The Driver runs that mode. Select the DC sync mode of a module
+  that is set to DC sync, such as a Dewesoft module.
+- **SYNC0 cycle** and **SYNC1 cycle** -> A DC sync mode gives its own cycles, often as a
+  number of bus cycles. A cycle that you enter replaces the cycle of the mode. The SYNC1
+  cycle must be a multiple of the SYNC0 cycle, and a SYNC1 cycle turns on SYNC1 when the
+  mode leaves it off. Clear a cycle to use the cycle of the mode again.
+
+A change applies the next time the network starts: stop every task on the port, then
+start them again.
+
+<Edition.Enterprise>
+
+The IgH master does not run DC sync and reads no sync modes, so **Sync mode** lists
+none. A module that needs DC sync, such as a Dewesoft module set to DC sync, cannot
+reach OP with IgH. A DC sync mode selected during an earlier scan with the built-in
+master fails the start.
+
+The Driver uses IgH whenever the IgH kernel module is loaded. To use the built-in master
+instead:
+
+1. Stop IgH with `sudo systemctl stop ethercat`, or with
+   `sudo /etc/init.d/ethercat stop` on a computer without systemd.
+2. To keep IgH off after a reboot, run `sudo systemctl disable ethercat`.
+3. Check that the port shows in `ip link`. If IgH used a native device module, the port
+   can need its standard Linux driver again first.
+4. [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+5. A module with no serial number shows as a new device, because its key comes from the
+   port and the position. Configure it, then select it again in each task that used it.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 
@@ -347,9 +388,11 @@ module, then stop every task on the port and start them again.
 ### "failed to reach SAFE-OP: ... Invalid DC SYNC configuration"
 
 The module is set to a sync mode that the Driver did not set up, so it stays in PRE-OP.
-The Driver runs a module in SM sync when the module lists an SM sync mode, so a module
+By default, the Driver runs SM sync when the module lists an SM sync mode, so a module
 that is set to DC sync and also lists an SM sync mode does not start.
 
+- **Select the mode of the module** -> In the Configure dialog, set the
+  [**Sync mode**](#sync-mode) to the mode that the module is set to.
 - **Set the module to SM sync** -> Dewesoft modules keep the mode in the module, and use
   a new mode after a power cycle. The
   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
@@ -362,8 +405,21 @@ that is set to DC sync and also lists an SM sync mode does not start.
 The DC sync mode of the module gives a SYNC0 or SYNC1 cycle that its registers cannot
 hold at the cycle rate of the network. The error gives the value and its limit. For
 example, the Dewesoft IOLITE 16xAO and 16xLV set SYNC1 to 1000 cycles, which is more
-than the 4.29 s limit when the network cycles slower than 233 Hz. Make the network cycle
-faster, for example with a write task at an execution rate of 250 Hz or more.
+than the 4.29 s limit when the network cycles slower than 233 Hz. Under
+[**Sync mode**](#sync-mode), enter a cycle that fits, such as a SYNC1 cycle of 1 s. You
+can also make the network cycle faster, for example with a write task at an execution
+rate of 250 Hz or more.
+
+### "slave ... cannot use its chosen mode"
+
+The [sync mode](#sync-mode) of the module cannot start, so no task on the port starts.
+The error gives the reason, for example:
+
+- The module does not list the mode, such as after a firmware update. The error lists
+  the modes of the module, and the Configure dialog marks the mode. Select a mode again.
+- A SYNC0 or SYNC1 cycle is set on a mode that does not run SYNC0, or on a mode in which
+  the module sets its own clock ticks. Clear the cycles, or select a mode that takes
+  them.
 
 ### "the clock of slave ... is ... off the reference clock"
 

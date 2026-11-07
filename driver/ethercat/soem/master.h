@@ -41,8 +41,11 @@ struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
     /// the PreopTimeout of the ESI files.
     x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
-    /// @brief how long the slaves get to reach SAFE-OP, OP, or INIT.
-    x::telem::TimeSpan state_change_timeout = x::telem::SECOND * 2;
+    /// @brief how long the slaves get to reach SAFE-OP or OP. Some slaves take up to
+    /// 9 s.
+    x::telem::TimeSpan state_change_timeout = x::telem::SECOND * 10;
+    /// @brief how long the slaves get to return to INIT when the bus stops.
+    x::telem::TimeSpan init_timeout = x::telem::SECOND * 2;
     /// @brief how long the clocks of the slaves in a DC mode get to settle on the
     /// reference clock before SYNC0 starts.
     x::telem::TimeSpan dc_settle_timeout = x::telem::SECOND * 2;
