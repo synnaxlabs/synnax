@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"uuid"
 
 	"github.com/PagerDuty/go-pagerduty"
 	"github.com/synnaxlabs/gorp"
@@ -45,15 +44,14 @@ func validateConfig(c TaskConfig) error {
 	return v.Error()
 }
 
-// resolveRoutingKey returns the value of the secret with the given key, read as the
-// rack of t. It returns a validation error when the value is not 32 characters.
+// resolveRoutingKey returns the value of the secret with the given key. It returns a
+// validation error when the value is not 32 characters.
 func resolveRoutingKey(
 	ctx context.Context,
 	secrets *secret.Service,
-	t task.Task,
 	key secret.Key,
 ) (string, error) {
-	values, err := secrets.Resolve(ctx, nil, t.Rack.OntologyID(), uuid.Nil(), key)
+	values, err := secrets.Reveal(ctx, nil, key)
 	if err != nil {
 		return "", err
 	}
@@ -111,12 +109,7 @@ func newAlertTask(
 // open reads the routing key once, so a run keeps the key it started with when the
 // saved config or the secret's value changes.
 func (t *alertTask) open(ctx context.Context) (func(context.Context) error, error) {
-	routingKey, err := resolveRoutingKey(
-		ctx,
-		t.factoryCfg.Secret,
-		t.task,
-		*t.cfg.RoutingKey,
-	)
+	routingKey, err := resolveRoutingKey(ctx, t.factoryCfg.Secret, *t.cfg.RoutingKey)
 	if err != nil {
 		return nil, err
 	}

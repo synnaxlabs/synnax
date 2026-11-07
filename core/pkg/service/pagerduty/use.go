@@ -15,7 +15,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/set"
@@ -24,8 +23,8 @@ import (
 var _ secret.Finder = FindSecretUses
 
 // FindSecretUses is a secret.Finder that returns each alert task whose routing key is
-// one of the given secrets. A task on a rack connects with its routing key from that
-// rack.
+// one of the given secrets. A use gives no rack access to the key, because the Core
+// sends the alerts.
 func FindSecretUses(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -58,9 +57,6 @@ func FindSecretUses(
 			Secret:   *c.RoutingKey,
 			Resource: t.OntologyID(),
 			Name:     t.Name,
-		}
-		if t.Rack != 0 {
-			uses[i].Racks = []ontology.ID{t.Rack.OntologyID()}
 		}
 	}
 	return uses, nil

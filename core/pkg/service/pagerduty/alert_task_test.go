@@ -13,11 +13,9 @@ import (
 	"context"
 	"strings"
 	"time"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -306,20 +304,6 @@ var _ = Describe("AlertTask", func() {
 					Should(Equal(1))
 				Expect(sender.getEvents()[0].RoutingKey).
 					To(Equal(strings.Repeat("b", 32)))
-			},
-		)
-
-		It("Should refuse to start with a routing key that the rack does not use",
-			func(ctx context.Context) {
-				t := task.Task{
-					Key: uuid.New(), Rack: testRack, Name: "test",
-					Type:   pd.AlertTaskType,
-					Config: encodeConfig(validConfig(pd.Alert{Status: "s1"})),
-				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
-				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
-				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).
-					To(MatchError(access.ErrDenied))
 			},
 		)
 

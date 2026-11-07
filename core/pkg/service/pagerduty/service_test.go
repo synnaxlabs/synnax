@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -49,8 +50,8 @@ func routingKeyOf(data msgpack.EncodedJSON) secret.Key {
 	return uuid.MustParse(data["routing_key"].(string))
 }
 
-// expectSecret asserts that the secret with key is named name and that a task on
-// testRack reads value from it.
+// expectSecret asserts that the secret with key is named name and holds the plain
+// routing key.
 func expectSecret(ctx SpecContext, svc *secret.Service, key secret.Key, name string) {
 	GinkgoHelper()
 	var s secret.Secret
@@ -59,7 +60,7 @@ func expectSecret(ctx SpecContext, svc *secret.Service, key secret.Key, name str
 		Entry(&s).
 		Exec(ctx, nil)).To(Succeed())
 	Expect(s.Base().Name).To(Equal(name))
-	Expect(svc.Resolve(ctx, nil, testRack.OntologyID(), uuid.Nil(), key)).
+	Expect(svc.Reveal(ctx, nil, key)).
 		To(Equal(map[secret.Key][]byte{key: []byte(plainKey)}))
 }
 
@@ -210,22 +211,22 @@ var _ = Describe("Service", func() {
 				To(Equal([]secret.Use{{
 					Resource: t.OntologyID(),
 					Name:     "Pump alerts",
-					Racks:    []ontology.ID{testRack.OntologyID()},
 					Secret:   routingKey,
 				}}))
 		})
 
-		It("Should give a task on no rack no racks", func(ctx SpecContext) {
+		It("Should not let the rack of a task read its routing key", func(
+			ctx SpecContext,
+		) {
 			routingKey := createRoutingKey(ctx, plainKey)
-			t := task.Task{Key: uuid.New(), Name: "Draft", Type: pd.AlertTaskType}
-			Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
-				To(Succeed())
-			MustSucceed(alertSvc.Alert.Write(ctx, nil, t.Key, t.Name, encodeConfig(
-				pd.TaskConfig{RoutingKey: &routingKey},
-			)))
-			uses := MustSucceed(pd.FindSecretUses(ctx, db, []secret.Key{routingKey}))
-			Expect(uses).To(HaveLen(1))
-			Expect(uses[0].Racks).To(BeEmpty())
+			storeTask(ctx, "Pump alerts", pd.TaskConfig{RoutingKey: &routingKey})
+			Expect(secretSvc.Resolve(
+				ctx,
+				nil,
+				testRack.OntologyID(),
+				uuid.Nil(),
+				routingKey,
+			)).Error().To(MatchError(access.ErrDenied))
 		})
 
 		It("Should return no uses for a secret that no task uses", func(
