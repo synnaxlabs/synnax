@@ -36,9 +36,11 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  findIconButton,
   getIconButton,
   type Grants,
   openContextMenu,
+  queryIconButton,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -350,6 +352,41 @@ describe("range/Toolbar", () => {
     const action = await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(action);
     expect(await screen.findByText("Save locally")).toBeTruthy();
+  });
+
+  describe("unfavorite all", () => {
+    it("unfavorites every range after confirmation and keeps them on the Core", async () => {
+      const rng = await createTestRange(client);
+      const local = createLocalRangeState(uniqueRangeName());
+      const { store } = await renderToolbar({ ranges: [toState(rng), local] });
+      fireEvent.click(await findIconButton(document.body, "star-outlined"));
+      await screen.findByText("Are you sure you want to unfavorite 2 ranges?");
+      fireEvent.click(findButton("Unfavorite"));
+      await waitFor(() => {
+        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined();
+        expect(Session.Range.selectState(store.getState(), local.key)).toBeUndefined();
+      });
+      expect(
+        Session.Range.selectState(store.getState(), Session.Range.RECENT_KEY),
+      ).toBeDefined();
+      expect((await client.ranges.retrieve(rng.key)).name).toBe(rng.name);
+    });
+
+    it("keeps the favorites when the confirmation is cancelled", async () => {
+      const local = createLocalRangeState(uniqueRangeName());
+      const { store } = await renderToolbar({ ranges: [local] });
+      fireEvent.click(await findIconButton(document.body, "star-outlined"));
+      await screen.findByText("Are you sure you want to unfavorite 1 range?");
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() => expect(screen.queryByText("Cancel")).toBeNull());
+      expect(Session.Range.selectState(store.getState(), local.key)).toEqual(local);
+    });
+
+    it("is withheld when no range is favorited", async () => {
+      await renderToolbar();
+      await screen.findByText("No favorited ranges");
+      expect(queryIconButton(document.body, "star-outlined")).toBeNull();
+    });
   });
 });
 
