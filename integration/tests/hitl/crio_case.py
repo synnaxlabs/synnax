@@ -49,11 +49,11 @@ _SSH_OPTIONS = [
 class CRIOCase(HardwareCase):
     """Runs the Driver on the cRIO for the length of a test.
 
-    Setup sets the cRIO's clock from this machine and starts the Driver with a new state
-    file, so the Driver enrolls a new rack on the Core under test. The cRIO dials the
-    address the conductor connects to, so that address must reach the Core from the
-    instrument subnet. Teardown stops the Driver, copies its log into the results, and
-    deletes the rack.
+    Setup starts the Driver with a new state file, so the Driver enrolls a new rack on
+    the Core under test. The Driver stamps samples with the cRIO's clock, so the cRIO
+    must sync it to this machine over NTP. The cRIO dials the address the conductor
+    connects to, so that address must reach the Core from the instrument subnet.
+    Teardown stops the Driver, copies its log into the results, and deletes the rack.
     """
 
     rack: sy.Rack
@@ -63,13 +63,8 @@ class CRIOCase(HardwareCase):
         return super().resources() | {resources.CRIO}
 
     def setup(self) -> None:
-        # The Driver stamps samples with the cRIO's clock, and nothing else syncs it. A
-        # run that the conductor abandoned can leave its Driver running.
-        self.ssh(
-            f"date -u -s @{sy.TimeStamp.now() / 1e9:.3f} && "
-            f"(pkill -9 -x synnax-driver; rm -rf {_DIR}) && "
-            f"mkdir -p {_DIR}"
-        )
+        # A run that the conductor abandoned can leave its Driver running.
+        self.ssh(f"(pkill -9 -x synnax-driver; rm -rf {_DIR}) && mkdir -p {_DIR}")
         self._scp([str(DRIVER), f"{HOST}:{_DIR}/synnax-driver"])
         self.start_driver()
         self.rack = self.wait_for_rack("success")
