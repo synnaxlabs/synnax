@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,10 +39,10 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
-			sym := symbol.Symbol{
+			sym := defaults.Fill(symbol.Symbol{
 				Name: "exported",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}
+			})
 			// Export reads committed data, so the symbol is created outside the
 			// per-spec tx and must be deleted to keep the shared DB's counts intact.
 			Expect(
@@ -215,14 +216,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve symbol content through export then import",
 			func(ctx SpecContext) {
-				original := symbol.Symbol{
+				original := defaults.Fill(symbol.Symbol{
 					Name: "round-trip",
 					Data: symbol.Spec{
 						SVG:          "<svg/>",
 						Variant:      "valve",
 						StrokeScaled: true,
 					},
-				}
+				})
 				Expect(svc.NewWriter(nil).Create(ctx, &original, proj.OntologyID())).
 					To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {

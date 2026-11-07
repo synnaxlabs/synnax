@@ -15,6 +15,8 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -39,6 +41,14 @@ func (w Writer) Create(
 ) (err error) {
 	if err = s.Validate(); err != nil {
 		return err
+	}
+	// A zero scale draws the symbol at size zero.
+	if s.Data.Scale <= 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"data.scale: must be positive, got %v",
+			s.Data.Scale,
+		)
 	}
 	var exists bool
 	if s.Key == uuid.Nil() {
