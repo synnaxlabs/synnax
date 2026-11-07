@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -96,9 +97,6 @@ type ServiceConfig[E any] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
-	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// tx, before the entry is validated and stored.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
@@ -120,7 +118,6 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -211,9 +208,6 @@ func (s *Service[E]) write(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
-	}
 	s.cfg.SetEntryKey(&e, key)
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(
@@ -301,8 +295,10 @@ func (s *Service[E]) Normalize(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
+	// An older version lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults.
+	if version != ladder.Latest {
+		e = defaults.Fill(e)
 	}
 	return encode(e)
 }

@@ -73,42 +73,39 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_read",
-			Migrations:         []gorp.Migration{v2.ReadMigration},
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_read",
+			Migrations:      []gorp.Migration{v2.ReadMigration},
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			SetEntryKey:     (*ReadConfig).SetKey,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			SetEntryKey:     (*WriteConfig).SetKey,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

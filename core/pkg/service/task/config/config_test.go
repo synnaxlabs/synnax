@@ -39,12 +39,11 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+				DB:            db,
+				Type:          testType,
+				Ladder:        arcversions.ConfigLadder,
+				SetEntryKey:   (*arctask.Config).SetKey,
+				ValidateEntry: (*arctask.Config).Validate,
 			},
 		))
 	})
