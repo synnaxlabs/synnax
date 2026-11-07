@@ -135,7 +135,7 @@ public:
     template<typename Details = x::json::json>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key, const RetrieveOptions &options = {}) const {
-        return this->retrieve_one<Details>(Where{.key = key}, options, "key " + key);
+        return this->retrieve<Details>(Where{.key = key}, x::filter::one, options);
     }
 
     /// @brief retrieves the statuses with the given keys.
@@ -194,7 +194,14 @@ public:
         x::filter::One,
         const RetrieveOptions &options = {}
     ) const {
-        return this->retrieve_one<Details>(where, options, where.to_json().dump());
+        if (options.limit.has_value() || options.offset != 0)
+            return {synnax::status::Status<Details>{}, errors::paged_one_error()};
+        auto [statuses, err] = this->retrieve<Details>(where, options);
+        if (err) return {synnax::status::Status<Details>{}, err};
+        if (const auto
+                one_err = errors::check_one("status", where.to_json(), statuses.size()))
+            return {synnax::status::Status<Details>{}, one_err};
+        return {std::move(statuses[0]), x::errors::NIL};
     }
 
     /// @brief Deletes a status with the given key.
@@ -248,30 +255,6 @@ public:
     }
 
 private:
-    template<typename Details>
-    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const {
-        if (options.limit.has_value() || options.offset != 0)
-            return {synnax::status::Status<Details>{}, errors::paged_one_error()};
-        auto [statuses, err] = this->retrieve<Details>(where, options);
-        if (err) return {synnax::status::Status<Details>{}, err};
-        if (statuses.empty())
-            return {
-                synnax::status::Status<Details>{},
-                errors::not_found_error("status", query)
-            };
-        if (statuses.size() > 1)
-            return {
-                synnax::status::Status<Details>{},
-                errors::multiple_found_error("statuses", query)
-            };
-        return {std::move(statuses[0]), x::errors::NIL};
-    }
-
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;

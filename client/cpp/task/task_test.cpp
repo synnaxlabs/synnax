@@ -123,11 +123,7 @@ TEST(TaskTests, testRetrieveOneWhereNotFound) {
     ASSERT_NIL(client.racks.create(r));
     const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(task matching {"type":{"case_insensitive":false,"eq":"missing_type"}} )"
-        "not found."
-    );
+    ASSERT_EQ(err.data, R"(Found no task where type = "missing_type")");
 }
 
 /// @brief it should correctly list the tasks on a rack.
