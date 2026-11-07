@@ -220,6 +220,9 @@ func resolveUpstreamType(
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
 		}
+		if idSym.Kind == symbol.KindConstant {
+			return constantType(ctx, prevIDNode, idSym), true
+		}
 		// A register-backed value variable feeds its current value.
 		if idSym.IsLiteral() {
 			return idSym.Type, true
@@ -345,6 +348,29 @@ func consultTrigger[T antlr.ParserRuleContext](
 	}
 }
 
+// constantType returns the type of the module constant sym at flow node id, giving
+// each use its own type variable so it takes the type of the node it feeds.
+func constantType[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	id parser.IIdentifierContext,
+	sym *symbol.Symbol,
+) types.Type {
+	if t, ok := ctx.TypeMap[id]; ok {
+		return t
+	}
+	t := types.Freshen(sym.Type, ctx.ScopedKey("const", id))
+	if err := ctx.Constraints.AddEquality(
+		t,
+		t,
+		id,
+		"constant type variable",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, id))
+	}
+	ctx.TypeMap[id] = t
+	return t
+}
+
 func analyzeIdentifier(
 	ctx context.Context[parser.IIdentifierContext],
 	prevNode parser.IFlowNodeContext,
@@ -359,6 +385,11 @@ func analyzeIdentifier(
 
 	isValueVarSink := (sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
+	// A module constant sends its value, as a compile-time variable does.
+	if sym.Kind == symbol.KindConstant && !isLastNode {
+		constantType(ctx, ctx.AST, sym)
+		return
+	}
 	// Any other symbol would lower to a read or write of a channel that does not exist.
 	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
 		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
@@ -367,9 +398,6 @@ func analyzeIdentifier(
 		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
 			d = d.WithNote("use " + name + "() to instantiate the function")
-		}
-		if sym.Kind == symbol.KindConstant {
-			d = d.WithNote("use (" + name + ") to send its value")
 		}
 		ctx.Diagnostics.Add(d)
 		return
@@ -427,6 +455,10 @@ func flowSourceType(
 		srcSym, err := ctx.ResolveQualified(parser.IdentifierParts(prevID))
 		if err != nil {
 			return types.Type{}, ""
+		}
+		if srcSym.Kind == symbol.KindConstant {
+			t := constantType(ctx, prevID, srcSym)
+			return t, fmt.Sprintf("%s value type %s", srcName, t)
 		}
 		srcValueType := srcSym.Type.Unwrap()
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
