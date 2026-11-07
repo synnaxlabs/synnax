@@ -208,7 +208,8 @@ export class RawBlock implements Block {
   fetchedAt = TimeStamp.ZERO;
   sealed = false;
   pins = 0;
-  /** Fetched samples cover [range.start, coveredEnd). */
+  /** Fetched samples cover [coveredStart, coveredEnd). */
+  coveredStart: TimeStamp;
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
@@ -224,6 +225,7 @@ export class RawBlock implements Block {
     private readonly now: () => TimeStamp = () => TimeStamp.now(),
   ) {
     this.range = tileRange({ level: RAW_LEVEL, index });
+    this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
   }
 
@@ -248,11 +250,46 @@ export class RawBlock implements Block {
 
   /**
    * @returns true when fetched samples cover the part of tr inside the block. A joined
-   * block covers every span, since the stream delivers its samples.
+   * block covers every span from coveredStart, since the stream delivers its samples.
    */
   covers(tr: TimeRange): boolean {
+    if (TimeStamp.max(tr.start, this.range.start).before(this.coveredStart))
+      return false;
     return (
       this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd)
+    );
+  }
+
+  /**
+   * Drops the fetched series that end at or before the alignment, and moves
+   * coveredStart to start. Alignments and coveredCount stay the same.
+   * @param alignment - The block alignment of the first sample to keep.
+   * @param start - The time of the sample at the alignment.
+   */
+  trim(alignment: bigint, start: TimeStamp): void {
+    this._fetched = this._fetched.filter((s) => s.alignmentBounds.upper > alignment);
+    this.coveredStart = TimeStamp.max(this.coveredStart, start);
+  }
+
+  /**
+   * Splits the fetched series that holds the alignment in two views of its samples, so
+   * that the second starts at the alignment.
+   * @param alignment - The block alignment of the first sample of the second view.
+   * @param at - The time of the sample at the alignment.
+   */
+  split(alignment: bigint, at: TimeStamp): void {
+    const i = this._fetched.findIndex(
+      (s) => s.alignment < alignment && alignment < s.alignmentBounds.upper,
+    );
+    if (i === -1) return;
+    const s = this._fetched[i];
+    const k = Number(alignment - s.alignment);
+    const { start, end } = s.timeRange;
+    this._fetched.splice(
+      i,
+      1,
+      derive(s.sub(0, k), { timeRange: new TimeRange(start, at) }),
+      derive(s.sub(k), { timeRange: new TimeRange(at, end) }),
     );
   }
 
@@ -275,6 +312,7 @@ export class RawBlock implements Block {
     if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
       return false;
     this._fetched = [];
+    this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
     this.sealed = false;
