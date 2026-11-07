@@ -197,7 +197,7 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 }
 
 // FloatConstant returns the value of the float module constant that node reduces to,
-// such as math.nan, with parentheses and negation applied.
+// such as math.nan, with parentheses, f32 and f64 casts, and negation applied.
 func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	primary, negated := parser.SoleOperand(node)
 	if primary == nil || primary.QualifiedIdentifier() == nil {

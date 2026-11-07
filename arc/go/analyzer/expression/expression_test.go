@@ -1997,6 +1997,9 @@ var _ = Describe("Expressions", func() {
 			Entry("nested parentheses", "v != ((math.nan))", "always true"),
 			Entry("negated", "v == -math.nan", "always false"),
 			Entry("negated in parentheses", "(-(math.nan)) == v", "always false"),
+			Entry("an f32 cast", "w == f32(math.nan)", "always false"),
+			Entry("an f64 cast", "f64(-math.nan) != v", "always true"),
+			Entry("an f64 cast with a unit", "v == f64 psi(math.nan)", "always false"),
 			Entry("not on is_nan", "math.is_nan(v)", ""),
 			Entry(
 				"the operator the compiler runs",
