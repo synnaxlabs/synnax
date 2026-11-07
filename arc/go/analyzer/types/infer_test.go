@@ -938,6 +938,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("float constant to float", types.F32(), floatLiteral(), true),
 			Entry("float constant into an integer series",
 				types.Series(types.I64()), types.Series(floatLiteral()), false),
+			Entry("float constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(floatLiteral()), false),
+			Entry("integer constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(integerLiteral()), true),
 			Entry(
 				"series to channel",
 				types.Chan(types.I32()),

@@ -267,6 +267,7 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("integer then constant", "y series i32 := [1, math.nan]"),
 		Entry("constant then integer", "y series i64 := [math.inf, 1]"),
 		Entry("reassignment", "y series i32 := [1]\ny = [math.inf]"),
+		Entry("untyped reassignment", "y := [1]\ny = [math.inf]"),
 		Entry(
 			"reassignment after an integer",
 			"y series i64 := [1]\ny = [1, math.nan]",
