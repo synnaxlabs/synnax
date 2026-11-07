@@ -110,6 +110,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A modal shows its commit shortcut in its primary button ("Create ⌘↵"), never as a hint
   in the footer.
 
+### Tags and badges
+
+- A tag (`Tag.Tag`) names an object that a person acts on: a label, a range, or a user.
+  A person can open, remove, or drag it.
+- A badge (`Badge.Badge`) shows a short fact that the program writes about the item
+  beside it: "Connected", "Auto", or "Dev3". It is not interactive. It has a color only
+  when the color means something.
+- An indicator (`Status.Indicator`) is a dot that shows the color of a state, with no
+  words.
+- A choice between options is a button or a tab, never a pill. Fluent, Polaris,
+  Atlassian, and Primer split these roles the same way.
+
 ### Modals
 
 - Header: an icon tile, the breadcrumb, and the close button, with no divider. The last
@@ -183,18 +195,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 An auto field holds a value that the Console picks until a person sets one: an axis
 bound, a log precision, or the line plot X channel.
 
-- The field shows the "Auto" chip (`Input.AutoChip`) at its end, where a unit sits.
+- The field shows the "Auto" badge (`Input.AutoBadge`) at its end, where a unit sits.
   Violet (`--pluto-auto-z`, `--pluto-auto-text`) means auto. Primary blue stays for
   focus and selection.
 - The field never shows a value that it does not use, such as 0 for an auto bound. A
   field with room shows the prompt "Enter a value to override". A narrow field shows
-  only the chip.
-- A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
+  only the badge.
+- A set value removes the badge and shows the Auto button (`Input.AutoButton`): the Auto
   icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
   back in auto.
 - A select whose empty value is an auto mode shows the mode as a value ("Time") with the
-  chip, never "Select channel". The mode is a `Select.Item` in the select's `footer`, so
-  it stays under the list and the search never hides it. It has a one-line hint that
+  badge, never "Select channel". The mode is a `Select.Item` in the select's `footer`,
+  so it stays under the list and the search never hides it. It has a one-line hint that
   ends "Best for most needs." Its `label` leaves the hint out of the trigger.
 
 ### Task forms
