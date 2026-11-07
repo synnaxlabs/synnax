@@ -134,25 +134,37 @@ var _ = Describe("Cache", func() {
 		})
 	})
 
-	// A lookup runs one Cache lookup at ts.
-	type lookup func(SpecContext, *index.Cache, telem.TimeStamp) error
+	// A lookup returns an assertion on all results of one Cache lookup at ts.
+	type lookup func(SpecContext, *index.Cache, telem.TimeStamp) Assertion
 	var (
-		distance lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
-			_, err := c.Distance(
+		distance lookup = func(
+			ctx SpecContext,
+			c *index.Cache,
+			ts telem.TimeStamp,
+		) Assertion {
+			GinkgoHelper()
+			return Expect(c.Distance(
 				ctx,
 				idx,
 				ts.Range(ts+telem.SecondTS),
 				index.MustBeContinuous,
-			)
-			return err
+			))
 		}
-		stamp lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
-			_, err := c.Stamp(ctx, idx, ts, 1, index.MustBeContinuous)
-			return err
+		stamp lookup = func(
+			ctx SpecContext,
+			c *index.Cache,
+			ts telem.TimeStamp,
+		) Assertion {
+			GinkgoHelper()
+			return Expect(c.Stamp(ctx, idx, ts, 1, index.MustBeContinuous))
 		}
-		segments lookup = func(ctx SpecContext, c *index.Cache, ts telem.TimeStamp) error {
-			_, err := c.AppendSegments(ctx, idx, nil, ts, 0, 1)
-			return err
+		segments lookup = func(
+			ctx SpecContext,
+			c *index.Cache,
+			ts telem.TimeStamp,
+		) Assertion {
+			GinkgoHelper()
+			return Expect(c.AppendSegments(ctx, idx, nil, ts, 0, 1))
 		}
 	)
 
@@ -160,8 +172,8 @@ var _ = Describe("Cache", func() {
 		"Should not cache an error",
 		func(ctx SpecContext, run lookup) {
 			for range 2 {
-				Expect(run(ctx, cache, 20*telem.SecondTS)).
-					To(MatchError(index.ErrDiscontinuous))
+				run(ctx, cache, 20*telem.SecondTS).
+					Error().To(MatchError(index.ErrDiscontinuous))
 			}
 		},
 		Entry("Distance", distance),
@@ -174,7 +186,7 @@ var _ = Describe("Cache", func() {
 		func(ctx SpecContext, run lookup) {
 			var nilCache *index.Cache
 			for range 2 {
-				Expect(run(ctx, nilCache, 2*telem.SecondTS)).To(Succeed())
+				run(ctx, nilCache, 2*telem.SecondTS).ToNot(BeZero())
 				Expect(reads()).To(BeNumerically(">", 0))
 			}
 		},
