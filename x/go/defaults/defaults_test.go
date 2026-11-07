@@ -66,6 +66,10 @@ var _ = Describe("Fill", func() {
 		Expect(got.Variant).To(Equal(leaf{Size: 36, Label: "c"}))
 	})
 
+	It("Should return a nil interface unchanged", func() {
+		Expect(defaults.Fill[any](nil)).To(BeNil())
+	})
+
 	It("Should return a value without SetDefaults unchanged", func() {
 		type point struct{ X, Y int }
 		Expect(defaults.Fill(point{X: 1})).To(Equal(point{X: 1}))

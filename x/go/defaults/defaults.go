@@ -22,7 +22,7 @@ type setter interface{ SetDefaults() }
 func Fill[T any](v T) T {
 	out := reflect.New(reflect.TypeFor[T]()).Elem()
 	fillFresh(out, reflect.ValueOf(&v).Elem())
-	return out.Interface().(T)
+	return *out.Addr().Interface().(*T)
 }
 
 // fillFresh sets the zero, addressable dst to its defaults and overlays src.
