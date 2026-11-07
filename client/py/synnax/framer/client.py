@@ -287,11 +287,14 @@ class Client:
         StrideReduction keeps every factor-th sample. A LimitReduction reduces each
         channel to about point_limit points. Defaults to keeping every sample.
         :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
-        a sequence with one item. A channel with no data in the time range gives an
-        empty series.
+        a sequence with one item. A Frame also holds the index channels that channels
+        leaves out, after the requested channels. A channel with no data in the time
+        range gives an empty series.
         """
         normal = channel.normalize_params(channels)
-        frame = self._reader.read(tr, channels, reduction=reduction)
+        frame = self._reader.read(
+            tr, channels, reduction=reduction, timestamps_included=not normal.single
+        )
         if not normal.single:
             return frame
         return frame[normal.channels[0]]

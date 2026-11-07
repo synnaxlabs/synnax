@@ -52,6 +52,15 @@ describe("role", () => {
       expect(retrieved.description).toBe(created.description);
     });
 
+    it("should retrieve a role by its name", async () => {
+      const created = await client.access.roles.create({
+        name: `named-role-${id.create()}`,
+        description: "test",
+      });
+      const retrieved = await client.access.roles.retrieve(created.name);
+      expect(retrieved.key).toBe(created.key);
+    });
+
     it("should filter by internal flag when retrieving roles", async () => {
       const created = await client.access.roles.create({
         name: "test-non-internal",

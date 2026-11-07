@@ -70,7 +70,7 @@ describe("Symbol queries", () => {
       });
 
       const { result } = renderHook(
-        () => Symbol.useList({ initialQuery: { groups: [parent.key] } }),
+        () => Symbol.useList({ query: { groups: [parent.key] } }),
         { wrapper },
       );
 
@@ -141,7 +141,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialQuery: {
+            query: {
               groups: [parent.key],
               searchTerm: "valve",
             },
@@ -188,7 +188,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialQuery: { groups: [parent.key] },
+            query: { groups: [parent.key] },
           }),
         { wrapper },
       );

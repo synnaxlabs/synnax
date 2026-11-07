@@ -120,7 +120,7 @@ class Scanner final : public common::Scanner {
                 .variant = synnax::status::VARIANT_SUCCESS,
                 .message = "Device present",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::device::StatusDetails{.rack = rack},
+                .details = {.rack = rack, .connected = true},
                 .owner = synnax::device::resource_id(sy_dev.key),
             };
             devices.push_back(sy_dev);

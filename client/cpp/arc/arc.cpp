@@ -72,55 +72,31 @@ std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
     return {arc, err};
 }
 
-std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
-    const std::string &name,
-    const RetrieveOptions &options
-) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_program = options.include_program,
-        },
-        "name " + name
-    );
+std::pair<Arc, x::errors::Error>
+Client::retrieve(const Key &key, const RetrieveOptions &options) const {
+    return this->retrieve_one(Where{.key = key}, options, "key " + key.to_string());
 }
 
-std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
-    const x::uuid::UUID &key,
-    const RetrieveOptions &options
-) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_program = options.include_program,
-        },
-        "key " + key.to_string()
-    );
+std::pair<Arc, x::errors::Error>
+Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
+    return this->retrieve_one(Where{.name = name}, options, "name " + name);
+}
+
+std::pair<std::vector<Arc>, x::errors::Error>
+Client::retrieve(const std::vector<Key> &keys, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.key = keys}, options);
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.name = x::filter::String{.in = names}},
-        .include_program = options.include_program,
-    });
-}
-
-std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
-    const std::vector<x::uuid::UUID> &keys,
-    const RetrieveOptions &options
-) const {
-    return this->retrieve({
-        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
-        .include_program = options.include_program,
-    });
+    return this->retrieve(Where{.name = names}, options);
 }
 
 std::pair<std::vector<Arc>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto [pb_req, pb_err] = req.to_proto();
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Arc>(), pb_err};
     grpc::arc::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
@@ -131,9 +107,22 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.arcs), x::errors::NIL};
 }
 
-std::pair<Arc, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [arcs, err] = this->retrieve(req);
+std::pair<Arc, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    return this->retrieve_one(where, options, where.to_json().dump());
+}
+
+std::pair<Arc, x::errors::Error> Client::retrieve_one(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::string &query
+) const {
+    if (options.limit.has_value() || options.offset != 0)
+        return {Arc{}, errors::paged_one_error()};
+    auto [arcs, err] = this->retrieve(where, options);
     if (err) return {Arc{}, err};
     if (arcs.empty()) return {Arc{}, errors::not_found_error("Arc", query)};
     if (arcs.size() > 1) return {Arc{}, errors::multiple_found_error("arcs", query)};

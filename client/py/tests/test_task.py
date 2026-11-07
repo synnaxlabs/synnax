@@ -9,8 +9,7 @@
 
 import re
 import threading
-from collections.abc import Callable
-from typing import Any, assert_type, cast
+from typing import Any, assert_type
 from uuid import UUID, uuid4
 
 import pytest
@@ -135,11 +134,11 @@ class TestTaskClient:
             client.tasks.create(name=name, type="pagerduty_alert")
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Task matching {name}, but found 2",
+            match=rf"Expected one Task matching .*{name}.*, but found 2",
         ):
             client.tasks.retrieve(name=name)
         with pytest.raises(sy.MultipleFoundError):
-            client.tasks.retrieve(type="pagerduty_alert")
+            client.tasks.retrieve(type="pagerduty_alert", one=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every task when no filter is given."""
@@ -148,13 +147,39 @@ class TestTaskClient:
         assert_type(res, list[sy.Task])
         assert task.key in {t.key for t in res}
 
-    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when singular selectors are mixed with others."""
-        retrieve = cast(Callable[..., object], client.tasks.retrieve)
-        with pytest.raises(ValueError, match="cannot be combined"):
-            retrieve(name="test", rack=1)
-        with pytest.raises(ValueError, match="only one of"):
-            retrieve(name="test", type="pagerduty_alert")
+    def test_retrieve_type(self, client: sy.Synnax) -> None:
+        """Should return a list for a plain type, and one task with one set."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key)
+        assert_type(res, list[sy.Task])
+        assert [t.key for t in res] == [task.key]
+        found = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key, one=True)
+        assert_type(found, sy.Task)
+        assert found.key == task.key
+
+    def test_retrieve_plain_name_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one task for a plain name beside other fields."""
+        rack = client.racks.create(name=str(uuid4()))
+        name = str(uuid4())
+        task = client.tasks.create(name=name, type="pagerduty_alert", rack=rack.key)
+        assert client.tasks.retrieve(name=name, rack=rack.key).key == task.key
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(name=name, type="other")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should keep the tasks that match any filter in or_."""
+        rack = client.racks.create(name=str(uuid4()))
+        a = client.tasks.create(name="a", type="pagerduty_alert", rack=rack.key)
+        b = client.tasks.create(name="b", type="pagerduty_alert", rack=rack.key)
+        client.tasks.create(name="c", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(rack=rack.key, or_=[{"name": "a"}, {"key": b.key}])
+        assert {t.key for t in res} == {a.key, b.key}
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every task."""
+        with pytest.raises(sy.ValidationError, match="rack is None"):
+            client.tasks.retrieve(rack=None)  # type: ignore[call-overload]
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""

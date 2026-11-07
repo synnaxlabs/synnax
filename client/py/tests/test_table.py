@@ -142,6 +142,28 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.tables.retrieve(key=uuid4())
 
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.tables.create(name="A", project=project.key)
+        res = client.tables.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one table for a plain key beside other fields."""
+        a = client.tables.create(name="A", project=project.key)
+        assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Table matching .* not found"):
+            client.tables.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the tables that match any filter in or_."""
+        a = client.tables.create(name="A", project=project.key)
+        b = client.tables.create(name="B", project=project.key)
+        res = client.tables.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a table."""
         t = client.tables.create(name="Before Rename", project=project.key)

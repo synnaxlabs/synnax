@@ -191,6 +191,44 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=UUID("7c3e9a52-4b1d-4f0e-9a6c-2d8b5e1f3a90"))
 
+    def test_retrieve_key_list(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.panels.create(name="A", project=project)
+        res = client.panels.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should return one panel for a plain key beside other fields."""
+        a = client.panels.create(name="A", project=project)
+        assert client.panels.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+            client.panels.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.project.Key) -> None:
+        """Should retrieve the panels that match any filter in or_."""
+        a = client.panels.create(name="A", project=project)
+        b = client.panels.create(name="B", project=project)
+        res = client.panels.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
+    def test_retrieve_one_by_project_without_panels(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should raise NotFoundError for one panel of a project with no panels."""
+        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+            client.panels.retrieve(projects=[project], one=True)
+
+    def test_retrieve_none_field_by_project_without_panels(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should reject a field set to None beside a project with no panels."""
+        with pytest.raises(ValidationError, match="key is None"):
+            client.panels.retrieve(projects=[project], key=None)  # type: ignore[call-overload]
+
     def test_rename(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should rename a panel."""
         p = client.panels.create(name="Before Rename", project=project)

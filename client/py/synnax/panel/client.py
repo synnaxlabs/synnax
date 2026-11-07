@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
@@ -20,8 +20,9 @@ from synnax.panel.types_gen import (
     RetrieveRequest,
     RetrieveResponse,
     Where,
+    WhereInput,
 )
-from synnax.util import one
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -116,69 +117,96 @@ class Client:
         self._client.send("/panel/dispatch", req, Empty)
 
     @overload
-    def retrieve(self, *, key: Key) -> Panel: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Panel: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
-        search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
+        key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Panel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        one: Literal[False] = ...,
     ) -> list[Panel]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
         where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
+        one: bool = False,
+        **fields: Any,
     ) -> Panel | list[Panel]:
-        """Retrieve one or more panels.
+        """Retrieves panels. With no arguments, retrieves every panel.
 
-        :param key: The key of a single panel to retrieve. When provided, a single
-            panel is returned and NotFoundError is raised if it does not exist.
-        :param keys: The keys of the panels to retrieve.
-        :param where: A filter that the panels must also match.
-        :param projects: The keys of projects. Only the panels these projects own are
-            returned.
-        :param ranges: The keys of ranges. Only the panels these ranges own are
-            returned.
+        Each filter field takes a value, a list of values, or an operator, and a panel
+        must match every field. A plain ``key`` returns one panel.
+
+        :param key: Keeps panels with this key.
+        :param and_: Keeps panels that match every filter in the list.
+        :param or_: Keeps panels that match any filter in the list.
+        :param not_: Keeps panels that do not match the filter.
+        :param where: A filter tree that the panels must also match.
+        :param keys: Keeps panels with one of these keys.
+        :param projects: Keeps the panels owned by any of these projects.
+        :param ranges: Keeps the panels owned by any of these ranges.
         :param search_term: A fuzzy search term matched against panel names.
-        :param limit: The maximum number of panels to return.
-        :param offset: The number of panels to skip before returning results.
-        :returns: The matching panel when ``key`` is provided, otherwise a list of
-            matching panels. The list leaves out keys that do not exist.
-        :raises NotFoundError: If ``key`` is provided and no panel exists for it.
+        :param limit: The maximum number of panels to retrieve.
+        :param offset: The number of panels to skip.
+        :param one: Returns one panel for any filter.
+        :returns: One panel for a plain ``key`` or when ``one`` is set, otherwise a list
+            of panels. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one panel is wanted and none matches.
+        :raises MultipleFoundError: If one panel is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one panel is wanted
+            beside a limit or an offset.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        flat = Where(
-            key=None if keys is None else filter.Set[Key](in_=keys),
-            projects=projects,
-            ranges=ranges,
+        single = returns_one(fields, one, limit, offset)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        res = self._client.send(
-            "/panel/retrieve",
-            RetrieveRequest(
-                where=filter.merge(where, flat),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            RetrieveResponse,
-        )
-        panels = res.panels
-        if is_single:
-            return one("Panel", key, panels)
-        return panels
+        res = self._client.send("/panel/retrieve", req, RetrieveResponse)
+        return sole("Panel", fields, res.panels) if single else res.panels

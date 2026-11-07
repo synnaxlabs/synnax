@@ -11,15 +11,16 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
@@ -55,6 +56,31 @@ class Where(BaseModel):
     host_is_node: bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "embedded": filter.BoolInput,
+        "integrations": filter.ContainsInput[str],
+        "host_is_node": bool,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+    },
+    total=False,
+)
 
 
 class Base(BaseModel):

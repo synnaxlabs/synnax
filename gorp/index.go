@@ -122,7 +122,7 @@ func indexFilter[K Key, E Entry[K], V comparable](
 	holds func(e *E, values []V) bool,
 	values []V,
 ) Filter[K, E] {
-	captured := append([]V(nil), values...)
+	captured := lo.Uniq(values)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			// eval drops the keys of a commit in flight that fails.

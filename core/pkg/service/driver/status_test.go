@@ -34,6 +34,7 @@ func replyFirst(ctx context.Context, h *driver.StatusHandler) error {
 		"cmd-1",
 		status.VariantSuccess,
 		"Command executed successfully",
+		"",
 		msgpack.EncodedJSON{"attempts": 3.0},
 	)
 }
@@ -460,12 +461,14 @@ var _ = Describe("StatusHandler", func() {
 					ctx,
 					"cmd-2",
 					status.VariantError,
+					"Failed to reach broker",
 					"connection refused",
 					msgpack.EncodedJSON{"attempts": 3.0},
 				)).To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("connection refused"))
+				Expect(stat.Message).To(Equal("Failed to reach broker"))
+				Expect(stat.Description).To(Equal("connection refused"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Data).To(HaveKeyWithValue("attempts", 3.0))
@@ -476,6 +479,7 @@ var _ = Describe("StatusHandler", func() {
 				ctx,
 				"cmd-2",
 				status.VariantError,
+				"Failed to reach broker",
 				"connection refused",
 				msgpack.EncodedJSON{"attempts": 3.0},
 			)).To(Succeed())
@@ -483,6 +487,7 @@ var _ = Describe("StatusHandler", func() {
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 			Expect(stat.Message).To(Equal("Task configured"))
+			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Details.Data).To(BeEmpty())
 		})
 	})

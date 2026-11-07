@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -37,8 +37,10 @@ export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 export type RetrieveSingleParams = { key: Key };

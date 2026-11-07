@@ -33,7 +33,7 @@ export type Key = z.infer<typeof keyZ>;
 /** ChannelEntry is a per-channel display configuration entry within a log. */
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
-  channel: channel.keyZ,
+  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
   /** color is the display color for the channel. */
   color: color.colorZ,
   /** notation is the numeric notation used to render samples. */
@@ -103,6 +103,8 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
+  /** timeZone is the time zone of the line times and day rows of the log. */
+  timeZone: telem.timeZoneZ.default("local"),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
   /**

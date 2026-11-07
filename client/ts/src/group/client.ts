@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, zod } from "@synnaxlabs/x";
+import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
@@ -45,8 +45,10 @@ const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 const retrieveAncestorsReqZ = z.object({ keys: keyZ.array() });
 
