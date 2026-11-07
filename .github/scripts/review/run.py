@@ -172,6 +172,16 @@ class Usage:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Pass:
+    """One pass of a review, before the review joins it with the others."""
+
+    lens: str | None
+    """The name of the pass's lens, or None for the pass with the rules."""
+    review: Review
+    usage: Usage
+
+
+@dataclass(frozen=True, kw_only=True)
 class PullRequest:
     number: int
     title: str
@@ -434,8 +444,8 @@ def _pass(
 
 def run(
     config: Config, pr: PullRequest, *, claude: Claude, workdir: Path
-) -> tuple[Review, Usage]:
-    """Reviews a pull request, and returns the review with what it cost.
+) -> tuple[Review, Usage, list[Pass]]:
+    """Reviews a pull request, and returns the review, what it cost, and each pass.
 
     The passes of the lenses start once the first response of the pass with the rules
     begins, so they read the shared prompt from the prompt cache.
@@ -457,7 +467,8 @@ def run(
             review, usage = _pass(
                 config, pr, rules, system=system, claude=claude, workdir=workdir
             )
-            return _cap(review, config.caps), usage
+            only = Pass(lens=None, review=review, usage=usage)
+            return _cap(review, config.caps), usage, [only]
         started = threading.Event()
 
         def focused(lens: Lens) -> tuple[Review, Usage]:
@@ -484,6 +495,12 @@ def run(
                 started=started,
             )
             lenses = pool.map(focused, config.lenses)
-            passes = [first.result(), *lenses]
-    review = _merge([r for r, _ in passes], caps=config.caps, open=pr.open)
-    return _cap(review, config.caps), Usage.combine([u for _, u in passes])
+            results = [first.result(), *lenses]
+    names = [None, *(lens.name for lens in config.lenses)]
+    passes = [
+        Pass(lens=n, review=r, usage=u)
+        for n, (r, u) in zip(names, results, strict=True)
+    ]
+    review = _merge([p.review for p in passes], caps=config.caps, open=pr.open)
+    usage = Usage.combine([p.usage for p in passes])
+    return _cap(review, config.caps), usage, passes

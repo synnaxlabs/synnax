@@ -128,7 +128,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         new=new,
     )
     with tempfile.TemporaryDirectory() as workdir:
-        result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
+        result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))
     record = {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "pr": target.pr,
@@ -137,6 +137,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         "policy": os.environ["POLICY_SHA"],
         "usage": dataclasses.asdict(usage),
         "review": dataclasses.asdict(result),
+        "passes": [dataclasses.asdict(p) for p in passes],
     }
     path.write_text(json.dumps(record))
 
