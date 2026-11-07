@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import ranger, status
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 TYPE_RANGE: Literal["range"] = "range"
@@ -138,8 +138,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="view")
+TYPE_RESOURCE_ID = ID(type="view")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="view", key=str(key))

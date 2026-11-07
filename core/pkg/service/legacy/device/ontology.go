@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -23,24 +24,24 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns the unique ID for the device within the ontology.
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}
+// ResourceID returns the unique ID for the device within the ontology.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeDevice, Key: key}
 }
 
-// OntologyIDsFromDevices returns the ontology IDs for the given devices.
-func OntologyIDsFromDevices(devices []Device) []ontology.ID {
-	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
+// ResourceIDsFromDevices returns the resource IDs for the given devices.
+func ResourceIDsFromDevices(devices []Device) []resource.ID {
+	return lo.Map(devices, func(d Device, _ int) resource.ID { return d.ResourceID() })
 }
 
-// OntologyIDs returns the ontology IDs for the given keys.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+// ResourceIDs returns the resource IDs for the given keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-// KeysFromOntologyIDs returns the keys for the given ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) []Key {
-	return lo.Map(ids, func(id ontology.ID, _ int) Key { return id.Key })
+// KeysFromResourceIDs returns the keys for the given resource IDs.
+func KeysFromResourceIDs(ids []resource.ID) []Key {
+	return lo.Map(ids, func(id resource.ID, _ int) Key { return id.Key })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -54,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, d.OntologyID(), d.Name, d)
+	return ontology.NewResource(schema, d.ResourceID(), d.Name, d)
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -62,7 +63,7 @@ var _ ontology.Service = (*Service)(nil)
 type change = xchange.Change[Key, Device]
 
 // Type returns the type of the device ontology service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
+func (s *Service) Type() resource.Type { return resource.TypeDevice }
 
 // RetrieveResource allows for retrieving a device with a given key from the ontology.
 func (s *Service) RetrieveResource(
@@ -83,7 +84,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -103,7 +104,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

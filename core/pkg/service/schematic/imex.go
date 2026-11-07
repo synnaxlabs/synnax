@@ -14,8 +14,8 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,17 +38,17 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
-) (ontology.ID, error) {
-	proj, err := project.KeyFromOntologyID(opts.Parent)
+) (resource.ID, error) {
+	proj, err := project.KeyFromResourceID(opts.Parent)
 	if err != nil {
-		return ontology.ID{}, validate.PathedError(err, "parent")
+		return resource.ID{}, validate.PathedError(err, "parent")
 	}
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	if err = s.NewWriter(tx).Create(ctx, proj, &sch); err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	return OntologyID(sch.Key), nil
+	return ResourceID(sch.Key), nil
 }

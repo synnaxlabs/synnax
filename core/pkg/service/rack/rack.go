@@ -19,4 +19,4 @@ func NewKey(node node.Key, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
 
-func StatusKey(k Key) status.Key { return k.OntologyID().String() }
+func StatusKey(k Key) status.Key { return k.ResourceID().String() }

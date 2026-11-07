@@ -19,8 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,7 +41,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
 			lp := lineplot.LinePlot{Name: "exported"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &lp)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(lp.Key)))
+			env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(lp.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
@@ -53,15 +53,15 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{
-				Type: ontology.ResourceTypeLineplot,
+			id := resource.ID{
+				Type: resource.TypeLineplot,
 				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: "not-a-uuid"}
+			id := resource.ID{Type: resource.TypeLineplot, Key: "not-a-uuid"}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
@@ -72,7 +72,7 @@ var _ = Describe("ImEx", func() {
 		) lineplot.LinePlot {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeLineplot))
+			Expect(id.Type).To(Equal(resource.TypeLineplot))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res lineplot.LinePlot
 			Expect(svc.NewRetrieve().
@@ -86,7 +86,7 @@ var _ = Describe("ImEx", func() {
 			res := importAndRetrieve(
 				ctx,
 				"versions/testdata/import_v5.json",
-				imex.ImportOptions{Parent: proj.OntologyID()},
+				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{1, 2}))
@@ -103,7 +103,7 @@ var _ = Describe("ImEx", func() {
 					"versions/testdata/import_v0_state.json",
 					imex.ImportOptions{
 						FileName: "Legacy Plot.json",
-						Parent:   proj.OntologyID(),
+						Parent:   proj.ResourceID(),
 					},
 				)
 				Expect(res.Name).To(Equal("Legacy Plot"))
@@ -133,7 +133,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("lineplot version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -150,7 +150,7 @@ var _ = Describe("ImEx", func() {
 					LoadEnvelope(
 						"versions/testdata/import_v5.json",
 					),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -169,12 +169,12 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
 				).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(original.Key)))
+				env := MustSucceed(svc.Export(ctx, lineplot.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
 					WireRoundTrip(env),
-					imex.ImportOptions{Parent: proj.OntologyID()},
+					imex.ImportOptions{Parent: proj.ResourceID()},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

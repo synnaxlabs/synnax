@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -154,7 +154,7 @@ func (s *Service) attachReadableStatuses(
 		err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{racks[i].OntologyID()},
+			Objects: []resource.ID{racks[i].ResourceID()},
 		})
 		// Create accepts update access, which does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
@@ -179,7 +179,7 @@ func (s *Service) attachStatuses(
 	statuses, err := s.status.Join[rack.StatusDetails](
 		ctx,
 		tx,
-		rack.OntologyIDsFromRacks(racks),
+		rack.ResourceIDsFromRacks(racks),
 	)
 	if err != nil {
 		return err
@@ -219,7 +219,7 @@ func (s *Service) enforceCreate(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: rack.OntologyIDsFromRacks(existing),
+			Objects: rack.ResourceIDsFromRacks(existing),
 		}); err != nil {
 			return err
 		}
@@ -237,7 +237,7 @@ func (s *Service) enforceCreate(
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+		Objects: []resource.ID{{Type: resource.TypeRack}},
 	})
 }
 
@@ -261,7 +261,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.OntologyIDsFromRacks(res.Racks),
+		Objects: rack.ResourceIDsFromRacks(res.Racks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -285,7 +285,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{req.Key.OntologyID()},
+		Objects: []resource.ID{req.Key.ResourceID()},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -311,7 +311,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: rack.OntologyIDs(req.Keys),
+		Objects: rack.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -351,5 +351,5 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
+		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
 }

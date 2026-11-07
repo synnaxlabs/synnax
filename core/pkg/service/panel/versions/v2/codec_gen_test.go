@@ -17,8 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
@@ -43,7 +43,7 @@ var _ = Describe("Codec", func() {
 					Tabs: []v2.Tab{
 						{Variant: v2.ResourceTab{
 							TabBase:  v2.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-							Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_8"},
+							Resource: resource.ID{Type: resource.Type("arc"), Key: "test_8"},
 						}},
 					},
 				}},
@@ -74,7 +74,7 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 			Tabs: []v2.Tab{
 				{Variant: v2.ResourceTab{
 					TabBase:  v2.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-					Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_8"},
+					Resource: resource.ID{Type: resource.Type("arc"), Key: "test_8"},
 				}},
 			},
 		}},
@@ -110,7 +110,7 @@ func FuzzDecodePanel(f *testing.F) {
 				Tabs: []v2.Tab{
 					{Variant: v2.ResourceTab{
 						TabBase:  v2.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-						Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_8"},
+						Resource: resource.ID{Type: resource.Type("arc"), Key: "test_8"},
 					}},
 				},
 			}},

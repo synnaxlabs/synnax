@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type ontology, type resource } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -40,7 +40,7 @@ export interface ListItemProps extends Omit<BaseListItemProps, "icon" | "onSelec
 
 export interface ListItem extends FC<ListItemProps> {}
 
-export interface ListItems extends Partial<Record<ontology.ResourceType, ListItem>> {}
+export interface ListItems extends Partial<Record<resource.Type, ListItem>> {}
 
 export interface CreateListItemParams extends Pick<BaseListItemProps, "icon"> {
   useOnSelect?: () => (item: ontology.Resource) => void;

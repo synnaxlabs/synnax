@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -70,12 +71,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(a.OntologyID()).
+				WhereIDs(a.ResourceID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
+			Expect(parents[0].ID.Type).To(Equal(resource.TypeArcDirectory))
 			Expect(parents[0].Name).To(Equal("Arcs"))
 		})
 
@@ -268,9 +269,9 @@ var _ = Describe("Writer", func() {
 
 			Expect(otg.NewWriter(tx).DefineRelationships(
 				ctx,
-				a.OntologyID(),
+				a.ResourceID(),
 				ontology.RelationshipTypeParentOf,
-				t.OntologyID(),
+				t.ResourceID(),
 			)).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())
@@ -326,15 +327,15 @@ var _ = Describe("Writer", func() {
 				otgWriter := otg.NewWriter(tx)
 				Expect(otgWriter.DefineRelationships(
 					ctx,
-					a.OntologyID(),
+					a.ResourceID(),
 					ontology.RelationshipTypeParentOf,
-					t1.OntologyID(),
+					t1.ResourceID(),
 				)).To(Succeed())
 				Expect(otgWriter.DefineRelationships(
 					ctx,
-					a.OntologyID(),
+					a.ResourceID(),
 					ontology.RelationshipTypeParentOf,
-					t2.OntologyID(),
+					t2.ResourceID(),
 				)).To(Succeed())
 
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Base().Key)).To(Succeed())

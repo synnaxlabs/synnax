@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology } from "@synnaxlabs/client";
+import { group, type resource } from "@synnaxlabs/client";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -55,12 +55,12 @@ const pressKey = (code: string): void => {
 const createParentGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
   return await client.groups.create({
-    parent: group.ontologyID(root.key),
+    parent: group.resourceID(root.key),
     name: uniqueName("edit_grp"),
   });
 };
 
-const childNames = async (id: ontology.ID): Promise<string[]> =>
+const childNames = async (id: resource.ID): Promise<string[]> =>
   (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
 
 const openCreateModal = async (createKey?: string) => {
@@ -68,7 +68,7 @@ const openCreateModal = async (createKey?: string) => {
   const picker = interceptFilePicker();
   const handle = await renderModalOpener(
     Schematic.Symbol.Edit.useModal,
-    [{ parent: group.ontologyID(grp.key), createKey }],
+    [{ parent: group.resourceID(grp.key), createKey }],
     { client, additionalRegistry: theming.REGISTRY },
   );
   return { grp, picker, handle };
@@ -107,7 +107,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.change(findNameInput(), { target: { value: name } });
       fireEvent.click(findButton("Create"));
       await waitFor(async () =>
-        expect(await childNames(group.ontologyID(grp.key))).toContain(name),
+        expect(await childNames(group.resourceID(grp.key))).toContain(name),
       );
       await waitFor(() =>
         expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
@@ -121,7 +121,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.change(findNameInput(), { target: { value: name } });
       pressSaveTrigger();
       await waitFor(async () =>
-        expect(await childNames(group.ontologyID(grp.key))).toContain(name),
+        expect(await childNames(group.resourceID(grp.key))).toContain(name),
       );
     });
 
@@ -276,11 +276,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const original = uniqueName("existing");
       const symbol = await client.schematics.symbols.create({
         ...createSymbolPayload(original),
-        parent: group.ontologyID(grp.key),
+        parent: group.resourceID(grp.key),
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, parent: group.ontologyID(grp.key) }],
+        [{ symbolKey: symbol.key, parent: group.resourceID(grp.key) }],
         { client, additionalRegistry: theming.REGISTRY },
       );
       // The modal suspends on the symbol retrieve, which can outlast the default

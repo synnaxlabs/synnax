@@ -9,7 +9,7 @@
 
 import "@/platform/tree/search.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { type ontology, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -35,9 +35,9 @@ export type SearchLayout = "flat" | "groups";
 export interface SearchQuery {
   term: string;
   /** The tree root. A match outside it does not show. */
-  root: ontology.ID;
+  root: resource.ID;
   /** The folder types and the types the toolbar searches for. */
-  types: ontology.ResourceType[];
+  types: resource.Type[];
   /** The most matches a source returns. */
   limit: number;
 }
@@ -45,7 +45,7 @@ export interface SearchQuery {
 /** The matches one source found, in rank order. */
 export type Matches =
   | { variant: "loading" }
-  | { variant: "success"; ids: ontology.ID[] }
+  | { variant: "success"; ids: resource.ID[] }
   | { variant: "error"; description?: string };
 
 /**
@@ -59,7 +59,7 @@ export interface UseMatches {
 /** Converts a Flux result into the matches of one source. */
 export const toMatches = <T extends state.State>(
   result: Flux.Result<T[]>,
-  toID: (item: T) => ontology.ID,
+  toID: (item: T) => resource.ID,
 ): Matches => {
   if (result.variant === "success")
     return { variant: "success", ids: result.data.map(toID) };
@@ -68,7 +68,7 @@ export const toMatches = <T extends state.State>(
   return { variant: "loading" };
 };
 
-const resourceID = ({ id }: ontology.Resource): ontology.ID => id;
+const resourceID = ({ id }: ontology.Resource): resource.ID => id;
 
 /** Matches the resources of the query types under the root by name. */
 export const useOntologyMatches: UseMatches = (query) => {
@@ -89,7 +89,7 @@ export interface CreateSearchParams {
   /** What the search finds, in the plural, such as "channels". */
   noun: string;
   /** The types the search finds along with the folders, such as "arc". */
-  types?: ontology.ResourceType[];
+  types?: resource.Type[];
   /** Defaults to {@link useOntologyMatches}. */
   useMatches?: UseMatches;
 }
@@ -102,7 +102,7 @@ export interface ResultNodes {
   /** Groups to open on arrival, so the matches inside them show. */
   expanded: string[];
   /** The parent of each node at the top of the results. */
-  parents: Map<string, ontology.ID>;
+  parents: Map<string, resource.ID>;
   /** The keys of every group above each match, over all of its paths. */
   ancestors: Map<string, Set<string>>;
 }
@@ -137,7 +137,7 @@ export interface Search {
 
 /** Runs the search of the tree under root. A null root searches nothing. */
 export interface UseSearch {
-  (root: ontology.ID | null): Search;
+  (root: resource.ID | null): Search;
 }
 
 export interface SearchActionProps {
@@ -257,12 +257,12 @@ export const MatchProvider = ({ value, children }: MatchProviderProps) => (
 export const useHighlight = (): string | undefined => use(MatchContext)?.term;
 
 export interface MatchGroupProps {
-  id: ontology.ID;
+  id: resource.ID;
 }
 
 /** Shows the group of a match in the flat layout. Renders nothing elsewhere. */
 export const MatchGroup = ({ id }: MatchGroupProps): ReactElement | null => {
-  const name = use(MatchContext)?.groups.get(ontology.idToString(id));
+  const name = use(MatchContext)?.groups.get(resource.idToString(id));
   if (name == null) return null;
   return (
     <Text.Text

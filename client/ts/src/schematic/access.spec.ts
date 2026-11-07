@@ -37,7 +37,7 @@ describe("schematic", () => {
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({
@@ -54,7 +54,7 @@ describe("schematic", () => {
     it("should allow the caller to create schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: ["create"],
       });
       const proj = await client.projects.create({
@@ -68,7 +68,7 @@ describe("schematic", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({
@@ -84,7 +84,7 @@ describe("schematic", () => {
     it("should allow the caller to delete schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({
@@ -102,7 +102,7 @@ describe("schematic", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematic.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({

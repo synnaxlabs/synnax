@@ -59,19 +59,19 @@ const createTask = async () => {
 };
 
 const renderTaskTree = async (t: task.Task) => {
-  const [parent] = await client.ontology.parents.retrieve({ ids: t.ontologyID });
+  const [parent] = await client.ontology.parents.retrieve({ ids: t.resourceID });
   const grp = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("taskgrp"),
   });
   await client.ontology.moveChildren(
     parent.id,
-    group.ontologyID(grp.key),
-    t.ontologyID,
+    group.resourceID(grp.key),
+    t.resourceID,
   );
   return await renderOntologyTree({
     client,
-    root: group.ontologyID(grp.key),
+    root: group.resourceID(grp.key),
     items: Task.TREE_ITEMS,
   });
 };
@@ -87,7 +87,7 @@ const createMenuProps = async ({
   overrides,
   snapshot = false,
 }: CreateMenuPropsParams): Promise<Tree.ContextMenuProps> => {
-  const ids = tasks.map((t) => t.ontologyID);
+  const ids = tasks.map((t) => t.resourceID);
   const store = await createTestStore();
   return {
     ...createBaseProps({ client, store, overrides }),
@@ -206,7 +206,7 @@ describe("task ontology", () => {
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
         const children = await client.ontology.children.retrieve({
-          ids: rng.ontologyID,
+          ids: rng.resourceID,
         });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
@@ -229,7 +229,7 @@ describe("permission to write the task", () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {
       client,
-      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+      resources: [createResource(t.resourceID, t.name, { snapshot: false })],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -238,7 +238,7 @@ describe("permission to write the task", () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {
       client: await roles.get("Viewer"),
-      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+      resources: [createResource(t.resourceID, t.name, { snapshot: false })],
     });
     expect(await screen.findByText("Export")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

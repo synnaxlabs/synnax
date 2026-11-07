@@ -42,7 +42,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       dispatch(Session.Project.select(key));
       createPanel({
         name: "New panel",
-        parent: project.ontologyID(key),
+        parent: project.resourceID(key),
         root: { variant: "leaf", tabs: [Selector.createEmptyTab()] },
       });
       close();

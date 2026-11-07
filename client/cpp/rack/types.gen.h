@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
@@ -207,9 +207,9 @@ struct RetrieveResponse {
     from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("rack", std::to_string(key));
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("rack", std::to_string(key));
 }
 }

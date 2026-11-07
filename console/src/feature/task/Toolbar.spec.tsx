@@ -415,7 +415,7 @@ describe("task/Toolbar", () => {
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       const snapshots = await waitFor(async () => {
         const children = await client.ontology.children.retrieve({
-          ids: rng.ontologyID,
+          ids: rng.resourceID,
         });
         const tasks = children.filter((c) => c.id.type === "task");
         expect(tasks).not.toHaveLength(0);

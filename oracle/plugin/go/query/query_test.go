@@ -56,7 +56,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -128,7 +128,7 @@ var _ = Describe("Go Query Plugin", func() {
 						second {
 							count int32
 						}
-						@ontology type "view"
+						@resource type "view"
 						@retrieve
 					}
 				`
@@ -159,7 +159,7 @@ var _ = Describe("Go Query Plugin", func() {
 						first {
 							size int32
 						}
-						@ontology type "view"
+						@resource type "view"
 						@retrieve
 					}
 				`
@@ -302,7 +302,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					Foo struct extends Base {
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -333,7 +333,7 @@ var _ = Describe("Go Query Plugin", func() {
 						label Label @search
 						kind Kind @search
 						size int32
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -355,7 +355,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Search(term string) Retrieve",
 							"return r.Where(MatchSearch(term))",
 						).
-						ToNotContain("execSearch", "searchTerm", "KeysFromOntologyIDs")
+						ToNotContain("execSearch", "searchTerm", "KeysFromResourceIDs")
 				},
 			)
 
@@ -371,7 +371,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@index lookup
 							@search
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -411,7 +411,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					Foo struct extends Base {
 						size int32
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -541,7 +541,7 @@ var _ = Describe("Go Query Plugin", func() {
 						internal bool {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -572,7 +572,7 @@ var _ = Describe("Go Query Plugin", func() {
 						flag Flag {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -593,7 +593,7 @@ var _ = Describe("Go Query Plugin", func() {
 						author uuid {
 							@filter scalar
 						}
-						@ontology type "workspace"
+						@resource type "workspace"
 						@retrieve
 					}
 				`
@@ -621,7 +621,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@filter
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -649,7 +649,7 @@ var _ = Describe("Go Query Plugin", func() {
 						integrations string[]? {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -689,7 +689,7 @@ var _ = Describe("Go Query Plugin", func() {
 						rack rack.Key {
 							@filter
 						}
-						@ontology type "device"
+						@resource type "device"
 						@retrieve
 					}
 				`
@@ -714,7 +714,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -744,7 +744,7 @@ var _ = Describe("Go Query Plugin", func() {
 						embedded bool
 						integrations string[]
 						location string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 
@@ -781,7 +781,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 
@@ -808,7 +808,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string @search
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -837,7 +837,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -871,7 +871,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -895,7 +895,7 @@ var _ = Describe("Go Query Plugin", func() {
 						key uint32 {
 							@key
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -926,7 +926,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -1083,7 +1083,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "device"
+						@resource type "device"
 						@retrieve
 					}
 				`
@@ -1105,7 +1105,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -1131,7 +1131,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "log"
+						@resource type "log"
 						@retrieve
 					}
 				`
@@ -1158,7 +1158,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@filter
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1179,7 +1179,7 @@ var _ = Describe("Go Query Plugin", func() {
 						internal bool {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -1200,7 +1200,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string @search
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1231,7 +1231,7 @@ var _ = Describe("Go Query Plugin", func() {
 						active bool {
 							@filter
 						}
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1278,7 +1278,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@filter
 							@index lookup
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1322,7 +1322,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@index lookup
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1356,7 +1356,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@filter scalar
 							@index sorted
 						}
-						@ontology type "event"
+						@resource type "event"
 						@retrieve
 					}
 				`
@@ -1399,7 +1399,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1451,7 +1451,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 

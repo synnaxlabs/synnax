@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -139,7 +140,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
 	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Metrics", cfg.Channel.Group().OntologyID(),
+		ctx, "Metrics", cfg.Channel.Group().ResourceID(),
 	); err != nil {
 		return nil, err
 	}
@@ -169,7 +170,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err := s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			[]ontology.ID{idx.OntologyID()},
+			[]resource.ID{idx.ResourceID()},
 		); err != nil {
 			return err
 		}
@@ -189,9 +190,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		// metrics channels
 		for _, ch := range metricsChannels {
 			if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-				From: cfg.Channel.Group().OntologyID(),
+				From: cfg.Channel.Group().ResourceID(),
 				Type: ontology.RelationshipTypeParentOf,
-				To:   ch.OntologyID(),
+				To:   ch.ResourceID(),
 			}); err != nil {
 				return err
 			}
@@ -203,7 +204,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(metricsChannels),
+			channel.ResourceIDsFromChannels(metricsChannels),
 		); err != nil {
 			return err
 		}
@@ -226,7 +227,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(calculatedChannels),
+			channel.ResourceIDsFromChannels(calculatedChannels),
 		); err != nil {
 			return err
 		}
@@ -276,7 +277,7 @@ func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Clos
 func (s *Service) maybeDefineGroupRelationship(
 	ctx context.Context,
 	tx gorp.Tx,
-	channelIDs []ontology.ID,
+	channelIDs []resource.ID,
 ) error {
 	otgWriter := s.cfg.Ontology.NewWriter(tx)
 	for _, chID := range channelIDs {
@@ -284,7 +285,7 @@ func (s *Service) maybeDefineGroupRelationship(
 		if err := s.cfg.Ontology.NewRetrieve().
 			WhereIDs(chID).
 			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(ontology.ResourceTypeGroup).
+			WhereTypes(resource.TypeGroup).
 			Entries(&parents).
 			Exec(ctx, tx); err != nil {
 			return err
@@ -294,7 +295,7 @@ func (s *Service) maybeDefineGroupRelationship(
 		}
 		if err := otgWriter.DefineRelationships(
 			ctx,
-			s.group.OntologyID(),
+			s.group.ResourceID(),
 			ontology.RelationshipTypeParentOf,
 			chID,
 		); err != nil {

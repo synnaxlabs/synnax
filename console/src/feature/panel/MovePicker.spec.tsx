@@ -57,7 +57,7 @@ const createPanel = async (
     ...appearance,
     key: uuid.create(),
     name: uniqueName("panel"),
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
     root: { variant: "leaf", tabs },
   });
 

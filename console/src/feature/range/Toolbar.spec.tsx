@@ -50,7 +50,7 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   const tab = await resolveFocusedTab(store, client);
   if (tab.variant !== "resource")
     throw new Error("focused tab is not a range resource");
-  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
+  expect(tab.resource.type).toBe(ranger.TYPE_RESOURCE_ID.type);
   expect(tab.resource.key).toBe(key);
 };
 
@@ -358,11 +358,11 @@ describe("range/ContextMenu permissions", () => {
     await createTestClientWithGrants(client, {
       ...grants,
       retrieve: [
-        ranger.TYPE_ONTOLOGY_ID,
-        lineplot.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        panel.TYPE_ONTOLOGY_ID,
+        ranger.TYPE_RESOURCE_ID,
+        lineplot.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
       ],
     });
 
@@ -382,8 +382,8 @@ describe("range/ContextMenu permissions", () => {
     await renderToolbar({
       ranges: [toState(rng)],
       as: await createSubject({
-        create: [ranger.TYPE_ONTOLOGY_ID],
-        update: [ranger.TYPE_ONTOLOGY_ID],
+        create: [ranger.TYPE_RESOURCE_ID],
+        update: [ranger.TYPE_RESOURCE_ID],
       }),
     });
     await openContextMenu(rng.name);
@@ -396,7 +396,7 @@ describe("range/ContextMenu permissions", () => {
     const rng = await createTestRange(client);
     await renderToolbar({
       ranges: [toState(rng)],
-      as: await createSubject({ create: [lineplot.TYPE_ONTOLOGY_ID] }),
+      as: await createSubject({ create: [lineplot.TYPE_RESOURCE_ID] }),
     });
     await openContextMenu(rng.name);
     expect(await screen.findByText("Add to new plot")).toBeTruthy();

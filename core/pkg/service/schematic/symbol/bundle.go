@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -43,7 +44,7 @@ func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
 	encoder encoding.FileEncoder,
-) (zip.Files, []ontology.ID, error) {
+) (zip.Files, []resource.ID, error) {
 	root, children, err := s.retrieveGroup(ctx, nil, key)
 	if err != nil {
 		return nil, nil, err
@@ -51,7 +52,7 @@ func (s *Service) ExportGroup(
 	symbols, skipped := partitionSymbols(children)
 	s.warnSkipped(root.Name, skipped)
 	imex.SortResources(symbols)
-	members := lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
+	members := lo.Map(symbols, func(r ontology.Resource, _ int) resource.ID {
 		return r.ID
 	})
 	ext := encoder.Extension()
@@ -152,7 +153,7 @@ func (s *Service) ImportGroup(
 	if err = validateMemberNames(members); err != nil {
 		return group.Group{}, err
 	}
-	g, err := s.cfg.Group.NewWriter(tx).Create(ctx, manifest.Name, s.group.OntologyID())
+	g, err := s.cfg.Group.NewWriter(tx).Create(ctx, manifest.Name, s.group.ResourceID())
 	if err != nil {
 		return group.Group{}, err
 	}
@@ -162,7 +163,7 @@ func (s *Service) ImportGroup(
 			tx,
 			name,
 			files[name],
-			g.OntologyID(),
+			g.ResourceID(),
 		); err != nil {
 			return group.Group{}, err
 		}
@@ -249,7 +250,7 @@ func (s *Service) importMember(
 	tx gorp.Tx,
 	name string,
 	data []byte,
-	parent ontology.ID,
+	parent resource.ID,
 ) error {
 	var env imex.Envelope
 	if err := imex.Codec.Decode(ctx, data, &env); err != nil {
@@ -259,7 +260,7 @@ func (s *Service) importMember(
 	if err != nil {
 		return errors.Wrap(err, name)
 	}
-	if typ != string(ontology.ResourceTypeSchematicSymbol) {
+	if typ != string(resource.TypeSchematicSymbol) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"member %q is a %q, not a schematic symbol", name, typ,
