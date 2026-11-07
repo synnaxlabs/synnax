@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   type destructor,
+  errors,
   filter,
   scheduler,
   TimeSpan,
@@ -18,6 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
+import { AccessDeniedError } from "@/errors";
 import { type label } from "@/label";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
@@ -103,7 +105,26 @@ export class Client extends query.Retriever<
     exec: async (requests) => {
       const owners = requests.flatMap(({ req }) => req);
       const since = this.store.stamp();
-      const statuses = await this.execRetrieve({ where: { owners } });
+      let statuses: Status[];
+      try {
+        statuses = await this.execRetrieve({ where: { owners } });
+      } catch (exc) {
+        if (!AccessDeniedError.matches(exc) || requests.length === 1)
+          throw errors.fromUnknown(exc);
+        // A denied status fails the whole batch, so each caller fetches alone.
+        await Promise.all(
+          requests.map(async ({ req, resolve, reject }) => {
+            try {
+              const own = await this.execRetrieve({ where: { owners: req } });
+              this.store.ingest(own, { since });
+              resolve(own);
+            } catch (exc) {
+              reject(exc);
+            }
+          }),
+        );
+        return;
+      }
       this.store.ingest(statuses, { since });
       requests.forEach(({ req, resolve }) => {
         const wanted = new Set(resource.idToString(req));
