@@ -257,18 +257,15 @@ class Client:
             variant=None if variants is None else filter.Set[Variant](in_=variants),
             labels=has_labels,
         )
-        res = self.client.send(
-            _RETRIEVE_ENDPOINT,
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                offset=offset,
-                limit=limit,
-                include_labels=include_labels,
-            ),
-            RetrieveResponse,
-        ).statuses
-        return sole("Status", fields, res) if single else res
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            offset=offset,
+            limit=limit,
+            include_labels=include_labels,
+        )
+        res = self.client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse).statuses
+        return sole("status", req, res) if single else res
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a status.

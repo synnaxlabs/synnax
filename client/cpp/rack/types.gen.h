@@ -177,6 +177,9 @@ struct Rack {
     /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
     /// integrations.
     std::vector<std::string> integrations = {};
+    /// @brief version is the version of the Driver that runs the rack, written at each
+    /// connect. Absent until a Driver reports it.
+    std::optional<std::string> version;
 
     static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

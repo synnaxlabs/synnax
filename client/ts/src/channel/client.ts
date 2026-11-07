@@ -30,6 +30,7 @@ import {
   isCalculated,
   type Params,
   type PrimitiveParams,
+  singleWhere,
   statusKey,
 } from "@/channel/payload";
 import {
@@ -275,15 +276,18 @@ const singleParamsZ = z
   .transform(normalizeSingle);
 
 /**
- * @returns the names of a request whose where selects a list of names and nothing
- * else, with no other field of the request set. Returns null for any other request.
+ * @returns the names of a request whose where selects one name or a list of names and
+ * nothing else, with no other field of the request set. Returns null for any other
+ * request.
  */
 const onlyNames = ({ where, ...rest }: RetrieveRequest): string[] | null => {
   if (!Object.values(rest).every((v) => v == null) || where == null) return null;
   const { name, ...others } = where;
-  if (name?.in == null || Object.values(others).some((v) => v != null)) return null;
-  const { in: names, ...ops } = name;
-  return Object.values(ops).some((v) => v != null) ? null : names;
+  if (name == null || Object.values(others).some((v) => v != null)) return null;
+  const { eq, in: names, ...ops } = name;
+  if (Object.values(ops).some((v) => v != null)) return null;
+  if (eq == null) return names ?? null;
+  return names == null ? [eq] : null;
 };
 
 const affectedChannelKeys = (
@@ -556,17 +560,25 @@ export class Client extends query.Retriever<
     const normalized =
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
-      checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
+      if (isSingle)
+        checkForMultipleOrNoResults(
+          "channel",
+          { where: singleWhere(rawNormalized[0]) },
+          [],
+          true,
+        );
       return [];
     }
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const { where } = shortcutZ.parse(normalized);
+    const where = isSingle
+      ? singleWhere(normalized[0])
+      : shortcutZ.parse(normalized).where;
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
-    checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
+    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -716,7 +728,12 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults("channel", key, fetched, true);
+      checkForMultipleOrNoResults(
+        "channel",
+        { where: { key: { eq: key } } },
+        fetched,
+        true,
+      );
       [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the

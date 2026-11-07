@@ -75,14 +75,6 @@ func (r Retrieve) WhereIDs(ids ...resource.ID) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-// SkipMissingIDs makes Exec treat an ID of the current clause with no resource as a
-// non-match instead of returning query.ErrNotFound.
-func (r Retrieve) SkipMissingIDs() Retrieve {
-	c := r.currentClause()
-	c.Retrieve = c.SkipMissingKeys()
-	return r.setCurrentClause(c)
-}
-
 // WhereTypes filters resources by the provided types.
 func (r Retrieve) WhereTypes(types ...resource.Type) Retrieve {
 	c := r.currentClause()

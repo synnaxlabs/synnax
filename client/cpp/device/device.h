@@ -144,13 +144,6 @@ public:
     x::errors::Error del(const std::vector<std::string> &keys) const;
 
 private:
-    [[nodiscard]]
-    std::pair<Device, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Device creation transport.
     std::unique_ptr<CreateClient> device_create_client;
     /// @brief Device retrieval transport.
