@@ -26,7 +26,6 @@ import {
 import { MAKE } from "@/feature/sift/device/types";
 import { progress } from "@/feature/sift/range/progress";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
-import { FLAGS } from "@/flags";
 
 const UPLOAD_KEY_PREFIX = "sift_upload:";
 
@@ -91,7 +90,7 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
     filter: ({ id }) => id.type === "status" && id.key.startsWith(UPLOAD_KEY_PREFIX),
   });
   const { fetchMore } = List.usePager({ retrieve });
-  if (!FLAGS.sift || (data.length === 0 && devices.length === 0)) return null;
+  if (data.length === 0 && devices.length === 0) return null;
   return (
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>

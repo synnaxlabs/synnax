@@ -9,7 +9,6 @@
 
 import { Stream, StreamSelectable } from "@/feature/sift/task/Stream";
 import { STREAM_TYPE } from "@/feature/sift/task/types";
-import { FLAGS } from "@/flags";
 import { type Selector } from "@/platform/selector";
 import { type Task } from "@/platform/task";
 
@@ -17,6 +16,6 @@ export * from "@/feature/sift/task/commands";
 export * from "@/feature/sift/task/Stream";
 export * from "@/feature/sift/task/types";
 
-export const FORMS: Task.Forms = FLAGS.sift ? { [STREAM_TYPE]: Stream } : {};
+export const FORMS: Task.Forms = { [STREAM_TYPE]: Stream };
 
-export const SELECTABLES: Selector.Selectable[] = FLAGS.sift ? [StreamSelectable] : [];
+export const SELECTABLES: Selector.Selectable[] = [StreamSelectable];
