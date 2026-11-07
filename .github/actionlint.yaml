@@ -9,6 +9,7 @@
 
 self-hosted-runner:
   labels:
+    - hitl
     - macos-build-bot
     - review
     - ubuntu-agent-bot
