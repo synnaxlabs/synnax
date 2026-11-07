@@ -136,8 +136,9 @@ demoted package all fail it.
 
 - An edit that changes what a version resolves to updates the sums by itself on the next
   sync. A comment or format edit leaves them as they are.
-- A change to what the schema hash covers bumps its scheme prefix (`s1:`) in
-  `oracle/frozen`. Across a scheme change, the gate compares outputs alone.
+- A change to what the schema hash covers bumps its scheme prefix (`s2:`) in
+  `oracle/frozen`. A spec pins one hash, so it fails until you bump. Across a scheme
+  change, the gate compares outputs alone.
 - A mint must leave the demoted package byte-identical. When the gate flags a mint, find
   what moved. Keep a live rule by restating the field in the version file, or fix the
   generator.

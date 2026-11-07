@@ -261,6 +261,56 @@ Doc struct {
 			},
 		)
 
+		It("Should change the schema sum when a pinned parent union gains a variant",
+			func(ctx SpecContext) {
+				doc := `
+import "schemas/x/versions/shape/v0"
+
+Any union on kind extends shape.Shape {}
+
+Doc struct {
+	key uuid @key
+	any Any
+
+	@go marshal
+}
+`
+				write("schemas/synnax/versions/doc/v0.oracle", doc)
+				write("schemas/synnax/doc.oracle", `
+import "schemas/x/shape"
+
+@go output "core/pkg/service/doc"
+
+Any union on kind extends shape.Shape {}
+
+Doc struct {
+	key uuid @key
+	any Any
+
+	@go marshal
+}
+`)
+				shape := "Circle struct {\n\tr float64\n}\n\n" +
+					"Shape union on kind {\n\tcircle Circle\n}\n"
+				write("schemas/x/versions/shape/v0.oracle", shape)
+				write("schemas/x/shape.oracle", "@go output \"x/go/shape\"\n\n"+shape)
+				before := compute(ctx, v0File, v1File).Sums[0].Schema
+				write("schemas/x/versions/shape/v0.oracle",
+					"Circle struct {\n\tr float64\n}\n\n"+
+						"Shape union on kind {\n\tcircle Circle\n\tdot Circle\n}\n")
+				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
+					ToNot(Equal(before))
+			},
+		)
+
+		It("Should keep the schema hash under its scheme", func(ctx SpecContext) {
+			// A failure means hashSchema changed what it hashes: bump schemaScheme in
+			// frozen.go, then update this value.
+			Expect(compute(ctx, v0File, v1File).Sums[0].Schema).To(Equal(
+				"s2:e985ec57e58010f28cd2a7f2b1608380e7bf196fef8445d40d6aafdfbb73acf3",
+			))
+		})
+
 		It("Should keep the schema sum when a live dependency changes",
 			func(ctx SpecContext) {
 				doc := `
