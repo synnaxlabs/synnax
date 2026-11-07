@@ -236,8 +236,14 @@ start them again.
 
 <Edition.Enterprise>
 
-The IgH master does not run DC sync. With IgH, a DC sync mode selected under **Sync
-mode** fails the start.
+The IgH master does not run DC sync and reads no sync modes, so **Sync mode** lists
+none. A module that needs DC sync, such as a Dewesoft module set to DC sync, cannot
+reach OP with IgH. A DC sync mode selected during an earlier scan with the built-in
+master fails the start.
+
+The Driver uses IgH whenever the IgH kernel module is loaded. To use the built-in master
+instead, stop IgH, for example with `sudo systemctl stop ethercat`, then
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
 
 </Edition.Enterprise>
 
@@ -401,8 +407,9 @@ The error gives the reason, for example:
 
 - The module does not list the mode, such as after a firmware update. The error lists
   the modes of the module, and the Configure dialog marks the mode. Select a mode again.
-- A SYNC0 or SYNC1 cycle is set on a mode that does not run SYNC0. Clear the cycles, or
-  select a DC sync mode that runs SYNC0.
+- A SYNC0 or SYNC1 cycle is set on a mode that does not run SYNC0, or on a mode in which
+  the module sets its own clock ticks. Clear the cycles, or select a mode that takes
+  them.
 
 ### "the clock of slave ... is ... off the reference clock"
 
