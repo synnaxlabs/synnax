@@ -11,7 +11,7 @@ import { type IncomingMessage } from "node:http";
 import { type AddressInfo } from "node:net";
 
 import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
@@ -224,10 +224,20 @@ describe("flow control", () => {
     ws.on("message", (data: Buffer) => {
       received.push(codec.decode(data, msgZ).payload.id ?? -1);
     });
+    const first = new Promise((resolve) => ws.once("message", resolve));
     await stream.send({ id: 0, message: "x".repeat(32 * 1024 * 1024) });
-    const waiting = [1, 2, 3, 4, 5].map(async (id) => await stream.send({ id }));
-    req.socket.resume();
-    await Promise.all(waiting);
-    await expect.poll(() => received).toEqual([0, 1, 2, 3, 4, 5]);
+    // Holds the drain poll of the waiting send, so the buffer drains before it wakes.
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      const waiting = stream.send({ id: 1 });
+      req.socket.resume();
+      await first;
+      const late = stream.send({ id: 2 });
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.all([waiting, late]);
+    } finally {
+      vi.useRealTimers();
+    }
+    await expect.poll(() => received).toEqual([0, 1, 2]);
   });
 });
