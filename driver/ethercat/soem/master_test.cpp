@@ -72,6 +72,13 @@ protected:
     std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
+        this->create_master(x::telem::MILLISECOND * 50);
+        this->brk.start();
+    }
+
+    /// @brief replaces the master with one on a new mock that gives the DC clocks
+    /// dc_settle_timeout to settle.
+    void create_master(const x::telem::TimeSpan dc_settle_timeout) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(
@@ -80,10 +87,9 @@ protected:
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
                 .state_change_timeout = x::telem::MILLISECOND * 100,
-                .dc_settle_timeout = x::telem::MILLISECOND * 50,
+                .dc_settle_timeout = dc_settle_timeout,
             }
         );
-        this->brk.start();
     }
 
     void TearDown() override { this->brk.stop(); }
@@ -189,6 +195,31 @@ protected:
         cycling = false;
         cycle.join();
         return health;
+    }
+
+    /// @brief checks a DC slave that came back from a power loss with a clock that does
+    /// not settle in 10 s, and stops the breaker 100 ms into the check. A bus cycle
+    /// exchanges process data during the check when cycling is true.
+    /// @returns how long the check took.
+    std::chrono::steady_clock::duration stop_during_restore(const bool cycling) {
+        this->create_master(x::telem::SECOND * 10);
+        this->initialize_with_dc_slave({DC_ONLY});
+        this->activate_master();
+        this->mock->slave_infos[0].state = EC_STATE_INIT;
+        this->mock->register_values[{1, 0x092C}] = bytes<uint32_t>(20'000);
+        std::atomic<bool> running = cycling;
+        std::thread cycle([&] { this->cycle(running); });
+        std::thread stop([this] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            this->brk.stop();
+        });
+        const auto start = std::chrono::steady_clock::now();
+        this->master->check(this->brk);
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        stop.join();
+        running = false;
+        cycle.join();
+        return elapsed;
     }
 
     /// @brief activates the master with two DC slaves named 16xAO that list modes. The
@@ -1515,6 +1546,28 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should end the restore of a DC slave whose clock does not settle once the
+/// breaker stops, well before the settle timeout.
+TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
+    EXPECT_LT(this->stop_during_restore(true), std::chrono::seconds(1));
+    EXPECT_EQ(
+        this->master->check(this->brk)[0].al_status,
+        "Failed to restore the distributed clock: the bus stopped before the clocks "
+        "settled"
+    );
+}
+
+/// @brief it should end the restore of a DC slave that waits for a frame once the
+/// breaker stops, well before the settle timeout.
+TEST_F(SOEMMasterTest, CheckEndsAFrameWaitOfAClockRestoreOnceTheBreakerStops) {
+    EXPECT_LT(this->stop_during_restore(false), std::chrono::seconds(1));
+    EXPECT_EQ(
+        this->master->check(this->brk)[0].al_status,
+        "Failed to restore the distributed clock: the bus stopped before the clocks "
+        "settled"
+    );
 }
 
 /// @brief it should leave the clock registers of a slave without DC alone when it

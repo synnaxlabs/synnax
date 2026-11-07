@@ -67,6 +67,11 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
+/// @brief whether a wait must end because its breaker stopped.
+bool stopped(const x::breaker::Breaker *breaker) {
+    return breaker != nullptr && !breaker->running();
+}
+
 /// @brief returns the host steady clock time in nanoseconds.
 int64_t steady_now() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -278,20 +283,6 @@ x::errors::Error Master::activate(
         );
     if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
     this->cache_pdo_offsets();
-    // Restores the clock of a slave that lost power. config_init removes the hooks.
-    for (int i = 1; i <= this->api->slave_count(); ++i)
-        if (this->api->slave_group(i) == ENABLED_GROUP && this->api->slave_hasdc(i))
-            this->api->set_PO2SOconfig(i, [this](const uint16_t pos) {
-                const auto err = this->restore_dc(pos);
-                std::lock_guard lock(this->mu);
-                if (err)
-                    this->dc_restore_errors[pos] = std::format(
-                        "Failed to restore the distributed clock: {}",
-                        err.data
-                    );
-                else
-                    this->dc_restore_errors.erase(pos);
-            });
     return x::errors::NIL;
 }
 
@@ -436,12 +427,12 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
                 h.al_status = it->second;
             }
         }
-        if (breaker.running()) this->recover(static_cast<uint16_t>(i));
+        if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
     }
     return health;
 }
 
-void Master::recover(const uint16_t pos) {
+void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
     const uint16_t state = this->api->slave_state(pos);
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
@@ -450,8 +441,21 @@ void Master::recover(const uint16_t pos) {
         this->api->set_slave_state(pos, EC_STATE_OPERATIONAL);
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+        if (this->api->slave_hasdc(pos))
+            this->api->set_PO2SOconfig(pos, [this, pos, &breaker](uint16_t) {
+                const auto err = this->restore_dc(pos, breaker);
+                std::lock_guard lock(this->mu);
+                if (err)
+                    this->dc_restore_errors[pos] = std::format(
+                        "Failed to restore the distributed clock: {}",
+                        err.data
+                    );
+                else
+                    this->dc_restore_errors.erase(pos);
+            });
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
+        this->api->set_PO2SOconfig(pos, nullptr);
         std::lock_guard lock(this->mu);
         // SOEM requests SAFE-OP even when the hook fails.
         if (this->dc_restore_errors.contains(pos)) {
@@ -1188,17 +1192,26 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     return {setups, x::errors::NIL};
 }
 
-x::errors::Error Master::wait_for_dc_settle(const std::vector<uint16_t> &positions) {
+x::errors::Error Master::wait_for_dc_settle(
+    const std::vector<uint16_t> &positions,
+    const x::breaker::Breaker *breaker
+) {
     const auto deadline = std::chrono::steady_clock::now() +
                           this->cfg.dc_settle_timeout.chrono();
+    const x::errors::Error stop_err(
+        errors::ACTIVATION_ERROR,
+        "the bus stopped before the clocks settled"
+    );
     // 0x092C keeps its old value until a frame carries the reference clock to the
     // slave.
-    if (!this->wait_for_frame(deadline))
+    if (!this->wait_for_frame(deadline, breaker)) {
+        if (stopped(breaker)) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no frame carried the reference clock to the slaves within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
+    }
     while (true) {
         uint16_t worst_pos = 0;
         x::telem::TimeSpan worst(0);
@@ -1216,6 +1229,7 @@ x::errors::Error Master::wait_for_dc_settle(const std::vector<uint16_t> &positio
             }
         }
         if (worst <= DC_SETTLED_DIFF) return x::errors::NIL;
+        if (stopped(breaker)) return stop_err;
         if (std::chrono::steady_clock::now() >= deadline)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
@@ -1335,7 +1349,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
     );
 }
 
-x::errors::Error Master::restore_dc(const uint16_t pos) {
+x::errors::Error
+Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
     if (auto err = this->clear_sync(pos)) return err;
     if (auto err = this->write_dc_register(
             pos,
@@ -1344,7 +1359,7 @@ x::errors::Error Master::restore_dc(const uint16_t pos) {
         ))
         return err;
     if (auto err = this->align_clock(pos)) return err;
-    if (auto err = this->wait_for_dc_settle({pos})) return err;
+    if (auto err = this->wait_for_dc_settle({pos}, &breaker)) return err;
     const auto setup = std::ranges::find(this->dc_setups, pos, &DCSetup::position);
     if (setup == this->dc_setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
@@ -1385,12 +1400,14 @@ bool Master::al_error(const uint16_t pos) const {
 }
 
 bool Master::wait_for_frame(
-    const std::chrono::steady_clock::time_point deadline
+    const std::chrono::steady_clock::time_point deadline,
+    const x::breaker::Breaker *breaker
 ) const {
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (std::chrono::steady_clock::now() >= deadline) return false;
+        if (std::chrono::steady_clock::now() >= deadline || stopped(breaker))
+            return false;
         std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
     }
     return true;

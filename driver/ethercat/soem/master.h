@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
@@ -224,9 +225,14 @@ private:
 
     /// @brief waits until a frame carries the reference clock to the slaves, then until
     /// the clock of each slave at positions is within 10 µs of the reference clock.
+    /// @param breaker ends the wait once it stops, when given.
     /// @returns errors::ACTIVATION_ERROR when no frame comes back, a slave does not
-    /// answer, or a clock does not settle within Config::dc_settle_timeout.
-    x::errors::Error wait_for_dc_settle(const std::vector<uint16_t> &positions);
+    /// answer, a clock does not settle within Config::dc_settle_timeout, or breaker
+    /// stops first.
+    x::errors::Error wait_for_dc_settle(
+        const std::vector<uint16_t> &positions,
+        const x::breaker::Breaker *breaker = nullptr
+    );
 
     /// @brief starts SYNC0 on a slave, with its first SYNC0 event on a whole SYNC0
     /// cycle of DC time at least 100 ms after its system time.
@@ -247,18 +253,20 @@ private:
 
     /// @brief sets up the distributed clock of a slave that came back to PRE-OP while
     /// the bus cycles: its propagation delay, its offset, and SYNC0 when it runs in a
-    /// DC mode. Blocks until its clock settles.
-    /// @returns errors::ACTIVATION_ERROR when a step fails.
-    x::errors::Error restore_dc(uint16_t pos);
+    /// DC mode. Blocks until its clock settles or breaker stops.
+    /// @returns errors::ACTIVATION_ERROR when a step fails or breaker stops first.
+    x::errors::Error restore_dc(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
 
     /// @brief waits until a frame that the cycle sent after the call comes back.
-    /// @returns false when the deadline passes first.
-    [[nodiscard]] bool
-    wait_for_frame(std::chrono::steady_clock::time_point deadline) const;
+    /// @returns false when the deadline passes or breaker, when given, stops first.
+    [[nodiscard]] bool wait_for_frame(
+        std::chrono::steady_clock::time_point deadline,
+        const x::breaker::Breaker *breaker = nullptr
+    ) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -270,8 +278,9 @@ private:
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power.
-    void recover(uint16_t pos);
+    /// slave that lost power. A wait for the clock of a DC slave ends once breaker
+    /// stops.
+    void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start

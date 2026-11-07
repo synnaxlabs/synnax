@@ -104,6 +104,7 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
+        "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
