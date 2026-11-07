@@ -577,10 +577,9 @@ TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
 
 /// @brief it should keep an enabled slave connected when its device is edited.
 TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
-    const auto dev = ASSERT_NIL_P(
-                         this->scanner->scan(common::ScannerContext{.count = 1})
-    )
-                         .at(0);
+    auto dev = ASSERT_NIL_P(this->scanner->scan(common::ScannerContext{.count = 1}))
+                   .at(0);
+    ASSERT_NIL(this->client->devices.create(dev));
     this->scanner->on_device_set(dev);
     const auto status = ASSERT_NIL_P(
         this->client->statuses.retrieve_by_owner<synnax::device::StatusDetails>(
