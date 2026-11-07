@@ -7,11 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Limits on the latencies that the HITL performance tests measure."""
+"""Waits and limits for the latencies that the HITL performance tests measure."""
+
+import time
 
 import numpy as np
 
+import synnax as sy
 from framework.test_case import TestCase
+
+
+def wait_for(
+    streamer: sy.Streamer, channel: str, value: float, *, timeout_s: float
+) -> bool:
+    """Reads streamer until the last value of channel equals value. Returns False when
+    timeout_s passes first."""
+    deadline = time.perf_counter() + timeout_s
+    while (remaining := deadline - time.perf_counter()) > 0:
+        frame = streamer.read(timeout=remaining)
+        if frame is not None and frame[channel].to_numpy()[-1] == value:
+            return True
+    return False
 
 
 def check(

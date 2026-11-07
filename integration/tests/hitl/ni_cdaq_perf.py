@@ -49,12 +49,10 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
                 value = 1 - i % 2
                 start = time.perf_counter()
                 writer.write({_CMD: value, "hitl_cdaq_do_cmd_time": sy.TimeStamp.now()})
-                while True:
-                    frame = streamer.read(timeout=_STATE_TIMEOUT_S)
-                    if frame is None:
-                        self.fail(f"No state {value} in {_STATE_TIMEOUT_S} s")
-                    if frame[_STATE].to_numpy()[-1] == value:
-                        break
+                if not latency.wait_for(
+                    streamer, _STATE, value, timeout_s=_STATE_TIMEOUT_S
+                ):
+                    self.fail(f"No state {value} in {_STATE_TIMEOUT_S} s")
                 latencies_ms.append((time.perf_counter() - start) * 1000)
         latency.check(
             self,
