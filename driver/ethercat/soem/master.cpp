@@ -428,7 +428,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             if (const auto it = this->dc_restore_errors.find(i);
                 it != this->dc_restore_errors.end()) {
                 h.faulted = true;
-                h.al_status = it->second;
+                h.dc_restore_error = it->second;
             }
         }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
@@ -457,10 +457,7 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                 const auto err = this->restore_dc(pos, breaker);
                 std::lock_guard lock(this->mu);
                 if (err)
-                    this->dc_restore_errors[pos] = std::format(
-                        "Failed to restore the distributed clock: {}",
-                        err.data
-                    );
+                    this->dc_restore_errors[pos] = err.data;
                 else
                     this->dc_restore_errors.erase(pos);
             });

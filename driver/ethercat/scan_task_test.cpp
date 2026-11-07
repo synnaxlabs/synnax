@@ -574,6 +574,30 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
     );
 }
 
+/// @brief it should show a slave whose distributed clock the master could not restore
+/// as an error that tells why.
+TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_state(0, slave::State::PRE_OP);
+    this->master->fail_dc_restore(0, "no slave latched its receive time");
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && !engine->health()[0].dc_restore_error.empty()
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to restore the distributed clock");
+    EXPECT_EQ(
+        status.description,
+        "The device lost its clock settings, and the Driver could not set them again: "
+        "no slave latched its receive time. The Driver keeps the device out of OP and "
+        "tries again. If the error stays, check the power and cabling of the device."
+    );
+    EXPECT_TRUE(status.details.connected);
+}
+
 /// @brief it should show a lost slave as not responding.
 TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));

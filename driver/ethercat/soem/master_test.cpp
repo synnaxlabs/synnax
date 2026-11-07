@@ -1912,10 +1912,7 @@ TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
     EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
     ASSERT_EQ(health.size(), 1);
     EXPECT_TRUE(health[0].faulted);
-    EXPECT_EQ(
-        health[0].al_status,
-        "Failed to restore the distributed clock: no slave latched its receive time"
-    );
+    EXPECT_EQ(health[0].dc_restore_error, "no slave latched its receive time");
 }
 
 /// @brief it should request PRE-OP and never OP on each check of a slave whose clock
@@ -1954,8 +1951,8 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
         })
     );
     EXPECT_EQ(
-        this->master->check(this->brk)[1].al_status,
-        "Failed to restore the distributed clock: slave 1 (16xAO) did not answer a "
+        this->master->check(this->brk)[1].dc_restore_error,
+        "slave 1 (16xAO) did not answer a "
         "read of DC register 0x0918"
     );
 }
@@ -1969,14 +1966,14 @@ TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
     this->mock->latch_return = 0;
     this->master->check(this->brk);
     EXPECT_EQ(
-        this->master->check(this->brk)[1].al_status,
-        "Failed to restore the distributed clock: no slave latched its receive time"
+        this->master->check(this->brk)[1].dc_restore_error,
+        "no slave latched its receive time"
     );
     this->mock->latch_return = 1;
     this->check_while_cycling();
     const auto health = this->master->check(this->brk);
     EXPECT_FALSE(health[1].faulted);
-    EXPECT_TRUE(health[1].al_status.empty());
+    EXPECT_TRUE(health[1].dc_restore_error.empty());
 }
 
 /// @brief it should set the clock of a DC slave that comes back from a power loss from
@@ -2002,8 +1999,8 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
 TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
     EXPECT_LT(this->stop_during_restore(true), std::chrono::seconds(1));
     EXPECT_EQ(
-        this->master->check(this->brk)[0].al_status,
-        "Failed to restore the distributed clock: the bus stopped before the clocks "
+        this->master->check(this->brk)[0].dc_restore_error,
+        "the bus stopped before the clocks "
         "settled"
     );
 }
@@ -2013,8 +2010,8 @@ TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
 TEST_F(SOEMMasterTest, CheckEndsAFrameWaitOfAClockRestoreOnceTheBreakerStops) {
     EXPECT_LT(this->stop_during_restore(false), std::chrono::seconds(1));
     EXPECT_EQ(
-        this->master->check(this->brk)[0].al_status,
-        "Failed to restore the distributed clock: the bus stopped before the clocks "
+        this->master->check(this->brk)[0].dc_restore_error,
+        "the bus stopped before the clocks "
         "settled"
     );
 }
@@ -2083,8 +2080,8 @@ TEST_F(SOEMMasterTest, DeactivateDropsTheSavedDCTime) {
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(
-        health[0].al_status,
-        "Failed to restore the distributed clock: no frame has carried the DC time to "
+        health[0].dc_restore_error,
+        "no frame has carried the DC time to "
         "set the clock from"
     );
 }
@@ -2104,7 +2101,7 @@ TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);
     EXPECT_FALSE(health[0].faulted);
-    EXPECT_TRUE(health[0].al_status.empty());
+    EXPECT_TRUE(health[0].dc_restore_error.empty());
 }
 
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {

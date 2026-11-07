@@ -66,6 +66,17 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.description = "Check the power and cabling of the device.";
         return;
     }
+    if (!health.dc_restore_error.empty()) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to restore the distributed clock";
+        status.description = "The device lost its clock settings, and the Driver "
+                             "could not set them again: " +
+                             health.dc_restore_error +
+                             ". The Driver keeps the device out of OP and tries "
+                             "again. If the error stays, check the power and cabling "
+                             "of the device.";
+        return;
+    }
     const auto state = slave::slave_state_to_string(health.state);
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
