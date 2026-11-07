@@ -83,6 +83,8 @@ class WebSocketStream<
   private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly flowControl: FlowControl;
+  private sendTurn: Promise<void> = Promise.resolve();
+  private waitingSends = 0;
   private readonly receiveDataQueue: QueuedMessage[] = [];
   private receiveQueueBytes = 0;
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
@@ -118,11 +120,31 @@ class WebSocketStream<
 
   /** Implements the Stream protocol */
   async send(req: z.input<RQ> | z.infer<RQ>): Promise<void> {
-    while (
+    if (this.waitingSends === 0 && !this.sendBufferFull()) return this.write(req);
+    // Waiting sends take turns on one chain, so they go out in call order.
+    this.waitingSends++;
+    const turn = this.sendTurn.then(async () => await this.drain());
+    this.sendTurn = turn;
+    try {
+      await turn;
+    } finally {
+      this.waitingSends--;
+    }
+    this.write(req);
+  }
+
+  private sendBufferFull(): boolean {
+    return (
       this.ws.bufferedAmount > this.flowControl.sendHighWaterMark &&
       this.ws.readyState === WebSocket.OPEN
-    )
-      await sleep.sleep(DRAIN_POLL_INTERVAL);
+    );
+  }
+
+  private async drain(): Promise<void> {
+    while (this.sendBufferFull()) await sleep.sleep(DRAIN_POLL_INTERVAL);
+  }
+
+  private write(req: z.input<RQ> | z.infer<RQ>): void {
     if (this.serverClosed != null) throw new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
