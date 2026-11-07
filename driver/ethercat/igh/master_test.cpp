@@ -178,7 +178,9 @@ TEST_F(IGHMasterTest, ActivateLeavesOutASlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
     ASSERT_NIL(this->master_instance->initialize());
-    this->master_instance->leave_out({{1, "refused SAFE-OP: Inconsistent settings."}});
+    this->master_instance->leave_out(
+        {{1, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
     const auto res = this->master_instance->pdo_offset(
@@ -193,7 +195,10 @@ TEST_F(IGHMasterTest, ActivateLeavesOutASlave) {
     );
     const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 2);
-    EXPECT_EQ(health[1].refusal, "refused SAFE-OP: Inconsistent settings.");
+    EXPECT_EQ(
+        health[1].refusal,
+        slave::Refusal{.reason = "refused SAFE-OP: Inconsistent settings"}
+    );
 }
 
 /// @brief it should disable a slave the replacement configs disable and enable one they

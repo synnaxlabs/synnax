@@ -559,7 +559,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
             .name = "Left Out Slave",
         }
     );
-    this->master->refuse(1, "refused SAFE-OP: Inconsistent settings.");
+    this->master->refuse(1, {.reason = "refused SAFE-OP: Inconsistent settings"});
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
@@ -585,9 +585,9 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     );
 }
 
-/// @brief it should show each sentence of the reason of a left-out slave, such as the
-/// advice after its AL status text.
-TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheAdviceInItsReason) {
+/// @brief it should end the status of a left-out slave that reports "Invalid DC SYNC
+/// configuration" with the DC sync advice.
+TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
     this->master->add_slave(
         slave::Properties{
             .position = 1,
@@ -599,8 +599,8 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheAdviceInItsReason) {
     );
     this->master->refuse(
         1,
-        "refused SAFE-OP: Invalid DC SYNC configuration. Set the DC mode of the slave "
-        "in its device settings."
+        {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
+         .dc_sync_invalid = true}
     );
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -619,9 +619,10 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheAdviceInItsReason) {
     const auto status = dev->status.value();
     EXPECT_EQ(
         status.description,
-        "It refused SAFE-OP: Invalid DC SYNC configuration. Set the DC mode of the "
-        "slave in its device settings. The other devices on the network started "
-        "without it. The Driver tries it again the next time the network starts."
+        "It refused SAFE-OP: Invalid DC SYNC configuration. The other devices on the "
+        "network started without it. The Driver tries it again the next time the "
+        "network starts. " +
+            std::string(master::DC_SYNC_ADVICE)
     );
 }
 

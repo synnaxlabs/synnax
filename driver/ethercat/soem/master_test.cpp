@@ -612,25 +612,27 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
 TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
     this->add_pending_and_refusing_slaves();
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
-    const std::map<uint16_t, std::string> expected = {
-        {2, "refused SAFE-OP: Inconsistent settings."},
+    const std::map<uint16_t, slave::Refusal> expected = {
+        {2, {.reason = "refused SAFE-OP: Inconsistent settings"}},
     };
     EXPECT_EQ(this->master->refusals(), expected);
 }
 
-/// @brief it should add the DC sync advice to the reason of a slave that refuses
-/// SAFE-OP with "Invalid DC SYNC configuration".
-TEST_F(SOEMMasterTest, ActivateAddsTheDCSyncAdviceToARefusal) {
+/// @brief it should mark the refusal of a slave that reports "Invalid DC SYNC
+/// configuration", so that each message about it gives the DC sync advice.
+TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     this->add_pending_and_refusing_slaves(0x0030);
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
-    const std::map<uint16_t, std::string> expected = {
-        {2, "refused SAFE-OP: Invalid DC SYNC configuration. " + DC_SYNC_ADVICE},
+    const std::map<uint16_t, slave::Refusal> expected = {
+        {2,
+         {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
+          .dc_sync_invalid = true}},
     };
     EXPECT_EQ(this->master->refusals(), expected);
 }
 
-/// @brief it should give the DC sync advice after the AL status text in the error for
-/// an entry on a slave that the bus started without.
+/// @brief it should end the error for an entry on a left-out slave that reports
+/// "Invalid DC SYNC configuration" with the DC sync advice.
 TEST_F(SOEMMasterTest, PdoOffsetGivesTheDCSyncAdviceOfALeftOutSlave) {
     this->add_pending_and_refusing_slaves(0x0030);
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
@@ -647,9 +649,9 @@ TEST_F(SOEMMasterTest, PdoOffsetGivesTheDCSyncAdviceOfALeftOutSlave) {
     EXPECT_EQ(
         res.second.data,
         "Slave 2 (RefusingSlave) is not on the network: it refused SAFE-OP: Invalid DC "
-        "SYNC configuration. " +
-            DC_SYNC_ADVICE +
-            " Fix the device, then stop every task on the network to try it again."
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. " +
+            DC_SYNC_ADVICE
     );
 }
 
@@ -671,7 +673,9 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     this->master->deactivate();
     ASSERT_NIL(this->master->initialize());
-    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings."}});
+    this->master->leave_out(
+        {{2, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     EXPECT_TRUE(this->master->refusals().empty());
@@ -863,7 +867,9 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
 /// changes.
 TEST_F(SOEMMasterTest, ActivateLeavesOutASlave) {
     this->add_two_slaves();
-    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings."}});
+    this->master->leave_out(
+        {{2, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
     ASSERT_NIL(this->activate());
     EXPECT_EQ(this->mock->slave_infos[1].group, 2);
     const std::vector<std::pair<uint16_t, uint16_t>> expected = {
@@ -876,7 +882,9 @@ TEST_F(SOEMMasterTest, ActivateLeavesOutASlave) {
 /// @brief it should return why the bus started without a slave for an entry on it.
 TEST_F(SOEMMasterTest, PdoOffsetReturnsTheErrorOfALeftOutSlave) {
     this->add_two_slaves();
-    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings."}});
+    this->master->leave_out(
+        {{2, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
     ASSERT_NIL(this->activate());
     const auto res = this->master->pdo_offset(
         pdo::Entry(2, 0x6000, 1, 16, true, x::telem::INT16_T)
@@ -893,7 +901,9 @@ TEST_F(SOEMMasterTest, PdoOffsetReturnsTheErrorOfALeftOutSlave) {
 /// @brief it should report a left-out slave with why the bus started without it.
 TEST_F(SOEMMasterTest, CheckReportsALeftOutSlave) {
     this->add_two_slaves();
-    this->master->leave_out({{2, "refused SAFE-OP: Inconsistent settings."}});
+    this->master->leave_out(
+        {{2, {.reason = "refused SAFE-OP: Inconsistent settings"}}}
+    );
     ASSERT_NIL(this->activate());
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 2);
@@ -901,7 +911,9 @@ TEST_F(SOEMMasterTest, CheckReportsALeftOutSlave) {
         health[1],
         (slave::Health{
             .position = 2,
-            .refusal = "refused SAFE-OP: Inconsistent settings.",
+            .refusal = slave::Refusal{
+                .reason = "refused SAFE-OP: Inconsistent settings"
+            },
         })
     );
 }
@@ -1021,7 +1033,11 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnALeftOutSlave) {
         1,
         {.op_mode = dc::Choice{.assign_activate = 0x0700}}
     );
-    this->master->leave_out({{1, "refused SAFE-OP: Invalid DC SYNC configuration."}});
+    this->master->leave_out(
+        {{1,
+          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
+           .dc_sync_invalid = true}}}
+    );
     ASSERT_NIL(this->activate());
     EXPECT_TRUE(this->mock->register_writes.empty());
 }

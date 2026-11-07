@@ -227,7 +227,7 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
     return x::errors::NIL;
 }
 
-void Master::leave_out(std::map<uint16_t, std::string> slaves) {
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
     std::lock_guard lock(this->mu);
     this->left_out = std::move(slaves);
 }
@@ -349,8 +349,8 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
         });
     }
     std::lock_guard lock(this->mu);
-    for (const auto &[pos, reason]: this->left_out)
-        health.push_back({.position = pos, .refusal = reason});
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 

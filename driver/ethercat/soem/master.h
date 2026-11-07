@@ -72,9 +72,9 @@ class Master final : public master::Master {
     std::map<uint16_t, dc::Choice> chosen_modes;
     /// @brief why the bus starts without each slave that leave_out() names, keyed by
     /// position.
-    std::map<uint16_t, std::string> left_out;
+    std::map<uint16_t, slave::Refusal> left_out;
     /// @brief why each slave refused a state in the last activate(), keyed by position.
-    std::map<uint16_t, std::string> start_refusals;
+    std::map<uint16_t, slave::Refusal> start_refusals;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -118,9 +118,9 @@ public:
         const std::function<void()> &start_cycle
     ) override;
 
-    [[nodiscard]] std::map<uint16_t, std::string> refusals() const override;
+    [[nodiscard]] std::map<uint16_t, slave::Refusal> refusals() const override;
 
-    void leave_out(std::map<uint16_t, std::string> slaves) override;
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;
 

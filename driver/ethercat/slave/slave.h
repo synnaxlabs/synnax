@@ -201,6 +201,18 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief why the bus started without a slave that refused a state.
+struct Refusal {
+    /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
+    /// Inconsistent settings".
+    std::string reason;
+    /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
+    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    bool dc_sync_invalid = false;
+
+    bool operator==(const Refusal &) const = default;
+};
+
 /// @brief the condition of a slave on a running bus.
 struct Health {
     /// @brief position of the slave on the bus.
@@ -214,9 +226,9 @@ struct Health {
     /// @brief description of the slave's AL status code, empty when it reports none or
     /// the master cannot read it.
     std::string al_status;
-    /// @brief why the bus started without the slave, such as "refused SAFE-OP:
-    /// Inconsistent settings.". Empty when the slave is on the bus.
-    std::string refusal;
+    /// @brief why the bus started without the slave, or nullopt when the slave is on
+    /// the bus.
+    std::optional<Refusal> refusal;
 
     bool operator==(const Health &) const = default;
 

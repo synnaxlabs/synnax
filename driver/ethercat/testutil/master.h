@@ -19,6 +19,7 @@
 #include <set>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "driver/ethercat/errors/errors.h"
@@ -38,9 +39,9 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     std::map<uint16_t, dc::Choice> chosen_modes;
     /// @brief why each slave that refuse() names refuses its state.
-    std::map<uint16_t, std::string> refusing;
-    std::map<uint16_t, std::string> left_out;
-    std::map<uint16_t, std::string> start_refusals;
+    std::map<uint16_t, slave::Refusal> refusing;
+    std::map<uint16_t, slave::Refusal> left_out;
+    std::map<uint16_t, slave::Refusal> start_refusals;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -126,11 +127,10 @@ public:
     }
 
     /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
-    /// at position is on the bus, as when the slave refuses a state. reason is the
-    /// refusal, such as "refused SAFE-OP: Inconsistent settings.".
-    void refuse(const uint16_t position, const std::string &reason) {
+    /// at position is on the bus, as when the slave refuses a state.
+    void refuse(const uint16_t position, slave::Refusal refusal) {
         std::lock_guard lock(this->mu);
-        this->refusing[position] = reason;
+        this->refusing[position] = std::move(refusal);
     }
 
     /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
@@ -349,7 +349,7 @@ public:
                 errors::STATE_CHANGE_ERROR,
                 "failed to reach OP: no process data"
             );
-        std::map<uint16_t, std::string> refused;
+        std::map<uint16_t, slave::Refusal> refused;
         size_t on_bus = 0;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
@@ -362,7 +362,7 @@ public:
             if (refused.size() < on_bus) this->start_refusals = refused;
             return x::errors::Error(
                 errors::STATE_CHANGE_REFUSED,
-                "failed to reach SAFE-OP: " + refused.begin()->second
+                "failed to reach SAFE-OP: " + refused.begin()->second.reason
             );
         }
         if (this->inject_state_change_err) return this->inject_state_change_err;
@@ -481,12 +481,12 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
-    std::map<uint16_t, std::string> refusals() const override {
+    std::map<uint16_t, slave::Refusal> refusals() const override {
         std::lock_guard lock(this->mu);
         return this->start_refusals;
     }
 
-    void leave_out(std::map<uint16_t, std::string> slaves) override {
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {
         std::lock_guard lock(this->mu);
         this->left_out = std::move(slaves);
     }
@@ -540,8 +540,8 @@ public:
             this->slave_states[pos] = slave::State::OP;
             this->faults.erase(pos);
         }
-        for (const auto &[pos, reason]: this->left_out)
-            health.push_back({.position = pos, .refusal = reason});
+        for (const auto &[pos, refusal]: this->left_out)
+            health.push_back({.position = pos, .refusal = refusal});
         return health;
     }
 

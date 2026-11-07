@@ -122,6 +122,28 @@ bool serves(
            });
 }
 
+/// @brief adds a sentence to the error of a failed start for each slave that the start
+/// left out. The error ends with master::DC_SYNC_ADVICE once when it or a left-out
+/// slave needs the advice.
+x::errors::Error with_left_out(
+    x::errors::Error err,
+    const std::map<uint16_t, slave::Refusal> &left_out
+) {
+    if (left_out.empty()) return err;
+    const auto advice = " " + std::string(master::DC_SYNC_ADVICE);
+    // The master ends its error with the advice when one of its slaves needs it.
+    bool advice_needed = err.data.ends_with(advice);
+    if (advice_needed) err.data.resize(err.data.size() - advice.size());
+    if (!err.data.ends_with('.')) err.data += '.';
+    for (const auto &[pos, refusal]: left_out) {
+        err.data += " The Driver left out slave " + std::to_string(pos) +
+                    " because it " + refusal.reason + ".";
+        advice_needed |= refusal.dc_sync_invalid;
+    }
+    if (advice_needed) err.data += advice;
+    return err;
+}
+
 /// @brief looks up the offset of each entry in a process image of the given size.
 std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
     const master::Master &master,
@@ -349,7 +371,7 @@ void Engine::supervise() {
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
         for (const auto &h: health) {
-            if (!h.refusal.empty()) continue;
+            if (h.refusal) continue;
             const auto prev = std::ranges::find(
                 last,
                 h.position,
@@ -389,7 +411,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
         this->cycle_thread = std::thread(&Engine::run, this);
     };
     const auto iface = this->master->interface_name();
-    std::map<uint16_t, std::string> left_out;
+    std::map<uint16_t, slave::Refusal> left_out;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
@@ -407,9 +429,9 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
             else
                 this->master->deactivate();
             if (!refused.empty()) {
-                for (const auto &[pos, reason]: refused)
+                for (const auto &[pos, refusal]: refused)
                     LOG(WARNING) << "[ethercat] starting " << iface << " without slave "
-                                 << pos << ": it " << reason;
+                                 << pos << ": it " << refusal.reason;
                 left_out.insert(refused.begin(), refused.end());
                 continue;
             }
@@ -418,12 +440,7 @@ x::errors::Error Engine::start_locked(const uint64_t mhz) {
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) || !retry.wait(err)) {
             retry.stop();
-            for (const auto &[pos, reason]: left_out) {
-                if (!err.data.ends_with('.')) err.data += '.';
-                err.data += " The Driver left out slave " + std::to_string(pos) +
-                            " because it " + reason;
-            }
-            return err;
+            return with_left_out(err, left_out);
         }
     }
     retry.stop();

@@ -17,6 +17,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,24 +34,31 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
+/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
+/// message about one or more such slaves ends with it once.
+inline constexpr std::string_view DC_SYNC_ADVICE =
+    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
+    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
+    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
+    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "list the mode it expects, change its mode with the configuration tool of its "
+    "vendor.";
+
 /// @brief returns the error for an entry on a slave that the bus started without.
-/// @param refusal why the slave is left out, such as "refused SAFE-OP: Inconsistent
-/// settings.".
 inline x::errors::Error left_out_error(
     const uint16_t position,
     const std::string &name,
-    const std::string &refusal
+    const slave::Refusal &refusal
 ) {
-    return x::errors::Error(
-        errors::STATE_CHANGE_REFUSED,
-        std::format(
-            "Slave {} ({}) is not on the network: it {} Fix the device, then stop "
-            "every task on the network to try it again.",
-            position,
-            name,
-            refusal
-        )
+    auto msg = std::format(
+        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
+        "task on the network to try it again.",
+        position,
+        name,
+        refusal.reason
     );
+    if (refusal.dc_sync_invalid) msg.append(" ").append(DC_SYNC_ADVICE);
+    return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
 }
 
 /// @brief information about an available EtherCAT master or network.
@@ -92,18 +100,16 @@ public:
     [[nodiscard]] virtual x::errors::Error
     activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
-    /// @brief returns why each slave refused a state in the last activate(), such as
-    /// "refused SAFE-OP: Inconsistent settings.", keyed by position. A reason ends with
-    /// a period and can hold more sentences, such as advice. Empty when no slave
-    /// refused, or when every enabled slave refused, as the bus cannot start without
-    /// all of them.
-    [[nodiscard]] virtual std::map<uint16_t, std::string> refusals() const = 0;
+    /// @brief returns why each slave refused a state in the last activate(), keyed by
+    /// position. Empty when no slave refused, or when every enabled slave refused, as
+    /// the bus cannot start without all of them.
+    [[nodiscard]] virtual std::map<uint16_t, slave::Refusal> refusals() const = 0;
 
     /// @brief leaves each slave in slaves out of the next activate() as if it were
     /// disabled, with why the bus starts without it. Until the activate() after that,
     /// pdo_offset() returns left_out_error() for an entry on a left-out slave, and
     /// check() reports the slave with the reason.
-    virtual void leave_out(std::map<uint16_t, std::string> slaves) = 0;
+    virtual void leave_out(std::map<uint16_t, slave::Refusal> slaves) = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;

@@ -91,15 +91,6 @@ constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
 /// AL status code for "Invalid DC SYNC configuration".
 constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
-constexpr std::string_view
-    DC_SYNC_ADVICE = "A slave that reports \"Invalid DC SYNC configuration\" "
-                     "expects a synchronization mode that the Driver did not "
-                     "set up. Set the DC mode of the slave in its device "
-                     "settings. With no setting, the Driver uses SM sync when "
-                     "the slave lists an SM mode, and its first DC mode when "
-                     "it lists only DC modes. If the slave does not list the "
-                     "mode it expects, change its mode with the configuration "
-                     "tool of its vendor.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -289,12 +280,12 @@ x::errors::Error Master::activate(
     return x::errors::NIL;
 }
 
-std::map<uint16_t, std::string> Master::refusals() const {
+std::map<uint16_t, slave::Refusal> Master::refusals() const {
     std::lock_guard lock(this->mu);
     return this->start_refusals;
 }
 
-void Master::leave_out(std::map<uint16_t, std::string> slaves) {
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
     std::lock_guard lock(this->mu);
     this->left_out = std::move(slaves);
 }
@@ -410,8 +401,8 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     std::lock_guard lock(this->mu);
-    for (const auto &[pos, reason]: this->left_out)
-        health.push_back({.position = pos, .refusal = reason});
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 
@@ -536,10 +527,10 @@ void Master::cache_pdo_offsets() {
             slave_output_offset
         );
     }
-    for (const auto &[pos, reason]: this->left_out)
+    for (const auto &[pos, refusal]: this->left_out)
         this->slave_errors.insert_or_assign(
             pos,
-            master::left_out_error(pos, this->api->slave_name(pos), reason)
+            master::left_out_error(pos, this->api->slave_name(pos), refusal)
         );
 }
 
@@ -1363,7 +1354,7 @@ x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
-    std::map<uint16_t, std::string> refusing;
+    std::map<uint16_t, slave::Refusal> refusing;
     bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
@@ -1376,15 +1367,15 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
         const auto code = this->api->slave_ALstatuscode(pos);
         const std::string text = ec_ALstatuscode2string(code);
         if (this->refuses(pos, state) &&
-            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end()) {
-            auto &reason = refusing[pos];
-            reason = "refused " + target + ": " + text + ".";
-            if (code == AL_INVALID_DC_SYNC) reason.append(" ").append(DC_SYNC_ADVICE);
-        }
+            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
+            refusing[pos] = {
+                .reason = "refused " + target + ": " + text,
+                .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
+            };
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
         msg += ": " + text;
     }
-    if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
+    if (dc_sync_refused) msg.append(". ").append(master::DC_SYNC_ADVICE);
     std::size_t enabled = 0;
     for (int i = 1; i <= this->api->slave_count(); ++i)
         enabled += this->api->slave_group(i) == ENABLED_GROUP ? 1 : 0;
