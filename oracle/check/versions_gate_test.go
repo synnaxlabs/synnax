@@ -422,6 +422,57 @@ Channel struct {
 		},
 	)
 
+	DescribeTable(
+		"Should fail a lagging omitted-field pin that the current surface uses",
+		func(files map[string]string) {
+			write("schemas/x/versions/telem/v0.oracle",
+				"TimeStamp = int64\n\nStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle",
+				"TimeStamp = int32\n\nStamp = v0.Stamp\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n\nStamp = int64\n")
+			for rel, content := range files {
+				write(rel, content)
+			}
+			var messages []string
+			for _, f := range run(analyzeLive(liveV0)).Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(ContainSubstring(
+				"resolves telem at v0 for omitted fields",
+			)))
+		},
+		Entry("when an earlier version file declares the member", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/channel/v1.oracle": "Channel = v0.Channel\n",
+		}),
+		Entry("when a stored reference also uses the dependency", map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.Stamp
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+		}),
+	)
+
 	It("Should accept an omitted-field pin at its dependency's current version",
 		func() {
 			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
