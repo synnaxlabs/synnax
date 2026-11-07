@@ -263,8 +263,7 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
 
 /// @brief returns the DC register values of the mode at the bus period. A nonzero cycle
 /// in cycles replaces the cycle that the mode gives.
-/// @param cycles must pass the check of select: a mode that does not run SYNC0, or
-/// that gives the sync unit to the PDI, ignores them.
+/// @param cycles must pass the check of select.
 /// @returns errors::SLAVE_CONFIG_ERROR, with the value and its limit, when the mode
 /// gives no SYNC0 cycle, a SYNC0 cycle that is not a whole number of nanoseconds, a
 /// SYNC1 cycle that is not a multiple of the SYNC0 cycle, a SYNC1 shift that puts SYNC1
