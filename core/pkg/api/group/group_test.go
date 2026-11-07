@@ -107,9 +107,9 @@ var _ = Describe("Group", func() {
 			dest = newGroup(ctx, resource.TypeChannel, nil)
 			moved = newGroup(ctx, resource.TypeChannel, &source)
 		})
-		setParent := func(ctx SpecContext, objects ...resource.ID) error {
+		setParent := func(ctx SpecContext, objects ...resource.ID) (struct{}, error) {
 			u := newUser(ctx, grant(update, objects...))
-			_, err := apiSvc.SetParent(
+			return apiSvc.SetParent(
 				AuthedCtx(ctx, u),
 				nil,
 				apigroup.SetParentRequest{
@@ -117,28 +117,27 @@ var _ = Describe("Group", func() {
 					Parent: new(dest.ResourceID()),
 				},
 			)
-			return err
 		}
 
 		It("Should need update access on the destination", func(ctx SpecContext) {
 			Expect(setParent(ctx, moved.ResourceID(), source.ResourceID())).
-				To(MatchError(access.ErrDenied))
+				Error().To(MatchError(access.ErrDenied))
 		})
 
 		It("Should need update access on the source parent", func(ctx SpecContext) {
 			Expect(setParent(ctx, moved.ResourceID(), dest.ResourceID())).
-				To(MatchError(access.ErrDenied))
+				Error().To(MatchError(access.ErrDenied))
 		})
 
 		It(
 			"Should move a group when the user can update the group and both parents",
 			func(ctx SpecContext) {
-				Expect(setParent(
+				MustSucceed(setParent(
 					ctx,
 					moved.ResourceID(),
 					source.ResourceID(),
 					dest.ResourceID(),
-				)).To(Succeed())
+				))
 				var g group.Group
 				Expect(svc.Group.NewRetrieve().
 					Where(group.MatchKeys(moved.Key)).
