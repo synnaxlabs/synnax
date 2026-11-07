@@ -11,8 +11,11 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <optional>
+#include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
@@ -62,6 +65,11 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
+    /// @brief sets whether the caller requests each state change itself. When true,
+    /// config_init does not request PRE-OP and config_map_group does not request
+    /// SAFE-OP.
+    virtual void set_manual_state_change(bool manual) = 0;
+
     /// @brief sends the process data of a slave group.
     virtual int send_processdata(uint8_t group) = 0;
 
@@ -98,6 +106,15 @@ public:
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
 
+    /// @brief makes every slave latch its local time (0x0918) as one frame passes it,
+    /// with a timeout in microseconds, returning the number of slaves that latched.
+    virtual int latch_receive_times(int timeout) = 0;
+
+    /// @brief sends a frame that carries only the reference clock time to the slaves of
+    /// a group and waits up to timeout microseconds for it. Returns the working
+    /// counter, or a value below 1 when the frame does not come back.
+    virtual int sync_dc(uint8_t group, int timeout) = 0;
+
     /// @brief writes data to a register of a slave with a timeout in microseconds,
     /// returning the working counter, which is 1 when the slave took the write.
     virtual int write_register(
@@ -106,6 +123,20 @@ public:
         std::vector<uint8_t> data,
         int timeout
     ) = 0;
+
+    /// @brief reads a register of a slave into data with a timeout in microseconds,
+    /// returning the working counter, which is 1 when the slave answered.
+    virtual int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) = 0;
+
+    /// @brief makes SOEM call config in PRE-OP each time it maps the slave on the way
+    /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes it.
+    virtual void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -197,6 +228,10 @@ public:
     /// @brief returns true when the slave has a distributed clock.
     [[nodiscard]] virtual bool slave_hasdc(uint16_t pos) const = 0;
 
+    /// @brief returns the propagation delay in nanoseconds from the reference clock to
+    /// a slave, as configdc measured it.
+    [[nodiscard]] virtual int32_t slave_pdelay(uint16_t pos) const = 0;
+
     /// @brief returns whether a slave is marked as no longer responding.
     [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
 
@@ -228,6 +263,12 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     ecx_contextt context{};
+    std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+
+    static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
+        static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
+        return 1;
+    }
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
@@ -255,6 +296,10 @@ public:
 
     int config_map_group(void *iomap, uint8_t group) override {
         return ecx_config_map_group(&this->context, iomap, group);
+    }
+
+    void set_manual_state_change(const bool manual) override {
+        this->context.manualstatechange = manual ? 1 : 0;
     }
 
     int send_processdata(uint8_t group) override {
@@ -291,6 +336,33 @@ public:
 
     [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
 
+    int sync_dc(uint8_t group, int timeout) override {
+        const auto ref = this->context.grouplist[group].DCnext;
+        int64_t time = 0;
+        const int wkc = ecx_FRMW(
+            &this->context.port,
+            this->context.slavelist[ref].configadr,
+            ECT_REG_DCSYSTIME,
+            sizeof(time),
+            &time,
+            timeout
+        );
+        if (wkc > 0) this->context.DCtime = etohll(time);
+        return wkc;
+    }
+
+    int latch_receive_times(const int timeout) override {
+        int32_t zero = 0;
+        return ecx_BWR(
+            &this->context.port,
+            0x0000,
+            ECT_REG_DCTIME0,
+            sizeof(zero),
+            &zero,
+            timeout
+        );
+    }
+
     int write_register(
         uint16_t slave,
         uint16_t address,
@@ -307,12 +379,40 @@ public:
         );
     }
 
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int timeout
+    ) override {
+        return ecx_FPRD(
+            &this->context.port,
+            this->context.slavelist[slave].configadr,
+            address,
+            static_cast<uint16_t>(data.size()),
+            data.data(),
+            timeout
+        );
+    }
+
     int reconfig_slave(uint16_t slave, int timeout) override {
         return ecx_reconfig_slave(&this->context, slave, timeout);
     }
 
     int recover_slave(uint16_t slave, int timeout) override {
         return ecx_recover_slave(&this->context, slave, timeout);
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        this->context.userdata = this;
+        if (config == nullptr) {
+            this->po2so_configs.erase(slave);
+            this->context.slavelist[slave].PO2SOconfig = nullptr;
+            return;
+        }
+        this->po2so_configs[slave] = std::move(config);
+        this->context.slavelist[slave].PO2SOconfig = &ProdAPI::run_PO2SOconfig;
     }
 
     int SDOread(
@@ -431,6 +531,10 @@ public:
 
     [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
         return this->context.slavelist[pos].hasdc;
+    }
+
+    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
+        return this->context.slavelist[pos].pdelay;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {

@@ -80,10 +80,12 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
 };
 
 const handlers: Handlers = {
+  // The Core keeps the stored labels on the create of an existing range, so a create
+  // echo that arrives after a label write must not undo it.
   create: (state, { range }) => {
     for (const key of Object.keys(state) as Array<keyof Payload>)
       if (!(key in range)) delete state[key];
-    Object.assign(state, range);
+    Object.assign(state, { ...range, labels: state.labels });
     return { inverse: [], targets: [range.key] };
   },
   ...actions.createPathHandlers(applyPath),
@@ -91,7 +93,7 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a range in order. Path actions edit only the range's name, time
- * range, color, labels, and parent.
+ * range, color, labels, and parent. A create keeps the labels of the range.
  * @throws {Error} if the range cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);

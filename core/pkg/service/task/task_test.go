@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -1256,6 +1258,28 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(exists(ctx, t.Key)).To(BeTrue())
 		})
 
+		It("Should find the drafts with rack zero", func(ctx SpecContext) {
+			r := createRack(ctx)
+			draft := &task.Task{Type: testType, Name: "Draft"}
+			onRack := &task.Task{Type: testType, Rack: r.Key, Name: "On Rack"}
+			Expect(w.Create(ctx, draft)).To(Succeed())
+			Expect(w.Create(ctx, onRack)).To(Succeed())
+			keysOn := func(racks ...rack.Key) []task.Key {
+				GinkgoHelper()
+				var res []task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchRacks(racks...)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })
+			}
+			Expect(keysOn(0)).To(And(
+				ContainElement(draft.Key),
+				Not(ContainElement(onRack.Key)),
+			))
+			Expect(keysOn(0, r.Key)).To(ContainElements(draft.Key, onRack.Key))
+		})
+
 		It("Should find the tasks on a rack", func(ctx SpecContext) {
 			r := createRack(ctx)
 			t := &task.Task{Type: testType, Rack: r.Key, Name: "On Rack"}
@@ -1811,6 +1835,45 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("MatchArcs", func() {
+	It(
+		"Should filter tasks by Arc through the configured matcher",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			var (
+				want  task.Key
+				asked []arc.Key
+			)
+			tasks := MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+				DB:     db,
+				Stores: pd.Stores(),
+				MatchArcs: func(arcs ...arc.Key) task.Filter {
+					asked = append(asked, arcs...)
+					return task.MatchKeys(want)
+				},
+			}))
+			create := func() task.Key {
+				GinkgoHelper()
+				return MustSucceed(tasks.Create(ctx, pd.Alert, msgpack.EncodedJSON{
+					"routing_key": "rk",
+				}))
+			}
+			want = create()
+			create()
+			arcKey := uuid.New()
+			var res []task.Task
+			Expect(tasks.NewRetrieve().
+				Where(task.MatchArcs(arcKey)).
+				Entries(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })).
+				To(Equal([]task.Key{want}))
+			Expect(asked).To(Equal([]arc.Key{arcKey}))
+		},
+	)
 })
 
 var _ = Describe("Writer with no transaction", func() {

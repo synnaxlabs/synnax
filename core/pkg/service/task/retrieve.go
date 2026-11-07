@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -69,10 +70,16 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
-// A draft on no rack matches no value.
+// A draft on no rack matches the value 0.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return r.indexes.rack.Filter(vals...)
+		if !slices.Contains(vals, 0) {
+			return r.indexes.rack.Filter(vals...)
+		}
+		return gorp.Or(
+			r.indexes.rack.Filter(vals...),
+			r.indexes.rack.FilterHolding(false),
+		)
 	}
 }
 
