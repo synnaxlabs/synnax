@@ -102,6 +102,8 @@ integration/integration
 core/synnax
 core/pkg/driver/assets/*
 !core/pkg/driver/assets/.gitkeep
+core/pkg/console/update/*
+!core/pkg/console/update/.gitkeep
 console/src-tauri/release.tauri.conf.json
 
 # |||| PROFILING ||||
