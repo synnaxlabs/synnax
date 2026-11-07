@@ -489,8 +489,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	}
 
 	// reveal returns the config of imported with the key of each secret it holds
-	// swapped
-	// for the value the import read. It moves imported to a rack that may read them.
+	// swapped for the value the import read. It moves imported to a rack that may read
+	// them.
 	reveal := func(ctx context.Context, imported task.Task) map[string]any {
 		GinkgoHelper()
 		config := maps.Clone(map[string]any(imported.Config))
