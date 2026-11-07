@@ -220,67 +220,6 @@ var _ = Describe("OtelProvider", func() {
 				},
 			)
 		})
-		Describe("VerifyCertCoreCA", func() {
-			It("Should accept a certificate the Core CA signed", func() {
-				fs := xfs.NewMem()
-				testutil.GenerateCerts(fs)
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					Insecure: new(false),
-				}))
-				src := MustSucceed(file.NewSource(fs,
-					"/usr/local/synnax/certs/node.crt",
-					"/usr/local/synnax/certs/node.key",
-				))
-				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
-			})
-			It("Should reject a certificate an unrelated CA signed", func() {
-				fs := xfs.NewMem()
-				testutil.GenerateCerts(fs)
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					Insecure: new(false),
-				}))
-				foreignFS := xfs.NewMem()
-				testutil.GenerateCerts(foreignFS)
-				foreign := MustSucceed(file.NewSource(foreignFS,
-					"/usr/local/synnax/certs/node.crt",
-					"/usr/local/synnax/certs/node.key",
-				))
-				Expect(
-					prov.VerifyCertCoreCA(foreign),
-				).To(MatchError(ContainSubstring(
-					"certificate signed by unknown authority",
-				)))
-			})
-			It("Should verify a chain through a presented intermediate", func() {
-				fs := xfs.NewMem()
-				testutil.GenerateCerts(fs)
-				rootPEM, chainPEM, keyPEM := generateChain("localhost")
-				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
-				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
-				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS: fs, CACertPath: "root.crt",
-					Insecure: new(false),
-				}))
-				src := MustSucceed(file.NewSource(fs,
-					"/usr/local/synnax/certs/chain.crt",
-					"/usr/local/synnax/certs/chain.key",
-				))
-				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
-			})
-			It("Should surface a certificate source failure", func() {
-				fs := xfs.NewMem()
-				testutil.GenerateCerts(fs)
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					Insecure: new(false),
-				}))
-				Expect(prov.VerifyCertCoreCA(errSource{})).
-					To(MatchError(ContainSubstring("source failed")))
-			})
-		})
 		Describe("VerifyCertTrustAnchors", func() {
 			It("Should accept a certificate the Core CA signed", func() {
 				fs := xfs.NewMem()
@@ -371,7 +310,6 @@ var _ = Describe("OtelProvider", func() {
 					Insecure: new(true),
 				}))
 				Expect(prov.VerifyCertHost(nil, "")).To(Succeed())
-				Expect(prov.VerifyCertCoreCA(nil)).To(Succeed())
 				Expect(prov.VerifyCertTrustAnchors(nil)).To(Succeed())
 			})
 		})

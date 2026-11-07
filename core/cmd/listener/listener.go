@@ -129,9 +129,9 @@ func (cs Configs) Validate() error {
 }
 
 // ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. It
-// applies only when a peer or the embedded Driver dials the advertised address, since
-// a public-CA Tailscale certificate cannot chain to the Core CA those two verify
-// against. The caller decides when that holds.
+// applies only when the embedded Driver dials the advertised address, since a public-CA
+// Tailscale certificate cannot chain to the Core CA the Driver verifies against. The
+// caller decides when that holds.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
 	if len(cs) == 0 {
@@ -140,13 +140,13 @@ func (cs Configs) ValidateAdvertiseSource() error {
 	v.Ternary(
 		"advertise",
 		cs.advertised().Cert.Source == tailscale.SourceType,
-		"advertised listener cannot use the Tailscale source; peers and the embedded Driver verify certificates against the Core CA",
+		"advertised listener cannot use the Tailscale source; the embedded Driver verifies certificates against the Core CA",
 	)
 	return v.Error()
 }
 
-// advertised returns the listener peers reach: the one marked advertise, or the first
-// when none is marked. It assumes a non-empty set.
+// advertised returns the listener the embedded Driver dials: the one marked advertise,
+// or the first when none is marked. It assumes a non-empty set.
 func (cs Configs) advertised() Config {
 	for _, c := range cs {
 		if c.Advertise {
@@ -156,7 +156,7 @@ func (cs Configs) advertised() Config {
 	return cs[0]
 }
 
-// AdvertiseAddress returns the address peers use to reach this node.
+// AdvertiseAddress returns the address the embedded Driver dials.
 func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Address }
 
 // Loopback reports whether every listener binds the loopback interface only.
@@ -172,15 +172,13 @@ func (cs Configs) Loopback() bool {
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
 // filesystem and CA authority. It fails when the advertised listener serves a
-// certificate that does not cover the advertised host, that does not chain to the Core
-// CA when hasPeers is set, or that chains to no Core trust anchor when hasDriver is
-// set. A Tailscale advertised listener is never probed: with hasPeers it is rejected
-// outright, and otherwise tailscaled guarantees the certificate covers its FQDN.
+// certificate that does not cover the advertised host, or that chains to no Core trust
+// anchor when hasDriver is set. A Tailscale advertised listener is never probed, since
+// tailscaled guarantees the certificate covers its FQDN.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
-	hasPeers bool,
 	hasDriver bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
@@ -204,14 +202,6 @@ func (cs Configs) Resolve(
 		if err != nil {
 			return nil, err
 		}
-		if c.Address == advertised && c.Cert.Source == tailscale.SourceType &&
-			hasPeers {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"advertised listener %q cannot use the Tailscale source; peers verify certificates against the Core CA",
-				c.Address,
-			)
-		}
 		if c.Address == advertised && c.Cert.Source != tailscale.SourceType {
 			if err = p.VerifyCertHost(src, advertised.Host()); err != nil {
 				return nil, errors.Wrapf(
@@ -220,16 +210,7 @@ func (cs Configs) Resolve(
 					c.Address,
 				)
 			}
-			if hasPeers {
-				if err = p.VerifyCertCoreCA(src); err != nil {
-					return nil, errors.Wrapf(
-						err,
-						"advertised listener %q serves a certificate the Core CA did not sign; peers cannot verify it. Use the %q source or a certificate the Core CA signs",
-						c.Address,
-						auto.SourceType,
-					)
-				}
-			} else if hasDriver {
+			if hasDriver {
 				if err = p.VerifyCertTrustAnchors(src); err != nil {
 					return nil, errors.Wrapf(
 						err,

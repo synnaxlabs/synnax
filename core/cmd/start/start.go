@@ -38,7 +38,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -62,7 +61,6 @@ type CoreConfig struct {
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
-	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
@@ -106,7 +104,7 @@ func (c CoreConfig) Validate() error {
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
+	if c.insecure != nil && !*c.insecure && c.driverEnabled() {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	v.NotEmptyString("data_path", c.dataPath)
@@ -133,7 +131,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
-		peers:           override.Slice(c.peers, other.peers),
 		dataPath:        override.String(c.dataPath, other.dataPath),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
@@ -256,7 +253,6 @@ func BootupCore(
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
 		Transport:        distTransport,
 		Storage:          storageLayer,
@@ -321,7 +317,6 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
 		cfg.driverEnabled(),
 	)
 	if !ok(err, nil) {

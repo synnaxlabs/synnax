@@ -33,9 +33,6 @@ type TLSProvider interface {
 	// check every client performs when dialing this node. It does not check the issuer:
 	// an externally issued certificate is a valid choice. No-op in insecure mode.
 	VerifyCertHost(src cert.Source, host string) error
-	// VerifyCertCoreCA confirms src serves a certificate chaining to the Core CA. Only
-	// peers need it, since they trust that CA alone. No-op in insecure mode.
-	VerifyCertCoreCA(cert.Source) error
 	// VerifyCertTrustAnchors confirms src serves a certificate chaining to one of the
 	// Core's trust anchors, the list the embedded Driver verifies against. No-op in
 	// insecure mode.
