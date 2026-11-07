@@ -171,21 +171,11 @@ func (db *DB) NewStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
 ) (StreamWriter, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	return db.newStreamWriter(ctx, cfgs...)
 }
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	iw, err := db.newStreamWriter(ctx, cfgs...)
 	if err != nil {
 		return nil, err
@@ -210,9 +200,11 @@ func (db *DB) newStreamWriter(
 	if err != nil {
 		return nil, err
 	}
-	if *cfg.AutoIndex {
-		cfg = db.expandKeysForAutoIndex(cfg)
+	cfg, dbs, finishOpen, err := db.startOpen(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
+	defer finishOpen()
 	var (
 		domainWriters  = make(map[ChannelKey]*idxWriter)
 		virtualWriters map[ChannelKey]*virtual.Writer
@@ -254,11 +246,8 @@ func (db *DB) newStreamWriter(
 	// write, so a writer that joins an existing control region cannot end up in a
 	// different alignment space than the index it is being written against.
 	for i, key := range cfg.Channels {
-		u, isUnary := db.mu.dbs.unary[key]
-		v, isVirtual := db.mu.dbs.virtual[key]
-		if !isVirtual && !isUnary {
-			return nil, channel.NewNotFoundError(key)
-		}
+		u, isUnary := dbs.unary[key]
+		v, isVirtual := dbs.virtual[key]
 		if isUnary && !u.Channel().IsIndex {
 			continue
 		}
@@ -286,7 +275,7 @@ func (db *DB) newStreamWriter(
 				return nil, err
 			}
 			var idxW *idxWriter
-			idxW, err = db.openDomainIdxWriter(u.Channel().Index, cfg)
+			idxW, err = openDomainIdxWriter(dbs, u.Channel().Index, cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -304,14 +293,14 @@ func (db *DB) newStreamWriter(
 	// Pass 2: open all non-index unary channel writers (fixed and variable) and attach
 	// them to the appropriate idxWriter group.
 	for i, key := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[key]
+		u, ok := dbs.unary[key]
 		if !ok || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
 		idxKey := u.Channel().Index
 		idxW, ok := domainWriters[idxKey]
 		if !ok {
-			idxW, err = db.openDomainIdxWriter(idxKey, cfg)
+			idxW, err = openDomainIdxWriter(dbs, idxKey, cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -345,7 +334,7 @@ func (db *DB) newStreamWriter(
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
-		db.controlUpdates.Notify(ctx, controlUpdate)
+		db.notifyControlUpdate(ctx, controlUpdate)
 	}
 
 	w = &streamWriter{
@@ -355,16 +344,97 @@ func (db *DB) newStreamWriter(
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,
-		updateDBControl: func(ctx context.Context, update ControlUpdate) {
-			db.mu.RLock()
-			defer db.mu.RUnlock()
-			db.controlUpdates.Notify(ctx, update)
-		},
+		updateDBControl:    db.notifyControlUpdate,
 	}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
 	}
 	return w, nil
+}
+
+func (db *DB) notifyControlUpdate(ctx context.Context, update ControlUpdate) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	db.controlUpdates.Notify(ctx, update)
+}
+
+// startOpen returns the DBs of the channels in cfg and of their indexes, so that a
+// writer can open on them with db.mu unlocked. Deleting one of the channels in cfg
+// fails with resource.ErrOpen, and DB.Close and DB.DeleteTimeRange wait, until the
+// caller runs the returned function. cfg comes back with AutoIndex applied. startOpen
+// waits for a time range delete on the channels with db.mu unlocked, and returns ctx's
+// error if ctx ends first. It returns ErrDBClosed once DB.Close has started.
+func (db *DB) startOpen(
+	ctx context.Context,
+	cfg WriterConfig,
+) (WriterConfig, channelDBs, func(), error) {
+	for {
+		expanded, dbs, finish, err := db.tryStartOpen(cfg)
+		if finish != nil || err != nil {
+			return expanded, dbs, finish, err
+		}
+		if err = db.awaitOpening(ctx, func() bool {
+			return !lo.SomeBy(expanded.Channels, func(key ChannelKey) bool {
+				return db.opening.deleting[key] > 0
+			})
+		}); err != nil {
+			return WriterConfig{}, channelDBs{}, nil, err
+		}
+	}
+}
+
+// tryStartOpen does the work of startOpen. It returns a nil function and a nil error
+// if a delete holds one of the channels.
+func (db *DB) tryStartOpen(
+	cfg WriterConfig,
+) (WriterConfig, channelDBs, func(), error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	db.opening.Lock()
+	defer db.opening.Unlock()
+	if db.closed.Load() {
+		return WriterConfig{}, channelDBs{}, nil, ErrDBClosed
+	}
+	if *cfg.AutoIndex {
+		cfg = db.expandKeysForAutoIndex(cfg)
+	}
+	dbs := channelDBs{
+		unary:   make(map[ChannelKey]unary.DB, len(cfg.Channels)),
+		virtual: make(map[ChannelKey]virtual.DB),
+	}
+	for _, key := range cfg.Channels {
+		if v, ok := db.mu.dbs.virtual[key]; ok {
+			dbs.virtual[key] = v
+			continue
+		}
+		u, ok := db.mu.dbs.unary[key]
+		if !ok {
+			return WriterConfig{}, channelDBs{}, nil, channel.NewNotFoundError(key)
+		}
+		dbs.unary[key] = u
+		idxKey := u.Channel().Index
+		if idx, ok := db.mu.dbs.unary[idxKey]; ok {
+			dbs.unary[idxKey] = idx
+		}
+	}
+	for _, key := range cfg.Channels {
+		if db.opening.deleting[key] > 0 {
+			return cfg, channelDBs{}, nil, nil
+		}
+	}
+	for _, key := range cfg.Channels {
+		db.opening.channels[key]++
+	}
+	return cfg, dbs, func() {
+		db.opening.Lock()
+		defer db.opening.Unlock()
+		for _, key := range cfg.Channels {
+			if db.opening.channels[key]--; db.opening.channels[key] == 0 {
+				delete(db.opening.channels, key)
+			}
+		}
+		db.unsafeNotifyOpening()
+	}, nil
 }
 
 // expandKeysForAutoIndex returns a config whose Channels include any index channels
@@ -417,11 +487,12 @@ func (db *DB) expandKeysForAutoIndex(cfg WriterConfig) WriterConfig {
 	return cfg
 }
 
-func (db *DB) openDomainIdxWriter(
+func openDomainIdxWriter(
+	dbs channelDBs,
 	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, ok := db.mu.dbs.unary[idxKey]
+	u, ok := dbs.unary[idxKey]
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
 	}

@@ -13,14 +13,18 @@ import (
 	"context"
 	"io/fs"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -174,9 +178,22 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return err
 }
 
+func (db *DB) writerOpening(ch ChannelKey) bool {
+	db.opening.Lock()
+	defer db.opening.Unlock()
+	return db.opening.channels[ch] > 0
+}
+
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
 // error if there is an open resource on the database.
 func (db *DB) removeChannel(ch ChannelKey) error {
+	if db.writerOpening(ch) {
+		return errors.Wrapf(
+			resource.ErrOpen,
+			"cannot delete channel %d because a writer is opening on it",
+			ch,
+		)
+	}
 	if uDB, ok := db.mu.dbs.unary[ch]; ok {
 		if uDB.Channel().IsIndex {
 			for otherDBKey, otherDB := range db.mu.dbs.unary {
@@ -206,6 +223,72 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	return nil
 }
 
+// lockForDelete locks db.mu once no writer is opening on chs or on a channel that one
+// of them indexes. New opens on those channels wait until the caller runs the returned
+// function, which also unlocks db.mu. lockForDelete waits for an open with db.mu
+// unlocked, so a blocked open stops only the caller, and returns ctx's error if ctx
+// ends first.
+func (db *DB) lockForDelete(
+	ctx context.Context,
+	chs []ChannelKey,
+) (func(), error) {
+	held := set.New[ChannelKey]()
+	release := func() {
+		db.opening.Lock()
+		defer db.opening.Unlock()
+		for key := range held {
+			if db.opening.deleting[key]--; db.opening.deleting[key] == 0 {
+				delete(db.opening.deleting, key)
+			}
+		}
+		db.unsafeNotifyOpening()
+	}
+	opening := func() bool {
+		return lo.SomeBy(held.Slice(), func(key ChannelKey) bool {
+			return db.opening.channels[key] > 0
+		})
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			release()
+			return nil, err
+		}
+		db.mu.Lock()
+		db.opening.Lock()
+		for _, key := range db.deleteScope(chs) {
+			if !held.Contains(key) {
+				held.Add(key)
+				db.opening.deleting[key]++
+			}
+		}
+		busy := opening()
+		db.opening.Unlock()
+		if !busy {
+			return func() {
+				db.mu.Unlock()
+				release()
+			}, nil
+		}
+		db.mu.Unlock()
+		if err := db.awaitOpening(ctx, func() bool { return !opening() }); err != nil {
+			release()
+			return nil, err
+		}
+	}
+}
+
+// deleteScope returns chs and every channel that one of them indexes. The caller must
+// hold db.mu.
+func (db *DB) deleteScope(chs []ChannelKey) []ChannelKey {
+	scope := slices.Clone(chs)
+	for key, u := range db.mu.dbs.unary {
+		if slices.Contains(chs, u.Channel().Index) {
+			scope = append(scope, key)
+		}
+	}
+	return scope
+}
+
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the time range. DeleteTimeRange is
@@ -215,8 +298,11 @@ func (db *DB) DeleteTimeRange(
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	unlock, err := db.lockForDelete(ctx, chs)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))
