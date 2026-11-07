@@ -158,6 +158,18 @@ Doc struct {
 			},
 		)
 
+		It("Should change the schema sum when declarations reorder",
+			func(ctx SpecContext) {
+				note := "Note struct {\n\ttext string\n}\n"
+				doc := "Doc struct {\n\tkey uuid @key\n\n\t@go marshal\n}\n"
+				write("schemas/synnax/versions/doc/v0.oracle", note+"\n"+doc)
+				before := compute(ctx, v0File, v1File).Sums[0].Schema
+				write("schemas/synnax/versions/doc/v0.oracle", doc+"\n"+note)
+				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
+					ToNot(Equal(before))
+			},
+		)
+
 		It("Should keep every schema sum on a comment and format edit",
 			func(ctx SpecContext) {
 				before := compute(ctx, v0File, v1File).Sums

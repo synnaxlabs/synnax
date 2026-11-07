@@ -77,7 +77,7 @@ func checkSum(r *GateReport, c frozen.Chain, n int, recorded map[int]frozen.Sum)
 		r.fail(Finding{
 			Path:     c.Package(n),
 			Severity: SeverityError,
-			Message:  "frozen package changed, but its version files did not",
+			Message:  "frozen package changed, but what its version resolves to did not",
 			FixHint: "find what moved it. A new version must leave it byte-identical: " +
 				"restate a live rule in the version file, or fix the generator. If " +
 				"every version must change, run `oracle sync --refreeze`",

@@ -141,15 +141,18 @@ func hashSchema(
 	if err != nil {
 		return "", err
 	}
-	var decls []versions.Decl
-	for _, t := range table.TypesInNamespace(ns) {
-		if !t.Synthetic {
+	f, err := req.Versions.File(ctx, livePath, n)
+	if err != nil {
+		return "", err
+	}
+	// The generated package keeps the version file's declaration order, so the hash
+	// does too.
+	decls := make([]versions.Decl, 0, len(f.Order))
+	for _, name := range f.Order {
+		if t, ok := table.Get(ns + "." + name); ok && !t.Synthetic {
 			decls = append(decls, versions.Decl{Type: t})
 		}
 	}
-	slices.SortFunc(decls, func(a, b versions.Decl) int {
-		return strings.Compare(a.Type.Name, b.Type.Name)
-	})
 	rendered := versions.Render(decls, versions.RenderOptions{Resolve: table.Get})
 	sum := sha256.Sum256([]byte(rendered))
 	return hex.EncodeToString(sum[:]), nil
