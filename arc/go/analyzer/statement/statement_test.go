@@ -550,6 +550,13 @@ var _ = Describe("Statement", func() {
 			Entry("an integer into a float", "x := 0.0\nx = 1\nw f64 := x", ""),
 			Entry("an integer added to a float", "x := 0.0\nx += 1\nw f64 := x", ""),
 			Entry("a float after a typed write", "x := 0\nx = v\nx = 1.5", ""),
+			Entry("a typed write after a float", "x := 0.0\nx = 1.0\nx = v", ""),
+			Entry(
+				"a series of literals added to a series",
+				"y := [1.5, 2.5]\ny += [1, 2]\nw series f64 := y",
+				"",
+			),
+			Entry("a typed write after an integer", "x := 0\nx = 1\nx = v", ""),
 			Entry("a float added after a typed write", "x := 0\nx = v\nx += 1.5", ""),
 			Entry(
 				"an integer into a float element",
@@ -588,25 +595,36 @@ var _ = Describe("Statement", func() {
 				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
 			},
 			Entry("reassignment", "x := 0\nx = 1.5", "cannot assign float to 'x'"),
+			Entry("an integer-valued float write", "x := 0\nx = 2.0\nw i64 := x", ""),
+			Entry(
+				"a float after an integer-valued float write",
+				"x := 0\nx = 2.0\nx = 1.5",
+				"cannot assign float to 'x'",
+			),
 			Entry(
 				"compound assignment",
 				"x := 0\nx += 1.5",
-				"expected i64, got float",
+				"expected integer, got float",
 			),
 			Entry(
 				"indexed assignment",
 				"y := [1, 3]\ny[0] = 1.5",
-				"expected i64, got float",
+				"expected integer, got float",
 			),
 			Entry(
 				"indexed compound assignment",
 				"y := [1, 3]\ny[0] += 1.5",
-				"expected i64, got float",
+				"expected integer, got float",
 			),
 			Entry(
 				"series compound assignment",
 				"y := [1, 3]\ny += 1.5",
-				"expected i64, got float",
+				"expected integer, got float",
+			),
+			Entry(
+				"series compound assignment of a series",
+				"y := [1, 3]\ny += [1.5]",
+				"expected integer, got float",
 			),
 			Entry(
 				"a series element",
