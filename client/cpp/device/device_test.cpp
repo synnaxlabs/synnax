@@ -409,7 +409,7 @@ TEST(DeviceTests, testRetrieveMissingKey) {
     ASSERT_EQ(devices.size(), 1);
     ASSERT_EQ(devices[0].key, d.key);
 }
-/// @brief it should retrieve devices with limit and offset pagination.
+/// @brief it should page a retrieve of devices by filter or by keys.
 TEST(DeviceTests, testRetrieveWithLimitOffset) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
@@ -444,7 +444,16 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         for (const auto &db: devices_offset)
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
+    std::vector<std::string> keys;
+    keys.reserve(devices.size());
+    for (const auto &d: devices)
+        keys.push_back(d.key);
+    const auto by_key = ASSERT_NIL_P(client.devices.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_key_rest = ASSERT_NIL_P(client.devices.retrieve(keys, {.offset = 4}));
+    ASSERT_EQ(by_key_rest.size(), 1);
 }
+
 /// @brief it should reject a filter for one device that more than one device matches.
 TEST(DeviceTests, testRetrieveOneWhereMultipleFound) {
     const auto client = new_test_client();
@@ -494,11 +503,7 @@ TEST(DeviceTests, testRetrieveOneWhereNotFound) {
     const auto make = "none_make_" + std::to_string(gen_rand_device());
     const auto [_, err] = client.devices.retrieve(Where{.make = make}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(device matching {"make":{"case_insensitive":false,"eq":")" + make +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
 }
 
 /// @brief it should reject a limit or an offset on a retrieve of one device.

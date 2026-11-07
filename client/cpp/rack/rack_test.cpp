@@ -79,6 +79,21 @@ TEST(RackTests, testRetrieveRackRejectsPage) {
     }
 }
 
+/// @brief it should page a retrieve of the racks that a filter matches.
+TEST(RackTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_page_" + std::to_string(gen_rand());
+    for (int i = 0; i < 3; ++i) {
+        auto r = Rack{.name = name};
+        ASSERT_NIL(client.racks.create(r));
+    }
+    const auto where = Where{.name = name};
+    const auto first = ASSERT_NIL_P(client.racks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(client.racks.retrieve(where, {.offset = 2}));
+    ASSERT_EQ(rest.size(), 1);
+}
+
 TEST(RackTests, testCreateTaskOnCreatedRack) {
     const auto client = new_test_client();
     auto r = Rack{.name = "test_rack"};
@@ -201,11 +216,7 @@ TEST(RackTests, testRetrieveOneWhereNotFound) {
     const auto name = "test_rack_none_" + std::to_string(gen_rand());
     const auto [_, err] = client.racks.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(Rack matching {"name":{"case_insensitive":false,"eq":")" + name +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no rack where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one rack matches a filter.

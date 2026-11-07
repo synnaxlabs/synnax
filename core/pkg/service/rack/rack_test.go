@@ -1168,6 +1168,59 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
+		It(
+			"Should not mark a rack as dead when the Driver reports an error",
+			func(ctx SpecContext) {
+				const name = "error heartbeat rack"
+				var writes, alerts atomic.Int32
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					t gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range t {
+						if ch.Value.Name == name &&
+							ch.Value.Message == "Driver not running" {
+							writes.Add(1)
+						}
+					}
+				}))
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name {
+							alerts.Add(1)
+						}
+						return nil
+					}),
+				)
+				now := telem.Now()
+				frozenNow.Store(int64(now))
+				r := rack.Rack{Name: name}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				// Each beat advances the clock half an interval, so only beats that
+				// count as alive keep the rack under one interval of silence.
+				for range 4 {
+					now = now.Add(svc.HealthCheckInterval / 2)
+					frozenNow.Store(int64(now))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &rack.Status{
+							Owner:   new(r.ResourceID()),
+							Name:    r.Name,
+							Time:    now,
+							Variant: status.VariantError,
+							Message: "Driver 0.60.0 cannot work with Core 0.61.0",
+						})
+					})).To(Succeed())
+				}
+
+				Consistently(func(g Gomega) {
+					g.Expect(writes.Load()).To(BeZero())
+					g.Expect(alerts.Load()).To(BeZero())
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Variant).To(Equal(status.VariantError))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
 		It("Should write each outage once", func(ctx SpecContext) {
 			const name = "outage test rack"
 			var writes, alerts atomic.Int32
