@@ -129,7 +129,7 @@ describe("Panel.useOpenTab", () => {
 
     it("focuses the existing tab when the resource already backs one", async () => {
       const seedTabKey = uuid.create();
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = ranger.resourceID(uuid.create());
       const existing = await createServerPanel(client, {
         variant: "leaf",
         tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -240,7 +240,7 @@ describe("Panel.useOpenTab", () => {
       });
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = ranger.resourceID(uuid.create());
       await act(async () => {
         result.current({ variant: "resource", resource });
       });
@@ -384,7 +384,7 @@ describe("Panel.useOpenTabs", () => {
 
   it("opens the rest of the batch when one tab's resource is already open", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = ranger.resourceID(uuid.create());
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -409,7 +409,7 @@ describe("Panel.useOpenTabs", () => {
   // skips it, so focus has to resolve to the tab already holding the resource.
   it("focuses the tab already holding the resource when the batch ends on a duplicate", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = ranger.resourceID(uuid.create());
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -470,8 +470,8 @@ describe("Panel.useCanOpenTab", () => {
 
   it("should fall back to the create grant when no panel is in scope", async () => {
     const creator = await createTestClientWithGrants(client, {
-      retrieve: [panel.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID],
-      create: [panel.TYPE_ONTOLOGY_ID],
+      retrieve: [panel.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID],
+      create: [panel.TYPE_RESOURCE_ID],
     });
     const { result } = await renderCan(creator);
     await waitFor(() => expect(result.current.open).toBe(true));

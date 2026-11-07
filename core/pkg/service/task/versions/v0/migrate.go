@@ -61,7 +61,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			}
 
 			statusKeys := lo.Map(tasks, func(t Task, _ int) status.Key {
-				return t.OntologyID().String()
+				return t.ResourceID().String()
 			})
 			var existingStatuses []v0Status
 			if err = cfg.Status.NewRetrieve[StatusDetails]().
@@ -76,7 +76,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			}
 			var missingStatuses []v0Status
 			for _, t := range tasks {
-				key := t.OntologyID().String()
+				key := t.ResourceID().String()
 				if !existingKeys.Contains(key) {
 					missingStatuses = append(missingStatuses, v0Status{
 						Key:     key,

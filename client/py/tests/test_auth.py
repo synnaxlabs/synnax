@@ -59,7 +59,7 @@ class TestAuthRetry:
             token="abc",
             session=sy.auth.Session(
                 key=uuid4(),
-                subject=sy.ontology.ID(key=str(user_key), type="user"),
+                subject=sy.resource.ID(key=str(user_key), type="user"),
                 credential=uuid4(),
                 last_active=sy.TimeStamp(0),
             ),
@@ -122,7 +122,7 @@ class TestAuthRetry:
         """Should keep a session logged in while a request on an older one fails."""
         session = sy.auth.Session(
             key=uuid4(),
-            subject=sy.ontology.ID(key=str(uuid4()), type="user"),
+            subject=sy.resource.ID(key=str(uuid4()), type="user"),
             credential=uuid4(),
             last_active=sy.TimeStamp(0),
         )

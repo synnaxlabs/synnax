@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -127,7 +127,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
+		Objects: []resource.ID{{Type: resource.TypeTask}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -161,7 +161,7 @@ func (s *Service) Dispatch(
 	request := access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
+		Objects: []resource.ID{task.ResourceID(req.Key)},
 	}
 	if err := enforcer.Enforce(ctx, request); err != nil {
 		return DispatchResponse{}, err
@@ -193,7 +193,7 @@ func (s *Service) Retrieve(
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
 			nil,
-			task.OntologyIDsFromTasks(res.Tasks),
+			task.ResourceIDsFromTasks(res.Tasks),
 		)
 		if err != nil {
 			return RetrieveResponse{}, err
@@ -205,7 +205,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: task.OntologyIDsFromTasks(res.Tasks),
+		Objects: task.ResourceIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -229,7 +229,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
+		Objects: []resource.ID{task.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -254,7 +254,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: task.OntologyIDs(req.Keys),
+		Objects: task.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -289,7 +289,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{task.OntologyID(req.Key)},
+		Objects: []resource.ID{task.ResourceID(req.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
@@ -300,7 +300,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{t.OntologyID()},
+		Objects: []resource.ID{t.ResourceID()},
 	}); err != nil {
 		return CopyResponse{}, err
 	}

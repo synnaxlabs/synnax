@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -177,7 +178,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 		for _, r := range roots {
 			if err := w.AssignRole(
 				ctx,
-				r.OntologyID(),
+				r.ResourceID(),
 				ownerKey,
 			); err != nil {
 				return errors.Wrapf(
@@ -193,7 +194,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 
 func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 ) ([]policy.Policy, error) {
 	keys, err := e.policy.ResolveSubjects(ctx, e.tx, subject)
 	if err != nil {
@@ -247,7 +248,7 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 
 // firstDenied returns the first object in the request that no policy covers, and
 // whether there was one. A request is allowed only when every object is covered.
-func firstDenied(req access.Request, policies []policy.Policy) (ontology.ID, bool) {
+func firstDenied(req access.Request, policies []policy.Policy) (resource.ID, bool) {
 	for _, requestedObj := range req.Objects {
 		found := false
 		for _, p := range policies {
@@ -275,5 +276,5 @@ func firstDenied(req access.Request, policies []policy.Policy) (ontology.ID, boo
 			return requestedObj, true
 		}
 	}
-	return ontology.ID{}, false
+	return resource.ID{}, false
 }

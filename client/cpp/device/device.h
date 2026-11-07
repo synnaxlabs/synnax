@@ -63,7 +63,7 @@ map_device_keys(const std::vector<Device> &devices) {
 /// @param device The device.
 /// @returns A unique key for status updates, derived from the device key.
 inline std::string status_key(const Device &device) {
-    return ontology_id(device.key).string();
+    return resource_id(device.key).string();
 }
 
 /// @brief Client for managing devices in a Synnax cluster.

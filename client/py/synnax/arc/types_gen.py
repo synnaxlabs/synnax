@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 MODE_TEXT: Literal["text"] = "text"
@@ -169,8 +169,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="arc")
+TYPE_RESOURCE_ID = ID(type="arc")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="arc", key=str(key))

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -70,12 +71,12 @@ var directorySchema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newDirectoryResource(d directory.Directory) ontology.Resource {
-	return ontology.NewResource(directorySchema, d.OntologyID(), d.Name, d)
+	return ontology.NewResource(directorySchema, d.ResourceID(), d.Name, d)
 }
 
 // Type implements ontology.Service.
-func (directories) Type() ontology.ResourceType {
-	return ontology.ResourceTypeArcDirectory
+func (directories) Type() resource.Type {
+	return resource.TypeArcDirectory
 }
 
 // RetrieveResource implements ontology.Service.
@@ -103,7 +104,7 @@ func translateDirectoryChange(
 ) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     directory.OntologyID(c.Key).String(),
+		Key:     directory.ResourceID(c.Key).String(),
 		Value:   newDirectoryResource(c.Value),
 	}
 }
@@ -124,9 +125,9 @@ func (d directories) OnChange(
 func (d directories) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, d.search, directory.OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, d.search, directory.ResourceID, q)
 }
 
 // openRoot returns the key of the root directory under the ontology root, creating it
@@ -137,7 +138,7 @@ func (s *Service) openRoot(ctx context.Context) (root directory.Key, err error) 
 		if err := s.cfg.Ontology.NewRetrieve().
 			WhereIDs(ontology.RootID).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypeArcDirectory).
+			WhereTypes(resource.TypeArcDirectory).
 			ExcludeFieldData(true).
 			Entries(&children).
 			Exec(ctx, tx); err != nil {
@@ -145,7 +146,7 @@ func (s *Service) openRoot(ctx context.Context) (root directory.Key, err error) 
 		}
 		if len(children) > 0 {
 			var err error
-			root, err = directory.KeyFromOntologyID(children[0].ID)
+			root, err = directory.KeyFromResourceID(children[0].ID)
 			return err
 		}
 		d := directory.Directory{Key: uuid.New(), Name: rootName}
@@ -154,14 +155,14 @@ func (s *Service) openRoot(ctx context.Context) (root directory.Key, err error) 
 		}
 		root = d.Key
 		w := s.owner.NewWriter(tx)
-		if err := w.DefineResources(ctx, d.OntologyID()); err != nil {
+		if err := w.DefineResources(ctx, d.ResourceID()); err != nil {
 			return err
 		}
 		return w.DefineRelationships(
 			ctx,
 			ontology.RootID,
 			ontology.RelationshipTypeParentOf,
-			d.OntologyID(),
+			d.ResourceID(),
 		)
 	})
 	return root, err
@@ -190,18 +191,18 @@ func (w Writer) CreateDirectory(
 			validate.ErrValidation, "directory %s already exists", d.Key,
 		)
 	}
-	parentID := directory.OntologyID(parent)
-	if err = w.validateEntry(ctx, parentID, d.OntologyID(), d.Name, true); err != nil {
+	parentID := directory.ResourceID(parent)
+	if err = w.validateEntry(ctx, parentID, d.ResourceID(), d.Name, true); err != nil {
 		return err
 	}
 	if err = w.directories.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.otgWriter.DefineResources(ctx, d.OntologyID()); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, d.ResourceID()); err != nil {
 		return err
 	}
 	return w.otgWriter.DefineRelationships(
-		ctx, parentID, ontology.RelationshipTypeParentOf, d.OntologyID(),
+		ctx, parentID, ontology.RelationshipTypeParentOf, d.ResourceID(),
 	)
 }
 
@@ -214,7 +215,7 @@ func (w Writer) RenameDirectory(
 	if key == w.root {
 		return errRoot("renamed")
 	}
-	if err := w.validateName(ctx, directory.OntologyID(key), name, true); err != nil {
+	if err := w.validateName(ctx, directory.ResourceID(key), name, true); err != nil {
 		return err
 	}
 	return w.directories.NewUpdate().
@@ -244,7 +245,7 @@ func (w Writer) DeleteDirectory(ctx context.Context, keys ...directory.Key) erro
 		}
 		var children []ontology.Resource
 		if err := w.otg.NewRetrieve().
-			WhereIDs(d.OntologyID()).
+			WhereIDs(d.ResourceID()).
 			TraverseTo(ontology.ChildrenTraverser).
 			ExcludeFieldData(true).
 			Entries(&children).
@@ -256,7 +257,7 @@ func (w Writer) DeleteDirectory(ctx context.Context, keys ...directory.Key) erro
 				validate.ErrValidation, "directory %q is not empty", d.Name,
 			)
 		}
-		if err := w.otgWriter.DeleteResources(ctx, d.OntologyID()); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, d.ResourceID()); err != nil {
 			return err
 		}
 	}

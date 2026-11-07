@@ -15,6 +15,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	"go.uber.org/zap"
@@ -25,8 +26,8 @@ import (
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
-	// Type returns the [ResourceType] this service is responsible for.
-	Type() ResourceType
+	// Type returns the [resource.Type] this service is responsible for.
+	Type() resource.Type
 	// RetrieveResource returns the resource with the given key. If the resource does
 	// not exist, returns [query.ErrNotFound].
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
@@ -35,8 +36,8 @@ type Service interface {
 	Search(
 		ctx context.Context,
 		tx gorp.Tx,
-		q search.Query[ID],
-	) (search.Result[ID], error)
+		q search.Query[resource.ID],
+	) (search.Result[resource.ID], error)
 	// Observable is used by the [Ontology] to subscribe to changes in the entities.
 	// This is used to propagate resource changes for signals (see
 	// [Ontology.ObserveResources]). If the service's entities are static, use
@@ -50,21 +51,21 @@ func SearchIndex[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	tx gorp.Tx,
 	idx *gorp.SearchIndex[K, E],
-	id func(K) ID,
-	q search.Query[ID],
-) (search.Result[ID], error) {
+	id func(K) resource.ID,
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
 	res, err := idx.Search(ctx, tx, search.Query[K]{
 		Term:   q.Term,
 		Except: func(key K) bool { return q.Except != nil && q.Except(id(key)) },
 		Limit:  q.Limit,
 	})
 	if err != nil {
-		return search.Result[ID]{}, err
+		return search.Result[resource.ID]{}, err
 	}
 	return search.MapKeys(res, id), nil
 }
 
-type serviceRegistrar map[ResourceType]Service
+type serviceRegistrar map[resource.Type]Service
 
 // register returns false, and keeps the registered Service, when a Service is already
 // registered for the type of svc.
@@ -80,7 +81,7 @@ func (s serviceRegistrar) register(svc Service) bool {
 
 func (s serviceRegistrar) retrieveResource(
 	ctx context.Context,
-	id ID,
+	id resource.ID,
 	tx gorp.Tx,
 ) (Resource, error) {
 	svc, ok := s[id.Type]

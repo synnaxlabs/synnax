@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -63,7 +63,7 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 				return err
 			}
 			if err := otg.NewWriter(tx).
-				DefineResources(ctx, u.OntologyID()); err != nil {
+				DefineResources(ctx, u.ResourceID()); err != nil {
 				return err
 			}
 		} else {
@@ -74,7 +74,7 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 				return err
 			}
 		}
-		return passwordSvc.NewWriter(tx).Set(ctx, u.OntologyID(), auth.Credentials{
+		return passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
 			Username: username,
 			Password: pwd,
 		})
@@ -90,7 +90,7 @@ func findUser(ctx context.Context, username string) user.User {
 		Where(password.MatchUsernames(username)).
 		Entry(&p).
 		Exec(ctx, nil)).To(Succeed())
-	key := MustSucceed(user.KeyFromOntologyID(p.Subject))
+	key := MustSucceed(user.KeyFromResourceID(p.Subject))
 	var u user.User
 	Expect(svc.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).
 		Exec(ctx, nil)).To(Succeed())
@@ -126,12 +126,12 @@ func purgeUsers(ctx context.Context) {
 			return err
 		}
 		if err := otg.NewWriter(tx).DeleteResources(
-			ctx, user.OntologyIDsFromKeys(keys)...,
+			ctx, user.ResourceIDsFromKeys(keys)...,
 		); err != nil {
 			return err
 		}
 		return passwordSvc.NewWriter(tx).
-			DeleteFor(ctx, user.OntologyIDsFromKeys(keys)...)
+			DeleteFor(ctx, user.ResourceIDsFromKeys(keys)...)
 	})).To(Succeed())
 }
 
@@ -147,7 +147,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		Expect(root.Name).To(Equal("alpha"))
 		Expect(findUser(ctx, "alpha")).To(Equal(root))
 		Expect(MustSucceed(login(ctx, "alpha", "p1")).Subject).
-			To(Equal(root.OntologyID()))
+			To(Equal(root.ResourceID()))
 	})
 	It("Should keep a root user whose username matches", func(ctx SpecContext) {
 		before := provision(ctx, "alpha", "p1")
@@ -227,7 +227,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		provision(ctx, "old-root", "p")
 		decoy := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "delta"}))
 		owner := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "owner"}))
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.OntologyID(), auth.Credentials{
+		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.ResourceID(), auth.Credentials{
 			Username: "delta",
 			Password: "p",
 		})).To(Succeed())
@@ -242,20 +242,20 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		root := provision(ctx, "orphan", "p")
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
-			To(Equal(root.OntologyID()))
+			To(Equal(root.ResourceID()))
 	})
 	It("Should reject a username whose password is not held by a user", func(
 		ctx SpecContext,
 	) {
 		Expect(passwordSvc.NewWriter(nil).Set(
 			ctx,
-			ontology.ID{Type: "rack", Key: "1"},
+			resource.ID{Type: "rack", Key: "1"},
 			auth.Credentials{Username: "rack-held", Password: "p"},
 		)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(passwordSvc.NewWriter(nil).DeleteFor(
 				ctx,
-				ontology.ID{Type: "rack", Key: "1"},
+				resource.ID{Type: "rack", Key: "1"},
 			)).To(Succeed())
 		})
 		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{

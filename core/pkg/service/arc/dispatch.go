@@ -57,7 +57,7 @@ func (s *Service) Dispatch(
 					}
 					if renamed := a.Base().Name; renamed != name {
 						if err = s.NewWriter(tx).validateName(
-							ctx, OntologyID(key), renamed, a.Type() == TypeModule,
+							ctx, ResourceID(key), renamed, a.Type() == TypeModule,
 						); err != nil {
 							return Arc{}, err
 						}

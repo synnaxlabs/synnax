@@ -27,12 +27,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -68,7 +69,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the task when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: t.Key, Name: "After"},
@@ -81,7 +82,7 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: t.Key, Name: ""},
@@ -91,7 +92,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing task", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), task.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: key, Name: "After"},
@@ -128,8 +129,8 @@ var _ = Describe("Dispatch", func() {
 	) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -152,7 +153,7 @@ var _ = Describe("Dispatch", func() {
 	) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -182,7 +183,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), task.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -200,8 +201,8 @@ var _ = Describe("Create", func() {
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
 			})
 			var keys []string
 			DeferCleanup(svc.Task.OnAction(func(
@@ -232,11 +233,11 @@ var _ = Describe("Retrieve", func() {
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
 		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.OntologyID().String(),
+			ctx, withoutStatus.ResourceID().String(),
 		)).To(Succeed())
 		grant(
-			ctx, access.ActionRetrieve, u.OntologyID(),
-			withStatus.OntologyID(), withoutStatus.OntologyID(),
+			ctx, access.ActionRetrieve, u.ResourceID(),
+			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Key: &filter.Set[task.Key]{
@@ -248,13 +249,13 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
 	})
 
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &task.Where{Key: &filter.Set[task.Key]{
 				In: []task.Key{t.Key, uuid.New()},
@@ -277,8 +278,8 @@ var _ = Describe("Retrieve", func() {
 		Expect(svc.Task.NewWriter(nil).Create(ctx, &match)).To(Succeed())
 		other := createTask(ctx)
 		grant(
-			ctx, access.ActionRetrieve, u.OntologyID(),
-			match.OntologyID(), other.OntologyID(),
+			ctx, access.ActionRetrieve, u.ResourceID(),
+			match.ResourceID(), other.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			SearchTerm: "cryostat",
@@ -334,7 +335,7 @@ func createRunningTask(ctx SpecContext, running bool) task.Task {
 func reportStopped(ctx context.Context, t task.Task) {
 	GinkgoHelper()
 	stat := task.Status{
-		Key:     t.OntologyID().String(),
+		Key:     t.ResourceID().String(),
 		Variant: status.VariantSuccess,
 		Message: "Stopped task",
 		Time:    telem.Now(),
@@ -379,10 +380,10 @@ func streamCommands(ctx SpecContext) <-chan task.Command {
 	return commands
 }
 
-// stallFreeWrites fills the free write queue of the Core behind a streamer that never
-// reads, and leaves writers parked on it. A new write then waits behind every one of
-// them.
-func stallFreeWrites(ctx SpecContext) {
+// stallWrites leaves storage streamers that never read on the Core, then parks writers
+// behind them. Storage holds each write until every one of its streamers takes the
+// frame or a slow-consumer timeout passes, so a new write waits behind the parked ones.
+func stallWrites(ctx SpecContext) {
 	GinkgoHelper()
 	ch := channel.Channel{
 		Name:     "stall_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
@@ -390,15 +391,20 @@ func stallFreeWrites(ctx SpecContext) {
 		Virtual:  true,
 	}
 	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-	streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys:        channel.Keys{ch.Key()},
-		SendOpenAck: true,
-	}))
-	requests, responses := confluence.Attach(streamer, 1)
 	sCtx, cancel := signal.Isolated()
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
-	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	Eventually(responses.Outlet()).Should(Receive())
+	const streamerCount = 16
+	var (
+		requests  = make([]confluence.Inlet[ts.StreamerRequest], streamerCount)
+		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
+	)
+	for i := range streamerCount {
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(ctx, ts.StreamerConfig{
+			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
+		}))
+		requests[i], responses[i] = confluence.Attach(streamer, 1)
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	}
 	var (
 		written atomic.Int64
 		stopped atomic.Bool
@@ -428,8 +434,10 @@ func stallFreeWrites(ctx SpecContext) {
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 	DeferCleanup(func() {
 		stopped.Store(true)
-		requests.Close()
-		confluence.Drain(responses)
+		for i := range streamerCount {
+			requests[i].Close()
+			confluence.Drain(responses[i])
+		}
 		parked.Wait()
 		Expect(shutdown.Close()).To(Succeed())
 	})
@@ -458,7 +466,7 @@ var _ = Describe("Delete", func() {
 	}
 	It("Should release the channels of a running task", func(ctx SpecContext) {
 		t := createRunningTask(ctx, true)
-		grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
 		ch := channel.Channel{
 			Name:        "task_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
 			DataType:    telem.TimestampT,
@@ -499,7 +507,7 @@ var _ = Describe("Delete", func() {
 		keys := make([]task.Key, len(tasks))
 		for i, t := range tasks {
 			keys[i] = t.Key
-			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
 		}
 		commands := streamCommands(ctx)
 		start := time.Now()
@@ -527,8 +535,8 @@ var _ = Describe("Delete", func() {
 		func(ctx SpecContext) {
 			const timeout = 200 * time.Millisecond
 			t := createRunningTask(ctx, true)
-			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
-			stallFreeWrites(ctx)
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			stallWrites(ctx)
 			start := time.Now()
 			Expect(withTimeout(timeout).Delete(
 				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
@@ -540,9 +548,9 @@ var _ = Describe("Delete", func() {
 	It("Should stop only the requested task", func(ctx SpecContext) {
 		target := createRunningTask(ctx, true)
 		other := createRunningTask(ctx, true)
-		grant(ctx, access.ActionDelete, u.OntologyID(), target.OntologyID())
+		grant(ctx, access.ActionDelete, u.ResourceID(), target.ResourceID())
 		forged := task.Status{
-			Key:     target.OntologyID().String(),
+			Key:     target.ResourceID().String(),
 			Variant: status.VariantSuccess,
 			Message: "Task is running",
 			Time:    telem.Now(),
@@ -563,7 +571,7 @@ var _ = Describe("Delete", func() {
 		"Should keep the task when the caller cancels",
 		func(ctx SpecContext, after time.Duration) {
 			t := createRunningTask(ctx, true)
-			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
 			reqCtx, cancel := context.WithCancel(ctx)
 			defer time.AfterFunc(after, cancel).Stop()
 			if after == 0 {
@@ -585,7 +593,7 @@ var _ = Describe("Delete", func() {
 		"Should not wait for a task that is not running",
 		func(ctx SpecContext, create func(SpecContext) task.Task) {
 			t := create(ctx)
-			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
 			commands := streamCommands(ctx)
 			start := time.Now()
 			Expect(withTimeout(10*time.Second).Delete(
@@ -598,7 +606,7 @@ var _ = Describe("Delete", func() {
 		Entry("never started", func(ctx SpecContext) task.Task {
 			t := createTask(ctx)
 			Expect(svc.Status.NewWriter(nil).Delete(
-				ctx, t.OntologyID().String(),
+				ctx, t.ResourceID().String(),
 			)).To(Succeed())
 			return t
 		}),
