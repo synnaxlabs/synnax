@@ -21,6 +21,7 @@ import (
 
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -160,7 +161,9 @@ type Engine struct {
 	flows    []flow
 	ingest   ingestv1.IngestServiceClient
 	configs  ingestionconfigsv2.IngestionConfigServiceClient
+	runs     runsv2.RunServiceClient
 	configID string
+	assetID  string
 	// confirms counts the checkpoints Sift has confirmed.
 	confirms int
 }
@@ -204,6 +207,7 @@ func New(ctx context.Context, cfgs ...Config) (*Engine, error) {
 		flows:   flows,
 		ingest:  ingestv1.NewIngestServiceClient(cfg.Conn),
 		configs: ingestionconfigsv2.NewIngestionConfigServiceClient(cfg.Conn),
+		runs:    runsv2.NewRunServiceClient(cfg.Conn),
 	}, nil
 }
 
@@ -425,7 +429,7 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 		return e.configID, nil
 	}
 	key := clientKey(e.cfg.Asset, e.flows)
-	find := func() (string, error) {
+	find := func() (*ingestionconfigsv2.IngestionConfig, error) {
 		res, err := e.configs.ListIngestionConfigs(
 			ctx,
 			&ingestionconfigsv2.ListIngestionConfigsRequest{
@@ -433,15 +437,15 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 			},
 		)
 		if err != nil || len(res.IngestionConfigs) == 0 {
-			return "", err
+			return nil, err
 		}
-		return res.IngestionConfigs[0].IngestionConfigId, nil
+		return res.IngestionConfigs[0], nil
 	}
-	id, err := find()
+	cfg, err := find()
 	if err != nil {
 		return "", err
 	}
-	if id == "" {
+	if cfg == nil {
 		flows := make([]*ingestionconfigsv2.FlowConfig, len(e.flows))
 		for i, f := range e.flows {
 			flows[i] = f.config()
@@ -456,17 +460,17 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 		)
 		switch {
 		case status.Code(err) == codes.AlreadyExists:
-			if id, err = find(); err != nil {
+			if cfg, err = find(); err != nil {
 				return "", err
 			}
 		case err != nil:
 			return "", err
 		default:
-			id = res.IngestionConfig.IngestionConfigId
+			cfg = res.IngestionConfig
 		}
 	}
-	e.configID = id
-	return id, nil
+	e.configID, e.assetID = cfg.IngestionConfigId, cfg.AssetId
+	return e.configID, nil
 }
 
 // attempt is one try at sending, from the positions Sift last confirmed.
