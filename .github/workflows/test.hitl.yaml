@@ -68,6 +68,22 @@ jobs:
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
 
+      # The run needs the hardware to itself. A Core without a Driver holds none.
+      - name: Check that the hardware is free
+        shell: powershell
+        run: |
+          $holders = Get-Process |
+            Where-Object {
+              $_.ProcessName -match '^(synnax-driver|driver-[0-9a-f]{16}|DEWEsoft)'
+            } |
+            ForEach-Object { "$($_.ProcessName) (PID $($_.Id))" }
+          if ($holders) {
+            Write-Output ("::error title=Hardware in use::These programs use the " +
+              "station's hardware: " + ($holders -join ", ") + ". Close them, then " +
+              "run the workflow again.")
+            exit 1
+          }
+
       - name: Download Core
         shell: cmd
         env:
