@@ -11,6 +11,7 @@
 
 import pathlib
 import subprocess
+import tempfile
 
 import synnax as sy
 from framework import resources
@@ -109,19 +110,12 @@ class CRIOCase(HardwareCase):
                 raise TimeoutError(f"Rack {RACK_NAME} did not reach {variant}")
             sy.sleep(0.5)
 
-    def ssh(self, command: str) -> str:
-        """Runs a shell command on the cRIO and returns its output.
+    def ssh(self, command: str) -> None:
+        """Runs a shell command on the cRIO.
 
-        :raises subprocess.CalledProcessError: If the command fails.
+        :raises RuntimeError: If the command fails.
         """
-        return subprocess.run(
-            ["ssh", *_SSH_OPTIONS, HOST, command],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=_SSH_TIMEOUT,
-            check=True,
-        ).stdout
+        _run(["ssh", *_SSH_OPTIONS, HOST, command])
 
     def teardown(self) -> None:
         try:
@@ -130,18 +124,30 @@ class CRIOCase(HardwareCase):
             with self._try_to("copy the cRIO Driver log"):
                 log = self.results_dir / "crio-driver.log"
                 self._scp([f"{HOST}:{_DIR}/driver.log", str(log)])
-            with self._try_to("track the cRIO devices"):
-                self.track_test_devices(
-                    self.client.devices.retrieve(rack=self.rack.key)
-                )
+            # Setup can fail before the Driver enrolls its rack.
+            rack = getattr(self, "rack", None)
+            if rack is not None:
+                with self._try_to("track the cRIO devices"):
+                    self.track_test_devices(self.client.devices.retrieve(rack=rack.key))
         finally:
             super().teardown()
 
     def _scp(self, paths: list[str]) -> None:
-        subprocess.run(
-            ["scp", "-q", *_SSH_OPTIONS, *paths],
+        _run(["scp", "-q", *_SSH_OPTIONS, *paths])
+
+
+def _run(args: list[str]) -> None:
+    # Windows OpenSSH does not exit while its output is a pipe, so it writes to a file.
+    with tempfile.TemporaryFile("w+") as output:
+        result = subprocess.run(
+            args,
             stdin=subprocess.DEVNULL,
-            capture_output=True,
+            stdout=output,
+            stderr=subprocess.STDOUT,
             timeout=_SSH_TIMEOUT,
-            check=True,
         )
+        if result.returncode != 0:
+            output.seek(0)
+            raise RuntimeError(
+                f"{args[0]} exited with code {result.returncode}: {output.read()}"
+            )

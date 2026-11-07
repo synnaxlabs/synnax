@@ -101,7 +101,9 @@ class CDAQDigitalRead(NIDigitalReadTaskCase):
     task_name = "HITL cDAQ Digital Read"
     device_locations = ["SY2Mod4"]
     simulated = False
-    SAMPLE_RATE = 1000 * sy.Rate.HZ
+    # Digital reads are software timed, and an Ethernet chassis answers each sample
+    # over the network, so 1 kHz is out of reach.
+    SAMPLE_RATE = 100 * sy.Rate.HZ
     STREAM_RATE = 25 * sy.Rate.HZ
 
     @staticmethod
