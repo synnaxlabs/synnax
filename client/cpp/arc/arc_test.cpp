@@ -124,6 +124,22 @@ TEST(TestArc, testRetrieveRejectsPage) {
     }
 }
 
+/// @brief it should page a retrieve of Arcs by keys or by names.
+TEST(TestArc, testRetrieveListPage) {
+    const auto client = new_test_client();
+    std::vector<Key> keys;
+    std::vector<std::string> names;
+    for (int i = 0; i < 3; ++i) {
+        const auto arc = ASSERT_NIL_P(client.arcs.create(random_arc_name("page_arc")));
+        keys.push_back(base(arc).key);
+        names.push_back(base(arc).name);
+    }
+    const auto by_key = ASSERT_NIL_P(client.arcs.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_name = ASSERT_NIL_P(client.arcs.retrieve(names, {.offset = 2}));
+    ASSERT_EQ(by_name.size(), 1);
+}
+
 /// @brief it should retrieve the one Arc program that a filter matches.
 TEST(TestArc, testRetrieveOneWhere) {
     const auto client = new_test_client();

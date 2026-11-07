@@ -210,6 +210,30 @@ TEST(StatusTest, RetrieveRejectsPage) {
     }
 }
 
+/// @brief it should page a retrieve of statuses by keys or by filter.
+TEST(StatusTest, RetrieveListPage) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    std::vector<std::string> keys;
+    for (int i = 0; i < 3; i++) {
+        Status<x::json::json> s;
+        s.key = "test-page-" + std::to_string(i) + "-" + suffix;
+        s.variant = VARIANT_INFO;
+        s.message = "Page";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+        keys.push_back(s.key);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto by_key = ASSERT_NIL_P(client.statuses.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_where = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = keys}, {.offset = 2})
+    );
+    ASSERT_EQ(by_where.size(), 1);
+}
+
 /// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();
