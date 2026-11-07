@@ -6224,6 +6224,115 @@ var _ = Describe("Sequence", func() {
 				Expect(sendRaw(h, ctx, 5, 7)).To(Equal([]int64{3}))
 			})
 		})
+
+		Describe("Bare calls in a stage", func() {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 99},
+				"raw":  {types.I64(), 100},
+				"out":  {types.I64(), 102},
+			})
+			digests := []channels.Digest{
+				{Key: 100, DataType: telem.Int64T},
+				{Key: 102, DataType: telem.Int64T},
+			}
+			const record = `
+				func record(v i64) {
+				    out = v
+				}
+				`
+			// startMain starts the main sequence, ingests each value into raw on its
+			// own cycle, and returns what the program wrote to out.
+			startMain := func(ctx SpecContext, program string, values ...int64) []int64 {
+				h := newRuntimeHarness(
+					ctx, record+program+"\ntrig => main", resolver, digests...,
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 99)
+				for _, v := range values {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				return drainI64(out, 102)
+			}
+
+			DescribeTable(
+				"Fires a bare call on each raw sample",
+				func(ctx SpecContext, program string, expected []int64) {
+					Expect(startMain(ctx, program, 5, 7)).To(Equal(expected))
+				},
+				Entry("a computed channel input", `
+				sequence main {
+				    stage run {
+				        record(raw * 2)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a named input", `
+				sequence main {
+				    stage run {
+				        record(v=raw * 2)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a reactive variable declared in the stage", `
+				sequence main {
+				    stage run {
+				        s := raw * 2
+				        record(s)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a reactive variable declared at the top level", `
+				s := raw * 2
+				sequence main {
+				    stage run {
+				        record(s + 1)
+				    }
+				}`, []int64{11, 15}),
+				Entry("a later function that reads the channel", `
+				sequence main {
+				    stage run {
+				        record(rd())
+				    }
+				}
+				func rd() i64 {
+				    return raw
+				}`, []int64{5, 7}),
+				Entry("a flow with an explicit trigger", `
+				sequence main {
+				    stage run {
+				        raw -> record(raw * 2)
+				    }
+				}`, []int64{10, 14}),
+			)
+
+			It("Runs a bare call with no reactive input once", func(ctx SpecContext) {
+				Expect(startMain(ctx, `
+				sequence main {
+				    stage run {
+				        record(2 + 1)
+				    }
+				}`, 5, 7)).To(Equal([]int64{3}))
+			})
+
+			It("Keeps a bare call in a sequence step one-shot", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, record+`
+				sequence main {
+				    record(raw * 2)
+				    9 -> out
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV[int64](3))
+				advance(h, ctx, telem.Millisecond)
+				trigger(h, ctx, 99)
+				for _, v := range []int64{5, 7} {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6, 9}))
+			})
+		})
 	})
 
 	Describe("Variable initialization on declaration", func() {

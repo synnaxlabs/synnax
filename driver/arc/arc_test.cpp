@@ -347,25 +347,26 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     ASSERT_NIL(client->channels.create(out_ch));
 
     const auto name = make_unique_channel_name("computed_range");
-    synnax::arc::Arc arc_prog{
-        .name = make_unique_channel_name("computed_range_test"),
-        .mode = synnax::arc::MODE_TEXT
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("computed_range_test")}
     };
-    arc_prog.text = ::arc::text::Text{
-        .raw = "import ranges\n"
-               "\n"
-               "sequence main {\n"
-               "    key := ranges.create(\"" +
-               name +
-               "\")\n"
-               "    key -> " +
-               out_ch.name +
-               "\n"
-               "}\n"
-               "\n" +
-               trig_ch.name + " => main\n"
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "import ranges\n"
+                   "\n"
+                   "sequence main {\n"
+                   "    key := ranges.create(\"" +
+                   name +
+                   "\")\n"
+                   "    key -> " +
+                   out_ch.name +
+                   "\n"
+                   "}\n"
+                   "\n" +
+                   trig_ch.name + " => main\n"
+        }
     };
-    ASSERT_NIL(client->arcs.create(arc_prog));
+    ASSERT_NIL(create_automation(client, arc_prog));
 
     auto rack = ASSERT_NIL_P(
         client->racks.create(make_unique_channel_name("arc_computed_range_rack"))
@@ -405,7 +406,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
 
     // The key reaches the channel only after the create node returned it, so
     // the range exists by the time the first write lands.
-    auto rng = ASSERT_NIL_P(client->ranges.retrieve_by_name(name));
+    auto rng = ASSERT_NIL_P(client->ranges.retrieve(name));
     const auto expected = rng.key.to_string();
     bool found = false;
     for (const auto &output_fr: mock_writer->writes->snapshot())

@@ -1790,32 +1790,19 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 	return flowOperatorEdgeKind(op)
 }
 
-// injectImplicitTriggers creates channel read nodes for all channels referenced
-// in an expression when that expression is the first node in a flow statement.
-// This enables the shorthand syntax: `ox_pt_1 > 20 => do_something()`
-// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something()`. A call's
-// computed inputs count too, so `f(count * 2)` expands to `count -> f(count * 2)`,
-// and so does a reactive variable they read.
+// injectImplicitTriggers adds the implicit triggers of the flow statement's head.
 func (p *flowChainProcessor) injectImplicitTriggers(
 	head antlr.ParserRuleContext,
 ) bool {
-	for _, chName := range p.headChannelReads(head) {
-		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
-		if err != nil {
-			continue
-		}
-		result, ok := buildChannelReadNode(chName, chanSym, p.kg)
-		if !ok {
-			return false
-		}
-		if e := p.shell.varNodes[chanSym]; e.register != nil {
-			bindReadToAlias(p.shell, e.register, &result.node, chanSym)
-		}
-		p.nodes = append(p.nodes, result.node)
-		p.addTrigger(result)
+	triggers, ok := implicitTriggers(p.ctx, p.kg, p.shell, head)
+	if !ok {
+		return false
 	}
-	for _, vn := range p.headVarReads(head) {
-		p.addTrigger(varReadRef(vn))
+	for _, t := range triggers {
+		if t.node.Key != "" {
+			p.nodes = append(p.nodes, t.node)
+		}
+		p.addTrigger(t)
 	}
 	return true
 }
@@ -1830,8 +1817,41 @@ func (p *flowChainProcessor) addTrigger(result nodeResult) {
 	p.additionalTriggers = append(p.additionalTriggers, result)
 }
 
+// implicitTriggers returns a trigger for each channel or reactive variable that head
+// reads, so `f(count * 2)` expands to `count -> f(count * 2)`.
+func implicitTriggers[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	kg *keyGenerator,
+	shell *shellBuilder,
+	head antlr.ParserRuleContext,
+) ([]nodeResult, bool) {
+	var triggers []nodeResult
+	for _, chName := range headChannelReads(ctx, head) {
+		chanSym, err := ctx.Scope.Resolve(ctx, chName)
+		if err != nil {
+			continue
+		}
+		result, ok := buildChannelReadNode(chName, chanSym, kg)
+		if !ok {
+			return nil, false
+		}
+		if e := shell.varNodes[chanSym]; e.register != nil {
+			bindReadToAlias(shell, e.register, &result.node, chanSym)
+		}
+		triggers = append(triggers, result)
+	}
+	for _, vn := range headVarReads(ctx, shell, head) {
+		triggers = append(triggers, varReadRef(vn))
+	}
+	return triggers, true
+}
+
 // headVarReads returns the nodes of the reactive variables a call's inputs read.
-func (p *flowChainProcessor) headVarReads(head antlr.ParserRuleContext) []*ir.Node {
+func headVarReads[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	shell *shellBuilder,
+	head antlr.ParserRuleContext,
+) []*ir.Node {
 	fn, ok := head.(parser.IFunctionContext)
 	if !ok {
 		return nil
@@ -1839,11 +1859,11 @@ func (p *flowChainProcessor) headVarReads(head antlr.ParserRuleContext) []*ir.No
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
 		for _, name := range parser.CollectIdentifiers(arg.Expr) {
-			sym, err := p.ctx.Scope.Resolve(p.ctx, name)
+			sym, err := ctx.Scope.Resolve(ctx, name)
 			if err != nil || !isExprReadVar(sym) {
 				continue
 			}
-			rn := p.shell.varNodes[sym].readNode(sym)
+			rn := shell.varNodes[sym].readNode(sym)
 			if rn != nil && !slices.Contains(nodes, rn) {
 				nodes = append(nodes, rn)
 			}
@@ -1854,10 +1874,11 @@ func (p *flowChainProcessor) headVarReads(head antlr.ParserRuleContext) []*ir.No
 
 // headChannelReads returns the channels a flow head reads, through its own
 // expression or through a call's computed inputs. A constant reads none.
-func (p *flowChainProcessor) headChannelReads(
+func headChannelReads[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
 	head antlr.ParserRuleContext,
 ) map[uint32]string {
-	root := p.ctx.Scope.Root()
+	root := ctx.Scope.Root()
 	reads := make(map[uint32]string)
 	if sym, err := root.GetChildByParserRule(head); err == nil {
 		if sym.Kind == symbol.KindConstant {
@@ -2633,6 +2654,7 @@ func analyzeSequence(
 				ctx.Child(single).WithScope(seqScope),
 				kg,
 				shell,
+				false,
 			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
@@ -2776,7 +2798,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
+			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell, true)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -2811,19 +2833,48 @@ func analyzeStage(
 	return scope, nodes, edges, true
 }
 
-// analyzeSingleInvocation lowers a bare call or expression step. The step's
-// node comes last, after any computed-input nodes the call samples.
+// analyzeSingleInvocation lowers a bare call or expression step, with its node last. A
+// reactive call fires on the implicit triggers of a flow head.
 func analyzeSingleInvocation(
 	ctx acontext.Context[parser.ISingleInvocationContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
+	reactive bool,
 ) ([]ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
-		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, false)
+		var triggers []nodeResult
+		if reactive {
+			var ok bool
+			if triggers, ok = implicitTriggers(ctx, kg, shell, fn); !ok {
+				return nil, false
+			}
+		}
+		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, len(triggers) > 0)
 		if !ok {
 			return nil, false
 		}
-		return append(result.args, result.node), true
+		targets := []ir.Handle{result.input}
+		for _, arg := range result.args {
+			targets = append(targets, ir.Handle{
+				Node:  arg.Key,
+				Param: ir.DefaultInputParam,
+			})
+		}
+		var nodes []ir.Node
+		for _, t := range triggers {
+			if t.node.Key != "" {
+				nodes = append(nodes, t.node)
+			}
+			for _, target := range targets {
+				shell.edges = append(shell.edges, ir.Edge{
+					Source: t.output,
+					Target: target,
+					Kind:   ir.EdgeKindContinuous,
+				})
+			}
+		}
+		nodes = append(nodes, result.args...)
+		return append(nodes, result.node), true
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		result, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
