@@ -153,6 +153,9 @@ type edgeNode struct {
 	task      task.Task
 	authority control.Authority
 	edge      *sparkplug.Edge
+	// clock stamps commands in rising order across runs, since two writes at one
+	// timestamp conflict. Only the writeCommands of the open session uses it.
+	clock telem.MonoClock
 	// mu guards the sequence, which continues from one run to the next, and the state
 	// of the current run. A sequenced publish encodes its message and hands it to the
 	// client under mu, so messages leave the client in sequence order. The wait for the
@@ -188,9 +191,6 @@ type edgeSession struct {
 	*edgeNode
 	// commands carries the commands that the message handler received to writeCommands.
 	commands chan sparkplug.Command
-	// clock stamps commands in rising order, since two writes at one timestamp
-	// conflict. Only writeCommands uses it.
-	clock telem.MonoClock
 	// rebirths wakes the serve loop to publish the birth again.
 	rebirths chan struct{}
 	// edited wakes followBroker after an edit of the broker device.
