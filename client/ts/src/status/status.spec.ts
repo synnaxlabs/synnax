@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -1191,5 +1193,61 @@ describe("toString", () => {
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
     );
+  });
+});
+
+describe("label backfill", () => {
+  // Labels a status with a label the client lacks, so the client fetches it through
+  // retrieveLabel.
+  const backfillLabel = (retrieveLabel: () => Promise<never>) => {
+    let fetched = (): void => {};
+    const fetching = new Promise<void>((resolve) => (fetched = resolve));
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        _req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/label/retrieve") return resZ.parse({});
+        fetched();
+        return await retrieveLabel();
+      },
+    };
+    const onError = vi.fn();
+    const cache = new query.Cache({ openStreamer: null, onError });
+    const ont = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ont });
+    new status.Client({ unary, cache, ontology: ont, labels });
+    const rel: ontology.Relationship = {
+      from: status.ontologyID(uuid.create()),
+      type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+      to: label.ontologyID(uuid.create()),
+    };
+    ont.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return { cache, onError, fetching };
+  };
+
+  it("should report no error when the client closes during a backfill", async () => {
+    const { cache, onError, fetching } = backfillLabel(
+      async () => await new Promise(() => {}),
+    );
+    await fetching;
+    await cache.close();
+    // Lets the rejection reach the error handler.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should report a backfill that fails for another reason", async () => {
+    const err = new ValidationError("bad request");
+    const { cache, onError } = backfillLabel(async () => {
+      throw err;
+    });
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: err })),
+    );
+    await cache.close();
   });
 });
