@@ -159,21 +159,23 @@ TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
     for (const auto &choice:
          {Choice{.index = 2, .assign_activate = 0x0700},
           Choice{.index = 1, .assign_activate = 0x0300}}) {
-        const auto err = select({SM_MODE, DC_MODE}, choice).second;
-        ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+        const auto res = select({SM_MODE, DC_MODE}, choice);
+        ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
         EXPECT_EQ(
-            err.data,
+            res.second.data,
             std::format(
-                "the slave does not list mode {} with AssignActivate 0x{:04X}. It lists "
-                "0 \"SM-Synchron\" (AssignActivate 0x0000), 1 \"DC\" (AssignActivate "
-                "0x0700).",
+                "the slave does not list mode {} with AssignActivate 0x{:04X}. "
+                "It lists 0 \"SM-Synchron\" (AssignActivate 0x0000), 1 \"DC\" "
+                "(AssignActivate 0x0700).",
                 choice.index,
                 choice.assign_activate
             )
         );
     }
+    const auto none = select({}, Choice{});
+    ASSERT_OCCURRED_AS_P(none, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        select({}, Choice{}).second.data,
+        none.second.data,
         "the slave does not list mode 0 with AssignActivate 0x0000. It lists no modes."
     );
 }
@@ -254,10 +256,10 @@ TEST(Resolve, RejectsAChosenSYNC1ThatIsNotAMultipleOfSYNC0) {
     const auto sync0 = x::telem::MILLISECOND * 3;
     const auto sync1 = x::telem::MILLISECOND * 10;
     const Cycles cycles{.sync0 = sync0, .sync1 = sync1};
-    const auto err = resolve(DC_MODE, x::telem::MILLISECOND, cycles).second;
-    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    const auto res = resolve(DC_MODE, x::telem::MILLISECOND, cycles);
+    ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        res.second.data,
         "SYNC1 cycle of " + sync1.to_string() +
             " is not a multiple of the SYNC0 cycle of " + sync0.to_string()
     );
