@@ -1,0 +1,148 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs the hitl suite against the real hardware of synnax-server-1. Its runner group
+# admits only this workflow from main, so code from a fork or a branch never reaches the
+# station. It runs apart from the nightly run, whose build uses the same artifact names.
+
+name: Test - HITL
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 6am UTC, after the nightly build frees the bots
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    uses: ./.github/workflows/build.synnax.yaml
+    with:
+      windows: true
+      # The NI Linux RT Driver builds on the Ubuntu bots.
+      ubuntu: true
+      driver: true
+      nilinuxrt: true
+      core: true
+      use_simple_artifact_names: true
+    secrets:
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  test:
+    name: Test (synnax-server-1)
+    needs: build
+    runs-on: [self-hosted, hitl]
+    timeout-minutes: 60
+    # One run at a time holds the hardware.
+    concurrency:
+      group: hitl
+      cancel-in-progress: false
+    # gh run download reads the build artifacts.
+    permissions:
+      actions: read
+      contents: read
+    env:
+      # The station's address on the instrument subnet, where the cRIO reaches the Core.
+      CORE_HOST: 192.168.50.10
+      CORE_PORT: 9190
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The runner's user cannot end other users' processes, so this leaves the
+      # station's own Core alone.
+      - name: Force quit existing Synnax processes
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
+
+      - name: Download Core
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ github.run_id }}
+        run: integration/scripts/DownloadArtifacts.cmd
+
+      - name: Download NI Linux RT Driver
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          & "$env:ProgramFiles\Git\bin\bash.exe" .github/scripts/download_run_artifacts.sh `
+            $env:GITHUB_RUN_ID synnax-driver-nilinuxrt nilinuxrt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Move-Item -Force `
+            (Get-Item nilinuxrt\synnax-driver-nilinuxrt\synnax-driver-v*-nilinuxrt) `
+            "$env:USERPROFILE\synnax-binaries\synnax-driver-nilinuxrt"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Start Core
+        timeout-minutes: 1
+        shell: powershell
+        env:
+          # The EtherCAT scan resets every slave and stops other masters on the bus.
+          SYNNAX_DISABLE_INTEGRATIONS: ethercat
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run:
+          integration/scripts/StartCore.ps1 -Listen "${env:CORE_HOST}:${env:CORE_PORT}"
+
+      - name: Test conductor
+        timeout-minutes: 45
+        shell: cmd
+        working-directory: integration
+        env:
+          PYTHONIOENCODING: utf-8
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: >-
+          uv run test-conductor --name tc_hitl --server %CORE_HOST% --port %CORE_PORT%
+          hitl
+
+      - name: Upload test results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: test-results-hitl
+          path: integration/tests/results/*
+          retention-days: 7
+
+      # The Core's embedded Driver scans the station's devices until it stops.
+      - name: Stop Core
+        if: always()
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
+
+  notify:
+    name: Notify Slack
+    needs: [build, test]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Post the failure to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data "{\"text\": \"HITL tests failed: $RUN_URL\"}" \
+            "$SLACK_WEBHOOK_URL"

@@ -687,6 +687,7 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.configured, false);
 }
 
+/// @brief it should create a device whose parent is another device's resource ID.
 TEST(DeviceTests, testCreateWithParentResourceID) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
