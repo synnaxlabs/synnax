@@ -40,8 +40,7 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "vitest": "catalog:",
-    "ws": "catalog:"
+    "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
     "vitest": {
