@@ -78,10 +78,6 @@ struct Where {
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
-    /// @brief name_patterns matches channels whose name matches any of the given
-    /// patterns. A valid channel name matches exactly, and any other pattern is a
-    /// regular expression, anchored when unanchored.
-    ::x::filter::List<std::string> name_patterns;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
