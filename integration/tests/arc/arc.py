@@ -58,7 +58,7 @@ class ArcCase(SimDaqCase, TestCase):
     start_cmd_channel: str
     end_cmd_channel: str = ""
     subscribe_channels: list[str]
-    rack: sy.Rack | None
+    rack: sy.Rack
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
@@ -78,7 +78,6 @@ class ArcCase(SimDaqCase, TestCase):
                 raise TypeError(
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
-        self.rack = None
         self.set_manual_timeout(180)
         create_virtual_channel(
             self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
@@ -92,7 +91,6 @@ class ArcCase(SimDaqCase, TestCase):
             self.rack = self.client.racks.retrieve(rack_key)
         else:
             self.rack = self.client.racks.retrieve(embedded=False, limit=1)[0]
-        assert self.rack is not None, "Failed to retrieve rack"
         self.log(f"Selecting rack: {self.rack.name} (key: {self.rack.key})")
 
     def load_arc(
@@ -109,7 +107,6 @@ class ArcCase(SimDaqCase, TestCase):
         start command deploys it and this blocks until the runtime reports it
         running.
         """
-        assert self.rack is not None, "Call _retrieve_rack() before load_arc()"
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")

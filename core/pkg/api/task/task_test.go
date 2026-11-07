@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -379,10 +380,10 @@ func streamCommands(ctx SpecContext) <-chan task.Command {
 	return commands
 }
 
-// stallFreeWrites fills the free write queue of the Core behind a streamer that never
-// reads, and leaves writers parked on it. A new write then waits behind every one of
-// them.
-func stallFreeWrites(ctx SpecContext) {
+// stallWrites leaves storage streamers that never read on the Core, then parks writers
+// behind them. Storage holds each write until every one of its streamers takes the
+// frame or a slow-consumer timeout passes, so a new write waits behind the parked ones.
+func stallWrites(ctx SpecContext) {
 	GinkgoHelper()
 	ch := channel.Channel{
 		Name:     "stall_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
@@ -390,15 +391,20 @@ func stallFreeWrites(ctx SpecContext) {
 		Virtual:  true,
 	}
 	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-	streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys:        channel.Keys{ch.Key()},
-		SendOpenAck: true,
-	}))
-	requests, responses := confluence.Attach(streamer, 1)
 	sCtx, cancel := signal.Isolated()
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
-	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	Eventually(responses.Outlet()).Should(Receive())
+	const streamerCount = 16
+	var (
+		requests  = make([]confluence.Inlet[ts.StreamerRequest], streamerCount)
+		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
+	)
+	for i := range streamerCount {
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(ctx, ts.StreamerConfig{
+			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
+		}))
+		requests[i], responses[i] = confluence.Attach(streamer, 1)
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	}
 	var (
 		written atomic.Int64
 		stopped atomic.Bool
@@ -428,8 +434,10 @@ func stallFreeWrites(ctx SpecContext) {
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 	DeferCleanup(func() {
 		stopped.Store(true)
-		requests.Close()
-		confluence.Drain(responses)
+		for i := range streamerCount {
+			requests[i].Close()
+			confluence.Drain(responses[i])
+		}
 		parked.Wait()
 		Expect(shutdown.Close()).To(Succeed())
 	})
@@ -528,7 +536,7 @@ var _ = Describe("Delete", func() {
 			const timeout = 200 * time.Millisecond
 			t := createRunningTask(ctx, true)
 			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
-			stallFreeWrites(ctx)
+			stallWrites(ctx)
 			start := time.Now()
 			Expect(withTimeout(timeout).Delete(
 				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
