@@ -1012,6 +1012,29 @@ TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should stop retrying a failed start when one more try would end after the
+/// start timeout, and return the error of the last try.
+TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>("eth0", clock);
+    this->master->add_slave(io_slave(0));
+    this->master->set_activate_duration(x::telem::SECOND * 25);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    auto cfg = quick_start_config();
+    cfg.start_retry.max_retries = 10;
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "activate failed");
+    // The second try ends at 50 s, so a third would end at 75 s.
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should retry activation of the master until it succeeds, then open the
 /// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
