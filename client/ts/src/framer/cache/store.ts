@@ -191,9 +191,8 @@ export class Store {
   /**
    * Caches the block under the key as the most recently used, replacing any block
    * there, and evicts least recently used blocks past the budget. A raw block takes the
-   * floor of its channel's index. The block it sets is
-   * never evicted. Call it again after the block changes, so its new size counts
-   * against the budget.
+   * floor of its channel's index. The block it sets is never evicted. Call it again
+   * after the block changes, so its new size counts against the budget.
    */
   set(key: string, block: Block): void {
     if (block instanceof RawBlock) {

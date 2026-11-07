@@ -451,6 +451,61 @@ describe("Points", () => {
         await close();
       }
     });
+
+    it("should draw the samples the store drops until their tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      let stalled = false;
+      const stalls: Array<() => void> = [];
+      const { joins, store, subscribe, close } = createPoints(
+        core,
+        async (tr, keys, reduction) => {
+          if (reduction != null && stalled)
+            await new Promise<void>((resolve) => stalls.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+        { liveSamples: LIVE_SAMPLES },
+      );
+      const key = core.index.key;
+      const points = subscribe(key, dynamicWindow(TimeSpan.seconds(30)), TILED);
+      // Returns the largest span inside the snapshot that no series draws.
+      const largestGap = (): bigint => {
+        const sorted = points
+          .value()
+          .series.series.map((s) => s.timeRange)
+          .sort((a, b) => TimeRange.sort(a, b));
+        let end = sorted[0].end.valueOf();
+        let gap = 0n;
+        for (const tr of sorted.slice(1)) {
+          const start = tr.start.valueOf();
+          if (start - end > gap) gap = start - end;
+          if (tr.end.valueOf() > end) end = tr.end.valueOf();
+        }
+        return gap;
+      };
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        for (let i = 0; i < 100; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        stalled = true;
+        const kept = store.floor(key)?.kept;
+        for (let i = 0; i < 100; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        expect(store.floor(key)?.kept?.after(kept!)).toBe(true);
+        expect(largestGap()).toBeLessThanOrEqual(TimeSpan.milliseconds(10).valueOf());
+      } finally {
+        stalls.forEach((resolve) => resolve());
+        await close();
+      }
+    });
   });
 
   it("should read raw samples again after a failed read", async () => {

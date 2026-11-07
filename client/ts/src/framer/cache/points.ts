@@ -421,15 +421,11 @@ export class Points {
     return this.index == null ? undefined : this.props.store.floor(this.index);
   }
 
-  // Moves the boundary to at most one raw block behind rawFrom, and to the samples the
-  // store keeps, so a window that never draws stops growing.
+  // Moves the boundary to at most one raw block behind rawFrom, so a window that never
+  // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const trailing = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
-    this.boundary = TimeStamp.max(
-      this.boundary,
-      trailing,
-      this.floor()?.kept ?? TimeStamp.MIN,
-    );
+    const floor = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
+    this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
   // Returns the span raw samples serve: from the boundary to the end of a static
@@ -643,8 +639,8 @@ export class Points {
   // Returns the samples of the raw range, the tail of samples a waiting join holds in
   // it, and whether a block of it waits for its samples. While the window streams, the
   // join fills the blocks from the commit point on, and reads fill the rest. A block
-  // being filled shows the samples it showed before, and the tail shows the stream
-  // until the join catches up.
+  // being filled shows the samples it showed before, and so does a span the store
+  // dropped until its tiles land. The tail shows the stream until the join catches up.
   private rawEdge(home: TimeRange): {
     raw: Series[];
     tail: Series[];
@@ -659,6 +655,8 @@ export class Points {
     const { store } = this.props;
     const now = this.props.now();
     const last = this.lastBlock(tr);
+    const kept = this.floor()?.kept ?? TimeStamp.MIN;
+    const stored = new TimeRange(TimeStamp.max(tr.start, kept), tr.end);
     // A waiting join's catch-up read fills the blocks from its first held sample on.
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
@@ -666,25 +664,25 @@ export class Points {
     const current = rawIndex(now);
     const blocks: RawBlock[] = [];
     // A block after the one of now only draws once it holds samples.
-    for (let i = rawIndex(tr.start); i <= last; i++) {
+    for (let i = rawIndex(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
       if (b != null) blocks.push(b);
     }
     const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
-        .filter((b) => (b.index < joinFrom ? !b.covers(tr) : !joined))
+        .filter((b) => (b.index < joinFrom ? !b.covers(stored) : !joined))
         .map((b) => b.index),
     );
-    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(tr));
+    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(stored));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
     const fresh = blocks
       .filter((b) => !filling.has(b.index))
-      .flatMap((b) => b.seriesIn(tr));
+      .flatMap((b) => b.seriesIn(stored));
     const standIns = this.raw.filter(
       (s) =>
-        filling.has(rawIndex(s.timeRange.start)) &&
+        (filling.has(rawIndex(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
         !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
     );
     this.raw = [...fresh, ...standIns]
