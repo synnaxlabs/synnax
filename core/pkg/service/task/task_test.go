@@ -993,6 +993,17 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(expected))
 		})
 
+		It(
+			"Should fail to filter by Arc on a service that cannot match Arcs",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchArcs(testArc)).
+					Entries(&[]task.Task{}).
+					Exec(ctx, tx)).
+					To(MatchError("this task service cannot filter tasks by Arc"))
+			},
+		)
+
 		It("Should filter tasks by snapshot status", func(ctx SpecContext) {
 			regular := &task.Task{
 				Type: testType,
