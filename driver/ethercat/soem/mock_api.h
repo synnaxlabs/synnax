@@ -113,6 +113,10 @@ public:
     bool manual_state_change = false;
     /// @brief manual_state_change at the latest config_map_group call.
     std::optional<bool> manual_at_map;
+    /// @brief the group of the latest clear_process_data_sms call.
+    std::optional<uint8_t> sm_cleared_group;
+    /// @brief whether config_map_group came after clear_process_data_sms for its group.
+    bool sms_cleared_at_map = false;
     /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
@@ -201,8 +205,13 @@ public:
 
     int config_init() override { return this->config_init_return; }
 
+    void clear_process_data_sms(const uint8_t group) override {
+        this->sm_cleared_group = group;
+    }
+
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
+        this->sms_cleared_at_map = this->sm_cleared_group == group;
         this->mapped_group = group;
         this->manual_at_map = this->manual_state_change;
         return this->config_map_return;

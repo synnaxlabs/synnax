@@ -348,7 +348,9 @@ export abstract class Retriever<
         const since = table.stamp();
         const records = await fetch(query, options);
         table.ingest(records, { since });
-        checkForMultipleOrNoResults(name, query, records, true);
+        const where =
+          isObject(query) && isObject(query.where) ? query.where : undefined;
+        checkForMultipleOrNoResults(name, where, records, true);
         return records.map((r) => r.key);
       },
       compose: (records, q) => compose(records[0], q),

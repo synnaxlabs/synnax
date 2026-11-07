@@ -581,6 +581,15 @@ TEST_F(SOEMMasterTest, ActivateHappyPath) {
     this->activate_master();
 }
 
+/// @brief it should give each process data sync manager of the enabled slaves a length
+/// only from its PDOs, since a slave can refuse SAFE-OP for a sync manager that is on
+/// with no PDOs.
+TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sms_cleared_at_map);
+}
+
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
     ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }

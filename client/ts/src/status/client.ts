@@ -202,7 +202,8 @@ export class Client extends query.Retriever<
     if (detailsSchema != null) {
       const request = query.dropOne(rest);
       const statuses = await this.execRetrieve(request, detailsSchema);
-      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
+      const { where } = retrieveParamsZ.parse(request);
+      checkForMultipleOrNoResults("status", where, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
@@ -382,7 +383,7 @@ export class Client extends query.Retriever<
 
   private async fetchSingle(key: Key): Promise<Status> {
     const statuses = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Status", key, statuses, true);
+    checkForMultipleOrNoResults("status", { key: { eq: key } }, statuses, true);
     return statuses[0];
   }
 
