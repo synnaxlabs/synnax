@@ -592,15 +592,35 @@ func checkOmittedPinCurrency(
 		}
 		members := &versions.File{Chain: f.Chain, N: f.N, Pins: f.Pins}
 		for _, name := range byVersion[n] {
-			if t, ok := versions.DefinedType(f, name); ok {
-				members.Defined = append(members.Defined, t)
+			t, ok := versions.DefinedType(f, name)
+			if !ok {
+				continue
+			}
+			members.Defined = append(members.Defined, t)
+			// An inline variant's payload is a synthetic declaration the surface leaves
+			// out, so its fields join through the union.
+			if u, isUnion := t.Form.(resolution.UnionForm); isUnion {
+				for _, v := range u.Variants {
+					name := v.Type.Name[strings.LastIndex(v.Type.Name, ".")+1:]
+					if p, ok := versions.DefinedType(f, name); ok && v.Inline {
+						members.Defined = append(members.Defined, p)
+					}
+				}
 			}
 		}
 		for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
 			ns := filepath.Base(depLive)
 			depChain, ok := resolver.Chains()[depLive]
-			omitted := membersOf(members, ns, true)
-			if !ok || len(omitted) == len(membersOf(members, ns, false)) {
+			// The stored check covers stored members, so this one checks only the
+			// members that omitted fields alone reach.
+			stored := set.New(membersOf(members, ns, false)...)
+			var omitted []string
+			for _, m := range membersOf(members, ns, true) {
+				if !stored.Contains(m) {
+					omitted = append(omitted, m)
+				}
+			}
+			if !ok || len(omitted) == 0 {
 				continue
 			}
 			pv := f.Pins[depLive]
