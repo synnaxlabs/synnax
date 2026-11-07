@@ -9128,6 +9128,78 @@ time.wait(duration=500ms) -> output`
 			},
 		)
 
+		It(
+			"Should lower time.format with a nested call as an expression node",
+			func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   10044,
+					},
+					{
+						Name: "msg_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   10045,
+					},
+				}
+				source := `
+				import time
+				start_cmd -> time.format(time.now()) -> msg_ch`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				exprNode := findNodeByType(inter.Nodes, "expression_0")
+				Expect(exprNode.Inputs).To(BeEmpty())
+				Expect(exprNode.Outputs[0].Type).To(Equal(types.String()))
+				Expect(inter.Functions).To(HaveLen(1))
+				Expect(inter.Functions[0].Key).To(Equal("expression_0"))
+				module := MustSucceed(text.Compile(ctx, inter))
+				Expect(module.Output.WASM).ToNot(BeEmpty())
+			},
+		)
+
+		It(
+			"Should lower time.format with a format as an expression node",
+			func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "start_cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   10044,
+					},
+					{
+						Name: "msg_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   10045,
+					},
+				}
+				source := `
+				import time
+				start_cmd -> time.format(time.now(), "%H:%M:%S") -> msg_ch`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				exprNode := findNodeByType(inter.Nodes, "expression_0")
+				Expect(exprNode.Inputs).To(BeEmpty())
+				Expect(exprNode.Outputs[0].Type).To(Equal(types.String()))
+				module := MustSucceed(text.Compile(ctx, inter))
+				Expect(module.Output.WASM).ToNot(BeEmpty())
+			},
+		)
+
 		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{
