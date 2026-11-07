@@ -106,7 +106,7 @@ type (
 	}
 	// CreateResponse carries the created chassis with their keys.
 	CreateResponse struct {
-		// Chassis are the stored chassis.
+		// Chassis are the stored chassis, without their statuses.
 		Chassis []chassis.Chassis `json:"chassis" msgpack:"chassis"`
 	}
 )
@@ -170,6 +170,7 @@ func (s *Service) Create(
 	}
 	w := s.cfg.Chassis.NewWriter(tx)
 	for i := range req.Chassis {
+		req.Chassis[i].Status = nil
 		if err := w.Create(ctx, &req.Chassis[i]); err != nil {
 			return CreateResponse{}, err
 		}

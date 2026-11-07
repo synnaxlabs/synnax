@@ -115,6 +115,25 @@ var _ = Describe("Service", func() {
 				To(Succeed())
 		})
 
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grant(ctx, access.ActionCreate, user.OntologyID(u.Key), chassisType)
+			res := MustSucceed(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.CreateRequest{Chassis: []chassis.Chassis{{
+					Rack:         svc.Rack.EmbeddedKey,
+					Name:         "Module",
+					Serial:       uuid.New().String(),
+					ResourceName: uuid.New().String(),
+					Model:        "PXIe-1071",
+					Status:       &chassis.Status{Message: "Connected"},
+				}}},
+			))
+			Expect(res.Chassis[0].Status).To(BeNil())
+			Expect(svc.NI.Chassis.NewWriter(nil).Delete(ctx, res.Chassis[0].Key)).
+				To(Succeed())
+		})
+
 		It("Should reject the request when create is not granted", func(
 			ctx SpecContext,
 		) {
