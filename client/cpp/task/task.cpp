@@ -55,7 +55,12 @@ std::pair<Task, x::errors::Error> Client::retrieve(
         return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};
-    if (const auto one_err = errors::check_one("task", where.to_json(), tasks.size()))
+    if (const auto one_err = errors::check_one(
+            "task",
+            where.to_json(),
+            options.search_term,
+            tasks.size()
+        ))
         return {Task{}, one_err};
     return {std::move(tasks[0]), x::errors::NIL};
 }
