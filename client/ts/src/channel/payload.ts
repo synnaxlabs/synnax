@@ -17,6 +17,7 @@ import {
   nameZ,
   type Payload,
   payloadZ,
+  type Where,
 } from "@/channel/types.gen";
 import {
   analyzeParams as baseAnalyzeParams,
@@ -77,4 +78,15 @@ export const analyzeParams = (
     number: "keys",
     string: "names",
   });
+};
+
+/**
+ * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
+ * reads as a number is a key.
+ */
+export const singleWhere = (channel: Key | Name): Where => {
+  const { variant, normalized } = analyzeParams(channel);
+  return variant === "keys"
+    ? { key: { eq: normalized[0] } }
+    : { name: { eq: normalized[0] } };
 };

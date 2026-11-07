@@ -29,6 +29,12 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 			w.String(rv.Integrations[i])
 		}
 	}
+	if rv.Version != nil {
+		w.Bool(true)
+		w.String(*rv.Version)
+	} else {
+		w.Bool(false)
+	}
 	if rv.Group != nil {
 		w.Bool(true)
 		w.Write((*rv.Group)[:])
@@ -77,6 +83,19 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.Version = &hv
 		}
 	}
 	{

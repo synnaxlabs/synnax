@@ -260,7 +260,9 @@ describe("Resource", () => {
         label.resourceID("00000000-0000-0000-0000-000000000000"),
       );
       await expect(read).rejects.toThrow(NotFoundError);
-      await expect(read).rejects.toThrow(/Resource not found matching/);
+      await expect(read).rejects.toThrow(
+        'Found no resource where id = "label:00000000-0000-0000-0000-000000000000"',
+      );
     });
   });
 });

@@ -157,7 +157,9 @@ class TestStatusClient:
 
         client.statuses.delete(created.key)
 
-        with pytest.raises(sy.NotFoundError, match="not found"):
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no status where key = "{created.key}"'
+        ):
             client.statuses.retrieve(key=created.key)
 
     def test_delete_multiple_statuses(self, client: sy.Synnax) -> None:
@@ -411,7 +413,9 @@ class TestStatusClient:
 
     def test_retrieve_nonexistent_key(self, client: sy.Synnax) -> None:
         """Should raise error when retrieving non-existent status."""
-        with pytest.raises(sy.NotFoundError, match="not found"):
+        with pytest.raises(
+            sy.NotFoundError, match='Found no status where key = "nonexistent-key"'
+        ):
             client.statuses.retrieve(key="nonexistent-key")
 
     def test_status_persistence(self, client: sy.Synnax) -> None:

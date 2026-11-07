@@ -230,8 +230,18 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded, group: g, roles }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded, g, roles),
+        ({ key, name, status, integrations, embedded, version, group: g, roles }) =>
+          new Rack(
+            key,
+            name,
+            this.cfg.tasks,
+            status,
+            integrations,
+            embedded,
+            version,
+            g,
+            roles,
+          ),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -274,11 +284,17 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Rack", q, racks, true);
+      checkForMultipleOrNoResults(
+        "rack",
+        { where: { key: { eq: q.key } } },
+        racks,
+        true,
+      );
       return this.sugar(racks[0]);
     }
     const racks = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Rack", q, racks, true);
+    const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
+    checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }
@@ -289,6 +305,7 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  version?: string;
   group?: group.Key;
   roles: role.Key[];
   private readonly tasks: task.Client;
@@ -300,6 +317,7 @@ export class Rack {
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    version?: string,
     groupKey?: group.Key,
     roles: role.Key[] = [],
   ) {
@@ -309,6 +327,7 @@ export class Rack {
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.version = version;
     this.group = groupKey;
     this.roles = roles;
   }
@@ -342,6 +361,7 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      version: this.version,
       group: this.group,
       roles: this.roles,
     };

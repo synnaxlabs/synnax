@@ -42,8 +42,8 @@ type rackState struct {
 	// outage being written. A write that keeps it, such as a rename, is not a report
 	// from the rack.
 	statusTime telem.TimeStamp
-	// outage is set from the write of an outage until the rack reports healthy again,
-	// so each outage is written once.
+	// outage is set from the write of an outage until the Driver reports again, so each
+	// outage is written once.
 	outage *Status
 	// pending holds the keys of the handlers that have not copied the outage.
 	pending set.Set[int]
@@ -179,7 +179,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		return err
 	}
 	for i, k := range owners {
-		// A healthy report that landed during the write starts a new period.
+		// A Driver report that landed during the write starts a new period.
 		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
 			state.outage = &statuses[i]
 			state.pending = set.New(slices.Collect(maps.Keys(m.mu.handlers))...)
@@ -261,10 +261,13 @@ func (m *monitor) handleChange(
 			m.L.Error("failed to decode status owner", zap.Error(err))
 			continue
 		}
-		isHealthy := ch.Value.Variant == status.VariantSuccess ||
-			ch.Value.Variant == status.VariantInfo
+		// The Core writes only warnings to rack statuses, so a warning does not show
+		// that the Driver is running.
+		alive := ch.Value.Variant == status.VariantSuccess ||
+			ch.Value.Variant == status.VariantInfo ||
+			ch.Value.Variant == status.VariantError
 		state, known := m.mu.racks[key]
-		if !known || (isHealthy && ch.Value.Time != state.statusTime) {
+		if !known || (alive && ch.Value.Time != state.statusTime) {
 			state = rackState{lastUpdated: m.svc.Now()}
 		}
 		state.statusTime = ch.Value.Time

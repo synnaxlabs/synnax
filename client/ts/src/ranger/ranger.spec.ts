@@ -418,7 +418,7 @@ describe("range", () => {
         const name = id.create();
         const set = rng.setAlias(name, "myalias");
         await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
       });
 
       it("should read a name pattern as an exact channel name", async () => {
@@ -434,7 +434,7 @@ describe("range", () => {
         const name = `${prefix}_.*`;
         const set = rng.setAlias(name, "myalias");
         await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
       });
     });
     describe("deleteAlias", () => {

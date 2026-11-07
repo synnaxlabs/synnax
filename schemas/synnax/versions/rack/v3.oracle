@@ -15,10 +15,16 @@ Key = v0.Key
 Status = v2.Status
 
 Rack struct extends v2.Rack {
-    group group.Key? {
+    version string?    {
+        @doc value """
+            is the version of the Driver that runs the rack, written at each connect.
+            Absent until a Driver reports it.
+        """
+    }
+    group   group.Key? {
         @doc value "is the group the rack sits in, if any."
     }
-    roles role.Key[] = [] {
+    roles   role.Key[] = [] {
         @doc value "are the roles that grant the rack its permissions."
     }
 }

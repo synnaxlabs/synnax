@@ -734,6 +734,16 @@ describe("cached reads", () => {
       expect(res.map((c) => c.key)).toEqual([ch.key]);
     }, 30000);
 
+    it("serves a single literal name from the record store", async () => {
+      const { proxy, client: local } = await createProxiedTestClient({
+        retry: FAST_RETRY,
+        onRetry: quiet,
+      });
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      expect((await local.channels.retrieve(ch.name)).key).toEqual(ch.key);
+    }, 30000);
+
     it("fetches only the names the store cannot resolve", async () => {
       // Created before the local client exists, so neither its cache nor its change
       // stream ever carries it. Severing proves the fetch went out for this name and

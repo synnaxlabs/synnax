@@ -154,7 +154,7 @@ class TestClient:
         """Should return one table for a plain key beside other fields."""
         a = client.tables.create(name="A", project=project.key)
         assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Table matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no table where .+"):
             client.tables.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:

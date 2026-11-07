@@ -634,8 +634,9 @@ export class Client extends query.Retriever<
         const res = singleQueryZ.safeParse(request);
         if (!res.success) throw singleQueryError("task", request, res.error);
       }
-      const sugared = await this.execRetrieve<S>(request, schemas);
-      checkForMultipleOrNoResults("Task", request, sugared, isSingle);
+      const req = retrieveParamsZ.parse(request);
+      const sugared = await this.execRetrieve<S>(req, schemas);
+      checkForMultipleOrNoResults("task", req, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -828,16 +829,19 @@ export class Client extends query.Retriever<
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults("Task", q, tasks, true);
+      checkForMultipleOrNoResults(
+        "task",
+        { where: { key: { eq: q.key } } },
+        tasks,
+        true,
+      );
       return this.compose(tasks[0]);
     }
     const since = this.store.stamp();
     const statusSince = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({
-      where: singleWhere(q),
-      includeStatus: true,
-    });
-    checkForMultipleOrNoResults("Task", q, tasks, true);
+    const where = singleWhere(q);
+    const tasks = await this.execRetrieve({ where, includeStatus: true });
+    checkForMultipleOrNoResults("task", { where }, tasks, true);
     this.hydrate(tasks[0], since, statusSince);
     return tasks[0];
   }
