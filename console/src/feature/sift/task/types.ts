@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { channel, sift, type task } from "@synnaxlabs/client";
 import { record } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { Task } from "@/platform/task";
 
 export const PREFIX = "sift";
 
@@ -22,3 +24,19 @@ export const SCAN_SCHEMAS = {
   config: record.nullishToEmpty(),
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
+
+export const STREAM_TYPE = `${PREFIX}_stream`;
+
+export const deployStreamConfigZ = sift.streamConfigZ.extend({
+  device: Task.deviceKeyZ,
+  asset: z.string().min(1, "Asset is required"),
+  channels: channel.keyZ.array().min(1, "Select at least one channel"),
+});
+
+export const STREAM_SCHEMAS = {
+  type: z.literal(STREAM_TYPE),
+  config: sift.streamConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type StreamSchemas = typeof STREAM_SCHEMAS;

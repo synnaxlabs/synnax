@@ -20,6 +20,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
@@ -72,6 +73,12 @@ const GROUPS: Base.Group[] = [
     title: "PagerDuty",
     icon: <Icon.Logo.PagerDuty />,
     selectables: PagerDuty.Task.SELECTABLES,
+  },
+  {
+    key: "sift",
+    title: "Sift",
+    icon: <Icon.Logo.Sift />,
+    selectables: Sift.Task.SELECTABLES,
   },
 ].filter((g) => g.selectables.length > 0);
 

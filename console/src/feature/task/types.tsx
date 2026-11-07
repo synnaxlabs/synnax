@@ -19,6 +19,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 
 const PREFIXES = [
   EtherCAT.Task.PREFIX,
@@ -30,6 +31,7 @@ const PREFIXES = [
   NI.Task.PREFIX,
   OPCUA.Task.PREFIX,
   PagerDuty.Task.PREFIX,
+  Sift.Task.PREFIX,
 ] as const;
 type Prefix = (typeof PREFIXES)[number];
 
@@ -43,6 +45,7 @@ const ICONS: Record<Prefix, Icon.ReactElement> = {
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPCUA.Task.PREFIX]: <Icon.Logo.OPCUA />,
   [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
+  [Sift.Task.PREFIX]: <Icon.Logo.Sift />,
 };
 
 export const getIcon = (type: string): Icon.ReactElement => {
@@ -60,6 +63,7 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [NI.Task.PREFIX]: "NI",
   [OPCUA.Task.PREFIX]: "OPC UA",
   [PagerDuty.Task.PREFIX]: "PagerDuty",
+  [Sift.Task.PREFIX]: "Sift",
 };
 
 export const parseType = (type: string): string => {
