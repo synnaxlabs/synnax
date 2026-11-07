@@ -61,9 +61,6 @@ int micros(const x::telem::TimeSpan span) {
 }
 }
 
-/// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
-const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
-
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
@@ -311,7 +308,7 @@ x::errors::Error Master::send() {
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
     if (!this->has_dc) return std::nullopt;
-    return DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
+    return master::DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
 std::span<const uint8_t> Master::input_data() {

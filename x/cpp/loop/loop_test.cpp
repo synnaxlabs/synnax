@@ -277,4 +277,18 @@ TEST(LoopTest, testWaitOverrunNoCatchUp) {
     EXPECT_GT(next, telem::MILLISECOND * 15);
     EXPECT_LT(next, telem::MILLISECOND * 60);
 }
+
+/// @brief it should move the end of the next wait by the shift.
+TEST(LoopTest, testShiftMovesTheNextWait) {
+    Timer timer{telem::Rate(20)};
+    timer.wait();
+    timer.shift(telem::MILLISECOND * 30);
+    auto start = hs_clock::now();
+    timer.wait();
+    EXPECT_GT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 70);
+    timer.shift(telem::MILLISECOND * -30);
+    start = hs_clock::now();
+    timer.wait();
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 35);
+}
 }

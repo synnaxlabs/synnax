@@ -37,6 +37,12 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
+    /// @brief how many times as fast as the host clock the distributed clock runs, or
+    /// nullopt when it does not follow the host clock.
+    std::optional<double> host_dc_rate;
+    /// @brief the host time at which the distributed clock read master::DC_EPOCH.
+    std::optional<x::telem::TimeStamp> host_dc_start;
+    x::telem::TimeStamp last_sent;
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     bool initialized{false};
@@ -61,6 +67,8 @@ class Master final : public master::Master {
     size_t init_calls{0};
     size_t send_calls{0};
     std::condition_variable sent_cv;
+    size_t start_frames{1};
+    bool short_until_op{false};
     size_t output_padding = 0;
     std::mutex stall_mu;
     std::condition_variable stall_cv;
@@ -107,6 +115,14 @@ public:
     void inject_state_change_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_state_change_err = err;
+    }
+
+    /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
+    /// then, receive() returns errors::WORKING_COUNTER_ERROR, as slaves below OP do.
+    void set_start_frames(const size_t frames) {
+        std::lock_guard lock(this->mu);
+        this->start_frames = frames;
+        this->short_until_op = true;
     }
 
     /// @brief injects an error to be returned by receive().
@@ -274,8 +290,8 @@ public:
         }
         start_cycle();
         std::unique_lock lock(this->mu);
-        if (!this->sent_cv.wait_for(lock, std::chrono::seconds(5), [&] {
-                return this->send_calls > sent;
+        if (!this->sent_cv.wait_for(lock, std::chrono::seconds(10), [&] {
+                return this->send_calls >= sent + this->start_frames;
             }))
             return x::errors::Error(
                 errors::STATE_CHANGE_ERROR,
@@ -283,6 +299,7 @@ public:
             );
         if (this->inject_state_change_err) return this->inject_state_change_err;
         this->calls.emplace_back("op");
+        this->short_until_op = false;
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (this->disabled_slaves.contains(pos)) continue;
@@ -319,8 +336,18 @@ public:
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
-        if (this->inject_receive_err) return this->inject_receive_err;
+        const auto err = this->short_until_op ? x::errors::Error(
+                                                    errors::WORKING_COUNTER_ERROR,
+                                                    "expected 3, got 1"
+                                                )
+                                              : this->inject_receive_err;
+        if (err && !err.matches(errors::WORKING_COUNTER_ERROR)) return err;
         if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
+        if (this->host_dc_rate && this->host_dc_start) {
+            const auto elapsed = this->last_sent - *this->host_dc_start;
+            this->dc_now = master::DC_EPOCH + elapsed * *this->host_dc_rate;
+        }
+        if (err) return err;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
@@ -331,8 +358,18 @@ public:
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
         std::lock_guard lock(this->mu);
-        if (!this->dc_step) return std::nullopt;
+        if (!this->dc_step && !this->host_dc_rate) return std::nullopt;
         return this->dc_now;
+    }
+
+    /// @brief gives the bus a distributed clock that runs rate times as fast as the
+    /// host clock. Each frame passes the reference clock as it is sent, and the next
+    /// frame sent passes it at master::DC_EPOCH. A frame with a short working counter
+    /// still updates it.
+    void set_host_dc(const double rate) {
+        std::lock_guard lock(this->mu);
+        this->host_dc_rate = rate;
+        this->host_dc_start.reset();
     }
 
     /// @brief gives the bus a distributed clock that advances by step at each
@@ -346,6 +383,9 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
+        this->last_sent = x::telem::TimeStamp::now();
+        if (this->host_dc_rate && !this->host_dc_start)
+            this->host_dc_start = this->last_sent;
         this->sent_outputs = this->output_iomap;
         this->send_calls++;
         this->sent_cv.notify_all();
