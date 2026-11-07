@@ -306,16 +306,25 @@ Channel struct {
 `
 		BeforeEach(func() {
 			write("schemas/synnax/versions/channel/v0.oracle", version)
+			write("schemas/x/filter.oracle", "String struct {\n    eq string?\n}\n")
 			write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/x/filter"
+
 Mode = v0.Mode
 Payload = v0.Payload
 Event = v0.Event
+
+Key uint32
 
 Channel struct {
     name string
     uses Mode
 
     @go marshal
+}
+
+Where filter Channel {
+    name
 }
 `)
 		})
@@ -371,6 +380,35 @@ Channel struct {
     }
 }
 `, "Event.inline.count", "schemas/synnax/versions/channel/v0.oracle"),
+			Entry("on an inline union variant", `Event union on kind {
+    named Payload
+    inline {
+        count int32
+
+        @doc value "is an inline event."
+    }
+}
+`, "Event.inline", "schemas/synnax/versions/channel/v0.oracle"),
+			Entry("on a distinct type", `Key uint32 {
+    @doc value "is a key."
+}
+`, "Key", "schemas/synnax/versions/channel/v1.oracle"),
+			Entry("on a filter", `import "schemas/x/filter"
+
+Where filter Channel {
+    name
+
+    @doc value "selects channels."
+}
+`, "Where", "schemas/synnax/versions/channel/v1.oracle"),
+			Entry("on a filter line", `import "schemas/x/filter"
+
+Where filter Channel {
+    name {
+        @doc value "matches by name."
+    }
+}
+`, "Where.name", "schemas/synnax/versions/channel/v1.oracle"),
 		)
 
 		It("Should list every erased doc", func(ctx SpecContext) {
