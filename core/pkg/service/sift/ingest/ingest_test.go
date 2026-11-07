@@ -372,6 +372,77 @@ var _ = Describe("Engine", func() {
 		})
 	})
 
+	Describe("SetRun", func() {
+		var (
+			ch  channel.Channel
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch = createData(ctx, createIndex(ctx), telem.Float64T)
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+				Tags:      []string{"hot"},
+			}
+		})
+
+		It("Should create an ad hoc run of the asset", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "hotfire 1"),
+				HaveField("AssetIds", ConsistOf("asset-stand")),
+				HaveField("Tags", ConsistOf("hot")),
+				HaveField("StartTime.AsTime()", time.Unix(1, 0).UTC()),
+				HaveField("StopTime.AsTime()", time.Unix(5, 0).UTC()),
+			)))
+		})
+
+		It("Should update the run that already has the key", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			run.Name = "renamed"
+			run.TimeRange.End = at(9)
+			run.Tags = nil
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "renamed"),
+				HaveField("StopTime.AsTime()", time.Unix(9, 0).UTC()),
+				HaveField("Tags", BeEmpty()),
+			)))
+		})
+
+		It("Should leave a run that already matches", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			before := server.Runs()[0]
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()[0]).To(BeIdenticalTo(before))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			MustSucceed(e.SetRun(ctx, run))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+		It("Should stop at a permanent failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.PermissionDenied, "no runs for you"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			Expect(e.SetRun(ctx, run)).Error().
+				To(MatchError(ContainSubstring("no permission")))
+			Expect(rec.retryErrors()).To(BeEmpty())
+		})
+	})
+
 	Describe("Stream", func() {
 		stream := func(
 			ctx context.Context,
