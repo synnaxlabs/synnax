@@ -12,8 +12,8 @@
 import { filter, type optional, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.string();
@@ -122,7 +122,7 @@ export const deviceZ = <
     configured: z.boolean().default(false),
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
-    parent: ontology.idZ.optional(),
+    parent: resource.idZ.optional(),
   });
 export interface Device<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -138,7 +138,7 @@ export interface Device<
   configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
-  parent?: ontology.ID;
+  parent?: resource.ID;
 }
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -157,5 +157,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("device");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("device");
+export const TYPE_RESOURCE_ID = resourceID("");

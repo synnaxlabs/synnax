@@ -22,6 +22,7 @@ import (
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -64,25 +65,25 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 
 			policyByUser := make(map[string][]policy.Policy)
 			for _, m := range mappings {
-				policyByUser[m.UserOntologyID.String()] = m.Policies
+				policyByUser[m.UserResourceID.String()] = m.Policies
 			}
 
 			roleWriter := cfg.Role.NewWriter(tx, true)
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			for _, u := range users {
-				userOntologyID := u.OntologyID()
-				policies := policyByUser[userOntologyID.String()]
+				userResourceID := u.ResourceID()
+				policies := policyByUser[userResourceID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
 				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-					From: cfg.Role.UsersGroup().OntologyID(),
+					From: cfg.Role.UsersGroup().ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   userOntologyID,
+					To:   userResourceID,
 				}); err != nil {
 					return err
 				}
 				if err = roleWriter.AssignRole(
 					ctx,
-					userOntologyID,
+					userResourceID,
 					roleKey,
 				); err != nil {
 					return err
@@ -121,7 +122,7 @@ func isAdminPolicy(p policy.Policy) bool {
 	hasUserType := false
 	hasPolicyType := false
 	for _, obj := range p.Objects {
-		if obj.Type == ontology.ResourceTypeUser {
+		if obj.Type == resource.TypeUser {
 			hasUserType = true
 		}
 		if obj.Type == "policy" {

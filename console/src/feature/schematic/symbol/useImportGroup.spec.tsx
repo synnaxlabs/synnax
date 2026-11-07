@@ -110,7 +110,7 @@ const awaitStatus = async (
 const importedGroupsNamed = async (name: string): Promise<ontology.Resource[]> => {
   const root = await client.schematics.symbols.retrieveGroup();
   const groups = await client.ontology.children.retrieve({
-    ids: group.ontologyID(root.key),
+    ids: group.resourceID(root.key),
   });
   return groups.filter((g) => g.name === name);
 };
@@ -122,13 +122,13 @@ const importedGroupsNamed = async (name: string): Promise<ontology.Resource[]> =
 const createExportedBundle = async () => {
   const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(root.key),
+    parent: group.resourceID(root.key),
     name: uniqueName("zip_grp"),
   });
   const payload = createSymbolPayload(uniqueName("sym"));
   await client.schematics.symbols.create({
     ...payload,
-    parent: group.ontologyID(grp.key),
+    parent: group.resourceID(grp.key),
   });
   const stream = await client.schematics.symbols.exportGroup(grp.key, {
     encoding: "JSON",

@@ -22,7 +22,7 @@ var _ = Describe("Status", func() {
 	Describe("StatusKey", func() {
 		It("Should return a consistent key for a given channel key", func() {
 			k := calculation.StatusKey(channel.Key(42))
-			Expect(k).To(Equal(channel.OntologyID(42).String()))
+			Expect(k).To(Equal(channel.ResourceID(42).String()))
 		})
 
 		It("Should return different keys for different channel keys", func() {

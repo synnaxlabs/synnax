@@ -12,6 +12,7 @@ import {
   label,
   ontology,
   ranger,
+  type resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
@@ -32,7 +33,7 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 interface MixedSelection {
-  parentID: ontology.ID;
+  parentID: resource.ID;
   child: group.Group;
   range: ranger.Range;
 }
@@ -42,13 +43,13 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
     parent: ontology.ROOT_ID,
     name: uniqueName("parent"),
   });
-  const parentID = group.ontologyID(parent.key);
+  const parentID = group.resourceID(parent.key);
   const child = await client.groups.create({
     parent: parentID,
     name: uniqueName("child"),
   });
   const range = await createTestRange(client);
-  await client.ontology.addChildren(parentID, ranger.ontologyID(range.key));
+  await client.ontology.addChildren(parentID, ranger.resourceID(range.key));
   await renderOntologyTree({ client: as, projectClient: client, root: parentID });
   await screen.findByText(child.name);
   await screen.findByText(range.name);
@@ -82,7 +83,7 @@ describe("Tree.MultipleSelectionContextMenu", () => {
     });
     await waitFor(async () => {
       const grouped = await client.ontology.children.retrieve({
-        ids: group.ontologyID(newKey),
+        ids: group.resourceID(newKey),
       });
       const keys = grouped.map((c) => c.id.key);
       expect(keys).toContain(child.key);
@@ -101,11 +102,11 @@ describe("Tree.MultipleSelectionContextMenu permissions", () => {
   it("should withhold grouping from a subject who cannot create groups", async () => {
     const writer = await createTestClientWithGrants(client, {
       retrieve: [
-        group.TYPE_ONTOLOGY_ID,
-        ranger.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
+        group.TYPE_RESOURCE_ID,
+        ranger.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
       ],
-      update: [group.TYPE_ONTOLOGY_ID, ranger.TYPE_ONTOLOGY_ID],
+      update: [group.TYPE_RESOURCE_ID, ranger.TYPE_RESOURCE_ID],
     });
     await setupMixedSelection(writer);
     await screen.findByText("Reload Console");

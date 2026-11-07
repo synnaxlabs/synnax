@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -161,7 +161,7 @@ func (s *Service) Authenticate(
 func (s *Service) DeleteFor(
 	ctx context.Context,
 	tx gorp.Tx,
-	subjects ...ontology.ID,
+	subjects ...resource.ID,
 ) error {
 	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
 }

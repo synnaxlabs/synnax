@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,15 +30,15 @@ type recordingImporter struct {
 	opts imex.ImportOptions
 }
 
-func (*recordingImporter) Type() ontology.ResourceType {
-	return ontology.ResourceTypeChannel
+func (*recordingImporter) Type() resource.Type {
+	return resource.TypeChannel
 }
 
 func (r *recordingImporter) Import(
 	_ context.Context, _ gorp.Tx, env imex.Envelope, opts imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	r.opts = opts
-	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: env.Name}, nil
+	return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
 }
 
 // Match claims typeless envelopes carrying the legacy_marker key so specs can exercise
@@ -52,7 +52,7 @@ func testEnvelope(name string) apiimex.ImportRequest {
 	GinkgoHelper()
 	var env imex.Envelope
 	Expect(json.Unmarshal(fmt.Appendf(nil,
-		`{"version":1,"type":%q,"name":%q}`, ontology.ResourceTypeChannel, name,
+		`{"version":1,"type":%q,"name":%q}`, resource.TypeChannel, name,
 	), &env)).To(Succeed())
 	return env
 }
@@ -69,8 +69,8 @@ var _ = Describe("Import", func() {
 			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
 			Expect(id.Key).To(Equal("with-options"))
 			Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
-			Expect(importer.opts.Parent).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeProject, Key: key.String(),
+			Expect(importer.opts.Parent).To(Equal(resource.ID{
+				Type: resource.TypeProject, Key: key.String(),
 			}))
 		},
 	)
@@ -153,7 +153,7 @@ var _ = Describe("Import", func() {
 			))
 	})
 
-	It("Should reject a parent that is not a valid ontology ID", func(ctx SpecContext) {
+	It("Should reject a parent that is not a valid resource ID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"no-colon"}`)
 		Expect(

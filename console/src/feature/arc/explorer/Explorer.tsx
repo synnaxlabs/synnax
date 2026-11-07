@@ -21,8 +21,8 @@ import { Tree } from "@/platform/tree";
 const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
   const createArc = Arc.useCreate();
   const createDirectory = Arc.useCreateDirectory({ parent: root, state, root });
-  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_ONTOLOGY_ID);
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
   return (
     <ContextMenu.Menu>
       {canCreateArc && (

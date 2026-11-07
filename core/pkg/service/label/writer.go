@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
@@ -53,7 +54,7 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 		l.Key,
 		NewCreateAction(CreatePayload{Label: *l}),
 	)
-	return w.otg.DefineResources(ctx, l.OntologyID())
+	return w.otg.DefineResources(ctx, l.ResourceID())
 }
 
 // apply applies the actions to the label with the given key and stores the result.
@@ -93,22 +94,22 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
 }
 
 // Label assigns a set of labels to the target resource. If the target resource already
 // has labels, Label will add the new labels to the existing set.
-func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) error {
+func (w Writer) Label(ctx context.Context, target resource.ID, labels []Key) error {
 	return w.otg.DefineRelationships(
-		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
+		ctx, target, OntologyRelationshipTypeLabeledBy, ResourceIDs(labels)...,
 	)
 }
 
 // Replace makes the given labels the complete set of labels on the target resource.
 // Labels the target already has are left untouched.
-func (w Writer) Replace(ctx context.Context, target ontology.ID, labels []Key) error {
+func (w Writer) Replace(ctx context.Context, target resource.ID, labels []Key) error {
 	return w.otg.ReplaceOutgoingRelationshipsOfType(
-		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
+		ctx, target, OntologyRelationshipTypeLabeledBy, ResourceIDs(labels)...,
 	)
 }
 
@@ -117,7 +118,7 @@ func (w Writer) Replace(ctx context.Context, target ontology.ID, labels []Key) e
 // specified labels.
 func (w Writer) RemoveLabel(
 	ctx context.Context,
-	target ontology.ID,
+	target resource.ID,
 	labels []Key,
 ) error {
 	return w.otg.DeleteRelationships(
@@ -126,7 +127,7 @@ func (w Writer) RemoveLabel(
 			return ontology.Relationship{
 				From: target,
 				Type: OntologyRelationshipTypeLabeledBy,
-				To:   OntologyID(key),
+				To:   ResourceID(key),
 			}
 		})...,
 	)

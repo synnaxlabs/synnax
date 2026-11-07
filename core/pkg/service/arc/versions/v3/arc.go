@@ -13,7 +13,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Arc{}
@@ -24,9 +24,9 @@ func (a Arc) GorpKey() Key { return a.Key }
 // SetOptions implements gorp.Entry.
 func (Arc) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the Arc.
-func (a Arc) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Key.String()}
+// ResourceID returns the unique resource identifier for the Arc.
+func (a Arc) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeArc, Key: a.Key.String()}
 }
 
 // exportBody is the Arc's portable body. The text is the materialized source rather

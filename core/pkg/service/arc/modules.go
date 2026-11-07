@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -40,10 +41,10 @@ func (s *Service) retrieveModuleText(
 ) (arctext.Text, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
-	parent := directory.OntologyID(s.root)
+	parent := directory.ResourceID(s.root)
 	for _, name := range segments[:len(segments)-1] {
 		dir, ok, err := s.childNamed(
-			ctx, tx, parent, ontology.ResourceTypeArcDirectory, name,
+			ctx, tx, parent, resource.TypeArcDirectory, name,
 		)
 		if err != nil {
 			return arctext.Text{}, err
@@ -54,7 +55,7 @@ func (s *Service) retrieveModuleText(
 		parent = dir
 	}
 	id, ok, err := s.childNamed(
-		ctx, tx, parent, ontology.ResourceTypeArc, segments[len(segments)-1],
+		ctx, tx, parent, resource.TypeArc, segments[len(segments)-1],
 	)
 	if err != nil {
 		return arctext.Text{}, err
@@ -88,10 +89,10 @@ func (s *Service) retrieveModuleText(
 func (s *Service) childNamed(
 	ctx context.Context,
 	tx gorp.Tx,
-	parent ontology.ID,
-	typ ontology.ResourceType,
+	parent resource.ID,
+	typ resource.Type,
 	name string,
-) (ontology.ID, bool, error) {
+) (resource.ID, bool, error) {
 	var children []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(parent).
@@ -99,7 +100,7 @@ func (s *Service) childNamed(
 		WhereTypes(typ).
 		Entries(&children).
 		Exec(ctx, tx); err != nil {
-		return ontology.ID{}, false, err
+		return resource.ID{}, false, err
 	}
 	child, ok := lo.Find(children, func(r ontology.Resource) bool {
 		return r.Name == name

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -28,7 +28,7 @@ import (
 var keyNamespace = uuid.MustParse("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41")
 
 // migratedKey is a name-based UUID of the subject, so every node writes one record.
-func migratedKey(subject ontology.ID) Key {
+func migratedKey(subject resource.ID) Key {
 	h := sha1.New()
 	h.Write(keyNamespace[:])
 	h.Write([]byte(subject.String()))
@@ -49,20 +49,20 @@ func NewMove() gorp.Migration {
 func subjectsByUsername(
 	ctx context.Context,
 	tx gorp.Tx,
-) (_ map[string]ontology.ID, err error) {
+) (_ map[string]resource.ID, err error) {
 	iter, err := gorp.WrapReader[userv0.Key, userv0.User](tx).
 		OpenIterator(gorp.IterOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errors.Combine(err, iter.Close()) }()
-	subjects := make(map[string]ontology.ID)
+	subjects := make(map[string]resource.ID)
 	for iter.First(); iter.Valid(); iter.Next() {
 		u := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return nil, err
 		}
-		subjects[u.Username] = u.OntologyID()
+		subjects[u.Username] = u.ResourceID()
 	}
 	return subjects, nil
 }

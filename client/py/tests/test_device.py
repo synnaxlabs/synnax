@@ -354,7 +354,7 @@ class TestDevice:
         assert res.status is not None
         assert res.status.details is not None
         assert res.status.details.device == dev.key
-        assert res.parent == sy.rack.ontology_id(rack.key)
+        assert res.parent == sy.rack.resource_id(rack.key)
 
 
 @pytest.mark.device

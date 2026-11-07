@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, ontology, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -36,11 +36,11 @@ const roles = new RoleClients(client);
 
 const Item = Group.TREE_ITEMS.group;
 
-const createGroup = async (parent: ontology.ID) =>
+const createGroup = async (parent: resource.ID) =>
   await client.groups.create({ parent, name: uniqueName("group") });
 
 const groupResource = (key: string, name: string) =>
-  createResource(group.ontologyID(key), name);
+  createResource(group.resourceID(key), name);
 
 describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
@@ -74,13 +74,13 @@ describe("group ontology service", () => {
 
   it("should ungroup a nested group, moving its children to the parent", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
-    const child = await createGroup(group.ontologyID(parent.key));
-    const grandchild = await createGroup(group.ontologyID(child.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
-    const grandchildID = group.ontologyID(grandchild.key);
+    const child = await createGroup(group.resourceID(parent.key));
+    const grandchild = await createGroup(group.resourceID(child.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
+    const grandchildID = group.resourceID(grandchild.key);
     const [parentKey, childKey, grandchildKey] = [parentID, childID, grandchildID].map(
-      (id) => ontology.idToString(id),
+      (id) => resource.idToString(id),
     );
     const nodes: PTree.Node<string>[] = [
       {
@@ -112,16 +112,16 @@ describe("group ontology service", () => {
 
   it("should move every child of an ungrouped group, not only the shown ones", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
-    const child = await createGroup(group.ontologyID(parent.key));
-    const shown = await createGroup(group.ontologyID(child.key));
-    const unshown = await createGroup(group.ontologyID(child.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
+    const child = await createGroup(group.resourceID(parent.key));
+    const shown = await createGroup(group.resourceID(child.key));
+    const unshown = await createGroup(group.resourceID(child.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
     const [parentKey, childKey, shownKey] = [
       parentID,
       childID,
-      group.ontologyID(shown.key),
-    ].map((id) => ontology.idToString(id));
+      group.resourceID(shown.key),
+    ].map((id) => resource.idToString(id));
     // A search in the groups layout shows only the matching children.
     const nodes: PTree.Node<string>[] = [
       { key: parentKey, children: [{ key: childKey, children: [{ key: shownKey }] }] },
@@ -150,13 +150,13 @@ describe("group ontology service", () => {
 
   it("should ungroup a nested group shown at the top of flat search results", async () => {
     const root = await createGroup(ontology.ROOT_ID);
-    const parent = await createGroup(group.ontologyID(root.key));
-    const child = await createGroup(group.ontologyID(parent.key));
-    const grandchild = await createGroup(group.ontologyID(child.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
-    const [childKey, grandchildKey] = [childID, group.ontologyID(grandchild.key)].map(
-      (id) => ontology.idToString(id),
+    const parent = await createGroup(group.resourceID(root.key));
+    const child = await createGroup(group.resourceID(parent.key));
+    const grandchild = await createGroup(group.resourceID(child.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
+    const [childKey, grandchildKey] = [childID, group.resourceID(grandchild.key)].map(
+      (id) => resource.idToString(id),
     );
     // Flat results show the match at the top, without its real parent.
     const nodes: PTree.Node<string>[] = [
@@ -171,7 +171,7 @@ describe("group ontology service", () => {
         groupResource(grandchild.key, grandchild.name),
       ],
       selected: [childID],
-      rootID: group.ontologyID(root.key),
+      rootID: group.resourceID(root.key),
       parentID,
       stateOverrides: { nodes, shape },
     });
@@ -184,11 +184,11 @@ describe("group ontology service", () => {
 
   it("should label ungroup as delete for a childless nested group", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
-    const child = await createGroup(group.ontologyID(parent.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
+    const child = await createGroup(group.resourceID(parent.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
     const [parentKey, childKey] = [parentID, childID].map((id) =>
-      ontology.idToString(id),
+      resource.idToString(id),
     );
     const nodes: PTree.Node<string>[] = [
       { key: parentKey, children: [{ key: childKey }] },
@@ -215,16 +215,16 @@ describe("a group and its child selected in flat search results", () => {
   const UNGROUP = /^(Ungroup|Delete)$/;
 
   const childrenOf = async (key: string): Promise<string[]> => {
-    const ids = group.ontologyID(key);
+    const ids = group.resourceID(key);
     return (await client.ontology.children.retrieve({ ids })).map((c) => c.name);
   };
 
   const openMenu = async () => {
     const tok = uniqueToken();
     const root = await createGroup(ontology.ROOT_ID);
-    const rootID = group.ontologyID(root.key);
+    const rootID = group.resourceID(root.key);
     const outer = await client.groups.create({ parent: rootID, name: `${tok} outer` });
-    const outerID = group.ontologyID(outer.key);
+    const outerID = group.resourceID(outer.key);
     const inner = await client.groups.create({ parent: outerID, name: `${tok} inner` });
     const sibling = await createGroup(outerID);
     await renderOntologyTree({
@@ -237,7 +237,7 @@ describe("a group and its child selected in flat search results", () => {
     const innerRow = await findTreeRow(itemName(inner.name));
     // The inner row shows the outer name as its group, so the ID finds the outer row.
     const outerRow = document.querySelector(
-      `.lyra-tree:not(.console-tree--hidden) [id="${ontology.idToString(outerID)}"]`,
+      `.lyra-tree:not(.console-tree--hidden) [id="${resource.idToString(outerID)}"]`,
     );
     assertDefined(outerRow);
     fireEvent.click(innerRow);
@@ -267,7 +267,7 @@ describe("a group and its child selected in flat search results", () => {
     });
     await waitFor(async () => expect(await childrenOf(root.key)).toEqual([name]));
     const [created] = await client.ontology.children.retrieve({
-      ids: group.ontologyID(root.key),
+      ids: group.resourceID(root.key),
     });
     await waitFor(async () =>
       expect(await childrenOf(created.id.key)).toEqual([outer.name]),

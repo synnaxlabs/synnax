@@ -22,6 +22,6 @@ export const useCreate = (): (() => void) => {
     },
   });
   return () => {
-    create({ name: "New panel", parent: project.ontologyID(getProjectKey()) });
+    create({ name: "New panel", parent: project.resourceID(getProjectKey()) });
   };
 };

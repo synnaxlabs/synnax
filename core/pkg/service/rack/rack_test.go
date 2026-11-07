@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -101,12 +102,12 @@ func hasDriverRole(
 	GinkgoHelper()
 	var children []ontology.Resource
 	Expect(otg.NewRetrieve().
-		WhereIDs(role.OntologyID(driverRole)).
+		WhereIDs(role.ResourceID(driverRole)).
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
 		Exec(ctx, nil)).To(Succeed())
 	return slices.ContainsFunc(children, func(r ontology.Resource) bool {
-		return r.ID == key.OntologyID()
+		return r.ID == key.ResourceID()
 	})
 }
 
@@ -133,9 +134,9 @@ var _ = Describe("Driver role", func() {
 			r := &rack.Rack{Name: "revoked"}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(s.otg.NewWriter(nil).DeleteRelationships(ctx, ontology.Relationship{
-				From: role.OntologyID(s.driverRole),
+				From: role.ResourceID(s.driverRole),
 				Type: ontology.RelationshipTypeParentOf,
-				To:   r.OntologyID(),
+				To:   r.ResourceID(),
 			})).To(Succeed())
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(hasDriverRole(ctx, s.otg, s.driverRole, r.Key)).To(BeFalse())
@@ -257,11 +258,11 @@ var _ = Describe("Rack", Ordered, func() {
 	})
 	Describe("StatusKey", func() {
 		It(
-			"Should return the ontology ID string for a rack key",
+			"Should return the resource ID string for a rack key",
 			func(ctx SpecContext) {
 				k := rack.NewKey(1, 2)
 				statusKey := rack.StatusKey(k)
-				Expect(statusKey).To(Equal(k.OntologyID().String()))
+				Expect(statusKey).To(Equal(k.ResourceID().String()))
 			},
 		)
 		It(
@@ -709,11 +710,11 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			r := rack.Rack{Name: name}
 			Expect(writer.Create(ctx, &r)).To(Succeed())
-			return r.OntologyID()
+			return r.ResourceID()
 		}
 
 		It(
@@ -721,12 +722,12 @@ var _ = Describe("Rack", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -734,7 +735,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should not match a staged rack outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
@@ -859,7 +860,7 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(stat.NewRetrieve[rack.StatusDetails]().
-				Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+				Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -868,12 +869,12 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack5"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
+				WhereIDs(r.ResourceID()).
 				Entries(&[]ontology.Resource{}).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(writer.DeleteGuard(ctx, r.Key, nil)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
+				WhereIDs(r.ResourceID()).
 				Entries(&[]ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -967,7 +968,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
+			Expect(s.Key).To(ContainSubstring(string(resource.TypeRack)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
 		})
 
@@ -986,8 +987,8 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(s.Message).To(Equal("Custom status message"))
 				Expect(s.Description).To(Equal("Custom description"))
 				Expect(s.Variant).To(Equal(status.VariantSuccess))
-				// Key should be auto-assigned to match ontology ID
-				Expect(s.Key).To(Equal(r.OntologyID().String()))
+				// Key should be auto-assigned to match resource ID
+				Expect(s.Key).To(Equal(r.ResourceID().String()))
 				// Time should be auto-filled
 				Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				// Name should be auto-filled from rack name
@@ -1019,9 +1020,9 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
 				Expect(stat.NewWriter(tx).
-					Delete(ctx, r.OntologyID().String())).To(Succeed())
+					Delete(ctx, r.ResourceID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
@@ -1029,7 +1030,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 				var healed rack.Status
 				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Rack).To(Equal(r.Key))
@@ -1054,7 +1055,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 				var preserved rack.Status
 				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
+					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -1140,7 +1141,7 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Time).
 						To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 					g.Expect(s.Key).
-						To(ContainSubstring(string(ontology.ResourceTypeRack)))
+						To(ContainSubstring(string(resource.TypeRack)))
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
 					g.Expect(s.Description).To(Equal(
 						"The Core has not heard from the Driver on dead test rack. " +
@@ -1164,7 +1165,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return stat.NewWriter(tx).Set(ctx, &rack.Status{
-						Key:     r.OntologyID().String(),
+						Key:     r.ResourceID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
@@ -1217,7 +1218,7 @@ var _ = Describe("Rack", Ordered, func() {
 					frozenNow.Store(int64(now))
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return stat.NewWriter(tx).Set(ctx, &rack.Status{
-							Key:     r.OntologyID().String(),
+							Key:     r.ResourceID().String(),
 							Name:    r.Name,
 							Time:    now,
 							Variant: status.VariantError,
@@ -1329,7 +1330,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return stat.NewWriter(tx).Set(ctx, &rack.Status{
-						Key:     r.OntologyID().String(),
+						Key:     r.ResourceID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,

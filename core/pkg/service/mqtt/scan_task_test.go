@@ -250,13 +250,20 @@ var _ = Describe("Scan task", func() {
 			func(ctx SpecContext) {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
-				read := configureRead(ctx, dev)
+				ch := createVirtual(ctx, telem.Float64T)
+				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+					dev,
+					plainEntry("plant/edit", field("v", ch, "")),
+				))
+				read := configure(ctx, factory, t)
 				editDevice(ctx, dev, msgpack.EncodedJSON{"port": 0})
-				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(MatchError(
-						"invalid broker properties: port: must be 1 to 65535: " +
-							"validation error",
-					))
+				startRead(ctx, read)
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Description).To(Equal(
+					"invalid broker properties: port: must be 1 to 65535: " +
+						"validation error",
+				))
 				editDevice(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
 				startRead(ctx, read)
 				Eventually(broker.clientCount).Should(Equal(1))
@@ -931,14 +938,19 @@ var _ = Describe("Scan task", func() {
 	})
 
 	Describe("Exec", func() {
-		It("Should leave a command it does not support unanswered",
+		It("Should answer a command it does not support with an error",
 			func(ctx SpecContext) {
 				configured, t := scan(ctx)
 				Expect(configured.Exec(ctx, task.Command{Type: "reboot", Key: "x"})).
 					To(Succeed())
-				Consistently(func() string { return taskStatus(ctx, t).Details.Cmd }).
-					WithTimeout(100 * time.Millisecond).
-					ShouldNot(Equal("x"))
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Details.Cmd).To(Equal("x"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Description).To(Equal(
+						"The task does not accept the 'reboot' command.",
+					))
+				}).Should(Succeed())
 			},
 		)
 	})

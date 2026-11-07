@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -21,8 +22,8 @@ var _ = Describe("Relationship", func() {
 		It("Should parse a relationship from a string", func() {
 			Expect(ontology.ParseRelationship("channel:qux->parent->device:baz")).
 				To(Equal(ontology.Relationship{
-					From: ontology.ID{Type: "channel", Key: "qux"},
-					To:   ontology.ID{Type: "device", Key: "baz"},
+					From: resource.ID{Type: "channel", Key: "qux"},
+					To:   resource.ID{Type: "device", Key: "baz"},
 					Type: ontology.RelationshipTypeParentOf,
 				}))
 		})
