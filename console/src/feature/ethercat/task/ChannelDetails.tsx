@@ -43,7 +43,9 @@ export interface ChannelDetailsProps {
   path: deep.Path<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
-  /** fields shown after the data type when the channel has an entry. */
+  /** Fields shown after the data type while the channel has an entry. */
+  entryFields?: ReactNode;
+  /** Sections shown after the entry while the channel has one. */
   children?: ReactNode;
 }
 
@@ -51,6 +53,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   path,
   pdoType,
   schema,
+  entryFields,
   children,
 }) => {
   const ch = PForm.useFieldValue(path);
@@ -69,25 +72,37 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
             {renderSelectDataType}
           </PForm.Field>
         )}
-        {hasEntry(ch) && children}
+        {hasEntry(ch) && entryFields}
       </PForm.Section>
+      {hasEntry(ch) && children}
     </PForm.Sections>
   );
 };
 
-export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry} />
+export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
+  path,
+}) => (
+  <ChannelDetails path={path} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry}>
+    <PForm.Section title="Scale">
+      <Task.ScaleForm path={deep.variant(path, "type", "entry").scale} />
+    </PForm.Section>
+  </ChannelDetails>
 );
 
 export const WriteChannelDetails: FC<Task.Views.DetailsProps<WriteChannel>> = ({
   path,
 }) => (
-  <ChannelDetails path={path} pdoType="outputs" schema={WRITE_CHANNEL_SCHEMAS.entry}>
-    <PForm.NumericField
-      path={deep.variant(path, "type", "entry").stopValue}
-      label="Stop value"
-    />
-  </ChannelDetails>
+  <ChannelDetails
+    path={path}
+    pdoType="outputs"
+    schema={WRITE_CHANNEL_SCHEMAS.entry}
+    entryFields={
+      <PForm.NumericField
+        path={deep.variant(path, "type", "entry").stopValue}
+        label="Stop value"
+      />
+    }
+  />
 );
 
 interface DetailsTitleProps {

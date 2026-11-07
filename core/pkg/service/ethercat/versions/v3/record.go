@@ -9,6 +9,10 @@
 
 package v3
 
+// CustomTypeName gives ReadConfig records a table prefix that cannot collide with the
+// identically named config types of other integrations.
+func (ReadConfig) CustomTypeName() string { return "ethercat_read_config" }
+
 // CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
 // identically named config types of other integrations.
 func (WriteConfig) CustomTypeName() string { return "ethercat_write_config" }

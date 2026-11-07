@@ -19,10 +19,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateReadConfig(_ context.Context, old v2.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v2.ReadChannel, _ int) (ReadChannel, error) {
+		return MigrateReadChannel(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		ReadConfig: old.ReadConfig,
-		Channels:   old.Channels,
+		Channels:   channels,
 	}, nil
 }
 
@@ -39,6 +45,27 @@ func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfi
 		ExecutionRate: old.ExecutionRate,
 		Channels:      channels,
 	}, nil
+}
+
+func autoMigrateReadChannel(_ context.Context, old v2.ReadChannel) (ReadChannel, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return ReadChannel{}, nil
+	case v2.EntryReadChannel:
+		return ReadChannel{Variant: EntryReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+			Index:           variant.Index,
+			SubIndex:        variant.SubIndex,
+			DataType:        variant.DataType,
+		}}, nil
+	case v2.UnresolvedReadChannel:
+		return ReadChannel{Variant: UnresolvedReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+			Pdo:             variant.Pdo,
+		}}, nil
+	default:
+		return ReadChannel{}, errors.Newf("unknown ReadChannel variant %T", variant)
+	}
 }
 
 func autoMigrateWriteChannel(_ context.Context, old v2.WriteChannel) (WriteChannel, error) {

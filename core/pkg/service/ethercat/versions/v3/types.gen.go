@@ -25,30 +25,175 @@ import (
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
 
-// ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
-// field selects how the PDO entry is addressed.
-type ReadChannel = v2.ReadChannel
-
-// ReadChannelVariant is implemented by every ReadChannel variant.
-type ReadChannelVariant = v2.ReadChannelVariant
-
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
-type ReadChannelType = v2.ReadChannelType
+type ReadChannelType string
 
 const (
 	// EntryReadChannelType addresses a PDO entry by its CoE index and sub-index.
-	EntryReadChannelType ReadChannelType = v2.EntryReadChannelType
+	EntryReadChannelType ReadChannelType = "entry"
 	// UnresolvedReadChannelType is a channel whose PDO entry name matched no single
 	// entry on its slave. It must be given an entry before the task runs.
-	UnresolvedReadChannelType ReadChannelType = v2.UnresolvedReadChannelType
+	UnresolvedReadChannelType ReadChannelType = "unresolved"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
+type ReadChannelVariant interface {
+	isReadChannelVariant()
+}
+
 // EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
-type EntryReadChannel = v2.EntryReadChannel
+type EntryReadChannel struct {
+	BaseReadChannel
+	// Index is the CoE object dictionary index of the PDO entry.
+	Index uint16 `json:"index" msgpack:"index"`
+	// SubIndex is the CoE object dictionary sub-index of the PDO entry.
+	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
+	// DataType is the data type of the PDO entry.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Scale is the scale applied to raw samples after acquisition. A scaled channel
+	// writes to a float Synnax channel.
+	Scale task.Scale `json:"scale" msgpack:"scale"`
+}
+
+func (EntryReadChannel) isReadChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (e *EntryReadChannel) ApplyDefaults() {
+	if e.Scale.Variant == nil {
+		e.Scale.Variant = task.NoneScale{}
+	}
+	e.Scale.ApplyDefaults()
+}
 
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
-type UnresolvedReadChannel = v2.UnresolvedReadChannel
+type UnresolvedReadChannel struct {
+	BaseReadChannel
+	// Pdo is the entry name that matched no single entry on the slave.
+	Pdo string `json:"pdo" msgpack:"pdo"`
+}
+
+func (UnresolvedReadChannel) isReadChannelVariant() {}
+
+// ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
+// field selects how the PDO entry is addressed.
+type ReadChannel struct {
+	Variant ReadChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case EntryReadChannel:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelType `json:"type"`
+			EntryReadChannel
+		}{Type: EntryReadChannelType, EntryReadChannel: v})
+	case UnresolvedReadChannel:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelType `json:"type"`
+			UnresolvedReadChannel
+		}{Type: UnresolvedReadChannelType, UnresolvedReadChannel: v})
+	default:
+		return errors.Newf("ReadChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case EntryReadChannelType:
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			EntryReadChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EntryReadChannel
+	case UnresolvedReadChannelType:
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			UnresolvedReadChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnresolvedReadChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case EntryReadChannel:
+		return EntryReadChannelType
+	case UnresolvedReadChannel:
+		return UnresolvedReadChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *ReadChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		return variant.BaseReadChannel
+	case UnresolvedReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case UnresolvedReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
 type BaseWriteChannel = v2.BaseWriteChannel
@@ -207,7 +352,19 @@ func (u *WriteChannel) SetBase(base BaseWriteChannel) {
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type ReadConfig = v2.ReadConfig
+type ReadConfig struct {
+	task.ReadConfig
+	// Channels are the channels the task acquires.
+	Channels []ReadChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	r.ReadConfig.ApplyDefaults()
+	for i := range r.Channels {
+		r.Channels[i].ApplyDefaults()
+	}
+}
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.

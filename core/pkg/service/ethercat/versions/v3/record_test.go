@@ -15,6 +15,14 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 )
 
+var _ = Describe("ReadConfig", func() {
+	Describe("CustomTypeName", func() {
+		It("Should keep the gorp type name of the stored read configs", func() {
+			Expect(v3.ReadConfig{}.CustomTypeName()).To(Equal("ethercat_read_config"))
+		})
+	})
+})
+
 var _ = Describe("WriteConfig", func() {
 	Describe("CustomTypeName", func() {
 		It("Should keep the gorp type name of the stored write configs", func() {
