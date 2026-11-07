@@ -23,14 +23,16 @@ import { Task } from "@/feature/task";
 import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
+const useICDLink = FLAGS.icd ? ICD.useLink : () => undefined;
+
 // Keyed by the resource type, the segment after the cluster key in a deep link.
 const useLinks = (): void => {
-  const icd = ICD.useLink();
+  const icd = useICDLink();
   Link.useDeep(Core.useLink(), {
     arc: Arc.useLink(),
     channel: Channel.useLink(),
     device: Device.useLink(),
-    ...(FLAGS.icd ? { icd } : {}),
+    ...(icd == null ? {} : { icd }),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
     project: Project.useLink(),
