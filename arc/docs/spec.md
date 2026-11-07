@@ -209,8 +209,9 @@ A variable's kind is inferred from its initializer:
 
 - **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
   into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals and float constants can be stateful. A float constant is
-  `math.nan` or `math.inf`, with an optional minus sign or `f32` or `f64` cast.
+  entries. In a sequence or stage, only a literal or a float constant can be stateful;
+  `true` and `false` are literals. A float constant is `math.nan` or `math.inf`, with an
+  optional minus sign or `f32` or `f64` cast.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -308,13 +309,15 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, default to `f64`, and do not fit an integer type. A function input value, a `$=`
-initializer, and a variable outside a function can hold a constant on its own, such as
-`-math.inf` or `f32(math.nan)`. Outside a function, an initializer that computes with a
-constant must also read a channel, as `scaled := raw * math.inf` does: a flow has no
-value to read for `limit := math.inf * 2.0`, which fails with
-`'limit' cannot be initialized from math.inf*2.0 outside a function`. `==` or `!=` with
-`math.nan` gives warning ARC2004.
+`f64`, default to `f64`, and do not fit an integer type. Use them in expressions and in
+`func` bodies. On its own, with an optional minus sign or `f32` or `f64` cast, a
+constant can also be a function input value, a `$=` initializer in a sequence or stage,
+or a variable's value outside a function. Outside a function, an initializer that
+computes with a constant must also read a channel, as `scaled := raw * math.inf` does: a
+flow has no value to read for `limit := math.inf * 2.0`, which fails with
+`'limit' cannot be initialized from math.inf*2.0 outside a function`. `x == math.nan` is
+always `false` and `x != math.nan` is always `true`, so both give warning ARC2004: use
+`math.is_nan(x)` and `not math.is_nan(x)`.
 
 ```arc
 import math
@@ -471,8 +474,8 @@ func counter() i64 {
 }
 ```
 
-A `$=` initializer must be a literal value or a float constant such as `math.nan`; only
-literal variables can be stateful. `true` and `false` are literals.
+In a function, a `$=` initializer can be any expression, such as `low f64 $= math.inf`.
+It runs on the first call only.
 
 ### Channel operations in functions
 
