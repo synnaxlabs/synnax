@@ -424,6 +424,44 @@ describe("EtherCAT device ContextMenuItems", () => {
       expect(await retrieveOpMode(slave.key)).toBeUndefined();
     });
 
+    it("should not save a SYNC0 cycle over the limit of its register", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC0 cycle", "5000000");
+      expect(
+        screen.getByText("SYNC0 cycle of 5s is over the limit of 4s 294ms 967μs 295ns"),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
+      expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
+    it("should not save a SYNC1 cycle over the limit of its register", async () => {
+      const slave = await openSyncMode({ opModes: [DC_MODE] });
+      typeCycle("SYNC0 cycle", "1000000");
+      typeCycle("SYNC1 cycle", "6000000");
+      expect(
+        screen.getByText("SYNC1 cycle of 6s is over the limit of 5s 294ms 967μs 295ns"),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
+      expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
+    it("should not save a SYNC1 shift that puts SYNC1 before SYNC0", async () => {
+      const mode = { ...createMode("DC (shift)", 0x0700), sync1Shift: -1000 };
+      const slave = await openSyncMode({ opModes: [mode] });
+      typeCycle("SYNC0 cycle", "300");
+      expect(
+        screen.getByText("SYNC1 shift of -1μs is under the limit of 0s"),
+      ).toBeTruthy();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
+      expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
     it("should save auto with a warning on a mode with no SYNC0 cycle", async () => {
       const slave = await openSyncMode({
         opModes: [NO_CYCLE_MODE],

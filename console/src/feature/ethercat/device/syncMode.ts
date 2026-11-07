@@ -62,7 +62,10 @@ export const choose = (modes: OpMode[], index: number): OpModeChoice => ({
   sync1Cycle: 0,
 });
 
-const span = (ns: number): string => new TimeSpan(ns).toString("full");
+const span = (ns: number): string => new TimeSpan(ns).toString("full") || "0s";
+
+/** The largest value that the SYNC0 and SYNC1 cycle registers hold. */
+const REGISTER_LIMIT = 0xffff_ffff;
 
 const busCycles = (factor: number): string =>
   factor === 1 ? "each bus cycle" : `every ${factor} bus cycles`;
@@ -115,23 +118,45 @@ export const describeMode = (mode: OpMode): string => {
     : `Clock ticks: SYNC0 ${sync0}, SYNC1 ${sync1}.`;
 };
 
-/** The error of an auto SYNC0 cycle on a mode that gives none, or null. */
-export const sync0Error = (mode: OpMode, choice: OpModeChoice | null): string | null =>
-  (choice == null || choice.sync0Cycle === 0) && sync0Text(mode) == null
-    ? NO_SYNC0
-    : null;
+/** The SYNC0 cycle the Driver runs, or 0 when it comes from the bus period. */
+const sync0Cycle = (mode: OpMode, choice: OpModeChoice | null): number =>
+  choice != null && choice.sync0Cycle !== 0 ? choice.sync0Cycle : mode.sync0Cycle;
 
 /**
- * The error of a chosen SYNC1 cycle that is not a multiple of the SYNC0 cycle, or null.
- * A SYNC0 cycle that comes from the bus period is not known here, so the Driver checks
- * it at start.
+ * Why the Driver fails to start with the SYNC0 cycle, or null: the mode gives no cycle,
+ * or the cycle is over the limit of its register.
+ */
+export const sync0Error = (
+  mode: OpMode,
+  choice: OpModeChoice | null,
+): string | null => {
+  if ((choice == null || choice.sync0Cycle === 0) && sync0Text(mode) == null)
+    return NO_SYNC0;
+  const sync0 = sync0Cycle(mode, choice);
+  if (sync0 <= REGISTER_LIMIT) return null;
+  return `SYNC0 cycle of ${span(sync0)} is over the limit of ${span(REGISTER_LIMIT)}`;
+};
+
+/**
+ * Why the Driver fails to start with the SYNC1 cycle, or null: it is not a multiple of
+ * the SYNC0 cycle, or its register value is out of range. A cycle that comes from the
+ * bus period is not known here, so the Driver checks it at start.
  */
 export const sync1Error = (
   mode: OpMode,
   choice: OpModeChoice | null,
 ): string | null => {
-  if (choice == null || choice.sync1Cycle === 0) return null;
-  const sync0 = choice.sync0Cycle !== 0 ? choice.sync0Cycle : mode.sync0Cycle;
-  if (sync0 === 0 || choice.sync1Cycle % sync0 === 0) return null;
-  return "SYNC1 cycle must be a multiple of the SYNC0 cycle";
+  const chosen = choice == null ? 0 : choice.sync1Cycle;
+  const sync0 = sync0Cycle(mode, choice);
+  if ((chosen === 0 && !hasSync1(mode)) || sync0 === 0) return null;
+  if (chosen === 0 && mode.sync1Factor < 0) return null;
+  const sync1 = chosen !== 0 ? chosen : sync0 * Math.max(mode.sync1Factor, 1);
+  if (sync1 % sync0 !== 0) return "SYNC1 cycle must be a multiple of the SYNC0 cycle";
+  const shift = mode.sync1Shift;
+  const register = sync1 - sync0 + shift;
+  if (register < 0)
+    return `SYNC1 shift of ${span(shift)} is under the limit of ${span(sync0 - sync1)}`;
+  if (register <= REGISTER_LIMIT) return null;
+  const limit = REGISTER_LIMIT + sync0 - shift;
+  return `SYNC1 cycle of ${span(sync1)} is over the limit of ${span(limit)}`;
 };

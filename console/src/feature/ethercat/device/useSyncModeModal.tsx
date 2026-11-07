@@ -197,8 +197,8 @@ const CycleField = ({
 };
 
 /**
- * Sets a cycle on the choice. A cycle typed in auto chooses the mode that auto runs,
- * at the index.
+ * Sets a cycle on the choice. A cycle typed in auto chooses the mode that auto runs, at
+ * the index.
  */
 const withCycle = (
   modes: OpMode[],
@@ -237,11 +237,13 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   const index = choice == null ? autoIndex(modes) : choice.index;
   let mode: OpMode | null = null;
   if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
-  const noSync0 = mode == null ? null : sync0Error(mode, choice);
-  const sync1Problem = mode == null ? null : sync1Error(mode, choice);
+  const sync0Problem = mode == null ? null : sync0Error(mode, choice);
+  const sync1Problem =
+    mode == null || sync0Problem != null ? null : sync1Error(mode, choice);
+  const cycleProblem = sync0Problem ?? sync1Problem;
   // Auto fails the start too, but Save must still remove the choice.
-  const sync0Problem: Problem = choice == null ? "warning" : "error";
-  const cycleError = (choice == null ? null : noSync0) ?? sync1Problem;
+  const severity: Problem = choice == null ? "warning" : "error";
+  const cycleError = choice == null ? null : cycleProblem;
   const handleSave = () => {
     if (stale || cycleError != null) return;
     // A mode that takes no cycles fails the start with any cycle.
@@ -251,8 +253,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   };
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
-  else if (cycleError != null) help = { text: cycleError, problem: "error" };
-  else if (noSync0 != null) help = { text: noSync0, problem: "warning" };
+  else if (cycleProblem != null) help = { text: cycleProblem, problem: severity };
   else if (mode != null) help = { text: describeTicks(mode, choice) };
   else if (choice == null) help = { text: autoDescription(modes) };
   else help = { text: describeMode(modes[choice.index]) };
@@ -279,7 +280,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC0 cycle"
                 value={choice == null ? 0 : choice.sync0Cycle}
-                problem={noSync0 == null ? undefined : sync0Problem}
+                problem={sync0Problem == null ? undefined : severity}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
                 }
@@ -287,7 +288,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC1 cycle"
                 value={choice == null ? 0 : choice.sync1Cycle}
-                problem={sync1Problem == null ? undefined : "error"}
+                problem={sync1Problem == null ? undefined : severity}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
                 }
