@@ -30,6 +30,7 @@ import {
   isSM,
   isStale,
   modeName,
+  sync0Error,
   sync1Error,
   takesCycles,
 } from "@/feature/ethercat/device/syncMode";
@@ -237,7 +238,9 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
   const index = choice == null ? autoIndex(modes) : choice.index;
   let mode: OpMode | null = null;
   if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
-  const cycleError = mode == null ? null : sync1Error(mode, choice);
+  const sync0Problem = mode == null ? null : sync0Error(mode, choice);
+  const sync1Problem = mode == null ? null : sync1Error(mode, choice);
+  const cycleError = sync0Problem ?? sync1Problem;
   const handleSave = () => {
     if (stale || cycleError != null) return;
     update({ key: slave.key, opMode: choice ?? undefined });
@@ -271,6 +274,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC0 cycle"
                 value={choice == null ? 0 : choice.sync0Cycle}
+                error={sync0Problem != null}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
                 }
@@ -278,7 +282,7 @@ const Form = ({ slave, close }: FormProps): ReactElement => {
               <CycleField
                 label="SYNC1 cycle"
                 value={choice == null ? 0 : choice.sync1Cycle}
-                error={cycleError != null}
+                error={sync1Problem != null}
                 onChange={(ns) =>
                   setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
                 }

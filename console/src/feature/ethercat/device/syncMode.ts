@@ -67,13 +67,15 @@ const span = (ns: number): string => new TimeSpan(ns).toString("full");
 const busCycles = (factor: number): string =>
   factor === 1 ? "each bus cycle" : `every ${factor} bus cycles`;
 
-/** What the mode gives for SYNC0, such as "each bus cycle". */
-const sync0Text = (mode: OpMode): string => {
+/** What the mode gives for SYNC0, such as "each bus cycle", or null for nothing. */
+const sync0Text = (mode: OpMode): string | null => {
   if (mode.sync0Cycle !== 0) return `every ${span(mode.sync0Cycle)}`;
   if (mode.sync0Factor > 0) return busCycles(mode.sync0Factor);
   if (mode.sync0Factor < 0) return `${-mode.sync0Factor} times each bus cycle`;
-  return "each bus cycle";
+  return null;
 };
+
+const NO_SYNC0 = "This mode gives no SYNC0 cycle. Type one.";
 
 /** What the mode gives for SYNC1, or null when the mode leaves SYNC1 off. */
 const sync1Text = (mode: OpMode): string | null => {
@@ -91,6 +93,7 @@ export const describeTicks = (mode: OpMode, choice: OpModeChoice | null): string
   const sync0Cycle = choice == null ? 0 : choice.sync0Cycle;
   const sync1Cycle = choice == null ? 0 : choice.sync1Cycle;
   const sync0 = sync0Cycle !== 0 ? `every ${span(sync0Cycle)}` : sync0Text(mode);
+  if (sync0 == null) return NO_SYNC0;
   const sync1 = sync1Cycle !== 0 ? `every ${span(sync1Cycle)}` : sync1Text(mode);
   if (sync1 == null) return `SYNC0 ticks ${sync0}. SYNC1 is off.`;
   const on = hasSync1(mode)
@@ -104,11 +107,19 @@ export const describeMode = (mode: OpMode): string => {
   if (isSM(mode)) return "Each frame from the Driver times the device.";
   if (ownedByPDI(mode)) return "The device sets its own clock ticks.";
   if (!runsSync0(mode)) return "The DC clock runs with no SYNC0 ticks.";
+  const sync0 = sync0Text(mode);
+  if (sync0 == null) return "You must type a SYNC0 cycle for this mode.";
   const sync1 = sync1Text(mode);
   return sync1 == null
-    ? `Clock ticks: SYNC0 ${sync0Text(mode)}.`
-    : `Clock ticks: SYNC0 ${sync0Text(mode)}, SYNC1 ${sync1}.`;
+    ? `Clock ticks: SYNC0 ${sync0}.`
+    : `Clock ticks: SYNC0 ${sync0}, SYNC1 ${sync1}.`;
 };
+
+/** The error of an auto SYNC0 cycle on a mode that gives none, or null. */
+export const sync0Error = (mode: OpMode, choice: OpModeChoice | null): string | null =>
+  (choice == null || choice.sync0Cycle === 0) && sync0Text(mode) == null
+    ? NO_SYNC0
+    : null;
 
 /**
  * The error of a chosen SYNC1 cycle that is not a multiple of the SYNC0 cycle, or null.

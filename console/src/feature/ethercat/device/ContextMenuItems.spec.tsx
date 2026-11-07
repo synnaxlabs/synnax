@@ -117,6 +117,7 @@ const DC_MODE = createMode("DC", 0x0300);
 const PDI_MODE = createMode("DC (PDI)", 0x0301);
 const NO_SYNC0_MODE = createMode("DC (no SYNC0)", 0x0100);
 const FIXED_MODE = createMode("DC (300 us)", 0x0300, 300_000);
+const NO_CYCLE_MODE = { ...createMode("DC (no cycle)", 0x0300), sync0Factor: 0 };
 const MODE_TEXTS = [
   {
     name: "a fixed SYNC0 cycle",
@@ -404,6 +405,36 @@ describe("EtherCAT device ContextMenuItems", () => {
       await act(async () => {});
       expect(saving()).toBe(false);
       expect(await retrieveOpMode(slave.key)).toBeUndefined();
+    });
+
+    it("should not save an auto SYNC0 cycle on a mode that gives none", async () => {
+      const smChoice = { index: 0, assignActivate: 0, sync0Cycle: 0, sync1Cycle: 0 };
+      const slave = await openSyncMode({
+        opModes: [SM_MODE, NO_CYCLE_MODE],
+        opMode: smChoice,
+      });
+      await pickMode("You must type a SYNC0 cycle for this mode.");
+      expect(
+        screen.getByText("This mode gives no SYNC0 cycle. Type one."),
+      ).toBeTruthy();
+      expect(screen.queryByText("each bus cycle", { exact: false })).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await act(async () => {});
+      expect(saving()).toBe(false);
+      expect(await retrieveOpMode(slave.key)).toEqual(smChoice);
+      typeCycle("SYNC0 cycle", "300");
+      expect(
+        screen.queryByText("This mode gives no SYNC0 cycle. Type one."),
+      ).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 1,
+          assignActivate: 0x0300,
+          sync0Cycle: 300_000,
+          sync1Cycle: 0,
+        }),
+      );
     });
 
     it("should show a mode the device no longer lists as an error", async () => {
