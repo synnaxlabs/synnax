@@ -13,7 +13,6 @@ import (
 	"context"
 	"sync"
 	"time"
-	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -99,13 +98,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 	if err != nil {
 		return nil, err
 	}
-	conn, err := connect(
-		ctx,
-		t.factoryCfg.Secret,
-		props,
-		dev.Rack.OntologyID(),
-		uuid.Nil(),
-	)
+	conn, err := connect(ctx, t.factoryCfg.Secret, props)
 	if err != nil {
 		return nil, err
 	}
