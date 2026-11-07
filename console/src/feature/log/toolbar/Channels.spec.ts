@@ -182,6 +182,26 @@ describe("log/toolbar/Channels", () => {
     await screen.findByRole("option", { name: new RegExp(`${prefix}_removed`) });
   });
 
+  it("keeps a row's open select and search when the log's channels change", async () => {
+    const prefix = id.create();
+    const row = await createChannel(DataType.FLOAT32, `${prefix}_row`);
+    const other = await createChannel(DataType.FLOAT32, `${prefix}_other`);
+    const { key } = await renderChannels([entry(row), entry(other)]);
+    await screen.findByLabelText(`Clear ${prefix}_row`);
+    fireEvent.click(screen.getAllByText(`${prefix}_row`)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByRole("option", { name: new RegExp(`${prefix}_row`) });
+    const otherOption = { name: new RegExp(`${prefix}_other`) };
+    expect(screen.queryByRole("option", otherOption)).toBeNull();
+
+    await client.logs.dispatch(key, [log.removeChannel({ channel: other })]);
+
+    await screen.findByRole("option", otherOption);
+    expect(screen.getByPlaceholderText("Search channels...")).toBe(search);
+    expect(search).toHaveProperty("value", prefix);
+  });
+
   it("removes the row of a deleted channel with the clear button", async () => {
     const deleted = await createChannel();
     await client.channels.delete(deleted);
