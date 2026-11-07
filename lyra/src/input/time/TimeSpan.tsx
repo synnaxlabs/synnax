@@ -25,7 +25,10 @@ export interface TimeSpanProps
   extends
     Control<number | undefined, number>,
     BaseProps,
-    Pick<EditorProps<XTimeSpan>, "inline" | "check" | "onClear"> {
+    Pick<
+      EditorProps<XTimeSpan>,
+      "inline" | "check" | "onClear" | "endContent" | "after"
+    > {
   /**
    * When set, the input shows the time elapsed since this instant, ticking every
    * second, instead of `value`. Typing a duration still commits through `onChange`.
