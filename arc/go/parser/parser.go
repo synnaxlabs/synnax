@@ -99,7 +99,7 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 //	    }
 //	`)
 func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Program)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Program)
 }
 
 // ParseExpression parses a single Arc expression.
@@ -115,21 +115,24 @@ func ParseExpression(
 	source string,
 	cfgs ...Config,
 ) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Expression)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Expression)
 }
 
-// ParseExpressionAt parses an Arc expression that starts at line (1-based) and column
-// of an enclosing source, so its tokens and diagnostics carry positions in that source.
+// Position maps the index of a rune in a source to its 1-based line and its column in
+// an enclosing source.
+type Position func(index int) (line, column int)
+
+// ParseExpressionAt parses an Arc expression that sits inside an enclosing source. Its
+// tokens and diagnostics carry the positions that position gives.
 func ParseExpressionAt(
 	source string,
-	line, column int,
+	position Position,
 	cfgs ...Config,
 ) (IExpressionContext, *diagnostics.Diagnostics) {
 	return parseWithContext(
 		source,
 		ConfigOf(cfgs...),
-		line,
-		column,
+		position,
 		(*ArcParser).Expression,
 	)
 }
@@ -147,7 +150,7 @@ func ParseStatement(
 	source string,
 	cfgs ...Config,
 ) (IStatementContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Statement)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Statement)
 }
 
 // ParseBlock parses an Arc block (sequence of statements enclosed in braces).
@@ -162,7 +165,7 @@ func ParseBlock(
 	source string,
 	cfgs ...Config,
 ) (IBlockContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), 1, 0, (*ArcParser).Block)
+	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
@@ -171,21 +174,29 @@ func ParseBlock(
 func parseWithContext[T any](
 	source string,
 	cfg Config,
-	line, column int,
+	position Position,
 	parseFn func(*ArcParser) T,
 ) (T, *diagnostics.Diagnostics) {
 	var (
-		lexer  = NewLexer(source, cfg)
-		stream = antlr.NewCommonTokenStream(lexer, 0)
-		parser = NewArcParser(stream)
-		diag   = &diagnostics.Diagnostics{}
-		errLis = &errorListener{Diagnostics: diag}
+		lexer              = NewLexer(source, cfg)
+		tokens antlr.Lexer = lexer
+		diag               = &diagnostics.Diagnostics{}
+		errLis             = &errorListener{Diagnostics: diag}
+		lexLis             = errLis
 	)
-	sim := lexer.Interpreter.(*antlr.LexerATNSimulator)
-	sim.Line = line
-	sim.CharPositionInLine = column
+	if position != nil {
+		tokens = &positionedTokens{ArcLexer: lexer, position: position}
+		lexLis = &errorListener{
+			Diagnostics: diag,
+			position:    lexerPosition([]rune(source), position),
+		}
+	}
+	var (
+		stream = antlr.NewCommonTokenStream(tokens, 0)
+		parser = NewArcParser(stream)
+	)
 	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(errLis)
+	lexer.AddErrorListener(lexLis)
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errLis)
 	result := parseFn(parser)
@@ -202,6 +213,45 @@ func parseWithContext[T any](
 type errorListener struct {
 	*antlr.DefaultErrorListener
 	*diagnostics.Diagnostics
+	// position, when set, maps a line and column the lexer counts to the enclosing
+	// source.
+	position func(line, column int) (int, int)
+}
+
+// positionedTokens gives each token the position of its first rune in an enclosing
+// source.
+type positionedTokens struct {
+	*ArcLexer
+	position Position
+}
+
+func (p *positionedTokens) NextToken() antlr.Token {
+	t := p.ArcLexer.NextToken()
+	line, column := p.position(t.GetStart())
+	return antlr.CommonTokenFactoryDEFAULT.Create(
+		t.GetSource(),
+		t.GetTokenType(),
+		"",
+		t.GetChannel(),
+		t.GetStart(),
+		t.GetStop(),
+		line,
+		column,
+	)
+}
+
+// lexerPosition converts the line and column the lexer counts in source to the
+// position in the enclosing source.
+func lexerPosition(source []rune, position Position) func(line, column int) (int, int) {
+	return func(line, column int) (int, int) {
+		index := 0
+		for l := 1; l < line && index < len(source); index++ {
+			if source[index] == '\n' {
+				l++
+			}
+		}
+		return position(index + column)
+	}
 }
 
 // SyntaxError is called by ANTLR when a syntax error is encountered.
@@ -214,6 +264,9 @@ func (e *errorListener) SyntaxError(
 	msg string,
 	_ antlr.RecognitionException,
 ) {
+	if e.position != nil {
+		line, column = e.position(line, column)
+	}
 	e.Add(diagnostics.Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Range: protocol.Range{

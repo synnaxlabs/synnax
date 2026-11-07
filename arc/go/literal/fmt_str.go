@@ -33,6 +33,10 @@ type FmtStrSegment struct {
 	End int
 	// Body byte offset of `:`, or -1 if no spec.
 	SpecOffset int
+	// Offsets holds, for a placeholder that FmtStrSplit returns, the body byte offset
+	// of
+	// each byte of Text and one past its end.
+	Offsets []int
 }
 
 // FmtStrHasPlaceholder reports whether any segment is a placeholder.
@@ -159,12 +163,15 @@ func unescape(body string, multi bool) (string, []int, error) {
 // result into segments as FmtStrParse does. Each segment's Text has its escapes
 // applied, and its Start, End, and SpecOffset index body as written.
 func FmtStrSplit(body string, flags StringFlags) ([]FmtStrSegment, error) {
-	if flags.Raw {
-		return FmtStrParse(body)
+	value, offsets := body, make([]int, len(body)+1)
+	for i := range offsets {
+		offsets[i] = i
 	}
-	value, offsets, err := unescape(body, flags.Multi)
-	if err != nil {
-		return nil, err
+	if !flags.Raw {
+		var err error
+		if value, offsets, err = unescape(body, flags.Multi); err != nil {
+			return nil, err
+		}
 	}
 	segments, err := FmtStrParse(value)
 	if err != nil {
@@ -172,6 +179,10 @@ func FmtStrSplit(body string, flags StringFlags) ([]FmtStrSegment, error) {
 	}
 	for i := range segments {
 		seg := &segments[i]
+		if seg.IsPlaceholder {
+			text := seg.Start + 1
+			seg.Offsets = slices.Clone(offsets[text : text+len(seg.Text)+1])
+		}
 		seg.Start, seg.End = offsets[seg.Start], offsets[seg.End]
 		if seg.SpecOffset >= 0 {
 			seg.SpecOffset = offsets[seg.SpecOffset]

@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // The text each format string renders to, in a function and in a flow.
@@ -92,6 +94,38 @@ var _ = Describe("Format string output", func() {
 		Entry("doubled braces", `f"{{x}}"`, "{x}"),
 		Entry("a backslash before a brace", `f"\{{"`, `\{`),
 		Entry("non-ASCII text", `f"温度°"`, "温度°"),
+	)
+
+	DescribeTable("Should point a placeholder error at its source position",
+		func(ctx SpecContext, literal string, line, column int) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "trig",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   100,
+			}, &symbol.Symbol{
+				Name: "log",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   101,
+			}))
+			_, diags := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: inFunction(literal)})),
+				root,
+			)
+			Expect(diags.Ok()).To(BeFalse())
+			d := (*diags)[0]
+			Expect(d.Message).To(ContainSubstring("undeclared"))
+			Expect(d.Range.Start.Line).To(Equal(uint32(line)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(column)))
+		},
+		Entry("a plain placeholder", `f"{undeclared}"`, 2, 13),
+		Entry("after non-ASCII text", `f"温度 {undeclared}"`, 2, 16),
+		Entry("after an escaped brace", `f"\u007Bundeclared}"`, 2, 18),
+		Entry("after an escape in the placeholder", `f"{\u0031 + undeclared}"`, 2, 22),
+		Entry("after escaped quotes", `f"{\"a\" + undeclared}"`, 2, 21),
+		Entry("on a later line", "f`a\n  {undeclared}`", 3, 3),
 	)
 
 	DescribeTable("Should reject",

@@ -101,11 +101,9 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 		return
 	}
 	if !analyzed {
-		start := runePosition(base, body[:seg.Start+1])
 		expr, diags := parser.ParseExpressionAt(
 			seg.Text,
-			int(start.Line)+1,
-			int(start.Character),
+			textPosition(base, body, seg),
 			ctx.Config,
 		)
 		if diags != nil && !diags.Ok() {
@@ -135,6 +133,24 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	}
 	if err := literal.FmtStrValidateSpec(seg.Spec, t); err != nil {
 		emit(diagnostics.Error(err, ctx.AST))
+	}
+}
+
+// textPosition maps each rune of a placeholder's text to its position in the source,
+// through any escapes. base is the position of body[0].
+func textPosition(
+	base protocol.Position,
+	body string,
+	seg literal.FmtStrSegment,
+) parser.Position {
+	positions := make([]protocol.Position, 0, len(seg.Text)+1)
+	for i := range seg.Text {
+		positions = append(positions, runePosition(base, body[:seg.Offsets[i]]))
+	}
+	positions = append(positions, runePosition(base, body[:seg.Offsets[len(seg.Text)]]))
+	return func(index int) (int, int) {
+		p := positions[min(index, len(positions)-1)]
+		return int(p.Line) + 1, int(p.Character)
 	}
 }
 
