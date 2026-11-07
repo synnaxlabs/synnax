@@ -655,7 +655,7 @@ func (l *Layer) BindTo(t Transport) {
 	// TASK
 	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
-	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
+	t.TaskDelete.BindHandler(l.Task.Delete)
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
 	t.TaskRename.BindHandler(l.Task.Rename)
 	t.TaskDispatch.BindHandler(l.Task.Dispatch)
@@ -878,6 +878,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Task, err = task.NewService(task.ServiceConfig{
+		DB:     cfg.Distribution.DB,
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
