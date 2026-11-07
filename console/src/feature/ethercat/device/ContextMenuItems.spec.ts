@@ -239,7 +239,7 @@ describe("EtherCAT device ContextMenuItems", () => {
       );
     });
 
-    it("should run the first mode in auto when the device lists no SM mode", async () => {
+    it("should run the first mode in auto when there is no SM mode", async () => {
       await openSyncMode({ opModes: [FIXED_MODE, DC_MODE] });
       expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
