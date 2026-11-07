@@ -19,7 +19,6 @@ import {
   MIXTURE_DIAGRAM,
   VOTING_DIAGRAM,
 } from "@/components/stream/diagrams";
-import type { NodeDef } from "@/components/stream/diagrams/types";
 
 const DIAGRAMS = Object.entries({
   ALARM_DIAGRAM,
@@ -30,6 +29,8 @@ const DIAGRAMS = Object.entries({
   MIXTURE_DIAGRAM,
   VOTING_DIAGRAM,
 }) satisfies Array<[string, DiagramDef]>;
+
+type NodeDef = DiagramDef["nodes"][number];
 
 const overlap = (a: NodeDef, b: NodeDef): boolean =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;

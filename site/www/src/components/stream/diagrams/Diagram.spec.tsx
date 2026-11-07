@@ -12,24 +12,25 @@ import { type CSSProperties, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ZERO_CALC_STATE } from "@/components/stream/calcTimeline";
-import { Diagram } from "@/components/stream/diagrams/Diagram";
-import type { DiagramDef, NodeIcon } from "@/components/stream/diagrams/types";
+import { Diagram, type DiagramDef } from "@/components/stream/diagrams";
 
 const PRIMARY = "var(--pluto-primary-p1)";
 const ERROR = "var(--pluto-error-z)";
 const DIM = "var(--pluto-gray-l5)";
 
-const icon = (id: string): NodeIcon => {
+type NodeDef = DiagramDef["nodes"][number];
+
+const icon = (id: string): NodeDef["icon"] => {
   const Icon = ({ style }: { style?: CSSProperties }): ReactElement => (
     <svg data-testid={id} style={style} />
   );
   return Icon;
 };
 
-const node = (id: string, x: number): DiagramDef["nodes"][number] => ({
+const node = (id: string, x: number, y = 100): NodeDef => ({
   id,
   x,
-  y: 100,
+  y,
   w: 140,
   h: 60,
   label: id,
@@ -54,6 +55,18 @@ const particles = (container: HTMLElement, trace: SVGPathElement): number =>
 
 const crossed = (trace: SVGPathElement): boolean =>
   trace.parentElement!.querySelectorAll(`line[stroke="${ERROR}"]`).length === 2;
+
+// The trace from "a" starts at x = 180. It ends at x = endX, at the left tab of "b".
+const edge = (fromY: number, toY: number, endX = 280): DiagramDef => ({
+  viewBox: "0 0 900 200",
+  nodes: [node("a", 100, fromY), node("b", endX + 80, toY)],
+  edges: [{ from: "a", to: "b" }],
+});
+
+const path = (def: DiagramDef): string | null =>
+  traces(
+    render(<Diagram def={def} state={ZERO_CALC_STATE} />).container,
+  )[0].getAttribute("d");
 
 describe("Diagram", () => {
   describe("traces", () => {
@@ -94,6 +107,65 @@ describe("Diagram", () => {
       expect(particles(container, first)).toBe(0);
       expect(crossed(first)).toBe(true);
       expect(crossed(second)).toBe(false);
+    });
+
+    it("should treat a drop under one unit as the same height", () => {
+      expect(path(edge(50, 50.5))).toBe("M180,50 L280,50.5");
+    });
+
+    it("should turn down at the horizontal midpoint with rounded corners", () => {
+      expect(path(edge(0, 100))).toBe(
+        "M180,0 L222,0 Q230,0 230,8 L230,92 Q230,100 238,100 L280,100",
+      );
+    });
+
+    it("should turn up when the end is above the start", () => {
+      expect(path(edge(100, 0))).toBe(
+        "M180,100 L222,100 Q230,100 230,92 L230,8 Q230,0 238,0 L280,0",
+      );
+    });
+
+    it("should shrink the corners to half of a short drop", () => {
+      expect(path(edge(0, 6))).toBe(
+        "M180,0 L227,0 Q230,0 230,3 L230,3 Q230,6 233,6 L280,6",
+      );
+    });
+
+    it("should shrink the corners to half of the run to the midpoint", () => {
+      expect(path(edge(0, 100, 192))).toBe(
+        "M180,0 L183,0 Q186,0 186,3 L186,97 Q186,100 189,100 L192,100",
+      );
+    });
+
+    it("should cross out an excluded trace at its midpoint", () => {
+      const { container } = render(
+        <Diagram
+          def={edge(0, 100)}
+          state={{ ...ZERO_CALC_STATE, excludedNodes: ["a"] }}
+        />,
+      );
+      expect(container.querySelector("g[transform]")!.getAttribute("transform")).toBe(
+        "translate(230,50)",
+      );
+    });
+
+    it.each([
+      ["dim an idle trace", [], [], "var(--pluto-gray-l2)"],
+      [
+        "color a flowing trace in the primary color",
+        ["src"],
+        [],
+        "var(--pluto-primary-z-15)",
+      ],
+      ["rank an exclusion above flow", ["src"], ["src"], "var(--pluto-error-z-15)"],
+    ])("should %s", (_, activeNodes, excludedNodes, color) => {
+      const { container } = render(
+        <Diagram
+          def={DEF}
+          state={{ ...ZERO_CALC_STATE, activeNodes, excludedNodes }}
+        />,
+      );
+      expect(traces(container)[0].getAttribute("stroke")).toBe(color);
     });
 
     it("should give each diagram its own trace IDs", () => {
@@ -143,6 +215,26 @@ describe("Diagram", () => {
       expect(screen.getByTestId("src").style.color).toBe(PRIMARY);
       expect(screen.getByTestId("mid").style.color).toBe(DIM);
       expect(screen.getByTestId("out").style.color).toBe(ERROR);
+    });
+
+    it("should color an alarm node in the error color even when it is active", () => {
+      render(
+        <Diagram
+          def={DEF}
+          state={{ ...ZERO_CALC_STATE, activeNodes: ["src"], alarmNodes: ["src"] }}
+        />,
+      );
+      expect(screen.getByTestId("src").style.color).toBe(ERROR);
+    });
+
+    it("should color an excluded node in the error color even when it is active", () => {
+      render(
+        <Diagram
+          def={DEF}
+          state={{ ...ZERO_CALC_STATE, activeNodes: ["mid"], excludedNodes: ["mid"] }}
+        />,
+      );
+      expect(screen.getByTestId("mid").style.color).toBe(ERROR);
     });
 
     it("should color an excluded node in the error color", () => {
