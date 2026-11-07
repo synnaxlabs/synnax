@@ -138,6 +138,16 @@ describe("Ontology", () => {
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(name);
     });
+    test("reject a malformed ID", async () => {
+      await expect(
+        // @ts-expect-error - "bad" is not a resource type.
+        client.ontology.retrieve({ type: "bad", key: "1" }),
+      ).rejects.toThrow(
+        "resource params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse resource single query params (1 issue)\n\n  {\n" +
+          '  ✗ "type": "bad",  × expected one of [',
+      );
+    });
     test("retrieve by string ID", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
@@ -383,6 +393,24 @@ describe("Ontology", () => {
         root: top,
       });
       expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+    });
+
+    it("should take back a dropped parent link that another client adds", async () => {
+      const { top, leaf } = await createChain();
+      const side = await client.groups.create({ parent: top, name: randomName() });
+      await drainStream();
+      const stale: ontology.Relationship = {
+        from: group.ontologyID(side.key),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: leaf,
+      };
+      const key = ontology.relationshipToString(stale);
+      const { relationships } = client.ontology.cache;
+      relationships.set(key, stale);
+      await client.ontology.ancestors.retrieve({ ids: leaf, root: top });
+      expect(relationships.status(key)).toBe("tombstoned");
+      await remote.ontology.addChildren(stale.from, leaf);
+      await expect.poll(() => relationships.status(key)).toBe("present");
     });
 
     it("should keep a link deleted while the request is in flight", async () => {

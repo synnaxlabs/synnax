@@ -260,6 +260,8 @@ from synnax.schematic.types_gen import (
     ValveNodeConfig,
     VentElementConfig,
     VentNodeConfig,
+    Where,
+    WhereInput,
     ontology_id,
 )
 
@@ -515,6 +517,8 @@ __all__ = [
     "ValveNodeConfig",
     "VentElementConfig",
     "VentNodeConfig",
+    "Where",
+    "WhereInput",
     "ontology_id",
     "symbol",
 ]

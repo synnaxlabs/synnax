@@ -32,6 +32,14 @@
 namespace driver::opcua {
 class TestScanTask : public ::testing::Test {
 protected:
+    /// @brief the certificate that the secured server presents.
+    static inline certificate::Identity server_id;
+    /// @brief a certificate that no server presents.
+    static inline certificate::Identity other_id;
+    /// @brief a Store directory with one Driver identity. Each test copies it, since
+    /// making a key takes seconds.
+    static inline std::filesystem::path store_dir;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::filesystem::path dir;
@@ -42,11 +50,24 @@ protected:
     synnax::task::Task task;
     synnax::rack::Rack rack;
 
+    static void SetUpTestSuite() {
+        store_dir = std::filesystem::temp_directory_path() /
+                    ("opcua-scan-store-" + x::uuid::create().to_string());
+        ASSERT_NIL_P(
+            certificate::Store(certificate::StoreConfig{.dir = store_dir}).current()
+        );
+        server_id = ASSERT_NIL_P(testutil::create_server_identity());
+        other_id = ASSERT_NIL_P(testutil::create_server_identity());
+    }
+
+    static void TearDownTestSuite() { std::filesystem::remove_all(store_dir); }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
         ctx = std::make_shared<task::MockContext>(client);
         dir = std::filesystem::temp_directory_path() /
               ("opcua-scan-" + x::uuid::create().to_string());
+        std::filesystem::copy(store_dir, dir, std::filesystem::copy_options::recursive);
         store = std::make_shared<certificate::Store>(
             certificate::StoreConfig{.dir = dir}
         );
@@ -63,18 +84,7 @@ protected:
         auto server_cfg = testutil::ServerConfig::create_default();
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        connection::Config test_conn_cfg;
-        test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
-        test_conn_cfg.security_mode = "None";
-        test_conn_cfg.security_policy = "None";
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(test_conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     void TearDown() override {
@@ -95,9 +105,10 @@ protected:
         ASSERT_TRUE(secured_server->wait_until_ready());
     }
 
-    /// @brief replaces the Store with one that issues certificates inside the renewal
-    /// window, so that renewal starts at once.
+    /// @brief replaces the Store with an empty one that issues certificates inside the
+    /// renewal window, so that renewal starts at once.
     void use_short_lived_store() {
+        std::filesystem::remove_all(dir);
         store = std::make_shared<certificate::Store>(certificate::StoreConfig{
             .dir = dir,
             .validity = 30 * x::telem::DAY,
@@ -422,7 +433,6 @@ TEST_F(TestScanTask, testBrowseUnknownNamespace) {
 /// @brief it should list the endpoints of a server without opening a Session, and close
 /// its channel.
 TEST_F(TestScanTask, testGetEndpoints) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:4871");
@@ -507,6 +517,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Server connected");
+    EXPECT_TRUE(devices[0].status.value().details.connected);
 }
 
 /// @brief it should not open a session of its own when a task received a reply from the
@@ -554,6 +565,7 @@ TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
     const auto second = this->scan(scanner, dev);
     EXPECT_EQ(second[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(second[0].status.value().message, "Failed to reach server");
+    EXPECT_FALSE(second[0].status.value().details.connected);
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -613,18 +625,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     auto server_cfg = testutil::ServerConfig::create_default();
     server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
-
-    // Wait for server to be ready
-    connection::Config test_conn_cfg;
-    test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
-    test_conn_cfg.security_mode = "None";
-    test_conn_cfg.security_policy = "None";
-    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(test_conn_cfg, {}, "test"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
-    UA_Client_disconnect(test_client.get());
+    ASSERT_TRUE(server->wait_until_ready());
 
     // Use fresh connection pool again
     fresh_conn_pool = std::make_shared<connection::Pool>(store);
@@ -641,7 +642,6 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 /// @brief it should reply with a server certificate that the command does not trust,
 /// and connect once the command trusts that certificate.
 TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -680,8 +680,6 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
 
 /// @brief it should mark a reply when the server rejects the Driver certificate.
 TEST_F(TestScanTask, testTestConnectionDriverCertificateRejected) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
-    const auto other_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id, {other_id.certificate});
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -707,7 +705,6 @@ TEST_F(TestScanTask, testTestConnectionDriverCertificateRejected) {
 /// @brief it should trust the first certificate of a secured device that trusts
 /// none, and keep using its connection once the device trusts that certificate.
 TEST_F(TestScanTask, testHealthCheckTrustsFirstCertificate) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto scanned = scan(scanner, secured_device(secured_config()));
@@ -728,8 +725,6 @@ TEST_F(TestScanTask, testHealthCheckTrustsFirstCertificate) {
 /// @brief it should report a secured device whose server presents another
 /// certificate than the trusted one.
 TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
-    const auto other_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -739,6 +734,7 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server certificate not trusted");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server presented the certificate " + server_id.certificate.thumbprint() +
@@ -754,7 +750,6 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
 
 /// @brief it should warn about a secured device that accepts any server certificate.
 TEST_F(TestScanTask, testHealthCheckValidationDisabled) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -766,13 +761,12 @@ TEST_F(TestScanTask, testHealthCheckValidationDisabled) {
         scanned[0].status.value().message,
         "Connected without certificate validation"
     );
+    EXPECT_TRUE(scanned[0].status.value().details.connected);
     EXPECT_FALSE(scanned[0].properties.at("connection").contains("server_certificate"));
 }
 
 /// @brief it should name the Driver certificate when the server rejects it.
 TEST_F(TestScanTask, testHealthCheckDriverCertificateRejected) {
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
-    const auto other_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id, {other_id.certificate});
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -783,6 +777,7 @@ TEST_F(TestScanTask, testHealthCheckDriverCertificateRejected) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server rejected the Driver certificate");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server rejected the connection's security checks "
@@ -843,7 +838,6 @@ TEST_F(TestScanTask, testRegenerateCertificate) {
 TEST_F(TestScanTask, testRenewalSwitchesWhenServersAccept) {
     use_short_lived_store();
     const auto old = ASSERT_NIL_P(store->current());
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -862,7 +856,6 @@ TEST_F(TestScanTask, testRenewalSwitchesWhenServersAccept) {
 TEST_F(TestScanTask, testRenewalWaitsForServers) {
     use_short_lived_store();
     const auto old = ASSERT_NIL_P(store->current());
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id, {old.certificate});
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
@@ -876,6 +869,7 @@ TEST_F(TestScanTask, testRenewalWaitsForServers) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Server does not trust the next certificate");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "Approve the next Driver certificate " + next.value().certificate.thumbprint() +
@@ -889,7 +883,6 @@ TEST_F(TestScanTask, testRenewalWaitsForServers) {
 TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     use_short_lived_store();
     const auto old = ASSERT_NIL_P(store->current());
-    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     Scanner scanner(ctx, task, conn_pool, store);
     auto conn_cfg = secured_config();
     conn_cfg.server_certificate = server_id.certificate;

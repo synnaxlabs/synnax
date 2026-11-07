@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -25,9 +24,11 @@
 #include "client/cpp/status/status.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/json/struct.h"
 
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/transport/grpc/device/device.pb.h"
 
 namespace synnax::device {
@@ -40,7 +41,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a device.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::device::RetrieveRequest, grpc::device::RetrieveResponse>;
+    UnaryClient<grpc::device::RetrieveRequest, ::api::device::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
 using DeleteClient = freighter::
@@ -65,45 +66,6 @@ inline std::string status_key(const Device &device) {
     return ontology_id(device.key).string();
 }
 
-/// @brief Options for retrieving devices.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved devices.
-    bool include_status = false;
-    /// @brief Whether to include parent ontology ID in the retrieved devices.
-    bool include_parent = false;
-};
-
-/// @brief Request structure for retrieving devices with various filter options.
-struct RetrieveRequest {
-    std::vector<std::string> keys;
-    std::vector<std::string> names;
-    std::vector<std::string> makes;
-    std::vector<std::string> models;
-    std::vector<std::string> locations;
-    std::vector<rack::Key> racks;
-    std::string search;
-    std::uint32_t limit = 0;
-    std::uint32_t offset = 0;
-    bool ignore_not_found = false;
-    bool include_status = false;
-    bool include_parent = false;
-
-    void to_proto(grpc::device::RetrieveRequest &request) const {
-        request.set_ignore_not_found(ignore_not_found);
-        request.set_limit(limit);
-        request.set_offset(offset);
-        request.mutable_keys()->Add(keys.begin(), keys.end());
-        request.mutable_names()->Add(names.begin(), names.end());
-        request.mutable_makes()->Add(makes.begin(), makes.end());
-        request.mutable_models()->Add(models.begin(), models.end());
-        request.mutable_locations()->Add(locations.begin(), locations.end());
-        request.mutable_racks()->Add(racks.begin(), racks.end());
-        request.set_search(search);
-        request.set_include_status(include_status);
-        request.set_include_parent(include_parent);
-    }
-};
-
 /// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:
@@ -117,47 +79,45 @@ public:
         std::unique_ptr<DeleteClient> device_delete_client
     );
 
-    /// @brief Retrieves a device by its key.
-    /// @param key The key of the device to retrieve.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
-    [[nodiscard]]
-    std::pair<Device, x::errors::Error> retrieve(const std::string &key) const;
-
-    /// @brief Retrieves a device by its key with options.
-    /// @param key The key of the device to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
+    /// @brief retrieves the device with the given key.
+    /// @param key the key of the device.
+    /// @param options the options of the retrieve.
+    /// @returns the device, and an error that matches NOT_FOUND when no device has the
+    /// key.
     [[nodiscard]]
     std::pair<Device, x::errors::Error>
-    retrieve(const std::string &key, const RetrieveOptions &options) const;
+    retrieve(const std::string &key, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves multiple devices by their keys.
-    /// @param keys The keys of the devices to retrieve.
-    /// @returns A pair containing the retrieved devices and an error if one
-    /// occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Device>, x::errors::Error>
-    retrieve(const std::vector<std::string> &keys) const;
-
-    /// @brief Retrieves multiple devices by their keys with options.
-    /// @param keys The keys of the devices to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved devices and an error if one
-    /// occurred.
+    /// @brief retrieves the devices with the given keys.
+    /// @param keys the keys of the devices.
+    /// @param options the options of the retrieve.
+    /// @returns the devices for the keys that exist, and an error if one occurred.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error> retrieve(
         const std::vector<std::string> &keys,
-        const RetrieveOptions &options
+        const RetrieveOptions &options = {}
     ) const;
 
-    /// @brief Retrieves devices using a custom retrieve request.
-    /// @param req The retrieve request with filter criteria.
-    /// @returns A pair containing the retrieved devices and an error if one occurred.
+    /// @brief retrieves the devices that where selects.
+    /// @param where the filter that the devices match. An empty filter matches all
+    /// devices.
+    /// @param options the options of the retrieve.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error>
-    retrieve(RetrieveRequest &req) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one device that where selects.
+    /// @param where the filter that the device matches.
+    /// @param options the options of the retrieve.
+    /// @returns the device, and an error that matches NOT_FOUND when no device
+    /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
+    /// set a limit or an offset.
+    [[nodiscard]]
+    std::pair<Device, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.

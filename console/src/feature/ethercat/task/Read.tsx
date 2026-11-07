@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -21,6 +20,7 @@ import {
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
 import {
+  bindOrphanedChannels,
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
@@ -119,24 +119,13 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
-/**
- * @throws when two new channels share a name, or when a channel already holds one of
- * their names.
- */
-const checkNamesFree = async (client: Synnax, names: string[]): Promise<void> => {
+/** @throws when two new channels of the task share a name. */
+const checkNamesUnique = (names: string[]): void => {
   const repeated = names.find((name, i) => names.indexOf(name) !== i);
   if (repeated != null)
     throw new Error(
       `Two channels of the task use the name ${repeated}. Choose another name for ` +
         "one of them.",
-    );
-  // Names with pattern characters match more than themselves.
-  const taken = (await client.channels.retrieve({ names })).find(({ name }) =>
-    names.includes(name),
-  );
-  if (taken != null)
-    throw new Error(
-      `A channel named ${taken.name} already exists. Choose another name.`,
     );
 };
 
@@ -144,31 +133,45 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
+  // The checks run before any create, so a failed one leaves nothing behind.
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    const toCreate = await findChannelsToCreate(
+    const missing = await findChannelsToCreate(
       client,
       channels,
       slave.properties.read.channels,
       readKey,
       readDataType,
     );
-    const names = toCreate.map((ch) => readChannelName(slave, ch));
-    plans.push({ slave, channels, toCreate, names });
+    plans.push({ slave, channels, missing });
   }
-  const allNames = plans.flatMap((p) => p.names);
-  if (allNames.length > 0) await checkNamesFree(client, allNames);
+  checkNamesUnique(
+    plans.flatMap(({ slave, missing }) =>
+      missing.map((ch) => readChannelName(slave, ch)),
+    ),
+  );
 
-  // The checks run before any create, so a failed one leaves nothing behind.
-  for (const { slave, channels, toCreate, names } of plans) {
+  for (const plan of plans) {
+    const { slave, channels } = plan;
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
+    // A new index clears the slave's channel map, so every channel is missing.
+    const missing = modified ? channels : plan.missing;
+    if (missing.length > 0) modified = true;
+    const toCreate = await bindOrphanedChannels({
+      client,
+      channels: missing,
+      names: missing.map((ch) => readChannelName(slave, ch)),
+      index: () => slave.properties.readIndex,
+      map: slave.properties.read.channels,
+      mapKey: readKey,
+      getDataType: readDataType,
+    });
 
     if (toCreate.length > 0) {
-      modified = true;
       const created = await client.channels.create(
-        toCreate.map((ch, i) => ({
-          name: names[i],
+        toCreate.map((ch) => ({
+          name: readChannelName(slave, ch),
           dataType: readDataType(ch),
           index: slave.properties.readIndex,
         })),

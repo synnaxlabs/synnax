@@ -190,6 +190,27 @@ describe("range", () => {
       expect(retrieved.key).toEqual(range.key);
       expect(retrieved.timeRange).toEqual(range.timeRange);
     });
+    it("should retrieve a range by a key object", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({ name: "Key Object Range", timeRange });
+      const retrieved = await client.ranges.retrieve({ key: range.key });
+      expect(retrieved.key).toEqual(range.key);
+    });
+    it("should retrieve ranges by a flat filter", async () => {
+      const prefix = `flat-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const [labeled] = await client.ranges.create([
+        { name: `${prefix}-labeled`, timeRange },
+        { name: `${prefix}-plain`, timeRange },
+      ]);
+      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      await labeled.addLabel(lbl.key);
+      const retrieved = await client.ranges.retrieve({
+        name: { startsWith: prefix },
+        labels: lbl.key,
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([labeled.key]);
+    });
     it("should retrieve a range by name", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
       const range = await client.ranges.create({
@@ -327,6 +348,43 @@ describe("range", () => {
         const resolved = await rng.resolveAlias("myalias");
         expect(resolved).toEqual(ch.key);
       });
+
+      it("should reject an alias named after an object member", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const resolve = rng.resolveAlias("constructor");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
+      });
+
+      it("should reject a channel name that matches no channel", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = id.create();
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
+      });
+
+      it("should read a name pattern as an exact channel name", async () => {
+        const prefix = `alias_${id.create()}`;
+        await client.channels.create([
+          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
+          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = `${prefix}_.*`;
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
+      });
     });
     describe("deleteAlias", () => {
       it("should remove an alias for the range", async () => {
@@ -341,7 +399,14 @@ describe("range", () => {
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
-        expect(await rng.resolveAlias("myalias")).toBeUndefined();
+        const resolve = rng.resolveAlias("myalias");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
+        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
+        await expect(retrieve).rejects.toThrow(NotFoundError);
+        await expect(retrieve).rejects.toThrow(
+          `alias not found matching channel ${ch.key}`,
+        );
       });
     });
     describe("list", () => {

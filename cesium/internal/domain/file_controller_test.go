@@ -10,17 +10,77 @@
 package domain_test
 
 import (
+	"context"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// panicFS panics on domain file opens while armed.
+type panicFS struct {
+	xfs.FS
+	armed *atomic.Bool
+}
+
+func (f panicFS) Open(name string, flag int) (xfs.File, error) {
+	if f.armed.Load() && name != "counter.domain" && name != "index.domain" {
+		panic("open failed")
+	}
+	return f.FS.Open(name, flag)
+}
+
+var errHandleFault = errors.New("handle fault")
+
+// handleFaultFS fails operations on open handles while armed. FaultyFS reaches neither.
+type handleFaultFS struct {
+	xfs.FS
+	failClose *atomic.Bool
+	failStat  *atomic.Bool
+}
+
+func (f handleFaultFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	return &handleFaultFile{File: file, fs: f}, nil
+}
+
+type handleFaultFile struct {
+	xfs.File
+	fs    handleFaultFS
+	stats int
+}
+
+// Stat fails on the second armed call, which is the size lookup that follows the one
+// xio.NewTrackedWriteCloser makes.
+func (f *handleFaultFile) Stat() (xfs.FileInfo, error) {
+	if f.fs.failStat.Load() {
+		if f.stats++; f.stats == 2 {
+			return nil, errHandleFault
+		}
+	}
+	return f.File.Stat()
+}
+
+// Close closes the file in both cases, as close(2) does when it reports an error.
+func (f *handleFaultFile) Close() error {
+	err := f.File.Close()
+	if f.fs.failClose.CompareAndSwap(true, false) {
+		return errHandleFault
+	}
+	return err
+}
 
 var _ = Describe("File Controller", Ordered, func() {
 	for fsName, openFS := range FileSystems {
@@ -215,6 +275,46 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(fs.Exists("2.domain")).To(BeFalse())
 
 						Expect(w2.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should obey the file descriptor limit under concurrent opens",
+					func(ctx SpecContext) {
+						const (
+							limit = 4
+							opens = 64
+						)
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							MaxDescriptors:  limit,
+							Instrumentation: PanicLogger(),
+						}))
+						opened := make(chan *domain.Writer, opens)
+						for i := range opens {
+							go func() {
+								defer GinkgoRecover()
+								start := telem.TimeStamp(i+1) * telem.SecondTS
+								opened <- MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+									Start: start,
+									End:   start + telem.SecondTS,
+								}))
+							}()
+						}
+						writers := make([]*domain.Writer, limit)
+						for i := range writers {
+							Eventually(opened).Should(Receive(&writers[i]))
+						}
+						Consistently(opened, 100*time.Millisecond).ShouldNot(Receive())
+						for _, w := range writers {
+							Expect(w.Close()).To(Succeed())
+						}
+						for range opens - limit {
+							var w *domain.Writer
+							Eventually(opened).Should(Receive(&w))
+							Expect(w.Close()).To(Succeed())
+						}
+						Expect(fs.Exists("5.domain")).To(BeFalse())
 					},
 				)
 
@@ -555,6 +655,258 @@ var _ = Describe("File Controller", Ordered, func() {
 					},
 				)
 			})
+			Describe("Waiting at the file descriptor limit", func() {
+				const watchdog = 5 * time.Second
+				openDB := func(fs xfs.FS, limit int) {
+					GinkgoHelper()
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						MaxDescriptors:  limit,
+						Instrumentation: PanicLogger(),
+					}))
+				}
+				openAt := func(ctx context.Context, second int) *domain.Writer {
+					GinkgoHelper()
+					start := telem.TimeStamp(second) * telem.SecondTS
+					return MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: start,
+						End:   start + telem.SecondTS,
+					}))
+				}
+				commitAt := func(ctx context.Context, second int) *domain.Writer {
+					GinkgoHelper()
+					w := openAt(ctx, second)
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					end := (telem.TimeStamp(second) * telem.SecondTS) + 1
+					Expect(w.Commit(ctx, end)).To(Succeed())
+					return w
+				}
+				// readAsync closes the returned channel once a read on the first domain
+				// finishes.
+				readAsync := func(ctx context.Context) <-chan struct{} {
+					done := make(chan struct{})
+					go func() {
+						defer GinkgoRecover()
+						defer close(done)
+						i := db.OpenIterator(
+							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+						)
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(MustSucceed(i.OpenReader(ctx)).Close()).To(Succeed())
+						Expect(i.Close()).To(Succeed())
+					}()
+					return done
+				}
+
+				It(
+					"Should let a reader reclaim idle writer handles",
+					func(ctx SpecContext) {
+						openDB(fs, 2)
+						w1, w2 := commitAt(ctx, 10), commitAt(ctx, 20)
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
+						Eventually(readAsync(ctx), watchdog).Should(BeClosed())
+						By("Reopening the reclaimed file for writing")
+						Expect(openAt(ctx, 30).Close()).To(Succeed())
+						Expect(fs.Exists("3.domain")).To(BeFalse())
+					},
+				)
+
+				It(
+					"Should keep idle writer handles when an idle reader frees a place",
+					func(ctx SpecContext) {
+						rec := NewRecorder(fs)
+						openDB(rec, 2)
+						w1, w2 := commitAt(ctx, 10), commitAt(ctx, 20)
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
+						Eventually(readAsync(ctx), watchdog).Should(BeClosed())
+						i := db.OpenIterator(
+							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+						)
+						Expect(i.SeekLast(ctx)).To(BeTrue())
+						Expect(MustSucceed(i.OpenReader(ctx)).Close()).To(Succeed())
+						Expect(i.Close()).To(Succeed())
+						rec.Reset()
+						Expect(openAt(ctx, 30).Close()).To(Succeed())
+						Expect(rec.Count(MatchOp(OpOpen))).To(BeZero())
+					},
+				)
+
+				It(
+					"Should wake a reader and a writer on one release",
+					func(ctx SpecContext) {
+						openDB(fs, 2)
+						w1, w2 := commitAt(ctx, 10), commitAt(ctx, 20)
+						read := readAsync(ctx)
+						Consistently(read, 100*time.Millisecond).ShouldNot(BeClosed())
+						opened := make(chan *domain.Writer, 1)
+						go func() {
+							defer GinkgoRecover()
+							opened <- openAt(ctx, 30)
+						}()
+						Consistently(opened, 100*time.Millisecond).ShouldNot(Receive())
+						Expect(w1.Close()).To(Succeed())
+						var w3 *domain.Writer
+						Eventually(opened, watchdog).Should(Receive(&w3))
+						Expect(w3.Close()).To(Succeed())
+						Eventually(read, watchdog).Should(BeClosed())
+						Expect(w2.Close()).To(Succeed())
+					},
+				)
+
+				Describe("Handle faults", func() {
+					var (
+						failClose, failStat *atomic.Bool
+						faulty              *FaultyFS
+					)
+					BeforeEach(func() {
+						failClose, failStat = &atomic.Bool{}, &atomic.Bool{}
+						faulty = WrapFaultyFS(handleFaultFS{
+							FS:        fs,
+							failClose: failClose,
+							failStat:  failStat,
+						})
+					})
+
+					It(
+						"Should close a file whose size lookup fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 2)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							Expect(db.Close()).To(Succeed())
+							openDB(faulty, 2)
+							handles := faulty.OpenFiles()
+							failStat.Store(true)
+							Expect(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 20 * telem.SecondTS,
+								End:   21 * telem.SecondTS,
+							})).Error().To(MatchError(errHandleFault))
+							failStat.Store(false)
+							Expect(faulty.OpenFiles()).To(Equal(handles))
+							Expect(openAt(ctx, 30).Close()).To(Succeed())
+							Expect(fs.Exists("2.domain")).To(BeFalse())
+						},
+					)
+
+					It(
+						"Should retire a reader whose close fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 1)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							Eventually(readAsync(ctx), watchdog).Should(BeClosed())
+							failClose.Store(true)
+							Expect(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 20 * telem.SecondTS,
+								End:   21 * telem.SecondTS,
+							})).Error().To(MatchError(errHandleFault))
+							held := openAt(ctx, 30)
+							opened := make(chan *domain.Writer, 1)
+							go func() {
+								defer GinkgoRecover()
+								opened <- openAt(context.Background(), 40)
+							}()
+							Consistently(opened, 100*time.Millisecond).
+								ShouldNot(Receive())
+							Expect(held.Close()).To(Succeed())
+							var w *domain.Writer
+							Eventually(opened, watchdog).Should(Receive(&w))
+							Expect(w.Close()).To(Succeed())
+						},
+					)
+
+					It(
+						"Should retire a writer whose close fails",
+						func(ctx SpecContext) {
+							openDB(faulty, 1)
+							Expect(commitAt(ctx, 10).Close()).To(Succeed())
+							i := db.OpenIterator(
+								domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+							)
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							failClose.Store(true)
+							Expect(i.OpenReader(ctx)).Error().
+								To(MatchError(errHandleFault))
+							Expect(i.Close()).To(Succeed())
+							Expect(commitAt(ctx, 20).Close()).To(Succeed())
+						},
+					)
+				})
+
+				It(
+					"Should keep no place for an open that panics",
+					func(ctx SpecContext) {
+						armed := &atomic.Bool{}
+						openDB(panicFS{FS: fs, armed: armed}, 2)
+						armed.Store(true)
+						for i := range 2 {
+							Expect(
+								func() { openAt(ctx, i+1) },
+							).To(PanicWith("open failed"))
+						}
+						armed.Store(false)
+						opened := make(chan *domain.Writer, 1)
+						go func() {
+							defer GinkgoRecover()
+							opened <- openAt(ctx, 10)
+						}()
+						var w *domain.Writer
+						Eventually(opened, watchdog).Should(Receive(&w))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should stop a writer's wait when its context ends",
+					func(ctx SpecContext) {
+						openDB(fs, 1)
+						held := openAt(ctx, 10)
+						waitCtx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						done := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							defer close(done)
+							Expect(db.OpenWriter(waitCtx, domain.WriterConfig{
+								Start: 20 * telem.SecondTS,
+								End:   21 * telem.SecondTS,
+							})).Error().To(MatchError(context.Canceled))
+						}()
+						Consistently(done, 100*time.Millisecond).ShouldNot(BeClosed())
+						cancel()
+						Eventually(done, watchdog).Should(BeClosed())
+						Expect(held.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should stop a reader's wait when its context ends",
+					func(ctx SpecContext) {
+						openDB(fs, 1)
+						held := commitAt(ctx, 10)
+						i := db.OpenIterator(
+							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
+						)
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						waitCtx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						done := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							defer close(done)
+							Expect(i.OpenReader(waitCtx)).Error().To(
+								MatchError(context.Canceled),
+							)
+						}()
+						Consistently(done, 100*time.Millisecond).ShouldNot(BeClosed())
+						cancel()
+						Eventually(done, watchdog).Should(BeClosed())
+						Expect(i.Close()).To(Succeed())
+						Expect(held.Close()).To(Succeed())
+					},
+				)
+			})
+
 			Describe("Readers", func() {
 				It(
 					"Should open a new file handle for each simultaneously held reader",

@@ -14,7 +14,6 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
-import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
@@ -26,19 +25,13 @@ const base = Flux.createUpdate<CreateParams>({
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const {
-      selection: { parentID, ids },
-      state: { shape },
+      selection: { parentID, top },
       group: { name, key },
     } = data;
     if (parentID == null)
       throw new Error("Cannot group items that sit under more than one parent");
-    const resourcesToGroup = getResourcesToGroup(ids, shape);
     await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(
-      parentID,
-      group.ontologyID(key),
-      ...resourcesToGroup,
-    );
+    await client.ontology.moveChildren(parentID, group.ontologyID(key), ...top);
     return data;
   },
 });
@@ -48,13 +41,12 @@ const beforeUpdate = async ({
   rollbacks,
 }: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
-    selection,
-    state: { nodes, setNodes, setSelection, shape, setResource },
+    selection: { top },
+    state: { nodes, setNodes, setSelection, setResource },
     group: { key },
   } = data;
   const newID = group.ontologyID(key);
   const newIDString = ontology.idToString(newID);
-  const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
@@ -64,7 +56,7 @@ const beforeUpdate = async ({
   const destination =
     PTree.findNodeParent({
       tree: nodes,
-      key: ontology.idToString(resourcesToGroup[0]),
+      key: ontology.idToString(top[0]),
     })?.key ?? null;
   let nextNodes = PTree.setNode({
     tree: nodes,
@@ -74,7 +66,7 @@ const beforeUpdate = async ({
   nextNodes = PTree.moveNode({
     tree: nextNodes,
     destination: newIDString,
-    keys: resourcesToGroup.map((id) => ontology.idToString(id)),
+    keys: top.map((id) => ontology.idToString(id)),
   });
   setNodes([...nextNodes]);
   setSelection([newIDString]);

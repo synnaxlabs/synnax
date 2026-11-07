@@ -20,22 +20,51 @@ import (
 )
 
 const (
-	ActionTypeCreate                    = "create"
-	ActionTypeRename                    = "rename"
-	ActionTypeAddChannel                = "add_channel"
-	ActionTypeRemoveChannel             = "remove_channel"
-	ActionTypeSetChannelEntry           = "set_channel_entry"
-	ActionTypeSetChannelColor           = "set_channel_color"
-	ActionTypeSetChannelNotation        = "set_channel_notation"
-	ActionTypeSetChannelPrecision       = "set_channel_precision"
-	ActionTypeSetChannelAlias           = "set_channel_alias"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
+	ActionTypeAddChannel = "add_channel"
+	// ActionTypeRemoveChannel is the Type of an Action that carries
+	// RemoveChannelPayload.
+	ActionTypeRemoveChannel = "remove_channel"
+	// ActionTypeSetChannelEntry is the Type of an Action that carries
+	// SetChannelEntryPayload.
+	ActionTypeSetChannelEntry = "set_channel_entry"
+	// ActionTypeSetChannelColor is the Type of an Action that carries
+	// SetChannelColorPayload.
+	ActionTypeSetChannelColor = "set_channel_color"
+	// ActionTypeSetChannelNotation is the Type of an Action that carries
+	// SetChannelNotationPayload.
+	ActionTypeSetChannelNotation = "set_channel_notation"
+	// ActionTypeSetChannelPrecision is the Type of an Action that carries
+	// SetChannelPrecisionPayload.
+	ActionTypeSetChannelPrecision = "set_channel_precision"
+	// ActionTypeSetChannelAlias is the Type of an Action that carries
+	// SetChannelAliasPayload.
+	ActionTypeSetChannelAlias = "set_channel_alias"
+	// ActionTypeSetChannelTimestampFormat is the Type of an Action that carries
+	// SetChannelTimestampFormatPayload.
 	ActionTypeSetChannelTimestampFormat = "set_channel_timestamp_format"
-	ActionTypeSetChannelTimestampTz     = "set_channel_timestamp_tz"
-	ActionTypeSetChannels               = "set_channels"
-	ActionTypeSwapChannel               = "swap_channel"
-	ActionTypeSetTimestampPrecision     = "set_timestamp_precision"
-	ActionTypeSetChannelNamesHidden     = "set_channel_names_hidden"
-	ActionTypeSetTimestampsHidden       = "set_timestamps_hidden"
+	// ActionTypeSetChannelTimestampTz is the Type of an Action that carries
+	// SetChannelTimestampTzPayload.
+	ActionTypeSetChannelTimestampTz = "set_channel_timestamp_tz"
+	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
+	ActionTypeSetChannels = "set_channels"
+	// ActionTypeSwapChannel is the Type of an Action that carries SwapChannelPayload.
+	ActionTypeSwapChannel = "swap_channel"
+	// ActionTypeSetTimestampPrecision is the Type of an Action that carries
+	// SetTimestampPrecisionPayload.
+	ActionTypeSetTimestampPrecision = "set_timestamp_precision"
+	// ActionTypeSetChannelNamesHidden is the Type of an Action that carries
+	// SetChannelNamesHiddenPayload.
+	ActionTypeSetChannelNamesHidden = "set_channel_names_hidden"
+	// ActionTypeSetTimestampsHidden is the Type of an Action that carries
+	// SetTimestampsHiddenPayload.
+	ActionTypeSetTimestampsHidden = "set_timestamps_hidden"
+	// ActionTypeSetTimeZone is the Type of an Action that carries SetTimeZonePayload.
+	ActionTypeSetTimeZone = "set_time_zone"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -122,7 +151,7 @@ type SetChannelsPayload struct {
 
 // SwapChannelPayload repoints the entry referencing the "from" channel at the "to"
 // channel in place, preserving the entry's position and display configuration. No-op
-// when no entry references "from".
+// when no entry references "from" or an entry already references "to".
 type SwapChannelPayload struct {
 	From channel.Key `json:"from" msgpack:"from"`
 	To   channel.Key `json:"to" msgpack:"to"`
@@ -141,6 +170,11 @@ type SetChannelNamesHiddenPayload struct {
 // SetTimestampsHiddenPayload sets whether entry timestamps are hidden.
 type SetTimestampsHiddenPayload struct {
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+}
+
+// SetTimeZonePayload sets the time zone of the line times and day rows of the log.
+type SetTimeZonePayload struct {
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
@@ -163,6 +197,7 @@ type Action struct {
 	SetTimestampPrecision     *SetTimestampPrecisionPayload     `json:"set_timestamp_precision,omitzero" msgpack:"set_timestamp_precision,omitempty"`
 	SetChannelNamesHidden     *SetChannelNamesHiddenPayload     `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
 	SetTimestampsHidden       *SetTimestampsHiddenPayload       `json:"set_timestamps_hidden,omitzero" msgpack:"set_timestamps_hidden,omitempty"`
+	SetTimeZone               *SetTimeZonePayload               `json:"set_time_zone,omitzero" msgpack:"set_time_zone,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -253,6 +288,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimestampsHidden.Handle(state)
+		case ActionTypeSetTimeZone:
+			if a.SetTimeZone == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetTimeZone.Handle(state)
 		default:
 			return state, union.UnknownVariant(a.Type)
 		}
@@ -341,4 +381,9 @@ func NewSetChannelNamesHiddenAction(p SetChannelNamesHiddenPayload) Action {
 // NewSetTimestampsHiddenAction wraps a SetTimestampsHiddenPayload in an Action envelope.
 func NewSetTimestampsHiddenAction(p SetTimestampsHiddenPayload) Action {
 	return Action{Type: ActionTypeSetTimestampsHidden, SetTimestampsHidden: &p}
+}
+
+// NewSetTimeZoneAction wraps a SetTimeZonePayload in an Action envelope.
+func NewSetTimeZoneAction(p SetTimeZonePayload) Action {
+	return Action{Type: ActionTypeSetTimeZone, SetTimeZone: &p}
 }

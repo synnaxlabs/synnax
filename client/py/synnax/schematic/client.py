@@ -7,14 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project
 from synnax.schematic import symbol
-from synnax.schematic.types_gen import Key, Schematic
+from synnax.schematic.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Schematic,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 
 
@@ -25,14 +34,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     schematics: list[Schematic]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    schematics: list[Schematic] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -117,32 +118,77 @@ class Client:
         return res.schematics[0] if is_single else res.schematics
 
     @overload
-    def retrieve(self, *, key: Key) -> Schematic: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        one: bool = ...,
+    ) -> Schematic: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[Schematic]: ...
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[True],
+    ) -> Schematic: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[False] = ...,
+    ) -> list[Schematic]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> Schematic | list[Schematic]:
-        """Retrieves one or more schematics by key.
+        """Retrieves schematics. With no arguments, retrieves every schematic.
 
-        :param key: The key of a single schematic to retrieve.
-        :param keys: The keys of the schematics to retrieve.
-        :returns: The matching schematic when ``key`` is provided, otherwise a list of
-            matching schematics.
-        :raises NotFoundError: If a requested key does not exist.
+        Each filter field takes a value, a list of values, or an operator, and a
+        schematic must match every field. A plain ``key`` returns one schematic.
+
+        :param key: Keeps schematics with this key.
+        :param and_: Keeps schematics that match every filter in the list.
+        :param or_: Keeps schematics that match any filter in the list.
+        :param not_: Keeps schematics that do not match the filter.
+        :param where: A filter tree that the schematics must also match.
+        :param keys: Keeps schematics with one of these keys.
+        :param one: Returns one schematic for any filter.
+        :returns: One schematic for a plain ``key`` or when ``one`` is set, otherwise a
+            list of schematics. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one schematic is wanted and none matches.
+        :raises MultipleFoundError: If one schematic is wanted and more than one
+            matches.
+        :raises ValidationError: If a filter field is None.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        res = self._client.send(
-            "/schematic/retrieve", _RetrieveRequest(keys=keys), _RetrieveResponse
+        single = returns_one(fields, one, None, 0)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields)
         )
-        return res.schematics[0] if is_single else res.schematics
+        res = self._client.send("/schematic/retrieve", req, RetrieveResponse)
+        return sole("schematic", req, res.schematics) if single else res.schematics
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.

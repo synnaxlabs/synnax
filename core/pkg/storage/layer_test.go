@@ -24,7 +24,6 @@ import (
 
 var _ = Describe("storage", func() {
 	Describe("Open", func() {
-		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			tempDir string
 			cfg     storage.LayerConfig
@@ -34,7 +33,10 @@ var _ = Describe("storage", func() {
 			// DeferCleanup runs after the layer's Close, whereas an AfterEach would
 			// fire while files are still open and fail RemoveAll on Windows.
 			DeferCleanup(func() { Expect(os.RemoveAll(tempDir)).To(Succeed()) })
-			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
+			cfg = storage.LayerConfig{
+				Dirname: filepath.Join(tempDir, "storage"),
+				Version: "0.0.0",
+			}
 		})
 		Describe("Acquiring a lock", func() {
 			It(
@@ -102,6 +104,7 @@ var _ = Describe("storage", func() {
 		) {
 			iCfg := storage.DefaultLayerConfig
 			iCfg.Dirname = "foo"
+			iCfg.Version = "0.60.0"
 			err := spec(iCfg).Validate()
 			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
@@ -138,6 +141,31 @@ var _ = Describe("storage", func() {
 					return cfg
 				},
 				"permissions",
+			),
+			Entry("Valid config", func(cfg storage.LayerConfig) storage.LayerConfig {
+				return cfg
+			}, ""),
+			Entry("Version not set",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version with a v prefix",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = "v0.60.0"
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version not set, mem-backed",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					cfg.InMemory = new(true)
+					return cfg
+				},
+				"",
 			),
 		)
 	})

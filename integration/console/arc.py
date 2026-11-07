@@ -43,13 +43,11 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str) -> None:
         """Create a new Arc automation via Console UI.
 
-        Args:
-            name: The name for the new Arc automation.
-            source: The source code/content for the Arc.
-            mode: The Arc mode, either "Text" or "Diagram". Defaults to "Text".
+        :param name: The name for the new Arc automation.
+        :param source: The source code for the Arc.
         """
         self._show_arc_panel()
 
@@ -60,26 +58,17 @@ class ArcClient(ResourceClient):
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 
-        mode_btn = self.layout.page.locator(
-            f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
-        )
-        mode_btn.wait_for(state="visible", timeout=5000)
-        mode_btn.click()
-
         create_btn = self.layout.page.get_by_role("button", name="Create", exact=True)
         create_btn.wait_for(state="visible", timeout=5000)
         create_btn.click()
         name_input.wait_for(state="hidden", timeout=10000)
 
-        if mode == "Text":
-            editor = self.layout.page.locator("[data-mode-id='arc']")
-            editor.wait_for(state="visible", timeout=10000)
-            editor.click()
-            editor.locator(".cursor").wait_for(state="visible", timeout=5000)
-            editor.locator(".monaco-editor.focused").wait_for(
-                state="visible", timeout=5000
-            )
-            self._paste_source(editor, source)
+        editor = self.layout.page.locator("[data-mode-id='arc']")
+        editor.wait_for(state="visible", timeout=10000)
+        editor.click()
+        editor.locator(".cursor").wait_for(state="visible", timeout=5000)
+        editor.locator(".monaco-editor.focused").wait_for(state="visible", timeout=5000)
+        self._paste_source(editor, source)
 
     def _paste_source(self, editor: Locator, source: str, max_retries: int = 3) -> None:
         """Paste source code into the Monaco editor with retry on failure.

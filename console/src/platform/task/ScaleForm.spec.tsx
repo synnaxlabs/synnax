@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { labjack } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,15 +15,21 @@ import { describe, expect, it } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
-const SCALE = deep.path<{ scale: labjack.Scale }>().scale;
+const SCALE = deep.path<{ scale: task.Scale }>().scale;
 
-const renderScale = (scale: labjack.Scale) =>
-  renderInTaskForm(<Task.ScaleForm path={SCALE} schemas={labjack.SCALE_SCHEMAS} />, {
+const renderScale = (scale: task.Scale) =>
+  renderInTaskForm(<Task.ScaleForm path={SCALE} />, {
     values: { scale },
   });
 
 const valueOf = (name: string): string =>
   screen.getByRole<HTMLInputElement>("textbox", { name }).value;
+
+const commit = (name: string, value: string): void => {
+  const input = screen.getByLabelText<HTMLInputElement>(name);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
 
 describe("ScaleForm", () => {
   it("should show the slope and offset of a linear scale", async () => {
@@ -44,6 +50,29 @@ describe("ScaleForm", () => {
     expect(valueOf("Pre-scaled max")).toBe("20");
     expect(valueOf("Scaled min")).toBe("1");
     expect(valueOf("Scaled max")).toBe("100");
+  });
+
+  it("should store an edited polynomial coefficient", async () => {
+    const { form } = await renderScale({ type: "polynomial", coeffs: [1, 2] });
+    commit("c1", "3");
+    expect(form.current?.get(SCALE).value).toEqual({
+      type: "polynomial",
+      coeffs: [1, 3],
+    });
+  });
+
+  it("should store an edited table point", async () => {
+    const { form } = await renderScale({
+      type: "table",
+      preScaledVals: [0, 10],
+      scaledVals: [0, 100],
+    });
+    commit("Scaled 2", "50");
+    expect(form.current?.get(SCALE).value).toEqual({
+      type: "table",
+      preScaledVals: [0, 10],
+      scaledVals: [0, 50],
+    });
   });
 
   it("should show no parameters when the channel is not scaled", async () => {
