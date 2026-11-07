@@ -44,7 +44,6 @@ import {
   type SlaveDevice,
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
-import { FLAGS } from "@/flags";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
@@ -305,11 +304,9 @@ export const Configure = ({
       form.addCheck(path.properties.identifier, Device.identifierZ);
       checked.current = true;
     }
-    if (FLAGS.ethercatSyncMode) {
-      if (stale || cycleError != null) return;
-      // A mode that takes no cycles fails the start with any cycle.
-      if (choice != null && mode == null) setChoice(choose(modes, choice.index));
-    }
+    if (stale || cycleError != null) return;
+    // A mode that takes no cycles fails the start with any cycle.
+    if (choice != null && mode == null) setChoice(choose(modes, choice.index));
     if (!(await saveAsync())) return;
     if (!opened.configured) capture("device_configured", { make: MAKE });
     if (createTask) onCreateTask?.(deviceKey);
@@ -361,44 +358,42 @@ export const Configure = ({
                 </Flex.Box>
               </Flex.Box>
             </Form.Section>
-            {FLAGS.ethercatSyncMode && (
-              <Form.Section title="Sync mode">
-                <Input.Item label="Mode" padHelpText={false}>
-                  <ModeSelect
-                    modes={modes}
-                    value={choice}
-                    stale={stale}
-                    onChange={setChoice}
+            <Form.Section title="Sync mode">
+              <Input.Item label="Mode" padHelpText={false}>
+                <ModeSelect
+                  modes={modes}
+                  value={choice}
+                  stale={stale}
+                  onChange={setChoice}
+                />
+              </Input.Item>
+              {mode != null && index != null && (
+                <Flex.Box x>
+                  <CycleField
+                    label="SYNC0 cycle"
+                    value={choice == null ? 0 : choice.sync0Cycle}
+                    problem={sync0Problem == null ? undefined : severity}
+                    onChange={(ns) =>
+                      setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                    }
                   />
-                </Input.Item>
-                {mode != null && index != null && (
-                  <Flex.Box x>
-                    <CycleField
-                      label="SYNC0 cycle"
-                      value={choice == null ? 0 : choice.sync0Cycle}
-                      problem={sync0Problem == null ? undefined : severity}
-                      onChange={(ns) =>
-                        setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
-                      }
-                    />
-                    <CycleField
-                      label="SYNC1 cycle"
-                      value={choice == null ? 0 : choice.sync1Cycle}
-                      problem={sync1Problem == null ? undefined : severity}
-                      onChange={(ns) =>
-                        setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
-                      }
-                    />
-                  </Flex.Box>
-                )}
-                <Flex.Box y gap="small">
-                  <Help {...help} />
-                  <Text.Text level="small" color={9}>
-                    {APPLY_NOTE}
-                  </Text.Text>
+                  <CycleField
+                    label="SYNC1 cycle"
+                    value={choice == null ? 0 : choice.sync1Cycle}
+                    problem={sync1Problem == null ? undefined : severity}
+                    onChange={(ns) =>
+                      setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                    }
+                  />
                 </Flex.Box>
-              </Form.Section>
-            )}
+              )}
+              <Flex.Box y gap="small">
+                <Help {...help} />
+                <Text.Text level="small" color={9}>
+                  {APPLY_NOTE}
+                </Text.Text>
+              </Flex.Box>
+            </Form.Section>
           </Form.Sections>
         </Form.Form>
       </Modal.Body>
