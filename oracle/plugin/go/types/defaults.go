@@ -135,6 +135,20 @@ func structDefaultFills(
 	return fills
 }
 
+// overrideFills returns the fills of a field that restates an inherited field's
+// default.
+// SetDefaults sets the parent's default first, so a zero default must be written out.
+func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
+	if fills := goDefaultFills(field, data); len(fills) > 0 ||
+		field.Default == nil || field.Optional {
+		return fills
+	}
+	if fill, ok := zeroFill(naming.GetFieldName(field), *field.Default); ok {
+		return []defaultFillData{fill}
+	}
+	return nil
+}
+
 // zeroFill returns the fill that writes the zero value v to the Go selector goName. It
 // returns ok=false for a kind whose zero has no plain literal, such as an enum member.
 func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, bool) {
@@ -1021,7 +1035,8 @@ func typeSetsDefaults(
 		return false
 	}
 	visited.Add(ref.Name)
-	resolved, ok := ref.Resolve(data.table)
+	// An alias names the same Go type as its target.
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}

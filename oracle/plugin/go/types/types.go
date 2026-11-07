@@ -841,7 +841,11 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			continue
 		}
 		if defaultGroupName(field) == "" {
-			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+			fills := goDefaultFills(field, data)
+			if defaultOnly.Contains(field.Name) {
+				fills = overrideFills(field, data)
+			}
+			sd.DefaultFills = append(sd.DefaultFills, fills...)
 		}
 		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)

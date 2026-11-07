@@ -1488,6 +1488,41 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should write a zero default that overrides an inherited default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Parent struct { rate float64 = 0.2 }
+			Child struct extends Parent { rate float64 = 0 }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n" +
+					"\tc.Rate = 0\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set the defaults of a parent named through an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate int32 = 10 }
+			Alias = Base
+			Child struct extends Alias { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Alias.SetDefaults()\n" +
+					"\tc.Mode = \"auto\"\n}",
+			)
+		},
+	)
+
+	It(
 		"Should write a zero leaf that overrides a nested type's own default",
 		func(ctx SpecContext) {
 			source := `

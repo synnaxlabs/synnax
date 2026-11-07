@@ -267,10 +267,11 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
 					if defaultGroupName(f) == "" {
-						vd.DefaultFills = append(
-							vd.DefaultFills,
-							goDefaultFills(f, data)...,
-						)
+						fills := goDefaultFills(f, data)
+						if defaultOnly.Contains(f.Name) {
+							fills = overrideFills(f, data)
+						}
+						vd.DefaultFills = append(vd.DefaultFills, fills...)
 					}
 					if validateSkip(f, data) {
 						continue
