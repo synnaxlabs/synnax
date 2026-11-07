@@ -33,6 +33,26 @@ var _ = Describe("Writer", func() {
 			Expect(s.Key).ToNot(Equal(uuid.Nil()))
 		})
 
+		DescribeTable("Should validate the scale of a decoded schematic",
+			func(ctx SpecContext, scale string, matcher OmegaMatcher) {
+				var s schematic.Schematic
+				Expect(json.Unmarshal([]byte(
+					`{"name":"valves","nodes":[{"key":"v1"}],"configs":{"v1":`+
+						`{"variant":"valve"`+scale+`}}}`,
+				), &s)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(matcher)
+			},
+			Entry("omitted scale takes the default", "", Succeed()),
+			Entry(
+				"zero scale is rejected",
+				`,"scale":0`,
+				SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				),
+			),
+		)
+
 		DescribeTable("Should keep the gauge bounds of a decoded schematic",
 			func(ctx SpecContext, config string, expected spatial.Bounds) {
 				var s schematic.Schematic
