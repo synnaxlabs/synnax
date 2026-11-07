@@ -71,6 +71,16 @@ TEST(Select, UsesTheChosenDCMode) {
     EXPECT_EQ(ASSERT_NIL_P(select({SM_MODE, DC_MODE}, choice)), DC_MODE);
 }
 
+/// @brief it should accept chosen SYNC0 and SYNC1 cycles for a mode that runs SYNC0.
+TEST(Select, AcceptsChosenCyclesForAModeThatRunsSYNC0) {
+    const Choice choice{
+        .index = 1,
+        .assign_activate = 0x0700,
+        .cycles = {.sync0 = x::telem::MILLISECOND, .sync1 = x::telem::SECOND},
+    };
+    EXPECT_EQ(ASSERT_NIL_P(select({SM_MODE, DC_MODE}, choice)), DC_MODE);
+}
+
 /// @brief it should leave a slave without DC when the chosen mode is an SM mode.
 TEST(Select, ReturnsNoModeForAChosenSMMode) {
     const Choice choice{.index = 1, .assign_activate = 0};
