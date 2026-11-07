@@ -197,9 +197,13 @@ var _ = Describe("Factory", func() {
 				Expect(stat.Message).To(ContainSubstring("invalid API key"))
 			})
 
-			It("Should fail for an API key that no grant or device allows",
+			It("Should fail without a grant, even for the key of a saved device",
 				func(ctx SpecContext) {
 					key := createAPIKey(ctx, apiKey)
+					createDevice(
+						ctx,
+						sift.Properties{URI: server.Address(), APIKey: key},
+					)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
 							URI:    server.Address(),
@@ -207,7 +211,9 @@ var _ = Describe("Factory", func() {
 						},
 					})
 					Expect(stat.Variant).To(Equal(status.VariantError))
-					Expect(stat.Message).To(ContainSubstring("cannot read secret"))
+					Expect(
+						stat.Message,
+					).To(ContainSubstring("has ended or does not exist"))
 				})
 
 			It("Should fail for a connection with no address", func(ctx SpecContext) {
