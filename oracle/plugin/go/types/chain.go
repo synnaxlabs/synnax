@@ -324,7 +324,10 @@ func frozenFile(
 	if err != nil {
 		return plugin.File{}, err
 	}
-	used := referencedAt(table, ns)
+	used, err := usedFrom(ctx, req, origPath, livePath, f.Chain, k)
+	if err != nil {
+		return plugin.File{}, err
+	}
 	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
@@ -340,7 +343,7 @@ func frozenFile(
 		// A current package drops a live-omitted declaration, unless something uses it.
 		live, has := liveType(req, livePath, name)
 		if has && omit.IsType(live, "go") && shared.Contains(name) &&
-			!used.Contains(t.QualifiedName) {
+			!used.Contains(name) {
 			continue
 		}
 		switch t.Form.(type) {
@@ -485,6 +488,7 @@ func LiveHash(
 		if err != nil {
 			return "", err
 		}
+		reached := reachedFrom(table, ns)
 		deps := slices.SortedFunc(
 			slices.Values(table.Types),
 			func(a, b resolution.Type) int {
@@ -492,7 +496,7 @@ func LiveHash(
 			},
 		)
 		for _, t := range deps {
-			if t.Namespace == ns {
+			if t.Namespace == ns || !reached.Contains(t.QualifiedName) {
 				continue
 			}
 			b = fmt.Appendf(b, "%s %T\x00", t.QualifiedName, t.Form)
@@ -517,9 +521,75 @@ func LiveHash(
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// usedFrom returns the names of version k's members that a declaration in a frozen
+// package from k on uses, where that package resolves the name to the same definition.
+// A later package aliases the member, so it needs k's declaration.
+func usedFrom(
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	chain versions.Chain,
+	k int,
+) (set.Set[string], error) {
+	at, err := req.Versions.Surface(ctx, livePath, k)
+	if err != nil {
+		return nil, err
+	}
+	used := make(set.Set[string])
+	for _, j := range chain.Numbers {
+		if j < k || j >= chain.Current() {
+			continue
+		}
+		surface, err := req.Versions.Surface(ctx, livePath, j)
+		if err != nil {
+			return nil, err
+		}
+		table, ns, err := ChainFrozenTable(ctx, req, origPath, livePath, j)
+		if err != nil {
+			return nil, err
+		}
+		for qualified := range referencedAt(table, ns) {
+			name, own := strings.CutPrefix(qualified, ns+".")
+			def, member := at[name]
+			if own && member && surface[name].Version == def.Version {
+				used.Add(name)
+			}
+		}
+	}
+	return used, nil
+}
+
+// reachedFrom returns the qualified names that the declarations in ns reach, directly
+// or through other declarations.
+func reachedFrom(table *resolution.Table, ns string) set.Set[string] {
+	reached := make(set.Set[string])
+	queue := slices.Collect(maps.Keys(referencedAt(table, ns)))
+	for len(queue) > 0 {
+		name := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		if reached.Contains(name) {
+			continue
+		}
+		reached.Add(name)
+		t, ok := table.Get(name)
+		if !ok {
+			continue
+		}
+		for next := range referencedBy(table, []resolution.Type{t}) {
+			queue = append(queue, next)
+		}
+	}
+	return reached
+}
+
 // referencedAt returns the qualified names that the declarations in ns reference. An
 // enum's extends copies its members, so the extended enum does not count.
 func referencedAt(table *resolution.Table, ns string) set.Set[string] {
+	return referencedBy(table, table.TypesInNamespace(ns))
+}
+
+// referencedBy returns the qualified names that the given declarations reference.
+func referencedBy(table *resolution.Table, types []resolution.Type) set.Set[string] {
 	used := make(set.Set[string])
 	var walk func(ref resolution.TypeRef)
 	walk = func(ref resolution.TypeRef) {
@@ -530,7 +600,7 @@ func referencedAt(table *resolution.Table, ns string) set.Set[string] {
 			used.Add(t.QualifiedName)
 		}
 	}
-	for _, t := range table.TypesInNamespace(ns) {
+	for _, t := range types {
 		switch form := t.Form.(type) {
 		case resolution.StructForm:
 			for _, ext := range form.Extends {
