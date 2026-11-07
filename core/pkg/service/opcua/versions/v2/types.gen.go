@@ -58,7 +58,7 @@ func (r *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *ReadChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadChannel
 	if reflect.ValueOf(*r).IsZero() {
@@ -121,7 +121,7 @@ func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {

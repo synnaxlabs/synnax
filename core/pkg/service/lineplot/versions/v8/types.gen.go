@@ -158,7 +158,7 @@ func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain Line
 	if reflect.ValueOf(*l).IsZero() {
@@ -237,7 +237,7 @@ func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(l))
 }
 
-// DecodeMsgpack decodes the input over l, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain LinePlot
 	if reflect.ValueOf(*l).IsZero() {

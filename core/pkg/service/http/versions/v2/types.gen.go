@@ -156,7 +156,7 @@ func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadField
 	if reflect.ValueOf(*r).IsZero() {
@@ -211,7 +211,7 @@ func (r *ReadEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadEndpoint
 	if reflect.ValueOf(*r).IsZero() {
@@ -265,7 +265,7 @@ func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(r))
 }
 
-// DecodeMsgpack decodes the input over r, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ReadConfig
 	if reflect.ValueOf(*r).IsZero() {
@@ -376,7 +376,7 @@ func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ChannelField
 	if reflect.ValueOf(*c).IsZero() {
@@ -662,7 +662,7 @@ func (w *WriteEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(w))
 }
 
-// DecodeMsgpack decodes the input over w, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain WriteEndpoint
 	if reflect.ValueOf(*w).IsZero() {
@@ -735,7 +735,7 @@ func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {
