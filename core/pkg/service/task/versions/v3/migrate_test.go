@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"math"
@@ -92,6 +93,36 @@ var _ = Describe("NewMigration", func() {
 			},
 		))
 	}
+
+	It("Should give the config hook the name of each task", func(ctx SpecContext) {
+		var names []string
+		store := MustOpen(config.OpenService(
+			ctx,
+			config.ServiceConfig[arctask.Config]{
+				DB:          db,
+				Type:        "arc",
+				Ladder:      arcversions.ConfigLadder,
+				SetEntryKey: (*arctask.Config).SetKey,
+				ResolveEntry: func(
+					_ context.Context,
+					_ gorp.Tx,
+					name string,
+					_ *arctask.Config,
+				) error {
+					names = append(names, name)
+					return nil
+				},
+			},
+		))
+		seed(ctx, v2.Task{
+			Key:    uuid.New(),
+			Name:   "Named Arc Task",
+			Type:   "arc",
+			Config: msgpack.EncodedJSON{"arcKey": uuid.New().String()},
+		})
+		run(ctx, store)
+		Expect(names).To(Equal([]string{"Named Arc Task"}))
+	})
 
 	It(
 		"Should normalize the config into its record store under the task's key",

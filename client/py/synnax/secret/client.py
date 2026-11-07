@@ -122,7 +122,7 @@ class Client:
         self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, key: Key) -> Secret: ...
+    def retrieve(self, key: Key, *, include_uses: bool = ...) -> Secret: ...
 
     @overload
     def retrieve(
@@ -134,6 +134,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Secret: ...
 
@@ -148,6 +149,7 @@ class Client:
         where: Where | None = ...,
         keys: list[Key] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Secret: ...
 
@@ -164,6 +166,7 @@ class Client:
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Secret]: ...
 
@@ -176,6 +179,7 @@ class Client:
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Secret | list[Secret]:
@@ -195,6 +199,9 @@ class Client:
         :param search_term: Keeps the secrets whose names match, closest match first.
         :param limit: The most secrets to return.
         :param offset: The number of matching secrets to skip.
+        :param include_uses: Whether to fill each secret's uses with the ontology IDs of
+            the resources that use it and that the caller can read. Secrets come back
+            with no uses when false.
         :param one: Returns one secret for any filter.
         :returns: One secret for a plain ``key`` or when ``one`` is set, otherwise a
             list of secrets. The list leaves out keys that no secret has.
@@ -213,6 +220,7 @@ class Client:
             search_term=search_term,
             limit=limit,
             offset=offset,
+            include_uses=include_uses,
         )
         res = self._client.send("/secret/retrieve", req, RetrieveResponse)
         return sole("Secret", fields, res.secrets) if single else res.secrets

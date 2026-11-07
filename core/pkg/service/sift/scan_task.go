@@ -11,7 +11,6 @@ package sift
 
 import (
 	"context"
-	"uuid"
 
 	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
@@ -38,7 +37,7 @@ const (
 type testConnectionArgs struct {
 	// Connection is the connection to test.
 	Connection Properties `json:"connection"`
-	// Grant lets the Core read an API key that no saved device uses yet.
+	// Grant lets the rack of the task read the API key of the connection.
 	Grant grant.Key `json:"grant"`
 }
 
@@ -111,13 +110,17 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	conn, err := connect(
+	values, err := s.cfg.Secret.Resolve(
 		ctx,
-		s.cfg.Secret,
-		args.Connection,
+		nil,
 		s.rack.OntologyID(),
 		args.Grant,
+		args.Connection.APIKey,
 	)
+	if err != nil {
+		return err
+	}
+	conn, err := dial(args.Connection.URI, string(values[args.Connection.APIKey]))
 	if err != nil {
 		return err
 	}
@@ -180,7 +183,7 @@ func (s scanner) withDevice(
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	conn, err := connect(ctx, s.cfg.Secret, props, dev.Rack.OntologyID(), uuid.Nil())
+	conn, err := connect(ctx, s.cfg.Secret, props)
 	if err != nil {
 		return err
 	}

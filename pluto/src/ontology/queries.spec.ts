@@ -404,6 +404,44 @@ describe("Ontology Queries", () => {
     });
   });
 
+  describe("useResources", () => {
+    it("should suspend until it returns the resources with the IDs", async () => {
+      const first = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const second = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const ids = [group.ontologyID(first.key), group.ontologyID(second.key)];
+      const { result } = await renderHookSuspended(
+        () => Ontology.useResources({ ids }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.map((r) => r.name).sort()).toEqual(
+          [first.name, second.name].sort(),
+        ),
+      );
+    });
+
+    it("should drop an ID whose resource does not exist when ignoring not found", async () => {
+      const g = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const ids = [group.ontologyID(g.key), group.ontologyID(crypto.randomUUID())];
+      const { result } = await renderHookSuspended(
+        () => Ontology.useResources({ ids, ignoreNotFoundError: true }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.map((r) => r.id)).toEqual([group.ontologyID(g.key)]),
+      );
+    });
+  });
+
   describe("useResultResources", () => {
     it("should search only under the root", async () => {
       const name = `rr${Math.random().toString(36).slice(2)}`;
