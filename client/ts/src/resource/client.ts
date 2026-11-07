@@ -92,13 +92,15 @@ export class Client {
   private readonly client: UnaryClient;
   private readonly table: query.Table<string, Resource>;
   private readonly searches: query.Space<Search, Resource[], string, Resource>;
-  private readonly byKey: query.Retrieves<string, Resource>;
+  private readonly byKey: query.Space<string, Resource, string, Resource>;
 
   constructor({ unary, cache, channels }: ClientConfig) {
     this.client = unary;
     this.table = cache.createTable<string, Resource>({
       name: "resources",
       fetch: async (keys) => await this.execRetrieve(keys.map((k) => parseID(k))),
+      // A record deleted and created again keeps its key.
+      revivable: true,
       listen: record
         .entries(channels)
         .flatMap(([type, ch]) => (ch == null ? [] : this.listeners(type, ch))),
@@ -200,12 +202,16 @@ export class Client {
         channel: set,
         schema: keyedZ,
         // The caller may not be able to read a record that the table does not hold,
-        // so the searches that cover its type refetch instead of reading it.
+        // so the searches that cover its type and the answers of its ID refetch
+        // instead of reading it.
         onChange: async (changed) => {
           const keys = changed.map(({ key }) => toKey(key));
           const held = keys.filter((k) => table.has(k));
-          if (held.length < keys.length)
+          const unheld = keys.filter((k) => !table.has(k));
+          if (unheld.length > 0) {
             this.searches.refetchMatching((q) => q.types?.includes(type) ?? true);
+            this.byKey.refetchMatching((k) => unheld.includes(k));
+          }
           if (held.length > 0) await table.retrieve(held, { refresh: true });
         },
       }),

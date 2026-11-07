@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { channel } from "@/channel";
@@ -16,6 +17,7 @@ import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -242,6 +244,27 @@ describe("Resource", () => {
         id,
         name,
       });
+    });
+
+    it("should retrieve a resource created again with the key of a deleted one", async () => {
+      const key = uuid.create();
+      const name = randomToken();
+      const set = async () =>
+        await client.statuses.set({ key, name, variant: "info", message: "a" });
+      await set();
+      const id = status.resourceID(key);
+      await client.resources.retrieve(id);
+      let deleted = false;
+      const off = client.resources.onChange(id, (answer) => {
+        deleted = !query.isLive(answer);
+      });
+      onTestFinished(off);
+      await client.statuses.delete(key);
+      await expect.poll(() => deleted).toBe(true);
+      await set();
+      await expect
+        .poll(async () => (await client.resources.retrieve(id)).name)
+        .toEqual(name);
     });
 
     it("should retrieve resources of mixed types in the order of the IDs", async () => {
