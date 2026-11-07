@@ -15,7 +15,6 @@ import (
 	"math"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
@@ -305,21 +304,42 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		isAny,
 	)
 	// The compiler runs only the first two operands of a chain, with this operator.
-	op := getEqualityOperator(ctx.AST)
-	if len(relExpressions) > 1 && lo.SomeBy(
-		relExpressions[:2],
-		func(rel parser.IRelationalExpressionContext) bool {
-			value, ok := ctx.FloatConstant(rel)
-			return ok && math.IsNaN(value)
-		},
-	) {
-		ctx.Diagnostics.Add(diagnostics.Warningf(
-			ctx.AST,
-			"%s with math.nan is always %t, use math.is_nan instead",
-			op,
-			op == "!=",
-		).WithCode(codes.NaNComparison))
+	if len(relExpressions) < 2 {
+		return
 	}
+	for _, rel := range relExpressions[:2] {
+		if value, ok := ctx.FloatConstant(rel); ok && math.IsNaN(value) {
+			warnNaNComparison(ctx, rel)
+			return
+		}
+	}
+}
+
+// warnNaNComparison warns that an equality with the NaN constant in rel always has the
+// same result. It names the constant as the code wrote it, and the module's is_nan when
+// the module has one.
+func warnNaNComparison(
+	ctx context.Context[parser.IEqualityExpressionContext],
+	rel parser.IRelationalExpressionContext,
+) {
+	primary, _ := parser.SoleOperand(rel)
+	qid := primary.QualifiedIdentifier()
+	head, _ := parser.QualifiedNameParts(qid)
+	check := "is_nan from the math module"
+	if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
+		if _, err := module.Resolve(ctx, "is_nan"); err == nil {
+			check = head + ".is_nan"
+		}
+	}
+	op := getEqualityOperator(ctx.AST)
+	ctx.Diagnostics.Add(diagnostics.Warningf(
+		ctx.AST,
+		"%s with %s is always %t, use %s instead",
+		op,
+		qid.GetText(),
+		op == "!=",
+		check,
+	).WithCode(codes.NaNComparison))
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {

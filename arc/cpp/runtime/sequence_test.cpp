@@ -434,6 +434,17 @@ std::string sequence(const std::string &decl, const bool reassigned) {
            "\n    stage a {\n        limit -> %out%\n    }\n" + b + "}\n%x% => main\n";
 }
 
+/// @brief a sequence whose stage sets limit, declared with op, to V and writes it to
+/// out.
+std::string reassigned_in_stage(const std::string &op) {
+    return "sequence main {\n    limit T " + op + " 0.0\n    stage a {\n" +
+           "        limit = V\n        limit -> %out%\n    }\n}\n%x% => main\n";
+}
+
+const std::string REASSIGNED_IN_FUNCTION = "func f() {v T} T {\n    limit T := 0.0\n"
+                                           "    limit = V\n    return limit\n}\n"
+                                           "%x% -> f() -> %out%\n";
+
 const std::vector<std::string> SOURCES = {
     "limit T := V\nfunc f() {v T} T { return limit }\n%x% -> f() -> %out%\n",
     sequence("limit T := V", false),
@@ -441,6 +452,10 @@ const std::vector<std::string> SOURCES = {
     "func f(a T) {v T} T { return a }\n%x% -> f(a=V) -> %out%\n",
     sequence("limit T := V", true),
     sequence("limit T $= V", true),
+    "limit T := V\nlimit -> %out%\n",
+    reassigned_in_stage(":="),
+    reassigned_in_stage("$="),
+    REASSIGNED_IN_FUNCTION,
 };
 
 std::string replace(std::string s, const std::string &from, const std::string &to) {
