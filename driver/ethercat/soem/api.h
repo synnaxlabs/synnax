@@ -62,6 +62,11 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
+    /// @brief sets whether the caller requests each state change itself. When true,
+    /// config_init does not request PRE-OP and config_map_group does not request
+    /// SAFE-OP.
+    virtual void set_manual_state_change(bool manual) = 0;
+
     /// @brief sends the process data of a slave group.
     virtual int send_processdata(uint8_t group) = 0;
 
@@ -97,6 +102,11 @@ public:
     /// @brief returns the reference clock system time from the latest process data
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
+
+    /// @brief sends a frame that carries only the reference clock time to the slaves of
+    /// a group and waits up to timeout microseconds for it. Returns the working
+    /// counter, or a value below 1 when the frame does not come back.
+    virtual int sync_dc(uint8_t group, int timeout) = 0;
 
     /// @brief writes data to a register of a slave with a timeout in microseconds,
     /// returning the working counter, which is 1 when the slave took the write.
@@ -257,6 +267,10 @@ public:
         return ecx_config_map_group(&this->context, iomap, group);
     }
 
+    void set_manual_state_change(const bool manual) override {
+        this->context.manualstatechange = manual ? 1 : 0;
+    }
+
     int send_processdata(uint8_t group) override {
         return ecx_send_processdata_group(&this->context, group);
     }
@@ -290,6 +304,21 @@ public:
     bool configdc() override { return ecx_configdc(&this->context); }
 
     [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
+
+    int sync_dc(uint8_t group, int timeout) override {
+        const auto ref = this->context.grouplist[group].DCnext;
+        int64_t time = 0;
+        const int wkc = ecx_FRMW(
+            &this->context.port,
+            this->context.slavelist[ref].configadr,
+            ECT_REG_DCSYSTIME,
+            sizeof(time),
+            &time,
+            timeout
+        );
+        if (wkc > 0) this->context.DCtime = etohll(time);
+        return wkc;
+    }
 
     int write_register(
         uint16_t slave,

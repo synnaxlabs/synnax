@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -70,6 +72,14 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
+    /// @brief the frames that came back to the master.
+    std::atomic<uint64_t> frames{0};
+    /// @brief whether the cycle holds process data back. A frame then carries only the
+    /// reference clock time.
+    std::atomic<bool> process_data_held{false};
+    /// @brief what receive returns after a send that held process data back, or NIL
+    /// after a send that did not. Only the cycle uses it.
+    x::errors::Error held_err;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -86,7 +96,7 @@ public:
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    x::errors::Error activate() override;
+    x::errors::Error activate(const std::function<void()> &start_cycle) override;
 
     void deactivate() override;
 
@@ -162,13 +172,13 @@ private:
     x::errors::Error clear_dc_activation();
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
-    /// it, one of them refuses it, or the timeout in microseconds passes. Calls
-    /// before_read, if set, before each read of the slave states.
-    x::errors::Error request_state(
-        uint16_t state,
-        int timeout,
-        const std::function<void()> &before_read = nullptr
-    );
+    /// it, one of them refuses it, or the timeout in microseconds passes.
+    x::errors::Error request_state(uint16_t state, int timeout);
+
+    /// @brief waits until a frame that the cycle sent after the call comes back, or the
+    /// timeout in microseconds passes.
+    /// @returns errors::STATE_CHANGE_ERROR when the timeout passes.
+    x::errors::Error wait_for_frame(int timeout);
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -177,10 +187,6 @@ private:
     /// error. A slave above the state can still show an error from before a request to
     /// go down.
     [[nodiscard]] bool refuses(uint16_t pos, uint16_t state) const;
-
-    /// @brief transitions all enabled slaves to OP while exchanging process data, so
-    /// slaves with a sync manager watchdog see valid outputs.
-    x::errors::Error request_operational();
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a

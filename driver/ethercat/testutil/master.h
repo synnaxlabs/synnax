@@ -10,8 +10,10 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <set>
 #include <span>
@@ -43,6 +45,7 @@ class Master final : public master::Master {
 
     x::errors::Error inject_init_err;
     x::errors::Error inject_activate_err;
+    x::errors::Error inject_state_change_err;
     x::errors::Error inject_receive_err;
     x::errors::Error inject_send_err;
 
@@ -56,6 +59,8 @@ class Master final : public master::Master {
     size_t output_sz{0};
     std::vector<std::string> calls;
     size_t init_calls{0};
+    size_t send_calls{0};
+    std::condition_variable sent_cv;
     size_t output_padding = 0;
     std::mutex stall_mu;
     std::condition_variable stall_cv;
@@ -97,6 +102,13 @@ public:
         this->inject_activate_err = err;
     }
 
+    /// @brief makes activate() return err after the bus cycle starts, as when a slave
+    /// refuses SAFE-OP or OP.
+    void inject_state_change_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_state_change_err = err;
+    }
+
     /// @brief injects an error to be returned by receive().
     void inject_receive_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -129,6 +141,7 @@ public:
         std::lock_guard lock(this->mu);
         this->inject_init_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
+        this->inject_state_change_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;
         this->inject_send_err = x::errors::NIL;
     }
@@ -237,19 +250,39 @@ public:
             this->disabled_slaves.insert(position);
     }
 
-    x::errors::Error activate() override {
-        std::lock_guard lock(this->mu);
-        this->calls.emplace_back("activate");
-        if (this->inject_activate_err) return this->inject_activate_err;
-        if (!this->initialized)
-            return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
-        this->activated = true;
-        this->cache_pdo_offsets();
-        if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
-        if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
-        this->input_iomap.assign(this->input_sz, 0);
-        this->output_iomap.assign(this->output_sz, 0);
-        this->sent_outputs.assign(this->output_sz, 0);
+    /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
+    /// slaves with outputs need. Logs "op" when the slaves reach OP.
+    x::errors::Error activate(const std::function<void()> &start_cycle) override {
+        size_t sent = 0;
+        {
+            std::lock_guard lock(this->mu);
+            this->calls.emplace_back("activate");
+            if (this->inject_activate_err) return this->inject_activate_err;
+            if (!this->initialized)
+                return x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    "master not initialized"
+                );
+            this->activated = true;
+            this->cache_pdo_offsets();
+            if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
+            if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
+            this->input_iomap.assign(this->input_sz, 0);
+            this->output_iomap.assign(this->output_sz, 0);
+            this->sent_outputs.assign(this->output_sz, 0);
+            sent = this->send_calls;
+        }
+        start_cycle();
+        std::unique_lock lock(this->mu);
+        if (!this->sent_cv.wait_for(lock, std::chrono::seconds(5), [&] {
+                return this->send_calls > sent;
+            }))
+            return x::errors::Error(
+                errors::STATE_CHANGE_ERROR,
+                "failed to reach OP: no process data"
+            );
+        if (this->inject_state_change_err) return this->inject_state_change_err;
+        this->calls.emplace_back("op");
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (this->disabled_slaves.contains(pos)) continue;
@@ -314,6 +347,8 @@ public:
         this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
         this->sent_outputs = this->output_iomap;
+        this->send_calls++;
+        this->sent_cv.notify_all();
         return x::errors::NIL;
     }
 

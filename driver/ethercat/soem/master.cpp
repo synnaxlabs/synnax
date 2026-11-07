@@ -180,7 +180,7 @@ void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
         this->disabled_slaves.erase(position);
 }
 
-x::errors::Error Master::activate() {
+x::errors::Error Master::activate(const std::function<void()> &start_cycle) {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
@@ -197,6 +197,8 @@ x::errors::Error Master::activate() {
 
     if (const auto err = this->clear_dc_activation()) return err;
 
+    // The master requests SAFE-OP itself, once the bus cycles.
+    this->api->set_manual_state_change(true);
     // SOEM keeps the SII length of a sync manager whose PDO assignment is empty or that
     // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
     this->api->clear_process_data_sms(ENABLED_GROUP);
@@ -204,6 +206,7 @@ x::errors::Error Master::activate() {
         this->iomap.data(),
         ENABLED_GROUP
     );
+    this->api->set_manual_state_change(false);
 
     if (iomap_size <= 0)
         return x::errors::Error(
@@ -220,31 +223,20 @@ x::errors::Error Master::activate() {
 
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
-
-    auto err = this->request_state(
-        EC_STATE_SAFE_OP,
-        micros(this->cfg.state_change_timeout)
-    );
-    if (err) return err;
-
-    err = this->request_operational();
-    if (err) {
-        LOG(WARNING) << "OP transition failed: " << err.message()
-                     << "; attempting recovery to SAFE_OP";
-        auto recovery_err = this->request_state(
-            EC_STATE_SAFE_OP,
-            micros(this->cfg.state_change_timeout)
-        );
-        if (recovery_err) {
-            LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
-                       << "; forcing INIT state";
-            this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
-        }
-        return err;
-    }
-
-    this->cache_pdo_offsets();
     this->activated = true;
+    // A slave can stop its process data task for good when the master reads its inputs
+    // while it moves to SAFE-OP.
+    this->process_data_held.store(true, std::memory_order_release);
+    start_cycle();
+
+    const int timeout = micros(this->cfg.state_change_timeout);
+    if (auto err = this->request_state(EC_STATE_SAFE_OP, timeout)) return err;
+    this->process_data_held.store(false, std::memory_order_release);
+    // A slave with outputs refuses OP with a sync manager watchdog error until a frame
+    // passes it in SAFE-OP.
+    if (auto err = this->wait_for_frame(timeout)) return err;
+    if (auto err = this->request_state(EC_STATE_OPERATIONAL, timeout)) return err;
+    this->cache_pdo_offsets();
     return x::errors::NIL;
 }
 
@@ -271,10 +263,12 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
+    if (this->held_err) return this->held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != this->expected_wkc)
         return x::errors::Error(
@@ -290,6 +284,23 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
+    this->held_err = x::errors::NIL;
+    if (this->process_data_held.load(std::memory_order_acquire)) {
+        if (this->has_dc &&
+            this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
+            this->held_err = x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "reference clock frame failed"
+            );
+            return this->held_err;
+        }
+        if (this->has_dc) this->frames.fetch_add(1, std::memory_order_release);
+        this->held_err = x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "no process data passes the slaves until they reach SAFE-OP"
+        );
+        return x::errors::NIL;
+    }
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
@@ -1024,11 +1035,7 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::request_state(
-    const uint16_t state,
-    const int timeout,
-    const std::function<void()> &before_read
-) {
+x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
@@ -1037,7 +1044,6 @@ x::errors::Error Master::request_state(
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::microseconds(timeout);
     while (true) {
-        if (before_read) before_read();
         this->api->readstate();
         std::vector<uint16_t> pending;
         // Like ecx_statecheck, a slave in the state counts even with its error flag
@@ -1063,23 +1069,25 @@ bool Master::al_error(const uint16_t pos) const {
            this->api->slave_ALstatuscode(pos) != 0;
 }
 
+x::errors::Error Master::wait_for_frame(const int timeout) {
+    // The next frame to come back can have left before the call.
+    const auto target = this->frames.load(std::memory_order_acquire) + 2;
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(timeout);
+    while (this->frames.load(std::memory_order_acquire) < target) {
+        if (std::chrono::steady_clock::now() >= deadline)
+            return x::errors::Error(
+                errors::STATE_CHANGE_ERROR,
+                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+            );
+        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+    }
+    return x::errors::NIL;
+}
+
 bool Master::refuses(const uint16_t pos, const uint16_t state) const {
     return this->al_error(pos) &&
            (this->api->slave_state(pos) & ~EC_STATE_ERROR) < state;
-}
-
-x::errors::Error Master::request_operational() {
-    const auto exchange = [this] {
-        this->api->send_processdata(ENABLED_GROUP);
-        this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    };
-    // Slaves with outputs need one valid process data frame before they enter OP.
-    exchange();
-    return this->request_state(
-        EC_STATE_OPERATIONAL,
-        micros(this->cfg.state_change_timeout),
-        exchange
-    );
 }
 
 x::errors::Error

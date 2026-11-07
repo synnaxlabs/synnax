@@ -122,6 +122,9 @@ class Engine {
 
     /// @brief runs while the bus cycles. Stopping it wakes the supervisor.
     x::breaker::Breaker bus;
+    /// @brief true while the slaves move to OP, when the working counter is expected to
+    /// fall short.
+    std::atomic<bool> starting{false};
     std::atomic<double> cycle_hz{0};
     std::thread cycle_thread;
     std::thread supervisor_thread;
