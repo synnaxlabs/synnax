@@ -7,31 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node exposes the node domain type over aspen's membership primitives. The
-// cluster-membership view lives in pkg/distribution/cluster; the service that serves
-// nodes as resources lives in pkg/service/node.
+// Package node defines the node, the unit that leases channels and other resources. A
+// Core runs one node, the host. The service that serves it as a resource lives in
+// pkg/service/node.
 package node
 
-import "github.com/synnaxlabs/aspen"
+import (
+	"strconv"
 
-type (
-	// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
-	// cluster. Keys are assigned dynamically when a node joins the cluster (via
-	// distributed counter through aspen's pledge protocol). Two reserved values are
-	// defined: KeyFree and KeyBootstrapper.
-	Key = aspen.NodeKey
-	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
-	// network address. Nodes report a state that reflects their current reachability as
-	// observed by the host Core.
-	Node = aspen.Node
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/types"
 )
+
+// Key is a 12-bit unsigned integer that identifies a node. Channel keys embed the key
+// of the node that leases them.
+type Key types.Uint12
 
 const (
-	// KeyBootstrapper is the reserved Key assigned to the first node in a cluster (the
-	// node that bootstraps a new cluster rather than joining an existing one).
-	KeyBootstrapper = aspen.NodeKeyBootstrapper
-	// KeyFree is the reserved Key used for resources that are not leased to any
-	// specific node — most notably free (virtual / non-persisted) channels. It is never
-	// assigned to a real node.
-	KeyFree = aspen.NodeKeyFree
+	// KeyBootstrapper is the key of the host node of a Core.
+	KeyBootstrapper Key = 1
+	// KeyFree is the key of no node. Resources that no node leases, such as free
+	// virtual channels, carry it.
+	KeyFree = Key(math.MaxUint12)
 )
+
+// Free returns true if the key is KeyFree.
+func (k Key) Free() bool { return k == KeyFree }
+
+// IsBootstrapper returns true if the key is KeyBootstrapper.
+func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
+
+// String implements fmt.Stringer.
+func (k Key) String() string { return strconv.Itoa(int(k)) }
+
+// Node is a node of a Core, reached at Address.
+type Node struct {
+	// Address is the network address of the node.
+	Address address.Address
+	// Key identifies the node.
+	Key Key
+}

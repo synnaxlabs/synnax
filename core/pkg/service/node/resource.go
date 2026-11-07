@@ -59,7 +59,7 @@ func (p provider) Retrieve(
 			)
 		}
 		key := Key(k)
-		if key == p.svc.cfg.Host.Key || key.IsFree() {
+		if key == p.svc.cfg.Host.Key || key.Free() {
 			resources = append(
 				resources,
 				resource.Resource{ID: ResourceID(key), Name: name(key)},

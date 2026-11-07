@@ -43,9 +43,9 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		switch {
 		case target == host:
 			err = s.allocateGateway(ctx, chs)
-		case target.IsFree() && host.IsBootstrapper():
+		case target.Free() && host.IsBootstrapper():
 			err = s.allocateFree(ctx, chs)
-		case target.IsFree():
+		case target.Free():
 			err = s.allocateRemote(ctx, node.KeyBootstrapper, chs)
 		default:
 			err = s.allocateRemote(ctx, target, chs)

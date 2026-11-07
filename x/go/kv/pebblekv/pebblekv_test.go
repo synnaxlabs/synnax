@@ -261,23 +261,19 @@ var _ = Describe("PebbleKV", func() {
 	Describe("Observer", func() {
 		var db kv.DB
 
-		open := func(disableObserver bool) {
+		open := func() {
 			GinkgoHelper()
 			path := GinkgoT().TempDir()
 			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
-			var opts []pebblekv.OpenOption
-			if disableObserver {
-				opts = append(opts, pebblekv.DisableObservation())
-			}
-			db = DeferClose(pebblekv.Wrap(pdb, opts...))
+			db = DeferClose(pebblekv.Wrap(pdb))
 		}
 
 		Context("With observation enabled (default)", Ordered, func() {
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
-				open(false)
+				open()
 			})
 
 			It("Should notify observers when using Set", func(ctx SpecContext) {
@@ -403,129 +399,6 @@ var _ = Describe("PebbleKV", func() {
 					Eventually(
 						func() bool { return subscriber1Called && subscriber2Called },
 					).Should(BeTrue())
-				},
-			)
-		})
-
-		Context("With observation disabled", Ordered, func() {
-			BeforeAll(func() {
-				ShouldNotLeakGoroutines()
-				open(true)
-			})
-
-			It(
-				"Should not panic when using Set without an observer",
-				func(ctx SpecContext) {
-					key := []byte("no-observer-key")
-					value := []byte("no-observer-value")
-					Expect(db.Set(ctx, key, value)).To(Succeed())
-
-					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(value))
-					Expect(closer.Close()).To(Succeed())
-				},
-			)
-
-			It(
-				"Should not panic when committing transactions without an observer",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-					key := []byte("no-observer-tx-key")
-					value := []byte("no-observer-tx-value")
-
-					Expect(tx.Set(ctx, key, value)).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(value))
-					Expect(closer.Close()).To(Succeed())
-				},
-			)
-
-			It(
-				"Should handle Delete operations without an observer",
-				func(ctx SpecContext) {
-					key := []byte("no-observer-delete-key")
-					value := []byte("no-observer-delete-value")
-
-					Expect(db.Set(ctx, key, value)).To(Succeed())
-					Expect(db.Delete(ctx, key)).To(Succeed())
-
-					Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
-				},
-			)
-
-			It(
-				"Should perform basic operations correctly without observers",
-				func(ctx SpecContext) {
-					// Multiple operations to ensure no observer-related panics
-					for i := range 10 {
-						key := []byte{byte(100 + i)}
-						value := []byte{byte(200 + i)}
-						Expect(db.Set(ctx, key, value)).To(Succeed())
-					}
-
-					// Verify all values
-					for i := range 10 {
-						key := []byte{byte(100 + i)}
-						expectedValue := []byte{byte(200 + i)}
-						got, closer := MustSucceed2(db.Get(ctx, key))
-						Expect(got).To(Equal(expectedValue))
-						Expect(closer.Close()).To(Succeed())
-					}
-				},
-			)
-
-			It(
-				"Should handle batch operations in transactions without observers",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-
-					// Batch set
-					for i := range 5 {
-						key := []byte{byte(50 + i)}
-						value := []byte{byte(150 + i)}
-						Expect(tx.Set(ctx, key, value)).To(Succeed())
-					}
-
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					// Verify all values
-					for i := range 5 {
-						key := []byte{byte(50 + i)}
-						expectedValue := []byte{byte(150 + i)}
-						got, closer := MustSucceed2(db.Get(ctx, key))
-						Expect(got).To(Equal(expectedValue))
-						Expect(closer.Close()).To(Succeed())
-					}
-				},
-			)
-
-			It(
-				"Should never invoke handlers registered via OnChange",
-				func(ctx SpecContext) {
-					handlerCalled := false
-					disconnect := db.OnChange(func(context.Context, kv.TxReader) {
-						handlerCalled = true
-					})
-					Expect(disconnect).NotTo(BeNil())
-
-					Expect(
-						db.Set(ctx, []byte("disabled-notify-set"), []byte("v")),
-					).To(Succeed())
-					Expect(db.Delete(ctx, []byte("disabled-notify-set"))).To(Succeed())
-
-					tx := db.OpenTx()
-					Expect(
-						tx.Set(ctx, []byte("disabled-notify-tx"), []byte("v")),
-					).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					Expect(handlerCalled).To(BeFalse())
-					disconnect()
 				},
 			)
 		})

@@ -58,14 +58,6 @@ type openOptions struct {
 // OpenOption configures behavior when wrapping a pebble.DB.
 type OpenOption func(*openOptions)
 
-// DisableObservation disables the observer pattern, preventing change notifications.
-// This improves performance when observation is not needed. When observation is
-// disabled, OnChange is a safe no-op: registered handlers are never invoked and the
-// returned Disconnect is a no-op as well.
-func DisableObservation() OpenOption {
-	return func(o *openOptions) { o.observer = nil }
-}
-
 // WithObserver sets the observer that delivers each commit to OnChange handlers. The
 // default runs the handlers on the committing goroutine, before Commit returns.
 func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
@@ -79,18 +71,6 @@ func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
 		opt(o)
 	}
 	return &db{DB: base, Observer: o.observer}
-}
-
-// OnChange implements kv.Observable. When observation has been disabled via
-// DisableObservation, OnChange is a no-op: the supplied handler is never invoked,
-// and the returned Disconnect is itself a no-op.
-func (d db) OnChange(
-	handler func(context.Context, kv.TxReader),
-) observe.Disconnect {
-	if d.Observer == nil {
-		return func() {}
-	}
-	return d.Observer.OnChange(handler)
 }
 
 type logger struct{ alamos.Instrumentation }
@@ -144,11 +124,6 @@ func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) (err error) {
 
 // Set implement kv.DB.
 func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	// Hot path: if we don't need to notify observers of changes, then go straight
-	// to the underlying DB.
-	if d.Observer == nil {
-		return translateError(d.DB.Set(key, value, parseOpts(opts)))
-	}
 	return d.withTx(ctx, func(tx kv.Tx) error {
 		return tx.Set(ctx, key, value, opts...)
 	})
@@ -162,11 +137,6 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 
 // Delete implement kv.DB.
 func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	// Hot path: if we don't need to notify observers of changes, then go straight
-	// to the underlying DB.
-	if d.Observer == nil {
-		return translateError(d.DB.Delete(key, parseOpts(opts)))
-	}
 	return d.withTx(ctx, func(tx kv.Tx) error {
 		return tx.Delete(ctx, key, opts...)
 	})
@@ -187,11 +157,8 @@ func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
 			applied()
 		}
 	}
-	if d.Observer != nil {
-		// We need to notify with a generator so that each subscriber gets a fresh
-		// reader.
-		d.NotifyGenerator(ctx, txn.NewReader)
-	}
+	// A generator gives each subscriber a fresh reader.
+	d.NotifyGenerator(ctx, txn.NewReader)
 	return nil
 }
 

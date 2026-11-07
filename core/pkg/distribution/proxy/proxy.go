@@ -49,7 +49,7 @@ func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	b := Batch[E]{Peers: make(map[node.Key][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
-		if lease.IsFree() {
+		if lease.Free() {
 			b.Free = append(b.Free, entry)
 		} else if lease == host {
 			b.Gateway = append(b.Gateway, entry)

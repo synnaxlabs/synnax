@@ -156,7 +156,7 @@ func (t *tapper) updateTaps(
 
 	// Open any new taps we may need
 	for nk, keys := range nodeDemands {
-		if nk.IsFree() {
+		if nk.Free() {
 			continue
 		}
 		if _, ok := t.taps[nk]; !ok {
@@ -176,7 +176,7 @@ func (t *tapper) updateTaps(
 	// Update or close any non-free taps. The free tap is driven by setKeys above and
 	// is never opened or closed here.
 	for nk, tc := range t.taps {
-		if nk.IsFree() {
+		if nk.Free() {
 			continue
 		}
 		if keys, ok := nodeDemands[nk]; ok {
@@ -199,7 +199,7 @@ func (t *tapper) tapInto(
 	nodeKey node.Key,
 	keys channel.Keys,
 ) (tap, error) {
-	if nodeKey.IsFree() {
+	if nodeKey.Free() {
 		return t.tapIntoFreeWrites()
 	}
 	if nodeKey == t.HostResolver.HostKey() {
