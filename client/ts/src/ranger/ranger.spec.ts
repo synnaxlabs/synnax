@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, type Synnax } from "@/index";
+import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
@@ -210,6 +210,27 @@ describe("range", () => {
       expect(retrieved.key).toEqual(range.key);
       expect(retrieved.timeRange).toEqual(range.timeRange);
     });
+    it("should retrieve a range by a key object", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({ name: "Key Object Range", timeRange });
+      const retrieved = await client.ranges.retrieve({ key: range.key });
+      expect(retrieved.key).toEqual(range.key);
+    });
+    it("should retrieve ranges by a flat filter", async () => {
+      const prefix = `flat-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const [labeled] = await client.ranges.create([
+        { name: `${prefix}-labeled`, timeRange },
+        { name: `${prefix}-plain`, timeRange },
+      ]);
+      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      await labeled.addLabel(lbl.key);
+      const retrieved = await client.ranges.retrieve({
+        name: { startsWith: prefix },
+        labels: lbl.key,
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([labeled.key]);
+    });
     it("should retrieve a range by name", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
       const range = await client.ranges.create({
@@ -378,6 +399,42 @@ describe("range", () => {
         const resolved = await rng.resolveAlias("myalias");
         expect(resolved).toEqual(ch.key);
       });
+
+      it("should reject an alias named after an object member", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const resolve = rng.resolveAlias("constructor");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
+      });
+
+      it("should reject a channel name that matches no channel", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = id.create();
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
+      });
+
+      it("should reject a name pattern that matches two channels", async () => {
+        const prefix = `alias_${id.create()}`;
+        await client.channels.create([
+          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
+          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await expect(rng.setAlias(`${prefix}_.*`, "myalias")).rejects.toThrow(
+          MultipleFoundError,
+        );
+      });
     });
     describe("deleteAlias", () => {
       it("should remove an alias for the range", async () => {
@@ -392,7 +449,14 @@ describe("range", () => {
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
-        expect(await rng.resolveAlias("myalias")).toBeUndefined();
+        const resolve = rng.resolveAlias("myalias");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
+        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
+        await expect(retrieve).rejects.toThrow(NotFoundError);
+        await expect(retrieve).rejects.toThrow(
+          `alias not found matching channel ${ch.key}`,
+        );
       });
     });
     describe("list", () => {
@@ -907,7 +971,7 @@ describe("cached reads", () => {
         expect(page).toHaveLength(2);
         expect(send).toHaveBeenCalledWith(
           "/range/retrieve",
-          expect.objectContaining({ parents: [parent.key], limit: 2 }),
+          expect.objectContaining({ where: { parents: [parent.key] }, limit: 2 }),
           expect.anything(),
           expect.anything(),
         );
@@ -951,7 +1015,7 @@ describe("cached reads", () => {
     });
   });
 
-  describe("hasLabels membership", () => {
+  describe("labels membership", () => {
     it("admits a newly labeled range and evicts an unlabeled one", async () => {
       const lbl = await client.labels.create({
         name: `qry-lbl-${id.create()}`,
@@ -960,7 +1024,7 @@ describe("cached reads", () => {
       const labeled = await createRange();
       await client.labels.label(ranger.resourceID(labeled.key), [lbl.key]);
       const handler = vi.fn();
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = client.ranges.onChange(params, handler);
       try {
         const initial = await client.ranges.retrieve(params);
@@ -1061,6 +1125,25 @@ describe("dispatch", () => {
     const cached = expectLive(client.ranges.getCached(rng.key));
     expect(cached.name).toBe("Cold flow");
     expect(cached.timeRange.end).toEqual(end);
+  });
+
+  it("should keep a dispatch that lands before an older fetch", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    await local.ranges.retrieve(rng.key);
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    const fetching = local.ranges.retrieve({ where: { name: { eq: rng.name } } });
+    await responded;
+    await remote.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => expectLive(local.ranges.getCached(rng.key)).name)
+      .toBe("Cold flow");
+    release();
+    await fetching;
+    expect(expectLive(local.ranges.getCached(rng.key)).name).toBe("Cold flow");
   });
 
   it("should return false without a send when the range is not cached", async () => {

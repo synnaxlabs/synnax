@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -37,6 +38,7 @@ import (
 
 var _ = Describe("Status", Ordered, func() {
 	var (
+		store    kv.DB
 		db       *gorp.DB
 		svc      *status.Service
 		w        status.Writer
@@ -49,8 +51,9 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		// Like the Core on the node that leases each write, the indexes see only the
 		// writes made through their table.
+		store = memkv.New()
 		db = DeferClose(gorp.Wrap(
-			memkv.New(),
+			store,
 			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 		))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
@@ -110,6 +113,41 @@ var _ = Describe("Status", Ordered, func() {
 			Time:    telem.Now(),
 		}
 	}
+
+	Describe("Msgpack storage", func() {
+		It(
+			"Should rename a status stored as msgpack, keeping every other field",
+			func(ctx SpecContext) {
+				type details struct {
+					Count int64 `json:"count" msgpack:"count"`
+				}
+				s := status.Status[details]{
+					Name:    "Before",
+					Key:     "rename-msgpack-key",
+					Variant: status.VariantSuccess,
+					Time:    telem.Now(),
+					Details: details{Count: 9007199254740993},
+				}
+				Expect(gorp.NewCreate[status.Key, status.Status[details]]().
+					Entry(&s).
+					Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
+					To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+				})
+				Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
+					To(Succeed())
+				var res status.Status[details]
+				Expect(svc.NewRetrieve[details]().
+					Where(status.MatchKeys[details](s.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				expected := s
+				expected.Name = "After"
+				Expect(res).To(Equal(expected))
+			},
+		)
+	})
 
 	Describe("Writer", func() {
 		BeforeEach(openTx)
@@ -577,6 +615,28 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("SkipMissingKeys", func() {
+			It("Should return not found for a missing key without it", func(
+				ctx SpecContext,
+			) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+
+			It("Should return the found statuses with it", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					SkipMissingKeys().
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+			})
+		})
+
 		Describe("Limit and Offset", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -610,7 +670,7 @@ var _ = Describe("Status", Ordered, func() {
 							Entries(&statuses).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses).To(HaveLen(1))
 					Expect(statuses[0].Key).To(Equal("retrieve-a"))
 				},
 			)

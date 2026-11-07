@@ -28,51 +28,25 @@ const createTable = (...docs: Doc[]) => {
   return table;
 };
 
-describe("createMemberMatcher", () => {
-  it("should match every record when the filter is empty", () => {
-    const matches = group.createMemberMatcher({});
-    expect(matches({})).toBe(true);
-    expect(matches({ group: G1 })).toBe(true);
-  });
-
+describe("MEMBER_LINES", () => {
   it("should match records in any of the groups", () => {
-    const matches = group.createMemberMatcher({ groups: [G1] });
-    expect(matches({ group: G1 })).toBe(true);
-    expect(matches({ group: G2 })).toBe(false);
-    expect(matches({})).toBe(false);
+    expect(group.MEMBER_LINES.groups({ group: G1 }, [G1, G2])).toBe(true);
+    expect(group.MEMBER_LINES.groups({ group: G2 }, [G1])).toBe(false);
+    expect(group.MEMBER_LINES.groups({}, [G1])).toBe(false);
   });
 
-  it("should treat an empty group list as no filter", () => {
-    expect(group.createMemberMatcher({ groups: [] })({})).toBe(true);
+  it("should match no record when the group list is empty", () => {
+    expect(group.MEMBER_LINES.groups({ group: G1 }, [])).toBe(false);
   });
 
   it("should match only records with no group when grouped is false", () => {
-    const matches = group.createMemberMatcher({ grouped: false });
-    expect(matches({})).toBe(true);
-    expect(matches({ group: G1 })).toBe(false);
+    expect(group.MEMBER_LINES.grouped({}, false)).toBe(true);
+    expect(group.MEMBER_LINES.grouped({ group: G1 }, false)).toBe(false);
   });
 
   it("should match only records with a group when grouped is true", () => {
-    const matches = group.createMemberMatcher({ grouped: true });
-    expect(matches({ group: G1 })).toBe(true);
-    expect(matches({})).toBe(false);
-  });
-
-  it("should apply both groups and grouped", () => {
-    const matches = group.createMemberMatcher({ groups: [G1], grouped: false });
-    expect(matches({ group: G1 })).toBe(false);
-    expect(matches({})).toBe(false);
-  });
-});
-
-describe("memberFilterZ", () => {
-  it("should extend a retrieve request with the group filters", () => {
-    const reqZ = group.memberFilterZ.extend({ keys: z.string().array().optional() });
-    expect(reqZ.parse({ keys: ["a"], groups: [G1], grouped: true })).toEqual({
-      keys: ["a"],
-      groups: [G1],
-      grouped: true,
-    });
+    expect(group.MEMBER_LINES.grouped({ group: G1 }, true)).toBe(true);
+    expect(group.MEMBER_LINES.grouped({}, true)).toBe(false);
   });
 });
 

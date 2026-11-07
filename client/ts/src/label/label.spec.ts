@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id } from "@synnaxlabs/x";
+import { color, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { NotFoundError, ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -47,6 +48,60 @@ describe("Label", () => {
           return results.map((l) => l.name).sort();
         })
         .toEqual(names);
+    });
+    it("should retrieve labels by where", async () => {
+      const prefix = `where-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      const labels = await client.labels.retrieve({
+        where: {
+          name: { regex: `^${prefix}` },
+          not: { key: { eq: attached.key } },
+        },
+      });
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should retrieve labels by a flat filter", async () => {
+      const prefix = `flat-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      const params: label.RetrieveMultipleParams = {
+        name: { regex: `^${prefix}` },
+        not: { key: { eq: attached.key } },
+      };
+      const labels = await client.labels.retrieve(params);
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should drop the keys that do not exist from a flat key list", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
+    });
+    it("should reject a plain key beside other fields", async () => {
+      await expect(
+        // @ts-expect-error - a plain key addresses one record, so it takes no filter.
+        client.labels.retrieve({ key: uuid.create(), name: "Label" }),
+      ).rejects.toThrow(
+        new ValidationError("label params address a single key but hold other fields."),
+      );
+    });
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const missing = uuid.create();
+      await expect(client.labels.retrieve([lbl.key, missing])).rejects.toThrow(
+        new NotFoundError(`label with key ${missing} not found`),
+      );
+    });
+    it("should drop the keys that do not exist from a filter on keys", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve({
+        where: { key: { in: [lbl.key, uuid.create()] } },
+      });
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
   });
 

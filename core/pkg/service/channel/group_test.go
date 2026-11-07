@@ -33,7 +33,8 @@ var _ = Describe("Group", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cfg, gs := serviceConfig(ctx, testutil.NewNode(ctx))
+		node := testutil.NewNode(ctx)
+		cfg, gs := serviceConfig(ctx, node, node.DB)
 		groupSvc = gs
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		w = svc.NewWriter(nil)

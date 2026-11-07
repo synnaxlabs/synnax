@@ -275,4 +275,23 @@ describe("Ontology Queries", () => {
       await waitFor(() => expect(result.current).toHaveLength(2));
     });
   });
+
+  describe("useRootChildID", () => {
+    it("should resolve a root child by name", async () => {
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name: "Arcs" }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.type).toEqual("arc_directory"));
+    });
+
+    it("should return undefined when the root has no child with the name", async () => {
+      const name = `missing-${id.create()}`;
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      expect(result.current).toBeUndefined();
+    });
+  });
 });

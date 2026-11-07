@@ -49,7 +49,7 @@ inline x::errors::Error
 multiple_found_error(const std::string &resource_name, const std::string &query) {
     return x::errors::Error(
         x::errors::MULTIPLE_RESULTS,
-        "Multiple " + resource_name + " matching " + query + " not found."
+        "Multiple " + resource_name + " matching " + query + " found."
     );
 }
 }

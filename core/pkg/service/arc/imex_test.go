@@ -22,13 +22,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// testParent satisfies the registry's required-parent check; the Arc importer does not
-// parent imported resources, so the ID only has to be non-zero.
+// testParent satisfies the registry's required-parent check; the Arc importer ignores
+// it and parents under the root Arcs directory, so the ID only has to be non-zero.
 var testParent = resource.ID{Type: resource.TypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
@@ -45,31 +46,40 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export an Arc as a versioned envelope", func(ctx SpecContext) {
-			a := arc.Arc{Name: "exported", Mode: arc.ModeText}
+			a := newAutomation(
+				arc.Base{
+					Name:   "exported",
+					Source: arc.Source{Variant: arc.TextSource{}},
+				},
+			)
 			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Key)))
+			env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Base().Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
-			Expect(env.Type).To(Equal("arc"))
+			Expect(env.Type).To(Equal("arc-automation"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(WireRoundTrip(env).Decode[arc.Arc](ctx))
+			decoded := MustSucceed(WireRoundTrip(env).Decode[arc.Base](ctx))
 			Expect(decoded.Name).To(Equal("exported"))
-			Expect(decoded.Mode).To(Equal(arc.ModeText))
+			Expect(decoded.Source.Mode()).To(Equal(arc.ModeText))
 		})
 
 		It("Should carry the source text rather than its operation log",
 			func(ctx SpecContext) {
-				a := arc.Arc{
+				a := newAutomation(arc.Base{
 					Name: "sourced",
-					Mode: arc.ModeText,
-					Text: text.Text{Raw: "x := 1"},
-				}
+					Source: arc.Source{
+						Variant: arc.TextSource{Text: text.Text{Raw: "x := 1"}},
+					},
+				})
 				Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Key)))
+				env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Base().Key)))
 				var body map[string]any
 				Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).
 					To(Succeed())
-				Expect(body["text"]).To(Equal(map[string]any{"raw": "x := 1"}))
+				Expect(body["source"]).To(Equal(map[string]any{
+					"mode": "text",
+					"text": map[string]any{"raw": "x := 1"},
+				}))
 				Expect(body).To(SatisfyAll(
 					Not(HaveKey("program")),
 					Not(HaveKey("status")),
@@ -96,6 +106,9 @@ var _ = Describe("ImEx", func() {
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
 			Expect(id.Type).To(Equal(resource.TypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+			})
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
 				Where(arc.MatchKeys(key)).
@@ -106,8 +119,8 @@ var _ = Describe("ImEx", func() {
 
 		inputsOf := func(a arc.Arc, node string) map[string]any {
 			GinkgoHelper()
-			Expect(a.Graph.Inputs).To(HaveKey(node))
-			return map[string]any(a.Graph.Inputs[node])
+			Expect(graphOf(a.Base()).Inputs).To(HaveKey(node))
+			return map[string]any(graphOf(a.Base()).Inputs[node])
 		}
 
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
@@ -116,16 +129,37 @@ var _ = Describe("ImEx", func() {
 				"versions/testdata/import_v3.json",
 				imex.ImportOptions{Parent: testParent},
 			)
-			Expect(res.Name).To(Equal("Server Typed"))
-			Expect(res.Mode).To(Equal(arc.ModeGraph))
-			Expect(res.Graph.Nodes).To(HaveLen(1))
-			Expect(res.Graph.Nodes[0].Key).To(Equal("n1"))
-			Expect(res.Graph.Edges).To(HaveLen(1))
-			Expect(res.Graph.Edges[0].Source).To(
+			Expect(res.Base().Name).To(Equal("Server Typed"))
+			Expect(res.Type()).To(Equal(arc.TypeAutomation))
+			Expect(res.Base().Source.Mode()).To(Equal(arc.ModeGraph))
+			Expect(graphOf(res.Base()).Nodes).To(HaveLen(1))
+			Expect(graphOf(res.Base()).Nodes[0].Key).To(Equal("n1"))
+			Expect(graphOf(res.Base()).Edges).To(HaveLen(1))
+			Expect(graphOf(res.Base()).Edges[0].Source).To(
 				Equal(ir.Handle{Node: "n1", Param: "out"}),
 			)
 			Expect(inputsOf(res, "n1")).To(HaveKeyWithValue("type", "constant"))
 		})
+
+		It(
+			"Should parent the imported Arc under the root Arcs directory",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v3.json",
+					imex.ImportOptions{Parent: testParent},
+				)
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(res.ResourceID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, db)).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].ID.Type).To(Equal(resource.TypeArcDirectory))
+				Expect(parents[0].Name).To(Equal("Arcs"))
+			},
+		)
 
 		It(
 			"Should import a Console typed export carrying camelCase keys",
@@ -135,23 +169,25 @@ var _ = Describe("ImEx", func() {
 					"versions/testdata/import_typed_console.json",
 					imex.ImportOptions{Parent: testParent},
 				)
-				Expect(res.Name).To(Equal("Console Typed"))
-				Expect(res.Mode).To(Equal(arc.ModeGraph))
-				Expect(res.Graph.Nodes).To(HaveLen(2))
-				Expect(res.Graph.Nodes[0].Key).To(Equal("n9"))
-				Expect(res.Graph.Edges).To(HaveLen(1))
-				Expect(res.Graph.Edges[0].Source).To(
+				Expect(res.Base().Name).To(Equal("Console Typed"))
+				Expect(res.Base().Source.Mode()).To(Equal(arc.ModeGraph))
+				Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
+				Expect(graphOf(res.Base()).Nodes[0].Key).To(Equal("n9"))
+				Expect(graphOf(res.Base()).Edges).To(HaveLen(1))
+				Expect(graphOf(res.Base()).Edges[0].Source).To(
 					Equal(ir.Handle{Node: "n9", Param: "out"}),
 				)
-				Expect(res.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
-				Expect(res.Graph.Edges[0].Key).ToNot(BeEmpty())
+				Expect(
+					graphOf(res.Base()).Edges[0].Kind,
+				).To(Equal(ir.EdgeKindContinuous))
+				Expect(graphOf(res.Base()).Edges[0].Key).ToNot(BeEmpty())
 				// Node config records fold into Inputs; their keys are opaque and keep
 				// whatever casing the file carried.
 				n9 := inputsOf(res, "n9")
 				Expect(n9).To(HaveKeyWithValue("type", "constant"))
 				Expect(n9).To(HaveKeyWithValue("keyOrName", "kept"))
-				Expect(res.Graph.Functions).To(HaveLen(1))
-				fn := res.Graph.Functions[0]
+				Expect(graphOf(res.Base()).Functions).To(HaveLen(1))
+				fn := graphOf(res.Base()).Functions[0]
 				Expect(fn.Key).To(Equal("f1"))
 				Expect(fn.Inputs).To(HaveLen(1))
 				Expect(fn.Inputs[0].Type.Kind).To(Equal(types.KindChan))
@@ -169,17 +205,19 @@ var _ = Describe("ImEx", func() {
 					ctx, "versions/testdata/import_v0_state.json",
 					imex.ImportOptions{FileName: "Legacy Arc.json", Parent: testParent},
 				)
-				Expect(res.Name).To(Equal("Legacy Arc"))
-				Expect(res.Mode).To(Equal(arc.ModeGraph))
-				Expect(res.Graph.Nodes).To(HaveLen(2))
-				Expect(res.Graph.Edges).To(HaveLen(1))
-				Expect(res.Graph.Edges[0].Source).To(
+				Expect(res.Base().Name).To(Equal("Legacy Arc"))
+				Expect(res.Base().Source.Mode()).To(Equal(arc.ModeGraph))
+				Expect(graphOf(res.Base()).Nodes).To(HaveLen(2))
+				Expect(graphOf(res.Base()).Edges).To(HaveLen(1))
+				Expect(graphOf(res.Base()).Edges[0].Source).To(
 					Equal(ir.Handle{Node: "n1", Param: "out"}),
 				)
-				Expect(res.Graph.Edges[0].Target).To(
+				Expect(graphOf(res.Base()).Edges[0].Target).To(
 					Equal(ir.Handle{Node: "n2", Param: "in"}),
 				)
-				Expect(res.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+				Expect(
+					graphOf(res.Base()).Edges[0].Kind,
+				).To(Equal(ir.EdgeKindContinuous))
 				n1 := inputsOf(res, "n1")
 				Expect(n1).To(HaveKeyWithValue("type", "status.set"))
 				Expect(n1).To(HaveKeyWithValue("key_or_name", "st1"))
@@ -188,7 +226,6 @@ var _ = Describe("ImEx", func() {
 				n2 := inputsOf(res, "n2")
 				Expect(n2).To(HaveKeyWithValue("type", "constant"))
 				Expect(n2).To(HaveKeyWithValue("value", 9.0))
-				Expect(res.Text.Materialize().Raw).To(Equal("a = b"))
 			},
 		)
 
@@ -199,8 +236,8 @@ var _ = Describe("ImEx", func() {
 					ctx, "versions/testdata/import_v2_state.json",
 					imex.ImportOptions{FileName: "V2 Arc.json", Parent: testParent},
 				)
-				Expect(res.Mode).To(Equal(arc.ModeText))
-				Expect(res.Graph.Edges[0].Source).To(
+				Expect(res.Base().Source.Mode()).To(Equal(arc.ModeGraph))
+				Expect(graphOf(res.Base()).Edges[0].Source).To(
 					Equal(ir.Handle{Node: "n1", Param: "out"}),
 				)
 				n1 := inputsOf(res, "n1")
@@ -234,6 +271,8 @@ var _ = Describe("ImEx", func() {
 					imex.ImportOptions{Parent: testParent},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
 			},
 		)
 	})
@@ -242,23 +281,33 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve Arc content through export then import",
 			func(ctx SpecContext) {
-				original := arc.Arc{Name: "round-trip", Mode: arc.ModeText}
-				original.Text.Raw = "b = 2"
+				original := newModule(arc.Base{
+					Name: "round_trip",
+					Source: arc.Source{
+						Variant: arc.TextSource{Text: text.Text{Raw: "b = 2"}},
+					},
+				})
 				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.ResourceID(original.Key)))
+				env := MustSucceed(svc.Export(ctx, arc.ResourceID(original.Base().Key)))
+				Expect(env.Type).To(Equal("arc-module"))
+				// The import lands beside the original, where the name is taken.
+				Expect(
+					svc.NewWriter(nil).Delete(ctx, original.Base().Key),
+				).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
 					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
-				Expect(key).ToNot(Equal(original.Key))
+				Expect(key).ToNot(Equal(original.Base().Key))
 				var res arc.Arc
 				Expect(svc.NewRetrieve().
 					Where(arc.MatchKeys(key)).
 					Entry(&res).
 					Exec(ctx, db)).To(Succeed())
-				Expect(res.Name).To(Equal("round-trip"))
-				Expect(res.Mode).To(Equal(arc.ModeText))
-				Expect(res.Text.Materialize().Raw).To(Equal("b = 2"))
+				Expect(res.Base().Name).To(Equal("round_trip"))
+				Expect(res.Type()).To(Equal(arc.TypeModule))
+				Expect(res.Base().Source.Mode()).To(Equal(arc.ModeText))
+				Expect(textOf(res.Base()).Materialize().Raw).To(Equal("b = 2"))
 			},
 		)
 	})

@@ -11,7 +11,13 @@
 
 package log
 
-import "github.com/synnaxlabs/synnax/pkg/service/log/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = versions.Key
@@ -25,3 +31,23 @@ type ChannelEntry = versions.ChannelEntry
 // Log is a visualization that shows the samples of its channels as text, one line per
 // sample, in time order.
 type Log = versions.Log
+
+// Where is a filter that selects logs.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Groups matches the logs in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the logs in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Projects matches the logs owned by any of the given projects.
+	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	// Ranges matches the logs owned by any of the given ranges.
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+}

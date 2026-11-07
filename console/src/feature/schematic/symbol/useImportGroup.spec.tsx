@@ -110,7 +110,7 @@ const awaitStatus = async (
 const importedGroupsNamed = async (name: string): Promise<group.Group[]> =>
   (
     await client.groups.retrieve({
-      scopes: ["schematic_symbol"],
+      scope: "schematic_symbol",
       nested: false,
       searchTerm: name,
     })

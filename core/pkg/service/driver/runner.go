@@ -83,8 +83,9 @@ type Runner struct {
 	// lifecycle serializes start and stop, so Open never runs while the previous run
 	// still releases its resources.
 	lifecycle sync.Mutex
-	// mu guards active. A run that ends on its own holds mu until its status is
-	// written, so a start that follows reports running after it.
+	// mu guards active. The end of a run and the answer to a repeat start each hold
+	// mu until their status is written, so their writes land in the order of the
+	// transitions. Take mu before the lock of status.
 	mu struct {
 		// active is the current run. It is nil when the task is stopped.
 		active *activeRun
@@ -172,9 +173,12 @@ func (r *Runner) current() *activeRun {
 func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	r.lifecycle.Lock()
 	defer r.lifecycle.Unlock()
-	if r.current() != nil {
+	r.mu.Lock()
+	if r.mu.active != nil {
+		defer r.mu.Unlock()
 		return r.status.Ack(ctx, cmdKey, true)
 	}
+	r.mu.Unlock()
 	run, err := r.cfg.Open(ctx)
 	if err != nil {
 		return errors.Combine(err, r.status.Send(
@@ -263,14 +267,21 @@ func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error
 	return r.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 }
 
-// Report writes the health of a run to the task status: a warning with message and the
-// text of a non-nil err, and the status that the warning replaced for a nil err.
+// Report writes the health of a run to the task status: the warning of an err from
+// Warning.Degraded, a warning with message and the text of any other non-nil err, and
+// the status that the warning replaced for a nil err.
 func (r *Runner) Report(ctx context.Context, message string, err error) {
-	var sErr error
-	if err == nil {
+	var (
+		sErr error
+		w    warningError
+	)
+	switch {
+	case err == nil:
 		sErr = r.status.ClearWarning(ctx)
-	} else {
-		sErr = r.status.Warn(ctx, message, err.Error())
+	case errors.As(err, &w):
+		sErr = r.status.Warn(ctx, w.warning)
+	default:
+		sErr = r.status.Warn(ctx, Warning{Message: message, Description: err.Error()})
 	}
 	if sErr != nil {
 		r.cfg.L.Error("failed to write task health status", zap.Error(sErr))

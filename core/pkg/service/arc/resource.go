@@ -20,6 +20,6 @@ func (s *Service) Resources() *resource.TableProvider[Key, Arc] {
 		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
-		Name:   func(a *Arc) string { return a.Name },
+		Name:   func(a *Arc) string { return a.Base().Name },
 	})
 }

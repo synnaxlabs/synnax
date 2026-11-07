@@ -11,7 +11,13 @@
 
 package group
 
-import "github.com/synnaxlabs/synnax/pkg/service/group/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = versions.Key
@@ -19,3 +25,42 @@ type Key = versions.Key
 // Group is a named folder that holds records of the types its scope allows. A group
 // sits in its parent, or at the top of its tree when it has none.
 type Group = versions.Group
+
+// Where is a filter that selects groups.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Scope selects by scope.
+	Scope *filter.Set[resource.Type] `json:"scope,omitzero" msgpack:"scope,omitempty"`
+	// Parents matches the groups that sit in any of the given resources.
+	Parents []resource.ID `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	// Nested matches the groups that sit in a parent, or the top groups when false.
+	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Where) Validate() error {
+	v := validate.New("Where")
+	for i := range w.And {
+		v.Exec(func() error { return validate.PathedError(w.And[i].Validate(), "and", strconv.Itoa(i)) })
+	}
+	for i := range w.Or {
+		v.Exec(func() error { return validate.PathedError(w.Or[i].Validate(), "or", strconv.Itoa(i)) })
+	}
+	if w.Not != nil {
+		v.Exec(func() error { return validate.PathedError(w.Not.Validate(), "not") })
+	}
+	for i := range w.Parents {
+		v.Exec(func() error { return validate.PathedError(w.Parents[i].Validate(), "parents", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

@@ -20,20 +20,35 @@ import (
 )
 
 const (
-	ActionTypeCreate          = "create"
-	ActionTypeRename          = "rename"
-	ActionTypeSetGroup        = "set_group"
-	ActionTypeSetProject      = "set_project"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
+	// ActionTypeSetNodePosition is the Type of an Action that carries
+	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNode         = "set_node"
-	ActionTypeRemoveNode      = "remove_node"
-	ActionTypeAddEdge         = "add_edge"
-	ActionTypeRemoveEdge      = "remove_edge"
-	ActionTypeSetConfig       = "set_config"
-	ActionTypeSet             = "set"
-	ActionTypeRemove          = "remove"
-	ActionTypeInsert          = "insert"
-	ActionTypeMove            = "move"
+	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
+	ActionTypeSetNode = "set_node"
+	// ActionTypeRemoveNode is the Type of an Action that carries RemoveNodePayload.
+	ActionTypeRemoveNode = "remove_node"
+	// ActionTypeAddEdge is the Type of an Action that carries AddEdgePayload.
+	ActionTypeAddEdge = "add_edge"
+	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
+	ActionTypeRemoveEdge = "remove_edge"
+	// ActionTypeSetConfig is the Type of an Action that carries SetConfigPayload.
+	ActionTypeSetConfig = "set_config"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core

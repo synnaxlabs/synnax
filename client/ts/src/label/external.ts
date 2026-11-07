@@ -12,3 +12,4 @@ export * from "@/label/actions.gen";
 export * from "@/label/client";
 export * from "@/label/payload";
 export * from "@/label/types.gen";
+export { type WhereInput } from "@/label/where.gen";

@@ -504,13 +504,12 @@ describe("list", () => {
     });
 
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
-      const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
       const { result } = renderHook(
         () => {
           const result = Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
-            retrieve: retrieveMock,
+            retrieve: async () => [],
             retrieveByKey: retrieveByKeyMock,
           })();
           const value = Flux.useListItem<number, record.Keyed<number>>({
@@ -522,9 +521,6 @@ describe("list", () => {
         },
         { wrapper },
       );
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
         expect(result.current.status.description).toEqual("Test Error");
@@ -1365,6 +1361,51 @@ describe("list", () => {
       expect(result.current.data).toEqual([1]);
     });
 
+    it("should keep one live page when two retrieves of one query overlap", async () => {
+      const closed: boolean[] = [];
+      const subscribe = vi.fn(() => {
+        const index = closed.push(false) - 1;
+        return () => {
+          closed[index] = true;
+        };
+      });
+      const releases: Array<(items: record.Keyed<number>[]) => void> = [];
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) =>
+            releases.push(resolve),
+          ),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      const q = {};
+      let first!: Promise<void>;
+      let second!: Promise<void>;
+      act(() => {
+        first = result.current.retrieveAsync(q);
+        second = result.current.retrieveAsync(q);
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        releases[0]([{ key: 1 }]);
+        await first;
+      });
+      await act(async () => {
+        releases[1]([{ key: 2 }]);
+        await second;
+      });
+      expect(closed).toEqual([true, false]);
+      expect(result.current.data).toEqual([2]);
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
@@ -1620,7 +1661,7 @@ describe("list", () => {
 
   describe("subscriptions against a live client", () => {
     const useRangeList = Flux.createList<
-      { keys?: ranger.Key[]; names?: string[] },
+      ranger.RetrieveMultipleParams,
       ranger.Key,
       ranger.Range
     >({
@@ -1648,7 +1689,7 @@ describe("list", () => {
       await act(
         async () =>
           await result.current.retrieveAsync(
-            { keys: [rng.key] },
+            { where: { key: { in: [rng.key] } } },
             { signal: controller.signal },
           ),
       );
@@ -1677,10 +1718,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ keys: [rng.key] }),
+              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys: [rng.key] }, handler),
+              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1770,10 +1811,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client, query }) =>
-              await client.ranges.retrieve({ keys: query.keys }),
+              await client.ranges.retrieve({ where: { key: { in: query.keys } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client, query }, handler) =>
-              client.ranges.onChange({ keys: query.keys }, handler),
+              client.ranges.onChange({ where: { key: { in: query.keys } } }, handler),
             onChangeByKey: ({ client, key }, handler) =>
               client.ranges.onChange(key, handler),
           })();
@@ -1810,11 +1851,11 @@ describe("list", () => {
 
     it("should update a read item that the list painted from the cache", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ keys: [rng.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { keys: [rng.key] },
+            initialQuery: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1832,11 +1873,11 @@ describe("list", () => {
     it("should keep a read item that a rename moves out of the cached query", async () => {
       const name = `Test Range ${uuid.create()}`;
       const rng = await createRange(name);
-      await client.ranges.retrieve({ names: [name] });
+      await client.ranges.retrieve({ where: { name: { in: [name] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { names: [name] },
+            initialQuery: { where: { name: { in: [name] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1853,11 +1894,11 @@ describe("list", () => {
 
     it("should clear a read item painted from the cache when it is deleted", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ keys: [rng.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { keys: [rng.key] },
+            initialQuery: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1877,11 +1918,11 @@ describe("list", () => {
       async (mode) => {
         const rng = await createRange("Test Range");
         const other = await createRange("Other Range");
-        await client.ranges.retrieve({ keys: [rng.key, other.key] });
+        await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
         const { result, rerender } = renderHook(
           ({ key }: { key: ranger.Key }) => {
             const { getItem, subscribe, retrieveAsync } = useRangeList({
-              initialQuery: { keys: [rng.key, other.key] },
+              initialQuery: { where: { key: { in: [rng.key, other.key] } } },
             });
             const value = Flux.useListItem<ranger.Key, ranger.Range>({
               subscribe,
@@ -1894,7 +1935,7 @@ describe("list", () => {
         );
         await act(async () => {
           await result.current.retrieveAsync(
-            { keys: [other.key] },
+            { where: { key: { in: [other.key] } } },
             { mode, signal: controller.signal },
           );
         });
@@ -1907,12 +1948,12 @@ describe("list", () => {
     it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
       const rng = await createRange("Test Range");
       const other = await createRange("Other Range");
-      await client.ranges.retrieve({ keys: [rng.key, other.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
       const retrieve = vi.spyOn(client.ranges, "retrieve");
       const { result } = renderHook(
         () => {
           const { getItem, subscribe, retrieveAsync } = useRangeList({
-            initialQuery: { keys: [rng.key, other.key] },
+            initialQuery: { where: { key: { in: [rng.key, other.key] } } },
           });
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1925,7 +1966,7 @@ describe("list", () => {
       );
       await act(async () => {
         await result.current.retrieveAsync(
-          { keys: [other.key] },
+          { where: { key: { in: [other.key] } } },
           { mode: "append", signal: controller.signal },
         );
       });
@@ -1952,10 +1993,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ keys: [rng.key] }),
+              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys: [rng.key] }, handler),
+              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
@@ -1995,10 +2036,11 @@ describe("list", () => {
         () =>
           Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) => await client.ranges.retrieve({ keys }),
+            retrieve: async ({ client }) =>
+              await client.ranges.retrieve({ where: { key: { in: keys } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys }, handler),
+              client.ranges.onChange({ where: { key: { in: keys } } }, handler),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper },
       );
@@ -2043,10 +2085,12 @@ describe("list", () => {
       // rng3 does not exist yet, so the query is a permissive overlap window
       // and the hook-level filter narrows the answer to the test's ranges.
       const query = {
-        overlapsWith: new TimeRange({
-          start: TimeSpan.seconds(9),
-          end: TimeSpan.seconds(16),
-        }),
+        where: {
+          overlaps: new TimeRange({
+            start: TimeSpan.seconds(9),
+            end: TimeSpan.seconds(16),
+          }),
+        },
       };
 
       const { result } = renderHook(

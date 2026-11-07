@@ -10,3 +10,4 @@
 export * from "@/project/client";
 export * from "@/project/owner";
 export * from "@/project/types.gen";
+export { type WhereInput } from "@/project/where.gen";

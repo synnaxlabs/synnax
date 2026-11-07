@@ -12,6 +12,7 @@ import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 import "schemas/x/text"
 
@@ -24,24 +25,40 @@ Key = uuid {
 }
 
 TickType enum {
-    linear = "linear"
-    time   = "time"
+    linear = "linear" {
+        @doc value "labels ticks with numeric values."
+    }
+    time   = "time" {
+        @doc value "labels ticks with timestamps."
+    }
 
     @doc value "selects how an axis renders its tick labels."
 }
 
 XAxisKey enum {
-    x1 = "x1"
-    x2 = "x2"
+    x1 = "x1" {
+        @doc value "is the x-axis at the bottom of the plot."
+    }
+    x2 = "x2" {
+        @doc value "is the x-axis at the top of the plot."
+    }
 
     @doc value "names one of the two x-axes. X-axes carry a single channel each."
 }
 
 YAxisKey enum {
-    y1 = "y1"
-    y2 = "y2"
-    y3 = "y3"
-    y4 = "y4"
+    y1 = "y1" {
+        @doc value "is a y-axis on the left of the plot."
+    }
+    y2 = "y2" {
+        @doc value "is a y-axis on the right of the plot."
+    }
+    y3 = "y3" {
+        @doc value "is a second y-axis on the left of the plot."
+    }
+    y4 = "y4" {
+        @doc value "is a second y-axis on the right of the plot."
+    }
 
     @doc value "names one of the four y-axes. Y-axes carry zero or more channels each."
 }
@@ -630,9 +647,32 @@ LinePlot struct {
     @retrieve
 }
 
+Where filter LinePlot {
+    key
+    groups   group.Key[]   {
+        @doc value "matches the line plots in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the line plots in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the line plots owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the line plots owned by any of the given ranges."
+    }
+
+    @doc value         "is a filter that selects line plots."
+    @go request_output "core/pkg/api/lineplot"
+}
+
 Aggregation enum {
-    min_max = "min_max"
-    average = "average"
+    min_max = "min_max" {
+        @doc value "draws the lowest and highest sample of each pixel group."
+    }
+    average = "average" {
+        @doc value "draws the mean of each pixel group."
+    }
 
     @doc value """
         selects how a line reduces the samples of one pixel group. min_max draws the
@@ -641,9 +681,15 @@ Aggregation enum {
 }
 
 Detail enum {
-    low    = "low"
-    medium = "medium"
-    high   = "high"
+    low    = "low" {
+        @doc value "draws one sample group per four pixel columns."
+    }
+    medium = "medium" {
+        @doc value "draws one sample group per two pixel columns."
+    }
+    high   = "high" {
+        @doc value "draws one sample group per pixel column."
+    }
 
     @doc value """
         selects how many sample groups a line draws per pixel column: one per four, two,

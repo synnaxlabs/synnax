@@ -48,6 +48,15 @@ type_to_pb(const std::string &cpp) {
         {TYPE_TASK, ::service::resource::pb::TYPE_TASK},
         {TYPE_USER, ::service::resource::pb::TYPE_USER},
         {TYPE_VIEW, ::service::resource::pb::TYPE_VIEW},
+        {TYPE_ETHERCAT_MASTER, ::service::resource::pb::TYPE_ETHERCAT_MASTER},
+        {TYPE_ETHERCAT_SLAVE, ::service::resource::pb::TYPE_ETHERCAT_SLAVE},
+        {TYPE_HTTP_SERVER, ::service::resource::pb::TYPE_HTTP_SERVER},
+        {TYPE_LABJACK_DEVICE, ::service::resource::pb::TYPE_LABJACK_DEVICE},
+        {TYPE_MODBUS_SERVER, ::service::resource::pb::TYPE_MODBUS_SERVER},
+        {TYPE_NI_CHASSIS, ::service::resource::pb::TYPE_NI_CHASSIS},
+        {TYPE_NI_DEVICE, ::service::resource::pb::TYPE_NI_DEVICE},
+        {TYPE_OPCUA_SERVER, ::service::resource::pb::TYPE_OPCUA_SERVER},
+        {TYPE_ARC_DIRECTORY, ::service::resource::pb::TYPE_ARC_DIRECTORY},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -106,6 +115,24 @@ type_from_pb(::service::resource::pb::Type pb) {
             return {TYPE_USER, x::errors::NIL};
         case ::service::resource::pb::TYPE_VIEW:
             return {TYPE_VIEW, x::errors::NIL};
+        case ::service::resource::pb::TYPE_ETHERCAT_MASTER:
+            return {TYPE_ETHERCAT_MASTER, x::errors::NIL};
+        case ::service::resource::pb::TYPE_ETHERCAT_SLAVE:
+            return {TYPE_ETHERCAT_SLAVE, x::errors::NIL};
+        case ::service::resource::pb::TYPE_HTTP_SERVER:
+            return {TYPE_HTTP_SERVER, x::errors::NIL};
+        case ::service::resource::pb::TYPE_LABJACK_DEVICE:
+            return {TYPE_LABJACK_DEVICE, x::errors::NIL};
+        case ::service::resource::pb::TYPE_MODBUS_SERVER:
+            return {TYPE_MODBUS_SERVER, x::errors::NIL};
+        case ::service::resource::pb::TYPE_NI_CHASSIS:
+            return {TYPE_NI_CHASSIS, x::errors::NIL};
+        case ::service::resource::pb::TYPE_NI_DEVICE:
+            return {TYPE_NI_DEVICE, x::errors::NIL};
+        case ::service::resource::pb::TYPE_OPCUA_SERVER:
+            return {TYPE_OPCUA_SERVER, x::errors::NIL};
+        case ::service::resource::pb::TYPE_ARC_DIRECTORY:
+            return {TYPE_ARC_DIRECTORY, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Type protobuf value")};
     }

@@ -30,15 +30,19 @@ type Key = v7.Key
 type TickType = v7.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v7.TickTypeLinear
-	TickTypeTime   TickType = v7.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v7.TickTypeTime
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v7.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v7.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v7.XAxisKeyX2
 )
 
@@ -46,9 +50,13 @@ const (
 type YAxisKey = v7.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v7.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v7.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v7.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v7.YAxisKeyY4
 )
 
@@ -56,11 +64,17 @@ const (
 type AxisKey = v7.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v7.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v7.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v7.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v7.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v7.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v7.AxisKeyY4
 )
 
@@ -208,7 +222,9 @@ func (l LinePlot) Validate() error {
 type Aggregation = v7.Aggregation
 
 const (
-	AggregationMinMax  Aggregation = v7.AggregationMinMax
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = v7.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
 	AggregationAverage Aggregation = v7.AggregationAverage
 )
 
@@ -217,7 +233,10 @@ const (
 type Detail = v7.Detail
 
 const (
-	DetailLow    Detail = v7.DetailLow
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = v7.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
 	DetailMedium Detail = v7.DetailMedium
-	DetailHigh   Detail = v7.DetailHigh
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = v7.DetailHigh
 )

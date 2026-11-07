@@ -50,7 +50,12 @@ describe("Group.ContextMenuItem", () => {
     const onChange = vi.fn();
     await renderItems(
       <PMenu.Menu onChange={onChange}>
-        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={rootID}
+          parentID={parentID}
+          shape={shape}
+        />
       </PMenu.Menu>,
     );
     const item = await waitFor(() => screen.getByText("Group selection"));
@@ -60,7 +65,12 @@ describe("Group.ContextMenuItem", () => {
 
   it("should show the group item for a top-level selection", async () => {
     await renderItems(
-      <Group.ContextMenuItem ids={[parentID]} rootID={rootID} shape={shape} />,
+      <Group.ContextMenuItem
+        ids={[parentID]}
+        rootID={rootID}
+        parentID={rootID}
+        shape={shape}
+      />,
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
@@ -68,10 +78,16 @@ describe("Group.ContextMenuItem", () => {
   it("should hide the group item in a tree that holds no groups", async () => {
     await renderItems(
       <>
-        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={rootID}
+          parentID={parentID}
+          shape={shape}
+        />
         <Group.ContextMenuItem
           ids={[childID]}
           rootID={access.role.TYPE_RESOURCE_ID}
+          parentID={parentID}
           shape={shape}
         />
       </>,
@@ -83,8 +99,38 @@ describe("Group.ContextMenuItem", () => {
     const absentID = channel.resourceID(3);
     await renderItems(
       <>
-        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
-        <Group.ContextMenuItem ids={[absentID]} rootID={rootID} shape={shape} />
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={rootID}
+          parentID={parentID}
+          shape={shape}
+        />
+        <Group.ContextMenuItem
+          ids={[absentID]}
+          rootID={rootID}
+          parentID={rootID}
+          shape={shape}
+        />
+      </>,
+    );
+    await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
+  });
+
+  it("should hide the group item when the selection has more than one parent", async () => {
+    await renderItems(
+      <>
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={rootID}
+          parentID={parentID}
+          shape={shape}
+        />
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={rootID}
+          parentID={null}
+          shape={shape}
+        />
       </>,
     );
     await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
@@ -101,6 +147,7 @@ describe("Group.ContextMenuItem", () => {
       <Group.ContextMenuItem
         ids={[childID, siblingID]}
         rootID={rootID}
+        parentID={parentID}
         shape={multiShape}
       />,
     );
@@ -112,7 +159,12 @@ describe("Group.ContextMenuItem permissions", () => {
   const renderAs = async (as: Client) => {
     const { wrapper } = await createConsoleWrapper({ client: as });
     return render(
-      <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />,
+      <Group.ContextMenuItem
+        ids={[childID]}
+        rootID={rootID}
+        parentID={parentID}
+        shape={shape}
+      />,
       { wrapper },
     );
   };

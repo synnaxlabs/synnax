@@ -20,6 +20,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
@@ -58,13 +59,18 @@ type BaseReadChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
+	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticReadChannelType ReadChannelType = "automatic"
-	ManualReadChannelType    ReadChannelType = "manual"
+	// ManualReadChannelType specifies its PDO address inline.
+	ManualReadChannelType ReadChannelType = "manual"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -156,9 +162,24 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ManualReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AutomaticReadChannel:
+		return AutomaticReadChannelType
+	case ManualReadChannel:
+		return ManualReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -168,6 +189,31 @@ func (u *ReadChannel) ApplyDefaults() {
 	case ManualReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		return variant.BaseReadChannel
+	case ManualReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case ManualReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -191,13 +237,18 @@ type BaseWriteChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
+	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticWriteChannelType WriteChannelType = "automatic"
-	ManualWriteChannelType    WriteChannelType = "manual"
+	// ManualWriteChannelType specifies its PDO address inline.
+	ManualWriteChannelType WriteChannelType = "manual"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -289,9 +340,24 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ManualWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return AutomaticWriteChannelType
+	case ManualWriteChannel:
+		return ManualWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -301,6 +367,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case ManualWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return variant.BaseWriteChannel
+	case ManualWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case ManualWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

@@ -9,31 +9,32 @@
 
 import { arc } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Modals } from "@/platform/modals";
+import { renderVisible, select } from "@/platform/selector/testutil";
 import { assertDefined, createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
 
 describe("arc/Selectable", () => {
-  it("opens the arc create modal when the tile is clicked", async () => {
+  it("opens the arc create modal when selected", async () => {
     const Selectable = Arc.SELECTABLES.find(
       (s) => s.type === arc.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for the arc editor");
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(
-      <>
-        <Selectable />
+    const { wrapper: Base } = await createConsoleWrapper({ client });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Base>
+        {children}
         <Modals.Stack />
-      </>,
-      { wrapper },
+      </Base>
     );
-    fireEvent.click(await screen.findByText("Arc automation"));
+    select(Selectable, wrapper);
     expect(await screen.findByPlaceholderText("Arc name")).toBeTruthy();
   });
 });
@@ -47,21 +48,20 @@ describe("arc/Selectable permissions", () => {
     return Selectable;
   };
 
-  it("should offer the tile to an engineer", async () => {
-    const Selectable = findSelectable();
+  it("should be visible to an engineer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Arc automation")).toBeTruthy();
+    const { result } = renderVisible(findSelectable(), arc.TYPE_RESOURCE_ID, wrapper);
+    await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
-  it("should withhold the tile from a viewer", async () => {
-    const Selectable = findSelectable();
+  it("should not be visible to a viewer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { container } = render(<Selectable />, { wrapper });
-    await waitFor(() => expect(container.textContent).toBe(""));
+    const { result } = renderVisible(findSelectable(), arc.TYPE_RESOURCE_ID, wrapper);
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });

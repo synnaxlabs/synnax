@@ -169,21 +169,16 @@ func (s *Service) attachStatuses(
 	tx gorp.Tx,
 	racks []rack.Rack,
 ) error {
-	ids := rack.ResourceIDsFromRacks(racks)
-	statuses := make([]rack.Status, 0, len(racks))
-	// A status row can be missing, so the resource keeps a nil status.
-	if err := s.status.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](ids...)).
-		Entries(&statuses).
-		Exec(ctx, tx); err != nil {
+	statuses, err := s.status.Join[struct{}](
+		ctx,
+		tx,
+		rack.ResourceIDsFromRacks(racks),
+	)
+	if err != nil {
 		return err
 	}
-	byOwner := make(map[resource.ID]*rack.Status, len(statuses))
-	for i := range statuses {
-		byOwner[*statuses[i].Owner] = &statuses[i]
-	}
-	for i, id := range ids {
-		racks[i].Status = byOwner[id]
+	for i, st := range statuses {
+		racks[i].Status = st
 	}
 	return nil
 }
@@ -250,90 +245,31 @@ func (s *Service) enforceCreate(
 	})
 }
 
-type (
-	RetrieveRequest struct {
-		Embedded      *bool      `json:"embedded"       msgpack:"embedded"`
-		HostIsNode    *bool      `json:"host_is_node"   msgpack:"host_is_node"`
-		SearchTerm    string     `json:"search_term"    msgpack:"search_term"`
-		Keys          []rack.Key `json:"keys"           msgpack:"keys"`
-		Names         []string   `json:"names"          msgpack:"names"`
-		Integration   string     `json:"integration"    msgpack:"integration"`
-		Limit         int        `json:"limit"          msgpack:"limit"`
-		Offset        int        `json:"offset"         msgpack:"offset"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
-		// Groups keeps only the racks in any of these groups.
-		Groups []group.Key `json:"groups" msgpack:"groups"`
-		// Grouped keeps only the racks in a group when true, and only the racks in no
-		// group when false. Nil applies no filter.
-		Grouped *bool `json:"grouped" msgpack:"grouped"`
-	}
-	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch      = len(req.SearchTerm) > 0
-		hasKeys        = len(req.Keys) > 0
-		hasNames       = len(req.Names) > 0
-		hasLimit       = req.Limit > 0
-		hasOffset      = req.Offset > 0
-		hasIntegration = req.Integration != ""
-	)
-	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
-	q := s.rack.NewRetrieve()
-	if hasKeys {
-		q = q.Where(rack.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(rack.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if req.Embedded != nil {
-		q = q.Where(rack.MatchEmbedded(*req.Embedded))
-	}
-	if req.HostIsNode != nil {
-		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
-	}
-	if hasIntegration {
-		q = q.Where(rack.MatchIntegration(req.Integration))
-	}
-	if len(req.Groups) > 0 {
-		q = q.Where(rack.MatchGroups(req.Groups...))
-	}
-	if req.Grouped != nil {
-		q = q.Where(rack.MatchHasGroup(*req.Grouped))
-	}
-	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := req.Apply(s.rack.NewRetrieve().Entries(&res.Racks))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
-		if err := s.attachStatuses(ctx, nil, resRacks); err != nil {
+		if err := s.attachStatuses(ctx, nil, res.Racks); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.ResourceIDsFromRacks(resRacks),
+		Objects: rack.ResourceIDsFromRacks(res.Racks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Racks: resRacks}, nil
+	return res, nil
 }
 
 // RenameRequest names the rack to rename and the name to give it.
