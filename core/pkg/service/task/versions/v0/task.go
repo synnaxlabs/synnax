@@ -13,8 +13,8 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // String returns the key formatted as its decimal integer value.
@@ -29,9 +29,9 @@ func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
 // IsValid returns true when both the rack and local components are set.
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
-// OntologyID returns the unique ontology identifier for the task.
-func (k Key) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
+// ResourceID returns the unique resource identifier for the task.
+func (k Key) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeTask, Key: k.String()}
 }
 
 var _ gorp.Entry[Key] = Task{}
@@ -42,5 +42,5 @@ func (t Task) GorpKey() Key { return t.Key }
 // SetOptions implements gorp.Entry.
 func (Task) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the task.
-func (t Task) OntologyID() ontology.ID { return t.Key.OntologyID() }
+// ResourceID returns the unique resource identifier for the task.
+func (t Task) ResourceID() resource.ID { return t.Key.ResourceID() }

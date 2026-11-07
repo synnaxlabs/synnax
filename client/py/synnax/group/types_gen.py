@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 Key: TypeAlias = UUID
@@ -103,8 +103,8 @@ class RetrieveRequest(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="group")
+TYPE_RESOURCE_ID = ID(type="group")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="group", key=str(key))

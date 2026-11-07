@@ -35,7 +35,7 @@ const createLog = async () => {
 };
 
 const logResource = (key: string, name: string) =>
-  createResource(log.ontologyID(key), name);
+  createResource(log.resourceID(key), name);
 
 describe("log ontology service", () => {
   it("should offer Reload Console", async () => {
@@ -86,7 +86,7 @@ describe("log ontology service", () => {
     const l = await client.logs.create(proj.key, { name: uniqueName("log") });
     const { store } = await renderOntologyTree({
       client,
-      root: project.ontologyID(proj.key),
+      root: project.resourceID(proj.key),
       items: Log.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(l.name));

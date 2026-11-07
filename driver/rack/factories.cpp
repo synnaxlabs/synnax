@@ -124,7 +124,8 @@ void configure_ethercat(
             return std::make_unique<ethercat::Factory>(
                 client,
                 config.rack.key,
-                rt_manager
+                rt_manager,
+                config.manager.op_timeout
             );
         }
     );

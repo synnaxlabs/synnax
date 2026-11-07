@@ -272,7 +272,7 @@ protected:
     std::unique_ptr<UnaryReadTaskSource> create_source(const x::json::json &cfg_json) {
         auto p = x::json::Parser(cfg_json);
         auto cfg = ReadTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
@@ -792,7 +792,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
 
     auto p = x::json::Parser(empty_cfg);
     auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return error when all channels are disabled.
@@ -818,7 +818,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
 
     auto p = x::json::Parser(disabled_cfg);
     auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should configure when a disabled channel has no node id or Synnax
@@ -846,7 +846,7 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
 
     auto p = x::json::Parser(cfg);
     const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }

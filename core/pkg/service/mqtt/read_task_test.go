@@ -577,9 +577,14 @@ var _ = Describe("Read task", func() {
 				)))
 				configured := configure(ctx, factory, t)
 				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(MatchError(ContainSubstring(
-						"the broker refused the subscription to plant/denied",
-					)))
+					To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
+					"the broker refused the subscription to plant/denied",
+				))
+				Expect(stat.Details.Cmd).To(Equal("start"))
 			},
 		)
 

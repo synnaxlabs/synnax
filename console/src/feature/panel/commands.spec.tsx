@@ -85,7 +85,7 @@ describe("Panel Commands", () => {
       const proj = await client.projects.create({ name: uniqueName("project") });
       const pan = await client.panels.create({
         name: uniqueName("panel"),
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
       });
       const { openCommandPalette, selectCommand, store } = await renderPalette({
         client,

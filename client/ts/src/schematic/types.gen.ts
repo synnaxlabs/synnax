@@ -23,7 +23,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -3313,5 +3313,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("schematic");
+export const TYPE_RESOURCE_ID = resourceID("");

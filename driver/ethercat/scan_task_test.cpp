@@ -790,7 +790,7 @@ protected:
             },
         };
         const auto err = this->client->devices.create(dev);
-        EXPECT_FALSE(err) << err;
+        EXPECT_NIL(err);
         return dev;
     }
 

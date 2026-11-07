@@ -38,16 +38,19 @@ class Pool {
     std::unique_ptr<master::Manager> manager;
     std::shared_ptr<x::thread::rt::Manager> rt_manager;
     SlaveConfigs slave_configs;
+    x::telem::TimeSpan start_timeout;
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Engine>> engines;
 
 public:
     /// @brief constructs a pool with the given manager and optional RT manager. Each
-    /// engine reads its slave settings from slave_configs when its bus starts.
+    /// engine reads its slave settings from slave_configs when its bus starts, and
+    /// stops retrying a failed start after start_timeout.
     Pool(
         std::unique_ptr<master::Manager> manager,
         SlaveConfigs slave_configs,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        x::telem::TimeSpan start_timeout = Config().start_timeout
     );
 
     /// @brief returns all available EtherCAT masters discovered by the manager.

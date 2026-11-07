@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, type ontology } from "@synnaxlabs/client";
+import { type arc, type resource } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -50,9 +50,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 });
 
 export interface MoveParams {
-  source: ontology.ID;
-  destination: ontology.ID;
-  ids: ontology.ID[];
+  source: resource.ID;
+  destination: resource.ID;
+  ids: resource.ID[];
 }
 
 const MOVE_VERBS: verbs.Verbs = {

@@ -545,8 +545,7 @@ TEST(ManagerCreate, ReturnsConfiguredMaster) {
     auto master = std::make_shared<Master>("eth0");
     manager.configure("eth0", master);
 
-    auto [result, err] = manager.create("eth0");
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(manager.create("eth0"));
     EXPECT_EQ(result, master);
 }
 

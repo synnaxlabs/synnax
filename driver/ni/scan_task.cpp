@@ -245,7 +245,7 @@ Scanner::scan(const common::ScannerContext &ctx) {
         this->read_hardware(dev, ctx);
         auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
-            sy_dev.parent = synnax::device::ontology_id(it->second);
+            sy_dev.parent = synnax::device::resource_id(it->second);
         devices.push_back(std::move(sy_dev));
     }
     return {devices, close_err};

@@ -226,8 +226,7 @@ TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
     Config bad_cfg = conn_cfg_;
     bad_cfg.endpoint = "opc.tcp://localhost:9999";
 
-    auto [connection, err] = pool.acquire(bad_cfg, "[test] ");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(pool.acquire(bad_cfg, "[test] "), errors::UNREACHABLE);
     EXPECT_EQ(pool.size(), 0);
 }
 
@@ -375,7 +374,7 @@ TEST_F(ConnectionPoolTest, ErrorStatusPropagation) {
 
     // Acquire should return appropriate error
     auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_TRUE(err2);
+    ASSERT_OCCURRED_AS(err2, errors::UNREACHABLE);
 
     // Error should be present and have a meaningful message
     EXPECT_FALSE(err2.message().empty());
@@ -840,8 +839,10 @@ TEST_F(SessionLimitPoolTest, ServerRejectsWhenSessionLimitReached) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     // Third connection should fail — server only allows 2 sessions
-    auto [conn3, err3] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_TRUE(err3);
+    const auto conn3 = ASSERT_OCCURRED_AS_P(
+        pool.acquire(conn_cfg_, "[test] "),
+        errors::SESSION_REJECTED
+    );
     EXPECT_FALSE(conn3);
 
     // Pool should only have the 2 successful connections
@@ -1037,10 +1038,8 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
     Config bad_cfg = conn_cfg_;
 
     // First 3 failures should attempt connection (and fail)
-    for (int i = 0; i < 3; ++i) {
-        auto [conn, err] = pool.acquire(bad_cfg, "[test] ");
-        ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
-    }
+    for (int i = 0; i < 3; ++i)
+        ASSERT_OCCURRED_AS_P(pool.acquire(bad_cfg, "[test] "), errors::UNREACHABLE);
 
     // 4th attempt: breaker should be tripped — reject instantly
     auto start = std::chrono::steady_clock::now();
@@ -1049,7 +1048,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         std::chrono::steady_clock::now() - start
     );
 
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
     EXPECT_FALSE(conn);
 
     // Should complete in <500ms (no network I/O), proving breaker rejected it
@@ -1076,10 +1075,8 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Trip the breaker via three consecutive failures
-    for (int i = 0; i < 3; ++i) {
-        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
-    }
+    for (int i = 0; i < 3; ++i)
+        ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
 
     // The breaker is open, and the pool still holds the lost entry.
     auto start = std::chrono::steady_clock::now();
@@ -1088,7 +1085,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
         std::chrono::steady_clock::now() - start
     );
 
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
     EXPECT_FALSE(conn);
     EXPECT_LT(elapsed.count(), 500)
         << "Breaker should reject before reconnecting, but took " << elapsed.count()
@@ -1114,15 +1111,13 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Trip the breaker: 3 consecutive failures
-    for (int i = 0; i < 3; ++i) {
-        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_TRUE(err);
-    }
+    for (int i = 0; i < 3; ++i)
+        ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
 
     // Verify breaker is tripped
     {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_TRUE(err);
+        ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
         EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
     }
 

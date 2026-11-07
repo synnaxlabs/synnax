@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -389,8 +390,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 		It(
 			"Should return the status of each resource in order, nil for a missing one",
 			func(ctx SpecContext) {
-				stored := ontology.ID{Type: "rack", Key: "join_stored"}
-				missing := ontology.ID{Type: "rack", Key: "join_missing"}
+				stored := resource.ID{Type: "rack", Key: "join_stored"}
+				missing := resource.ID{Type: "rack", Key: "join_missing"}
 				Expect(setStatus(ctx, &status.Status[any]{
 					Key:     stored.String(),
 					Name:    "stored",
@@ -399,7 +400,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Time:    telem.Now(),
 				})).To(Succeed())
 				joined := MustSucceed(
-					svc.Join[any](ctx, nil, []ontology.ID{missing, stored}),
+					svc.Join[any](ctx, nil, []resource.ID{missing, stored}),
 				)
 				Expect(joined).To(HaveLen(2))
 				Expect(joined[0]).To(BeNil())

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
@@ -54,10 +55,10 @@ var _ = Describe("Modules", func() {
 		Expect(otg.NewRetrieve().
 			WhereIDs(ontology.RootID).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypeArcDirectory).
+			WhereTypes(resource.TypeArcDirectory).
 			Entries(&roots).
 			Exec(ctx, tx)).To(Succeed())
-		root = MustSucceed(directory.KeyFromOntologyID(roots[0].ID))
+		root = MustSucceed(directory.KeyFromResourceID(roots[0].ID))
 	})
 
 	It("Should resolve a module directly under Arcs", func(ctx SpecContext) {
@@ -71,7 +72,7 @@ var _ = Describe("Modules", func() {
 		lib := createDirectory(ctx, "lib", root)
 		sub := createDirectory(ctx, "sub", lib.Key)
 		a := createArc(ctx, arc.TypeModule, "m", textSource(source))
-		Expect(w.Move(ctx, root, sub.Key, a.OntologyID())).To(Succeed())
+		Expect(w.Move(ctx, root, sub.Key, a.ResourceID())).To(Succeed())
 		mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "lib.sub.m"))
 		Expect(mod.Name).To(Equal("lib.sub.m"))
 		Expect(svc.NewRoot(tx).ResolveModule(ctx, "m")).Error().

@@ -21,7 +21,7 @@ export * from "@/feature/table/search";
 export * from "@/feature/table/tree";
 export * from "@/platform/table/external";
 
-const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = table.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 

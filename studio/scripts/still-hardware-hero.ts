@@ -65,7 +65,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await client.panels.delete(hardware.key);
     await client.panels.create({
       name: hardware.name,
-      parent: project.ontologyID(tpc.key),
+      parent: project.resourceID(tpc.key),
       root: {
         variant: "split",
         direction: "x",

@@ -89,6 +89,7 @@ class Master final : public master::Master {
     std::condition_variable stall_cv;
     bool stalled{false};
     x::loop::HostClock clock;
+    x::telem::TimeSpan activate_duration{0};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
@@ -150,6 +151,12 @@ public:
     void inject_activate_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_activate_err = err;
+    }
+
+    /// @brief makes each call to activate() take span on the clock of the master.
+    void set_activate_duration(const x::telem::TimeSpan span) {
+        std::lock_guard lock(this->mu);
+        this->activate_duration = span;
     }
 
     /// @brief makes activate() return err after the bus cycle starts, as when a slave
@@ -347,6 +354,12 @@ public:
         const x::telem::TimeSpan period,
         const std::function<void()> &start_cycle
     ) override {
+        x::telem::TimeSpan duration;
+        {
+            std::lock_guard lock(this->mu);
+            duration = this->activate_duration;
+        }
+        this->clock.sleep(duration);
         size_t sent = 0;
         {
             std::lock_guard lock(this->mu);

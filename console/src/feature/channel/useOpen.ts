@@ -65,7 +65,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
             channels: [{ channel: channelKey, color: color.ZERO }],
           });
           store.dispatch(Session.Log.create({ key }));
-          openTab({ variant: "resource", resource: log.ontologyID(key) });
+          openTab({ variant: "resource", resource: log.resourceID(key) });
           return;
         }
         const { key } = await client.lineplots.create(project, {
@@ -75,7 +75,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
         });
         capture("plot_created", {});
         store.dispatch(Session.LinePlot.create({ key }));
-        openTab({ variant: "resource", resource: lineplot.ontologyID(key) });
+        openTab({ variant: "resource", resource: lineplot.resourceID(key) });
       },
       virtual ? "Failed to add channel to log" : "Failed to add channel to plot",
     );

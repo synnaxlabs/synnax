@@ -33,7 +33,7 @@ describe("log", () => {
     it("should allow the caller to retrieve logs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [log.ontologyID("")],
+        objects: [log.resourceID("")],
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -46,7 +46,7 @@ describe("log", () => {
     it("should allow the caller to create logs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [log.ontologyID("")],
+        objects: [log.resourceID("")],
         actions: ["create"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -56,7 +56,7 @@ describe("log", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [log.ontologyID("")],
+        objects: [log.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -68,7 +68,7 @@ describe("log", () => {
     it("should allow the caller to delete logs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [log.ontologyID("")],
+        objects: [log.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -82,7 +82,7 @@ describe("log", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [log.ontologyID("")],
+        objects: [log.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });

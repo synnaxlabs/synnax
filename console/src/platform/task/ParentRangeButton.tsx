@@ -26,12 +26,12 @@ interface InternalProps {
 }
 
 const Internal = ({ taskKey }: InternalProps) => {
-  const parent = Ranger.useParent({ id: task.ontologyID(taskKey) });
+  const parent = Ranger.useParent({ id: task.resourceID(taskKey) });
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const { key, name } = parent;
   const handleClick = () =>
-    openTab({ variant: "resource", resource: ranger.ontologyID(key) });
+    openTab({ variant: "resource", resource: ranger.resourceID(key) });
   return (
     <Flex.Box x align="center" gap="small">
       <Text.Text>Snapshotted to</Text.Text>

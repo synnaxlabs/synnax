@@ -148,15 +148,23 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
 Factory::Factory(
     std::shared_ptr<synnax::Synnax> client,
     const synnax::rack::Key rack,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan op_timeout
 ):
-    Factory(default_manager(), std::move(client), rack, std::move(rt_manager)) {}
+    Factory(
+        default_manager(),
+        std::move(client),
+        rack,
+        std::move(rt_manager),
+        op_timeout
+    ) {}
 
 Factory::Factory(
     std::unique_ptr<master::Manager> manager,
     std::shared_ptr<synnax::Synnax> client,
     const synnax::rack::Key rack,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan op_timeout
 ):
     pool(
         std::make_shared<engine::Pool>(
@@ -164,7 +172,8 @@ Factory::Factory(
             [client = std::move(client), rack](const std::string &network) {
                 return slave_configs(client, rack, network);
             },
-            std::move(rt_manager)
+            std::move(rt_manager),
+            op_timeout
         )
     ) {}
 

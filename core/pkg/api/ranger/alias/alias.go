@@ -90,7 +90,7 @@ func (s *Service) Set(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: alias.OntologyIDs(req.Range, keys),
+		Objects: alias.ResourceIDs(req.Range, keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -132,7 +132,7 @@ func (s *Service) Resolve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, keys),
+		Objects: alias.ResourceIDs(req.Range, keys),
 	}); err != nil {
 		return ResolveResponse{}, err
 	}
@@ -152,7 +152,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: alias.OntologyIDs(req.Range, req.Channels),
+		Objects: alias.ResourceIDs(req.Range, req.Channels),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -187,7 +187,7 @@ func (s *Service) List(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, keys),
+		Objects: alias.ResourceIDs(req.Range, keys),
 	}); err != nil {
 		return ListResponse{}, err
 	}
@@ -211,7 +211,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, req.Channels),
+		Objects: alias.ResourceIDs(req.Range, req.Channels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
