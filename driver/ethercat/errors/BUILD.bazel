@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "errors",
@@ -16,7 +17,15 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
-        "//vendor/soem",
         "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "sdo_test",
+    srcs = ["sdo_test.cpp"],
+    deps = [
+        ":errors",
+        "@googletest//:gtest_main",
     ],
 )
