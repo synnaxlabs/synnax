@@ -115,9 +115,7 @@ class TestUserClient:
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError for a single user that does not exist."""
         key = uuid()
-        with pytest.raises(
-            sy.NotFoundError, match=rf"User matching .*{key}.* not found"
-        ):
+        with pytest.raises(sy.NotFoundError, match=rf"Found no user where .*{key}"):
             client.users.retrieve(key=key)
 
     def test_retrieve_missing_keys(
