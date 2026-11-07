@@ -244,7 +244,7 @@ func resolveUpstreamType(
 		return idSym.Type.Unwrap(), true
 	}
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		return expressionType(ctx, prevExpr).Unwrap(), true
+		return expressionType(ctx, prevExpr), true
 	}
 	if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
 		if isFedByRoutingTable(ctx) {
