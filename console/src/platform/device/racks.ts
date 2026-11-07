@@ -48,6 +48,7 @@ export const getBlockedReason = (
       : `No running Driver has ${name} enabled`;
   const r = racks.find((r) => r.key === key);
   if (r == null) return "This Driver no longer exists";
+  if (r.status?.variant === "error") return r.status.message;
   if (!isRunning(r)) return `${r.name} is not running`;
   if (!r.integrations.includes(integration))
     return `${r.name} does not have ${name} enabled`;
