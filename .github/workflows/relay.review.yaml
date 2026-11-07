@@ -30,7 +30,6 @@ jobs:
       actions: write
       contents: read
     steps:
-      # A pull request cannot edit the script that runs with this token.
       - name: Checkout the default branch scripts
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
