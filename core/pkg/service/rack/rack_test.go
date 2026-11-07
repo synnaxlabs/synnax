@@ -10,6 +10,7 @@
 package rack_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"slices"
@@ -35,6 +36,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -150,6 +153,47 @@ var _ = Describe("Driver role", func() {
 		Expect(hasDriverRole(ctx, s.otg, s.driverRole, embedded)).To(BeTrue())
 	})
 })
+
+// gatedDB holds observers of a write whose value contains match until hold is done. The
+// write commits before its observers run.
+type gatedDB struct {
+	kv.DB
+	match []byte
+	hold  *sync.WaitGroup
+}
+
+func (d gatedDB) OnChange(
+	handler func(context.Context, kv.TxReader),
+) observe.Disconnect {
+	return d.DB.OnChange(func(ctx context.Context, reader kv.TxReader) {
+		for ch := range reader {
+			if bytes.Contains(ch.Value, d.match) {
+				d.hold.Wait()
+			}
+		}
+		handler(ctx, reader)
+	})
+}
+
+// failingDB rejects each commit that fail returns an error for.
+type failingDB struct {
+	kv.DB
+	fail func(kv.TxReader) error
+}
+
+func (d failingDB) OpenTx() kv.Tx { return failingTx{Tx: d.DB.OpenTx(), fail: d.fail} }
+
+type failingTx struct {
+	kv.Tx
+	fail func(kv.TxReader) error
+}
+
+func (t failingTx) Commit(ctx context.Context, opts ...any) error {
+	if err := t.fail(t.NewReader()); err != nil {
+		return err
+	}
+	return t.Tx.Commit(ctx, opts...)
+}
 
 func retrieveStatus(
 	ctx context.Context,
@@ -1138,6 +1182,60 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
+		It(
+			"Should not mark a rack as dead when the Driver reports an error",
+			func(ctx SpecContext) {
+				const name = "error heartbeat rack"
+				var writes, alerts atomic.Int32
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					t gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range t {
+						if ch.Value.Name == name &&
+							ch.Value.Message == "Driver not running" {
+							writes.Add(1)
+						}
+					}
+				}))
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name {
+							alerts.Add(1)
+						}
+						return nil
+					}),
+				)
+				now := telem.Now()
+				frozenNow.Store(int64(now))
+				r := rack.Rack{Name: name}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				// Each beat advances the clock half an interval, so only beats that
+				// count as alive keep the rack under one interval of silence.
+				for range 4 {
+					now = now.Add(svc.HealthCheckInterval / 2)
+					frozenNow.Store(int64(now))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &rack.Status{
+							Key:     r.OntologyID().String(),
+							Name:    r.Name,
+							Time:    now,
+							Variant: status.VariantError,
+							Message: "Driver 0.60.0 cannot work with Core 0.61.0",
+							Details: rack.StatusDetails{Rack: r.Key},
+						})
+					})).To(Succeed())
+				}
+
+				Consistently(func(g Gomega) {
+					g.Expect(writes.Load()).To(BeZero())
+					g.Expect(alerts.Load()).To(BeZero())
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Variant).To(Equal(status.VariantError))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
 		It("Should write each outage once", func(ctx SpecContext) {
 			const name = "outage test rack"
 			var writes, alerts atomic.Int32
@@ -1339,6 +1437,115 @@ var _ = Describe("Rack", Ordered, func() {
 					return w.Rename(ctx, k, n)
 				},
 			),
+		)
+
+		It(
+			"Should report a silent rack again when a rename outruns its outage",
+			func(ctx SpecContext) {
+				var hold sync.WaitGroup
+				hold.Add(1)
+				release := sync.OnceFunc(hold.Done)
+				gatedKV := gatedDB{
+					DB:    memkv.New(),
+					match: []byte("Driver not running"),
+					hold:  &hold,
+				}
+				gatedGorp := DeferClose(gorp.Wrap(gatedKV))
+				start := telem.Now()
+				var now atomic.Int64
+				now.Store(int64(start))
+				gated := DeferClose(openStack(ctx, gatedGorp, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+					Now: func() telem.TimeStamp {
+						return telem.TimeStamp(now.Load())
+					},
+				}))
+				DeferCleanup(release)
+				r := rack.Rack{
+					Name: "outrun rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(gated.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				renameTx := DeferClose(gatedGorp.OpenTx())
+				Expect(gated.rack.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+
+				Expect(renameTx.Commit(ctx)).To(Succeed())
+				release()
+
+				now.Store(int64(start.Add(24 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, gated.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed"))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not extend the deadline of a silent rack after a failed outage write",
+			func(ctx SpecContext) {
+				start := telem.Now()
+				var (
+					now          atomic.Int64
+					failed       atomic.Bool
+					ticksAfter   atomic.Int32
+					outageStatus = []byte("Driver not running")
+				)
+				now.Store(int64(start))
+				failDB := DeferClose(gorp.Wrap(failingDB{
+					DB: memkv.New(),
+					fail: func(reader kv.TxReader) error {
+						for ch := range reader {
+							if bytes.Contains(ch.Value, outageStatus) &&
+								failed.CompareAndSwap(false, true) {
+								now.Store(int64(start.Add(5 * telem.Millisecond)))
+								return errors.New("commit failed")
+							}
+						}
+						return nil
+					},
+				}))
+				failing := DeferClose(openStack(ctx, failDB, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+					Now: func() telem.TimeStamp {
+						if failed.Load() {
+							ticksAfter.Add(1)
+						}
+						return telem.TimeStamp(now.Load())
+					},
+				}))
+				r := rack.Rack{
+					Name: "failed outage rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(failing.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				// The next tick shows that the monitor finished with the failed write.
+				Eventually(ticksAfter.Load).Should(BeNumerically(">", 0))
+
+				Expect(failing.rack.NewWriter(nil).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, failing.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed"))
+				}).Should(Succeed())
+			},
 		)
 
 		DescribeTable(

@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, type destructor, record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { imex } from "@/imex";
@@ -28,14 +28,20 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/project/types.gen";
-import { matches, serverComputed } from "@/project/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
-export type RetrieveMultipleParams = RetrieveRequest;
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

@@ -13,6 +13,7 @@ import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
@@ -173,7 +174,8 @@ export class WriteAdapter {
     else cached = this.byKey.get(ch.key);
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
-    if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
+    const where = channel.singleWhere(typeof ch === "object" ? ch.key : ch);
+    checkForMultipleOrNoResults("channel", { where }, res, true);
     return res[0];
   }
 

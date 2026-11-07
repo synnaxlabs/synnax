@@ -38,16 +38,22 @@ const HARDWARE: Device.Hardware = {
   make: "acme",
   scanType: "acme_scan",
   checks: [],
-  zeroProperties: { vendor: "acme" },
+  Configure: Device.createConfigure({
+    icon: <Icon.Hardware />,
+    zeroProperties: { vendor: "acme" },
+  }),
 };
+
+const Configure = Device.createConfigure({
+  icon: <Icon.Hardware />,
+  zeroProperties: {},
+});
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ({ deviceKey, close }) => (
-    <Device.Configure
+    <Configure
       deviceKey={deviceKey}
       close={close}
-      icon={<Icon.Hardware />}
-      initialProperties={{}}
       onCreateTask={onCreateTask}
       onBack={onBack}
     />
@@ -95,12 +101,7 @@ describe("device Configure", () => {
   it("should not render the form while the device has not been retrieved", async () => {
     await renderWithConsole(
       <Errors.SuspenseBoundary>
-        <Device.Configure
-          deviceKey={id.create()}
-          close={vi.fn()}
-          icon={<Icon.Hardware />}
-          initialProperties={{}}
-        />
+        <Configure deviceKey={id.create()} close={vi.fn()} />
       </Errors.SuspenseBoundary>,
       { onCaughtError: () => {} },
     );

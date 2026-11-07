@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable
-from typing import assert_type, cast
+from typing import assert_type
 from uuid import uuid4
 
 import pytest
@@ -75,6 +74,16 @@ class TestRackClient:
             assert client.racks.retrieve_embedded_rack().name == "After Rename"
         finally:
             client.racks.rename(rack.key, rack.name)
+
+    def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one rack has the name"""
+        name = str(uuid4())
+        client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=rf"Expected one rack where .*{name}.*, but found 2",
+        ):
+            client.racks.retrieve(name=name)
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a rack"""
@@ -211,13 +220,33 @@ class TestRackClient:
         assert_type(res, list[sy.Rack])
         assert rack.key in {r.key for r in res}
 
-    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when singular selectors are mixed with others."""
-        retrieve = cast(Callable[..., object], client.racks.retrieve)
-        with pytest.raises(ValueError, match="cannot be combined"):
-            retrieve(name="test", limit=1)
-        with pytest.raises(ValueError, match="only one of"):
-            retrieve(key=1, name="test")
+    def test_retrieve_integrations(self, client: sy.Synnax) -> None:
+        """Should keep racks that support an integration given as a plain value."""
+        r1 = client.racks.create(racks=sy.Rack(name="a", integrations=["ni", "opc"]))
+        r2 = client.racks.create(racks=sy.Rack(name="b", integrations=["modbus"]))
+        keys = [r1.key, r2.key]
+        res = client.racks.retrieve(key=keys, integrations="ni")
+        assert [r.key for r in res] == [r1.key]
+        res = client.racks.retrieve(key=keys, integrations=["opc", "modbus"])
+        assert {r.key for r in res} == {r1.key, r2.key}
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one rack for a plain key beside other fields."""
+        rack = client.racks.create(name=str(uuid4()))
+        assert client.racks.retrieve(key=rack.key, embedded=False).key == rack.key
+        with pytest.raises(sy.NotFoundError):
+            client.racks.retrieve(key=rack.key, name="other")
+
+    def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject a plain name beside a limit, since a page could hide a
+        match."""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every rack."""
+        with pytest.raises(sy.ValidationError, match="embedded is None"):
+            client.racks.retrieve(embedded=None)  # type: ignore[call-overload]
 
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
         """Should return one rack when a key or name is given."""

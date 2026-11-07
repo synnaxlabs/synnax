@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -37,7 +37,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
-import { matches, serverComputed } from "@/arc/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -52,7 +52,10 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), cachedRequestZ]);
+const retrieveMultiParamsZ = filter.requestInputZ(
+  cachedRequestZ,
+  retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
+);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -171,6 +174,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
@@ -405,8 +409,9 @@ export class Client extends query.Retriever<
   // copy is only as fresh as the streamer. Fetches always hit the network; only the
   // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
-    const arcs = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    const { where } = singleRetrieveParamsZ.parse(q);
+    const arcs = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 

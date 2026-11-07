@@ -132,6 +132,77 @@ class TestConfigClient:
             "config_client_spec/slow (slow_2)": 12.5,
         }
 
+    def test_resources_of(self, cases_dir: Path) -> None:
+        """Should return the resources of a case, and none for a case that cannot
+        load."""
+        write_case(
+            cases_dir,
+            case="config_client_spec/held",
+            source=named_case("Held")
+            + "\n    @classmethod\n    def resources(cls) -> frozenset[str]:\n"
+            + '        return frozenset({"sim"})\n',
+        )
+        write_case(
+            cases_dir, case="config_client_spec/broken", source="raise ImportError\n"
+        )
+        client = config_client.ConfigClient(tests_dir=cases_dir)
+        held = config_client.TestDefinition(case="config_client_spec/held")
+        broken = config_client.TestDefinition(case="config_client_spec/broken")
+        assert client.resources_of(held) == frozenset({"sim"})
+        assert client.resources_of(broken) == frozenset()
+
+    def test_discovery_order(self, cases_dir: Path) -> None:
+        """Should load the found test files in name order."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        for name in ("b", "c", "a"):
+            sequence = {
+                "sequence_name": name,
+                "tests": [{"case": "config_client_spec/plain", "name": name}],
+            }
+            (cases_dir / f"{name}_tests.json").write_text(
+                json.dumps({"sequences": [sequence]})
+            )
+        sequences, _ = config_client.ConfigClient(tests_dir=cases_dir).load(
+            TargetFilter()
+        )
+        assert [s.name for s in sequences] == ["a", "b", "c"]
+
+    @pytest.mark.parametrize(("isolated", "expected"), [(True, True), (None, False)])
+    def test_isolated(
+        self, cases_dir: Path, isolated: bool | None, expected: bool
+    ) -> None:
+        """Should read whether a sequence is isolated, and default to not."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        sequence: dict[str, object] = {
+            "sequence_name": "timing",
+            "tests": [{"case": "config_client_spec/plain"}],
+        }
+        if isolated is not None:
+            sequence["isolated"] = isolated
+        sequences, _ = load(cases_dir, sequence=sequence)
+        assert [s.isolated for s in sequences] == [expected]
+
+    @pytest.mark.parametrize(("independent", "expected"), [(True, True), (None, False)])
+    def test_independent(
+        self, cases_dir: Path, independent: bool | None, expected: bool
+    ) -> None:
+        """Should read whether a sequence is independent, and default to not."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        sequence: dict[str, object] = {
+            "sequence_name": "pages",
+            "tests": [{"case": "config_client_spec/plain"}],
+        }
+        if independent is not None:
+            sequence["independent"] = independent
+        sequences, _ = load(cases_dir, sequence=sequence)
+        assert [s.independent for s in sequences] == [expected]
+
     @pytest.mark.parametrize("timeout", [None, 0, -1, "10", True, float("inf")])
     def test_invalid_timeout(self, cases_dir: Path, timeout: JsonValue) -> None:
         """Should reject a timeout that is not a finite, positive number."""
@@ -144,6 +215,26 @@ class TestConfigClient:
         }
         with pytest.raises(ValueError, match="timeout"):
             load(cases_dir, sequence=sequence)
+
+    def test_invalid_timeout_on_filtered_test(self, cases_dir: Path) -> None:
+        """Should reject a file when a test its filter skips has an invalid timeout."""
+        selected = "config_client_spec/selected"
+        write_case(cases_dir, case=selected, source=named_case("Selected"))
+        sequence = {
+            "sequence_name": "timeouts",
+            "tests": [
+                {"case": selected},
+                {"case": "config_client_spec/skipped", "timeout": 0},
+            ],
+        }
+        (cases_dir / "spec_tests.json").write_text(
+            json.dumps({"sequences": [sequence]})
+        )
+        target_filter = TargetFilter(
+            file_filter=["spec"], sequence_filter="other", case_filter=[selected]
+        )
+        with pytest.raises(ValueError, match="timeout"):
+            config_client.ConfigClient(tests_dir=cases_dir).load(target_filter)
 
     def test_sequence_not_an_object(self, cases_dir: Path) -> None:
         """Should fail on a sequence entry that is not an object."""

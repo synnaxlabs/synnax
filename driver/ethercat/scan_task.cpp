@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <ranges>
 #include <set>
 #include <string>
 #include <utility>
@@ -19,35 +18,63 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/master/master.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace driver::ethercat {
 namespace {
 /// An interface that had no slaves is probed again this many scans later.
 constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
+/// An interface with a slave whose PDO discovery failed is discovered again this many
+/// scans later.
+constexpr size_t PDO_REDISCOVERY_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
-    if (error.contains("CoE") || error.contains("mailbox"))
-        return "Check the slave's CoE mailbox and scan again. Channels can use only "
-               "the entries a scan discovers.";
     if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    return "Channels can use only the entries a scan discovers. Scan again if entries "
-           "are missing.";
+    return "Channels can use only the entries a scan discovers. The Driver tries again "
+           "while no task uses the port.";
 }
 
-/// @brief sets the variant, message, and description of status from the condition of an
-/// enabled slave on a running bus.
+bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
+    return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
+}
+
+/// @brief sets the variant, message, description, and connection of status from the
+/// condition of an enabled slave on a running bus.
 void set_live_status(const slave::Health &health, synnax::device::Status &status) {
+    status.details.connected = !health.lost;
     if (health.operational()) {
         status.variant = synnax::status::VARIANT_SUCCESS;
         status.message = "Operational";
+        return;
+    }
+    if (health.refusal) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start";
+        status.description = "It " + health.refusal->reason +
+                             ". The other devices on the network started without it. "
+                             "The Driver tries it again the next time the network "
+                             "starts.";
+        if (health.refusal->dc_sync_invalid)
+            status.description.append(" ").append(master::DC_SYNC_ADVICE);
         return;
     }
     if (health.lost) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Not responding";
         status.description = "Check the power and cabling of the device.";
+        return;
+    }
+    if (!health.dc_restore_error.empty()) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to restore the distributed clock";
+        status.description = "The device lost its clock settings, and the Driver "
+                             "could not set them again: " +
+                             health.dc_restore_error +
+                             ". The Driver keeps the device out of OP and tries "
+                             "again. If the error stays, check the power and cabling "
+                             "of the device.";
         return;
     }
     const auto state = slave::slave_state_to_string(health.state);
@@ -65,6 +92,17 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     status.description = "The Driver is returning the device to OP.";
 }
 
+/// @brief sets status to the error of saved slave properties that do not parse.
+void set_invalid_properties_status(
+    const x::errors::Error &err,
+    synnax::device::Status &status
+) {
+    status.variant = synnax::status::VARIANT_ERROR;
+    status.message = "Invalid device properties";
+    status.description = common::config_err_description(err);
+    status.details.connected = false;
+}
+
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
     auto sentence = error;
@@ -72,6 +110,15 @@ std::string pdo_error_description(const std::string &error) {
         std::toupper(static_cast<unsigned char>(sentence[0]))
     );
     return sentence + ". " + get_pdo_error_guidance(error);
+}
+
+/// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
+/// field when they do not parse.
+std::pair<slave::Properties, x::errors::Error>
+parse_properties(const x::json::json &json) {
+    auto parser = x::json::Parser(json);
+    auto props = slave::Properties::parse(parser);
+    return {props, parser.error()};
 }
 }
 
@@ -105,21 +152,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
     if (this->pool == nullptr) return {devices, x::errors::NIL};
 
-    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
-        for (const auto &dev: *scan_ctx.devices | std::views::values) {
-            auto props_parser = x::json::Parser(dev.properties);
-            auto props = slave::Properties::parse(props_parser);
-            if (props_parser.error() || props.enabled) continue;
-
-            auto [engine, err] = this->pool->acquire(props.network);
-            if (err) continue;
-
-            LOG(INFO) << SCAN_LOG_PREFIX << "initializing slave " << props.position
-                      << " on " << props.network << " as disabled";
-            engine->set_slave_enabled(props.position, props.enabled);
-        }
-    }
-
     std::set<std::string> failures;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
@@ -129,7 +161,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (const auto it = this->next_probes.find(key);
             it != this->next_probes.end() && scan_ctx.count < it->second)
             continue;
-        auto [slaves, err] = this->pool->discover_slaves(key);
+        const auto due = this->next_rediscoveries.find(key);
+        const bool scheduled = due != this->next_rediscoveries.end();
+        const bool rediscover = scheduled && scan_ctx.count >= due->second;
+        auto [slaves, err] = rediscover ? this->pool->rediscover_slaves(key)
+                                        : this->pool->discover_slaves(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
@@ -143,8 +179,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
-        for (const auto &slave: slaves)
-            devices.push_back(this->create_slave_device(slave, health, key, scan_ctx));
+        bool rediscovery_needed = false;
+        for (const auto &slave: slaves) {
+            auto dev = this->create_slave_device(slave, health, key, scan_ctx);
+            rediscovery_needed |= pdo_discovery_failed(slave) &&
+                                  dev.properties.at("enabled").get<bool>();
+            devices.push_back(std::move(dev));
+        }
+        if (!rediscovery_needed)
+            this->next_rediscoveries.erase(key);
+        else if (!scheduled || rediscover)
+            this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
     }
 
     if (failures.empty()) return {devices, x::errors::NIL};
@@ -182,7 +227,8 @@ synnax::device::Device Scanner::create_slave_device(
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
-    const bool is_enabled = json_props["enabled"].get<bool>();
+    const auto [saved, saved_err] = parse_properties(json_props);
+    const bool is_enabled = saved.enabled;
 
     synnax::device::Device dev;
     dev.key = key;
@@ -197,19 +243,21 @@ synnax::device::Device Scanner::create_slave_device(
         .key = synnax::device::status_key(dev),
         .name = dev.name,
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .device = dev.key, .connected = is_enabled},
     };
     const auto live = std::ranges::find(
         health,
         props.position,
         &slave::Health::position
     );
-    if (!is_enabled) {
+    if (saved_err)
+        set_invalid_properties_status(saved_err, status);
+    else if (!is_enabled) {
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
+    else if (!pdo_discovery_failed(slave)) {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
             return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
                 return !p.is_padding();
@@ -256,17 +304,15 @@ std::string Scanner::generate_slave_key(
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {
-    auto props_parser = x::json::Parser(dev.properties);
-    auto props = slave::Properties::parse(props_parser);
-    if (props_parser.error()) return;
-
-    auto [engine, err] = this->pool->acquire(props.network);
-    if (err) return;
-
-    LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
-              << props.network << " enabled=" << (props.enabled ? "true" : "false");
-    engine->set_slave_enabled(props.position, props.enabled);
-
+    if (dev.model != SLAVE_DEVICE_MODEL) return;
+    const auto [props, err] = parse_properties(dev.properties);
+    const auto health = this->pool->health(props.network);
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
+    const bool connected = props.enabled && (live == health.end() || !live->lost);
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
@@ -274,8 +320,9 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                                  : synnax::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = dev.rack, .device = dev.key},
+        .details = {.rack = dev.rack, .device = dev.key, .connected = connected},
     };
+    if (err) set_invalid_properties_status(err, status);
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
                      << "failed to update device status: " << status_err;

@@ -425,6 +425,30 @@ export const createStatusConsoleWrapper = async ({
   return { wrapper: Wrapper, store };
 };
 
+export interface StatusHarness {
+  store: TestStore;
+  /** Changes the connection status the Synnax context reports. */
+  setStatus: (status?: connection.Status) => void;
+}
+
+/**
+ * Renders the UI the way {@link createStatusConsoleWrapper} wraps it, and lets the spec
+ * change the status afterwards.
+ */
+export const renderWithStatus = async (
+  ui: ReactElement,
+  { client, status, ...args }: CreateStatusConsoleWrapperParams,
+): Promise<StatusHarness> => {
+  const { wrapper, store } = await createConsoleWrapper({ ...args, client: null });
+  const withStatus = (current?: connection.Status): ReactElement => (
+    <Synnax.TestProvider client={client} status={current}>
+      {ui}
+    </Synnax.TestProvider>
+  );
+  const { rerender } = render(withStatus(status), { wrapper });
+  return { store, setStatus: (next) => rerender(withStatus(next)) };
+};
+
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
   const connParams = Session.Core.useSelectConnParams();
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;

@@ -19,7 +19,7 @@ import {
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import {
@@ -246,6 +246,17 @@ describe("Channel", () => {
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
+    test("reject a condition whose operator is undefined", async () => {
+      const name: string | undefined = undefined;
+      await expect(
+        client.channels.retrieve({ where: { name: { eq: name } } }),
+      ).rejects.toThrow(
+        new PathError(
+          ["where", "name"],
+          new ValidationError("no operator set: validation error"),
+        ),
+      );
+    });
     test("retrieve by name", async () => {
       const name = id.create();
       await client.channels.create({
@@ -288,37 +299,27 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
-    test("retrieve by a name pattern", async () => {
+    test("retrieve by a flat filter", async () => {
       const prefix = `qry_${id.create()}`;
-      const [a, b] = await client.channels.create([
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve({
+        name: { regex: `^${prefix}` },
+        dataType: DataType.FLOAT32,
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+    });
+    test("match each name in a list exactly, never as a pattern", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a] = await client.channels.create([
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
         { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
-      const res = await client.channels.retrieve([`${prefix}_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
-    });
-    test("retrieve by a literal name and a name pattern", async () => {
-      const prefix = `qry_${id.create()}`;
-      const [literal, a, b] = await client.channels.create([
-        { name: `${prefix}_literal`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_p_a`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_p_b`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_other`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
-      const res = await client.channels.retrieve([literal.name, `${prefix}_p_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual(
-        [literal.key, a.key, b.key].sort(),
-      );
-    });
-    test("retrieve a cached name and a pattern that matches it once", async () => {
-      const prefix = `qry_${id.create()}`;
-      const [a, b] = await client.channels.create([
-        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
-      await client.channels.retrieve(a.name);
       const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+      expect(res.map((ch) => ch.key)).toEqual([a.key]);
     });
     test("retrieve virtual channels without calculated channels", async () => {
       const prefix = `qry_${id.create()}`;
@@ -656,6 +657,16 @@ describe("cached reads", () => {
       expect(res.map((c) => c.key)).toEqual([ch.key]);
     }, 30000);
 
+    it("serves a single literal name from the record store", async () => {
+      const { proxy, client: local } = await createProxiedTestClient({
+        retry: FAST_RETRY,
+        onRetry: quiet,
+      });
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      expect((await local.channels.retrieve(ch.name)).key).toEqual(ch.key);
+    }, 30000);
+
     it("fetches only the names the store cannot resolve", async () => {
       // Created before the local client exists, so neither its cache nor its change
       // stream ever carries it. Severing proves the fetch went out for this name and
@@ -678,18 +689,6 @@ describe("cached reads", () => {
             .sort(),
         )
         .toEqual([known.key, unknown.key].sort());
-    }, 30000);
-
-    it("goes to the cluster for a name holding regex characters", async () => {
-      const { proxy, client: local } = await createProxiedTestClient({
-        retry: FAST_RETRY,
-        onRetry: quiet,
-      });
-      const ch = await createVirtual(local);
-      await proxy.sever();
-      // The stored channel matches the pattern, but a pattern can match
-      // records the store has never seen, so it cannot be served locally.
-      await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
     }, 30000);
 
     it("goes to the cluster when a name matches two stored channels", async () => {
@@ -793,6 +792,27 @@ describe("cached reads", () => {
         expect(last.corpse.name).toEqual(ch.name);
         await expect(client.channels.retrieve(ch.key)).rejects.toThrow("deleted");
       } finally {
+        off();
+      }
+    });
+
+    it("should admit a renamed channel to a name query locally", async () => {
+      const ch = await createVirtual();
+      const name = `qry_wanted_${id.create()}`;
+      const params = { where: { name: { in: [name] } } };
+      const off = client.channels.onChange(params, vi.fn());
+      const send = spyOnSend(client);
+      try {
+        expect(await client.channels.retrieve(params)).toEqual([]);
+        send.mockClear();
+        await client.channels.rename(ch.key, name);
+        expect(expectLive(client.channels.getCached(params)).map((c) => c.key)).toEqual(
+          [ch.key],
+        );
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+      } finally {
+        send.mockRestore();
         off();
       }
     });

@@ -21,11 +21,12 @@ from synnax.device.types_gen import (
     RetrieveRequest,
     RetrieveResponse,
     Where,
+    WhereInput,
 )
-from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
+from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
-from x.lists import all_none, normalize, override
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -137,19 +138,41 @@ class Client:
     def retrieve(
         self,
         *,
-        key: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[False] = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: bool = ...,
+        ignore_not_found: Literal[False] = ...,
     ) -> Device: ...
 
     @overload
     def retrieve(
         self,
         *,
-        key: str,
-        include_status: bool = False,
-        include_parent: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: bool = ...,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -157,19 +180,41 @@ class Client:
     def retrieve(
         self,
         *,
+        key: filter.SetInput[Key] = ...,
         name: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[False] = False,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: bool = ...,
+        ignore_not_found: Literal[False] = ...,
     ) -> Device: ...
 
     @overload
     def retrieve(
         self,
         *,
+        key: filter.SetInput[Key] = ...,
         name: str,
-        include_status: bool = False,
-        include_parent: bool = False,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: bool = ...,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -177,19 +222,53 @@ class Client:
     def retrieve(
         self,
         *,
-        make: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[False] = False,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[str] | None = ...,
+        names: list[str] | None = ...,
+        makes: list[str] | None = ...,
+        models: list[str] | None = ...,
+        locations: list[str] | None = ...,
+        racks: list[int] | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: Literal[True],
+        ignore_not_found: Literal[False] = ...,
     ) -> Device: ...
 
     @overload
     def retrieve(
         self,
         *,
-        make: str,
-        include_status: bool = False,
-        include_parent: bool = False,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[str] | None = ...,
+        names: list[str] | None = ...,
+        makes: list[str] | None = ...,
+        models: list[str] | None = ...,
+        locations: list[str] | None = ...,
+        racks: list[int] | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: Literal[True],
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -197,68 +276,33 @@ class Client:
     def retrieve(
         self,
         *,
-        model: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[False] = False,
-    ) -> Device: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        model: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[True],
-    ) -> Device | None: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        location: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[False] = False,
-    ) -> Device: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        location: str,
-        include_status: bool = False,
-        include_parent: bool = False,
-        ignore_not_found: Literal[True],
-    ) -> Device | None: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        where: Where | None = None,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
-        makes: list[str] | None = None,
-        models: list[str] | None = None,
-        locations: list[str] | None = None,
-        racks: list[int] | None = None,
-        search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
-        include_status: bool = False,
-        include_parent: bool = False,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        make: filter.StringInput = ...,
+        model: filter.StringInput = ...,
+        location: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[str] | None = ...,
+        names: list[str] | None = ...,
+        makes: list[str] | None = ...,
+        models: list[str] | None = ...,
+        locations: list[str] | None = ...,
+        racks: list[int] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_status: bool = ...,
+        include_parent: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Device]: ...
 
     def retrieve(
         self,
         *,
-        key: str | None = None,
-        name: str | None = None,
-        make: str | None = None,
-        model: str | None = None,
-        location: str | None = None,
         where: Where | None = None,
         keys: list[str] | None = None,
         names: list[str] | None = None,
@@ -271,44 +315,49 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
+        one: bool = False,
         ignore_not_found: bool = False,
+        **fields: Any,
     ) -> list[Device] | Device | None:
-        """Retrieves devices matching the given filters. Returns one device when a key,
-        name, make, model, or location is given, and a list otherwise. A filter left as
-        None does not filter.
+        """Retrieves devices from the Core. With no arguments, retrieves every device.
 
-        :param where: Keeps devices that match this filter tree.
-        :param racks: Only return devices on the racks with these keys.
+        Each filter field takes a value, a list of values, or an operator, and a device
+        must match every field. A plain ``key`` or ``name`` returns one device.
+
+        :param key: Keeps devices with this key.
+        :param name: Keeps devices with this name.
+        :param make: Keeps devices with this make.
+        :param model: Keeps devices with this model.
+        :param location: Keeps devices at this location.
+        :param rack: Keeps devices on this rack.
+        :param and_: Keeps devices that match every filter in the list.
+        :param or_: Keeps devices that match any filter in the list.
+        :param not_: Keeps devices that do not match the filter.
+        :param where: A filter tree that the devices must also match.
+        :param keys: Keeps devices with one of these keys.
+        :param names: Keeps devices with one of these names.
+        :param makes: Keeps devices with one of these makes.
+        :param models: Keeps devices with one of these models.
+        :param locations: Keeps devices at one of these locations.
+        :param racks: Keeps devices on one of these racks.
         :param search_term: A fuzzy search term matched against device names.
-        :param limit: The maximum number of devices to return.
+        :param limit: The maximum number of devices to retrieve.
         :param offset: The number of devices to skip.
         :param include_status: Whether to populate each device's status.
         :param include_parent: Whether to populate each device's parent ontology ID.
-        :param ignore_not_found: Whether to return None instead of raising when a
-            single device is requested and none matches.
-        :raises ValueError: If two singular selectors are given, or one is
-            combined with a list filter.
-        :raises NotFoundError: If a single device is requested and none matches.
+        :param one: Returns one device for any filter.
+        :param ignore_not_found: Returns None instead of raising when one device is
+            wanted and none matches.
+        :returns: One device for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of devices. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one device is wanted, none matches, and
+            ``ignore_not_found`` is not set.
+        :raises MultipleFoundError: If one device is wanted and more than one matches,
+            even when ``ignore_not_found`` is set.
+        :raises ValidationError: If a filter field is None, or if one device is wanted
+            beside a limit or an offset.
         """
-        is_single = not all_none(key, name, make, model, location)
-        if sum(v is not None for v in (key, name, make, model, location)) > 1:
-            raise ValueError(
-                "only one of key, name, make, model, and location can be given"
-            )
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, makes, models, locations, racks, limit)
-        ):
-            raise ValueError(
-                "key, name, make, model, and location cannot be combined with list "
-                "filters; use their plural forms instead"
-            )
-        keys = override(key, keys)
-        names = override(name, names)
-        makes = override(make, makes)
-        models = override(model, models)
-        locations = override(location, locations)
+        single = returns_one(fields, one, limit, offset)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -318,7 +367,7 @@ class Client:
             rack=None if racks is None else filter.Set[rack_.Key](in_=racks),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
             offset=offset,
@@ -326,10 +375,8 @@ class Client:
             include_parent=include_parent,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)
-        if is_single:
-            if len(res.devices) > 0:
-                return res.devices[0]
-            if ignore_not_found:
-                return None
-            raise NotFoundError("Device not found")
-        return res.devices
+        if not single:
+            return res.devices
+        if ignore_not_found:
+            return sole_or_none("device", req, res.devices)
+        return sole("device", req, res.devices)

@@ -164,6 +164,28 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.line_plots.retrieve(key=uuid4())
 
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.line_plots.create(project.key, name="A")
+        res = client.line_plots.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one line plot for a plain key beside other fields."""
+        a = client.line_plots.create(project.key, name="A")
+        assert client.line_plots.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no line plot where .+"):
+            client.line_plots.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the line plots that match any filter in or_."""
+        a = client.line_plots.create(project.key, name="A")
+        b = client.line_plots.create(project.key, name="B")
+        res = client.line_plots.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a line plot."""
         p = client.line_plots.create(project.key, name="Before")
