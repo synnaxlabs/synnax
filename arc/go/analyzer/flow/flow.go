@@ -654,6 +654,8 @@ func analyzeOutputRoutingTable(
 			continue
 		}
 
+		// SY-5483: the `: param` suffix is unsupported. The lowering never wires
+		// the func after the table, so these checks only shape the diagnostics.
 		var targetParamName string
 		if entry.IDENTIFIER() != nil {
 			targetParamName = entry.IDENTIFIER().GetText()
@@ -683,9 +685,7 @@ func analyzeOutputRoutingTable(
 		}
 
 		// A routing key only gates its entry, so a bare target would never
-		// receive a value. The entry must define its own source. Output types
-		// stay unconstrained on purpose: a future syntax can still opt into
-		// passing the routed value along.
+		// receive a value. The entry must define its own source.
 		if len(flowNodes) == 1 && targetParamName == "" &&
 			!isInlineBody(flowNodes[0]) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -765,6 +765,8 @@ func checkEntryHeadParamMapping(
 	}
 }
 
+// SY-5483: input tables are unsupported. The lowering rejects every one, so this
+// only shapes the diagnostics.
 func analyzeInputRoutingTable(
 	ctx context.Context[parser.IRoutingTableContext],
 	nodes []parser.IFlowNodeContext,

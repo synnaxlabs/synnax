@@ -34,7 +34,7 @@ import {
   type StartOffset,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -193,7 +193,7 @@ const RecordDetails = ({ path }: Task.Views.GroupProps<ReadRecord>) => (
 const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
-  const { channel: key, dataType, pointer } = PForm.useFieldValue(path);
+  const { channel: key, dataType, pointer, disabled } = PForm.useFieldValue(path);
   const recordKey = PForm.useFieldValue(root.config.records[groupKey].recordKey);
   const dev = useFromConfig();
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
@@ -222,6 +222,7 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           defaultName={
             dev == null ? "" : defaultChannelName(dev.name, recordKey, pointer)
           }
+          skipped={disabled}
         />
       </PForm.Section>
       {enumerable && <Task.Payload.EnumMappingSection path={path.enumValues} />}
@@ -330,9 +331,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "Kafka read task",
+  label: "Read",
   icon: <Icon.Logo.Kafka />,
   useOnSelect: useCreateRead,
-});
+};

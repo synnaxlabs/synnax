@@ -79,11 +79,18 @@ var _ = Describe("Tasks", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
-		a := arc.Arc{Key: uuid.New(), Name: "arc"}
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		a := arc.Arc{
+			Variant: arc.AutomationArc{Base: arc.Base{
+				Key:    uuid.New(),
+				Name:   "arc",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			}},
+		}
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
 			To(Succeed())
-		arcKey = a.Key
+		arcKey = a.Base().Key
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,

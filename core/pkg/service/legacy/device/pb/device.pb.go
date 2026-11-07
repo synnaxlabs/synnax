@@ -19,6 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	pb1 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -231,11 +232,498 @@ func (x *Device) GetParent() string {
 	return ""
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type StringSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *StringList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringSet) Reset() {
+	*x = StringSet{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringSet) ProtoMessage() {}
+
+func (x *StringSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringSet.ProtoReflect.Descriptor instead.
+func (*StringSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *StringSet) GetEq() string {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return ""
+}
+
+func (x *StringSet) GetIn() *StringList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type RackKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RackKeyList) Reset() {
+	*x = RackKeyList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RackKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RackKeyList) ProtoMessage() {}
+
+func (x *RackKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RackKeyList.ProtoReflect.Descriptor instead.
+func (*RackKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RackKeyList) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type RackKeySet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RackKeySet) Reset() {
+	*x = RackKeySet{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RackKeySet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RackKeySet) ProtoMessage() {}
+
+func (x *RackKeySet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RackKeySet.ProtoReflect.Descriptor instead.
+func (*RackKeySet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RackKeySet) GetEq() uint32 {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return 0
+}
+
+func (x *RackKeySet) GetIn() *RackKeyList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type GroupKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GroupKeyList) Reset() {
+	*x = GroupKeyList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GroupKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GroupKeyList) ProtoMessage() {}
+
+func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GroupKeyList.ProtoReflect.Descriptor instead.
+func (*GroupKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GroupKeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type KeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyList) Reset() {
+	*x = KeyList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyList) ProtoMessage() {}
+
+func (x *KeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
+func (*KeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *KeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// Where is a filter that selects devices.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *StringSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// name selects by name.
+	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// make selects by make.
+	Make *pb1.String `protobuf:"bytes,6,opt,name=make,proto3,oneof" json:"make,omitempty"`
+	// model selects by model.
+	Model *pb1.String `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	// location selects by location.
+	Location *pb1.String `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	// rack selects by rack.
+	Rack *RackKeySet `protobuf:"bytes,9,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	// groups matches the devices in any of the given groups.
+	Groups *GroupKeyList `protobuf:"bytes,10,opt,name=groups,proto3" json:"groups,omitempty"`
+	// grouped matches the devices in a group, or in no group when false.
+	Grouped *bool `protobuf:"varint,11,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
+	// parents matches the devices that any of the given devices hold.
+	Parents *KeyList `protobuf:"bytes,12,opt,name=parents,proto3" json:"parents,omitempty"`
+	// nested matches the devices that another device holds, or the devices that sit
+	// directly on their rack when false.
+	Nested        *bool `protobuf:"varint,13,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *StringSet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetName() *pb1.String {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
+func (x *Where) GetMake() *pb1.String {
+	if x != nil {
+		return x.Make
+	}
+	return nil
+}
+
+func (x *Where) GetModel() *pb1.String {
+	if x != nil {
+		return x.Model
+	}
+	return nil
+}
+
+func (x *Where) GetLocation() *pb1.String {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *Where) GetRack() *RackKeySet {
+	if x != nil {
+		return x.Rack
+	}
+	return nil
+}
+
+func (x *Where) GetGroups() *GroupKeyList {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+func (x *Where) GetGrouped() bool {
+	if x != nil && x.Grouped != nil {
+		return *x.Grouped
+	}
+	return false
+}
+
+func (x *Where) GetParents() *KeyList {
+	if x != nil {
+		return x.Parents
+	}
+	return nil
+}
+
+func (x *Where) GetNested() bool {
+	if x != nil && x.Nested != nil {
+		return *x.Nested
+	}
+	return false
+}
+
 var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"^\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"^\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x120\n" +
 	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
@@ -259,7 +747,52 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\x06parent\x18\v \x01(\tH\x02R\x06parent\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
 	"\x06_groupB\t\n" +
-	"\a_parentB\xc5\x01\n" +
+	"\a_parent\"=\n" +
+	"\tWhereList\x120\n" +
+	"\x06values\x18\x01 \x03(\v2\x18.service.device.pb.WhereR\x06values\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"V\n" +
+	"\tStringSet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12-\n" +
+	"\x02in\x18\x02 \x01(\v2\x1d.service.device.pb.StringListR\x02inB\x05\n" +
+	"\x03_eq\"%\n" +
+	"\vRackKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"X\n" +
+	"\n" +
+	"RackKeySet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12.\n" +
+	"\x02in\x18\x02 \x01(\v2\x1e.service.device.pb.RackKeyListR\x02inB\x05\n" +
+	"\x03_eq\"&\n" +
+	"\fGroupKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"!\n" +
+	"\aKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xc9\x05\n" +
+	"\x05Where\x12.\n" +
+	"\x03and\x18\x01 \x01(\v2\x1c.service.device.pb.WhereListR\x03and\x12,\n" +
+	"\x02or\x18\x02 \x01(\v2\x1c.service.device.pb.WhereListR\x02or\x12/\n" +
+	"\x03not\x18\x03 \x01(\v2\x18.service.device.pb.WhereH\x00R\x03not\x88\x01\x01\x123\n" +
+	"\x03key\x18\x04 \x01(\v2\x1c.service.device.pb.StringSetH\x01R\x03key\x88\x01\x01\x12,\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12,\n" +
+	"\x04make\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04make\x88\x01\x01\x12.\n" +
+	"\x05model\x18\a \x01(\v2\x13.x.filter.pb.StringH\x04R\x05model\x88\x01\x01\x124\n" +
+	"\blocation\x18\b \x01(\v2\x13.x.filter.pb.StringH\x05R\blocation\x88\x01\x01\x126\n" +
+	"\x04rack\x18\t \x01(\v2\x1d.service.device.pb.RackKeySetH\x06R\x04rack\x88\x01\x01\x127\n" +
+	"\x06groups\x18\n" +
+	" \x01(\v2\x1f.service.device.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\v \x01(\bH\aR\agrouped\x88\x01\x01\x124\n" +
+	"\aparents\x18\f \x01(\v2\x1a.service.device.pb.KeyListR\aparents\x12\x1b\n" +
+	"\x06nested\x18\r \x01(\bH\bR\x06nested\x88\x01\x01B\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\a\n" +
+	"\x05_nameB\a\n" +
+	"\x05_makeB\b\n" +
+	"\x06_modelB\v\n" +
+	"\t_locationB\a\n" +
+	"\x05_rackB\n" +
+	"\n" +
+	"\b_groupedB\t\n" +
+	"\a_nestedB\xc5\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
 var (
@@ -274,22 +807,45 @@ func file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescData
 }
 
-var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
 	(*Device)(nil),          // 1: service.device.pb.Device
-	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
-	(*pb.Status)(nil),       // 3: service.status.pb.Status
+	(*WhereList)(nil),       // 2: service.device.pb.WhereList
+	(*StringList)(nil),      // 3: service.device.pb.StringList
+	(*StringSet)(nil),       // 4: service.device.pb.StringSet
+	(*RackKeyList)(nil),     // 5: service.device.pb.RackKeyList
+	(*RackKeySet)(nil),      // 6: service.device.pb.RackKeySet
+	(*GroupKeyList)(nil),    // 7: service.device.pb.GroupKeyList
+	(*KeyList)(nil),         // 8: service.device.pb.KeyList
+	(*Where)(nil),           // 9: service.device.pb.Where
+	(*structpb.Struct)(nil), // 10: google.protobuf.Struct
+	(*pb.Status)(nil),       // 11: service.status.pb.Status
+	(*pb1.String)(nil),      // 12: x.filter.pb.String
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
-	2, // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	2, // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	3, // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	10, // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	10, // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	11, // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
+	9,  // 3: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
+	3,  // 4: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
+	5,  // 5: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
+	2,  // 6: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
+	2,  // 7: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
+	9,  // 8: service.device.pb.Where.not:type_name -> service.device.pb.Where
+	4,  // 9: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
+	12, // 10: service.device.pb.Where.name:type_name -> x.filter.pb.String
+	12, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
+	12, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
+	12, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
+	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
+	7,  // 15: service.device.pb.Where.groups:type_name -> service.device.pb.GroupKeyList
+	8,  // 16: service.device.pb.Where.parents:type_name -> service.device.pb.KeyList
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
@@ -299,13 +855,16 @@ func file_core_pkg_service_legacy_device_pb_device_proto_init() {
 	}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc), len(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

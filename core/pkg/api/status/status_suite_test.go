@@ -20,11 +20,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -46,6 +50,9 @@ var (
 	apiSvc    *apistatus.Service
 	author    user.User
 	userSvc   *user.Service
+	rackSvc   *rack.Service
+	devices   *gorp.Table[device.Key, device.Device]
+	tasks     *gorp.Table[task.Key, task.Task]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,21 +62,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g,
+		DB: db, Ontology: otg, Group: g, Password: passwordSvc,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db, Ontology: otg, Group: g,
 	}))
+	// A status owner must exist, so the owner tables must be open.
+	devices = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[device.Key, device.Device]{
+		DB: db, Name: string(resource.TypeDevice),
+	}))
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB: db, Name: string(resource.TypeTask),
+	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
-	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+	svcs := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:       db,
 		Ontology: otg,
 		User:     userSvc,
 		Status:   statusSvc,
-	})).RBAC
+	}))
+	rbacSvc, rackSvc = svcs.RBAC, svcs.Rack
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
 		RBAC:   rbacSvc,

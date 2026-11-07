@@ -627,7 +627,7 @@ describe("AnalogRead ports", () => {
       "ai10",
       "free",
       false,
-      "ai10 is free",
+      "Add a channel on ai10",
     ],
     [
       "mark a differential pair as a conflict when another channel holds a port",
@@ -1016,7 +1016,7 @@ describe("AnalogRead disabled channels", () => {
 });
 
 describe("AnalogRead channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),

@@ -9,7 +9,7 @@
 
 import { log as clientLog } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, TimeStamp } from "@synnaxlabs/x";
+import { box, color, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
@@ -32,6 +32,19 @@ const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   timestamp: TimeStamp.milliseconds(i * 1000),
   value: String(i),
 });
+
+const SCROLLBAR_WIDTH = 6;
+
+// The thumb is the only rounded rect drawn at the scrollbar width; selection bands are
+// unrounded and span the full region.
+const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
+  const call = recorder.lower2d.calls.findLast(
+    ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
+  );
+  if (call == null) return null;
+  const [x, y, width, height] = call.args as number[];
+  return { x, y, width, height };
+};
 
 let testIdCounter = 0;
 
@@ -140,6 +153,36 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should be blank only while loading with no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.blank).toBe(true);
+      source.push(makeEntry(0));
+      source.notify();
+      expect(log.state.blank).toBe(false);
+      expect(log.state.loading).toBe(true);
+    });
+
+    it("should set loading while the source loads", () => {
+      const { log, source } = setup([]);
+      expect(log.state.loading).toBe(false);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      source.status = telem.SUCCESS_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(false);
+    });
+
+    it("should set loading while it holds entries", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      expect(log.state.empty).toBe(false);
+    });
+
     it("should set empty to true when the source loads no entries", () => {
       const { log, source } = setup([]);
       source.status = telem.LOADING_STATUS;
@@ -154,7 +197,7 @@ describe("log/aether/Log", () => {
     it("should initialize scrollState with zero values", () => {
       const { log } = setup();
       expect(log.scrollState.offset).toBe(0);
-      expect(log.scrollState.offsetRef).toBe(0);
+      expect(log.scrollState.tail).toBe(0);
       expect(log.scrollState.scrollRef).toBe(0);
     });
 
@@ -179,7 +222,7 @@ describe("log/aether/Log", () => {
       });
 
       expect(log.scrollState.offset).toBe(entries.length);
-      expect(log.scrollState.offsetRef).toBe(entries.length);
+      expect(log.scrollState.tail).toBe(0);
       expect(log.scrollState.scrollRef).toBe(100);
     });
 
@@ -190,8 +233,9 @@ describe("log/aether/Log", () => {
       const { log } = setup(entries);
       expect(log.scrollState).toEqual({
         offset: 0,
-        offsetRef: 0,
+        tail: 0,
         scrollRef: 0,
+        moved: 0,
         awayFromEnd: false,
       });
     });
@@ -225,6 +269,32 @@ describe("log/aether/Log", () => {
       expect(log.state.scrolling).toBe(true);
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       expect(log.state.scrolling).toBe(false);
+    });
+
+    it("should resume the source when it resumes on its own", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(source.resumeCalls).toBe(0);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(source.resumeCalls).toBeGreaterThan(0);
+    });
+
+    it("should clear the loading state of a read that resuming cancels", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      const { status } = source;
+      source.status = { ...status, variant: "loading" };
+      source.resume = () => {
+        source.status = status;
+      };
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.loading).toBe(false);
     });
 
     it("should stamp resumedAt only when it resumes on its own", () => {
@@ -385,6 +455,15 @@ describe("log/aether/Log", () => {
       source.push(makeEntry(1));
       source.notify();
       expect(recorder.loopCalls.length).toBeGreaterThan(before);
+    });
+
+    // A paused log whose entries all fit clamps its wheel position on every update.
+    it("should request a render to erase a paused log when it hides", () => {
+      const { h, recorder } = setup([makeEntry(0)]);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      recorder.clear();
+      h.setState((s) => ({ ...s, visible: false }));
+      expect(recorder.loopCalls).toHaveLength(1);
     });
   });
 
@@ -652,6 +731,64 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("older entries", () => {
+    const pause = (wheelPos: number) => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos, scrolling: true });
+      return source;
+    };
+
+    it("should not read older entries while the view is far from the oldest", () => {
+      expect(pause(0).loadOlderCalls).toBe(0);
+    });
+
+    it("should read older entries when the paused view nears the oldest", () => {
+      expect(pause(20_000).loadOlderCalls).toBeGreaterThan(0);
+    });
+
+    it("should read newer entries when the paused view nears the newest", () => {
+      expect(pause(0).loadNewerCalls).toBeGreaterThan(0);
+    });
+
+    it("should not read newer entries after the view moves far from the newest", () => {
+      expect(pause(20_000).loadNewerCalls).toBe(1);
+    });
+
+    it("should stay paused at the newest entry of a source that is not live", () => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      source.live = false;
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 200, scrolling: true });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should resume the source when the log leaves its paused view", () => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      expect(source.resumeCalls).toBe(0);
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      expect(source.resumeCalls).toBe(1);
+    });
+
+    it("should not read older entries while live", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { source } = setup(entries);
+      source.notify();
+      expect(source.loadOlderCalls).toBe(0);
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);
@@ -700,7 +837,7 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
       const { log } = setup(entries);
       log.render();
-      const expectedStart = Math.max(0, entries.length - log.visibleLineCount);
+      const expectedStart = entries.length - log.visibleLineCount + 1;
       expect(log.state.visibleStart).toBe(expectedStart);
     });
 
@@ -713,6 +850,24 @@ describe("log/aether/Log", () => {
   });
 
   describe("render with scrollback", () => {
+    it("should render a paused log whose new source has fewer entries", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, h, updateState } = setup(entries);
+      updateState({ empty: false, wheelPos: 0 });
+      updateState({ empty: false, wheelPos: 0, scrolling: true });
+      const testId = `log-test-${++testIdCounter}`;
+      const source = new MockLogSource();
+      source.push(makeEntry(0), makeEntry(1));
+      registerMockLogSource(testId, source);
+      h.setState(() =>
+        logStateZ.parse(
+          baseInput(testId, REGION_500, { empty: false, wheelPos: 0, scrolling: true }),
+        ),
+      );
+      expect(log.render()).toBeTypeOf("function");
+      expect(log.state.rowEntries).toEqual([0, 0, 1]);
+    });
+
     it("should render the correct slice when scrolled back", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
@@ -776,7 +931,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toMatch(/^\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+      expect(log.state.selectedText).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
     it("should apply precision formatting when channelConfig has precision", () => {
@@ -1018,6 +1173,234 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("time-based scrollbar", () => {
+    const paused = (wheelPos: number, region: box.Box = REGION_500) => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, source, updateState } = setup(entries, region);
+      source.timeRange = new TimeRange(
+        TimeStamp.milliseconds(-1_000_000),
+        entries[199].timestamp,
+      );
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      if (wheelPos !== 0) updateState({ scrolling: true, empty: false, wheelPos });
+      recorder.clear();
+      log.render();
+      return findThumb(recorder);
+    };
+
+    it("should pin the thumb to the bottom at the newest time", () => {
+      const thumb = paused(0);
+      assert(thumb != null);
+      expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_500), 0);
+    });
+
+    it("should keep the thumb inside a track shorter than its minimum height", () => {
+      const region = box.construct({ x: 0, y: 0 }, { width: 400, height: 30 });
+      const thumb = paused(0, region);
+      assert(thumb != null);
+      expect(thumb.y).toBeGreaterThanOrEqual(0);
+      expect(thumb.height).toBeLessThanOrEqual(30);
+    });
+
+    it("should keep the thumb when the view spans the times but hides lines", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => ({
+        ...makeEntry(i),
+        timestamp: TimeStamp.milliseconds(i === 199 ? 2_000 : 1_000),
+      }));
+      const { log, recorder, source, updateState } = setup(entries);
+      source.timeRange = new TimeRange(entries[0].timestamp, entries[199].timestamp);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      recorder.clear();
+      log.render();
+      expect(findThumb(recorder)).not.toBeNull();
+    });
+
+    it("should sit by time, not by the lines held", () => {
+      // The oldest entry held is most of the way down the stored times.
+      const thumb = paused(100_000);
+      assert(thumb != null);
+      expect(thumb.y).toBeGreaterThan(box.height(REGION_500) * 0.75);
+    });
+  });
+
+  describe("wide characters", () => {
+    const rowsOf = (value: string): number => {
+      const { log } = setup([{ ...makeEntry(0), value }]);
+      log.render();
+      return log.state.rowEntries.length;
+    };
+
+    it("should keep an empty value at every width", () => {
+      for (let width = 20; width <= 160; width += 2) {
+        const region = box.construct({ x: 0, y: 0 }, { width, height: 500 });
+        const { log } = setup([{ ...makeEntry(0), value: "" }], region);
+        log.render();
+        expect(log.state.rowEntries).toContain(0);
+      }
+    });
+
+    it("should give a wide character two columns", () => {
+      const ascii = rowsOf("a".repeat(2_000));
+      const wide = rowsOf("日".repeat(1_000));
+      expect(Math.abs(wide - ascii)).toBeLessThanOrEqual(1);
+    });
+
+    it("should keep every character of a wide value", () => {
+      const value = "日本語a".repeat(60);
+      const { log, recorder } = setup([{ ...makeEntry(0), value }], REGION_500);
+      recorder.clear();
+      log.render();
+      const drawn = recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]))
+        .filter((text) => /[日本語]/.test(text));
+      expect(drawn.length).toBeGreaterThan(1);
+      expect(drawn.join("")).toBe(value);
+    });
+  });
+
+  describe("scrolling through a wrapped value", () => {
+    const LONG = Array.from({ length: 2_000 }, (_, i) => `w${i}`).join(" ");
+    const pausedRows = (wheelPos: number) => {
+      const entries = [makeEntry(0), { ...makeEntry(1), value: LONG }, makeEntry(2)];
+      const { log, recorder, updateState } = setup(entries);
+      updateState({ empty: false, wheelPos: 0 });
+      updateState({ empty: false, wheelPos: 0, scrolling: true });
+      for (let wheel = 0; wheel <= wheelPos; wheel += log.lineHeight)
+        updateState({ empty: false, wheelPos: wheel, scrolling: true });
+      recorder.clear();
+      log.render();
+      return {
+        log,
+        recorder,
+        updateState,
+        texts: recorder.lower2d.calls
+          .filter(({ op }) => op === "fillText")
+          .map(({ args }) => String(args[0])),
+      };
+    };
+
+    it("should show the end of the value before scrolling", () => {
+      const { texts } = pausedRows(0);
+      expect(texts.some((t) => t.includes("w1999"))).toBe(true);
+      expect(texts.some((t) => t.startsWith("w0 "))).toBe(false);
+    });
+
+    it("should reach the start of the value by scrolling row by row", () => {
+      const { texts } = pausedRows(100_000);
+      expect(texts.some((t) => t.startsWith("w0 "))).toBe(true);
+    });
+
+    it("should draw a thumb that moves through one value", () => {
+      const thumbY = (wheelPos: number): number | undefined => {
+        const { recorder } = pausedRows(wheelPos);
+        return findThumb(recorder)?.y;
+      };
+      const [bottom, top] = [thumbY(0), thumbY(100_000)];
+      expect(bottom).toBeDefined();
+      expect(top).toBeLessThan(bottom!);
+    });
+
+    it("should keep scrolling after a resize shrinks the value", () => {
+      const { log, updateState } = pausedRows(100_000);
+      const { tail } = log.scrollState;
+      expect(tail).toBeGreaterThan(0);
+      log.entries[1] = { ...log.entries[1], value: "short" };
+      updateState({
+        empty: false,
+        wheelPos: 100_000 + log.lineHeight,
+        scrolling: true,
+      });
+      expect(log.scrollState.tail).toBe(0);
+    });
+
+    it("should show the entries of a log mounted paused", () => {
+      const { log } = setup([makeEntry(0), makeEntry(1)], REGION_500, {
+        scrolling: true,
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(1);
+    });
+
+    it("should show entries that reach a log mounted paused", () => {
+      const { log, source } = setup([], REGION_500, { scrolling: true });
+      source.setEntries([makeEntry(0), makeEntry(1)]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(1);
+    });
+
+    it("should reach the entry above the value", () => {
+      const { log } = pausedRows(100_000);
+      expect(log.state.rowEntries[0]).toBe(0);
+    });
+  });
+
+  describe("days", () => {
+    const entry = (date: string): LogEntry => ({
+      channelKey: 1,
+      timestamp: new TimeStamp(new Date(date)),
+      value: "v",
+    });
+    const shown = (recorder: ReturnType<typeof canvasTest.record>): string[] =>
+      recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]));
+
+    it("should name the day above the first entry", () => {
+      const { log, recorder } = setup([entry("2026-11-04T12:00:00")]);
+      log.render();
+      expect(shown(recorder)).toContain("Wed, Nov 4, 2026");
+    });
+
+    it("should show a day row where the day changes", () => {
+      const entries = [entry("2026-11-03T23:00:00"), entry("2026-11-04T01:00:00")];
+      const { log, recorder } = setup(entries);
+      log.render();
+      const texts = shown(recorder);
+      expect(texts).toContain("Tue, Nov 3, 2026");
+      expect(texts).toContain("Wed, Nov 4, 2026");
+    });
+
+    it("should show one day row for entries of one day", () => {
+      const entries = [entry("2026-11-04T01:00:00"), entry("2026-11-04T23:00:00")];
+      const { log, recorder } = setup(entries);
+      log.render();
+      expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
+    });
+
+    it("should show no day rows when timestamps are hidden", () => {
+      const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
+        timestampsHidden: true,
+      });
+      log.render();
+      expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(0);
+    });
+
+    it("should keep the date on copied lines", () => {
+      const entries = [entry("2026-01-05T01:00:00"), entry("2026-01-05T23:00:00")];
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:00:00/);
+    });
+
+    it("should keep dates off copied lines when timestamps are hidden", () => {
+      const { log } = setup([entry("2026-01-05T12:00:00")], REGION_500, {
+        timestampsHidden: true,
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toBe("v");
+    });
+  });
+
   describe("selectedText and selectedLines", () => {
     it("should clear selectedText when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
@@ -1122,21 +1505,9 @@ describe("log/aether/Log", () => {
   });
 
   describe("render scrollbar", () => {
-    const SCROLLBAR_WIDTH = 6;
     // The log never sits at the top left of the window, and the thumb is positioned in
     // canvas coordinates, so an offset region is the case that matters.
     const REGION_OFFSET = box.construct({ x: 20, y: 200 }, { width: 400, height: 500 });
-
-    // The thumb is the only rounded rect drawn at the scrollbar width; selection bands
-    // are unrounded and span the full region.
-    const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
-      const call = recorder.lower2d.calls.findLast(
-        ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
-      );
-      if (call == null) return null;
-      const [x, y, width, height] = call.args as number[];
-      return { x, y, width, height };
-    };
 
     // Enters scrollback pinned to the bottom, then scrolls up by wheelPos.
     const scrollTo = (
@@ -1184,7 +1555,11 @@ describe("log/aether/Log", () => {
       const regHeight = box.height(REGION_500);
       const thumb = findThumb(recorder);
       assert(thumb != null);
-      expect(thumb.height).toBeCloseTo((regHeight / log.totalHeight) * regHeight);
+      // The day row takes one row of the view.
+      const shown = (log.visibleLineCount - 1) / log.visibleLineCount;
+      expect(thumb.height).toBeCloseTo(
+        (regHeight / log.totalHeight) * regHeight * shown,
+      );
     });
 
     it("should floor the thumb height when the content dwarfs the region", () => {
@@ -1218,7 +1593,7 @@ describe("log/aether/Log", () => {
       scrollTo(updateState, 100_000);
       recorder.clear();
       log.render();
-      expect(log.scrollState.offset).toBe(log.visibleLineCount);
+      expect(log.scrollState.offset).toBe(log.visibleLineCount - 1);
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.y).toBeCloseTo(box.top(REGION_OFFSET));

@@ -15,6 +15,7 @@ import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -50,10 +51,34 @@ func (r Range) Validate() error {
 	return v.Error()
 }
 
+// Where is a filter that selects ranges.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Overlaps matches ranges whose time range overlaps the given range.
+	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
+	// Labels matches ranges that have any of the given labels.
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	// Parents matches the ranges nested in any of the given ranges.
+	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+}
+
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = v1.Ref
+
+// RefVariant is implemented by every Ref variant.
 type RefVariant = v1.RefVariant
+
+// RefType is the "variant" value that selects a variant of Ref.
 type RefType = v1.RefType
 
 const (

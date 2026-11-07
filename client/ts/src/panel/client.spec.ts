@@ -28,6 +28,35 @@ describe("Panel Client", () => {
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({ name: `panel-${id.create()}`, project: proj });
 
+  describe("retrieve", () => {
+    it("should combine a project filter with a where", async () => {
+      const scope = await createPanelProject(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        where: { projects: [scope], key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+
+    it("should combine a project filter with a flat filter", async () => {
+      const scope = await createPanelProject(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        projects: [scope],
+        key: [kept.key, outsider.key],
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+  });
+
   describe("optimistic rename", () => {
     const WRITE_FAILED = new Error("write failed");
     const fail = () => {

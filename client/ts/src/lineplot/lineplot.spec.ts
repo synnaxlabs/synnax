@@ -63,7 +63,7 @@ describe("LinePlot", () => {
       const dest = await client.projects.create({ name: "Line Plot" });
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
-      const res = await client.lineplots.retrieve({ keys: [v.key] });
+      const res = await client.lineplots.retrieve([v.key]);
       expect(res[0].project).toEqual(dest.key);
     });
 

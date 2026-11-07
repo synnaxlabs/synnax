@@ -17,6 +17,7 @@ package arc
 
 import (
 	context "context"
+	pb "github.com/synnaxlabs/synnax/pkg/api/arc/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -136,7 +137,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArcRetrieveServiceClient interface {
-	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
+	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error)
 }
 
 type arcRetrieveServiceClient struct {
@@ -147,9 +148,9 @@ func NewArcRetrieveServiceClient(cc grpc.ClientConnInterface) ArcRetrieveService
 	return &arcRetrieveServiceClient{cc}
 }
 
-func (c *arcRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error) {
+func (c *arcRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrieveResponse)
+	out := new(pb.RetrieveResponse)
 	err := c.cc.Invoke(ctx, ArcRetrieveService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func (c *arcRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest
 // All implementations should embed UnimplementedArcRetrieveServiceServer
 // for forward compatibility.
 type ArcRetrieveServiceServer interface {
-	Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
+	Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error)
 }
 
 // UnimplementedArcRetrieveServiceServer should be embedded to have
@@ -171,7 +172,7 @@ type ArcRetrieveServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedArcRetrieveServiceServer struct{}
 
-func (UnimplementedArcRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error) {
+func (UnimplementedArcRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedArcRetrieveServiceServer) testEmbeddedByValue() {}

@@ -10,12 +10,14 @@
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.policy.payload import Policy
+from synnax.access.policy.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.resource import ID
+from x import filter
 from x.lists import normalize
 
 
@@ -24,17 +26,6 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[UUID] | None
-    subjects: list[ID] | None
-    roles: list[UUID] | None = None
-    internal: bool | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    policies: list[Policy] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -81,24 +72,39 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[UUID] | None = None,
         subjects: list[ID] | None = None,
         roles: list[UUID] | None = None,
         internal: bool | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[Policy]:
         """Retrieves the policies that match every given filter.
 
+        :param where: Keeps policies that match this filter tree.
         :param keys: Keeps only the policies with these keys.
-        :param subjects: Keeps only the policies of the roles these subjects hold.
+        :param subjects: Keeps the policies of the roles that any of these subjects
+            hold.
         :param roles: Keeps only the policies of these roles.
         :param internal: Keeps only built-in policies when true, and others when false.
         """
+        flat = Where(
+            key=None if keys is None else filter.Set[UUID](in_=keys),
+            subjects=subjects,
+            roles=roles,
+            internal=None if internal is None else filter.Bool(eq=internal),
+        )
         res = self._client.send(
             "/access/policy/retrieve",
-            _RetrieveRequest(
-                keys=keys, subjects=subjects, roles=roles, internal=internal
+            RetrieveRequest(
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
         return res.policies
 

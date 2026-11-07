@@ -20,30 +20,63 @@ import (
 type Type = versions.Type
 
 const (
-	TypeArc             Type = versions.TypeArc
-	TypeBuiltin         Type = versions.TypeBuiltin
-	TypeChannel         Type = versions.TypeChannel
-	TypeDevice          Type = versions.TypeDevice
-	TypeFramer          Type = versions.TypeFramer
-	TypeGroup           Type = versions.TypeGroup
-	TypeLabel           Type = versions.TypeLabel
-	TypeLineplot        Type = versions.TypeLineplot
-	TypeLog             Type = versions.TypeLog
-	TypeNode            Type = versions.TypeNode
-	TypePanel           Type = versions.TypePanel
-	TypePolicy          Type = versions.TypePolicy
-	TypeProject         Type = versions.TypeProject
-	TypeRack            Type = versions.TypeRack
-	TypeRange           Type = versions.TypeRange
-	TypeRangeAlias      Type = versions.TypeRangeAlias
-	TypeRole            Type = versions.TypeRole
-	TypeSchematic       Type = versions.TypeSchematic
+	// TypeArc identifies an Arc module.
+	TypeArc Type = versions.TypeArc
+	// TypeBuiltin identifies a resource that the Core defines.
+	TypeBuiltin Type = versions.TypeBuiltin
+	// TypeChannel identifies a channel.
+	TypeChannel Type = versions.TypeChannel
+	// TypeDevice identifies a device.
+	TypeDevice Type = versions.TypeDevice
+	// TypeFramer identifies the telemetry of a channel.
+	TypeFramer Type = versions.TypeFramer
+	// TypeGroup identifies a group of resources.
+	TypeGroup Type = versions.TypeGroup
+	// TypeLabel identifies a label.
+	TypeLabel Type = versions.TypeLabel
+	// TypeLineplot identifies a line plot.
+	TypeLineplot Type = versions.TypeLineplot
+	// TypeLog identifies a log.
+	TypeLog Type = versions.TypeLog
+	// TypeNode identifies a node of a cluster.
+	TypeNode Type = versions.TypeNode
+	// TypePanel identifies a panel.
+	TypePanel Type = versions.TypePanel
+	// TypePolicy identifies an access control policy.
+	TypePolicy Type = versions.TypePolicy
+	// TypeProject identifies a project.
+	TypeProject Type = versions.TypeProject
+	// TypeRack identifies a rack.
+	TypeRack Type = versions.TypeRack
+	// TypeRange identifies a range.
+	TypeRange Type = versions.TypeRange
+	// TypeRangeAlias identifies an alias of a channel on a range.
+	TypeRangeAlias Type = versions.TypeRangeAlias
+	// TypeRole identifies an access control role.
+	TypeRole Type = versions.TypeRole
+	// TypeSchematic identifies a schematic.
+	TypeSchematic Type = versions.TypeSchematic
+	// TypeSchematicSymbol identifies a schematic symbol.
 	TypeSchematicSymbol Type = versions.TypeSchematicSymbol
-	TypeStatus          Type = versions.TypeStatus
-	TypeTable           Type = versions.TypeTable
-	TypeTask            Type = versions.TypeTask
-	TypeUser            Type = versions.TypeUser
-	TypeView            Type = versions.TypeView
+	// TypeStatus identifies a status.
+	TypeStatus Type = versions.TypeStatus
+	// TypeTable identifies a table.
+	TypeTable Type = versions.TypeTable
+	// TypeTask identifies a task.
+	TypeTask Type = versions.TypeTask
+	// TypeUser identifies a user.
+	TypeUser Type = versions.TypeUser
+	// TypeView identifies a view.
+	TypeView           Type = versions.TypeView
+	TypeEthercatMaster Type = versions.TypeEthercatMaster
+	TypeEthercatSlave  Type = versions.TypeEthercatSlave
+	TypeHTTPServer     Type = versions.TypeHTTPServer
+	TypeLabjackDevice  Type = versions.TypeLabjackDevice
+	TypeModbusServer   Type = versions.TypeModbusServer
+	TypeNiChassis      Type = versions.TypeNiChassis
+	TypeNiDevice       Type = versions.TypeNiDevice
+	TypeOpcuaServer    Type = versions.TypeOpcuaServer
+	TypeArcDirectory   Type = versions.TypeArcDirectory
 )
 
 // ID is a unique identifier for a Resource. An example:

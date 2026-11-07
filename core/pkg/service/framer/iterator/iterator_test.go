@@ -11,7 +11,9 @@ package iterator_test
 
 import (
 	"context"
+	"runtime"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -3006,5 +3008,65 @@ var _ = Describe("Calculations across Cores", func() {
 		}
 		Expect(got).To(Equal(expected))
 		Expect(iter.Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("Canceled peer", func() {
+	// expectReturns fails the spec with every goroutine's stack if f stalls.
+	expectReturns := func(f func()) {
+		GinkgoHelper()
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			f()
+		}()
+		Eventually(done).WithTimeout(30*time.Second).Should(BeClosed(), func() string {
+			stacks := make([]byte, 1<<20)
+			return string(stacks[:runtime.Stack(stacks, true)])
+		})
+	}
+
+	It("Should stop every call and report the cancellation", func(ctx SpecContext) {
+		cluster := testutil.NewCluster(ctx, 0)
+		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
+		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
+		ch := &channel.Channel{
+			Name:        "Nansen",
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: nodes[1].Cluster.HostKey(),
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		// A channel leased by the second Core reaches the first by gossip.
+		Eventually(func(g Gomega) {
+			var res channel.Channel
+			g.Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchKeys(ch.Key())).
+				Entry(&res).
+				Exec(ctx, nil)).To(Succeed())
+		}).Should(Succeed())
+		iterCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		iter := MustSucceed(iteratorSvc.Open(iterCtx, iterator.Config{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		// An ack proves the peer flows, so the cancel reaches its pipeline.
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(Succeed())
+		cancel()
+		expectReturns(func() {
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Error()).To(MatchError(context.Canceled))
+			Expect(iter.Close()).To(MatchError(context.Canceled))
+			Expect(iter.Close()).To(Succeed())
+		})
+		// The peer releases its storage iterator after the gateway closes.
+		writer := channelSvc.NewWriter(nil)
+		Eventually(func() error {
+			return writer.DeleteMany(ctx, []channel.Key{ch.Key()}, false)
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 })

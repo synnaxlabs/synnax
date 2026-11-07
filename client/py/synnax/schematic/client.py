@@ -9,13 +9,21 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax import ranger
 from synnax.schematic import symbol
-from synnax.schematic.types_gen import Key, Schematic
+from synnax.schematic.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Schematic,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -25,16 +33,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     schematics: list[Schematic]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    schematics: list[Schematic] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -125,6 +123,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> list[Schematic]: ...
@@ -134,30 +133,39 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> Schematic | list[Schematic]:
-        """Retrieves one or more schematics.
+        """Retrieves schematics. With no arguments, it retrieves all of them.
 
         :param key: The key of a single schematic to retrieve.
         :param keys: The keys of the schematics to retrieve.
+        :param where: A filter that the schematics must also match.
         :param projects: The keys of projects. Only the schematics these projects own
             are returned.
         :param ranges: The keys of ranges. Only the schematics these ranges own are
             returned.
-        :returns: The matching schematic when ``key`` is provided, otherwise a list of
-            matching schematics.
-        :raises NotFoundError: If a requested key does not exist.
+        :returns: The schematic when ``key`` is provided, otherwise a list.
+            The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no schematic has it.
         """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            projects=projects,
+            ranges=ranges,
+        )
         res = self._client.send(
             "/schematic/retrieve",
-            _RetrieveRequest(keys=keys, projects=projects, ranges=ranges),
-            _RetrieveResponse,
+            RetrieveRequest(where=filter.merge(where, flat)),
+            RetrieveResponse,
         )
-        return res.schematics[0] if is_single else res.schematics
+        if not is_single:
+            return res.schematics
+        return one("Schematic", key, res.schematics)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.

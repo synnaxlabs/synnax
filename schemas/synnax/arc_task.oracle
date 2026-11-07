@@ -14,10 +14,18 @@ import "schemas/synnax/task"
 @ts output "client/ts/src/arc/task"
 
 Performance enum {
-    auto   = "auto"
-    low    = "low"
-    medium = "medium"
-    high   = "high"
+    auto   = "auto" {
+        @doc value "spins the timer for the default time of the platform."
+    }
+    low    = "low" {
+        @doc value "never spins the timer."
+    }
+    medium = "medium" {
+        @doc value "spins the timer for up to 1 millisecond before a deadline."
+    }
+    high   = "high" {
+        @doc value "spins the timer for the whole of each wait."
+    }
 
     @doc value """
         sets how closely the Arc runtime holds timer deadlines. A higher level is more

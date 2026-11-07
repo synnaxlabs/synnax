@@ -9,12 +9,14 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax import ranger
-from synnax.log.types_gen import Key, Log
+from synnax.log.types_gen import Key, Log, RetrieveRequest, RetrieveResponse, Where
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -28,16 +30,6 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    logs: list[Log] = Field(default_factory=list)
 
 
 class _RenamePayload(BaseModel):
@@ -110,6 +102,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> list[Log]: ...
@@ -119,25 +112,39 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> Log | list[Log]:
-        """Retrieve one or more logs.
+        """Retrieves logs. With no arguments, it retrieves all of them.
 
         :param key: The key of a single log to retrieve.
         :param keys: The keys of the logs to retrieve.
-        :param projects: The keys of projects. Only the logs these projects own are
+        :param where: A filter that the logs must also match.
+        :param projects: The keys of projects. Only the logs these projects own
+            are returned.
+        :param ranges: The keys of ranges. Only the logs these ranges own are
             returned.
-        :param ranges: The keys of ranges. Only the logs these ranges own are returned.
-        :returns: The log when ``key`` is provided, otherwise a list of logs.
-        :raises NotFoundError: If any of the requested logs does not exist.
+        :returns: The log when ``key`` is provided, otherwise a list.
+            The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no log has it.
         """
         is_single = key is not None
-        req = _RetrieveRequest(
-            keys=normalize(key, keys), projects=projects, ranges=ranges
+        if key is not None:
+            keys = [key]
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            projects=projects,
+            ranges=ranges,
         )
-        res = self._client.send("/log/retrieve", req, _RetrieveResponse)
-        return res.logs[0] if is_single else res.logs
+        res = self._client.send(
+            "/log/retrieve",
+            RetrieveRequest(where=filter.merge(where, flat)),
+            RetrieveResponse,
+        )
+        if not is_single:
+            return res.logs
+        return one("Log", key, res.logs)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a log.

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -33,10 +34,12 @@ var _ = Describe("Grant", func() {
 			DB:       db,
 			Ontology: otg,
 		}))
+		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groups,
+			Password: passwords,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,

@@ -10,6 +10,7 @@
 import { channel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import {
   act,
   fireEvent,
@@ -19,7 +20,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
@@ -60,6 +68,37 @@ const renderGuard = async (selected?: string): Promise<TestStore> => {
   return store;
 };
 
+const DEAD_KEY = "dead";
+
+const renderUnreachable = async (): Promise<void> => {
+  const { wrapper } = await createSessionConsoleWrapper({
+    client: null,
+    preloadedState: {
+      [Session.Core.SLICE_NAME]: {
+        ...Session.Core.ZERO_SLICE_STATE,
+        cores: {
+          [DEAD_KEY]: createCore("Dead", {
+            key: DEAD_KEY,
+            host: "localhost",
+            port: 9098,
+          }),
+        },
+        selected: DEAD_KEY,
+      },
+    },
+  });
+  render(
+    <Session.SettledProvider>
+      <Auth.Guard>
+        <Auth.ConnectionGuard>
+          <span>authenticated content</span>
+        </Auth.ConnectionGuard>
+      </Auth.Guard>
+    </Session.SettledProvider>,
+    { wrapper },
+  );
+};
+
 const submitCredentials = (username: string, password: string): void => {
   fireEvent.change(screen.getByPlaceholderText("synnax"), {
     target: { value: username },
@@ -69,6 +108,10 @@ const submitCredentials = (username: string, password: string): void => {
   });
   fireEvent.click(findButton("Log in"));
 };
+
+beforeEach(() => {
+  mocks.engine = "web";
+});
 
 describe("auth guard", () => {
   it("should render children when a Core is already selected", async () => {
@@ -146,67 +189,33 @@ describe("auth guard", () => {
   });
 
   it("should surface connection trouble at a cold start against an unreachable Core", async () => {
-    const DEAD_KEY = "dead";
-    const { wrapper } = await createSessionConsoleWrapper({
-      client: null,
-      preloadedState: {
-        [Session.Core.SLICE_NAME]: {
-          ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", {
-              key: DEAD_KEY,
-              host: "localhost",
-              port: 9098,
-            }),
-          },
-          selected: DEAD_KEY,
-        },
-      },
-    });
-    render(
-      <Session.SettledProvider>
-        <Auth.Guard>
-          <Auth.ConnectionGuard>
-            <span>authenticated content</span>
-          </Auth.ConnectionGuard>
-        </Auth.Guard>
-      </Session.SettledProvider>,
-      { wrapper },
-    );
+    await renderUnreachable();
     expect(await screen.findByText("Retry now", {}, { timeout: 10000 })).toBeTruthy();
     expect(screen.getAllByText("localhost:9098").length).toBeGreaterThan(0);
     expect(screen.queryByText("Preparing your workspace...")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
+  it("should not offer to edit the connection in a browser", async () => {
+    await renderUnreachable();
+    await screen.findByText("Retry now", {}, { timeout: 10000 });
+    expect(screen.queryByText("Edit connection")).toBeNull();
+  });
+
+  it("should offer to edit the connection on desktop", async () => {
+    mocks.engine = "tauri";
+    mockWindows("main");
+    // A dev build version skips the update check.
+    mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+    onTestFinished(clearMocks);
+    await renderUnreachable();
+    expect(
+      await screen.findByText("Edit connection", {}, { timeout: 10000 }),
+    ).toBeTruthy();
+  });
+
   it("should disable the retry button while a check is in flight", async () => {
-    const DEAD_KEY = "dead";
-    const { wrapper } = await createSessionConsoleWrapper({
-      client: null,
-      preloadedState: {
-        [Session.Core.SLICE_NAME]: {
-          ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", {
-              key: DEAD_KEY,
-              host: "localhost",
-              port: 9098,
-            }),
-          },
-          selected: DEAD_KEY,
-        },
-      },
-    });
-    render(
-      <Session.SettledProvider>
-        <Auth.Guard>
-          <Auth.ConnectionGuard>
-            <span>authenticated content</span>
-          </Auth.ConnectionGuard>
-        </Auth.Guard>
-      </Session.SettledProvider>,
-      { wrapper },
-    );
+    await renderUnreachable();
     await screen.findByText("Retry now", {}, { timeout: 10000 });
     // The scheduled retries raise the same flag, so the assertion starts from a
     // gap between them rather than from whatever the countdown happens to be doing.

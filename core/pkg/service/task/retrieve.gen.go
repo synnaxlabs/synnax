@@ -28,6 +28,7 @@ const tableName = "task"
 type indexes struct {
 	rack     *gorp.KeyReference[Key, Task, rack.Key]
 	rangeVal *gorp.KeyReference[Key, Task, ranger.Key]
+	search   *gorp.SearchIndex[Key, Task]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -57,13 +58,21 @@ func newIndexes() indexes {
 				return []ranger.Key{*e.Range}
 			},
 		}),
+		search: gorp.NewSearchIndex[Key, Task](
+			"search",
+			func(e *Task) []string {
+				return []string{e.Name, e.Type}
+			},
+		),
 	}
 }
 
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Task] {
-	return []gorp.Index[Key, Task]{}
+	return []gorp.Index[Key, Task]{
+		i.search,
+	}
 }
 
 // references returns the references packaged for registration via
@@ -72,5 +81,13 @@ func (i indexes) references() []gorp.Reference[Key, Task] {
 	return []gorp.Reference[Key, Task]{
 		i.rack,
 		i.rangeVal,
+	}
+}
+
+// MatchSearch matches the tasks whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return r.indexes.search.Filter(term)
 	}
 }

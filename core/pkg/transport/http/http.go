@@ -12,7 +12,8 @@ package http
 import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
@@ -124,7 +125,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: unary[channel.RetrieveRequest, channel.RetrieveResponse](
+		ChannelRetrieve: unary[channel.AliasedRetrieveRequest, channel.RetrieveResponse](
 			router,
 			"/api/v1/channel/retrieve",
 		),
@@ -242,6 +243,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/group/retrieve",
 		),
+		GroupRetrieveAncestors: unary[
+			group.RetrieveAncestorsRequest,
+			group.RetrieveAncestorsResponse,
+		](router, "/api/v1/group/retrieve-ancestors"),
 		GroupSetParent: unary[group.SetParentRequest, struct{}](
 			router,
 			"/api/v1"+api.PathGroupSetParent,
@@ -601,27 +606,27 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// ACCESS
-		AccessCreatePolicy: unary[access.CreatePolicyRequest, access.CreatePolicyResponse](
+		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
 			router,
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: unary[access.DeletePolicyRequest, struct{}](
+		AccessDeletePolicy: unary[policy.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/policy/delete",
 		),
-		AccessRetrievePolicy: unary[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
+		AccessRetrievePolicy: unary[policy.RetrieveRequest, policy.RetrieveResponse](
 			router,
 			"/api/v1/access/policy/retrieve",
 		),
-		AccessCreateRole: unary[access.CreateRoleRequest, access.CreateRoleResponse](
+		AccessCreateRole: unary[role.CreateRequest, role.CreateResponse](
 			router,
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: unary[access.DeleteRoleRequest, struct{}](
+		AccessDeleteRole: unary[role.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/role/delete",
 		),
-		AccessRetrieveRole: unary[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
+		AccessRetrieveRole: unary[role.RetrieveRequest, role.RetrieveResponse](
 			router,
 			"/api/v1/access/role/retrieve",
 		),
@@ -644,6 +649,19 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/update-task",
 		),
+		ArcCreateDirectory: unary[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse](
+			router,
+			"/api/v1/arc/directory/create",
+		),
+		ArcRenameDirectory: unary[arc.RenameDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/rename",
+		),
+		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/delete",
+		),
+		ArcMove: unary[arc.MoveRequest, struct{}](router, "/api/v1/arc/move"),
 		ArcLSP: stream[arc.LSPMessage, arc.LSPMessage](
 			router,
 			"/api/v1/arc/lsp",

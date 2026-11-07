@@ -13,12 +13,10 @@ export {
   type KeyRetrieveRequest,
   resourceID,
   type RetrieveParams,
-  type RetrieveRequest,
   type RoleChange,
   SET_CHANNEL_NAME,
   TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
 } from "@/user/client";
 export * from "@/user/current";
 export * from "@/user/types.gen";

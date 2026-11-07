@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -148,7 +149,7 @@ var _ = Describe("Group", func() {
 			"Should keep only the groups under the given parents",
 			func(ctx SpecContext) {
 				res := retrieve(ctx, apigroup.RetrieveRequest{
-					Parents: []resource.ID{top.ResourceID()},
+					Where: &group.Where{Parents: []resource.ID{top.ResourceID()}},
 				})
 				Expect(keys(res.Groups)).To(Equal([]group.Key{nested.Key}))
 			},
@@ -156,27 +157,58 @@ var _ = Describe("Group", func() {
 
 		It("Should keep only the groups with no parent", func(ctx SpecContext) {
 			res := retrieve(ctx, apigroup.RetrieveRequest{
-				Keys:   all(),
-				Nested: new(false),
+				Where: &group.Where{
+					Key:    &filter.Set[group.Key]{In: all()},
+					Nested: new(false),
+				},
 			})
 			Expect(keys(res.Groups)).To(ConsistOf(top.Key, devices.Key))
 		})
 
 		It("Should keep only the groups of the given scopes", func(ctx SpecContext) {
 			res := retrieve(ctx, apigroup.RetrieveRequest{
-				Keys:   all(),
-				Scopes: []resource.Type{resource.TypeDevice},
+				Where: &group.Where{
+					Key:   &filter.Set[group.Key]{In: all()},
+					Scope: &filter.Set[resource.Type]{Eq: new(resource.TypeDevice)},
+				},
 			})
 			Expect(keys(res.Groups)).To(Equal([]group.Key{devices.Key}))
 		})
 
-		It("Should add the groups above the returned groups", func(ctx SpecContext) {
-			res := retrieve(ctx, apigroup.RetrieveRequest{
-				Keys:      []group.Key{nested.Key},
-				Ancestors: true,
-			})
-			Expect(keys(res.Groups)).To(Equal([]group.Key{nested.Key}))
-			Expect(keys(res.Ancestors)).To(Equal([]group.Key{top.Key}))
+		It(
+			"Should reject the request when retrieve is not granted on a match",
+			func(ctx SpecContext) {
+				u := newUser(ctx)
+				Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apigroup.RetrieveRequest{
+					Where: &group.Where{Key: &filter.Set[group.Key]{Eq: &top.Key}},
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+	})
+
+	Describe("RetrieveAncestors", func() {
+		It("Should return the groups above the given groups", func(ctx SpecContext) {
+			top := newGroup(ctx, resource.TypeChannel, nil)
+			mid := newGroup(ctx, resource.TypeChannel, &top)
+			leaf := newGroup(ctx, resource.TypeChannel, &mid)
+			u := newUser(ctx, grant([]access.Action{access.ActionRetrieve}, groups))
+			res := MustSucceed(apiSvc.RetrieveAncestors(
+				AuthedCtx(ctx, u),
+				apigroup.RetrieveAncestorsRequest{Keys: []group.Key{leaf.Key}},
+			))
+			Expect(keys(res.Groups)).To(ConsistOf(top.Key, mid.Key))
 		})
+
+		It(
+			"Should reject the request when retrieve is not granted",
+			func(ctx SpecContext) {
+				top := newGroup(ctx, resource.TypeChannel, nil)
+				leaf := newGroup(ctx, resource.TypeChannel, &top)
+				Expect(apiSvc.RetrieveAncestors(
+					AuthedCtx(ctx, newUser(ctx)),
+					apigroup.RetrieveAncestorsRequest{Keys: []group.Key{leaf.Key}},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 	})
 })

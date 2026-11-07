@@ -9,12 +9,21 @@
 
 from typing import Generic, TypeVar, overload
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
 from synnax import label
 from synnax.resource import ID, CrudeID
-from synnax.status.types_gen import Key, Status, Variant
+from synnax.status.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Status,
+    Variant,
+    Where,
+)
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -27,20 +36,6 @@ class _SetRequest(BaseModel, Generic[D]):
 
 class _SetResponse(BaseModel):
     statuses: list[Status[JsonValue]]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[str] | None = None
-    owners: list[ID] | None = None
-    search_term: str | None = None
-    offset: int | None = None
-    limit: int | None = None
-    has_labels: list[label.Key] | None = None
-    variants: list[Variant] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    statuses: list[Status[JsonValue]] = Field(default_factory=list)
 
 
 class _RenameRequest(BaseModel):
@@ -130,9 +125,10 @@ class Client:
         self,
         *,
         keys: list[str] | None = None,
+        where: Where | None = None,
         owners: list[CrudeID] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
+        search_term: str = "",
+        offset: int = 0,
         limit: int | None = None,
         has_labels: list[label.Key] | None = None,
         variants: list[Variant] | None = None,
@@ -144,9 +140,10 @@ class Client:
         *,
         key: str | None = None,
         keys: list[str] | None = None,
+        where: Where | None = None,
         owners: list[CrudeID] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
+        search_term: str = "",
+        offset: int = 0,
         limit: int | None = None,
         has_labels: list[label.Key] | None = None,
         variants: list[Variant] | None = None,
@@ -155,6 +152,7 @@ class Client:
         filters. A filter left as None does not filter.
 
         :param key: The key of one status to retrieve.
+        :param where: Keeps statuses that match this filter tree.
         :param keys: Keeps statuses with one of these keys.
         :param owners: Keeps the statuses these resources own.
         :param search_term: Fuzzy matches status names.
@@ -163,7 +161,7 @@ class Client:
         :param has_labels: Keeps statuses that have one of these labels.
         :param variants: Keeps statuses with one of these variants.
         :returns: The status for a key, else a list of the matching statuses.
-        :raises NotFoundError: If no status has a requested key.
+        :raises NotFoundError: If no status has the given ``key``.
 
         Retrieve the status of a task:
 
@@ -173,24 +171,25 @@ class Client:
         if single and key is not None:
             keys = [key]
 
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            variant=None if variants is None else filter.Set[Variant](in_=variants),
+            labels=has_labels,
+            owners=None if owners is None else [ID(o) for o in owners],
+        )
         res = self.client.send(
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(
-                keys=keys,
-                owners=None if owners is None else [ID(o) for o in owners],
+            RetrieveRequest(
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 offset=offset,
                 limit=limit,
-                has_labels=has_labels,
-                variants=variants,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         ).statuses
 
         if single:
-            if len(res) == 0:
-                raise ValueError(f"Status with key '{key}' not found")
-            return res[0]
+            return one("Status", key, res)
         return res
 
     def rename(self, key: Key, name: str) -> None:

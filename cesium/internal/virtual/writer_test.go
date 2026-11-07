@@ -10,8 +10,11 @@
 package virtual_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
@@ -92,6 +95,42 @@ var _ = Describe("Write", func() {
 					Expect(t.Occurred()).To(BeTrue())
 					t = MustSucceed(w2.Close())
 					Expect(t.Occurred()).To(BeTrue())
+				},
+			)
+
+			It(
+				"Should give concurrent writers with shared control distinct alignments",
+				func(ctx SpecContext) {
+					const writes = 10_000
+					writers := make([]*virtual.Writer, 2)
+					for i, key := range []string{"foo", "bar"} {
+						writers[i], _ = MustSucceed2(
+							db.OpenWriter(ctx, virtual.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: key},
+							}),
+						)
+					}
+					alignments := make([][]telem.Alignment, len(writers))
+					var wg sync.WaitGroup
+					for i, w := range writers {
+						wg.Go(func() {
+							defer GinkgoRecover()
+							for range writes {
+								alignments[i] = append(
+									alignments[i],
+									MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1))),
+								)
+							}
+						})
+					}
+					wg.Wait()
+					all := lo.Flatten(alignments)
+					Expect(lo.Uniq(all)).To(HaveLen(len(all)))
+					for _, w := range writers {
+						MustSucceed(w.Close())
+					}
 				},
 			)
 

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -34,8 +35,9 @@ func TestAPIRack(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apirack.Service
+	svc       *service.Layer
+	apiSvc    *apirack.Service
+	statusAPI *apistatus.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -48,6 +50,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 		Auth:   svc.Auth,
+	}))
+	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
+		Status: svc.Status,
+		RBAC:   svc.RBAC,
 	}))
 })
 

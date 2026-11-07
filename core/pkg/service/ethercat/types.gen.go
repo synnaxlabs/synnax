@@ -19,7 +19,11 @@ type BaseReadChannel = versions.BaseReadChannel
 // ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
 // field selects how the PDO entry is addressed.
 type ReadChannel = versions.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = versions.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = versions.ReadChannelType
 
 const (
@@ -43,7 +47,11 @@ type BaseWriteChannel = versions.BaseWriteChannel
 // WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
 type WriteChannel = versions.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = versions.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = versions.WriteChannelType
 
 const (

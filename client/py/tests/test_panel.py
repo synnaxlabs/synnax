@@ -128,6 +128,14 @@ class TestClient:
         panels = client.panels.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in panels} == {p1.key, p2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.project.Key) -> None:
+        """Should keep the panels that match the where and the other filters."""
+        a = client.panels.create(name="A", project=project)
+        b = client.panels.create(name="B", project=project)
+        where = panel.Where(not_=panel.Where(key=sy.filter.Set[panel.Key](eq=a.key)))
+        res = client.panels.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_by_project(
         self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
@@ -201,5 +209,4 @@ class TestClient:
         p1 = client.panels.create(name="Delete 1", project=project)
         p2 = client.panels.create(name="Delete 2", project=project)
         client.panels.delete([p1.key, p2.key])
-        with pytest.raises(NotFoundError):
-            client.panels.retrieve(keys=[p1.key, p2.key])
+        assert client.panels.retrieve(keys=[p1.key, p2.key]) == []

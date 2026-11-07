@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 import synnax as sy
+from x import filter
 
 
 @pytest.mark.group
@@ -48,6 +49,14 @@ class TestGroupClient:
         groups = client.groups.retrieve(keys=[g1.key, g2.key])
         assert sorted(g.name for g in groups) == sorted([g1.name, g2.name])
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep groups that match a filter tree and the given keys."""
+        g1 = client.groups.create(str(uuid4()), scope="channel")
+        g2 = client.groups.create(str(uuid4()), scope="channel")
+        where = sy.group.Where(not_=sy.group.Where(key=filter.Set[UUID](eq=g1.key)))
+        groups = client.groups.retrieve(where=where, keys=[g1.key, g2.key, uuid4()])
+        assert [g.key for g in groups] == [g2.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the group does not exist."""
         with pytest.raises(sy.NotFoundError):
@@ -81,5 +90,4 @@ class TestGroupClient:
         g1 = client.groups.create(str(uuid4()), scope="channel")
         g2 = client.groups.create(str(uuid4()), scope="channel")
         client.groups.delete([g1.key, g2.key])
-        with pytest.raises(sy.NotFoundError):
-            client.groups.retrieve(keys=[g1.key, g2.key])
+        assert client.groups.retrieve(keys=[g1.key, g2.key]) == []

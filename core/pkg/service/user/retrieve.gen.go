@@ -23,14 +23,6 @@ import (
 // gorp.TableConfig.Name.
 const tableName = "user"
 
-// Retrieve is used to retrieve User records from the database using a
-// builder pattern for constructing queries.
-type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, User]
-	indexes indexes
-}
-
 // indexes bundles the per-Service secondary indexes registered on the
 // User table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
@@ -83,6 +75,14 @@ func (i indexes) references() []gorp.Reference[Key, User] {
 	}
 }
 
+// MatchSearch matches the users whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, User] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -121,8 +121,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -194,6 +193,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no user as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

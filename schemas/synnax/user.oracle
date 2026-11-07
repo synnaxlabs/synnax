@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/role"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/user"
 @py output "client/py/synnax/user"
@@ -39,14 +40,27 @@ User struct {
         @ref on_delete detach
     }
 
-    @doc value     """
+    @doc value       """
         is an account entity representing a person accessing the Synnax system. Users
         can have roles assigned for permission management.
     """
     @go marshal
     @go migrate
-    @resource type "user"
-    @retrieve
+    @resource type   "user"
+    @retrieve custom
+}
+
+Where filter User {
+    key
+    usernames string[]   {
+        @doc value "matches the users whose password has any of the given usernames."
+    }
+    roles     role.Key[] {
+        @doc value "matches the users that hold any of the given roles."
+    }
+
+    @doc value         "is a filter that selects users."
+    @go request_output "core/pkg/api/user"
 }
 
 New struct extends User {

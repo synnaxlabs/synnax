@@ -129,6 +129,14 @@ class TestClient:
         )
         assert client.tables.retrieve(ranges=[rng.key]) == []
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the tables that match the where and the other filters."""
+        a = client.tables.create(name="A", project=project.key)
+        b = client.tables.create(name="B", project=project.key)
+        where = table.Where(not_=table.Where(key=sy.filter.Set[table.Key](eq=a.key)))
+        res = client.tables.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a table does not exist."""
         with pytest.raises(NotFoundError):
@@ -145,5 +153,4 @@ class TestClient:
         t1 = client.tables.create(name="Delete 1", project=project.key)
         t2 = client.tables.create(name="Delete 2", project=project.key)
         client.tables.delete([t1.key, t2.key])
-        with pytest.raises(NotFoundError):
-            client.tables.retrieve(keys=[t1.key, t2.key])
+        assert client.tables.retrieve(keys=[t1.key, t2.key]) == []

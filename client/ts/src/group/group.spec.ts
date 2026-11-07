@@ -119,6 +119,65 @@ describe("Group", () => {
       stop();
     });
   });
+  describe("retrieve", () => {
+    it("should retrieve the groups that match where", async () => {
+      const a = await createTopLevel();
+      const b = await createTopLevel();
+      const groups = await client.groups.retrieve({
+        where: { key: { in: [a.key, b.key] } },
+      });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should leave out a key that no group has", async () => {
+      const a = await createTopLevel();
+      const groups = await client.groups.retrieve({
+        where: { key: { in: [a.key, uuid.create()] } },
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent that match where", async () => {
+      const parent = await createTopLevel();
+      const parentID = group.resourceID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const outside = await createTopLevel();
+      const groups = await client.groups.retrieve({
+        where: {
+          and: [{ parents: [parentID] }, { key: { in: [a.key, outside.key] } }],
+        },
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent by a flat filter", async () => {
+      const parent = await createTopLevel();
+      const parentID = group.resourceID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const outside = await createTopLevel();
+      const groups = await client.groups.retrieve({
+        parents: [parentID],
+        key: [a.key, outside.key],
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent", async () => {
+      const parent = await createTopLevel();
+      const parentID = group.resourceID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      const b = await client.groups.create({ parent: parentID, name: "b" });
+      await createTopLevel();
+      const groups = await client.groups.retrieve({ parents: [parentID] });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should return no children of a parent for a zero limit", async () => {
+      const parent = await createTopLevel();
+      const parentID = group.resourceID(parent.key);
+      await client.groups.create({ parent: parentID, name: "a" });
+      expect(await client.groups.retrieve({ parents: [parentID], limit: 0 })).toEqual(
+        [],
+      );
+    });
+  });
   describe("rename", () => {
     it("should correctly rename a group", async () => {
       const g = await createTopLevel();
@@ -185,7 +244,9 @@ describe("Group", () => {
         client.channels.setGroupRequest(ch.key, key),
       ]);
       expect(
-        (await client.channels.retrieve({ groups: [key] })).map((c) => c.key),
+        (await client.channels.retrieve({ where: { groups: [key] } })).map(
+          (c) => c.key,
+        ),
       ).toEqual([ch.key]);
     });
     it("should commit nothing when a request fails", async () => {

@@ -23,6 +23,7 @@ import {
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
 } from "@/platform/task/testutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
@@ -178,14 +179,13 @@ describe("DigitalRead", () => {
 });
 
 describe("DigitalRead ports", () => {
-  it("should add a channel on a free line from the ports view", async () => {
+  it("should add a channel on a free line from the port map", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },
     });
     const { draft } = await renderDigitalRead(
       createConfig([createChannel(0, 0)], dev.key),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port1 lines" });
     fireEvent.click(within(grid).getByRole("button", { name: "port1/line2" }));
     await waitFor(async () => {
@@ -210,7 +210,7 @@ describe("DigitalRead ports", () => {
         dev.key,
       ),
     );
-    await screen.findByText("Ports");
+    await screen.findByRole("group", { name: "port0 lines" });
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
@@ -223,6 +223,30 @@ describe("DigitalRead ports", () => {
     });
   });
 
+  it("should show the device's location apart from its line count", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderDigitalRead(createConfig([createChannel(0, 0)], dev.key));
+    expect(await screen.findByText("1 of 16 lines used")).toBeTruthy();
+    expect(screen.getByText(dev.location)).toBeTruthy();
+  });
+
+  it("should wrap a port's lines eight to a row", async () => {
+    const dev = await createNIDevice(client, {
+      properties: {
+        hardware: {
+          ...createHardware(),
+          digitalPorts: [{ port: 0, lines: 32, input: true, output: true }],
+        },
+      },
+    });
+    await renderDigitalRead(createConfig([createChannel(0, 0)], dev.key));
+    const grid = await screen.findByRole("group", { name: "port0 lines" });
+    const line = within(grid).getByRole("button", { name: "port0/line9" });
+    expect([line.style.gridRow, line.style.gridColumn]).toEqual(["2", "2"]);
+  });
+
   it("should mark a line that two channels share", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },
@@ -230,7 +254,6 @@ describe("DigitalRead ports", () => {
     await renderDigitalRead(
       createConfig([createChannel(0, 2), createChannel(0, 2)], dev.key),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port0 lines" });
     const line = within(grid).getByRole("button", { name: "port0/line2" });
     expect(line.className).toContain("console-port-grid__cell--conflict");
@@ -263,7 +286,6 @@ describe("DigitalRead disabled channels", () => {
         dev.key,
       ),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port0 lines" });
     const line = within(grid).getByRole("button", { name: "port0/line2" });
     expect(line.className).toContain("console-port-grid__cell--used");
@@ -290,9 +312,34 @@ describe("DigitalRead disabled channels", () => {
         dev.key,
       ),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port1 lines" });
     const line = within(grid).getByRole("button", { name: "port1/line4" });
     expect(line.className).toContain("console-port-grid__cell--disabled");
+  });
+});
+
+describe("DigitalRead channel names", () => {
+  it("should show the name deploying gives each channel in the list", async () => {
+    const dev = await createNIDevice(client);
+    await renderDigitalRead(createConfig([createChannel(0, 2)], dev.key));
+    const item = await findChannelListItem(`${dev.properties.identifier}_di_0_2`);
+    expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
+  it("should not mark a disabled channel on a line another channel uses as new", async () => {
+    const dev = await createNIDevice(client);
+    await renderDigitalRead(
+      createConfig(
+        [
+          createChannel(0, 2, { disabled: true, name: "spare" }),
+          createChannel(0, 2, { name: "main" }),
+        ],
+        dev.key,
+      ),
+    );
+    const main = await findChannelListItem("main");
+    expect(within(main).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const spare = await findChannelListItem("spare");
+    expect(within(spare).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

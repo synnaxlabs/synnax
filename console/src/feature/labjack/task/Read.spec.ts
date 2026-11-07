@@ -64,9 +64,10 @@ const createDraft = async (
 
 describe("Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
+    await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No device selected")).toBeTruthy());
+    await screen.findByText("No device selected");
   });
 
   it("should prompt to configure an unconfigured device", async () => {
@@ -670,7 +671,7 @@ describe("Read ports", () => {
     for (const [port, tooltip] of [
       ["AIN0", "AIN0: chan_a"],
       ["AIN1", "AIN1 is used by chan_b and chan_c"],
-      ["AIN2", "AIN2 is free"],
+      ["AIN2", "Add a channel on AIN2"],
     ]) {
       const target = cell(port, "Analog inputs");
       fireEvent.pointerOver(target, { pointerType: "mouse" });
@@ -863,7 +864,7 @@ describe("Read ports", () => {
 });
 
 describe("Read channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -872,5 +873,21 @@ describe("Read channel names", () => {
     await renderRead({ client, taskKey: draft.key });
     const item = await findChannelListItem(`${dev.properties.identifier}_AIN0`);
     expect(within(item).queryByText("No channel")).toBeNull();
+  });
+
+  it("should not mark a disabled channel on a port another channel uses as new", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogReadChannel("AIN0", { disabled: true, name: "spare" }),
+        createAnalogReadChannel("AIN0", { name: "main" }),
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    const main = await findChannelListItem("main");
+    expect(within(main).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const spare = await findChannelListItem("spare");
+    expect(within(spare).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

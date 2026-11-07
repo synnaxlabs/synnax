@@ -100,6 +100,25 @@ class Slave {
 #endif
     }
 
+    /// @brief adds a socket to an fd_set. Winsock stores SOCKET handles in the set,
+    /// so an int descriptor needs the cast.
+    static void add_to_set(const int socket, fd_set *set) {
+#ifdef _WIN32
+        FD_SET(static_cast<SOCKET>(socket), set);
+#else
+        FD_SET(socket, set);
+#endif
+    }
+
+    /// @brief removes a socket from an fd_set. See add_to_set.
+    static void remove_from_set(const int socket, fd_set *set) {
+#ifdef _WIN32
+        FD_CLR(static_cast<SOCKET>(socket), set);
+#else
+        FD_CLR(socket, set);
+#endif
+    }
+
     // Helper function to find the highest address in a map
     template<typename T>
     int get_max_address(const std::unordered_map<int, T> &map) {
@@ -273,7 +292,7 @@ class Slave {
         fd_set ref_set, rd_set;
 
         FD_ZERO(&ref_set);
-        FD_SET(socket_, &ref_set);
+        add_to_set(socket_, &ref_set);
         int fd_max = socket_;
 
         while (running_) {
@@ -281,7 +300,7 @@ class Slave {
                 for (int fd = 0; fd <= fd_max; fd++)
                     if (fd != socket_ && FD_ISSET(fd, &ref_set)) {
                         close_socket(fd);
-                        FD_CLR(fd, &ref_set);
+                        remove_from_set(fd, &ref_set);
                     }
                 fd_max = socket_;
                 drop_requested_ = false;
@@ -332,7 +351,7 @@ class Slave {
                         std::lock_guard lock(mutex_);
                         connections_++;
                     }
-                    FD_SET(new_fd, &ref_set);
+                    add_to_set(new_fd, &ref_set);
                     fd_max = std::max(new_fd, fd_max);
                 } else {
                     // Handle existing connection
@@ -348,7 +367,7 @@ class Slave {
                     } else if (rc == -1) {
                         LOG(INFO) << "Connection closed on socket " << master_socket;
                         close_socket(master_socket);
-                        FD_CLR(master_socket, &ref_set);
+                        remove_from_set(master_socket, &ref_set);
                         if (master_socket == fd_max) fd_max--;
                     }
                 }

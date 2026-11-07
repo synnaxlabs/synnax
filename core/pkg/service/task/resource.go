@@ -18,7 +18,7 @@ import (
 func (s *Service) Resources() *resource.TableProvider[Key, Task] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Task]{
 		Table:  s.table,
-		Search: s.search,
+		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    resource.ParseUUIDKey,
 		Name:   func(t *Task) string { return t.Name },

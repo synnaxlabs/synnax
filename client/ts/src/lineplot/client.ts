@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -28,7 +28,16 @@ import {
   linePlotZ,
   type New,
   resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/lineplot/types.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/lineplot/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -38,23 +47,17 @@ export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = group.memberFilterZ.extend(project.ownerFilterZ.shape).extend({
-  keys: keyZ.array().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+]);
 
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
   dispatchKey: z.string(),
@@ -63,14 +66,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
-
-/** Client-side matching for a request: key and group sets. */
-const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const inGroup = group.createMemberMatcher(req);
-  const owned = project.createOwnerMatcher(req);
-  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p) && owned(p);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -98,8 +93,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, LinePlot>({
       name: "line plots",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
@@ -118,7 +112,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (plot, req) => requestFilter(req)(plot),
+        matches: (plot, req) => matches(LINES, plot, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -269,12 +264,12 @@ export class Client extends query.Retriever<
     });
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<LinePlot[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<LinePlot[]> {
     const res = await this.cfg.unary.send(
       "/lineplot/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.linePlots;
   }

@@ -78,7 +78,11 @@ describe("Resource Queries", () => {
 
     it("should add a resource created while the list is mounted", async () => {
       const { result } = renderHook(() => Resource.useList(), { wrapper });
-      await act(async () => await result.current.retrieveAsync({ types: ["group"] }));
+      // The Core holds groups from other specs, so the list takes the most it can.
+      await act(
+        async () =>
+          await result.current.retrieveAsync({ types: ["group"], limit: 1000 }),
+      );
       const g = await createGroup(randomToken());
       await waitFor(() =>
         expect(result.current.data).toContain(resource.idToString(g)),

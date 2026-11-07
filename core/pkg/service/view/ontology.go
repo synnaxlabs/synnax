@@ -102,17 +102,11 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-func newSearchIndex() *gorp.SearchIndex[Key, View] {
-	return gorp.NewSearchIndex("search", func(e *View) []string {
-		return []string{e.Base().Name}
-	})
-}
-
 // Search implements ontology.Service.
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return resource.SearchIndex(ctx, tx, s.search, ResourceID, q)
+	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

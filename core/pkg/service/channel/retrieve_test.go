@@ -120,7 +120,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 				Expect(svc.
 					NewRetrieve().
-					Where(channel.MatchNames("SG22.*")).
+					Where(channel.MatchNamePatterns("SG22.*")).
 					Entries(&resChannels).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(2))

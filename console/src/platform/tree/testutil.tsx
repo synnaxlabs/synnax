@@ -16,10 +16,13 @@ import { array } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
+  type Matcher,
+  type MatcherFunction,
   render,
   type RenderOptions,
   type RenderResult,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
@@ -31,6 +34,7 @@ import { type Session } from "@/session";
 import {
   createConsoleWrapper,
   createTestStore,
+  getIconButton,
   renderSuspended,
   selectTestProject,
   type TestStore,
@@ -135,7 +139,7 @@ const listMembers = (client: Synnax, key: group.Key): Tree.Source[] => [
     { parents: [group.resourceID(key)] },
     Tree.toResource("group"),
   ),
-  Tree.createSource(client.channels, { groups: [key] }, (ch) =>
+  Tree.createSource(client.channels, { where: { groups: [key] } }, (ch) =>
     Tree.toResource("channel")(ch.payload),
   ),
 ];
@@ -196,6 +200,7 @@ export const createSelection = ({
   parentID = rootID,
 }: CreateSelectionParams): Tree.ContextMenuProps["selection"] => ({
   ids: array.toArray(ids),
+  top: array.toArray(ids),
   rootID,
   parentID,
 });
@@ -237,6 +242,8 @@ export interface RenderOntologyTreeOptions extends Pick<
   extra?: ReactNode;
   /** The client that creates the session's project; defaults to the rendering one. */
   projectClient?: Synnax;
+  /** Renders a search action and field above the tree. */
+  search?: Tree.UseSearch;
 }
 
 export interface OntologyTreeHandle extends RenderResult {
@@ -250,6 +257,27 @@ export interface OntologyTreeHandle extends RenderResult {
  * multi-select) behave as they do in the app. An active project is established so
  * onSelect handlers that place a tab have a project to create panels under.
  */
+interface SearchableTreeProps extends Pick<Tree.TreeProps, "listRoot"> {
+  root: resource.ID | null;
+}
+
+const createSearchableTree = (useSearch: Tree.UseSearch) => {
+  const SearchableTree = ({ root, listRoot }: SearchableTreeProps): ReactElement => {
+    const search = useSearch(root);
+    return (
+      <>
+        {search.open ? (
+          <Tree.SearchField search={search} />
+        ) : (
+          <Tree.SearchAction search={search} />
+        )}
+        <Tree.Tree root={root} listRoot={listRoot} search={search} />
+      </>
+    );
+  };
+  return SearchableTree;
+};
+
 export const renderOntologyTree = async ({
   client,
   root,
@@ -257,15 +285,21 @@ export const renderOntologyTree = async ({
   listRoot,
   extra,
   projectClient = client,
+  search,
   onCaughtError,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   await selectTestProject(store, projectClient);
+  const SearchableTree = search == null ? null : createSearchableTree(search);
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>
         <Tree.Provider items={items}>
-          <Tree.Tree root={root} listRoot={listRoot} />
+          {SearchableTree == null ? (
+            <Tree.Tree root={root} listRoot={listRoot} />
+          ) : (
+            <SearchableTree root={root} listRoot={listRoot} />
+          )}
           <Modals.Stack />
         </Tree.Provider>
       </Haul.Provider>
@@ -277,6 +311,9 @@ export const renderOntologyTree = async ({
 };
 
 const SCROLL_STEP = 200;
+// A search hides the browse tree, so the helpers skip it as a user does.
+const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";
+const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
 
 /**
  * Finds the tree label matching text, scrolling the tree when the row sits outside the
@@ -285,8 +322,8 @@ const SCROLL_STEP = 200;
  * label was found, and back at the top when there is none.
  */
 // Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
-const sweepTree = async (text: string): Promise<HTMLElement | null> => {
-  const tree = document.querySelector<HTMLElement>(".lyra-tree");
+const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
+  const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
   const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
   if (tree == null || rows == null) return null;
   const total = parseInt(rows.style.minHeight, 10);
@@ -295,20 +332,20 @@ const sweepTree = async (text: string): Promise<HTMLElement | null> => {
       tree.scrollTop = offset;
       fireEvent.scroll(tree);
     });
-    const label = screen.queryByText(text);
+    const label = screen.queryByText(text, QUERY_OPTIONS);
     if (label != null) return label;
   }
   return null;
 };
 
-const findTreeLabel = async (text: string): Promise<HTMLElement> => {
-  const mounted = screen.queryByText(text);
+const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
+  const mounted = screen.queryByText(text, QUERY_OPTIONS);
   if (mounted != null) return mounted;
   const swept = await sweepTree(text);
   if (swept != null) return swept;
   // Absent from the data rather than the window: wait for it to load, then sweep again.
   try {
-    return await screen.findByText(text);
+    return await screen.findByText(text, QUERY_OPTIONS);
   } catch (err) {
     const retried = await sweepTree(text);
     if (retried != null) return retried;
@@ -316,20 +353,48 @@ const findTreeLabel = async (text: string): Promise<HTMLElement> => {
   }
 };
 
+/**
+ * Matches the whole name of a tree item, including a search result name that the
+ * search tints in parts.
+ */
+export const itemName =
+  (name: string): MatcherFunction =>
+  (_, el) =>
+    el?.matches(".lyra-text:not(.lyra-tree__item)") === true && el.textContent === name;
+
 /** Finds the rendered tree row containing the given text. */
-export const findTreeRow = async (text: string): Promise<Element> => {
+export const findTreeRow = async (text: Matcher): Promise<Element> => {
   const row = (await findTreeLabel(text)).closest(".lyra-tree__item");
-  if (row == null) throw new Error(`tree row for ${text} not found`);
+  if (row == null) throw new Error(`tree row for ${String(text)} not found`);
   return row;
 };
 
 /** Right-clicks the tree row containing text, opening its service context menu. A
  * menu that suspends must mount inside an async act: a suspension mounted under
  * sync act never retries when its promise resolves, so the menu stays empty. */
-export const openTreeRowContextMenu = async (text: string): Promise<void> => {
+export const openTreeRowContextMenu = async (text: Matcher): Promise<void> => {
   const row = await findTreeRow(text);
   await act(async () => {
     fireEvent.contextMenu(row);
+  });
+};
+
+/** Returns the icon named by its registry name inside the tree row, or null. */
+export const findTreeRowIcon = async (
+  text: string,
+  icon: string,
+): Promise<Element | null> =>
+  (await findTreeRow(text)).querySelector(`.lyra-icon--${icon}`);
+
+/** Right-clicks the tree's empty space, opening the root context menu. */
+export const openTreeRootContextMenu = async (): Promise<void> => {
+  const tree = await waitFor(() => {
+    const el = document.querySelector(".lyra-tree");
+    if (el == null) throw new Error("tree not found");
+    return el;
+  });
+  await act(async () => {
+    fireEvent.contextMenu(tree);
   });
 };
 
@@ -342,6 +407,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   resources: ontology.Resource[];
   /** The selected ids; defaults to every resource. */
   selected?: resource.ID[];
+  /** The tree root; defaults to the ontology root. */
+  rootID?: resource.ID;
   /** The tree parent of the selection; defaults to the root. */
   parentID?: resource.ID;
   store?: TestStore;
@@ -365,6 +432,7 @@ export const renderTreeContextMenu = async (
     client,
     resources,
     selected,
+    rootID,
     parentID,
     store,
     baseOverrides = {},
@@ -381,6 +449,7 @@ export const renderTreeContextMenu = async (
     }),
     selection: createSelection({
       ids: selected ?? resources.map((r) => r.id),
+      rootID,
       parentID,
     }),
     state: createState(resources, stateOverrides),
@@ -434,6 +503,14 @@ export const renderToolbar = async (
     { wrapper: Wrapper, onCaughtError },
   );
   return { store };
+};
+
+/** Opens the search of a tree or toolbar and types the term. */
+export const searchTree = (term: string): void => {
+  fireEvent.click(getIconButton(document.body, "search"));
+  fireEvent.change(screen.getByPlaceholderText(/^Search /), {
+    target: { value: term },
+  });
 };
 
 /** Returns the tree row (`.lyra-tree__item`) whose label matches text. */

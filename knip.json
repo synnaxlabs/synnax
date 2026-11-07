@@ -13,8 +13,9 @@
       "project": ["src/**/*.ts!"]
     },
     "client/ts": {
-      "entry": ["src/index.ts!"],
-      "project": ["src/**/*.ts!"]
+      "entry": ["src/index.ts!", "src/testutil/index.ts"],
+      "project": ["src/**/*.ts!"],
+      "ignoreIssues": { "src/**/where.gen.ts": ["exports"] }
     },
     "drift": {
       "entry": ["src/index.ts!", "src/react/index.ts!", "src/tauri/index.ts!"],

@@ -9,12 +9,14 @@
 
 from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import project as project_
 from synnax import ranger
-from synnax.table.types_gen import Key, Table
+from synnax.table.types_gen import Key, RetrieveRequest, RetrieveResponse, Table, Where
+from synnax.util import one
+from x import filter
 from x.lists import normalize
 
 
@@ -28,16 +30,6 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    tables: list[Table] = Field(default_factory=list)
 
 
 class _RenamePayload(BaseModel):
@@ -107,6 +99,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> list[Table]: ...
@@ -116,26 +109,39 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         projects: list[project_.Key] | None = None,
         ranges: list[ranger.Key] | None = None,
     ) -> Table | list[Table]:
-        """Retrieve one or more tables.
+        """Retrieves tables. With no arguments, it retrieves all of them.
 
         :param key: The key of a single table to retrieve.
         :param keys: The keys of the tables to retrieve.
-        :param projects: The keys of projects. Only the tables these projects own are
-            returned.
+        :param where: A filter that the tables must also match.
+        :param projects: The keys of projects. Only the tables these projects own
+            are returned.
         :param ranges: The keys of ranges. Only the tables these ranges own are
             returned.
-        :returns: The table when ``key`` is provided, otherwise a list of tables.
-        :raises NotFoundError: If any of the requested tables does not exist.
+        :returns: The table when ``key`` is provided, otherwise a list.
+            The list leaves out keys that do not exist.
+        :raises NotFoundError: If ``key`` is provided and no table has it.
         """
         is_single = key is not None
-        req = _RetrieveRequest(
-            keys=normalize(key, keys), projects=projects, ranges=ranges
+        if key is not None:
+            keys = [key]
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            projects=projects,
+            ranges=ranges,
         )
-        res = self._client.send("/table/retrieve", req, _RetrieveResponse)
-        return res.tables[0] if is_single else res.tables
+        res = self._client.send(
+            "/table/retrieve",
+            RetrieveRequest(where=filter.merge(where, flat)),
+            RetrieveResponse,
+        )
+        if not is_single:
+            return res.tables
+        return one("Table", key, res.tables)
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.

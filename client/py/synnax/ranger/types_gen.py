@@ -15,12 +15,12 @@ from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import label
 from synnax.resource import ID
 from x import color as color_
-from x import telem
+from x import filter, telem
 
 Key: TypeAlias = UUID
 
@@ -53,6 +53,32 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
+class Where(BaseModel):
+    """Is a filter that selects ranges.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        overlaps: Matches ranges whose time range overlaps the given range.
+        labels: Matches ranges that have any of the given labels.
+        parents: Matches the ranges nested in any of the given ranges.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    overlaps: telem.TimeRange | None = None
+    labels: list[label.Key] | None = None
+    parents: list[Key] | None = None
+
+
 class KeyRef(BaseModel):
     """Is a range saved in the Core."""
 
@@ -73,6 +99,37 @@ Ref = Annotated[
     KeyRef | WindowRef,
     Field(discriminator="variant"),
 ]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the ranges a RetrieveRequest selects.
+
+    Attributes:
+        ranges: Are the ranges the request selects.
+    """
+
+    ranges: list[Payload] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve ranges.
+
+    Attributes:
+        where: Selects the ranges to retrieve. An absent where selects all of them.
+        search_term: Keeps the ranges that match the term, closest match first.
+        limit: Is the most ranges to return.
+        offset: Is the number of matching ranges to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="range")

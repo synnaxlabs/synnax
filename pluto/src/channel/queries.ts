@@ -195,27 +195,33 @@ export const useCalculatedForm = Flux.createForm<
   mountListeners: formMountListeners,
 });
 
-export type ListQuery = channel.RetrieveOptions & {
-  searchTerm?: string;
-  rangeKey?: string;
-  internal?: boolean;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = channel.RetrieveMultipleParams;
 
-const DEFAULT_LIST_PARAMS: ListQuery = {
-  internal: false,
-};
+const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
+  ...query,
+  where: { internal: { eq: false }, ...query.where },
+});
 
 export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
+  normalizeQuery: normalizeListQuery,
   retrieve: async ({ client, query }) => await client.channels.retrieve(query),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
   onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
     client.channels.onChange({ key, rangeKey }, handler),
+  getCached: ({ client, query }) => client.channels.getCached(query),
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  channel.Channel[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: normalizeListQuery,
+  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
+  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   getCached: ({ client, query }) => client.channels.getCached(query),
 });
 
