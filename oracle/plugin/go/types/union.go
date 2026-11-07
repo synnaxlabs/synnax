@@ -122,6 +122,7 @@ func (v unionVariantData) SetDefaultsView() setDefaultsView {
 		Name:     v.TypeName,
 		Steps:    v.SetSteps,
 		Fills:    v.SetFills,
+		Groups:   v.DefaultGroups,
 	}
 }
 
@@ -306,7 +307,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			neverSkip,
 		)
 		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
-		vd.SetFills = allFills(vd.DefaultFills, vd.DefaultGroups)
+		vd.SetFills = setFills(vd.DefaultFills)
 		vd.DefaultFills = applyFills(vd.DefaultFills)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
