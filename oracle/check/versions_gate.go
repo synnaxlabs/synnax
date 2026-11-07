@@ -419,9 +419,6 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 	}
 
 	for _, t := range f.Defined {
-		if t.Synthetic {
-			continue
-		}
 		walkDecl(t, referenced, false)
 	}
 	visited := make(set.Set[string])

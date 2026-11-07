@@ -304,28 +304,53 @@ Channel struct {
 	}
 
 	DescribeTable("Should fail a reference that imports a live schema",
-		func(field string) {
+		func(decls string) {
 			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
 			write("schemas/x/telem.oracle", "TimeStamp = int64\n")
-			write("schemas/synnax/versions/channel/v0.oracle", `
-import "schemas/x/telem"
-
-Channel struct {
-	key uuid @key
-	`+field+`
-
-	@go marshal
-}
-`)
+			write(
+				"schemas/synnax/versions/channel/v0.oracle",
+				"import \"schemas/x/telem\"\n\n"+decls,
+			)
 			report := run(analyzeLive(liveV0))
 			Expect(report.Status).To(Equal(check.StatusFail))
 			Expect(placementFindings(report)).To(ConsistOf(
 				"schemas/synnax/channel v0 references telem but imports its live schema",
 			))
 		},
-		Entry("when the reference is stored", "created telem.TimeStamp"),
-		Entry("when the reference is an omitted field",
-			"seen telem.TimeStamp {\n\t\t@go marshal omit\n\t}"),
+		Entry("when the reference is stored", `
+Channel struct {
+	key uuid @key
+	created telem.TimeStamp
+
+	@go marshal
+}
+`),
+		Entry("when the reference is an omitted field", `
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`),
+		Entry("when an inline union variant holds the reference", `
+Shape union on kind {
+	circle {
+		at telem.TimeStamp
+	}
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+}
+`),
 	)
 
 	It("Should accept an omitted field that pins its dependency", func() {
