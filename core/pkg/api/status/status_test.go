@@ -116,6 +116,56 @@ var _ = Describe("Service.Set", func() {
 	)
 
 	It(
+		"Should check details against the stored owner on an update with no owner",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			valid := map[string]any{"running": true}
+			stored := MustSucceed(set(ctx, newStatus(&owner, valid))).Statuses[0]
+			update := newStatus(nil, "not an object")
+			update.Key = stored.Key
+			Expect(set(ctx, update)).Error().To(MatchError(
+				And(
+					ContainSubstring("statuses.0.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			var res status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](stored.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Details).To(HaveKeyWithValue("running", true))
+		},
+	)
+
+	It(
+		"Should refuse a write to the status an owner holds without access on its key",
+		func(ctx SpecContext) {
+			owner := createTask(ctx)
+			held := newStatus(&owner, nil)
+			held.Message = "Running"
+			held = MustSucceed(set(ctx, held)).Statuses[0]
+			u := freshUser(ctx)
+			req := newStatus(&owner, nil)
+			req.Message = "Overwritten"
+			grantOn(ctx, u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				status.ResourceID(req.Key))
+			Expect(apiSvc.Set(
+				AuthedCtx(ctx, u),
+				db,
+				apistatus.SetRequest{Statuses: []status.Status[any]{req}},
+			)).Error().To(MatchError(access.ErrDenied))
+			var res status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](held.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Message).To(Equal("Running"))
+		},
+	)
+
+	It(
 		"Should write nothing when one status in a batch is invalid",
 		func(ctx SpecContext) {
 			valid := newStatus(nil, nil)

@@ -59,14 +59,23 @@ func newUser(ctx context.Context, types ...resource.Type) user.User {
 }
 
 // execBatch decodes body as a batch and runs it as u in one transaction.
-func execBatch(ctx context.Context, u user.User, body string) error {
+func execBatch(
+	ctx context.Context,
+	u user.User,
+	body string,
+) (batch.ExecResponse, error) {
 	GinkgoHelper()
 	var req batch.ExecRequest
 	Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		_, err := apiLayer.Batch.Exec(AuthedCtx(ctx, u), tx, req)
+	var res batch.ExecResponse
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		var err error
+		res, err = apiLayer.Batch.Exec(AuthedCtx(ctx, u), tx, req)
 		return err
-	})
+	}); err != nil {
+		return batch.ExecResponse{}, err
+	}
+	return res, nil
 }
 
 var _ = Describe("Layer", func() {
@@ -90,7 +99,7 @@ var _ = Describe("Layer", func() {
 			proj := project.Project{Name: "batched"}
 			Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 			key := uuid.New()
-			Expect(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+			MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 				{
 					"endpoint": "/group/create",
 					"payload": {"key": %[1]q, "name": "Batched", "scope": "project"}
@@ -99,7 +108,7 @@ var _ = Describe("Layer", func() {
 					"endpoint": "/project/set-group",
 					"payload": {"keys": [%[2]q], "group": %[1]q}
 				}
-			]}`, key, proj.Key))).To(Succeed())
+			]}`, key, proj.Key)))
 			var stored project.Project
 			Expect(svc.Project.NewRetrieve().
 				Where(project.MatchKeys(proj.Key)).
@@ -123,7 +132,7 @@ var _ = Describe("Layer", func() {
 				"endpoint": "/project/set-group",
 				"payload": {"keys": [%[2]q], "group": %[3]q}
 			}
-		]}`, key, proj.Key, missing))).To(MatchError(
+		]}`, key, proj.Key, missing))).Error().To(MatchError(
 			"requests.1.group: group " + missing.String() + " does not exist: " +
 				"validation error",
 		))
@@ -140,7 +149,7 @@ var _ = Describe("Layer", func() {
 			l := label.Label{Name: "batched"}
 			Expect(svc.Label.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 			key := uuid.New().String()
-			Expect(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+			MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
 				{
 					"endpoint": "/status/set",
 					"payload": {"statuses": [{
@@ -159,7 +168,7 @@ var _ = Describe("Layer", func() {
 						"replace": true
 					}
 				}
-			]}`, key, l.Key))).To(Succeed())
+			]}`, key, l.Key)))
 			var stored status.Status[any]
 			Expect(svc.Status.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).

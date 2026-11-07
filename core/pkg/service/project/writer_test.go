@@ -243,8 +243,8 @@ var _ = Describe("Writer with no transaction", func() {
 					joinErr = svc.NewWriter(nil).SetGroup(ctx, &g.Key, proj.Key)
 				})
 				wg.Go(func() {
-					g.Parent = new(owner.ResourceID())
-					moveErr = groupSvc.NewWriter(nil).Create(ctx, &g)
+					moveErr = groupSvc.NewWriter(nil).
+						SetParent(ctx, new(owner.ResourceID()), g.Key)
 				})
 				wg.Wait()
 				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))

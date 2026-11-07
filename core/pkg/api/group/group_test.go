@@ -77,6 +77,27 @@ var _ = Describe("Group", func() {
 				Expect(res.Group.Scope).To(Equal(resource.TypeChannel))
 			},
 		)
+
+		It(
+			"Should not move an existing group for a user with only create access",
+			func(ctx SpecContext) {
+				parent := newGroup(ctx, resource.TypeChannel, nil)
+				g := newGroup(ctx, resource.TypeChannel, &parent)
+				u := newUser(ctx, grant(create, groups))
+				res := MustSucceed(apiSvc.Create(
+					AuthedCtx(ctx, u),
+					nil,
+					apigroup.CreateRequest{Key: g.Key, Name: g.Name},
+				))
+				Expect(res.Group.Parent).To(Equal(new(parent.ResourceID())))
+				var stored group.Group
+				Expect(svc.Group.NewRetrieve().
+					Where(group.MatchKeys(g.Key)).
+					Entry(&stored).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Parent).To(Equal(new(parent.ResourceID())))
+			},
+		)
 	})
 
 	Describe("SetParent", func() {
@@ -86,9 +107,9 @@ var _ = Describe("Group", func() {
 			dest = newGroup(ctx, resource.TypeChannel, nil)
 			moved = newGroup(ctx, resource.TypeChannel, &source)
 		})
-		setParent := func(ctx SpecContext, objects ...resource.ID) error {
+		setParent := func(ctx SpecContext, objects ...resource.ID) (struct{}, error) {
 			u := newUser(ctx, grant(update, objects...))
-			_, err := apiSvc.SetParent(
+			return apiSvc.SetParent(
 				AuthedCtx(ctx, u),
 				nil,
 				apigroup.SetParentRequest{
@@ -96,28 +117,27 @@ var _ = Describe("Group", func() {
 					Parent: new(dest.ResourceID()),
 				},
 			)
-			return err
 		}
 
 		It("Should need update access on the destination", func(ctx SpecContext) {
 			Expect(setParent(ctx, moved.ResourceID(), source.ResourceID())).
-				To(MatchError(access.ErrDenied))
+				Error().To(MatchError(access.ErrDenied))
 		})
 
 		It("Should need update access on the source parent", func(ctx SpecContext) {
 			Expect(setParent(ctx, moved.ResourceID(), dest.ResourceID())).
-				To(MatchError(access.ErrDenied))
+				Error().To(MatchError(access.ErrDenied))
 		})
 
 		It(
 			"Should move a group when the user can update the group and both parents",
 			func(ctx SpecContext) {
-				Expect(setParent(
+				MustSucceed(setParent(
 					ctx,
 					moved.ResourceID(),
 					source.ResourceID(),
 					dest.ResourceID(),
-				)).To(Succeed())
+				))
 				var g group.Group
 				Expect(svc.Group.NewRetrieve().
 					Where(group.MatchKeys(moved.Key)).
