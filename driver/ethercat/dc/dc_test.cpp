@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <limits>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -375,6 +378,20 @@ TEST(Resolve, RefusesASYNC1CycleOverTheRegisterLimit) {
     const auto err = resolve(mode, x::telem::MILLISECOND * 10).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "SYNC1 cycle of 10s is over the limit of 4s 294ms 968us 295ns");
+}
+
+/// @brief it should refuse a chosen SYNC1 cycle so long that its register value would
+/// overflow.
+TEST(Resolve, RefusesAChosenSYNC1CycleThatOverflowsTheRegisterValue) {
+    const OpMode mode{.assign_activate = 0x0700, .sync0_cycle = 1, .sync1_shift = 2};
+    const x::telem::TimeSpan sync1(std::numeric_limits<int64_t>::max());
+    const auto err = resolve(mode, x::telem::MILLISECOND, {.sync1 = sync1}).second;
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "SYNC1 cycle of " + sync1.to_string() +
+            " is over the limit of 4s 294ms 967us 294ns"
+    );
 }
 
 /// @brief it should refuse a SYNC1 shift that puts SYNC1 before its SYNC0 event.

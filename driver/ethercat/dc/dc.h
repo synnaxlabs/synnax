@@ -289,16 +289,18 @@ inline std::pair<Registers, x::errors::Error> resolve(
             " is not a multiple of the SYNC0 cycle of " + sync0.to_string()
         );
     const auto shift = x::telem::TimeSpan(mode.sync1_shift);
+    // Checked before the register value, which a chosen cycle could overflow.
+    const auto sync1_limit = REGISTER_LIMIT + sync0 - shift;
+    if (sync1 > sync1_limit)
+        return fail(
+            "SYNC1 cycle of " + sync1.to_string() + " is over the limit of " +
+            sync1_limit.to_string()
+        );
     const auto sync1_register = sync1 - sync0 + shift;
     if (sync1_register < 0)
         return fail(
             "SYNC1 shift of " + shift.to_string() + " is under the limit of " +
             (sync0 - sync1).to_string()
-        );
-    if (sync1_register > REGISTER_LIMIT)
-        return fail(
-            "SYNC1 cycle of " + sync1.to_string() + " is over the limit of " +
-            (REGISTER_LIMIT + sync0 - shift).to_string()
         );
     regs.sync1_cycle = static_cast<uint32_t>(sync1_register.nanoseconds());
     return {regs, x::errors::NIL};
