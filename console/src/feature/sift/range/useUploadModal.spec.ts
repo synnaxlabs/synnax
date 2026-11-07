@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+import {
+  type channel,
+  type device,
+  type task,
+  TimeRange,
+  TimeStamp,
+} from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -49,12 +55,37 @@ const createScanTask = async () => {
   return { rack, scan };
 };
 
+// Picks the device, the asset Sift lists last, and the channel, then uploads.
+const fillAndUpload = async (
+  scan: task.Task,
+  dev: device.Device,
+  ch: channel.Channel,
+) => {
+  const { answered: listed } = await answerNextCommand(client, scan, {
+    type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+    data: { assets: ["pad", "stand"], last: "stand" },
+  });
+  await selectDevice(dev.name);
+  await listed;
+  expect(await screen.findByText("stand")).toBeTruthy();
+  fireEvent.click(screen.getByText("Select channels to upload"));
+  fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
+    target: { value: ch.name },
+  });
+  fireEvent.click(await screen.findByText(ch.name));
+  const { answered } = await answerNextCommand(client, scan, {
+    type: Sift.Task.UPLOAD_COMMAND_TYPE,
+  });
+  clickUpload();
+  return await answered;
+};
+
 describe("Sift.Range.useUploadModal", () => {
   it("should require a device, an asset, and channels", async () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
@@ -71,26 +102,10 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
-    const { answered: listed } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
-      data: { assets: ["pad", "stand"], last: "stand" },
-    });
-    await selectDevice(dev.name);
-    await listed;
-    expect(await screen.findByText("stand")).toBeTruthy();
-    fireEvent.click(screen.getByText("Select channels to upload"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: data.name },
-    });
-    fireEvent.click(await screen.findByText(data.name));
-    const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.UPLOAD_COMMAND_TYPE,
-    });
-    clickUpload();
-    const cmd = await answered;
+    const cmd = await fillAndUpload(scan, dev, data);
     expect(cmd.args).toEqual({
       device: dev.key,
       range: rng.key,
@@ -106,7 +121,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
@@ -121,5 +136,29 @@ describe("Sift.Range.useUploadModal", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Save/ }));
     expect(await screen.findByText("Rig 2")).toBeTruthy();
+  });
+
+  it("should queue an upload of a plain time span", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const [, data] = await newIndexedPair(client);
+    const tr = new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2));
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: "Hotfire plot", source: tr.numeric }],
+      { client },
+    );
+    expect(await screen.findByText("Upload Hotfire plot to Sift")).toBeTruthy();
+    expect(screen.getByText(tr.toPrettyString())).toBeTruthy();
+    const cmd = await fillAndUpload(scan, dev, data);
+    expect(cmd.args).toEqual({
+      device: dev.key,
+      timeRange: {
+        start: tr.start.valueOf().toString(),
+        end: tr.end.valueOf().toString(),
+      },
+      channels: [data.key],
+      asset: "stand",
+    });
   });
 });
