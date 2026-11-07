@@ -213,4 +213,21 @@ describe("flow control", () => {
     await second;
     await expect.poll(() => received).toEqual([0, 1]);
   });
+
+  test("should send waiting requests in call order", async () => {
+    const stream = await dial({ sendHighWaterMark: 1024 });
+    const { ws, req } = await connected;
+    req.socket.pause();
+    const received: number[] = [];
+    const codec = new binary.JSONCodec();
+    const msgZ = z.object({ payload: messageSchema });
+    ws.on("message", (data: Buffer) => {
+      received.push(codec.decode(data, msgZ).payload.id ?? -1);
+    });
+    await stream.send({ id: 0, message: "x".repeat(32 * 1024 * 1024) });
+    const waiting = [1, 2, 3, 4, 5].map(async (id) => await stream.send({ id }));
+    req.socket.resume();
+    await Promise.all(waiting);
+    await expect.poll(() => received).toEqual([0, 1, 2, 3, 4, 5]);
+  });
 });
