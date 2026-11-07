@@ -46,6 +46,7 @@ cc_test(
     deps = [
         ":task",
         "//x/cpp/json",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

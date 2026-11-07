@@ -69,6 +69,60 @@ export const groupSize = (
   return Number.isFinite(size) && size >= 2 ? size : 1;
 };
 
+// A cut op starts and ends on a multiple of this many groups, so the pair that reduces
+// it keeps its groups until the view crosses a multiple.
+const CUT_GROUPS = 1024;
+
+const cut = (op: DrawOperation, lo: number, hi: number): DrawOperation =>
+  lo === 0 && hi === op.count
+    ? op
+    : { ...op, xOffset: op.xOffset + lo, yOffset: op.yOffset + lo, count: hi - lo };
+
+// Returns the op index of the first sample whose x is at least value.
+const indexOf = ({ x, xOffset, count }: DrawOperation, value: number): number =>
+  Math.min(Math.max(x.binarySearch(value) - xOffset, 0), count);
+
+const xAt = ({ x, xOffset }: DrawOperation, i: number): number =>
+  Number(x.at(xOffset + i, true));
+
+/**
+ * @returns the ops cut to the samples that draw view at groupSize. A full-resolution op
+ * keeps its samples in view, one more sample and a group past each side, widened to a
+ * grid of 1024 groups. Of the ops wholly outside view, only the nearest on each side
+ * stays, as its one sample next to view. Ops of reduced series stay the same. The x
+ * samples of each op must ascend.
+ */
+export const inView = (
+  ops: DrawOperation[],
+  view: bounds.Bounds,
+  groupSize: number,
+): DrawOperation[] => {
+  const grid = CUT_GROUPS * groupSize;
+  let left = -1;
+  let right = -1;
+  const out = ops.map((op, i): DrawOperation | null => {
+    if (!isFullResolution(op)) return op;
+    const lo = indexOf(op, view.lower);
+    const hi = indexOf(op, view.upper);
+    if (lo === op.count) {
+      if (left === -1 || xAt(op, op.count - 1) > xAt(ops[left], ops[left].count - 1))
+        left = i;
+      return null;
+    }
+    if (hi === 0) {
+      if (right === -1 || xAt(op, 0) < xAt(ops[right], 0)) right = i;
+      return null;
+    }
+    const s = Number(startOf(op) & SAMPLE_INDEX_MASK);
+    const start = Math.floor((s + lo - 1 - groupSize) / grid) * grid - s;
+    const end = Math.ceil((s + hi + 1 + groupSize) / grid) * grid - s;
+    return cut(op, Math.max(start, 0), Math.min(end, op.count));
+  });
+  if (left !== -1) out[left] = cut(ops[left], ops[left].count - 1, ops[left].count);
+  if (right !== -1) out[right] = cut(ops[right], 0, 1);
+  return out.filter((op) => op != null);
+};
+
 // The x or y data of one op in a chain, and the shift that moves its values onto the
 // GL offset of the chain's first op.
 interface Axis {
@@ -141,7 +195,7 @@ const mean = (
 class Pair {
   private readonly x: Series;
   private readonly y: Series;
-  private readonly start: bigint;
+  readonly start: bigint;
   // The op's first sample index within its group.
   private readonly first: number;
   // The op index where the first group the op draws starts. It is negative when that
@@ -344,7 +398,7 @@ const chainOf = (
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
  * time range and GL offset, of its source series. Pairs are cached until they leave the
- * ops, or until the aggregation or group size changes.
+ * ops, their op starts elsewhere, or the aggregation or group size changes.
  */
 export class Reducer {
   private aggregation?: Aggregation;
@@ -391,7 +445,9 @@ export class Reducer {
         this.pairs.set(op.x, byY);
       }
       let pair = byY.get(op.y);
-      if (pair == null) {
+      // An op cut to the view starts elsewhere when the view crosses the cut grid.
+      if (pair?.start !== startOf(op)) {
+        pair?.release();
         pair = new Pair(op, aggregation, groupSize, preceded);
         byY.set(op.y, pair);
       }

@@ -218,7 +218,8 @@ func LiteralAssignmentCompatible(
 	variableType = variableType.Unwrap()
 	literalType = literalType.Unwrap()
 	if literalType.Kind == types.KindVariable {
-		return true
+		return !variableType.IsInteger() ||
+			!constrainedTo(literalType, types.KindFloatConstant)
 	}
 	if variableType.String() == literalType.String() {
 		return true

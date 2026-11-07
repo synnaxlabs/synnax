@@ -76,10 +76,9 @@ TEST(TestArc, testModule) {
     const auto client = new_test_client();
     Arc arc = ModuleArc{{.name = random_arc_name("module_test")}};
     ASSERT_NIL(client.arcs.create(arc));
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
-        base(arc).key,
-        RetrieveOptions{.include_program = true}
-    ));
+    auto retrieved = ASSERT_NIL_P(
+        client.arcs.retrieve(base(arc).key, RetrieveOptions{.include_program = true})
+    );
     ASSERT_TRUE(std::holds_alternative<ModuleArc>(retrieved));
 }
 
@@ -90,7 +89,7 @@ TEST(TestArc, testRetrieveByName) {
     Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(name));
     ASSERT_EQ(base(retrieved).key, base(created).key);
     ASSERT_EQ(base(retrieved).name, name);
 }
@@ -102,9 +101,80 @@ TEST(TestArc, testRetrieveByKey) {
     Arc created = AutomationArc{{.name = name}};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(created).key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(created).key));
     ASSERT_EQ(base(retrieved).key, base(created).key);
     ASSERT_EQ(base(retrieved).name, name);
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one Arc.
+TEST(TestArc, testRetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.arcs.retrieve("arc", options).second,
+              client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
+/// @brief it should page a retrieve of Arcs by keys or by names.
+TEST(TestArc, testRetrieveListPage) {
+    const auto client = new_test_client();
+    std::vector<Key> keys;
+    std::vector<std::string> names;
+    for (int i = 0; i < 3; ++i) {
+        const auto arc = ASSERT_NIL_P(client.arcs.create(random_arc_name("page_arc")));
+        keys.push_back(base(arc).key);
+        names.push_back(base(arc).name);
+    }
+    const auto by_key = ASSERT_NIL_P(client.arcs.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_name = ASSERT_NIL_P(client.arcs.retrieve(names, {.offset = 2}));
+    ASSERT_EQ(by_name.size(), 1);
+}
+
+/// @brief it should retrieve the one Arc program that a filter matches.
+TEST(TestArc, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    Arc created = AutomationArc{{.name = random_arc_name("one_where")}};
+    ASSERT_NIL(client.arcs.create(created));
+    const auto got = ASSERT_NIL_P(
+        client.arcs.retrieve({.name = base(created).name}, x::filter::one)
+    );
+    ASSERT_EQ(base(got).key, base(created).key);
+}
+
+/// @brief it should name the filter in the error when no Arc program matches it.
+TEST(TestArc, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = random_arc_name("none_where");
+    const auto [_, err] = client.arcs.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no Arc where name = \"" + name + "\"");
+}
+
+/// @brief it should return an error when more than one Arc program matches a filter.
+TEST(TestArc, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    auto arcs = std::vector<Arc>{
+        AutomationArc{{.name = random_arc_name("twice_where_a")}},
+        AutomationArc{{.name = random_arc_name("twice_where_b")}},
+    };
+    ASSERT_NIL(client.arcs.create(arcs));
+    ASSERT_OCCURRED_AS_P(
+        client.arcs.retrieve(
+            {.name = {base(arcs[0]).name, base(arcs[1]).name}},
+            x::filter::one
+        ),
+        x::errors::MULTIPLE_RESULTS
+    );
 }
 
 /// @brief it should retrieve multiple Arc programs by names.
@@ -132,7 +202,7 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
 
@@ -145,16 +215,8 @@ TEST(TestArc, testRetrieveWhere) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
     const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .not_ = x::mem::indirect<Where>(
-                    Where{.key = x::filter::Set<Key>{.eq = base(arcs[0]).key}}
-                ),
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{base(arcs[0]).key, base(arcs[1]).key},
-                },
-            },
-        }
+        !Where{.key = base(arcs[0]).key} &&
+        Where{.key = {base(arcs[0]).key, base(arcs[1]).key}}
     ));
     ASSERT_EQ(retrieved.size(), 1);
     ASSERT_EQ(base(retrieved[0]).key, base(arcs[1]).key);
@@ -168,10 +230,7 @@ TEST(TestArc, testDelete) {
 
     ASSERT_NIL(client.arcs.del(base(arc).key));
 
-    ASSERT_OCCURRED_AS_P(
-        client.arcs.retrieve_by_key(base(arc).key),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_OCCURRED_AS_P(client.arcs.retrieve(base(arc).key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should delete multiple Arc programs by keys.
@@ -186,7 +245,7 @@ TEST(TestArc, testDeleteMany) {
     std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
     ASSERT_NIL(client.arcs.del(keys));
 
-    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys)).empty());
+    ASSERT_TRUE(ASSERT_NIL_P(client.arcs.retrieve(keys)).empty());
 }
 
 /// @brief it should handle the program field correctly.
@@ -199,7 +258,7 @@ TEST(TestArc, testProgramField) {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(arc).key));
     ASSERT_EQ(base(retrieved).key, base(arc).key);
     ASSERT_FALSE(std::get<AutomationArc>(retrieved).program.has_value());
 }
@@ -235,7 +294,7 @@ func calc() {val f32} f32 {
 
     RetrieveOptions options;
     options.include_program = true;
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key, options));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(base(arc).key, options));
     ASSERT_EQ(base(retrieved).key, base(arc).key);
     const auto &program = std::get<AutomationArc>(retrieved).program.value();
 
@@ -284,7 +343,7 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
         base(arc).key,
         synnax::arc::RetrieveOptions{
             .include_program = true,

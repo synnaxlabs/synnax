@@ -835,7 +835,7 @@ TEST(BaseReadTaskConfigTest, testValidConfig) {
 
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     EXPECT_TRUE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
@@ -847,7 +847,7 @@ TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
 
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     EXPECT_FALSE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));

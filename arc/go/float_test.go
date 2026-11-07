@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -290,6 +291,73 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("float, inf, integer, f64", types.F64(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("float, inf, integer, f32", types.F32(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("negated inf first, f64", types.F64(), "[-math.inf, 1]", 0, -inf),
+	)
+
+	DescribeTable("Should keep a compared constant at the other operand's width",
+		func(ctx SpecContext, expr string) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			func check() {v f32} f64 {
+				return f64(`+expr+`)
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"out": {types.F64(), 200},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[float32](1))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(1.0))
+		},
+		Entry("constant first", "math.inf > v"),
+		Entry("constant second", "v < math.inf"),
+		Entry("equality", "math.inf != v"),
+	)
+
+	DescribeTable("Should reject a float constant in an integer series",
+		func(ctx SpecContext, source string) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			Expect(arc.CompileText(
+				ctx,
+				arc.Text{Raw: "import math\nfunc f() {\n" + source + "\n}"},
+				root,
+			)).Error().To(MatchError(ContainSubstring("type mismatch")))
+		},
+		Entry("constant only", "y series i32 := [math.inf]"),
+		Entry("integer then constant", "y series i32 := [1, math.nan]"),
+		Entry("constant then integer", "y series i64 := [math.inf, 1]"),
+	)
+
+	DescribeTable("Should report a source that is not a channel once",
+		func(ctx SpecContext, source, message, note string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "y",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{
+					Raw: "import math\nfunc f() {v f64} f64 { return v }\n" + source,
+				})),
+				root,
+			)
+			Expect(*diagnostics).To(HaveLen(1), diagnostics.String())
+			Expect((*diagnostics)[0].Message).To(Equal(message))
+			Expect((*diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*diagnostics)[0].Notes[0].Message).To(Equal(note))
+		},
+		Entry(
+			"function",
+			"x := math.inf\nf -> f() -> y",
+			"f is not a channel",
+			"use f() to instantiate the function",
+		),
 	)
 
 	Describe("Mixed float and integer literals", func() {
