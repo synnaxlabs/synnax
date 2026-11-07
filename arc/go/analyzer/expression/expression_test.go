@@ -1967,7 +1967,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable(
-			"Should warn on equality with math.nan",
+			"Should warn on a comparison with math.nan",
 			func(ctx SpecContext, expr, message string) {
 				ast := MustSucceed(parser.Parse(body("a := " + expr)))
 				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
@@ -1992,6 +1992,11 @@ var _ = Describe("Expressions", func() {
 			},
 			Entry("==", "v == math.nan", "== with math.nan is always false"),
 			Entry("!=", "v != math.nan", "!= with math.nan is always true"),
+			Entry("<", "v < math.nan", "< with math.nan is always false"),
+			Entry(">", "math.nan > v", "> with math.nan is always false"),
+			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
+			Entry(">=", "w >= f32(math.nan)", ">= with math.nan is always false"),
+			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
 			Entry("left side", "math.nan == w", "always false"),
 			Entry("parentheses on the left", "(math.nan) == v", "always false"),
 			Entry("parentheses on the right", "v == (math.nan)", "always false"),

@@ -79,9 +79,10 @@ sequence main {
 ```
 
 Use [`math.is_nan`](/reference/control/arc/standard-library/math#float-checks) to test
-for NaN. `x == math.nan` is always `false`, and `x != math.nan` is always `true`. The
-compiler gives warning ARC2004 for both: write `math.is_nan(x)` and
-`not math.is_nan(x)`. `x != x` is `true` only for NaN, but the check is easier to read.
+for NaN. `x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with
+`math.nan` is always `false`. The compiler gives warning ARC2004 for each: write
+`math.is_nan(x)` and `not math.is_nan(x)`. `x != x` is `true` only for NaN, but the
+check is easier to read.
 
 <Divider.Divider x />
 
