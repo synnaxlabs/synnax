@@ -616,7 +616,7 @@ var _ = Describe("NaN and infinity", func() {
 	})
 
 	Describe("Stored values", func() {
-		// run compiles source, ingests a trigger on x, and returns the sample
+		// run compiles source, ingests a trigger on x, and returns the last sample
 		// written to out.
 		run := func(ctx SpecContext, source string, dt types.Type) float64 {
 			GinkgoHelper()
@@ -643,9 +643,11 @@ var _ = Describe("NaN and infinity", func() {
 			Expect(series).ToNot(BeEmpty())
 			last := series[len(series)-1]
 			if dt.Kind == types.KindF32 {
-				return float64(last.Unmarshal[float32]()[0])
+				values := last.Unmarshal[float32]()
+				return float64(values[len(values)-1])
 			}
-			return last.Unmarshal[float64]()[0]
+			values := last.Unmarshal[float64]()
+			return values[len(values)-1]
 		}
 		sources := []struct{ name, text string }{
 			{"a flow variable read in a func", `
@@ -690,6 +692,34 @@ var _ = Describe("NaN and infinity", func() {
 				}
 			}
 			x => main`},
+			{"a top-level variable read by a flow", `
+			limit T := V
+			limit -> out`},
+			{"a stage reassignment", `
+			sequence main {
+				limit T := 0.0
+				stage a {
+					limit = V
+					limit -> out
+				}
+			}
+			x => main`},
+			{"a stateful stage reassignment", `
+			sequence main {
+				limit T $= 0.0
+				stage a {
+					limit = V
+					limit -> out
+				}
+			}
+			x => main`},
+			{"a reassignment in a function", `
+			func f() {v T} T {
+				limit T := 0.0
+				limit = V
+				return limit
+			}
+			x -> f() -> out`},
 			{"a function input value", `
 			func f(a T) {v T} T { return a }
 			x -> f(a=V) -> out`},
@@ -712,6 +742,8 @@ var _ = Describe("NaN and infinity", func() {
 				Entry("f64 NaN", types.F64(), "math.nan", nan),
 				Entry("f64 +Inf", types.F64(), "math.inf", inf),
 				Entry("f64 -Inf", types.F64(), "-math.inf", -inf),
+				Entry("f32 cast NaN", types.F32(), "f32(math.nan)", nan),
+				Entry("f64 cast -Inf", types.F64(), "f64(-math.inf)", -inf),
 			)
 		}
 
