@@ -166,6 +166,14 @@ Doc struct {
 			},
 		)
 
+		It("Should regenerate a frozen package whose disk bytes moved",
+			func(ctx SpecContext) {
+				record(ctx)
+				write(v0File, "hand edit")
+				Expect(pin(ctx)[v0File]).To(Equal("new v0"))
+			},
+		)
+
 		It("Should regenerate a frozen package whose version files changed",
 			func(ctx SpecContext) {
 				record(ctx)

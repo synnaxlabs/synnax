@@ -1184,7 +1184,23 @@ Doc struct {
 
 var _ = Describe("LiveHash", func() {
 	const (
-		v0 = `
+		docV0Path = "schemas/synnax/versions/doc/v0.oracle"
+		docV1Path = "schemas/synnax/versions/doc/v1.oracle"
+		livePath  = "schemas/synnax/doc.oracle"
+		colorPath = "schemas/x/versions/color/v0.oracle"
+		colorLive = "schemas/x/color.oracle"
+		color     = `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`
+	)
+	base := map[string]string{
+		docV0Path: `
+import "schemas/x/versions/color/v0"
+
 Note struct {
 	name string
 }
@@ -1192,22 +1208,28 @@ Note struct {
 Doc struct {
 	key uuid @key
 	note Note
+	tint color.Color
 
 	@go marshal
 }
-`
-		v1 = `
+`,
+		docV1Path: `
+import "schemas/x/versions/color/v0"
+
 Note = v0.Note
 
 Doc struct {
 	key uuid @key
 	note Note
+	tint color.Color
 	title string
 
 	@go marshal
 }
-`
-		live = `
+`,
+		livePath: `
+import "schemas/x/color"
+
 @go output "core/pkg/service/doc"
 
 Note struct {
@@ -1217,17 +1239,111 @@ Note struct {
 Doc struct {
 	key uuid @key
 	note Note
+	tint color.Color
 	title string
 }
-`
-	)
-	hash := func(live string) string {
+`,
+		colorPath: color,
+		colorLive: "@go output \"x/go/color\"\n" + color,
+	}
+	hash := func(edits map[string]string) string {
 		GinkgoHelper()
 		root := GinkgoT().TempDir()
+		files := maps.Clone(base)
+		maps.Copy(files, edits)
+		for rel, content := range files {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/doc"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{
+			Resolutions: table,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+		closure := MustSucceed(gotypes.StoredClosure(GinkgoT().Context(), req))
+		return MustSucceed(gotypes.LiveHash(
+			GinkgoT().Context(),
+			req,
+			"core/pkg/service/doc",
+			"schemas/synnax/doc",
+			0,
+			closure,
+		))
+	}
+	editLive := func(old, new string) map[string]string {
+		return map[string]string{
+			livePath: strings.Replace(base[livePath], old, new, 1),
+		}
+	}
+	renamed := strings.Replace(color, "r uint8", "red uint8", 1)
+	DescribeTable("Should change only with an input that version 0 takes",
+		func(edits map[string]string, changes bool) {
+			if changes {
+				Expect(hash(edits)).ToNot(Equal(hash(nil)))
+			} else {
+				Expect(hash(edits)).To(Equal(hash(nil)))
+			}
+		},
+		Entry("a live rule on a shared type", editLive(
+			"name string", "name string {\n\t\t@validate required\n\t}",
+		), true),
+		Entry("live Go fields on a shared type", editLive(
+			"name string\n", "name string\n\n\t@go fields \"Extra int\"\n",
+		), true),
+		Entry("a renamed field in a dependency's version file", map[string]string{
+			colorPath: renamed,
+			colorLive: "@go output \"x/go/color\"\n" + renamed,
+		}, true),
+		Entry("a moved dependency output", map[string]string{
+			colorLive: "@go output \"x/go/colour\"\n" + color,
+		}, true),
+		Entry("a live rule on a type the current version redeclares", editLive(
+			"title string", "title string {\n\t\t@validate required\n\t}",
+		), false),
+		Entry("a live doc on a shared type", editLive(
+			"name string", "name string {\n\t\t@doc value \"is a name.\"\n\t}",
+		), false),
+	)
+})
+
+var _ = Describe("StoredClosure", func() {
+	It("Should hold the declarations a current codec stores", func() {
+		root := GinkgoT().TempDir()
 		for rel, content := range map[string]string{
-			"schemas/synnax/versions/doc/v0.oracle": v0,
-			"schemas/synnax/versions/doc/v1.oracle": v1,
-			"schemas/synnax/doc.oracle":             live,
+			"schemas/synnax/versions/doc/v0.oracle": `
+Note struct {
+	name string
+}
+
+Doc struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Note struct {
+	name string
+}
+
+Doc struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`,
 		} {
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
@@ -1239,37 +1355,16 @@ Doc struct {
 			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		return MustSucceed(gotypes.LiveHash(
+		closure := MustSucceed(gotypes.StoredClosure(
 			GinkgoT().Context(),
 			&plugin.Request{
 				Resolutions: table,
 				Versions:    versions.NewResolver(chains, loader),
 			},
-			"schemas/synnax/doc",
-			0,
 		))
-	}
-	DescribeTable("Should change only with a live input that version 0 takes",
-		func(edited string, changes bool) {
-			if changes {
-				Expect(hash(edited)).ToNot(Equal(hash(live)))
-			} else {
-				Expect(hash(edited)).To(Equal(hash(live)))
-			}
-		},
-		Entry("a live rule on a shared type", strings.Replace(
-			live, "name string", "name string {\n\t\t@validate required\n\t}", 1,
-		), true),
-		Entry("live Go fields on a shared type", strings.Replace(
-			live, "name string\n", "name string\n\n\t@go fields \"Extra int\"\n", 1,
-		), true),
-		Entry("a live rule on a type the current version redeclares", strings.Replace(
-			live, "title string", "title string {\n\t\t@validate required\n\t}", 1,
-		), false),
-		Entry("a live doc on a shared type", strings.Replace(
-			live, "name string", "name string {\n\t\t@doc value \"is a name.\"\n\t}", 1,
-		), false),
-	)
+		Expect(closure.Contains("doc.Doc")).To(BeTrue())
+		Expect(closure.Contains("doc.Note")).To(BeTrue())
+	})
 })
 
 var _ = Describe("Frozen omitted field with a default", func() {

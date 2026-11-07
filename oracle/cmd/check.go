@@ -135,17 +135,19 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return errors.Wrap(err, "pipeline")
 	}
-	if result.Diagnostics.Ok() {
-		if err := frozen.Pin(ctx, result, repoRoot); err != nil {
-			return errors.Wrap(err, "pin frozen packages")
-		}
-	}
-
 	// Resource initialization is lazy because each gate has different dependencies and
 	// a failure to build (e.g. missing license template in a minimal test repo) should
 	// not poison gates that do not need the resource. Whether a gate is in the enabled
 	// set determines whether we even try.
 	wantedGates := wantedSet(gates)
+	// Only the generated gate compares generator output to the disk. A malformed sum
+	// file leaves the output unpinned, and the frozen gate reports the file.
+	if wantedGates.has("generated") && result.Diagnostics.Ok() {
+		err := frozen.Pin(ctx, result, repoRoot)
+		if err != nil && !errors.Is(err, frozen.ErrMalformed) {
+			return errors.Wrap(err, "pin frozen packages")
+		}
+	}
 	var formatters *format.Registry
 	if wantedGates.has("generated") {
 		formatters, err = buildCheckFormatters(repoRoot)

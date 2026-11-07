@@ -93,6 +93,10 @@ func Compute(
 	if err != nil {
 		return nil, err
 	}
+	closure, err := gotypes.StoredClosure(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 	outputs := make(map[string][]string)
 	for _, files := range res.Outputs {
 		for _, f := range files {
@@ -125,7 +129,7 @@ func Compute(
 			if err != nil {
 				return nil, err
 			}
-			live, err := gotypes.LiveHash(ctx, req, cp.LivePath, n)
+			live, err := gotypes.LiveHash(ctx, req, root, cp.LivePath, n, closure)
 			if err != nil {
 				return nil, err
 			}
@@ -141,10 +145,11 @@ func Compute(
 }
 
 // Pin replaces the generated content of each frozen package with the bytes on disk, so
-// a generator change does not reach the package. It skips a package whose version files
-// or live inputs no longer match its recorded sum. A package with no recorded sum takes
-// its disk bytes as the record, and a file that is not on disk keeps its generated
-// content. Run `oracle sync --refreeze` to skip Pin and accept a generator change.
+// a generator change does not reach the package. It skips a package whose version
+// files, live inputs, or disk bytes no longer match its recorded sum, so a sync puts it
+// back. A package with no recorded sum takes its disk bytes as the record, and a file
+// that is not on disk keeps its generated content. Run `oracle sync --refreeze` to skip
+// Pin and accept a generator change.
 func Pin(ctx context.Context, res *pipeline.Result, repoRoot string) error {
 	chains, err := Compute(ctx, res, repoRoot)
 	if err != nil {
@@ -158,8 +163,7 @@ func Pin(ctx context.Context, res *pipeline.Result, repoRoot string) error {
 		}
 		for n, sum := range c.Sums {
 			old, has := recorded[n]
-			if n < c.Current &&
-				(!has || (sum.Schema == old.Schema && sum.Live == old.Live)) {
+			if n < c.Current && (!has || sum == old) {
 				pinned.Add(c.Package(n))
 			}
 		}

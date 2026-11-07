@@ -124,16 +124,18 @@ or generator logic and schemas disagree.
 
 `oracle sync` records every version package in `schemas/<domain>/frozen/<resource>.sum`:
 one line per version, with a hash of the chain's version files up to it, a hash of the
-live inputs the package takes (its shared members and their live `@go omit`, `to_any`,
-`fields`, `imports`, `@validate`, and `@default` rules), and a hash of its generated
-files. The blocking `frozen` gate fails when a frozen package no longer matches its line
-while those version files stand still. A hand edit and a mint that moves the demoted
-package fail it.
+other inputs the package takes (its shared members and their live `@go omit`, `to_any`,
+`fields`, `imports`, `@validate`, and `@default` rules, the declarations and Go outputs
+of the dependency types it references, and which members another codec stores), and a
+hash of its generated files. The blocking `frozen` gate fails when a frozen package no
+longer matches its line while those version files stand still. A hand edit and a mint
+that moves the demoted package fail it.
 
 - A generator change does not reach a frozen package. Sync and check keep its disk bytes
-  while both input hashes match its line, so the gate passes.
-- A change to the version files or live inputs regenerates the package with the current
-  generator. That diff also shows every generator change since the package was frozen.
+  while its whole line matches, so the gate passes.
+- A change to the version files, the other inputs, or the disk bytes regenerates the
+  package with the current generator. That diff also shows every generator change since
+  the package was frozen.
 - An edit to a version file updates the sums by itself on the next sync.
 - A mint must leave the demoted package byte-identical. When the gate flags a mint, find
   what moved. Keep a live rule by restating the field in the version file, or fix the
@@ -142,6 +144,7 @@ package fail it.
   it only for a change that must reach frozen packages, such as a security fix in the
   generator or a live rule on a type the current version aliases, and say why in the PR.
 - A merge conflict in a sum file: take either side, then run `oracle sync`.
+- A frozen package with no line keeps its disk bytes, and the next sync records them.
 
 ## Field optionality
 

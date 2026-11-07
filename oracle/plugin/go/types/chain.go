@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
@@ -410,11 +411,32 @@ func sharedMembers(
 	return shared, nil
 }
 
-// LiveHash hashes the live-file inputs that version k's frozen package takes: the
-// members it shares with the chain's current version, and their live @go omit,
-// to_any, fields, and imports, and field @validate and @default rules.
+// StoredClosure returns the qualified names that a current package's codec stores.
+// Pass it to LiveHash.
+func StoredClosure(
+	ctx context.Context, req *plugin.Request,
+) (set.Set[string], error) {
+	rewritten, _, _, err := versioning.RewriteCurrent(
+		ctx,
+		req.Resolutions,
+		req.Versions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return PersistedClosure(rewritten), nil
+}
+
+// LiveHash hashes the inputs outside its own version files that version k's frozen
+// package takes: the members it shares with the chain's current version and the live
+// rules that withLiveMethods copies onto them, the declarations and Go outputs of the
+// dependency types it references, and which of its members another codec stores.
 func LiveHash(
-	ctx context.Context, req *plugin.Request, livePath string, k int,
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	k int,
+	closure set.Set[string],
 ) (string, error) {
 	chain := req.Versions.Chains()[livePath]
 	shared, err := sharedMembers(ctx, req, livePath, chain, k)
@@ -427,34 +449,66 @@ func LiveHash(
 			b = fmt.Appendf(b, "%s=%v\x00", e.Name, e.Values)
 		}
 	}
-	writeFields := func(t resolution.Type) {
-		form, ok := t.Form.(resolution.StructForm)
-		if !ok {
-			return
+	writeLive := func(t resolution.Type) {
+		b = fmt.Appendf(b, "%t\x00", omit.IsType(t, "go"))
+		for _, expr := range []string{"to_any", "fields", "imports"} {
+			if e, has := t.Domains["go"].Expressions.Find(expr); has {
+				writeExprs(resolution.Expressions{e})
+			}
 		}
-		for _, f := range form.Fields {
-			b = fmt.Appendf(b, "%s\x00", f.Name)
-			writeExprs(f.Domains["validate"].Expressions)
-			writeExprs(f.Domains["default"].Expressions)
+		if form, ok := t.Form.(resolution.StructForm); ok {
+			for _, f := range form.Fields {
+				b = fmt.Appendf(b, "%s\x00", f.Name)
+				writeExprs(f.Domains["validate"].Expressions)
+				writeExprs(f.Domains["default"].Expressions)
+			}
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(shared)) {
-		b = fmt.Appendf(b, "%s\x00", name)
+		stored := closure.Contains(chain.Resource + "." + name)
+		b = fmt.Appendf(b, "%s %t\x00", name, stored)
 		live, ok := liveType(req, livePath, name)
 		if !ok {
 			continue
 		}
-		b = fmt.Appendf(b, "%t\x00", omit.IsType(live, "go"))
-		for _, expr := range []string{"to_any", "fields", "imports"} {
-			if e, has := live.Domains["go"].Expressions.Find(expr); has {
-				writeExprs(resolution.Expressions{e})
-			}
-		}
-		writeFields(live)
+		writeLive(live)
 		if u, isUnion := live.Form.(resolution.UnionForm); isUnion {
 			for _, v := range u.Variants {
 				if payload, ok := v.Type.Resolve(req.Resolutions); ok && v.Inline {
-					writeFields(payload)
+					writeLive(payload)
+				}
+			}
+		}
+	}
+	for _, pinned := range []bool{true, false} {
+		table, ns, err := chainFrozenTable(ctx, req, origPath, livePath, k, pinned)
+		if err != nil {
+			return "", err
+		}
+		deps := slices.SortedFunc(
+			slices.Values(table.Types),
+			func(a, b resolution.Type) int {
+				return strings.Compare(a.QualifiedName, b.QualifiedName)
+			},
+		)
+		for _, t := range deps {
+			if t.Namespace == ns {
+				continue
+			}
+			b = fmt.Appendf(b, "%s %T\x00", t.QualifiedName, t.Form)
+			writeExprs(t.Domains["go"].Expressions)
+			switch form := t.Form.(type) {
+			case resolution.StructForm:
+				for _, f := range form.Fields {
+					b = fmt.Appendf(b, "%s %s %t\x00", f.Name, f.Type.Name, f.Optional)
+				}
+			case resolution.EnumForm:
+				for _, v := range form.Values {
+					b = fmt.Appendf(b, "%s\x00", v.Name)
+				}
+			case resolution.UnionForm:
+				for _, v := range form.Variants {
+					b = fmt.Appendf(b, "%s\x00", v.Name)
 				}
 			}
 		}

@@ -218,6 +218,13 @@ var _ = Describe("frozen gate", func() {
 			succeed("check", "--gates=frozen")
 		})
 
+		It("reports a malformed sum file in the gate report", func() {
+			write("schemas/synnax/frozen/doc.sum", "<<<<<<< HEAD\n")
+			succeed("check", "--gates=analyze")
+			Expect(failGate(gateCode, "--gates=generated,frozen")).
+				To(ContainSubstring("schemas/synnax/frozen/doc.sum"))
+		})
+
 		It("fails on a hand edit of a frozen file", func() {
 			path := filepath.Join(repoDir, frozenPackage, "types.gen.go")
 			content := string(MustSucceed(os.ReadFile(path)))
