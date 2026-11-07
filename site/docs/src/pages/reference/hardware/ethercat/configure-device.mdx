@@ -242,8 +242,14 @@ reach OP with IgH. A DC sync mode selected during an earlier scan with the built
 master fails the start.
 
 The Driver uses IgH whenever the IgH kernel module is loaded. To use the built-in master
-instead, stop IgH, for example with `sudo systemctl stop ethercat`, then
-[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+instead:
+
+1. Stop IgH with `sudo systemctl stop ethercat`, or with
+   `sudo /etc/init.d/ethercat stop` on a computer without systemd.
+2. To keep IgH off after a reboot, run `sudo systemctl disable ethercat`.
+3. Check that the port shows in `ip link`. If IgH used a native device module, the port
+   can need its standard Linux driver again first.
+4. [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
 
 </Edition.Enterprise>
 
