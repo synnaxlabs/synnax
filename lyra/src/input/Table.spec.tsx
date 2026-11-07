@@ -494,9 +494,7 @@ describe("Input.Table", () => {
 
     it("should call an unnamed column 'this column' in a refused cell's tooltip", () => {
       render(
-        <Stateful initial={[[1]]}>
-          <Input.TableColumn />
-        </Stateful>,
+        <Stateful initial={[[1]]}>{[<Input.TableColumn key="value" />]}</Stateful>,
       );
       paste(screen.getByLabelText("1"), "1\nabc");
       expect(hoverTip(screen.getByLabelText("2"))).toBe(
