@@ -27,7 +27,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const openTab = Panel.useOpenTab();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
-    // The Core refuses a panel tab for a line plot it does not hold yet.
+    // A refused create must not leave a tab for a line plot that does not exist.
     afterSuccess: ({ data: { key } }) => {
       openTab({ variant: "resource", resource: lineplot.resourceID(key), key: tabKey });
       capture("plot_created", {});

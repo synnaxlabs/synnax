@@ -32,7 +32,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Table.create({ key, editable: true }));
     },
-    // The Core refuses a panel tab for a table it does not hold yet.
+    // A refused create must not leave a tab for a table that does not exist.
     afterSuccess: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: table.resourceID(key), key: tabKey }),
   });

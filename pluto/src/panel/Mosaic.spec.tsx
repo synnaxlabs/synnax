@@ -66,7 +66,6 @@ const selectorTab = (): panel.Tab => ({
   type: "selector",
 });
 
-// The Core refuses a panel tab whose resource it does not hold.
 const createPlots = async (tabs: panel.Tab[]): Promise<void> => {
   for (const tab of tabs)
     if (tab.variant === "resource")

@@ -32,7 +32,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Log.create({ key }));
     },
-    // The Core refuses a panel tab for a log it does not hold yet.
+    // A refused create must not leave a tab for a log that does not exist.
     afterSuccess: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: log.resourceID(key), key: tabKey }),
   });
