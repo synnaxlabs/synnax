@@ -85,8 +85,8 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 }
 
 // positiveScales sets every scale of sch that is not positive to 1, as the
-// v59_positive_scale migration does for stored schematics. A Core before that
-// migration could export a zero scale, which sizes a symbol to nothing.
+// v59_positive_scale migration does for stored schematics. A Core before that migration
+// could export a zero scale, which sizes a symbol to nothing.
 func positiveScales(sch Schematic) (Schematic, error) {
 	for key, cfg := range sch.Configs {
 		b, err := json.Marshal(cfg)

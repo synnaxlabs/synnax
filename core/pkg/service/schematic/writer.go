@@ -190,10 +190,10 @@ func (w Writer) Delete(
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-// validateScales returns an error wrapping validate.ErrValidation when a config of
-// next carries a scale that is not positive and differs from the scale prev stores for
-// it. A zero scale sizes a symbol to nothing. A stored scale that the write keeps
-// passes, so a stored zero does not block an edit to another field.
+// validateScales returns an error wrapping validate.ErrValidation when a config of next
+// carries a scale that is not positive and differs from the scale prev stores for it. A
+// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
+// a stored zero does not block an edit to another field.
 func validateScales(prev, next Schematic) error {
 	for key, cfg := range next.Configs {
 		scale, ok, err := scaleOf(cfg)
