@@ -15,17 +15,22 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
-import { type Device } from "@/platform/device";
+import { Device } from "@/platform/device";
+
+const ICON = <Icon.Logo.EtherCAT />;
 
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION,
   name: "EtherCAT",
   title: "EtherCAT network",
   description: "Slaves on an EtherCAT network adapter.",
-  icon: <Icon.Logo.EtherCAT />,
+  icon: ICON,
   make: MAKE,
   scanType: SCAN_TYPE,
-  zeroProperties: ZERO_SLAVE_PROPERTIES,
+  Configure: Device.createConfigure({
+    icon: ICON,
+    zeroProperties: ZERO_SLAVE_PROPERTIES,
+  }),
   checks: [
     "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
     "The slaves have power and a cable to that adapter.",
