@@ -116,6 +116,11 @@ var _ = Describe("MigrateLine", func() {
 		Expect(out.Label).To(HaveValue(Equal("pressure")))
 		Expect(out.StrokeWidth).To(Equal(3.0))
 	})
+
+	It("Should give a stored zero stroke width the default", func(ctx SpecContext) {
+		Expect(MustSucceed(v7.MigrateLine(ctx, v6.Line{Key: "k"})).StrokeWidth).
+			To(Equal(2.0))
+	})
 })
 
 var _ = Describe("Storage migration", func() {

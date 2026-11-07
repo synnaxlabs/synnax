@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -61,8 +62,8 @@ func migrateCell(c v1.Cell) CellConfig {
 	if err != nil {
 		cfg = CellConfig{Variant: TextCellConfig{}}
 	}
-	cfg.ApplyDefaults()
-	return cfg
+	// A v1 cell cannot tell an absent prop from a zero one.
+	return defaults.Fill(cfg)
 }
 
 // decodeCellConfig validates an opaque cell config payload against the cell config
