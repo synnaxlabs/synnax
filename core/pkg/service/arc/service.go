@@ -352,6 +352,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		status:      s.cfg.Status,
 		table:       s.table,
 		dispatcher:  s.state.Dispatcher(),
+		publish:     s.publish,
 		sweeper:     s.sweeper,
 		taskSync:    s.taskSync,
 	}

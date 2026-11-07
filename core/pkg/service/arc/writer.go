@@ -47,6 +47,7 @@ type Writer struct {
 	status      *status.Service
 	table       *gorp.Table[Key, Arc]
 	dispatcher  actions.Dispatcher[Key, Action]
+	publish     func(context.Context, Key)
 	sweeper     textSweeper
 	taskSync    *debounce.Keyed[Key]
 }

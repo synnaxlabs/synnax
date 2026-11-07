@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -361,4 +362,44 @@ var _ = Describe("Dispatched Arc names", func() {
 			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
 		})).To(MatchError(ContainSubstring("already used")))
 	})
+})
+
+var _ = Describe("Move broadcast", func() {
+	It(
+		"Should broadcast an edit that commits between a move and its broadcast",
+		func(ctx SpecContext) {
+			w := svc.NewWriter(nil)
+			root := rootDirectory(ctx, db).Key
+			lib := directory.Directory{Name: "moved_into"}
+			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
+			a := newArc(arc.TypeModule, arc.Base{
+				Name:   "moved",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			})
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
+				Expect(w.DeleteDirectory(ctx, lib.Key)).To(Succeed())
+			})
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			tx := DeferClose(db.OpenTx())
+			gorp.OnCommit(tx, func() {
+				Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+					arc.NewRenameAction(arc.RenamePayload{Name: "renamed"}),
+				})).To(Succeed())
+			})
+			Expect(svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())).
+				To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).ToNot(BeEmpty())
+			last := seen[len(seen)-1]
+			Expect(last.Actions).To(HaveLen(1))
+			Expect(last.Actions[0].Create).ToNot(BeNil())
+			moved := last.Actions[0].Create.Arc.Base()
+			Expect(moved.Name).To(Equal("renamed"))
+			Expect(moved.Directory).To(Equal(&lib.Key))
+		},
+	)
 })

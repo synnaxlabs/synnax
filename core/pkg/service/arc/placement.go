@@ -84,18 +84,23 @@ func (w Writer) Move(
 	if len(arcKeys) == 0 {
 		return nil
 	}
-	return w.table.NewUpdate().
+	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Arc](arcKeys...)).
-		Change(func(ctx gorp.Context, a Arc) Arc {
+		Change(func(_ gorp.Context, a Arc) Arc {
 			b := a.Base()
 			b.Directory = &to
 			a.SetBase(b)
-			w.dispatcher.NotifyOnCommit(
-				ctx, ctx.Tx, b.Key, NewCreateAction(CreatePayload{Arc: a}),
-			)
 			return a
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	gorp.OnCommit(w.tx, func() {
+		for _, k := range arcKeys {
+			w.publish(ctx, k)
+		}
+	})
+	return nil
 }
 
 // entry is an Arc or a directory as the directory that holds it sees it.
