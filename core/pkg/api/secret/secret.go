@@ -313,8 +313,7 @@ func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
 type ResolveRequest struct {
 	// Grant is the key of an optional grant for the calling rack. A request with a
 	// grant reads only the secrets that the grant names, and spends the grant. A zero
-	// key names
-	// no grant.
+	// key names no grant.
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 	// Keys selects the secrets to resolve.
 	Keys []Key `json:"keys" msgpack:"keys"`
