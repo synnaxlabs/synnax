@@ -1465,8 +1465,14 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{end -}}
 {{- $s := .}}
 {{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
+{{- if .SetDefaultsView.HasGroups}}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
+// group takes its defaults only when all of its members are zero.
+{{- else}}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+{{- end}}
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
@@ -1679,8 +1685,14 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- $vt := .}}
 {{- if .NeedsApplyDefaults}}
+{{- if .SetDefaultsView.HasGroups}}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
+// group takes its defaults only when all of its members are zero.
+{{- else}}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+{{- end}}
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultFills}}
 	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
@@ -1861,9 +1873,16 @@ func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
 }
 {{- end}}
 {{- if .NeedsApplyDefaults}}
+{{- if .HasGroups}}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults. A default group takes its defaults only when all of its
+// members are zero.
+{{- else}}
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
+{{- end}}
 func (u *{{.Name}}) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
@@ -1939,7 +1958,8 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 {{- $r := .Receiver}}
 {{- if .HasGroups}}
 
-// SetDefaults sets every field that has a schema default to that default.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
 func ({{$r}} *{{.Name}}) SetDefaults() {
 	{{$r}}.SetUngroupedDefaults()
 	{{$r}}.DefaultGroups()
@@ -1958,8 +1978,9 @@ func ({{$r}} *{{.Name}}) SetUngroupedDefaults() {
 {{- template "setFills" .}}
 }
 
-// DefaultGroups sets the defaults of each default group whose members are all zero, so
-// a group the input sets in part keeps its zero members.
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
 func ({{$r}} *{{.Name}}) DefaultGroups() {
 {{- range .Groups}}
 	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$r}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
