@@ -7,12 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
+import { type query } from "@/query";
 import { rack } from "@/rack";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { type secret } from "@/secret";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  waitForStreamLive,
+} from "@/testutil";
+
+// A self-signed P-256 certificate valid until 2126, and its key.
+const PEM = `-----BEGIN CERTIFICATE-----
+MIIBnDCCAUKgAwIBAgIUTlojETDboAh4nmfahlzAemoZ4g4wCgYIKoZIzj0EAwIw
+MzEbMBkGA1UEAwwSU3lubmF4IFRlc3QgQ2xpZW50MRQwEgYDVQQKDAtTeW5uYXgg
+TGFiczAgFw0yNjExMDQwMjUyMTBaGA8yMTI2MTAxMTAyNTIxMFowMzEbMBkGA1UE
+AwwSU3lubmF4IFRlc3QgQ2xpZW50MRQwEgYDVQQKDAtTeW5uYXggTGFiczBZMBMG
+ByqGSM49AgEGCCqGSM49AwEHA0IABAttV7/ZZaP/ck5ZSEibyz8Bq/FOha2BqRFx
+KcHLLjh+GByF19Xf9tZdf+9TfDlOPwyGPp+zArW6WOjeHdzzPv6jMjAwMB0GA1Ud
+DgQWBBQnJ8GnAtkFwtBOUq0b4+pWyuXWQTAPBgNVHRMBAf8EBTADAQH/MAoGCCqG
+SM49BAMCA0gAMEUCIQDucqkUixw8A44mdBmPFZIhYtq3tzNMzPF5zPD9ONNZPwIg
+I3WFxQbCO86E+bgOOHH1NSjmhCFtORY5jSOGw6yL3m4=
+-----END CERTIFICATE-----
+`;
+const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgjJtOV99NCzRnmMoB
+wui9Lv+9a8aqZ+LwPX2PyGfVEa+hRANCAAQLbVe/2WWj/3JOWUhIm8s/AavxToWt
+gakRcSnByy44fhgchdfV3/bWXX/vU3w5Tj8Mhj6fswK1uljo3h3c8z7+
+-----END PRIVATE KEY-----
+`;
 
 describe("Secret", () => {
   describe("create", () => {
@@ -108,6 +135,72 @@ describe("Secret", () => {
       expect(retrieved.map((r) => r.key)).toEqual([s.key]);
     });
 
+    it("should retrieve empty uses for a secret that nothing uses", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused",
+        source: "stored",
+        value: "abc",
+      });
+      const [retrieved] = await client.secrets.retrieve({
+        key: [s.key],
+        includeUses: true,
+      });
+      expect(retrieved.uses).toEqual([]);
+      expect((await client.secrets.retrieve(s.key)).uses).toBeUndefined();
+    });
+
+    it("should retrieve the uses of a secret by key", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused by key",
+        source: "stored",
+        value: "abc",
+      });
+      const retrieved = await client.secrets.retrieve({
+        key: s.key,
+        includeUses: true,
+      });
+      expect(retrieved).toEqual({ ...s, uses: [] });
+      expect((await client.secrets.retrieve({ key: s.key })).uses).toBeUndefined();
+    });
+
+    it("should refetch the uses of a secret for a new subscriber", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const c = await client.certificates.create({
+        name: "Gap",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      const q = { key: privateKey, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      const before = await client.secrets.retrieve(q);
+      expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
+      off();
+      // Past the teardown grace window, so nothing maintains the answer.
+      await sleep.sleep(TimeSpan.seconds(8));
+      await client.certificates.delete(c.key);
+      await vi.waitFor(() => expectDeleted(client.secrets.getCached(privateKey)));
+      await client.secrets.create({
+        key: privateKey,
+        name: "Gap",
+        source: "stored",
+        value: "abc",
+      });
+      const offAgain = client.secrets.onChange(q, () => {});
+      try {
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        offAgain();
+      }
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
@@ -185,6 +278,32 @@ describe("Secret", () => {
       const res = createTestClient().secrets.retrieve(keys[0]);
       await expect(res).rejects.toThrow(NotFoundError);
       await expect(res).rejects.toThrow(`secret with key ${keys[0]} not found`);
+    });
+
+    it("should deliver the deletion of a secret read with its uses", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({ onInternalError: (e) => internal.push(e) });
+      const s = await client.secrets.create({
+        name: "Deleted with uses",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const results: Array<query.Cached<secret.Secret> | undefined> = [];
+      const off = client.secrets.onChange(q, (res) => results.push(res));
+      try {
+        // The read joins the fetch of the subscription, so that fetch has settled once
+        // the read rejects.
+        const reading = expect(client.secrets.retrieve(q)).rejects.toThrow(
+          NotFoundError,
+        );
+        await client.secrets.delete(s.key);
+        await reading;
+        expect(expectDeleted(results.at(-1)).corpse.key).toEqual(s.key);
+        expect(internal).toEqual([]);
+      } finally {
+        off();
+      }
     });
   });
 

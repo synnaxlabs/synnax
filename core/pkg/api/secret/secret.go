@@ -194,8 +194,8 @@ func (s *Service) retrieveReplaced(
 	return replaced, nil
 }
 
-// Retrieve returns the secrets the request selects. It requires retrieve access on each
-// of them.
+// Retrieve returns the secrets the request selects, with their uses when the request
+// asks for them. It requires retrieve access on each of them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -215,7 +215,50 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, res.Secrets); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each secret, leaving out the resources the caller cannot
+// read. A secret with no readable uses gets empty uses, so the response tells it apart
+// from a secret whose uses were not asked for.
+func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
+	keys := make([]Key, len(secrets))
+	resources := make(map[Key][]ontology.ID, len(secrets))
+	for i, sec := range secrets {
+		keys[i] = sec.Base().Key
+		resources[keys[i]] = []ontology.ID{}
+	}
+	uses, err := s.internal.Uses(ctx, nil, keys...)
+	if err != nil {
+		return err
+	}
+	enforcer := s.access.NewEnforcer(nil)
+	subject := auth.GetSubject(ctx)
+	for _, use := range uses {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{use.Resource},
+		})
+		if errors.Is(err, access.ErrDenied) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		resources[use.Secret] = append(resources[use.Secret], use.Resource)
+	}
+	for i := range secrets {
+		base := secrets[i].Base()
+		base.Uses = resources[base.Key]
+		secrets[i].SetBase(base)
+	}
+	return nil
 }
 
 // RenameRequest names the secret to rename and its new name.
