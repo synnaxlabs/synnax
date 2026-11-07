@@ -92,7 +92,7 @@ class CalculatedChannels(ConsoleCase):
 
         plot = self.console.pages.create(Plot, f"Nested Calc Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", [self._ch_uptime, self.calc_x2, self.calc_x6])
+        plot.add_channels("y1", [self._ch_uptime, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 
         assert self.calc_x2 in csv_content, f"CSV should contain {self.calc_x2}"

@@ -21,6 +21,7 @@
 
 #include "client/cpp/label/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -94,11 +95,36 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief variant selects by variant.
-    std::optional<::x::filter::Set<std::string>> variant;
+    ::x::filter::Field<::x::filter::Set<std::string>> variant;
     /// @brief labels matches statuses that have any of the given labels.
-    std::optional<std::vector<::synnax::label::Key>> labels;
+    ::x::filter::List<::synnax::label::Key> labels;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -125,6 +151,18 @@ struct RetrieveResponse {
     from_proto(const ::api::status::pb::RetrieveResponse &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the statuses that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most statuses to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching statuses to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_labels includes the labels of each record.
+    bool include_labels = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve statuses.
 struct RetrieveRequest {
     /// @brief where selects the statuses to retrieve. An absent where selects all of
@@ -138,6 +176,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_labels includes the labels of each record.
     bool include_labels = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_labels = options.include_labels,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

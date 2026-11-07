@@ -116,13 +116,19 @@ def thread(
     up: int = 0,
     down: int = 0,
     replied: str | None = None,
+    reply: str = "Thanks.",
 ) -> dict[str, Any]:
     badge = '<img alt="P1" src="p1.svg">'
-    last = [{"author": {"login": login}, "createdAt": "2026-11-05T09:00:00Z"}]
+    opened = "2026-11-05T09:00:00Z"
+    last = [{"author": {"login": login}, "body": "", "createdAt": opened}]
     if replied is not None:
         last += [
-            {"author": {"login": "pat"}, "createdAt": replied},
-            {"author": {"login": "greptile-apps"}, "createdAt": "2026-11-05T23:00:00Z"},
+            {"author": {"login": "pat"}, "body": reply, "createdAt": replied},
+            {
+                "author": {"login": "greptile-apps"},
+                "body": "Fixed.",
+                "createdAt": "2026-11-05T23:00:00Z",
+            },
         ]
     return {
         "isResolved": resolved,
@@ -193,7 +199,7 @@ class FakeGH:
             thread(101, "greptile-apps", "Leaks a handle", 10, head, resolved=True),
             thread(201, "sedosaur", "Leaks a handle too", 12, head),
         ]
-        self.artifacts: list[tuple[str, str]] = []
+        self.artifacts: list[dict[str, Any]] = []
         self.records: dict[str, dict[str, Any]] = {}
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -207,13 +213,33 @@ class FakeGH:
             "--paginate",
             f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100",
         ):
-            return "".join(f"{created} {run}\n" for created, run in self.artifacts)
+            return "".join(f"{json.dumps(a)}\n" for a in self.artifacts)
         if args[:2] == ("run", "download"):
             into = Path(args[args.index("--dir") + 1])
             into.mkdir(parents=True)
             (into / "review.json").write_text(json.dumps(self.records[args[2]]))
             return ""
         raise AssertionError(f"unexpected gh call: {args}")
+
+
+def artifact(
+    created: str,
+    run: int,
+    *,
+    branch: str = "main",
+    repository: int = 5,
+    expired: bool = False,
+) -> dict[str, Any]:
+    return {
+        "created_at": created,
+        "expired": expired,
+        "workflow_run": {
+            "id": run,
+            "head_branch": branch,
+            "repository_id": 5,
+            "head_repository_id": repository,
+        },
+    }
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -228,6 +254,7 @@ def t(**kw: Any) -> compare.Thread:
         "up": 0,
         "down": 0,
         "last_reply": None,
+        "fixed": False,
     }
     return compare.Thread(**(fields | kw))
 
@@ -266,6 +293,32 @@ class TestThreads:
         node["first"]["nodes"] = []
         assert compare.threads([node]) == []
 
+    def test_should_keep_a_thread_whose_commit_is_gone(self) -> None:
+        node = thread(101, "greptile-apps", "Leaks a handle", 10, HEAD)
+        node["first"]["nodes"][0]["originalCommit"] = None
+        assert compare.threads([node])[0].commit is None
+
+    def test_should_read_a_fix_from_a_reply_of_a_person(self) -> None:
+        reply = (
+            "*Emiliano + Claude: generated reply.*\n\nFixed in 1a2b3c, in a_test.go."
+        )
+        node = thread(
+            101,
+            "sedosaur",
+            "Leaks a handle",
+            10,
+            HEAD,
+            replied="2026-11-05T11:00:00Z",
+            reply=reply,
+        )
+        assert compare.threads([node])[0].fixed
+
+    def test_should_not_read_a_fix_from_a_reply_of_a_reviewer(self) -> None:
+        node = thread(
+            101, "sedosaur", "Leaks a handle", 10, HEAD, replied="2026-11-05T11:00:00Z"
+        )
+        assert not compare.threads([node])[0].fixed
+
 
 class TestVerdict:
     """Tests deciding whether a finding was real."""
@@ -284,6 +337,9 @@ class TestVerdict:
     def test_should_take_a_fix_as_real(self) -> None:
         assert compare.verdict(t(resolved=True), {"a.go"}) == compare.REAL
 
+    def test_should_take_a_reply_that_says_fixed_as_real(self) -> None:
+        assert compare.verdict(t(fixed=True), None) == compare.REAL
+
     def test_should_take_a_resolve_without_a_fix_as_noise(self) -> None:
         assert compare.verdict(t(resolved=True), {"b.go"}) == compare.NOISE
 
@@ -299,9 +355,12 @@ class TestMatch:
         b = [item("a.go", 19), item("a.go", 11)]
         assert sorted(compare.match(a, b)) == [(0, 1), (1, 0)]
 
+    def test_should_pair_findings_up_to_20_lines_apart(self) -> None:
+        assert compare.match([item("a.go", 10)], [item("a.go", 30)]) == [(0, 0)]
+
     def test_should_not_pair_other_files_or_far_lines(self) -> None:
         a = [item("a.go", 10), item("a.go", 30), item(None, None)]
-        b = [item("b.go", 10), item("a.go", 40), item(None, None)]
+        b = [item("b.go", 10), item("a.go", 51), item(None, None)]
         assert compare.match(a, b) == []
 
 
@@ -311,15 +370,26 @@ class TestRecords:
     def test_should_read_the_records_since_a_time_oldest_first(self) -> None:
         gh = FakeGH()
         gh.artifacts = [
-            ("2026-11-06T10:00:00Z", "3"),
-            ("2026-11-04T10:00:00Z", "1"),
-            ("2026-11-05T12:00:00Z", "2"),
+            artifact("2026-11-06T10:00:00Z", 3),
+            artifact("2026-11-04T10:00:00Z", 1),
+            artifact("2026-11-05T12:00:00Z", 2),
         ]
         gh.records = {run: record(run * 40) for run in ("1", "2", "3")}
         assert [r["head"] for r in compare.records(gh, REPO, SINCE)] == [
             "2" * 40,
             "3" * 40,
         ]
+
+    def test_should_skip_a_record_from_a_fork_another_branch_or_expired(
+        self,
+    ) -> None:
+        gh = FakeGH()
+        gh.artifacts = [
+            artifact("2026-11-06T10:00:00Z", 1, repository=99),
+            artifact("2026-11-06T10:00:00Z", 2, branch="pat/main"),
+            artifact("2026-11-06T10:00:00Z", 3, expired=True),
+        ]
+        assert compare.records(gh, REPO, SINCE) == []
 
 
 class TestPairs:
@@ -375,11 +445,48 @@ class TestPairs:
     def test_should_keep_open_a_thread_on_a_commit_outside_the_history(
         self, repo: Repo
     ) -> None:
-        gh = FakeGH(repo.head)
-        gh.threads[0] = thread(101, "greptile-apps", "Leaks a handle", 10, "e" * 40)
+        gone = "e" * 40
+        gh = FakeGH(gone)
         gh.threads[0]["isResolved"] = True
-        [p] = compare.pairs(gh, repo.git, REPO, [record(repo.head)])
+        [p] = compare.pairs(gh, repo.git, REPO, [record(gone)])
         assert p.greptile[0].verdict == compare.OPEN
+
+    def test_should_mark_a_thread_listed_again_as_a_repeat(self, repo: Repo) -> None:
+        first = repo.head
+        later = repo.commit({"c.go": "2\n"})
+        gh = FakeGH(first)
+        gh.edits = [edit(greptile_block(4, later)), edit(greptile_block(4, first))]
+        one, two = compare.pairs(gh, repo.git, REPO, [record(first), record(later)])
+        assert [i.repeat for i in one.greptile + one.sedosaur] == [False] * 4
+        assert [i.repeat for i in two.greptile] == [True, False]
+        assert [i.repeat for i in two.sedosaur] == [True, False]
+        text = compare.report([one, two], [], since=SINCE)
+        assert "| Findings | 3 | 3 |" in text
+
+    def test_should_match_a_new_finding_with_a_repeat(self, repo: Repo) -> None:
+        first = repo.head
+        later = repo.commit({"c.go": "2\n"})
+        gh = FakeGH(first)
+        gh.threads[0] = thread(101, "greptile-apps", "Leaks a handle", 10, later)
+        only_secret = greptile_block(5, first).replace("**Leaks a handle**", "")
+        gh.edits = [edit(greptile_block(4, later)), edit(only_secret)]
+        _, two = compare.pairs(gh, repo.git, REPO, [record(first), record(later)])
+        assert (two.greptile[0].title, two.greptile[0].repeat) == (
+            "Leaks a handle",
+            False,
+        )
+        assert two.sedosaur[0].repeat
+        assert (0, 0) in two.matches
+
+    def test_should_count_a_finding_on_the_first_paired_commit_that_lists_it(
+        self, repo: Repo
+    ) -> None:
+        later = repo.commit({"c.go": "2\n"})
+        gh = FakeGH("e" * 40)
+        gh.edits = [edit(greptile_block(4, later))]
+        [p] = compare.pairs(gh, repo.git, REPO, [record(later)])
+        assert [i.title for i in p.greptile] == ["Leaks a handle", "Reads a secret"]
+        assert [i.title for i in p.sedosaur] == ["Leaks a handle too", "Odd name"]
 
     def test_should_judge_each_review_by_its_own_thread(self, repo: Repo) -> None:
         later = repo.commit({"c.go": "2\n"})

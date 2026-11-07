@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, TypedDict
 from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -60,6 +60,23 @@ class Where(BaseModel):
     host_is_node: bool | None = None
 
 
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "embedded": filter.BoolInput,
+        "integrations": filter.ContainsInput[str],
+        "host_is_node": bool,
+    },
+    total=False,
+)
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -96,6 +113,8 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -103,6 +122,7 @@ class Base(BaseModel):
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
 
     @_override
     def __hash__(self) -> int:

@@ -21,6 +21,8 @@ from synnax.framer.codec import (
     _MULTIPLES_PRESENT_FLAG_POS,
     LOW_PERF_SPECIAL_CHAR,
     Codec,
+    _pack_bool_bits,
+    _unpack_bool_bits,
 )
 from synnax.framer.frame import FramePayload
 from synnax.framer.iterator import (
@@ -29,6 +31,38 @@ from synnax.framer.iterator import (
     _ResponseVariant,
     _WSIteratorCodec,
 )
+
+
+@pytest.mark.framer
+@pytest.mark.frame_codec
+class TestBoolBits:
+    def test_reference_vector(self) -> None:
+        """Should pack LSB first to the same bytes as the Go and TypeScript codecs."""
+        samples = bytes([1, 0, 1, 1, 0, 0, 0, 1, 1])
+        packed = _pack_bool_bits(samples)
+        assert packed == bytes([0x8D, 0x01])
+        assert _unpack_bool_bits(memoryview(packed), len(samples)) == samples
+
+    def test_nonzero_packs_true(self) -> None:
+        """Should pack every nonzero byte as a set bit."""
+        packed = _pack_bool_bits(bytes([2, 0, 255, 0, 0, 0, 0, 0, 7]))
+        assert packed == bytes([0x05, 0x01])
+        assert _unpack_bool_bits(memoryview(packed), 9) == bytes(
+            [1, 0, 1, 0, 0, 0, 0, 0, 1]
+        )
+
+    @pytest.mark.parametrize("n", [0, 1, 7, 8, 9, 15, 16, 17, 1000, 1003])
+    def test_round_trip(self, n: int) -> None:
+        """Should round trip any sample count, including partial final bytes."""
+        rng = np.random.default_rng(n)
+        samples = rng.integers(0, 2, n, dtype=np.uint8).tobytes()
+        packed = _pack_bool_bits(samples)
+        assert len(packed) == (n + 7) // 8
+        assert _unpack_bool_bits(memoryview(packed), n) == samples
+
+    def test_unpack_ignores_padding_bits(self) -> None:
+        """Should ignore set bits past the sample count in the final byte."""
+        assert _unpack_bool_bits(memoryview(bytes([0xFF])), 3) == bytes([1, 1, 1])
 
 
 @pytest.mark.framer
@@ -351,19 +385,6 @@ class TestCodec:
             else:
                 assert dec_ser.time_range == or_ser.time_range
             assert dec_ser.alignment == or_ser.alignment
-
-    def test_bool_reference_vector(self) -> None:
-        """The reference vector [1,0,1,1,0,0,0,1,1] must pack to bytes [0x8D, 0x01]
-        LSB-first across all language codecs. Any divergence here is a cross-language
-        wire-format bug.
-        """
-        from synnax.framer.codec import _pack_bool_bits, _unpack_bool_bits
-
-        samples = bytes([1, 0, 1, 1, 0, 0, 0, 1, 1])
-        packed = _pack_bool_bits(samples)
-        assert packed == bytes([0x8D, 0x01])
-        unpacked = _unpack_bool_bits(memoryview(packed), len(samples))
-        assert unpacked == samples
 
     def test_alignment_multiples_round_trip(self) -> None:
         """Should carry the alignment multiple of every series when any exceeds one."""

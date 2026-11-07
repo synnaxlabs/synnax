@@ -11,11 +11,12 @@ import json
 import re
 import tomllib
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from review.findings import SCHEMA, Review, parse
+from review.findings import SCHEMA, SEVERITIES, Finding, Review, parse
 from review.render import fence
 
 Claude = Callable[[list[str], str, Path], str]
@@ -24,6 +25,9 @@ its stdout."""
 
 REST = "rest.diff"
 """The file in the working directory that holds the diff the prompt leaves out."""
+NEW = "new.diff"
+"""The file in the working directory that holds the new commits when they are too long
+to show."""
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -60,6 +64,17 @@ class Doc:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Lens:
+    """A focus that one pass of a review takes."""
+
+    name: str
+    focus: str
+    """What the pass looks for, written to the reviewer."""
+    effort: str | None = None
+    """The effort of the pass, if not the effort of the config."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class Config:
     """How the reviewer reviews, from `.sedosaur/config.toml`."""
 
@@ -73,6 +88,9 @@ class Config:
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
     docs: list[Doc]
+    lenses: list[Lens]
+    """The focus of each pass. With none, one pass reviews the pull request. With
+    some, one pass runs for each in parallel, and the review joins their findings."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -100,6 +118,26 @@ class Usage:
     limits: dict[str, Window]
     """The subscription's limit windows after the review, by name. Empty when Claude
     Code reports none, as with an API key."""
+
+    @classmethod
+    def combine(cls, passes: list["Usage"]) -> "Usage":
+        """Adds up the usage of passes that ran in parallel. The duration is the
+        longest pass, and the limits are those of the last pass to end that reported
+        any."""
+        return cls(
+            cost_usd=sum(u.cost_usd for u in passes),
+            duration_ms=max(u.duration_ms for u in passes),
+            turns=sum(u.turns for u in passes),
+            input_tokens=sum(u.input_tokens for u in passes),
+            output_tokens=sum(u.output_tokens for u in passes),
+            cache_read_tokens=sum(u.cache_read_tokens for u in passes),
+            cache_creation_tokens=sum(u.cache_creation_tokens for u in passes),
+            limits=max(
+                (u for u in passes if u.limits),
+                key=lambda u: u.duration_ms,
+                default=passes[0],
+            ).limits,
+        )
 
     @classmethod
     def of(cls, out: dict[str, Any], messages: list[dict[str, Any]]) -> "Usage":
@@ -140,6 +178,8 @@ class PullRequest:
     """The diff from the merge base to the head."""
     open: set[tuple[str, str]]
     """The path and title of each finding of an earlier review still open."""
+    new: str = ""
+    """The patches of the pull request's own commits after the last review, if any."""
 
 
 def load(root: Path) -> Config:
@@ -170,7 +210,10 @@ def load(root: Path) -> Config:
                 paths=tuple(meta.get("paths", ())),
             )
         )
-    return Config(**data, prompt=(home / "prompt.md").read_text(), docs=docs)
+    lenses = [Lens(**lens) for lens in data.pop("lens", [])]
+    return Config(
+        **data, prompt=(home / "prompt.md").read_text(), docs=docs, lenses=lenses
+    )
 
 
 def _numbered(diff: str) -> str:
@@ -218,6 +261,16 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
+    if pr.new:
+        parts += [
+            "# Commits since your last review",
+            "Review these changes first, as new code: a fix for an earlier finding can "
+            "add a bug. Anchor findings to the line numbers of the full diff.",
+        ]
+        if _shows_new(config, pr):
+            parts.append(fence(pr.new, "diff"))
+        else:
+            parts.append(f"They are too long to show. Read all of `{NEW}` first.")
     parts.append("# Rules")
     parts += [
         f"## `{d.path}`: {d.description}\n\n{d.text.strip()}"
@@ -238,7 +291,12 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
     return "\n\n".join(parts)
 
 
-def _command(config: Config, *, head: Path) -> list[str]:
+def _shows_new(config: Config, pr: PullRequest) -> bool:
+    """Reports whether the new commits fit in the prompt."""
+    return len(pr.new) <= config.diff_chars // 3
+
+
+def _command(config: Config, *, head: Path, effort: str | None = None) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head.
 
     Restricted mode confines the tools to the working directory and head, and ignores
@@ -258,7 +316,7 @@ def _command(config: Config, *, head: Path) -> list[str]:
         "--model",
         config.model,
         "--effort",
-        config.effort,
+        effort or config.effort,
         "--output-format",
         "stream-json",
         "--verbose",
@@ -274,22 +332,98 @@ def _cap(review: Review, caps: dict[str, int]) -> Review:
     return replace(review, score=min(review.score, limit))
 
 
+def _focused(text: str, lens: Lens) -> str:
+    """Builds the prompt of one pass from the review prompt and the pass's lens."""
+    return (
+        f"{text}\n\n# Your focus: {lens.name}\n\n{lens.focus.strip()}\n\n"
+        "Spend your review on this focus. Report any other defect you confirm too."
+    )
+
+
+def _merge(
+    reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
+) -> Review:
+    """Joins the reviews of parallel passes. A finding joins at most one finding of
+    each other pass in the same file: first by title and end line, then by title, then
+    by end line. The review keeps the more severe of joined findings, else the one that
+    continues an open thread. The verdict and summary come from the pass with the
+    lowest capped score."""
+
+    def rank(f: Finding) -> tuple[int, bool]:
+        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
+
+    def join(
+        found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
+    ) -> list[tuple[set[int], Finding]]:
+        kept: list[tuple[set[int], Finding]] = []
+        for passes, f in found:
+            hits = (q for q, k in kept if k.path == f.path and same(k, f))
+            hit = next((q for q in hits if not q & passes), None)
+            if hit is None:
+                kept.append((set(passes), f))
+            else:
+                hit |= passes
+        return kept
+
+    every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
+    found = sorted(every, key=lambda t: rank(t[1]))
+    found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
+    found = join(found, lambda k, f: k.title == f.title)
+    found = join(found, lambda k, f: k.line == f.line)
+    lead = min(reviews, key=lambda r: _cap(r, caps).score)
+    return replace(
+        lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
+    )
+
+
+def _pass(
+    config: Config,
+    pr: PullRequest,
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    effort: str | None = None,
+) -> tuple[Review, Usage]:
+    stream = claude(_command(config, head=pr.head, effort=effort), text, workdir)
+    messages = [json.loads(line) for line in stream.splitlines() if line]
+    [out] = [m for m in messages if m["type"] == "result"]
+    if out["is_error"]:
+        raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
+    return parse(out["structured_output"]), Usage.of(out, messages)
+
+
 def run(
     config: Config, pr: PullRequest, *, claude: Claude, workdir: Path
 ) -> tuple[Review, Usage]:
     """Reviews a pull request, and returns the review with what it cost.
 
+    :param claude: Called from one thread for each lens when the config has lenses.
     :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
     """
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:
         (workdir / REST).write_text(rest)
+    if not _shows_new(config, pr):
+        (workdir / NEW).write_text(pr.new)
     text = _prompt(config, pr, shown, rest)
-    stream = claude(_command(config, head=pr.head), text, workdir)
-    messages = [json.loads(line) for line in stream.splitlines() if line]
-    [out] = [m for m in messages if m["type"] == "result"]
-    if out["is_error"]:
-        raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    review = _cap(parse(out["structured_output"]), config.caps)
-    return review, Usage.of(out, messages)
+    if not config.lenses:
+        review, usage = _pass(config, pr, text, claude=claude, workdir=workdir)
+        return _cap(review, config.caps), usage
+    with ThreadPoolExecutor(len(config.lenses)) as pool:
+        passes = list(
+            pool.map(
+                lambda lens: _pass(
+                    config,
+                    pr,
+                    _focused(text, lens),
+                    claude=claude,
+                    workdir=workdir,
+                    effort=lens.effort,
+                ),
+                config.lenses,
+            )
+        )
+    review = _merge([r for r, _ in passes], caps=config.caps, open=pr.open)
+    return _cap(review, config.caps), Usage.combine([u for _, u in passes])

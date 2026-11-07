@@ -139,30 +139,96 @@ TEST(StatusTest, RetrieveWhere) {
     }
     ASSERT_NIL(client.statuses.set(statuses));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{
-                            .variant = x::filter::Set<std::string>{.eq = VARIANT_ERROR}
-                        },
-                        Where{.key = x::filter::Set<Key>{.eq = statuses[2].key}},
-                    },
-                .not_ = x::mem::indirect<Where>(
-                    Where{.variant = x::filter::Set<std::string>{.eq = VARIANT_WARNING}}
-                ),
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{
-                        statuses[0].key,
-                        statuses[1].key,
-                        statuses[2].key,
-                    },
-                },
-            },
-        }
+        (Where{.variant = VARIANT_ERROR} || Where{.key = statuses[2].key}) &&
+        !Where{.variant = VARIANT_WARNING} &&
+        Where{.key = {statuses[0].key, statuses[1].key, statuses[2].key}}
     ));
     ASSERT_EQ(retrieved.size(), 1);
     ASSERT_EQ(retrieved[0].key, statuses[1].key);
+}
+
+/// @brief it should retrieve the one status that a filter matches.
+TEST(StatusTest, RetrieveOneWhere) {
+    const auto client = new_test_client();
+    Status<x::json::json> s;
+    s.key = "test-one-where-" + x::uuid::create().to_string();
+    s.variant = VARIANT_INFO;
+    s.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto got = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = s.key}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, s.key);
+}
+
+/// @brief it should name the filter in the error when no status matches it.
+TEST(StatusTest, RetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto key = "test-one-none-" + x::uuid::create().to_string();
+    const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no status where key = \"" + key + "\"");
+}
+
+/// @brief it should return an error when more than one status matches a filter.
+TEST(StatusTest, RetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses(2);
+    for (size_t i = 0; i < statuses.size(); i++) {
+        statuses[i].key = "test-one-twice-" + std::to_string(i) + "-" + suffix;
+        statuses[i].variant = VARIANT_INFO;
+        statuses[i].time = x::telem::TimeStamp::now();
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    ASSERT_OCCURRED_AS_P(
+        client.statuses
+            .retrieve(Where{.key = {statuses[0].key, statuses[1].key}}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one status.
+TEST(StatusTest, RetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.statuses.retrieve("status", options).second,
+              client.statuses.retrieve(Where{.key = "status"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
+/// @brief it should page a retrieve of statuses by keys or by filter.
+TEST(StatusTest, RetrieveListPage) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    std::vector<std::string> keys;
+    for (int i = 0; i < 3; i++) {
+        Status<x::json::json> s;
+        s.key = "test-page-" + std::to_string(i) + "-" + suffix;
+        s.variant = VARIANT_INFO;
+        s.message = "Page";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+        keys.push_back(s.key);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto by_key = ASSERT_NIL_P(client.statuses.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_where = ASSERT_NIL_P(
+        client.statuses.retrieve(Where{.key = keys}, {.offset = 2})
+    );
+    ASSERT_EQ(by_where.size(), 1);
 }
 
 /// @brief it should update an existing status with new values.

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -38,6 +38,56 @@ class KeyedConfig(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class LinearScale(BaseModel):
+    """Maps raw values to engineering units with a slope and offset."""
+
+    type: Literal["linear"] = "linear"
+    slope: float = 1
+    offset: float = 0
+
+
+class MapScale(BaseModel):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Literal["map"] = "map"
+    pre_scaled_min: float = 0
+    pre_scaled_max: float = 1
+    scaled_min: float = 0
+    scaled_max: float = 1
+
+
+class PolynomialScale(BaseModel):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Literal["polynomial"] = "polynomial"
+    coeffs: list[float] = Field(default_factory=list)
+
+
+class TableScale(BaseModel):
+    """Maps raw values to engineering units by linear interpolation between the
+    breakpoints, and clips raw values outside the table to its first or last scaled
+    value.
+    """
+
+    type: Literal["table"] = "table"
+    pre_scaled_vals: list[float] = Field(default_factory=list)
+    scaled_vals: list[float] = Field(default_factory=list)
+
+
+class NoneScale(BaseModel):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Literal["none"] = "none"
+
+
+# Determines how the raw values of a hardware read channel are transformed to
+# engineering units.
+Scale = Annotated[
+    LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
+    Field(discriminator="type"),
+]
 
 
 class StatusDetails(BaseModel):
@@ -87,6 +137,25 @@ class Where(BaseModel):
     rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
     snapshot: filter.Bool | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "type": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "internal": filter.BoolInput,
+        "snapshot": filter.BoolInput,
+    },
+    total=False,
+)
 
 
 class Command(BaseModel):

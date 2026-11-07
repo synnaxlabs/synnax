@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
@@ -89,6 +90,26 @@ class TestProject:
 
         assert_eventually(check)
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.projects.create(name="A")
+        res = client.projects.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one project for a plain key beside other fields."""
+        a = client.projects.create(name="A")
+        assert client.projects.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no project where .+"):
+            client.projects.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the projects that match any filter in or_."""
+        a = client.projects.create(name="A")
+        b = client.projects.create(name="B")
+        res = client.projects.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a project."""
         p = client.projects.create(name="Before Rename")
@@ -103,7 +124,7 @@ class TestProject:
     def test_retrieve_rejects_author(self, client: sy.Synnax) -> None:
         """Should reject the removed author filter."""
         retrieve = cast(Callable[..., object], client.projects.retrieve)
-        with pytest.raises(TypeError):
+        with pytest.raises(pydantic.ValidationError, match="author"):
             retrieve(author=uuid4())
 
     def test_delete(self, client: sy.Synnax) -> None:

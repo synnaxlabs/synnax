@@ -189,9 +189,8 @@ nothing when that resource does not exist. Lookups that the Core does for itself
 strict, except that a traversal from a resource that does not exist finds nothing. The
 `ignore_not_found_error` field goes away.
 
-The channel filter has a `name_patterns` line. A valid channel name matches exactly, and
-any other pattern is a regular expression, anchored when unanchored. Clients send names
-as the caller gives them.
+Clients send channel names as `name.in`, so each name matches exactly. A pattern goes in
+`name.regex`.
 
 ### 2.4 The TypeScript cache
 
@@ -396,8 +395,7 @@ and its flat fields go away together, since a client must match the Core's versi
   status-join helper that all four use. A channel retrieve takes an optional range next
   to the request (`AliasedRetrieveRequest` in Go). The Core fills each channel's alias
   in that range. The range alias service puts the channels whose alias matches the
-  search term first, and pages the merged list. Clients send channel names as
-  `name_patterns`.
+  search term first, and pages the merged list. Clients send channel names as `name.in`.
 - **Phase 5: Every other entity with an API retrieve.** The same move. Control, license,
   ontology, and range alias retrieves keep their requests. The access API splits into
   policy and role packages, since each generates its own `RetrieveRequest`.
@@ -478,8 +476,9 @@ and its flat fields go away together, since a client must match the Core's versi
 10. **A lenient key matcher, rejected**: A flag on one matcher spreads through `and` and
     `or`, so a strict sibling drops its missing keys too. One retrieve option states the
     rule once.
-11. **Name patterns in the clients, rejected**: Each client would hold its own copy of
-    the rule, and the C++ client had none.
+11. **A `name_patterns` line, rejected**: It read a valid channel name as an exact match
+    and any other entry as an anchored regex. The mixed rule needed a second line and a
+    TypeScript cache check, and `name.regex` already holds a pattern.
 12. **A generated builder, rejected**: Each entity exported its lines, `and`, `or`,
     `not`, and option helpers: 245 exports in TypeScript alone, each a thin wrapper over
     the tree. The Console never called it, since Flux parameters must be data, and it

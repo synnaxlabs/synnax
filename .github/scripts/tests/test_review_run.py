@@ -11,12 +11,13 @@ import dataclasses
 import json
 import os
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, PullRequest, Window, load, run
+from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
 from review.__main__ import claude as launch
 from review.__main__ import main
 
@@ -57,8 +58,15 @@ def config(**kw: Any) -> Config:
             Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
             Doc(path="py.md", description="Py", text="Py only.", paths=("**/*.py",)),
         ],
+        "lenses": [],
     }
     return Config(**(fields | kw))
+
+
+NEW_COMMITS = (
+    "commit " + "c" * 40 + "\n\nFix the reader\n\n"
+    "diff --git a/core/a.go b/core/a.go\n@@ -1 +1 @@\n-broken\n+fixed\n"
+)
 
 
 def pull(**kw: Any) -> PullRequest:
@@ -130,6 +138,39 @@ def limits(utilization: float, status: str) -> dict[str, Any]:
     }
 
 
+class LensClaude:
+    """Answers each focused pass with the review set for its lens. Records the prompt
+    and effort of each pass, from any thread."""
+
+    def __init__(self, reviews: dict[str, FakeClaude]):
+        self.reviews = reviews
+        self.calls: dict[str, tuple[str, str]] = {}
+        self._lock = threading.Lock()
+
+    def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
+        name = stdin.split("# Your focus: ")[1].split("\n")[0]
+        fake = self.reviews[name]
+        out = fake(args, stdin, cwd)
+        with self._lock:
+            self.calls[name] = (stdin, fake.flag("--effort"))
+        return out
+
+
+def at(
+    severity: str, line: int, start: int | None = None, path: str = "a.go"
+) -> dict[str, Any]:
+    """A finding of the given severity on lines of a file."""
+    f = finding(severity) | {"title": f"{severity} at {line}", "line": line}
+    f["path"] = path
+    return f if start is None else f | {"start_line": start}
+
+
+LENSES = [
+    Lens(name="Races", focus="Trace each interleaving."),
+    Lens(name="Edges", focus="Try empty and boundary values.", effort="medium"),
+]
+
+
 def review(
     c: Config | None = None, pr: PullRequest | None = None, workdir: Path = WORK
 ) -> FakeClaude:
@@ -164,6 +205,20 @@ class TestLoad:
         assert rule.path == ".sedosaur/rules/go.md"
         assert rule.paths == ("**/*.go",)
         assert rule.text == "\nNo panics.\n"
+
+    def test_should_read_the_lenses(self, tmp_path: Path) -> None:
+        home = tmp_path / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1\ncaps = {}\ncontext = []\n"
+            '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
+        )
+        (home / "prompt.md").write_text("Review it.\n")
+        assert load(tmp_path).lenses == [LENSES[0]]
+
+    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
+        assert load(ROOT).lenses == []
 
     def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
         home = tmp_path / ".sedosaur"
@@ -248,6 +303,20 @@ class TestPrompt:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
 
+    def test_should_show_the_commits_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS)).stdin
+        assert "# Commits since your last review\n\nReview these" in stdin
+        assert NEW_COMMITS in stdin
+        assert stdin.index("+fixed") < stdin.index("# Rules")
+
+    def test_should_put_new_commits_too_long_to_show_in_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).stdin
+        assert "+fixed" not in stdin
+        assert "Read all of `new.diff` first." in stdin
+        assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
+
 
 class TestCommand:
     """Tests the command that runs Claude Code."""
@@ -291,6 +360,154 @@ class TestScore:
             RuntimeError, match=r"claude ended with error_max_turns: Out\."
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+
+class TestLenses:
+    """Tests a review that takes one parallel pass for each lens."""
+
+    def test_should_review_in_one_pass_without_lenses(self) -> None:
+        prompts: list[str] = []
+        fake = FakeClaude()
+
+        def claude(args: list[str], stdin: str, cwd: Path) -> str:
+            prompts.append(stdin)
+            return fake(args, stdin, cwd)
+
+        run(config(), pull(), claude=claude, workdir=WORK)
+        [prompt] = prompts
+        assert "# Your focus" not in prompt
+
+    def lenses(
+        self,
+        races: FakeClaude | None = None,
+        edges: FakeClaude | None = None,
+        pr: PullRequest | None = None,
+    ) -> tuple[LensClaude, Any]:
+        claude = LensClaude(
+            {"Races": races or FakeClaude(), "Edges": edges or FakeClaude()}
+        )
+        got, usage = run(
+            config(lenses=LENSES), pr or pull(), claude=claude, workdir=WORK
+        )
+        return claude, (got, usage)
+
+    def test_should_give_each_pass_the_review_prompt_and_its_focus(self) -> None:
+        claude, _ = self.lenses()
+        races, edges = claude.calls["Races"][0], claude.calls["Edges"][0]
+        assert races.startswith("Review the pull request.")
+        assert edges.startswith("Review the pull request.")
+        assert "# Your focus: Races\n\nTrace each interleaving." in races
+        assert "# Your focus: Edges\n\nTry empty and boundary values." in edges
+
+    def test_should_run_each_pass_at_the_effort_of_its_lens(self) -> None:
+        claude, _ = self.lenses()
+        assert claude.calls["Races"][1] == "high"
+        assert claude.calls["Edges"][1] == "medium"
+
+    def test_should_keep_the_findings_of_every_pass(self) -> None:
+        races = FakeClaude(5, [at("P2", 10), at("P2", 3, path="b.go")])
+        edges = FakeClaude(5, [at("P1", 20)])
+        _, (got, _) = self.lenses(races, edges)
+        assert sorted(f.title for f in got.findings) == [
+            "P1 at 20",
+            "P2 at 10",
+            "P2 at 3",
+        ]
+
+    def test_should_keep_the_more_severe_of_two_passes_on_one_line(self) -> None:
+        races = FakeClaude(5, [at("P2", 12, start=10)])
+        edges = FakeClaude(5, [at("P1", 12)])
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == ["P1 at 12"]
+
+    def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
+        both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
+        _, (got, _) = self.lenses(FakeClaude(5, both))
+        assert [f.title for f in got.findings] == ["P1 at 12", "Other"]
+
+    def test_should_keep_overlapping_findings_that_end_on_other_lines(self) -> None:
+        races = FakeClaude(5, [at("P1", 12, start=5)])
+        edges = FakeClaude(5, [at("P2", 10)])
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == ["P1 at 12", "P2 at 10"]
+
+    def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
+        races = FakeClaude(5, [at("P2", 12) | {"title": "New"}])
+        edges = FakeClaude(5, [at("P2", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P2 at 12"]
+
+    def test_should_keep_a_more_severe_finding_over_an_open_thread(self) -> None:
+        races = FakeClaude(4, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P0", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P0 at 12"]
+        assert got.score == 2
+
+    def test_should_join_findings_of_two_passes_with_one_title(self) -> None:
+        races = FakeClaude(5, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P1", 14) | {"title": "P2 at 12"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [("P2 at 12", 14)]
+
+    def test_should_join_a_finding_with_one_finding_of_each_pass(self) -> None:
+        races = FakeClaude(
+            5,
+            [
+                at("P2", 40) | {"title": "Lock released"},
+                at("P2", 12) | {"title": "Cache read"},
+            ],
+        )
+        edges = FakeClaude(5, [at("P1", 40) | {"title": "Cache read"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [
+            ("Cache read", 40),
+            ("Lock released", 40),
+        ]
+
+    def test_should_join_a_title_on_the_same_line_first(self) -> None:
+        races = FakeClaude(
+            5, [at("P2", 10) | {"title": "T"}, at("P2", 50) | {"title": "T"}]
+        )
+        edges = FakeClaude(5, [at("P1", 50) | {"title": "T"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.severity, f.line) for f in got.findings] == [("P1", 50), ("P2", 10)]
+
+    def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
+        races = FakeClaude(5)
+        races.out["structured_output"]["verdict"] = "From races."
+        edges = FakeClaude(5, [at("P0", 1)])
+        edges.out["structured_output"]["verdict"] = "From edges."
+        _, (got, _) = self.lenses(races, edges)
+        assert (got.score, got.verdict) == (2, "From edges.")
+
+    def test_should_take_the_first_summary_when_the_scores_tie(self) -> None:
+        races = FakeClaude(4)
+        races.out["structured_output"]["verdict"] = "From races."
+        _, (got, _) = self.lenses(races, FakeClaude(4))
+        assert (got.score, got.verdict) == (4, "From races.")
+
+    def test_should_add_up_the_usage_of_every_pass(self) -> None:
+        races = FakeClaude()
+        races.limits = [limits(0.5, "allowed")]
+        edges = FakeClaude()
+        edges.out["duration_ms"] = 90_000
+        edges.limits = [limits(0.7, "allowed")]
+        _, (_, usage) = self.lenses(races, edges)
+        assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.0, 24, 90_000)
+        assert usage.output_tokens == 4_000
+        assert usage.limits["seven_day"].utilization == 0.7
+
+    def test_should_take_the_limits_of_a_pass_that_reported_any(self) -> None:
+        races = FakeClaude()
+        races.limits = [limits(0.5, "allowed")]
+        edges = FakeClaude()
+        edges.out["duration_ms"] = 90_000
+        edges.limits = []
+        _, (_, usage) = self.lenses(races, edges)
+        assert usage.limits["seven_day"].utilization == 0.5
 
 
 class TestUsage:
@@ -364,9 +581,10 @@ def git(cwd: Path, *args: str) -> str:
 class TestMain:
     """Tests the `run` command with fake `gh` and `claude` executables."""
 
-    def test_should_review_the_head_with_the_policy_checkout(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @pytest.fixture
+    def env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+        """Sets the environment of a review. The fake `gh` logs each call to
+        `gh.log`, and the fake `claude` writes its prompt to `prompt.txt`."""
         home = tmp_path / "policy" / ".sedosaur"
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text(
@@ -387,6 +605,7 @@ class TestMain:
         bindir.mkdir()
         executable(
             bindir / "gh",
+            f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
             "if 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
         )
@@ -417,16 +636,22 @@ class TestMain:
         }
         for k, v in env.items():
             monkeypatch.setenv(k, v)
+        return env
+
+    def test_should_review_the_head_with_the_policy_checkout(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
         out = tmp_path / "review.json"
         main(["run", str(out)])
-        text = prompt.read_text()
+        assert "reviewThreads" in (tmp_path / "gh.log").read_text()
+        text = (tmp_path / "prompt.txt").read_text()
         assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
         assert "     2 +two" in text
         record = json.loads(out.read_text())
         assert record["at"].endswith("+00:00")
         assert record["pr"] == 7
         assert record["head"] == env["HEAD_SHA"]
-        assert record["base"] == base
+        assert record["base"] == env["BASE_SHA"]
         assert record["policy"] == "policy"
         assert record["review"]["score"] == 5
         assert record["usage"] == {
@@ -439,3 +664,64 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_replay_without_the_open_threads_or_a_check_run(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("REPLAY", "true")
+        monkeypatch.delenv("CHECK_RUN")
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
+        assert json.loads(out.read_text())["review"]["score"] == 5
+
+    @staticmethod
+    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+        """Runs a review whose pull request body says that Sedosaur reviewed the
+        commits, newest first, and returns the section of new commits in the prompt."""
+        edits = "".join(
+            json.dumps(
+                {
+                    "editor": {"__typename": "Bot", "login": "sedosaur"},
+                    "diff": "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/"
+                    f"commit/{c})\n<!-- /sedosaur_comment -->",
+                }
+            )
+            + "\n"
+            for c in commits
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('userContentEdits' in a for a in sys.argv):\n"
+            f"    print({edits!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        _, found, new = text.partition("# Commits since your last review")
+        return new.split("# Rules")[0] if found else ""
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        assert "+two" in new
+
+    def test_should_show_the_commits_since_the_review_before_one_of_the_head(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_show_no_new_commits_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""

@@ -9,10 +9,16 @@
 
 #include <algorithm>
 #include <atomic>
+#include <future>
+#include <map>
+#include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -23,6 +29,13 @@
 
 namespace driver::ethercat::engine {
 namespace {
+/// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
+const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
+
+/// @brief a loader for a network with no saved slave settings.
+const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+};
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
 const pdo::Entry IN_I24(0, 0x6000, 3, 24, true, x::telem::INT32_T);
@@ -31,6 +44,14 @@ const pdo::Entry OUT_I16(0, 0x7000, 1, 16, false, x::telem::INT16_T);
 const pdo::Entry OUT_I32(0, 0x7000, 2, 32, false, x::telem::INT32_T);
 const pdo::Entry OUT_I24(0, 0x7000, 3, 24, false, x::telem::INT32_T);
 const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
+
+/// @brief why a slave in the specs refuses SAFE-OP.
+const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"};
+/// @brief a refusal that needs master::DC_SYNC_ADVICE.
+const slave::Refusal DC_SYNC_REFUSAL{
+    .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
+    .dc_sync_invalid = true,
+};
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
 constexpr size_t I16_BYTE = 0;
@@ -89,6 +110,18 @@ Config quick_start_config() {
     };
     return cfg;
 }
+
+/// @brief an engine configuration whose slave settings disable the slave at position.
+Config disabling(const uint16_t position) {
+    Config cfg;
+    cfg.slave_configs = [position] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{{position, {.enabled = false}}},
+            x::errors::NIL
+        };
+    };
+    return cfg;
+}
 }
 
 class EngineTest : public ::testing::Test {
@@ -113,6 +146,43 @@ protected:
         const auto err = reader.read(this->brk, frame, times);
         EXPECT_FALSE(err) << err.message();
         return times;
+    }
+};
+
+/// @brief runs the engine on a simulated clock, so the bus cycles as fast as the host
+/// allows and each frame passes the reference clock at its exact simulated time.
+class EngineLockTest : public EngineTest {
+protected:
+    /// @brief the frames a spec watches: 3 s at the 10 ms bus period, in which a
+    /// distributed clock that runs 0.5% fast slips through one and a half periods.
+    static constexpr size_t FRAMES = 300;
+    const x::telem::TimeSpan period = x::telem::MILLISECOND * 10;
+    const x::loop::HostClock clock = x::loop::fake_clock();
+
+    void SetUp() override {
+        this->master = std::make_shared<testutil::Master>("eth0", this->clock);
+        this->master->add_slave(io_slave(0));
+        Config cfg;
+        cfg.host_clock = this->clock;
+        this->engine = std::make_shared<Engine>(this->master, cfg);
+        this->brk.start();
+    }
+
+    /// @brief returns the share of the recorded frames that passed the reference clock
+    /// within a quarter period of half a period after a SYNC0 event, with SYNC0 events
+    /// at shift after multiples of the period.
+    [[nodiscard]] double
+    share_in_phase(const x::telem::TimeSpan shift = x::telem::TimeSpan(0)) const {
+        const auto frames = this->master->recorded_dc();
+        EXPECT_EQ(frames.size(), FRAMES);
+        int in_phase = 0;
+        for (const auto &dc: frames) {
+            const auto phase = ((dc - master::DC_EPOCH - shift) % this->period +
+                                this->period) %
+                               this->period;
+            if ((phase - this->period / 2).abs() < this->period / 4) ++in_phase;
+        }
+        return static_cast<double>(in_phase) / static_cast<double>(frames.size());
     }
 };
 
@@ -191,6 +261,76 @@ TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
         EXPECT_GT(spacing, x::telem::MICROSECOND * 9'900);
         EXPECT_LT(spacing, x::telem::MICROSECOND * 10'100);
     }
+}
+
+/// @brief it should hold each frame half a period after a SYNC0 event, with the SYNC0
+/// shift, while the distributed clock runs 0.5% faster than the host clock.
+TEST_F(EngineLockTest, LocksTheCycleToTheDistributedClock) {
+    auto sync = SYNC0_AT_10MS;
+    sync.sync0_shift = 5'000'000;
+    this->master->set_dc_sync({sync});
+    this->master->set_host_dc(1.005);
+    this->master->record_dc(FRAMES);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 5), 0.8);
+}
+
+/// @brief it should lock the cycle to SYNC0 events of 100 us or more, and not to a
+/// faster SYNC0 that clocks hardware in a slave.
+TEST_F(EngineLockTest, LocksTheCycleOnlyToSYNC0EventsThatMarkData) {
+    this->master->set_dc_sync(
+        {SYNC0_AT_10MS, {.assign_activate = 0x0300, .sync0_cycle = 1'000}}
+    );
+    this->master->set_host_dc(1.005);
+    this->master->record_dc(FRAMES);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_GT(this->share_in_phase(), 0.8);
+}
+
+/// @brief it should leave the cycle unlocked when no slave runs SYNC0.
+TEST_F(EngineLockTest, LeavesTheCycleUnlockedWithoutSYNC0) {
+    this->master->set_host_dc(1.005);
+    this->master->record_dc(FRAMES);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_LT(this->share_in_phase(), 0.8);
+}
+
+/// @brief it should lock the cycle to the distributed clock while the slaves move to
+/// OP and the working counter falls short.
+TEST_F(EngineLockTest, LocksTheCycleWhileTheSlavesMoveToOP) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    // The slaves reach OP after 400 frames, so every recorded frame comes before OP.
+    this->master->set_start_frames(400);
+    this->master->record_dc(FRAMES);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread start([&] {
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    });
+    EXPECT_GT(this->share_in_phase(), 0.8);
+    start.join();
+    ASSERT_NIL(res.second);
+}
+
+/// @brief it should not move the cycle on a frame with a short working counter after
+/// the start, as the frame can miss the reference clock.
+TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    this->master->record_dc(FRAMES);
+    EXPECT_LT(this->share_in_phase(), 0.8);
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
@@ -461,11 +601,180 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
     );
+}
+
+/// @brief it should read the slave settings again each time the bus starts.
+TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail to start the bus with the error that kept the slave settings
+/// from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should open a reader on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
+}
+
+/// @brief it should read the slave settings again when the bus ran and stopped while an
+/// open read them.
+TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
+    this->master->add_slave(io_slave(1));
+    const auto calls = std::make_shared<std::atomic<int>>(0);
+    const auto disabled = std::make_shared<std::atomic<bool>>(false);
+    std::promise<void> release;
+    Config cfg;
+    cfg.slave_configs = [calls, disabled, released = release.get_future().share()] {
+        std::map<uint16_t, slave::Config> configs;
+        if (disabled->load()) configs[1] = {.enabled = false};
+        if (calls->fetch_add(1) == 0) released.wait();
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
+    std::thread opening([&] {
+        late = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    });
+    ASSERT_EVENTUALLY_EQ(calls->load(), 1);
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    disabled->store(true);
+    release.set_value();
+    opening.join();
+    ASSERT_OCCURRED_AS(late.second, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(calls->load(), 3);
+}
+
+/// @brief it should read the slave settings again each time a writer starts the bus.
+TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (*disabled) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    {
+        const auto writer = ASSERT_NIL_P(
+            this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+        );
+    }
+    ASSERT_FALSE(this->engine->running());
+    *disabled = true;
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100)),
+        errors::PDO_MAPPING_ERROR
+    );
+}
+
+/// @brief it should fail a writer's bus start with the error that kept the slave
+/// settings from being read, before it initializes the master.
+TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{},
+            x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+        };
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(100));
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(this->master->init_call_count(), 0);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should open a writer on a running bus when the slave settings cannot be
+/// read, since only a bus start uses them.
+TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
+    this->master->add_slave(io_slave(1));
+    const auto failing = std::make_shared<bool>(false);
+    Config cfg;
+    cfg.slave_configs = [failing] {
+        if (*failing)
+            return std::pair{
+                std::map<uint16_t, slave::Config>{},
+                x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
+            };
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(this->master, cfg);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I16, 1)}, x::telem::Rate(100))
+    );
+    *failing = true;
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_writer({on_slave(OUT_I32, 1)}, x::telem::Rate(100))
+    );
+    EXPECT_TRUE(this->engine->running());
+    EXPECT_EQ(this->master->init_call_count(), 1);
 }
 
 /// @brief it should return the error that kept the master from initializing once the
@@ -497,6 +806,39 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should discover the slaves again while the bus is stopped, and not while
+/// it runs.
+TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
+    ASSERT_NIL(this->engine->rediscover());
+    EXPECT_EQ(this->master->call_count("deactivate"), 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_NIL(this->engine->rediscover());
+    EXPECT_EQ(this->master->call_count("deactivate"), 1);
+}
+
+/// @brief it should activate the master with the period of the bus rate.
+TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->activated_period(), x::telem::MILLISECOND * 10);
+}
+
+/// @brief it should return at once, without a retry, when the config of a slave cannot
+/// run.
+TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
@@ -512,6 +854,164 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should start the bus again without a slave that refuses a state.
+TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should fail a reader on a slave that the bus started without, and stop the
+/// bus that the reader started.
+TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it "
+        "again."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should give each left-out slave and its reason in the error when the start
+/// then fails.
+TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Inconsistent settings."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should end the error of a failed start with the DC sync advice once when a
+/// left-out slave needs it.
+TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should give the DC sync advice once, at the end, when two left-out slaves
+/// report "Invalid DC SYNC configuration".
+TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->refuse(2, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should end the error of a failed start with the DC sync advice when every
+/// slave refuses SAFE-OP with "Invalid DC SYNC configuration".
+TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
+    this->master->refuse(0, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(master::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should try a left-out slave again the next time the bus starts.
+TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    reader.reset();
+    this->master->clear_injected_errors();
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->read_times(*other, 1).size(), 1);
+}
+
+/// @brief it should cycle the bus while the slaves move to OP.
+TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto log = this->master->call_log();
+    const auto op = std::ranges::find(log, "op");
+    ASSERT_NE(op, log.end());
+    EXPECT_LT(std::ranges::find(log, "send"), op);
+}
+
+/// @brief it should run no slave recovery while the slaves move to OP, and stop the
+/// cycle before it deactivates the master when a slave refuses a state.
+TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    const auto log = this->master->call_log();
+    EXPECT_GE(std::ranges::count(log, "send"), 1);
+    EXPECT_EQ(std::ranges::count(log, "check"), 0);
+    EXPECT_EQ(std::ranges::count(log, "deactivate"), 1);
+    EXPECT_EQ(log.back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(0));
+}
+
+/// @brief it should stop the cycle and retry when the slaves do not reach OP in time.
+TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+    EXPECT_EQ(this->master->call_log().back(), "deactivate");
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should retry activation of the master until it succeeds, then open the
 /// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
@@ -519,7 +1019,7 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
     std::thread recover([this] {
-        while (this->master->call_count("activate") < 1)
+        while (this->master->call_count("activate") < 2)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         this->master->clear_injected_errors();
     });
@@ -692,11 +1192,85 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     EXPECT_GE(span, x::telem::MILLISECOND * 20);
 }
 
+/// @brief it should refuse a task that needs another bus rate while a slave runs DC
+/// sync, until every task on the port stops.
+TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+    reader.reset();
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(250))
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
+}
+
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
+/// while a slave runs DC sync.
+TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
+/// @brief it should keep the bus rate when a faster task closes and when a slower task
+/// opens while a slave runs DC sync.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(1000))
+    );
+    const auto slow = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    writer.reset();
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+    const auto other = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
+}
+
+/// @brief it should keep the bus rate while a slave runs a SYNC0 too fast to mark
+/// process data, since its SYNC1 cycle comes from the bus period.
+TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
+    this->master->set_dc_sync(
+        {{.assign_activate = 0x0700, .sync0_cycle = 1'000, .sync1_cycle = 9'999'000}}
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(250));
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should report the health of each enabled slave and leave out disabled
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine = std::make_shared<Engine>(this->master, disabling(1));
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
@@ -704,6 +1278,21 @@ TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     EXPECT_EQ(
         this->engine->health()[0],
         (slave::Health{.position = 0, .state = slave::State::OP})
+    );
+}
+
+/// @brief it should report a left-out slave in its health with why the bus started
+/// without it.
+TEST_F(EngineTest, HealthReportsALeftOutSlave) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 2);
+    EXPECT_EQ(
+        this->engine->health()[1],
+        (slave::Health{.position = 1, .refusal = REFUSAL})
     );
 }
 
@@ -873,7 +1462,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
@@ -886,7 +1475,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     master->add_slave(io_slave(1));
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -905,7 +1494,7 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     );
     auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
-    Pool pool(std::move(manager));
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto slaves = ASSERT_OCCURRED_AS_P(
         pool.discover_slaves("eth0"),
         errors::MASTER_INIT_ERROR

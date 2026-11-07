@@ -65,6 +65,7 @@ describe("arc useCreate", () => {
     const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
     expect(retrieved.name).toBe(name);
     expect(retrieved.type).toBe("automation");
+    expect(retrieved.source.mode).toBe("text");
   });
 
   it("should create a module when Module is selected", async () => {

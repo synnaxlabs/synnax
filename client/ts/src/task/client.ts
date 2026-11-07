@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  filter,
   id,
   primitive,
   type record,
@@ -30,7 +31,6 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
-  keyZ as rackKeyZ,
   ontologyID as rackOntologyID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
@@ -60,8 +60,8 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { matches, serverComputed } from "@/task/where.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
+import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
@@ -301,69 +301,62 @@ export class Task<S extends Schemas = Schemas> {
   }
 }
 
-/** Names one task in the cache: by key, by name, or by type and rack. */
-type SingleRequest = { key: Key } | { name: string } | { type: string; rack?: RackKey };
+/** Names one task in the cache: by key or by name. */
+type SingleRequest = { key: Key } | { name: string };
 
-const singleWhere = (q: SingleRequest): Where => {
-  if ("key" in q) return { key: { eq: q.key } };
-  if ("name" in q) return { name: { eq: q.name } };
-  return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
-};
+const singleWhere = (q: SingleRequest): Where =>
+  "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
 
 const singleRetrieveParamsZ = z.union([
   z
-    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
     .transform(({ key, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ key }),
       includeStatus,
     })),
   z
-    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .strictObject({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }): RetrieveRequest => ({
       where: singleWhere({ name }),
       includeStatus,
     })),
-  z
-    .object({ type: z.string(), rack: rackKeyZ.optional() })
-    .transform(({ type, rack }): RetrieveRequest => ({
-      where: singleWhere({ type, rack }),
-    })),
 ]);
-/** Names one task: by key, by name, or by type and rack. */
+/** Names one task: by key or by name. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 /** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
-const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
-  if ("key" in params) return { key: params.key };
-  if ("name" in params) return { name: params.name };
-  return params.rack == null
-    ? { type: params.type }
-    : { type: params.type, rack: params.rack };
-};
+const normalizeSingle = (params: RetrieveSingleParams): SingleRequest =>
+  "key" in params ? { key: params.key } : { name: params.name };
 
 const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
-]);
+const retrieveMultiParamsZ = requestParamsZ.transform(
+  ({ includeStatus: _, ...rest }) => rest,
+);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -506,6 +499,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
@@ -627,24 +621,36 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveSingleParams & RetrieveSchemas<S>,
+    params: (RetrieveSingleParams | OneParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveMultipleParams & RetrieveSchemas<S>,
+    params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
+    rawParams:
+      Key | Key[] | ((RetrieveParams | OneParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
-    const { schemas, ...params } =
-      typeof rawParams === "string" ? { key: rawParams } : rawParams;
-    const isSingle = z.validate(singleRetrieveParamsZ, params);
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as unknown as Task<S>[];
+    if (typeof rawParams === "string")
+      return (await super.retrieve(rawParams)) as Task<S>;
+    const { schemas, ...params } = rawParams;
+    const isSingle = z.validate(singleRetrieveParamsZ, params) || isOneParams(params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      const sugared = await this.execRetrieve<S>(params, schemas);
-      checkForMultipleOrNoResults("Task", params, sugared, isSingle);
+      const request = query.dropOne(params);
+      if (isOneParams(request) && !z.validate(retrieveParamsZ, request)) {
+        const res = singleQueryZ.safeParse(request);
+        if (!res.success) throw singleQueryError("task", request, res.error);
+      }
+      const req = retrieveParamsZ.parse(request);
+      const sugared = await this.execRetrieve<S>(req, schemas);
+      checkForMultipleOrNoResults("task", req, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -679,7 +685,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
@@ -845,16 +851,19 @@ export class Client extends query.Retriever<
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults("Task", q, tasks, true);
+      checkForMultipleOrNoResults(
+        "task",
+        { where: { key: { eq: q.key } } },
+        tasks,
+        true,
+      );
       return this.compose(tasks[0]);
     }
     const since = this.store.stamp();
     const statusSince = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({
-      where: singleWhere(q),
-      includeStatus: true,
-    });
-    checkForMultipleOrNoResults("Task", q, tasks, true);
+    const where = singleWhere(q);
+    const tasks = await this.execRetrieve({ where, includeStatus: true });
+    checkForMultipleOrNoResults("task", { where }, tasks, true);
     this.hydrate(tasks[0], since, statusSince);
     return tasks[0];
   }

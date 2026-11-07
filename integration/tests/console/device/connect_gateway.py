@@ -10,6 +10,7 @@
 import re
 
 from examples.modbus import ModbusGatewaySim
+from pydantic import JsonValue
 
 import synnax as sy
 from tests.console.device.connect_network import NETWORK
@@ -68,7 +69,7 @@ class ConnectGateway(ModbusCase):
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         connection = sy.device.ensure_object(dev.properties, "connection")
-        expected = {
+        expected: dict[str, JsonValue] = {
             "unit_id": 2,
             "swap_bytes": False,
             "swap_words": True,
