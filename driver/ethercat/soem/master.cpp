@@ -428,7 +428,15 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        this->api->set_slave_state(pos, EC_STATE_OPERATIONAL);
+        const bool restored = [this, pos] {
+            std::lock_guard lock(this->mu);
+            return !this->dc_restore_errors.contains(pos);
+        }();
+        // From PRE-OP, the next check restores the clock again.
+        this->api->set_slave_state(
+            pos,
+            restored ? EC_STATE_OPERATIONAL : EC_STATE_PRE_OP
+        );
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
         if (this->api->slave_hasdc(pos))
@@ -446,12 +454,6 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
         this->api->set_PO2SOconfig(pos, nullptr);
-        std::lock_guard lock(this->mu);
-        // SOEM requests SAFE-OP even when the hook fails.
-        if (this->dc_restore_errors.contains(pos)) {
-            this->api->set_slave_state(pos, EC_STATE_PRE_OP);
-            this->api->writestate(pos);
-        }
     } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (this->api->slave_state(pos) == EC_STATE_NONE)
@@ -1341,12 +1343,12 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
             other,
             ECT_REG_DCSOF
         );
-        if (other_local_err) continue;
+        if (other_local_err) return other_local_err;
         const auto [other_offset, other_offset_err] = this->read_dc_register<int64_t>(
             other,
             ECT_REG_DCSYSOFFSET
         );
-        if (other_offset_err) continue;
+        if (other_offset_err) return other_offset_err;
         // Each slave latched its propagation delay after the reference clock.
         const int64_t system = other_local + other_offset +
                                this->api->slave_pdelay(pos) -

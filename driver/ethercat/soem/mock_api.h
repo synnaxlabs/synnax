@@ -163,6 +163,8 @@ public:
     std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
+    /// @brief registers, keyed by slave and address, whose reads get no answer.
+    std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -339,6 +341,7 @@ public:
             it == this->register_values.end() ? int64_t{0} : it->second
         );
         std::copy_n(bytes.begin(), data.size(), data.begin());
+        if (this->unanswered_reads.contains({slave, address})) return 0;
         return this->read_register_return;
     }
 

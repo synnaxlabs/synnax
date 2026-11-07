@@ -256,8 +256,8 @@ private:
     /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
     /// matches the clock of another enabled DC slave in SAFE-OP or OP. Without one, the
     /// clock continues the latest DC time that moved forward.
-    /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, or the
-    /// slave does not answer or take the write.
+    /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, a slave
+    /// does not answer a read, or the slave does not take the write.
     x::errors::Error align_clock(uint16_t pos);
 
     /// @brief sets up the distributed clock of a slave that came back to PRE-OP while
@@ -287,7 +287,8 @@ private:
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power. A wait for the clock of a DC slave ends once breaker
+    /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
+    /// to PRE-OP, not to OP. A wait for the clock of a DC slave ends once breaker
     /// stops.
     void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 

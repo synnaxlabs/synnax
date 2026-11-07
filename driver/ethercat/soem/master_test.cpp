@@ -1612,25 +1612,69 @@ TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
-/// @brief it should hold a DC slave that comes back from a power loss in PRE-OP, and
-/// report why, when the master cannot restore its clock.
+/// @brief it should send a DC slave that comes back from a power loss to PRE-OP from
+/// SAFE-OP, and report why, when the master cannot restore its clock.
 TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->latch_return = 0;
     this->master->check(this->brk);
+    EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_SAFE_OP);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+    const auto health = this->master->check(this->brk);
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
     );
     EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
-    const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);
     EXPECT_TRUE(health[0].faulted);
     EXPECT_EQ(
         health[0].al_status,
         "Failed to restore the distributed clock: no slave latched its receive time"
+    );
+}
+
+/// @brief it should request PRE-OP and never OP on each check of a slave whose clock
+/// restore failed while it stays in SAFE-OP, as when a PRE-OP request gets lost.
+TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    this->mock->slave_infos[0].bus_state = EC_STATE_SAFE_OP;
+    this->master->check(this->brk);
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_PRE_OP},
+            {1, EC_STATE_PRE_OP},
+        })
+    );
+}
+
+/// @brief it should fail the clock restore of a DC slave that comes back from a power
+/// loss, and not set its clock from the host time, when a DC slave that kept running
+/// does not answer the read of its clock.
+TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->unanswered_reads.insert({1, 0x0918});
+    this->check_while_cycling();
+    EXPECT_TRUE(
+        std::ranges::none_of(this->mock->register_writes, [](const RegisterWrite &w) {
+            return w.address == 0x0920;
+        })
+    );
+    EXPECT_EQ(
+        this->master->check(this->brk)[1].al_status,
+        "Failed to restore the distributed clock: slave 1 (16xAO) did not answer a "
+        "read of DC register 0x0918"
     );
 }
 
