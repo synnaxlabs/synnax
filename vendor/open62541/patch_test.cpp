@@ -167,3 +167,19 @@ TEST(PatchTest, ShutsDownServerAtOnce) {
     EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
     UA_Server_delete(server);
 }
+
+/// @brief it should fail a refused connection without waiting for the next timer of
+/// the client.
+TEST(PatchTest, FailsRefusedConnectionAtOnce) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows retries a refused connect for longer than the limit";
+#endif
+    UA_Client *client = UA_Client_new();
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(
+        UA_Client_connect(client, "opc.tcp://localhost:4889"),
+        UA_STATUSCODE_BADCONNECTIONREJECTED
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
+    UA_Client_delete(client);
+}
