@@ -10,13 +10,20 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <functional>
+#include <map>
 #include <mutex>
+#include <ranges>
 #include <set>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+
+#include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
@@ -31,11 +38,26 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, slave::State> slave_states;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
+    /// @brief why the master could not restore the distributed clock of each slave.
+    std::unordered_map<uint16_t, std::string> dc_restore_errors;
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
+    std::map<uint16_t, dc::Choice> chosen_modes;
+    /// @brief why each slave that refuse() names refuses its state.
+    std::map<uint16_t, slave::Refusal> refusing;
+    std::map<uint16_t, slave::Refusal> left_out;
+    std::map<uint16_t, slave::Refusal> start_refusals;
+    bool start_dc_sync_refused{false};
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
-    x::telem::TimeStamp dc_now{};
+    std::vector<dc::Registers> syncs;
+    /// @brief how many times as fast as the host clock the distributed clock runs, or
+    /// nullopt when it does not follow the host clock.
+    std::optional<double> host_dc_rate;
+    /// @brief the host time at which the distributed clock read master::DC_EPOCH.
+    std::optional<x::telem::TimeStamp> host_dc_start;
+    x::telem::TimeStamp last_sent;
+    x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     bool initialized{false};
     bool activated{false};
@@ -43,6 +65,7 @@ class Master final : public master::Master {
 
     x::errors::Error inject_init_err;
     x::errors::Error inject_activate_err;
+    x::errors::Error inject_state_change_err;
     x::errors::Error inject_receive_err;
     x::errors::Error inject_send_err;
 
@@ -56,14 +79,47 @@ class Master final : public master::Master {
     size_t output_sz{0};
     std::vector<std::string> calls;
     size_t init_calls{0};
+    std::optional<x::telem::TimeSpan> period;
+    size_t send_calls{0};
+    std::condition_variable sent_cv;
+    size_t start_frames{1};
+    bool short_until_op{false};
     size_t output_padding = 0;
     std::mutex stall_mu;
     std::condition_variable stall_cv;
     bool stalled{false};
+    x::loop::HostClock clock;
+    x::telem::TimeSpan activate_duration{0};
+    /// @brief how many more frames record_dc() asked for.
+    size_t frames_to_record{0};
+    std::vector<x::telem::TimeStamp> recorded;
+    std::condition_variable recorded_cv;
 
 public:
-    explicit Master(std::string interface_name = "mock0"):
-        iface_name(std::move(interface_name)) {}
+    /// @param clock stamps the host time at which a frame is sent.
+    explicit Master(
+        std::string interface_name = "mock0",
+        x::loop::HostClock clock = {}
+    ):
+        iface_name(std::move(interface_name)), clock(std::move(clock)) {}
+
+    /// @brief records the DC time of each of the next frames that pass the reference
+    /// clock, up to frames of them.
+    void record_dc(const size_t frames) {
+        std::lock_guard lock(this->mu);
+        this->recorded.clear();
+        this->frames_to_record = frames;
+    }
+
+    /// @brief waits up to 10 s for the frames that record_dc() asked for, then returns
+    /// the DC time of each recorded frame.
+    std::vector<x::telem::TimeStamp> recorded_dc() {
+        std::unique_lock lock(this->mu);
+        this->recorded_cv.wait_for(lock, std::chrono::seconds(10), [this] {
+            return this->frames_to_record == 0;
+        });
+        return this->recorded;
+    }
 
     /// @brief adds a simulated slave to the mock master.
     void add_slave(slave::Properties props) {
@@ -77,6 +133,14 @@ public:
         this->slave_states[pos] = slave::State::INIT;
     }
 
+    /// @brief makes the PDO discovery of the slave at position fail with error.
+    void fail_pdo_discovery(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.pdo_discovery_error = error;
+    }
+
     /// @brief injects an error to be returned by initialize().
     void inject_init_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -87,6 +151,34 @@ public:
     void inject_activate_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_activate_err = err;
+    }
+
+    /// @brief makes each call to activate() take span on the clock of the master.
+    void set_activate_duration(const x::telem::TimeSpan span) {
+        std::lock_guard lock(this->mu);
+        this->activate_duration = span;
+    }
+
+    /// @brief makes activate() return err after the bus cycle starts, as when a slave
+    /// refuses SAFE-OP or OP. A slave that refuse() names fails the start first.
+    void inject_state_change_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_state_change_err = err;
+    }
+
+    /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
+    /// at position is on the bus, as when the slave refuses a state.
+    void refuse(const uint16_t position, slave::Refusal refusal) {
+        std::lock_guard lock(this->mu);
+        this->refusing[position] = std::move(refusal);
+    }
+
+    /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
+    /// then, receive() returns errors::WORKING_COUNTER_ERROR, as slaves below OP do.
+    void set_start_frames(const size_t frames) {
+        std::lock_guard lock(this->mu);
+        this->start_frames = frames;
+        this->short_until_op = true;
     }
 
     /// @brief injects an error to be returned by receive().
@@ -116,11 +208,13 @@ public:
         this->stall_cv.notify_all();
     }
 
-    /// @brief clears all injected errors.
+    /// @brief clears all injected errors and the refusals that refuse() sets.
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
+        this->refusing.clear();
         this->inject_init_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
+        this->inject_state_change_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;
         this->inject_send_err = x::errors::NIL;
     }
@@ -164,6 +258,13 @@ public:
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
         this->faults[position] = al_status;
+    }
+
+    /// @brief makes check() report that the master could not restore the distributed
+    /// clock of a slave, and keep the slave out of OP, until the master deactivates.
+    void fail_dc_restore(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->dc_restore_errors[position] = error;
     }
 
     /// @brief makes check() report a slave as not responding until lost is false.
@@ -221,30 +322,102 @@ public:
         this->bus_slaves = count;
     }
 
-    void set_slave_enabled(const uint16_t position, const bool enabled) override {
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
         std::lock_guard lock(this->mu);
-        if (enabled)
-            this->disabled_slaves.erase(position);
-        else
-            this->disabled_slaves.insert(position);
+        this->disabled_slaves.clear();
+        this->chosen_modes.clear();
+        for (auto &[position, config]: configs) {
+            if (!config.enabled) this->disabled_slaves.insert(position);
+            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+        }
     }
 
-    x::errors::Error activate() override {
+    /// @brief returns whether the latest settings enable the slave at a position.
+    [[nodiscard]] bool slave_enabled(const uint16_t position) const {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("activate");
-        if (this->inject_activate_err) return this->inject_activate_err;
-        if (!this->initialized)
-            return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
-        this->activated = true;
-        this->cache_pdo_offsets();
-        if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
-        if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
-        this->input_iomap.assign(this->input_sz, 0);
-        this->output_iomap.assign(this->output_sz, 0);
-        this->sent_outputs.assign(this->output_sz, 0);
+        return !this->disabled_slaves.contains(position);
+    }
+
+    /// @brief returns the mode that the latest settings choose for the slave at a
+    /// position, or nullopt when they choose none.
+    [[nodiscard]] std::optional<dc::Choice> chosen_mode(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        const auto it = this->chosen_modes.find(position);
+        if (it == this->chosen_modes.end()) return std::nullopt;
+        return it->second;
+    }
+
+    /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
+    /// slaves with outputs need. Logs "op" when the slaves reach OP. Fails with
+    /// errors::STATE_CHANGE_REFUSED when a slave that refuse() names is on the bus.
+    x::errors::Error activate(
+        const x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override {
+        x::telem::TimeSpan duration;
+        {
+            std::lock_guard lock(this->mu);
+            duration = this->activate_duration;
+        }
+        this->clock.sleep(duration);
+        size_t sent = 0;
+        {
+            std::lock_guard lock(this->mu);
+            this->calls.emplace_back("activate");
+            this->period = period;
+            this->start_refusals.clear();
+            this->start_dc_sync_refused = false;
+            if (this->inject_activate_err) return this->inject_activate_err;
+            if (!this->initialized)
+                return x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    "master not initialized"
+                );
+            this->activated = true;
+            this->cache_pdo_offsets();
+            if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
+            if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
+            this->input_iomap.assign(this->input_sz, 0);
+            this->output_iomap.assign(this->output_sz, 0);
+            this->sent_outputs.assign(this->output_sz, 0);
+            sent = this->send_calls;
+        }
+        start_cycle();
+        std::unique_lock lock(this->mu);
+        if (!this->sent_cv.wait_for(lock, std::chrono::seconds(10), [&] {
+                return this->send_calls >= sent + this->start_frames;
+            }))
+            return x::errors::Error(
+                errors::STATE_CHANGE_ERROR,
+                "failed to reach OP: no process data"
+            );
+        std::map<uint16_t, slave::Refusal> refused;
+        bool io_left = false;
+        for (const auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
+            if (!this->on_bus(pos)) continue;
+            if (const auto it = this->refusing.find(pos); it != this->refusing.end())
+                refused.insert(*it);
+            else
+                io_left |= slave.properties.pdo_count() > 0;
+        }
+        if (!refused.empty()) {
+            if (io_left) this->start_refusals = refused;
+            this->start_dc_sync_refused = std::ranges::any_of(
+                refused | std::views::values,
+                &slave::Refusal::dc_sync_invalid
+            );
+            return x::errors::Error(
+                errors::STATE_CHANGE_REFUSED,
+                "failed to reach SAFE-OP: " + refused.begin()->second.reason
+            );
+        }
+        if (this->inject_state_change_err) return this->inject_state_change_err;
+        this->calls.emplace_back("op");
+        this->short_until_op = false;
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (!this->on_bus(pos)) continue;
             const auto it = this->state_transition_failures.find(pos);
             const auto state = it != this->state_transition_failures.end() &&
                                        it->second == slave::State::OP
@@ -265,6 +438,7 @@ public:
         this->input_sz = 0;
         this->output_sz = 0;
         this->faults.clear();
+        this->dc_restore_errors.clear();
         for (auto &[pos, state]: this->slave_states)
             state = slave::State::INIT;
         for (auto &slave: this->slave_list)
@@ -278,8 +452,22 @@ public:
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
-        if (this->inject_receive_err) return this->inject_receive_err;
+        const auto err = this->short_until_op ? x::errors::Error(
+                                                    errors::WORKING_COUNTER_ERROR,
+                                                    "expected 3, got 1"
+                                                )
+                                              : this->inject_receive_err;
+        if (err && !err.matches(errors::WORKING_COUNTER_ERROR)) return err;
         if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
+        if (this->host_dc_rate && this->host_dc_start) {
+            const auto elapsed = this->last_sent - *this->host_dc_start;
+            this->dc_now = master::DC_EPOCH + elapsed * *this->host_dc_rate;
+        }
+        if (this->frames_to_record > 0 && (this->dc_step || this->host_dc_rate)) {
+            this->recorded.push_back(this->dc_now);
+            if (--this->frames_to_record == 0) this->recorded_cv.notify_all();
+        }
+        if (err) return err;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
@@ -290,8 +478,29 @@ public:
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
         std::lock_guard lock(this->mu);
-        if (!this->dc_step) return std::nullopt;
+        if (!this->dc_step && !this->host_dc_rate) return std::nullopt;
         return this->dc_now;
+    }
+
+    /// @brief gives the bus a distributed clock that runs rate times as fast as the
+    /// host clock. Each frame passes the reference clock as it is sent, and the next
+    /// frame sent passes it at master::DC_EPOCH. A frame with a short working counter
+    /// still updates it.
+    void set_host_dc(const double rate) {
+        std::lock_guard lock(this->mu);
+        this->host_dc_rate = rate;
+        this->host_dc_start.reset();
+    }
+
+    /// @brief sets the value dc_sync() returns.
+    void set_dc_sync(const std::vector<dc::Registers> &syncs) {
+        std::lock_guard lock(this->mu);
+        this->syncs = syncs;
+    }
+
+    std::vector<dc::Registers> dc_sync() const override {
+        std::lock_guard lock(this->mu);
+        return this->syncs;
     }
 
     /// @brief gives the bus a distributed clock that advances by step at each
@@ -305,7 +514,12 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
+        this->last_sent = this->clock.now();
+        if (this->host_dc_rate && !this->host_dc_start)
+            this->host_dc_start = this->last_sent;
         this->sent_outputs = this->output_iomap;
+        this->send_calls++;
+        this->sent_cv.notify_all();
         return x::errors::NIL;
     }
 
@@ -319,9 +533,36 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
+    std::map<uint16_t, slave::Refusal> refusals() const override {
+        std::lock_guard lock(this->mu);
+        return this->start_refusals;
+    }
+
+    bool dc_sync_refused() const override {
+        std::lock_guard lock(this->mu);
+        return this->start_dc_sync_refused;
+    }
+
+    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {
+        std::lock_guard lock(this->mu);
+        this->left_out = std::move(slaves);
+    }
+
     std::pair<pdo::Offset, x::errors::Error>
     pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
+        const auto pos = entry.slave_position;
+        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
+            const auto slave = std::ranges::find(
+                this->slave_list,
+                pos,
+                [](const slave::DiscoveryResult &s) { return s.properties.position; }
+            );
+            return {
+                {},
+                master::left_out_error(pos, slave->properties.name, it->second)
+            };
+        }
         return pdo::find_offset(this->pdo_offset_cache, entry);
     }
 
@@ -338,16 +579,19 @@ public:
         std::vector<slave::Health> health;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
-            if (this->disabled_slaves.contains(pos)) continue;
+            if (!this->on_bus(pos)) continue;
             const auto fault = this->faults.find(pos);
+            const auto restore = this->dc_restore_errors.find(pos);
+            const bool restore_failed = restore != this->dc_restore_errors.end();
             health.push_back({
                 .position = pos,
                 .state = this->slave_states[pos],
-                .faulted = fault != this->faults.end(),
+                .faulted = fault != this->faults.end() || restore_failed,
                 .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
+                .dc_restore_error = restore_failed ? restore->second : "",
             });
-            if (this->lost_slaves.contains(pos)) continue;
+            if (this->lost_slaves.contains(pos) || restore_failed) continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
@@ -356,6 +600,8 @@ public:
             this->slave_states[pos] = slave::State::OP;
             this->faults.erase(pos);
         }
+        for (const auto &[pos, refusal]: this->left_out)
+            health.push_back({.position = pos, .refusal = refusal});
         return health;
     }
 
@@ -410,6 +656,12 @@ public:
         return this->init_calls;
     }
 
+    /// @brief returns the bus period of the latest activate() call.
+    std::optional<x::telem::TimeSpan> activated_period() const {
+        std::lock_guard lock(this->mu);
+        return this->period;
+    }
+
     /// @brief resets the initialize call counter.
     void reset_init_call_count() {
         std::lock_guard lock(this->mu);
@@ -437,13 +689,19 @@ public:
     }
 
 private:
+    /// @brief whether the slave at position takes part in the next or current start.
+    [[nodiscard]] bool on_bus(const uint16_t position) const {
+        return !this->disabled_slaves.contains(position) &&
+               !this->left_out.contains(position);
+    }
+
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
         this->input_sz = 0;
         this->output_sz = this->output_padding;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
-            if (this->disabled_slaves.contains(props.position)) continue;
+            if (!this->on_bus(props.position)) continue;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
                 props.position,

@@ -248,70 +248,83 @@ var _ = Describe("Factory", func() {
 			t  task.Task
 		)
 		BeforeEach(func(ctx SpecContext) {
-			t = newTask(kafka.ScanTaskType, map[string]any{"rate": 20})
+			t = newTask(kafka.ScanTaskType, map[string]any{"rate": 2})
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
 
-		// testConnection runs test_connection against props and returns the answer.
+		// testConnection runs test_connection against props and returns the status
+		// that answers it.
 		testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
 			GinkgoHelper()
+			key := uuid.New().String()
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key,
 				Type: "test_connection",
-				Key:  "cmd-conn",
+				Key:  key,
 				Args: toJSON(map[string]any{"connection": props}),
 			})).To(Succeed())
-			return taskStatus(ctx, t)
+			var stat task.Status
+			Eventually(func(g Gomega) {
+				stat = taskStatus(ctx, t)
+				g.Expect(stat.Details.Cmd).To(Equal(key))
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			return stat
+		}
+		expectSuccess := func(stat task.Status) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Command executed successfully"))
+		}
+		expectFailure := func(stat task.Status, message string) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Description).ToNot(BeEmpty())
+		}
+		expectInvalid := func(stat task.Status, reason string) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(ContainSubstring(reason))
+			Expect(stat.Details.Data).To(BeEmpty())
 		}
 
-		It("Should answer test_connection with success for a live cluster",
+		It("Should connect to a live cluster", func(ctx SpecContext) {
+			expectSuccess(testConnection(ctx, clusterProperties()))
+		})
+
+		It("Should stop at a broker that does not answer", func(ctx SpecContext) {
+			addr := closedAddress()
+			stat := testConnection(ctx, kafka.Properties{Brokers: []string{addr}})
+			expectFailure(stat, "Failed to reach broker")
+			Expect(stat.Description).To(HavePrefix("Could not reach " + addr))
+		})
+
+		It("Should dial the default port of a broker address with no port",
 			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-2",
-					Args: toJSON(map[string]any{"connection": clusterProperties()}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Connected"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+				stat := testConnection(
+					ctx,
+					kafka.Properties{Brokers: []string{"kafka.invalid"}},
+				)
+				expectFailure(stat, "Failed to reach broker")
+				Expect(stat.Description).
+					To(HavePrefix("Could not reach kafka.invalid:9092: "))
 			},
 		)
 
-		It("Should answer test_connection with an error for an unreachable cluster",
+		It("Should connect through a seed broker after one that does not answer",
 			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-3",
-					Args: toJSON(map[string]any{
-						"connection": kafka.Properties{
-							Brokers: []string{"127.0.0.1:1"},
-						},
-					}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+				brokers := append([]string{closedAddress()}, cluster.ListenAddrs()...)
+				expectSuccess(testConnection(ctx, kafka.Properties{Brokers: brokers}))
 			},
 		)
 
-		It("Should answer test_connection with an error for invalid properties",
-			func(ctx SpecContext) {
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-4",
-					Args: toJSON(map[string]any{"connection": kafka.Properties{}}),
-				})).To(Succeed())
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("brokers"))
-			},
-		)
+		It("Should reject properties with no brokers", func(ctx SpecContext) {
+			expectInvalid(
+				testConnection(ctx, kafka.Properties{}),
+				"brokers: must be non-empty",
+			)
+		})
 
 		Describe("TLS", func() {
 			var (
@@ -340,43 +353,53 @@ var _ = Describe("Factory", func() {
 			It(
 				"Should connect to a broker signed by the given CA",
 				func(ctx SpecContext) {
-					stat := testConnection(ctx, kafka.Properties{
-						Brokers:       brokers,
-						TLS:           true,
-						CaCertificate: caPEM,
-					})
-					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					expectSuccess(
+						testConnection(ctx, kafka.Properties{
+							Brokers:       brokers,
+							TLS:           true,
+							CaCertificate: caPEM,
+						}),
+					)
 				},
 			)
 
 			It("Should reject a broker signed by a CA outside the system roots",
 				func(ctx SpecContext) {
-					stat := testConnection(
-						ctx,
-						kafka.Properties{Brokers: brokers, TLS: true},
+					expectFailure(
+						testConnection(
+							ctx,
+							kafka.Properties{Brokers: brokers, TLS: true},
+						),
+						"Certificate not trusted",
 					)
-					Expect(stat.Variant).To(Equal(status.VariantError))
-					Expect(stat.Message).To(Equal("Failed to connect"))
 				},
 			)
 
 			It("Should reject a CA certificate without TLS", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
+				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
 					CaCertificate: caPEM,
-				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("requires TLS"))
+				}), "requires TLS")
 			})
 
+			It(
+				"Should fail the TLS stage of a broker without TLS",
+				func(ctx SpecContext) {
+					props := clusterProperties()
+					props.TLS = true
+					expectFailure(
+						testConnection(ctx, props),
+						"TLS handshake failed",
+					)
+				},
+			)
+
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
+				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
 					TLS:           true,
 					CaCertificate: "not a certificate",
-				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Description).To(ContainSubstring("PEM-encoded certificate"))
+				}), "PEM-encoded certificate")
 			})
 		})
 
@@ -397,11 +420,12 @@ var _ = Describe("Factory", func() {
 			DescribeTable(
 				"Should authenticate with each mechanism",
 				func(ctx SpecContext, variant kafka.SASLVariant) {
-					stat := testConnection(ctx, kafka.Properties{
-						Brokers: brokers,
-						Sasl:    kafka.SASL{Variant: variant},
-					})
-					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					expectSuccess(
+						testConnection(ctx, kafka.Properties{
+							Brokers: brokers,
+							Sasl:    kafka.SASL{Variant: variant},
+						}),
+					)
 				},
 				Entry(
 					"plain",
@@ -424,32 +448,35 @@ var _ = Describe("Factory", func() {
 			)
 
 			It("Should fail to connect without credentials", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
-					Brokers: brokers,
-					Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
-				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
+				expectFailure(
+					testConnection(ctx, kafka.Properties{
+						Brokers: brokers,
+						Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
+					}),
+					"Failed to read cluster metadata",
+				)
 			})
 
-			It("Should fail to connect with a wrong password", func(ctx SpecContext) {
-				stat := testConnection(ctx, kafka.Properties{
-					Brokers: brokers,
-					Sasl: kafka.SASL{
-						Variant: kafka.ScramSha256SASL{
-							Username: "scram256-user",
-							Password: "wrong",
-						},
-					},
-				})
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to connect"))
-			})
-		})
-
-		It("Should reject unknown commands", func(ctx SpecContext) {
-			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).
-				To(MatchError(driver.ErrUnsupportedCommand))
+			DescribeTable("Should fail to connect with a wrong password",
+				func(ctx SpecContext, variant kafka.SASLVariant) {
+					expectFailure(
+						testConnection(ctx, kafka.Properties{
+							Brokers: brokers,
+							Sasl:    kafka.SASL{Variant: variant},
+						}),
+						"Authentication failed",
+					)
+				},
+				Entry(
+					"plain",
+					kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+				),
+				// The broker closes the connection on a failed SCRAM exchange.
+				Entry(
+					"SCRAM-SHA-256",
+					kafka.ScramSha256SASL{Username: "scram256-user", Password: "wrong"},
+				),
+			)
 		})
 
 		It("Should answer stop and start", func(ctx SpecContext) {
@@ -472,14 +499,17 @@ var _ = Describe("Factory", func() {
 				dead := createDevice(ctx, kafka.Properties{
 					Brokers: []string{"127.0.0.1:1"},
 				})
+				// A new device starts as a warning, so the wait matches the message.
 				Eventually(func(g Gomega) {
-					g.Expect(deviceStatus(ctx, live).Variant).
-						To(Equal(status.VariantSuccess))
-					g.Expect(deviceStatus(ctx, dead).Variant).
-						To(Equal(status.VariantError))
+					g.Expect(deviceStatus(ctx, live).Message).
+						To(Equal("Device connected"))
+					g.Expect(deviceStatus(ctx, dead).Message).
+						To(Equal("Failed to connect"))
 				}).WithTimeout(15 * time.Second).Should(Succeed())
-				Expect(deviceStatus(ctx, live).Message).To(Equal("Device connected"))
-				Expect(deviceStatus(ctx, dead).Message).To(Equal("Failed to connect"))
+				Expect(deviceStatus(ctx, live).Variant).To(Equal(status.VariantSuccess))
+				Expect(deviceStatus(ctx, dead).Variant).To(Equal(status.VariantWarning))
+				Expect(deviceStatus(ctx, live).Details.Connected).To(BeTrue())
+				Expect(deviceStatus(ctx, dead).Details.Connected).To(BeFalse())
 			},
 		)
 	})

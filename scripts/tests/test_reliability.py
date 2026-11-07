@@ -16,6 +16,8 @@ import pytest
 
 from reliability import (
     JOB_NAME,
+    TC_ARTIFACT,
+    TC_JOB_NAME,
     Cases,
     ci_jobs,
     enumerate_tests,
@@ -284,6 +286,39 @@ class TestJobName:
     )
     def test_should_reject_other_jobs(self, name: str) -> None:
         assert JOB_NAME.match(name) is None
+
+
+class TestIntegrationNames:
+    """Integration job and artifact names to their runner, job, and suite."""
+
+    @pytest.mark.parametrize(
+        ("name", "os", "job"),
+        [
+            ("integration / Test (windows) / arc", "windows", "arc"),
+            ("integration / Test (ubuntu) / console-2", "ubuntu", "console-2"),
+        ],
+    )
+    def test_should_read_a_job_and_a_shard(self, name: str, os: str, job: str) -> None:
+        m = TC_JOB_NAME.match(name)
+        assert m is not None
+        assert (m.group(1), m.group(2)) == (os, job)
+
+    @pytest.mark.parametrize(
+        ("name", "parts"),
+        [
+            ("test-results-ubuntu-build-bot-arc", ("ubuntu-build-bot", "arc", "arc")),
+            (
+                "test-results-windows-test-bot-console-2",
+                ("windows-test-bot", "console-2", "console"),
+            ),
+        ],
+    )
+    def test_should_read_an_artifact_and_its_suite(
+        self, name: str, parts: tuple[str, str, str]
+    ) -> None:
+        m = TC_ARTIFACT.match(name)
+        assert m is not None
+        assert (m["runner"], m["job"], m["target"]) == parts
 
 
 class TestCiJobs:

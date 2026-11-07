@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/ontology/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ontology {
@@ -42,16 +43,12 @@ TEST(OntologyID, testParseValidIDWithUUID) {
 
 /// @brief it should fail to parse an ID without a colon separator.
 TEST(OntologyID, testParseMalformed) {
-    auto [id, err] = ID::parse("malformed");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(ID::parse("malformed"), x::errors::VALIDATION);
 }
 
 /// @brief it should fail to parse an ID with only a colon.
 TEST(OntologyID, testParseOnlyColon) {
-    auto [id, err] = ID::parse(":");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(ID::parse(":"), x::errors::VALIDATION);
 }
 
 /// @brief it should fail to parse an ID with empty type.
@@ -190,12 +187,31 @@ TEST(OntologyID, testProtoRoundTrip) {
     EXPECT_EQ(parsed, original);
 }
 
+/// @brief it should round-trip every typed device resource type through protobuf.
+TEST(OntologyID, testProtoRoundTripTypedDevices) {
+    for (const auto &type:
+         {RESOURCE_TYPE_ETHERCAT_MASTER,
+          RESOURCE_TYPE_ETHERCAT_SLAVE,
+          RESOURCE_TYPE_HTTP_SERVER,
+          RESOURCE_TYPE_LABJACK_DEVICE,
+          RESOURCE_TYPE_MODBUS_SERVER,
+          RESOURCE_TYPE_NI_CHASSIS,
+          RESOURCE_TYPE_NI_DEVICE,
+          RESOURCE_TYPE_OPCUA_SERVER}) {
+        const ID original{.type = type, .key = "key"};
+        const auto pb = ASSERT_NIL_P(original.to_proto());
+        const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
+        EXPECT_EQ(parsed, original);
+    }
+}
+
 /// @brief it should return an error for an unrecognized type in to_proto.
 TEST(OntologyID, testToProtoUnrecognizedType) {
     const ID id{.type = "nonexistent", .key = "42"};
-    const auto [pb, err] = id.to_proto();
-    ASSERT_TRUE(err);
-    ASSERT_NE(err.type.find("unrecognized"), std::string::npos);
+    ASSERT_OCCURRED_AS_P(
+        id.to_proto(),
+        x::errors::Error("unrecognized ResourceType value: nonexistent")
+    );
 }
 
 /// @brief it should convert a zero ID to protobuf and back.

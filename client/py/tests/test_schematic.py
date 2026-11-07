@@ -277,10 +277,42 @@ class TestClient:
         retrieved = client.schematics.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the schematics that match the where and the other filters."""
+        a = client.schematics.create(project.key, name="A")
+        b = client.schematics.create(project.key, name="B")
+        where = schematic.Where(
+            not_=schematic.Where(key=sy.filter.Set[schematic.Key](eq=a.key))
+        )
+        res = client.schematics.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):
             client.schematics.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.schematics.create(project.key, name="A")
+        res = client.schematics.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one schematic for a plain key beside other fields."""
+        a = client.schematics.create(project.key, name="A")
+        assert client.schematics.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no schematic where .+"):
+            client.schematics.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the schematics that match any filter in or_."""
+        a = client.schematics.create(project.key, name="A")
+        b = client.schematics.create(project.key, name="B")
+        res = client.schematics.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a schematic."""
@@ -315,8 +347,7 @@ class TestClient:
         s1 = client.schematics.create(project.key, name="Delete 1")
         s2 = client.schematics.create(project.key, name="Delete 2")
         client.schematics.delete([s1.key, s2.key])
-        with pytest.raises(NotFoundError):
-            client.schematics.retrieve(keys=[s1.key, s2.key])
+        assert client.schematics.retrieve(keys=[s1.key, s2.key]) == []
 
 
 def _symbol(name: str) -> symbol.Symbol:
@@ -368,6 +399,17 @@ class TestSymbolClient:
         retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, parent: ID) -> None:
+        """Should keep the symbols that match the where and the other filters."""
+        a, b = client.schematics.symbols.create(
+            [_symbol("A"), _symbol("B")], parent=parent
+        )
+        where = symbol.Where(not_=symbol.Where(key=sy.filter.Set[symbol.Key](eq=a.key)))
+        res = client.schematics.symbols.retrieve(
+            where=where, keys=[a.key, b.key, uuid4()]
+        )
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_with_search_term(self, client: sy.Synnax, parent: ID) -> None:
         """Should search for symbols by name."""
         prefix = f"searchable-symbol-{uuid4()}"
@@ -386,6 +428,29 @@ class TestSymbolClient:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):
             client.schematics.symbols.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, parent: ID) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
+        res = client.schematics.symbols.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, parent: ID
+    ) -> None:
+        """Should return one symbol for a plain key beside other fields."""
+        symbols = client.schematics.symbols
+        a = symbols.create(_symbol("A"), parent=parent)
+        assert symbols.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no symbol where .+"):
+            symbols.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, parent: ID) -> None:
+        """Should retrieve the symbols that match any filter in or_."""
+        a = client.schematics.symbols.create(_symbol("A"), parent=parent)
+        b = client.schematics.symbols.create(_symbol("B"), parent=parent)
+        res = client.schematics.symbols.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, parent: ID) -> None:
         """Should rename a symbol."""

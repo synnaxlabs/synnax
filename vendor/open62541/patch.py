@@ -42,7 +42,58 @@ CLOSE_REJECTED_SESSION = (
 """,
 )
 
-PATCHES = {"ua_client_connect.c": [CLOSE_REJECTED_SESSION]}
+# open62541 1.5 maps the namespace index of each NodeId that a client sends or receives
+# through a table that it makes once, on the first Session of the client. A namespace
+# that the server adds later has no index in the table, and the client loses the table
+# when it connects again. The Driver reads the namespace array itself and uses the
+# server's indexes, so the patch keeps each index as it is.
+KEEP_NAMESPACE_INDEXES = (
+    """    client->channel.namespaceMapping = nsMapping;
+""",
+    """    UA_NamespaceMapping_delete(nsMapping);
+""",
+)
+
+# A delayed callback can close the connection that a client waits on. Without this, the
+# poll after it sleeps until the next timer, which is up to 1 s for a client.
+WAKE_AFTER_DELAYED = [
+    (
+        """static void
+processDelayed(UA_EventLoopPOSIX *el) {
+""",
+        """static UA_Boolean
+processDelayed(UA_EventLoopPOSIX *el) {
+    UA_Boolean ran = false;
+""",
+    ),
+    (
+        """        dc->callback(dc->application, dc->context);
+    }
+}
+""",
+        """        dc->callback(dc->application, dc->context);
+        ran = true;
+    }
+    return ran;
+}
+""",
+    ),
+    (
+        """    processDelayed(el);
+
+    /* A delayed callback could create another delayed callback (or re-add""",
+        """    const UA_Boolean ran = processDelayed(el);
+    if(ran)
+        timeout = 0;
+
+    /* A delayed callback could create another delayed callback (or re-add""",
+    ),
+]
+
+PATCHES = {
+    "eventloop_posix.c": WAKE_AFTER_DELAYED,
+    "ua_client_connect.c": [CLOSE_REJECTED_SESSION, KEEP_NAMESPACE_INDEXES],
+}
 
 source, output = sys.argv[1:]
 with open(source) as f:

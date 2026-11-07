@@ -11,6 +11,7 @@ import "@/platform/arc/CreateModal.css";
 
 import { type arc, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
@@ -70,26 +71,34 @@ const Create = ({
             showLabel={false}
             inputProps={NAME_INPUT_PROPS}
           />
-          <Form.Field path={path.mode} label="Editor mode" full="x">
+          <Form.Field path={path.type} label="Type" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
-                <Select.Item itemKey="text">
-                  <Icon.Tile>
-                    <Icon.Text />
+                <Select.Item itemKey="automation">
+                  <Icon.Tile size="large">
+                    <Icon.Arc />
                   </Icon.Tile>
-                  <Text.Text weight={500}>Text</Text.Text>
-                  <Text.Text color={9} level="small">
-                    Best for complex automations such as control sequences
-                  </Text.Text>
+                  <Flex.Box el="span" y gap="tiny">
+                    <Text.Text el="span" weight={500}>
+                      Automation
+                    </Text.Text>
+                    <Text.Text color={9} level="small">
+                      Runs as a task, such as a control sequence or an alarm
+                    </Text.Text>
+                  </Flex.Box>
                 </Select.Item>
-                <Select.Item itemKey="graph">
-                  <Icon.Tile>
-                    <Icon.Schematic />
+                <Select.Item itemKey="module">
+                  <Icon.Tile size="large">
+                    <Icon.Module />
                   </Icon.Tile>
-                  <Text.Text weight={500}>Graph</Text.Text>
-                  <Text.Text color={9} level="small">
-                    Best for simple automations such as alarms
-                  </Text.Text>
+                  <Flex.Box el="span" y gap="tiny">
+                    <Text.Text el="span" weight={500}>
+                      Module
+                    </Text.Text>
+                    <Text.Text color={9} level="small">
+                      Holds code that other Arcs import
+                    </Text.Text>
+                  </Flex.Box>
                 </Select.Item>
               </Select.Buttons>
             )}

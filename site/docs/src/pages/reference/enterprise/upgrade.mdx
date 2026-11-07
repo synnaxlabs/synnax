@@ -18,9 +18,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Upgrade a Synnax Core to get new features and fixes. When the Console finds a Core that
-is older than the Console, it shows **Incompatible Core version** with an **Update
-Core** button.
+Upgrade a Synnax Core to get new features and fixes. When the Console finds a Core on a
+different minor version, it shows the two versions in place of the workspace.
 
 <Divider.Divider x />
 
@@ -36,12 +35,15 @@ Core** button.
    license term ends, a license with a version cap covers only versions up to the cap.
    See [expiry](/reference/enterprise/license#expiry).
 4. Stop the Core. Press **Ctrl+C** in its terminal, or stop its service.
-5. Copy the data folder of the Core to a safe place. The data folder holds all data,
-   metadata, and the stored license key. See
+5. For disaster recovery, copy the data folder of the Core to a safe place. See
    [Back up the Core](/reference/enterprise/production-checklist#back-up-the-core).
 
-The new Core changes the data folder when it first starts. An older Core cannot always
-read it after that, so the copy is the only way back.
+The new Core changes the data folder when it first starts, and an older Core cannot
+always read it after that. Before the first start of a new version, the Core backs up
+its metadata to the `backups` folder in the data folder: channels, ranges, users, and
+the other records it stores. It keeps the three newest backups. A backup holds no
+telemetry, so only a copy of the data folder keeps all data. If the backup fails, the
+Core does not start.
 
 <Divider.Divider x />
 
@@ -157,19 +159,57 @@ To check the version, run `synnax --version`.
 - **Standalone Drivers** -> install the new release on each computer. See
   [Install a standalone Driver](/reference/enterprise/driver/install).
 
-The Console, the client libraries, and the Driver warn when their major or minor version
-differs from the Core. They still connect. Upgrade the Core first, then the Console and
-Drivers. A Console older than 0.60 shows errors instead of the activation screen when a
-Core 0.60 has no license, so upgrade the Console with the Core.
+The desktop Console does not open the workspace when its major or minor version differs
+from the Core. Click **Open in browser** to use the Console that the Core serves. A
+browser reloads the page by itself to get the Console that matches the Core. The client
+libraries warn and still connect. Upgrade the Core first, then the Console and Drivers.
+A Console older than 0.60 shows errors instead of the activation screen when a Core 0.60
+has no license, so upgrade the Console with the Core.
 
 <Note.Note variant="info">
-  Synnax Desktop has its own Core, which updates with the app. Synnax Desktop backs up
-  its metadata before each update.
+  Synnax Desktop has its own Core, which updates with the app and backs up its metadata
+  in the same way.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Go back to an earlier version
 
-Synnax does not support a downgrade. To go back, stop the Core, replace the data folder
-with the copy you made before the upgrade, then start the earlier version.
+Synnax does not support a downgrade. A Core does not open data that a newer Core opened,
+and stops with a message such as
+`Data was last opened by Core 0.61.0. Run Core 0.61.0 or newer, or undo the update with synnax update undo.`
+To go back, undo the update:
+
+1. Stop the Core.
+2. Undo the update with the new binary. Use the same `--data` flag as `synnax start`:
+
+   ```bash
+   synnax update undo --data <data folder>
+   ```
+
+   The command restores the backup of the last update and prints the Core version to
+   run. It refuses if the last update is already undone.
+
+3. Install that version of the Core and start it.
+
+To restore a backup again, or to go back further, list the backups with
+`synnax update history`, then run `synnax update undo <backup>`. Each backup is named
+`<time>-<version>`, where `<version>` is the Core that last ran on the data before the
+backup.
+
+The undo puts back the metadata of the backup. Telemetry stays, including telemetry
+recorded after the update. The undo moves the telemetry of channels created after the
+update to an `orphaned-<time>` folder in the `backups` folder. Telemetry deleted after
+the update does not come back. The undo cannot run while a Core runs on the data folder.
+If an undo stops before it finishes, the Core does not start until you run the undo
+again.
+
+In Docker, run the undo with the image of the new version, such as `0.61.0`:
+
+```bash
+docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \
+  synnaxlabs/synnax:0.61.0 update undo
+```
+
+To go back to the exact state before the upgrade, replace the data folder with the copy
+you made before the upgrade instead, then start the earlier version.

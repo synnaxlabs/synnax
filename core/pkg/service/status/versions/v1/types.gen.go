@@ -13,7 +13,9 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -21,11 +23,17 @@ import (
 type Variant = v0.Variant
 
 const (
-	VariantSuccess  Variant = v0.VariantSuccess
-	VariantInfo     Variant = v0.VariantInfo
-	VariantWarning  Variant = v0.VariantWarning
-	VariantError    Variant = v0.VariantError
-	VariantLoading  Variant = v0.VariantLoading
+	// VariantSuccess reports that an operation succeeded.
+	VariantSuccess Variant = v0.VariantSuccess
+	// VariantInfo reports general information.
+	VariantInfo Variant = v0.VariantInfo
+	// VariantWarning reports a condition that needs attention.
+	VariantWarning Variant = v0.VariantWarning
+	// VariantError reports a failure.
+	VariantError Variant = v0.VariantError
+	// VariantLoading reports an operation in progress.
+	VariantLoading Variant = v0.VariantLoading
+	// VariantDisabled reports that the subject is not active.
 	VariantDisabled Variant = v0.VariantDisabled
 )
 
@@ -72,4 +80,20 @@ func (s Status[Details]) ToAny() Status[any] {
 		Details:     s.Details,
 		Labels:      s.Labels,
 	}
+}
+
+// Where is a filter that selects statuses.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Variant selects by variant.
+	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
+	// Labels matches statuses that have any of the given labels.
+	Labels []labelv0.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }

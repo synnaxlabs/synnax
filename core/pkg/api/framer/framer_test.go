@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Framer", func() {
@@ -118,11 +119,50 @@ var _ = Describe("Framer", func() {
 				Keys:   channel.Keys{data.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
 			Expect(res.Indexes).To(BeEmpty())
+		})
+
+		It("Should reject a read with both latest and earliest", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Latest:   10,
+				Earliest: 10,
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a read with both earliest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:     channel.Keys{data.Key()},
+				Bounds:   telem.TimeRangeMax,
+				Earliest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a read with both latest and a reduction", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:   channel.Keys{data.Key()},
+				Bounds: telem.TimeRangeMax,
+				Latest: 10,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It(
@@ -173,7 +213,9 @@ var _ = Describe("Framer", func() {
 				Reduction: reduction,
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
-			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			iter := MustSucceed(
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
 			series := iter.Value().Get(data.Key()).Series
@@ -246,6 +288,53 @@ var _ = Describe("Framer", func() {
 				))
 				Expect(res.Indexes).To(HaveLen(1))
 			})
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should delete data by exact name and not read a name as a pattern", func(
+			ctx SpecContext,
+		) {
+			index := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				telem.NewSeriesV[float32](1, 2, 3),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			hasData := func() bool {
+				GinkgoHelper()
+				iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				return iter.SeekFirst()
+			}
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name + ".*", data.Name + ".*"},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeTrue())
+			Expect(apiSvc.Delete(rootCtx(ctx), nil, apiframer.DeleteRequest{
+				Names:  []string{index.Name, data.Name},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeFalse())
 		})
 	})
 

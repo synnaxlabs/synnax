@@ -29,9 +29,25 @@ export interface Channel {
   key: string;
 }
 
-/** The channels, enabled ones first, each group in its order. */
-export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
+const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
   channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
+
+/**
+ * @returns the first channel on each port, an enabled one if any. Channels on one port
+ * share its data channel, and deploying the task creates it from this one.
+ */
+export const firstPerPort = <C extends Channel>(
+  channels: C[],
+  portOf: (channel: C) => string,
+): C[] => {
+  const seen = new Set<string>();
+  return enabledFirst(channels).filter((c) => {
+    const port = portOf(c);
+    if (seen.has(port)) return false;
+    seen.add(port);
+    return true;
+  });
+};
 
 export const validateChannels = ({
   value: channels,

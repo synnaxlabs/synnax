@@ -275,14 +275,7 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
@@ -343,7 +336,7 @@ protected:
         };
         auto p = x::json::Parser(task_cfg);
         auto write_cfg = WriteTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<WriteTaskSink>(
             ctx->client,
             conn_pool,
@@ -473,12 +466,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
 
     // Restart the server and wait for it to be ready
     server->start();
-    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(conn_cfg, {}, "test"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
-    UA_Client_disconnect(test_client.get());
+    ASSERT_TRUE(server->wait_until_ready());
 
     // Write after server restart - should trigger reconnect and succeed
     auto fr3 = ::x::telem::Frame(1);
@@ -589,7 +577,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     };
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
@@ -618,6 +606,212 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
         testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(result.at<uint32_t>(0), 4321);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @returns a sink that writes cmd_channel to node_id.
+std::unique_ptr<WriteTaskSink> sink_for(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<connection::Pool> &pool,
+    const synnax::channel::Key cmd_channel,
+    const std::string &node_id
+) {
+    x::json::json task_cfg = {
+        {"data_saving_disabled", false},
+        {"device", "abc123"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", node_id}, {"cmd_channel", cmd_channel}, {"disabled", false}},
+         })}
+    };
+    auto p = x::json::Parser(task_cfg);
+    auto write_cfg = WriteTaskConfig(client, p);
+    EXPECT_NIL(p.error());
+    return std::make_unique<WriteTaskSink>(client, pool, std::move(write_cfg));
+}
+
+/// @brief it should write a node by the URI of its namespace.
+TEST_F(TestWriteTask, testWritesNamespaceURINode) {
+    const auto sink = sink_for(
+        ctx->client,
+        conn_pool,
+        this->uint32_cmd_channel.key,
+        "nsu=urn:open62541.server.application;s=TestUInt32"
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(2468), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.nsu] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 2468);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a value for a node in a namespace that the server lacks.
+TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
+    const auto sink = sink_for(
+        ctx->client,
+        conn_pool,
+        this->uint32_cmd_channel.key,
+        "nsu=urn:missing;s=TestUInt32"
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1357), x::telem::UINT32_T)
+    );
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->uint32_cmd_channel.name + ": the server has no namespace urn:missing."
+    );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert a command to the data type of its node.
+TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(77.0));
+    ASSERT_NIL(sink->write(fr));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.convert] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 77);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not send a command that the type of its node cannot hold.
+TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(-1.0));
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(err.data, cmd.name + ": -1 is out of range for a UInt32 node.");
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should write a node in a namespace that the server adds after the task
+/// starts, on the same Session, converted to the data type of the node.
+TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "nsu=urn:late;s=Late");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(97.0));
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    UA_UInt32 initial = 0;
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &initial, &UA_TYPES[UA_TYPES_UINT32]);
+    server->add_namespace(
+        "urn:late",
+        {{0, "Late", &UA_TYPES[UA_TYPES_UINT32], value, "Late"}}
+    );
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
+    const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=2;S=Late"));
+    EXPECT_EQ(result.at<uint32_t>(0), 97);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert a command to the data type of a node that the server adds
+/// after the task starts, on the same Session.
+TEST_F(TestWriteTask, testNodeAddedAfterStart) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=Late");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(97.0));
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    UA_UInt32 initial = 0;
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &initial, &UA_TYPES[UA_TYPES_UINT32]);
+    server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {{0, "Late", &UA_TYPES[UA_TYPES_UINT32], value, "Late"}}
+    );
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
+    const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Late"));
+    EXPECT_EQ(result.at<uint32_t>(0), 97);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should write more nodes than the server allows in one request.
+TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
+    server->stop();
+    server->cfg.max_nodes_per_write = 2;
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(3);
+    fr.emplace(
+        this->bool_cmd_channel.key,
+        x::telem::Series(static_cast<uint8_t>(0), x::telem::UINT8_T)
+    );
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(9753), x::telem::UINT32_T)
+    );
+    fr.emplace(
+        this->float_cmd_channel.key,
+        x::telem::Series(1.5f, x::telem::FLOAT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.split] "));
+    EXPECT_EQ(
+        ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestBoolean"))
+            .at<uint8_t>(0),
+        0
+    );
+    EXPECT_EQ(
+        ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestUInt32"))
+            .at<uint32_t>(0),
+        9753
+    );
+    EXPECT_FLOAT_EQ(
+        ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat")).at<float>(0),
+        1.5f
+    );
     ASSERT_NIL(sink->stop());
 }
 
@@ -700,7 +894,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
         this->secured_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
     );
-    ASSERT_NIL(store->regenerate().second);
+    ASSERT_NIL_P(store->regenerate());
     ASSERT_MATCHES(sink->write(fr), errors::COMMAND_REJECTED);
     ASSERT_EQ(conn_pool->size(), 1);
     ASSERT_NIL(sink->stop());
@@ -727,7 +921,7 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
 
     auto p = x::json::Parser(task_cfg);
     const auto parsed = std::make_unique<WriteTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }

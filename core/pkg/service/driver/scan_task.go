@@ -11,6 +11,8 @@ package driver
 
 import (
 	"context"
+	"encoding/json/v2"
+	"fmt"
 	"sync"
 	"time"
 	"uuid"
@@ -37,10 +39,57 @@ type Scanner interface {
 	// Check reports whether dev is reachable. It must return when ctx is cancelled.
 	Check(ctx context.Context, dev device.Device) error
 	// Exec runs a command other than start and stop, such as a connection test, and
-	// returns the data that answers it. It returns ErrUnsupportedCommand for a
-	// command it does not know. The task runs one Exec at a time, apart from the
-	// command loop of the driver, and cancels ctx when the task stops.
+	// returns the data that answers it. The data answers the command even when the
+	// error is not nil. It returns ErrUnsupportedCommand for a command it does not
+	// know. The task runs one Exec at a time, apart from the command loop of the
+	// driver, and cancels ctx when the task stops.
 	Exec(ctx context.Context, cmd task.Command) (msgpack.EncodedJSON, error)
+}
+
+// replyLimit is the most bytes of JSON in the answer to a command. The task stores an
+// answer in its status, and every observer of statuses receives it.
+const replyLimit = 1 << 20
+
+// Fit returns the items of lists that fit in an answer of 1 MiB of JSON beside rest,
+// the part of the answer that holds no items. It takes one item of each list in turn,
+// so that each list keeps a fair share. It keeps the order of each list, and reports
+// whether it left out any item.
+func Fit[T any](rest any, lists [][]T) ([][]T, bool, error) {
+	encoded, err := json.Marshal(rest)
+	if err != nil {
+		return nil, false, err
+	}
+	var (
+		kept      = make([][]T, len(lists))
+		size      = len(encoded)
+		truncated bool
+	)
+	for i := range kept {
+		kept[i] = []T{}
+	}
+	for round := 0; ; round++ {
+		more := false
+		for i, list := range lists {
+			if round >= len(list) {
+				continue
+			}
+			more = true
+			encoded, err := json.Marshal(list[round])
+			if err != nil {
+				return nil, false, err
+			}
+			// The comma that separates items takes one byte.
+			if size+len(encoded)+1 > replyLimit {
+				truncated = true
+				continue
+			}
+			size += len(encoded) + 1
+			kept[i] = append(kept[i], list[round])
+		}
+		if !more {
+			return kept, truncated, nil
+		}
+	}
 }
 
 // ScanTaskConfig is the configuration for a ScanTask.
@@ -79,16 +128,24 @@ type ScanTaskConfig struct {
 	//
 	// [REQUIRED]
 	Task task.Task
-	// Interval is the time between checks, and the time limit of one check.
+	// Interval is the time between checks.
 	//
 	// [OPTIONAL] - Defaults to 5s.
 	Interval time.Duration
+	// CheckTimeout is the time limit of one round of checks. A round that takes longer
+	// than Interval delays the next round.
+	//
+	// [OPTIONAL] - Defaults to 5s.
+	CheckTimeout time.Duration
 }
 
 var (
 	_ config.Config[ScanTaskConfig] = ScanTaskConfig{}
 	// DefaultScanTaskConfig is the default configuration for a ScanTask.
-	DefaultScanTaskConfig = ScanTaskConfig{Interval: 5 * time.Second}
+	DefaultScanTaskConfig = ScanTaskConfig{
+		Interval:     5 * time.Second,
+		CheckTimeout: 5 * time.Second,
+	}
 )
 
 // Override implements config.Config.
@@ -107,6 +164,7 @@ func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 		c.Task = other.Task
 	}
 	c.Interval = override.Numeric(c.Interval, other.Interval)
+	c.CheckTimeout = override.Numeric(c.CheckTimeout, other.CheckTimeout)
 	return c
 }
 
@@ -122,6 +180,7 @@ func (c ScanTaskConfig) Validate() error {
 	v.NotEmptyString("unreachable_message", c.UnreachableMessage)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Positive("interval", c.Interval)
+	v.Positive("check_timeout", c.CheckTimeout)
 	return v.Error()
 }
 
@@ -168,9 +227,10 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 }
 
 // Exec implements Task. A command other than start and stop goes to the Scanner in the
-// background, and Exec returns at once. The result of the Scanner answers the command,
-// within the time limit of ctx, which starts when the command gets its turn. A command
-// that the Scanner does not support gets no answer.
+// background, and Exec returns at once. Commands take turns in no fixed order. The
+// result of the Scanner answers the command, within the time limit of ctx, which starts
+// when the command gets its turn. A command that the Scanner does not support gets no
+// answer.
 func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
 		return t.Runner.Exec(ctx, cmd)
@@ -217,14 +277,41 @@ func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return
 	}
-	variant, message := status.VariantSuccess, "Command executed successfully"
-	if err != nil {
+	if sErr := checkSize(data); sErr != nil {
+		data, err = nil, sErr
+	}
+	var (
+		variant     = status.VariantSuccess
+		message     = "Command executed successfully"
+		description string
+		f           Failure
+	)
+	switch {
+	case errors.As(err, &f):
+		variant, message, description = status.VariantError, f.Message, f.Description
+	case err != nil:
 		variant, message = status.VariantError, err.Error()
 	}
 	if rErr := t.status.Reply(
-		context.WithoutCancel(ctx), cmd.Key, variant, message, data,
+		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,
 	); rErr != nil {
 		t.cfg.L.Error("failed to answer command", zap.Error(rErr))
+	}
+}
+
+// checkSize returns a Failure when data holds more than replyLimit bytes of JSON.
+func checkSize(data msgpack.EncodedJSON) error {
+	encoded, err := json.Marshal(data)
+	if err != nil || len(encoded) <= replyLimit {
+		return err
+	}
+	return Failure{
+		Message: "Answer too large",
+		Description: fmt.Sprintf(
+			"The answer holds %.1f MiB of JSON, and a command answers with at most "+
+				"1 MiB. Ask for less data, such as fewer topics.",
+			float64(len(encoded))/replyLimit,
+		),
 	}
 }
 
@@ -248,6 +335,7 @@ type health struct {
 	variant     status.Variant
 	message     string
 	description string
+	connected   bool
 }
 
 // open subscribes to device changes before the run starts, so the subscription exists
@@ -312,7 +400,7 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		return err
 	}
 	results := make([]health, len(devices))
-	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.Interval)
+	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.CheckTimeout)
 	defer cancel()
 	var wg sync.WaitGroup
 	for i, dev := range devices {
@@ -326,8 +414,9 @@ func (t *ScanTask) scan(ctx context.Context) error {
 				return
 			}
 			results[i] = health{
-				variant: status.VariantSuccess,
-				message: t.cfg.ReachableMessage,
+				variant:   status.VariantSuccess,
+				message:   t.cfg.ReachableMessage,
+				connected: true,
 			}
 		})
 	}
@@ -359,7 +448,11 @@ func (t *ScanTask) scan(ctx context.Context) error {
 				Variant:     results[i].variant,
 				Message:     results[i].message,
 				Description: results[i].description,
-				Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
+				Details: device.StatusDetails{
+					Rack:      dev.Rack,
+					Device:    dev.Key,
+					Connected: results[i].connected,
+				},
 			})
 		}
 		count = len(statuses)
@@ -403,6 +496,7 @@ func (t *ScanTask) storedHealth(
 			variant:     s.Variant,
 			message:     s.Message,
 			description: s.Description,
+			connected:   s.Details.Connected,
 		}
 	}
 	return stored, nil

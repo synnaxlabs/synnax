@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,7 +38,7 @@ type ChannelEntry struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of decimal digits to display. Absent shows each sample as
 	// it arrives; 17 is the maximum significant digits for a float64.
-	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
 	// Timestamp is the per-channel timestamp display configuration.
@@ -62,10 +63,11 @@ func (c *ChannelEntry) ApplyDefaults() {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.NonZero("channel", c.Channel)
 	if c.Precision != nil {
-		v.GreaterThanEq("precision", *c.Precision, 0)
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
+	v.MaxLength("alias", c.Alias, 64)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
@@ -80,15 +82,20 @@ type Log struct {
 	// Channels are the channels displayed in this log, in order.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// TimestampsHidden is true when entry timestamps are hidden.
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+	// TimeZone is the time zone of the line times and day rows of the log.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
+	if l.TimeZone == "" {
+		l.TimeZone = "local"
+	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
 	}
@@ -98,8 +105,8 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
+	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
-	v.GreaterThanEq("timestamp_precision", l.TimestampPrecision, 0)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })

@@ -7,14 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology
-from synnax.exceptions import NotFoundError
-from synnax.panel.types_gen import ONTOLOGY_TYPE, Key, Panel
+from synnax.panel.types_gen import (
+    ONTOLOGY_TYPE,
+    Key,
+    Panel,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 
 
@@ -43,17 +52,6 @@ class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
     actions: list[_RenameAction]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    panels: list[Panel] = Field(default_factory=list)
 
 
 class Client:
@@ -122,46 +120,88 @@ class Client:
         self._client.send("/panel/dispatch", req, Empty)
 
     @overload
-    def retrieve(self, *, key: Key) -> Panel: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        parent: ontology.ID | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Panel: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        parent: ontology.ID | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        parent: ontology.ID | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Panel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        parent: ontology.ID | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        one: Literal[False] = ...,
     ) -> list[Panel]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
+        where: Where | None = None,
         parent: ontology.ID | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
+        one: bool = False,
+        **fields: Any,
     ) -> Panel | list[Panel]:
-        """Retrieve one or more panels.
+        """Retrieves panels. With no arguments, retrieves every panel.
 
-        :param key: The key of a single panel to retrieve. When provided, a single
-            panel is returned and NotFoundError is raised if it does not exist.
-        :param keys: The keys of the panels to retrieve.
-        :param parent: The ontology ID of a resource, such as a project. Only the
-            panels that are children of this resource are returned. Replaces ``keys``.
+        Each filter field takes a value, a list of values, or an operator, and a panel
+        must match every field. A plain ``key`` returns one panel.
+
+        :param key: Keeps panels with this key.
+        :param and_: Keeps panels that match every filter in the list.
+        :param or_: Keeps panels that match any filter in the list.
+        :param not_: Keeps panels that do not match the filter.
+        :param where: A filter tree that the panels must also match.
+        :param keys: Keeps panels with one of these keys.
+        :param parent: Keeps the panels that are children of the resource with this
+            ontology ID, such as a project. Replaces ``keys``.
         :param search_term: A fuzzy search term matched against panel names.
-        :param limit: The maximum number of panels to return.
-        :param offset: The number of panels to skip before returning results.
-        :returns: The matching panel when ``key`` is provided, otherwise a list of
-            matching panels.
-        :raises NotFoundError: If ``key`` is provided and no panel exists for it.
+        :param limit: The maximum number of panels to retrieve.
+        :param offset: The number of panels to skip.
+        :param one: Returns one panel for any filter.
+        :returns: One panel for a plain ``key`` or when ``one`` is set, otherwise a list
+            of panels. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one panel is wanted and none matches.
+        :raises MultipleFoundError: If one panel is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one panel is wanted
+            beside a limit or an offset.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
+        single = returns_one(fields, one, limit, offset)
         if parent is not None:
             keys = []
             for child in self._ontology.retrieve_children(parent):
@@ -170,21 +210,12 @@ class Client:
                 if child.key is None:
                     raise ValueError(f"panel child of {parent} has no key")
                 keys.append(Key(child.key))
-            if len(keys) == 0:
-                return []
-        res = self._client.send(
-            "/panel/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            _RetrieveResponse,
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        panels = res.panels
-        if is_single:
-            if len(panels) == 0:
-                raise NotFoundError("Panel not found")
-            return panels[0]
-        return panels
+        res = self._client.send("/panel/retrieve", req, RetrieveResponse)
+        return sole("panel", req, res.panels) if single else res.panels

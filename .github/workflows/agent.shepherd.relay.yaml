@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Wakes Agent - Shepherd through workflow_run. A review event runs this file from the
-# pull request branch, so it holds no permissions and does nothing but succeed. It skips
-# reviews from bots other than Greptile, so an agent's own replies never wake it. The
-# run name carries the pull request number.
+# Wakes Agent - Shepherd. A review event runs this file from the pull request branch, so
+# it can only dispatch, and only for a branch of this repository. It skips reviews from
+# bots other than Greptile, so an agent's own replies never wake it.
 
 name: Agent - Review submitted
 run-name: ${{ github.event.pull_request.number }}
@@ -30,8 +29,16 @@ jobs:
       github.event.review.state != 'approved' && (github.event.review.user.type != 'Bot'
       || github.event.review.user.login == 'greptile-apps[bot]')
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
-      - name: Report the review
+      - name: Start Agent - Shepherd
         env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
           REVIEWER: ${{ github.event.review.user.login }}
-        run: echo "Review from $REVIEWER"
+        run: |
+          echo "Review from $REVIEWER"
+          gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"

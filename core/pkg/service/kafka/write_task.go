@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -40,14 +42,56 @@ const recordCapacity = 256
 
 // writeChannel pairs a configured channel with its record.
 type writeChannel struct {
-	cfg WriteChannel
-	ch  channel.Channel
+	cfg     WriteChannel
+	ch      channel.Channel
+	encoder *xjson.Encoder
 	// name is the channel's name as a JSON string.
 	name []byte
-	// labels[i] is the label of cfg.EnumValues[i] as a JSON string.
-	labels [][]byte
 	// key is the key of the channel's records, nil when they have none.
 	key []byte
+}
+
+type slotKind uint8
+
+const (
+	slotValue slotKind = iota
+	slotChannel
+	slotTimestamp
+	slotUUID
+)
+
+// slot is how a record fills one slot of the template.
+type slot struct {
+	kind   slotKind
+	format xjson.TimeFormat
+}
+
+// recordSlots fills the template slots of one record.
+type recordSlots struct {
+	// slots[i] fills the slot of template field i.
+	slots  []slot
+	wc     *writeChannel
+	sample []byte
+	ts     telem.TimeStamp
+}
+
+var _ xjson.Slots = (*recordSlots)(nil)
+
+// AppendSlot implements xjson.Slots.
+func (r *recordSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
+	s := r.slots[field]
+	switch s.kind {
+	case slotValue:
+		return r.wc.encoder.Append(dst, r.sample)
+	case slotChannel:
+		return append(dst, r.wc.name...), nil
+	case slotTimestamp:
+		return xjson.AppendTimeStamp(dst, r.ts, s.format), nil
+	default:
+		dst = append(dst, '"')
+		dst, err := uuid.New().AppendText(dst)
+		return append(dst, '"'), err
+	}
 }
 
 // writeTask produces one record per sample of each channel to a topic.
@@ -61,7 +105,9 @@ type writeTask struct {
 	// keys are the streamed channels: every enabled channel and its index.
 	keys channel.Keys
 	// template renders the value of every record.
-	template template
+	template xjson.Template
+	// slots fills the template for the record being built.
+	slots recordSlots
 	// records recycles the *kgo.Record of each produced sample and its value's buffer.
 	records sync.Pool
 	// client is the producer, nil while stopped.
@@ -93,9 +139,6 @@ func (f *factory) configureWrite(
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if err := validateDisjoint(outputPointers(cfg.Record)); err != nil {
-		return nil, err
-	}
 	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
 		return nil, err
 	}
@@ -120,7 +163,11 @@ func (f *factory) configureWrite(
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err := newTemplate(cfg.Record)
+	fields, slots, err := templateFields(cfg.Record)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := xjson.NewTemplate(fields)
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +178,7 @@ func (f *factory) configureWrite(
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		channels:   make(map[channel.Key]*writeChannel, len(keys)),
 		template:   tmpl,
+		slots:      recordSlots{slots: slots},
 	}
 	streamed := make(set.Set[channel.Key], len(keys))
 	for _, wc := range cfg.Channels {
@@ -176,16 +224,20 @@ func newWriteChannel(
 	if err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Key)
 	}
-	out := &writeChannel{
-		cfg:    wc,
-		ch:     ch,
-		name:   name,
-		labels: make([][]byte, len(wc.EnumValues)),
+	f := xjson.Field{DataType: ch.DataType, Enums: enums(wc.EnumValues)}
+	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
+		return nil, errors.Wrapf(err, "channel %q", wc.Key)
 	}
-	for i, e := range wc.EnumValues {
-		if out.labels[i], err = jsontext.AppendQuote(nil, e.Label); err != nil {
+	if wc.TimeFormat != nil {
+		if f.TimeFormat, err = xjson.ParseTimeFormat(
+			string(*wc.TimeFormat),
+		); err != nil {
 			return nil, errors.Wrapf(err, "channel %q", wc.Key)
 		}
+	}
+	out := &writeChannel{cfg: wc, ch: ch, name: name}
+	if out.encoder, err = xjson.NewEncoder(f); err != nil {
+		return nil, errors.Wrapf(err, "channel %q", wc.Key)
 	}
 	if cfg.RecordKey == RecordKeyChannelName {
 		out.key = []byte(ch.Name)
@@ -193,28 +245,103 @@ func newWriteChannel(
 	return out, nil
 }
 
-// outputPointers lists every pointer a record of rec sets, labeled by its config entry.
-func outputPointers(rec Record) []labeledPointer {
-	pointers := []labeledPointer{{"record.value_pointer", rec.ValuePointer}}
+// templateFields returns the template fields of rec and how a record fills the slot of
+// each.
+func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
+	var (
+		fields []xjson.TemplateField
+		slots  []slot
+	)
+	add := func(label, pointer string, literal []byte, s slot) error {
+		p, err := xjson.ParsePointer(pointer)
+		if err != nil {
+			return errors.Wrap(err, label)
+		}
+		if len(p) == 0 {
+			return errors.Wrapf(validate.ErrValidation, "%s: must not be empty", label)
+		}
+		fields = append(
+			fields,
+			xjson.TemplateField{Label: label, Pointer: p, Literal: literal},
+		)
+		slots = append(slots, s)
+		return nil
+	}
+	if err := add(
+		"record.value_pointer", rec.ValuePointer, nil, slot{kind: slotValue},
+	); err != nil {
+		return nil, nil, err
+	}
 	if p := rec.ChannelPointer; p != nil {
-		pointers = append(pointers, labeledPointer{"record.channel_pointer", *p})
+		if err := add(
+			"record.channel_pointer", *p, nil, slot{kind: slotChannel},
+		); err != nil {
+			return nil, nil, err
+		}
 	}
 	if p := rec.TimestampPointer; p != nil {
-		pointers = append(pointers, labeledPointer{"record.timestamp_pointer", *p})
+		format, err := xjson.ParseTimeFormat(string(rec.TimeFormat))
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "record.time_format")
+		}
+		if err := add(
+			"record.timestamp_pointer",
+			*p,
+			nil,
+			slot{kind: slotTimestamp, format: format},
+		); err != nil {
+			return nil, nil, err
+		}
 	}
-	for _, f := range rec.Fields {
-		var base http.BaseWriteField
-		switch v := f.Variant.(type) {
+	for _, field := range rec.Fields {
+		var (
+			base    http.BaseWriteField
+			literal []byte
+			s       slot
+			err     error
+		)
+		switch v := field.Variant.(type) {
 		case http.StaticWriteField:
 			base = v.BaseWriteField
+			literal, err = xjson.Marshal(v.Value)
 		case http.GeneratedWriteField:
 			base = v.BaseWriteField
+			s, err = generatorSlot(v)
+		default:
+			return nil, nil, errors.Newf("unknown write field variant %T", v)
 		}
-		pointers = append(pointers, labeledPointer{
-			fmt.Sprintf("field %q", base.Key), base.Pointer,
-		})
+		label := fmt.Sprintf("field %q", base.Key)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, label)
+		}
+		if err = add(label, base.Pointer, literal, s); err != nil {
+			return nil, nil, err
+		}
 	}
-	return pointers
+	return fields, slots, nil
+}
+
+// generatorSlot returns the slot that fills a generated field.
+func generatorSlot(field http.GeneratedWriteField) (slot, error) {
+	switch field.Generator {
+	case http.GeneratorTypeUUID:
+		return slot{kind: slotUUID}, nil
+	case http.GeneratorTypeTimestamp:
+		s := slot{kind: slotTimestamp, format: xjson.UnixNanosecond}
+		if field.TimeFormat != nil {
+			var err error
+			if s.format, err = xjson.ParseTimeFormat(
+				string(*field.TimeFormat),
+			); err != nil {
+				return slot{}, err
+			}
+		}
+		return s, nil
+	default:
+		return slot{}, errors.Wrapf(
+			validate.ErrValidation, "unknown generator %q", field.Generator,
+		)
+	}
 }
 
 // Exec implements driver.Task. Every command it handles ends in a status carrying the
@@ -421,7 +548,7 @@ func (t *writeTask) produce(
 			if hasIndex {
 				ts = index.ValueAt[telem.TimeStamp](i)
 			}
-			rec, err := t.record(wc, s.DataType, sample, ts)
+			rec, err := t.record(wc, sample, ts)
 			if err != nil {
 				t.reportError(ctx, "Record build failed: "+err.Error())
 				continue
@@ -442,7 +569,6 @@ func firstSeries(fr frame.Frame, key channel.Key) (s telem.Series, ok bool) {
 
 func (t *writeTask) record(
 	wc *writeChannel,
-	dt telem.DataType,
 	sample []byte,
 	ts telem.TimeStamp,
 ) (*kgo.Record, error) {
@@ -451,8 +577,9 @@ func (t *writeTask) record(
 		rec = &kgo.Record{Value: make([]byte, 0, recordCapacity)}
 	}
 	*rec = kgo.Record{Key: wc.key, Timestamp: ts.Time(), Value: rec.Value[:0]}
+	t.slots.wc, t.slots.sample, t.slots.ts = wc, sample, ts
 	var err error
-	if rec.Value, err = t.template.append(rec.Value, wc, dt, sample, ts); err != nil {
+	if rec.Value, err = t.template.Append(rec.Value, &t.slots); err != nil {
 		t.records.Put(rec)
 		return nil, err
 	}

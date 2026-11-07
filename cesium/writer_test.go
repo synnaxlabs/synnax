@@ -3317,6 +3317,61 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 					})
+
+					It(
+						"Should serialize index writes across a control transfer",
+						func(ctx SpecContext) {
+							key := GenerateChannelKey()
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Shackleton",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:    []cesium.ChannelKey{key},
+								Start:       10 * telem.SecondTS,
+								Authorities: []control.Authority{100},
+								Sync:        new(true),
+							}))
+							started := make(chan struct{})
+							stopped := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(stopped)
+								for i := range telem.TimeStamp(1_000_000) {
+									if i == 10 {
+										close(started)
+									}
+									authorized := MustSucceed(w1.Write(
+										telem.UnaryFrame(
+											key,
+											telem.NewSeriesV(10*telem.SecondTS+i),
+										),
+									))
+									if !authorized {
+										return
+									}
+								}
+							}()
+							Eventually(started).Should(BeClosed())
+							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:    []cesium.ChannelKey{key},
+								Start:       20 * telem.SecondTS,
+								Authorities: []control.Authority{200},
+								Sync:        new(true),
+							}))
+							for i := range telem.TimeStamp(10) {
+								Expect(w2.Write(telem.UnaryFrame(
+									key,
+									telem.NewSeriesV(20*telem.SecondTS+i),
+								))).To(BeTrue())
+							}
+							Eventually(stopped).Should(BeClosed())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
+						},
+					)
 				})
 			})
 
@@ -4383,6 +4438,58 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					)
 				})
+
+				It(
+					"Should return no end from a partly applied commit",
+					func(ctx SpecContext) {
+						// Indexes commit in map order, so repeat until the healthy
+						// index commits before the conflicting one.
+						conflict := MatchError(domain.ErrWriteConflict)
+						healthyCommittedFirst := func() bool {
+							GinkgoHelper()
+							var (
+								healthy     = GenerateChannelKey()
+								conflicting = GenerateChannelKey()
+								keys        = []cesium.ChannelKey{healthy, conflicting}
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      healthy,
+									Name:     "Clark",
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+								},
+								cesium.Channel{
+									Key:      conflicting,
+									Name:     "Lewis",
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+								},
+							)).To(Succeed())
+							Expect(db.WriteSeries(
+								ctx,
+								conflicting,
+								10*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(10, 11),
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:         keys,
+								Start:            1 * telem.SecondTS,
+								EnableAutoCommit: new(false),
+							}))
+							Expect(w.Write(telem.MultiFrame(keys, []telem.Series{
+								telem.NewSeriesSecondsTSV(1, 30),
+								telem.NewSeriesSecondsTSV(1, 30),
+							}))).To(BeTrue())
+							Expect(w.Commit()).Error().To(conflict)
+							Expect(w.Close()).To(conflict)
+							fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, healthy))
+							return fr.HasData()
+						}
+						Eventually(healthyCommittedFirst).Should(BeTrue())
+					},
+				)
 			})
 
 			Describe("Index Errors", func() {

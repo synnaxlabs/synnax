@@ -51,6 +51,121 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should translate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+			ExpectContent(resp, "thing/pb/translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"vals, err := WheresToPB(r.And)",
+					"pb.And = &WhereList{Values: vals}",
+					"pb.Not, err = WhereToPB(*r.Not)",
+					"vals, err := WheresFromPB(pb.And.Values)",
+					"val, err := WhereFromPB(pb.Not)",
+					"r.Not = &val",
+				)
+		})
+
+		DescribeTable("Should keep an empty optional list present", func(
+			ctx SpecContext,
+			field, backward string,
+		) {
+			resp := MustGenerate(ctx, `
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key uuid
+					`+field+`
+				}
+			`, "thing", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(`xpb "github.com/synnaxlabs/x/pb"`, backward)
+		},
+			Entry(
+				"a list it copies",
+				"names string[]?",
+				"r.Names = xpb.ListValues(pb.Names.Values)",
+			),
+			Entry("a list it converts", "ids uuid[]?", "r.IDs = xpb.ListValues(vals)"),
+		)
+
+		It(
+			"Should translate each generic use over a plain value through its own message",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/pb/translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {",
+						"func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {",
+						"pb.In = &UuidList{Values: lo.Map(r.In,",
+						"pb.Key, err = UuidSetToPB(*r.Key)",
+						"val, err := UuidSetFromPB(pb.Key)",
+					).
+					ToNotContain("filterpb.SetToPB")
+			},
+		)
+
+		It("Should translate each element of a list of a generic use", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					sets  filter.Set<uuid>[]
+					ids   filter.Set<uuid>[]?
+					names filter.Set<string>[]?
+				}
+			`, "thing", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {",
+					"func StringSetsFromPB(pbs []*StringSet) ([]filter.Set[string], error) {",
+					"setsVal, err := UuidSetsToPB(r.Sets)",
+					"r.Sets, err = UuidSetsFromPB(pb.Sets)",
+					"pb.Ids = &UuidSetList{Values: vals}",
+					"pb.Names = &StringSetList{Values: vals}",
+					"vals, err := StringSetsFromPB(pb.Names.Values)",
+				).
+				ToNotContain("SetsToPB[", "FilterSetList")
+		})
+
+		It("Should translate each value of a map of a generic use", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key  uuid
+					sets map<string, filter.Set<uuid>>
+				}
+			`, "thing", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"make(map[string]*UuidSet, len(r.Sets))",
+					"make(map[string]filter.Set[uuid.UUID], len(pb.Sets))",
+					"UuidSetToPB(v)",
+					"UuidSetFromPB(v)",
+				).
+				ToNotContain("filterpb.SetToPB", "filterpb.SetFromPB")
+		})
+
 		Context("field-level omit", func() {
 			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
 				source := `
@@ -1423,6 +1538,31 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 				},
 			)
+
+			It("Should translate optional and list fields of a type parameter",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Set struct<T> {
+						eq  T?
+						all T[]
+						in  T[]?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").ToContain(
+						"translateT(*r.Eq)",
+						"lo.MapErr(r.All, func(v T, _ int) (*anypb.Any, error) { "+
+							"return translateT(v) })",
+						"lo.MapErr(pb.All, func(v *anypb.Any, _ int) (T, error) { "+
+							"return translateT(v) })",
+						"lo.MapErr(pb.In.Values, func(v *anypb.Any, _ int) (T, error) { "+
+							"return translateT(v) })",
+					)
+				},
+			)
 		})
 
 		Context("key domain with numeric types", func() {
@@ -1436,8 +1576,7 @@ var _ = Describe("Go PB Plugin", func() {
 					Key uint32
 
 					Test struct {
-						@key
-						rack Key
+						rack Key { @key }
 						name string
 					}
 				`
@@ -2353,9 +2492,41 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		Context("generic struct instantiated with any", func() {
+			It(
+				"Should translate the values through the x/pb Any helpers",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/control"
+					@pb
+
+					Status struct<D?> {
+						key     string
+						details D
+					}
+
+					Response struct {
+						status   Status<any>?
+						statuses Status<any>[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							`xpb "github.com/synnaxlabs/x/pb"`,
+							"StatusToPB(*r.Status, xpb.AnyToPBAny)",
+							"StatusFromPB(pb.Status, xpb.AnyFromPBAny)",
+							"StatusesToPB[any](r.Statuses, xpb.AnyToPBAny)",
+							"StatusesFromPB[any](pb.Statuses, xpb.AnyFromPBAny)",
+						)
+				},
+			)
+		})
+
 		Context("generic struct instantiated with a struct type arg", func() {
 			It(
-				"Should keep explicit instantiation only for backward conversion with nil converters",
+				"Should translate a nil type argument with the nil Any helpers",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/control"
@@ -2376,16 +2547,14 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							// The typed argument pins the forward instantiation; the
-							// nil converter cannot pin the backward one.
-							"StatusToPB(*r.Status, nil)",
-							"StatusFromPB[struct{}](pb.Status, nil)",
+							"StatusToPB(*r.Status, xpb.NilToPBAny)",
+							"StatusFromPB(pb.Status, xpb.NilFromPBAny)",
 						)
 				},
 			)
 
 			It(
-				"Should emit ToPBAny/FromPBAny helpers for the struct-typed instantiation",
+				"Should convert the struct type argument through its JSON form",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/control"
@@ -2408,15 +2577,12 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							// ensureAnyHelper appends a ToPBAny/FromPBAny helper pair
-							// for each struct-typed generic instantiation.
-							"DetailsToPBAny",
-							"DetailsFromPBAny",
-							// Generic struct conversion forwards the typed converters;
-							// the argument and converters pin the instantiation.
-							"StatusToPB(r.Status, DetailsToPBAny)",
-							"StatusFromPB(pb.Status, DetailsFromPBAny)",
-						)
+							`xpb "github.com/synnaxlabs/x/pb"`,
+							// The argument and converters pin the instantiation.
+							"StatusToPB(r.Status, xpb.ToAny[control.Details])",
+							"StatusFromPB(pb.Status, xpb.FromAny[control.Details])",
+						).
+						ToNotContain("ToPBAny", "FromPBAny", "protojson")
 				},
 			)
 
@@ -2450,13 +2616,10 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"func DetailsToPBAny(v common.Details) "+
-								"(*anypb.Any, error) {",
-							"pb, err := commonpb.DetailsToPB(v)",
-							"var pb commonpb.Details",
-							"return commonpb.DetailsFromPB(&pb)",
-							"PairFromPB[common.Details, struct{}]"+
-								"(pb.Pair, DetailsFromPBAny, nil)",
+							"PairToPB(r.Pair, xpb.ToAny[common.Details], "+
+								"xpb.NilToPBAny)",
+							"PairFromPB(pb.Pair, xpb.FromAny[common.Details], "+
+								"xpb.NilFromPBAny)",
 						)
 				},
 			)

@@ -236,6 +236,25 @@ var _ = Describe("Formatter", func() {
 	)
 
 	DescribeTable(
+		"Exports",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("exported function", "export func f(){}", "export func f() {}\n"),
+		Entry("exported variable", "export x:=1", "export x := 1\n"),
+		Entry(
+			"exported sequence",
+			"export sequence main{stage first{}}",
+			"export sequence main {\n    stage first {}\n}\n",
+		),
+		Entry(
+			"export after a function",
+			"func a(){}\nexport func b(){}",
+			"func a() {}\nexport func b() {}\n",
+		),
+	)
+
+	DescribeTable(
 		"Functions",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))

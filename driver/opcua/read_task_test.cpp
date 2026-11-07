@@ -12,7 +12,9 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -152,6 +154,11 @@ protected:
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.motor = testutil::Motor{
+            .speed = 1500.0,
+            .running = true,
+            .position = {.x = 1.5F, .y = 2.5F},
+        };
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
@@ -258,25 +265,14 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        connection::Config test_conn_cfg;
-        test_conn_cfg.endpoint = conn_cfg.endpoint;
-        test_conn_cfg.security_mode = "None";
-        test_conn_cfg.security_policy = "None";
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(test_conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     /// @returns a unary source that reads cfg_json.
     std::unique_ptr<UnaryReadTaskSource> create_source(const x::json::json &cfg_json) {
         auto p = x::json::Parser(cfg_json);
         auto cfg = ReadTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
@@ -303,6 +299,32 @@ protected:
             {"sample_rate", 50},
             {"stream_rate", 25},
             {"nan_fill_enabled", nan_fill_enabled},
+        };
+    }
+
+    /// @returns the config of a task that reads members of TestMotor at fields into the
+    /// double, float, and bool channels.
+    [[nodiscard]] x::json::json
+    motor_cfg(const std::vector<std::string> &fields) const {
+        const std::vector<synnax::channel::Key> keys{
+            this->double_channel.key,
+            this->float_channel.key,
+            this->bool_channel.key,
+        };
+        auto channels = x::json::json::array();
+        for (std::size_t i = 0; i < fields.size(); ++i)
+            channels.push_back({
+                {"node_id", "NS=1;S=TestMotor"},
+                {"field", fields[i]},
+                {"channel", keys[i]},
+                {"disabled", false},
+            });
+        return {
+            {"data_saving_disabled", false},
+            {"device", "opc_read_task_test_server_key"},
+            {"channels", channels},
+            {"sample_rate", 50},
+            {"stream_rate", 25},
         };
     }
 
@@ -399,6 +421,101 @@ TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should read members of a structure node into their channels.
+TEST_F(TestReadTask, testReadsStructureFields) {
+    const auto source = this->create_source(
+        this->motor_cfg({"Speed", "Position.Y", "Running"})
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "");
+    ASSERT_EQ(fr.size(), 4);
+    EXPECT_EQ(fr.at<double>(this->double_channel.key, 0), 1500.0);
+    EXPECT_EQ(fr.at<float>(this->float_channel.key, 0), 2.5F);
+    EXPECT_EQ(fr.at<std::uint8_t>(this->bool_channel.key, 0), 1);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should skip the index of a field that the structure lacks, and name the
+/// field's channel in a warning.
+TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
+    const auto source = this->create_source(this->motor_cfg({"Speed", "Torque"}));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    EXPECT_EQ(
+        res.warning.description,
+        this->float_channel.name + ": Motor has no member Torque. " +
+            this->float_channel.name + ": Motor has no member Torque."
+    );
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read a structure field once the server adds its node, on the same
+/// connection.
+TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
+    server->stop();
+    server->cfg.motor.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source(this->motor_cfg({"Speed"}));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    EXPECT_EQ(missing.warning.message, "Received bad values");
+    EXPECT_TRUE(fr.empty());
+    const auto sessions = server->sessions_created.load();
+    server->add_motor({
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    });
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            fr.clear();
+            return !source->read(breaker, fr).error && !fr.empty();
+        }(),
+        std::chrono::seconds(20),
+        std::chrono::milliseconds(100)
+    );
+    EXPECT_EQ(fr.at<double>(this->double_channel.key, 0), 1500.0);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should reject a structure field in array mode.
+TEST_F(TestReadTask, testRejectsFieldInArrayMode) {
+    auto cfg_json = this->motor_cfg({"Speed"});
+    cfg_json["array_mode"] = true;
+    cfg_json["array_size"] = 5;
+    auto p = x::json::Parser(cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "channels.0.field");
+    EXPECT_EQ(errs[0]["message"], "array mode cannot read structure fields");
+}
+
+/// @brief it should reject a field with an empty member name.
+TEST_F(TestReadTask, testRejectsInvalidField) {
+    auto p = x::json::Parser(this->motor_cfg({"Position..Y"}));
+    const ReadTaskConfig cfg(ctx->client, p);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "channels.0.field");
+    EXPECT_EQ(errs[0]["message"], "the field Position..Y has an empty name");
+}
+
 /// @brief it should write NaN for a missing float node when NaN fill is on, and keep
 /// the other channels on its index.
 TEST_F(TestReadTask, testMissingNodeFillsNaN) {
@@ -416,6 +533,157 @@ TEST_F(TestReadTask, testMissingNodeFillsNaN) {
     EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
     EXPECT_NEAR(fr.at<double>(this->double_channel.key, 1), 2.71828, 0.0001);
     EXPECT_TRUE(fr.contains(this->index_channel.key));
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read a node by the URI of its namespace.
+TEST_F(TestReadTask, testReadsNamespaceURINode) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:open62541.server.application;s=TestFloat", false)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_NEAR(fr.at<float>(this->float_channel.key, 0), 3.14159f, 0.0001f);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should treat a node in a namespace that the server lacks as a missing
+/// node.
+TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", false)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:missing.";
+    EXPECT_EQ(res.warning.description, problem + " " + problem);
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read the other channels when the server lacks the namespace of one,
+/// with NaN for the missing one.
+TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", true)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 0)));
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
+    ASSERT_NIL(source->stop());
+}
+
+/// @returns a float node named Shared in namespace ns.
+testutil::TestNode shared_node(const std::int32_t ns, UA_Float value) {
+    UA_Variant variant;
+    UA_Variant_init(&variant);
+    UA_Variant_setScalar(&variant, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    return {ns, "Shared", &UA_TYPES[UA_TYPES_FLOAT], variant, "Shared"};
+}
+
+/// @brief it should find a node by its namespace URI after the server restarts with its
+/// namespaces in another order.
+TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
+    server->stop();
+    testutil::ServerConfig server_cfg;
+    server_cfg.namespaces = {"urn:a", "urn:b"};
+    server_cfg.test_nodes = {shared_node(2, 1.0f), shared_node(3, 2.0f)};
+    server = std::make_unique<testutil::Server>(server_cfg);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source({
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", "nsu=urn:b;s=Shared"},
+              {"channel", this->float_channel.key},
+              {"disabled", false}},
+         })},
+        {"sample_rate", 50},
+        {"stream_rate", 25},
+    });
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 2.0f);
+    server->stop();
+    ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
+    server_cfg.namespaces = {"urn:b", "urn:a"};
+    server_cfg.test_nodes = {shared_node(2, 2.0f), shared_node(3, 1.0f)};
+    server = std::make_unique<testutil::Server>(server_cfg);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 2.0f);
+    EXPECT_EQ(conn_pool->size(), 1);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read a node in a namespace that the server adds after the task
+/// starts, on the same Session.
+TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
+    const auto source = this->create_source({
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", "nsu=urn:late;s=Shared"},
+              {"channel", this->float_channel.key},
+              {"disabled", false}},
+         })},
+        {"sample_rate", 50},
+        {"stream_rate", 25},
+    });
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:late.";
+    EXPECT_EQ(missing.warning.description, problem + " " + problem);
+    const auto sessions = server->sessions_created.load();
+    server->add_namespace("urn:late", {shared_node(0, 5.0f)});
+    fr.clear();
+    const auto found = source->read(breaker, fr);
+    ASSERT_NIL(found.error);
+    EXPECT_TRUE(found.warning.empty()) << found.warning.description;
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 5.0f);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read more nodes than the server allows in one request.
+TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
+    server->stop();
+    server->cfg.max_nodes_per_read = 3;
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source(task_cfg_json);
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
+    ASSERT_EQ(fr.size(), 11);
+    EXPECT_EQ(fr.at<std::uint16_t>(this->uint16_channel.key, 0), 42);
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
     ASSERT_NIL(source->stop());
 }
 
@@ -524,7 +792,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
 
     auto p = x::json::Parser(empty_cfg);
     auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return error when all channels are disabled.
@@ -550,7 +818,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
 
     auto p = x::json::Parser(disabled_cfg);
     auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should configure when a disabled channel has no node id or Synnax
@@ -578,7 +846,7 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
 
     auto p = x::json::Parser(cfg);
     const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }

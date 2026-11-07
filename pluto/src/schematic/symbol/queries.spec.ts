@@ -70,8 +70,7 @@ describe("Symbol queries", () => {
       });
 
       const { result } = renderHook(
-        () =>
-          Symbol.useList({ initialQuery: { parent: group.ontologyID(parent.key) } }),
+        () => Symbol.useList({ query: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -142,7 +141,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialQuery: {
+            query: {
               parent: group.ontologyID(parent.key),
               searchTerm: "valve",
             },
@@ -189,7 +188,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -473,9 +472,7 @@ describe("Symbol queries", () => {
       });
 
       await expect(
-        client.schematics.symbols.retrieve({
-          keys: [symbol.key],
-        }),
+        client.schematics.symbols.retrieve({ key: symbol.key }),
       ).rejects.toThrow("not found");
     });
   });
@@ -518,7 +515,7 @@ describe("Symbol queries", () => {
       });
 
       await expect(
-        client.schematics.symbols.retrieve({ keys: [symbol.key] }),
+        client.schematics.symbols.retrieve({ key: symbol.key }),
       ).rejects.toThrow("not found");
       await expect(client.groups.retrieve({ key: grp.key })).rejects.toThrow(
         "not found",

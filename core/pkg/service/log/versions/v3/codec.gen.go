@@ -15,6 +15,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -26,7 +27,7 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(string(ce.Notation))
 	if ce.Precision != nil {
 		w.Bool(true)
-		w.Int32(int32(*ce.Precision))
+		w.Uint8(uint8(*ce.Precision))
 	} else {
 		w.Bool(false)
 	}
@@ -63,8 +64,8 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv int32
-			if hv, err = r.Int32(); err != nil {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
 				return err
 			}
 			ce.Precision = &hv
@@ -92,9 +93,10 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Int32(int32(lv.TimestampPrecision))
+	w.Uint8(uint8(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
+	w.String(string(lv.TimeZone))
 	return nil
 }
 
@@ -125,7 +127,7 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if lv.TimestampPrecision, err = r.Int32(); err != nil {
+	if lv.TimestampPrecision, err = r.Uint8(); err != nil {
 		return err
 	}
 	if lv.ChannelNamesHidden, err = r.Bool(); err != nil {
@@ -133,6 +135,13 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	}
 	if lv.TimestampsHidden, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lv.TimeZone = telem.TimeZone(rawV)
 	}
 	return nil
 }

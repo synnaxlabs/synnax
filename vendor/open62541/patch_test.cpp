@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 #include "open62541/client.h"
 #include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
 #include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
@@ -98,4 +99,87 @@ TEST(PatchTest, ClosesRejectedSession) {
     loop.join();
     UA_Server_run_shutdown(server);
     UA_Server_delete(server);
+}
+
+/// @brief it should send the server's index for a namespace that the server adds after
+/// the client connects.
+TEST(PatchTest, KeepsNamespaceIndexes) {
+    UA_Server *server = UA_Server_new();
+    ASSERT_EQ(
+        UA_ServerConfig_setMinimal(UA_Server_getConfig(server), 4881, nullptr),
+        UA_STATUSCODE_GOOD
+    );
+    ASSERT_EQ(UA_Server_run_startup(server), UA_STATUSCODE_GOOD);
+    std::atomic running = true;
+    std::thread loop([&] {
+        while (running)
+            UA_Server_run_iterate(server, true);
+    });
+
+    UA_Client *client = UA_Client_new();
+    ASSERT_EQ(
+        UA_Client_connect(client, "opc.tcp://localhost:4881"),
+        UA_STATUSCODE_GOOD
+    );
+    const UA_UInt16 ns = UA_Server_addNamespace(server, "urn:late");
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
+    UA_Int32 value = 7;
+    UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_INT32]);
+    const UA_NodeId id = UA_NODEID_STRING(ns, const_cast<char *>("Late"));
+    ASSERT_EQ(
+        UA_Server_addVariableNode(
+            server,
+            id,
+            UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+            UA_QUALIFIEDNAME(ns, const_cast<char *>("Late")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        ),
+        UA_STATUSCODE_GOOD
+    );
+    UA_Variant read;
+    UA_Variant_init(&read);
+    EXPECT_EQ(UA_Client_readValueAttribute(client, id, &read), UA_STATUSCODE_GOOD);
+    ASSERT_TRUE(UA_Variant_hasScalarType(&read, &UA_TYPES[UA_TYPES_INT32]));
+    EXPECT_EQ(*static_cast<UA_Int32 *>(read.data), 7);
+    UA_Variant_clear(&read);
+    UA_Client_delete(client);
+
+    running = false;
+    loop.join();
+    UA_Server_run_shutdown(server);
+    UA_Server_delete(server);
+}
+
+/// @brief it should shut down a server without waiting for its next timer.
+TEST(PatchTest, ShutsDownServerAtOnce) {
+    UA_Server *server = UA_Server_new();
+    ASSERT_EQ(
+        UA_ServerConfig_setMinimal(UA_Server_getConfig(server), 4883, nullptr),
+        UA_STATUSCODE_GOOD
+    );
+    ASSERT_EQ(UA_Server_run_startup(server), UA_STATUSCODE_GOOD);
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(UA_Server_run_shutdown(server), UA_STATUSCODE_GOOD);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
+    UA_Server_delete(server);
+}
+
+/// @brief it should fail a refused connection without waiting for the next timer of
+/// the client.
+TEST(PatchTest, FailsRefusedConnectionAtOnce) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows retries a refused connect for longer than the limit";
+#endif
+    UA_Client *client = UA_Client_new();
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(
+        UA_Client_connect(client, "opc.tcp://localhost:4889"),
+        UA_STATUSCODE_BADCONNECTIONREJECTED
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
+    UA_Client_delete(client);
 }

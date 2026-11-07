@@ -11,9 +11,14 @@ package mqtt_test
 
 import (
 	"context"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -47,6 +52,79 @@ func newFactory(queueSize int) driver.Factory {
 		DB:      db, Status: statusSvc,
 		QueueSize: queueSize,
 	}))
+}
+
+// publishWatchers returns the count of goroutines that watch a publish of a session.
+func publishWatchers() int {
+	stacks := make([]byte, 1<<22)
+	n := runtime.Stack(stacks, true)
+	return strings.Count(string(stacks[:n]), "(*session).Publish.func")
+}
+
+// stalledToken is the token of a publish that a connection drop strands in Paho.
+type stalledToken struct{}
+
+func (stalledToken) Wait() bool                     { return false }
+func (stalledToken) WaitTimeout(time.Duration) bool { return false }
+func (stalledToken) Done() <-chan struct{}          { return nil }
+func (stalledToken) Error() error                   { return nil }
+
+// publishStall strands one Paho publish, which reaches that state only on a connection
+// drop that lands inside the call. Its factory gives every connection a real client.
+type publishStall struct {
+	// armed makes the next publish stall.
+	armed atomic.Bool
+	// stalled is true once a publish stalled.
+	stalled atomic.Bool
+	// blocks makes the stalled publish block until release, in place of returning a
+	// token that never completes.
+	blocks  bool
+	release func()
+	waiter  chan struct{}
+}
+
+func newPublishStall(blocks bool) *publishStall {
+	waiter := make(chan struct{})
+	return &publishStall{
+		blocks:  blocks,
+		waiter:  waiter,
+		release: sync.OnceFunc(func() { close(waiter) }),
+	}
+}
+
+func (s *publishStall) factory() driver.Factory {
+	GinkgoHelper()
+	return MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
+		Device:  deviceSvc,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+		DB:      db, Status: statusSvc,
+		QueueSize: 64,
+		NewClient: func(opts *paho.ClientOptions) paho.Client {
+			return &stallingClient{Client: paho.NewClient(opts), stall: s}
+		},
+	}))
+}
+
+type stallingClient struct {
+	paho.Client
+	stall *publishStall
+}
+
+func (c *stallingClient) Publish(
+	topic string,
+	qos byte,
+	retained bool,
+	payload any,
+) paho.Token {
+	if !c.stall.armed.CompareAndSwap(true, false) {
+		return c.Client.Publish(topic, qos, retained, payload)
+	}
+	c.stall.stalled.Store(true)
+	if c.stall.blocks {
+		<-c.stall.waiter
+	}
+	return stalledToken{}
 }
 
 // createRack creates a rack for the devices and tasks of one spec.
@@ -214,6 +292,31 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 		g.Expect(stat.Details.Cmd).To(Equal(cmdKey))
 	}).WithTimeout(10 * time.Second).Should(Succeed())
 	return stat
+}
+
+// publishUntilDone publishes payload to topic every 10 ms until the spec ends.
+func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(stopped)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		close(done)
+		Eventually(stopped).Should(BeClosed())
+	})
 }
 
 // testStreamer receives the frames written to a set of channels.

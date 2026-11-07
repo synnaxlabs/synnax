@@ -106,10 +106,40 @@ class TestClient:
         tables = client.tables.retrieve(keys=[t1.key, t2.key])
         assert {t.key for t in tables} == {t1.key, t2.key}
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the tables that match the where and the other filters."""
+        a = client.tables.create(project.key, name="A")
+        b = client.tables.create(project.key, name="B")
+        where = table.Where(not_=table.Where(key=sy.filter.Set[table.Key](eq=a.key)))
+        res = client.tables.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when a table does not exist."""
         with pytest.raises(NotFoundError):
             client.tables.retrieve(key=uuid4())
+
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.tables.create(project.key, name="A")
+        res = client.tables.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one table for a plain key beside other fields."""
+        a = client.tables.create(project.key, name="A")
+        assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no table where .+"):
+            client.tables.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the tables that match any filter in or_."""
+        a = client.tables.create(project.key, name="A")
+        b = client.tables.create(project.key, name="B")
+        res = client.tables.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a table."""
@@ -122,5 +152,4 @@ class TestClient:
         t1 = client.tables.create(project.key, name="Delete 1")
         t2 = client.tables.create(project.key, name="Delete 2")
         client.tables.delete([t1.key, t2.key])
-        with pytest.raises(NotFoundError):
-            client.tables.retrieve(keys=[t1.key, t2.key])
+        assert client.tables.retrieve(keys=[t1.key, t2.key]) == []

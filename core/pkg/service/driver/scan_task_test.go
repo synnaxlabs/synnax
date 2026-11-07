@@ -12,6 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,6 +40,8 @@ type mapScanner struct {
 	// unreachable holds the check error of each device that is not reachable.
 	unreachable map[device.Key]error
 	checks      map[device.Key]int
+	// delay is the time that each check takes. A spec sets it before the task starts.
+	delay time.Duration
 	// release ends one wait command.
 	release chan struct{}
 	// waiting and peak count the wait commands that run now and at most.
@@ -69,7 +72,14 @@ func (s *mapScanner) checkCount(key device.Key) int {
 	return s.checks[key]
 }
 
-func (s *mapScanner) Check(_ context.Context, dev device.Device) error {
+func (s *mapScanner) Check(ctx context.Context, dev device.Device) error {
+	if s.delay > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(s.delay):
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.checks[dev.Key]++
@@ -85,6 +95,13 @@ func (s *mapScanner) Exec(
 		return msgpack.EncodedJSON{"latency_ms": 4.0}, nil
 	case "browse":
 		return nil, errors.New("broker refused the subscription")
+	case "test":
+		return nil, driver.Failure{
+			Message:     "Authentication failed",
+			Description: "Check the username and the password.",
+		}
+	case "huge":
+		return msgpack.EncodedJSON{"payload": strings.Repeat("x", 2<<20)}, nil
 	case "wait":
 		n := s.waiting.Add(1)
 		defer s.waiting.Add(-1)
@@ -130,12 +147,41 @@ func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
 	return t.Tx.Commit(ctx, opts...)
 }
 
+var _ = Describe("Fit", func() {
+	It("Should keep every item that fits", func() {
+		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{{"a", "b"}, {"c"}}))
+		Expect(kept).To(Equal([][]string{{"a", "b"}, {"c"}}))
+		Expect(truncated).To(BeFalse())
+	})
+
+	It("Should take one item of each list in turn", func() {
+		item := strings.Repeat("x", 300<<10)
+		kept, truncated := MustSucceed2(driver.Fit(nil, [][]string{
+			{item + "a", item + "b", item + "c"},
+			{item + "d"},
+		}))
+		Expect(kept).To(Equal([][]string{{item + "a", item + "b"}, {item + "d"}}))
+		Expect(truncated).To(BeTrue())
+	})
+
+	It("Should leave room for the rest of the answer", func() {
+		item := strings.Repeat("x", 300<<10)
+		rest := map[string]string{"shapes": strings.Repeat("y", 600<<10)}
+		kept, truncated := MustSucceed2(
+			driver.Fit(rest, [][]string{{item + "a", item + "b"}}),
+		)
+		Expect(kept).To(Equal([][]string{{item + "a"}}))
+		Expect(truncated).To(BeTrue())
+	})
+})
+
 var _ = Describe("ScanTask", func() {
 	var (
-		t          task.Task
-		scanner    *mapScanner
-		rackKey    rack.Key
-		deviceMake string
+		t            task.Task
+		scanner      *mapScanner
+		rackKey      rack.Key
+		deviceMake   string
+		checkTimeout time.Duration
 	)
 
 	BeforeEach(func(ctx SpecContext) {
@@ -150,6 +196,7 @@ var _ = Describe("ScanTask", func() {
 			Rack: rackKey,
 		}
 		scanner = newMapScanner()
+		checkTimeout = 0
 	})
 
 	openOn := func(statusDB *gorp.DB, interval time.Duration) *driver.ScanTask {
@@ -163,6 +210,7 @@ var _ = Describe("ScanTask", func() {
 			UnreachableMessage: "Failed to reach broker",
 			Task:               t,
 			Interval:           interval,
+			CheckTimeout:       checkTimeout,
 		}))
 		DeferCleanup(func() { Expect(st.Stop(false)).To(Succeed()) })
 		return st
@@ -290,6 +338,34 @@ var _ = Describe("ScanTask", func() {
 					stat := deviceStatus(ctx, dev)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Description).To(Equal("connection reset"))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should allow a check to take longer than the interval",
+			func(ctx SpecContext) {
+				scanner.delay = 50 * time.Millisecond
+				dev := createDevice(ctx, deviceMake)
+				st := open(5 * time.Millisecond)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(deviceStatus(ctx, dev).Variant).
+						To(Equal(status.VariantSuccess))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should report a device whose check passes the time limit as unreachable",
+			func(ctx SpecContext) {
+				scanner.delay = time.Hour
+				checkTimeout = 5 * time.Millisecond
+				dev := createDevice(ctx, deviceMake)
+				st := open(time.Hour)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := deviceStatus(ctx, dev)
+					g.Expect(stat.Message).To(Equal("Failed to reach broker"))
+					g.Expect(stat.Description).To(Equal("context deadline exceeded"))
 				}).Should(Succeed())
 			},
 		)
@@ -426,6 +502,41 @@ var _ = Describe("ScanTask", func() {
 			},
 		)
 
+		It("Should answer a failure with its message and description",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				Expect(st.Exec(ctx, task.Command{Type: "test", Key: "cmd-test"})).
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-test"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Authentication failed"))
+					g.Expect(stat.Description).
+						To(Equal("Check the username and the password."))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should answer a command whose data is over 1 MiB with an error",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				Expect(st.Exec(ctx, task.Command{Type: "huge", Key: "cmd-huge"})).
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-huge"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Answer too large"))
+					g.Expect(stat.Description).To(Equal(
+						"The answer holds 2.0 MiB of JSON, and a command answers with " +
+							"at most 1 MiB. Ask for less data, such as fewer topics.",
+					))
+					g.Expect(stat.Details.Data).To(BeNil())
+				}).Should(Succeed())
+			},
+		)
+
 		It("Should not answer a command the scanner does not support",
 			func(ctx SpecContext) {
 				var writes atomic.Int32
@@ -443,8 +554,8 @@ var _ = Describe("ScanTask", func() {
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "tare", Key: "cmd-4"})).
 					To(Succeed())
-				// Commands run one at a time, so the answer to cmd-5 comes after cmd-4
-				// is done.
+				// Commands run in no fixed order, so the writes stay under watch after
+				// the answer to cmd-5.
 				Expect(st.Exec(ctx, task.Command{
 					Type: "test_connection", Key: "cmd-5",
 				})).To(Succeed())
@@ -478,10 +589,15 @@ var _ = Describe("ScanTask", func() {
 			Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
 			Consistently(scanner.waiting.Load, 50*time.Millisecond).
 				Should(BeEquivalentTo(1))
+			answered := func() string { return taskStatus(ctx).Details.Cmd }
 			Eventually(scanner.release).Should(BeSent(struct{}{}))
+			Eventually(answered).Should(BeElementOf("cmd-7", "cmd-8"))
+			first := answered()
 			Eventually(scanner.release).Should(BeSent(struct{}{}))
-			Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
-				Should(Equal("cmd-8"))
+			Eventually(answered).Should(And(
+				BeElementOf("cmd-7", "cmd-8"),
+				Not(Equal(first)),
+			))
 			Expect(scanner.peak.Load()).To(BeEquivalentTo(1))
 		})
 

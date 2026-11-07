@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
 import "schemas/x/text"
@@ -22,12 +23,20 @@ Key = uuid {
 }
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "aligns content to the start."
+    }
+    center  = "center" {
+        @doc value "aligns content to the center."
+    }
+    end     = "end" {
+        @doc value "aligns content to the end."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content to fill the available space."
+    }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 CellConfig union on variant {
@@ -372,4 +381,11 @@ Table struct {
     @go migrate
     @ontology type "table"
     @retrieve
+}
+
+Where filter Table {
+    key
+
+    @doc value         "is a filter that selects tables."
+    @go request_output "core/pkg/api/table"
 }
