@@ -10,21 +10,26 @@
 # included in the file licenses/APL.txt.
 
 # Checks out every submodule at the commit its superproject records. A job cancelled
-# during a clone can leave a submodule whose HEAD does not resolve on a self-hosted
-# runner. git submodule update fails on it, so the script deletes it to clone it again.
+# during a clone or checkout can leave an unfinished submodule on a self-hosted runner,
+# and git submodule update fails on it. The script deletes those to clone them again.
 # Usage: update_submodules.sh
 
 set -euo pipefail
 
-# foreach enters each submodule after running its command, so delete after listing.
+# A clone killed in its fetch leaves a HEAD that does not resolve. One killed in its
+# checkout leaves no index, or a stale index.lock. foreach enters each submodule after
+# running its command, so the deletes wait until the list is done.
 # shellcheck disable=SC2016 # foreach expands the variables in each submodule.
-broken=$(git submodule foreach --recursive --quiet \
-    'git rev-parse --quiet --verify HEAD > /dev/null ||
-        printf "%s\t%s\n" "$toplevel/$sm_path" "$(git rev-parse --absolute-git-dir)"')
-if [ -n "$broken" ]; then
+unfinished=$(git submodule foreach --recursive --quiet '
+    gitdir=$(git rev-parse --absolute-git-dir)
+    if ! git rev-parse --quiet --verify HEAD > /dev/null ||
+        [ ! -f "$gitdir/index" ] || [ -e "$gitdir/index.lock" ]; then
+        printf "%s\t%s\n" "$toplevel/$sm_path" "$gitdir"
+    fi')
+if [ -n "$unfinished" ]; then
     while IFS=$'\t' read -r worktree gitdir; do
-        echo "::warning::Deleting half-cloned submodule $worktree"
+        echo "::warning::Deleting unfinished submodule $worktree"
         rm -rf "$worktree" "$gitdir"
-    done <<< "$broken"
+    done <<< "$unfinished"
 fi
 git submodule update --init --recursive
