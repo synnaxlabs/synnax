@@ -38,7 +38,48 @@ func (t *tree) SetDefaults() {
 	t.Inner.Label = "inner"
 }
 
+// bounds mirrors a generated type with a default group: the pair takes its
+// defaults only when both members are zero.
+type bounds struct {
+	Min   float64
+	Max   float64
+	Units string
+}
+
+func (b *bounds) SetDefaults() {
+	b.SetUngroupedDefaults()
+	b.DefaultGroups()
+}
+
+func (b *bounds) SetUngroupedDefaults() { b.Units = "volts" }
+
+func (b *bounds) DefaultGroups() {
+	if b.Min == 0 && b.Max == 0 {
+		b.Max = 1
+	}
+}
+
 var _ = Describe("Fill", func() {
+	DescribeTable("Should fill a default group only when all of its members are zero",
+		func(in, expected bounds) {
+			Expect(defaults.Fill(in)).To(Equal(expected))
+		},
+		Entry("all zero", bounds{}, bounds{Max: 1, Units: "volts"}),
+		Entry("one member set", bounds{Min: -10}, bounds{Min: -10, Units: "volts"}),
+		Entry(
+			"both members set",
+			bounds{Min: -10, Max: 10},
+			bounds{Min: -10, Max: 10, Units: "volts"},
+		),
+	)
+
+	It("Should fill a default group in a slice element", func() {
+		Expect(defaults.Fill([]bounds{{Min: -10}, {}})).To(Equal([]bounds{
+			{Min: -10, Units: "volts"},
+			{Max: 1, Units: "volts"},
+		}))
+	})
+
 	It("Should start an empty value from its defaults", func() {
 		Expect(defaults.Fill(tree{})).To(Equal(tree{
 			Name:  "untitled",
