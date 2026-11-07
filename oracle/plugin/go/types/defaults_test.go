@@ -1452,7 +1452,7 @@ var _ = Describe("Decode-time default generation", func() {
 		)
 
 		It(
-			"Should decode over the ungrouped defaults, then set the zero groups",
+			"Should set the groups of a decoded value only when it started zero",
 			func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/x"
@@ -1464,12 +1464,42 @@ var _ = Describe("Decode-time default generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+					"\tfresh := reflect.ValueOf(*c).IsZero()\n\tif fresh {\n"+
+						"\t\tc.SetUngroupedDefaults()\n\t}\n"+
 						"\tif err := json.UnmarshalDecode(dec, (*plain)(c)); err != nil {"+
-						"\n\t\treturn err\n\t}\n\tc.DefaultGroups()\n\treturn nil\n}",
-					"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+						"\n\t\treturn err\n\t}\n"+
+						"\tif fresh {\n\t\tc.DefaultGroups()\n\t}"+
+						"\n\treturn nil\n}",
+					"\tfresh := reflect.ValueOf(*c).IsZero()\n\tif fresh {\n"+
+						"\t\tc.SetUngroupedDefaults()\n\t}\n"+
 						"\tif err := dec.Decode((*plain)(c)); err != nil {"+
-						"\n\t\treturn err\n\t}\n\tc.DefaultGroups()\n\treturn nil\n}",
+						"\n\t\treturn err\n\t}\n"+
+						"\tif fresh {\n\t\tc.DefaultGroups()\n\t}"+
+						"\n\treturn nil\n}",
+				)
+			},
+		)
+
+		It(
+			"Should set a nested field's groups from the parent that prefilled it",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+					units string  = "volts"
+				}
+
+				Cfg struct { range Range }
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetUngroupedDefaults() {\n"+
+						"\tc.Range.SetUngroupedDefaults()\n}",
+					"func (c *Cfg) DefaultGroups() {\n\tc.Range.DefaultGroups()\n}",
+					"func (r *Range) UnmarshalJSONFrom(",
 				)
 			},
 		)
