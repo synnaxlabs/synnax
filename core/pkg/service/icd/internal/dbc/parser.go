@@ -429,10 +429,11 @@ func (p *parser) optionalObjectType() ObjectType {
 func (p *parser) messageID() MessageID {
 	tok := p.peekToken()
 	u := p.uint()
-	if u > math.MaxUint32 {
-		p.failf(tok.pos, "invalid message ID: %v", u)
+	if u <= math.MaxUint32 {
+		return MessageID(u)
 	}
-	return MessageID(u)
+	p.failf(tok.pos, "invalid message ID: %v", u)
+	return 0
 }
 
 func (p *parser) signalValueType() SignalValueType {
