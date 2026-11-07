@@ -232,9 +232,12 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 					Entry(&tsk).
 					Exec(ctx, nil); err == nil && tsk.Rack == d.rack.Key {
 					d.cfg.L.Warn(
-						"received command for unknown task",
+						"received command for a task with no instance",
 						zap.Stringer("task", cmd.Task),
 					)
+					if cmd.Key != NoCommand {
+						d.refuseCommand(ctx, tsk, cmd)
+					}
 				}
 				continue
 			}
@@ -338,36 +341,64 @@ func (d *Driver) ackFailure(
 }
 
 // refusePinnedStart answers a pinned start whose config changed after the sender saw
-// it. The live instance runs on as it was, so the status keeps the stored running state
-// and config hash.
+// it. The live instance runs on as it was.
 func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: status.VariantWarning,
-		Message: "Config changed",
-		Description: "The task config changed after you saw it. Review the task, " +
-			"then start it again.",
-		Details: task.StatusDetails{Task: t.Key, Rack: t.Rack, Cmd: cmd.Key},
-	}
-	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var stored task.Status
-		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
-			Entry(&stored).
-			Exec(ctx, tx); err == nil {
-			stat.Details.Running = stored.Details.Running
-			stat.Details.ConfigHash = stored.Details.ConfigHash
-		} else if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		stat.Time = telem.Now()
-		return d.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	if err := d.answer(ctx, t, cmd.Key, func(stat *task.Status) {
+		stat.Variant = status.VariantWarning
+		stat.Message = "Config changed"
+		stat.Description = "The task config changed after you saw it. Review the " +
+			"task, then start it again."
 	}); err != nil {
 		d.cfg.L.Error("failed to write refused start status", zap.Error(err))
 	}
 }
 
+// refuseCommand answers a command for t, which has no live instance. A stored error,
+// such as a failed configure, says why the task is not running.
+func (d *Driver) refuseCommand(ctx context.Context, t task.Task, cmd task.Command) {
+	if err := d.answer(ctx, t, cmd.Key, func(stat *task.Status) {
+		stat.Details.Running = false
+		if stat.Variant == status.VariantError {
+			return
+		}
+		stat.Variant = status.VariantError
+		stat.Message = "Task is not running"
+		stat.Description = "The task did not start on this Driver. Deploy the task " +
+			"again, then retry."
+	}); err != nil {
+		d.cfg.L.Error("failed to write refused command status", zap.Error(err))
+	}
+}
+
+// answer writes a status for t that answers cmdKey. It starts from the stored status,
+// so the name, running state, and config hash stay as they were, and edit sets the
+// rest.
+func (d *Driver) answer(
+	ctx context.Context,
+	t task.Task,
+	cmdKey string,
+	edit func(*task.Status),
+) error {
+	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		stat := task.Status{Key: t.OntologyID().String(), Name: t.Name}
+		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Entry(&stat).
+			Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		edit(&stat)
+		stat.Details.Task = t.Key
+		stat.Details.Rack = t.Rack
+		stat.Details.Cmd = cmdKey
+		stat.Details.Data = nil
+		stat.Time = telem.Now()
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	})
+}
+
+// exec runs cmd on t. A task answers the commands it runs, so an error from t means no
+// one answered cmd, and exec answers it.
 func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 	sCtx, cancel := signal.WithTimeout(
 		ctx,
@@ -379,20 +410,69 @@ func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 		func(ctx context.Context) error { return t.Exec(ctx, cmd) },
 		signal.RecoverWithErrOnPanic(),
 	)
-	if err := sCtx.Wait(); err != nil {
-		if errors.Is(err, ErrUnsupportedCommand) {
-			d.cfg.L.Warn(
-				"unsupported command",
-				zap.Stringer("command", cmd),
-				zap.Stringer("task", cmd.Task),
-			)
-			return
-		}
+	err := sCtx.Wait()
+	if err == nil {
+		return
+	}
+	description := err.Error()
+	switch {
+	case errors.Is(err, ErrUnsupportedCommand):
+		d.cfg.L.Warn(
+			"unsupported command",
+			zap.Stringer("command", cmd),
+			zap.Stringer("task", cmd.Task),
+		)
+		description = unsupportedDescription(cmd.Type)
+	case errors.Is(err, context.DeadlineExceeded):
+		d.cfg.L.Error("command timed out", zap.Stringer("command", cmd))
+		description = fmt.Sprintf(
+			"The task did not finish the command within %s.",
+			d.cfg.TaskTimeout,
+		)
+	default:
 		d.cfg.L.Error("failed to execute command",
 			zap.Stringer("command", cmd),
 			zap.Error(err),
 		)
 	}
+	var tsk task.Task
+	if err = d.cfg.Task.NewRetrieve().
+		Where(task.MatchKeys(cmd.Task)).
+		Entry(&tsk).
+		Exec(ctx, nil); err != nil {
+		// A status written for a deleted task would recreate the one the delete
+		// removed.
+		if !errors.Is(err, query.ErrNotFound) {
+			d.cfg.L.Error("failed to retrieve task for command failure", zap.Error(err))
+		}
+		return
+	}
+	if err = d.answer(ctx, tsk, cmd.Key, func(stat *task.Status) {
+		stat.Variant = status.VariantError
+		stat.Message = failureMessage(cmd.Type)
+		stat.Description = description
+	}); err != nil {
+		d.cfg.L.Error("failed to write command failure status", zap.Error(err))
+	}
+}
+
+// failureMessage returns the message of an error status that answers a command of
+// cmdType.
+func failureMessage(cmdType string) string {
+	switch cmdType {
+	case startCommandType:
+		return "Failed to start task"
+	case stopCommandType:
+		return "Failed to stop task"
+	default:
+		return "Failed to execute command"
+	}
+}
+
+// unsupportedDescription returns the description of an error status that answers a
+// command of cmdType, which the task does not support.
+func unsupportedDescription(cmdType string) string {
+	return fmt.Sprintf("The task does not accept the '%s' command.", cmdType)
 }
 
 // handleTaskChange stops live instances of deleted tasks. Sets are ignored:

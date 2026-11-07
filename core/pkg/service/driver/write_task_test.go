@@ -178,7 +178,7 @@ var _ = Describe("WriteTask", func() {
 				sink.openErr = errors.New("broker refused the connection")
 				wt := open()
 				Expect(wt.Exec(ctx, task.Command{Type: "start", Key: "cmd-3"})).
-					To(MatchError("broker refused the connection"))
+					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))

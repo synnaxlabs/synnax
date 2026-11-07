@@ -733,9 +733,10 @@ var _ = Describe("Read task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("no committed offset")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("no committed offset"))
 			Expect(stat.Details.Running).To(BeFalse())
 		},
 	)

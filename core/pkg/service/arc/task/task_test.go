@@ -947,7 +947,7 @@ var _ = Describe("Task", Ordered, func() {
 				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
-					To(MatchError(`unknown performance "unknown"`))
+					To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](

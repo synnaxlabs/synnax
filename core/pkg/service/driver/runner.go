@@ -112,15 +112,27 @@ func NewRunner(cfgs ...RunnerConfig) (*Runner, error) {
 	}, nil
 }
 
-// Exec implements Task.
+// Exec implements Task. Start and stop answer the command, failures included, so Exec
+// returns nil for them unless ctx ended.
 func (r *Runner) Exec(ctx context.Context, cmd task.Command) error {
+	var err error
 	switch cmd.Type {
 	case startCommandType:
-		return r.Start(ctx, cmd.Key)
+		err = r.Start(ctx, cmd.Key)
 	case stopCommandType:
-		return r.stop(ctx, cmd.Key, true)
+		err = r.stop(ctx, cmd.Key, true)
+	default:
+		return ErrUnsupportedCommand
 	}
-	return ErrUnsupportedCommand
+	// The Runner answered cmd, unless ctx ended first and the status write failed too.
+	if err == nil || ctx.Err() != nil {
+		return err
+	}
+	r.cfg.L.Error("failed to execute command",
+		zap.Stringer("command", cmd),
+		zap.Error(err),
+	)
+	return nil
 }
 
 // Stop implements Task.

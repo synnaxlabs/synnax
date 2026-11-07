@@ -163,6 +163,35 @@ var _ = Describe("Runner", func() {
 			},
 		)
 
+		It("Should return no error from Exec for a start it answered",
+			func(ctx SpecContext) {
+				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
+					DB:     db,
+					Status: statusSvc,
+					Task:   t,
+					Open: func(context.Context) (func(context.Context) error, error) {
+						return nil, errors.New("port is in use")
+					},
+				}))
+				Expect(r.Exec(ctx, task.Command{Type: "start", Key: "cmd-1"})).
+					To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+			},
+		)
+
+		It("Should return the error from Exec for a start it could not answer",
+			func(ctx SpecContext) {
+				unwritable := gorp.Wrap(uncommittableDB{DB: db.KV()})
+				r := openOn(unwritable, waitRun)
+				canceled, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(r.Exec(canceled, task.Command{Type: "start", Key: "cmd-1"})).
+					To(MatchError(errCommit))
+			},
+		)
+
 		It("Should report a run that ends on its own", func(ctx SpecContext) {
 			r := open(func(context.Context) error { return errors.New("boom") })
 			Expect(r.Start(ctx, "cmd-1")).To(Succeed())

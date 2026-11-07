@@ -310,16 +310,27 @@ func enums(entries []http.EnumEntry) []xjson.Enum {
 }
 
 // Exec implements driver.Task. Every command it handles ends in a status carrying the
-// command key, so a caller waiting on the command always resolves.
+// command key, failures included, so Exec returns nil for it unless ctx ended.
 func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
+	var err error
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx, cmd.Key)
+		err = t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx, cmd.Key, true)
+		err = t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
+	// The task answered cmd, unless ctx ended first and the status write failed too.
+	if err == nil || ctx.Err() != nil {
+		return err
+	}
+	t.factoryCfg.L.Error("failed to execute command",
+		zap.Stringer("task", t.task.Key),
+		zap.Stringer("command", cmd),
+		zap.Error(err),
+	)
+	return nil
 }
 
 // Stop implements driver.Task.

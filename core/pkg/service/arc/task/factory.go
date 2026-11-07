@@ -153,7 +153,7 @@ func (f *factory) ConfigureTask(
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
-		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
+		if err := arcTask.start(ctx, driver.NoCommand); err != nil {
 			return nil, err
 		}
 	}

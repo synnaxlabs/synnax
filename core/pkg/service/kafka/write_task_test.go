@@ -247,9 +247,10 @@ var _ = Describe("Write task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("connecting to cluster")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("connecting to cluster"))
 			Expect(stat.Details.Running).To(BeFalse())
 			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
