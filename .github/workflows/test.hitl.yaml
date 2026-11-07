@@ -45,7 +45,7 @@ jobs:
     name: Test (synnax-server-1)
     needs: build
     runs-on: [self-hosted, hitl]
-    timeout-minutes: 60
+    timeout-minutes: 90
     # One run at a time holds the hardware.
     concurrency:
       group: hitl
