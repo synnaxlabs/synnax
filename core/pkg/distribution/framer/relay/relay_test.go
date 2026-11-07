@@ -221,17 +221,11 @@ var _ = Describe("Relay", func() {
 							},
 						))).To(BeTrue())
 					}
-					received := 0
-					Eventually(func() int {
-						for {
-							select {
-							case <-live.Outlet():
-								received++
-							default:
-								return received
-							}
-						}
-					}).Should(Equal(batchSize))
+					for range batchSize {
+						Eventually(live.Outlet()).
+							WithPolling(time.Millisecond).
+							Should(Receive())
+					}
 				}
 				return time.Since(start)
 			}
