@@ -88,8 +88,13 @@ class Master final : public master::Master {
     int expected_wkc;
     /// @brief whether the enabled slaves' frames carry the reference clock time.
     bool has_dc = false;
-    /// @brief the process data frames that came back to the master.
+    /// @brief the frames that came back to the master.
     std::atomic<uint64_t> frames{0};
+    /// @brief whether the cycle holds process data back. A frame then carries only the
+    /// reference clock time.
+    std::atomic<bool> process_data_held{false};
+    /// @brief whether the last send held process data back. Only the cycle uses it.
+    bool last_send_held = false;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
