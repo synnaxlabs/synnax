@@ -105,6 +105,24 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 		})
 
+		It("Should reject a create that sets a stored positive scale to zero", func(
+			ctx SpecContext,
+		) {
+			sym := defaults.Fill(symbol.Symbol{
+				Name: "stored",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+				To(Succeed())
+			Expect(sym.Data.Scale).To(Equal(1.0))
+			sym.Data.Scale = 0
+			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data.scale: must be positive")),
+				))
+		})
+
 		It("Should reject a decoded symbol with a zero scale", func(ctx SpecContext) {
 			var sym symbol.Symbol
 			Expect(json.Unmarshal([]byte(
