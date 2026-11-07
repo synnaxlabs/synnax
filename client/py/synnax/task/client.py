@@ -666,7 +666,7 @@ class Client:
         name: str,
         *,
         snapshot: Literal[True],
-        range_key: UUID | None = None,
+        range_key: ranger.Key | None = None,
     ) -> Task: ...
 
     def copy(
@@ -675,7 +675,7 @@ class Client:
         name: str,
         *,
         snapshot: bool = False,
-        range_key: UUID | None = None,
+        range_key: ranger.Key | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
