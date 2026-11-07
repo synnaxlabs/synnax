@@ -242,10 +242,10 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
   }
 };
 
-const uniqueFieldName = (fields: Field[]): string => {
-  const names = new Set(fields.map(({ name }) => name));
-  let i = fields.length + 1;
-  while (names.has(`Field ${i}`)) i++;
+const uniqueFieldName = (names: string[]): string => {
+  const taken = new Set(names);
+  let i = names.length + 1;
+  while (taken.has(`Field ${i}`)) i++;
   return `Field ${i}`;
 };
 
@@ -373,8 +373,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
     if (updated.length > own.length) push(updated.slice(own.length));
   };
   const handleRemove = (index: number) => remove(own[index].key);
-  const createRow = () =>
-    columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
+  // A paste adds several rows before any is stored. Each grid's first column is the
+  // name.
+  const createRow = (value: Input.TableCell[][]) => {
+    const added = value.slice(own.length).map(([name]) => String(name));
+    const fieldName = uniqueFieldName([...fields.map((f) => f.name), ...added]);
+    return columns.map((c) => c.get(createField(encoding, fieldName)));
+  };
   const failing = own.findIndex((f) => matchOwnField(status?.key, path, f));
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;

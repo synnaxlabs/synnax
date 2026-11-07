@@ -266,6 +266,19 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should give each field a paste adds its own name", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Pointer 1");
+    fireEvent.focus(input);
+    fireEvent.paste(input, { clipboardData: { getData: () => "/a\n/b\n/c" } });
+    await waitFor(async () =>
+      expect(
+        (await retrieveMessage(ic.key)).payload.fields.map(({ name }) => name),
+      ).toEqual(["Temp", "Field 2", "Field 3"]),
+    );
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
