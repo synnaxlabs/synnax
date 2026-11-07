@@ -35,8 +35,11 @@ const auto LATE_GAP = EMISSION_RATE.period() * 3;
 
 /// @brief the variant, message, and description that each heartbeat reports.
 struct Health {
+    /// @brief the status variant, such as success or error.
     std::string variant = ::synnax::status::VARIANT_SUCCESS;
+    /// @brief what the heartbeat reports, in one short line.
     std::string message = "Driver is running";
+    /// @brief why, and what to do now. Empty when the Driver is healthy.
     std::string description;
 };
 
