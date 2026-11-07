@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -30,7 +31,7 @@ class SemiPeriod(Counter):
         name: str,
         device: str,
         *,
-        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
+        units: sy.ni.CITimeUnits | Literal["Custom"] | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         """Initialize semi period channel with configuration."""

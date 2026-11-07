@@ -75,11 +75,12 @@ Then press **Ctrl+C**, or right-click and select **Copy**.
 
 On the **Properties** tab of the component toolbar:
 
-| Field               | Default | Description                                               |
-| ------------------- | ------- | --------------------------------------------------------- |
-| Show timestamps     | On      | Shows the time of day of the sample, in local time.       |
-| Timestamp precision | 0       | The number of decimal places of the seconds, from 0 to 3. |
-| Show channel names  | On      | Shows the channel name, or its alias, before the value.   |
+| Field               | Default | Description                                                  |
+| ------------------- | ------- | ------------------------------------------------------------ |
+| Show timestamps     | On      | Shows the time of day of the sample.                         |
+| Timestamp precision | 0       | The number of decimal places of the seconds, from 0 to 3.    |
+| Time zone           | Local   | The time zone of the line times, day rows, and copied dates. |
+| Show channel names  | On      | Shows the channel name, or its alias, before the value.      |
 
 The timestamp is the time of the sample from the channel's index. Lines show in the
 order of these times, across all channels. A virtual channel has no index, so its lines
@@ -97,6 +98,9 @@ with the date as `YYYY-MM-DD`.
   can reach every stored value. The scrollbar shows your place in time across all stored
   values. A log of only virtual channels shows your place in the lines held.
 - A virtual channel stores no values, so its removed lines do not come back.
+- Select all covers only the lines held, not every stored value.
+- On an HTTP address, the browser Console copies plain text, and the browser can refuse
+  a very large copy. The Console then shows an error.
 - A value with more than one line of text shows as several lines.
 - A value wider than the log wraps. Copied lines stay in one piece.
 

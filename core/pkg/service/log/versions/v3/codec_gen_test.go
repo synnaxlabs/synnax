@@ -107,9 +107,10 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 17,
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
-				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 			}),
 			Entry("zero values", v3.Log{
 				Key:                uuid.Nil(),
@@ -118,6 +119,7 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 0,
 				ChannelNamesHidden: false,
 				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone(""),
 				Group:              nil,
 				Project:            nil,
 				Range:              nil,
@@ -129,9 +131,10 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 5,
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
-				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 			}),
 		)
 	})
@@ -194,9 +197,10 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		TimestampPrecision: 17,
 		ChannelNamesHidden: true,
 		TimestampsHidden:   false,
-		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-		Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+		TimeZone:           telem.TimeZone("local"),
+		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+		Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -305,9 +309,10 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 17,
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
-			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -323,6 +328,7 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 0,
 			ChannelNamesHidden: false,
 			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone(""),
 			Group:              nil,
 			Project:            nil,
 			Range:              nil,
@@ -341,9 +347,10 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 5,
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
-			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

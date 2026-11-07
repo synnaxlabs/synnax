@@ -29,9 +29,12 @@ export {
   watch,
 } from "@/query/query";
 export {
+  addressesOne,
+  dropOne,
   keyListZ,
   keysRequest,
   keysRequestZ,
+  type OneInput,
   type RequestInput,
   Retriever,
   type RetrieverParams,

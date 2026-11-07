@@ -14,7 +14,16 @@ from synnax.access.role.types_gen import (
     Key,
     Role,
     Where,
+    WhereInput,
     resource_id,
 )
 
-__all__ = ["TYPE_RESOURCE_ID", "Client", "Key", "Role", "Where", "resource_id"]
+__all__ = [
+    "TYPE_RESOURCE_ID",
+    "Client",
+    "Key",
+    "Role",
+    "Where",
+    "WhereInput",
+    "resource_id",
+]

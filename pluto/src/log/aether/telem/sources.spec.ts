@@ -18,7 +18,7 @@ import {
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
   StreamMultiChannelLog,
@@ -237,8 +237,10 @@ describe("StreamMultiChannelLog", () => {
     await expect.poll(() => statuses.length, POLL).toBe(1);
     expect(statuses[0]).toMatchObject({
       variant: "warning",
+      name: core.data[0].name,
       message: "Dropped log samples with no time",
     });
+    expect(statuses[0].description).not.toContain(String(a));
     expect(entriesOf(log)).toEqual([]);
     expect(log.value().status.variant).toBe("success");
   });
@@ -1087,6 +1089,51 @@ describe("StreamMultiChannelLog", () => {
       core.advance(TimeSpan.seconds(1));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
       expect(reads).toBe(1);
+    });
+
+    it("should be exhausted when no channel stores samples", async () => {
+      const core = createCore({ derived: true });
+      const { virtual } = core;
+      assert(virtual != null);
+      const log = open(core, connect(core), { channels: [virtual.key] });
+      log.value();
+      await expect.poll(() => core.streams(virtual.key), POLL).toBe(true);
+      expect(log.exhausted).toBe(true);
+    });
+
+    it("should not be exhausted while stored samples wait for their times", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let calls = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          calls++;
+          if (keys.includes(a))
+            return core.readLatest(
+              keys.filter((key) => key !== core.index.key),
+              count,
+              tr,
+            );
+          await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      log.value();
+      await expect.poll(() => calls, POLL).toBe(2);
+      expect(log.exhausted).toBe(false);
+      release();
+      await settle(log, HISTORY);
+      expect(log.exhausted).toBe(true);
+    });
+
+    it("should not be exhausted while older samples are stored", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, PAGE);
+      expect(log.exhausted).toBe(false);
     });
 
     it("should have no time range for virtual channels", async () => {

@@ -507,6 +507,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Server connected");
+    EXPECT_TRUE(devices[0].status.value().details.connected);
 }
 
 /// @brief it should not open a session of its own when a task received a reply from the
@@ -554,6 +555,7 @@ TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
     const auto second = this->scan(scanner, dev);
     EXPECT_EQ(second[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(second[0].status.value().message, "Failed to reach server");
+    EXPECT_FALSE(second[0].status.value().details.connected);
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -739,6 +741,7 @@ TEST_F(TestScanTask, testHealthCheckCertificateMismatch) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server certificate not trusted");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server presented the certificate " + server_id.certificate.thumbprint() +
@@ -766,6 +769,7 @@ TEST_F(TestScanTask, testHealthCheckValidationDisabled) {
         scanned[0].status.value().message,
         "Connected without certificate validation"
     );
+    EXPECT_TRUE(scanned[0].status.value().details.connected);
     EXPECT_FALSE(scanned[0].properties.at("connection").contains("server_certificate"));
 }
 
@@ -783,6 +787,7 @@ TEST_F(TestScanTask, testHealthCheckDriverCertificateRejected) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Server rejected the Driver certificate");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "The server rejected the connection's security checks "
@@ -876,6 +881,7 @@ TEST_F(TestScanTask, testRenewalWaitsForServers) {
     const auto &status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Server does not trust the next certificate");
+    EXPECT_TRUE(status.details.connected);
     EXPECT_EQ(
         status.description,
         "Approve the next Driver certificate " + next.value().certificate.thumbprint() +

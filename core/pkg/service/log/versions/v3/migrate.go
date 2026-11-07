@@ -13,14 +13,19 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// MigrateLog lifts a v2 log to v3, clamping the timestamp precision to 0-3.
+// MigrateLog lifts a v2 log to v3, clamping the timestamp precision to 0-3. It drops
+// entries with channel 0 and keeps the first entry of each channel, as a later edit
+// would otherwise fail validation.
 func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	out, err := autoMigrateLog(ctx, old)
 	if err != nil {
@@ -28,6 +33,14 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	}
 	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 3))
 	out.TimestampsHidden = old.ReceiptTimestampHidden
+	out.TimeZone = telem.TimeZoneLocal
+	out.Channels = lo.UniqBy(
+		lo.Reject(
+			out.Channels,
+			func(e ChannelEntry, _ int) bool { return e.Channel == 0 },
+		),
+		func(e ChannelEntry) channel.Key { return e.Channel },
+	)
 	return out, nil
 }
 
@@ -62,7 +75,7 @@ func cutToCharacters(s string, n int) string {
 }
 
 // Migration lifts stored logs from v2 to v3.
-var Migration = migrate.NewEntry("v60_optional_channel_precision", MigrateLog)
+var Migration = migrate.NewEntry("v61_optional_channel_precision", MigrateLog)
 
 // MembersMigration sets the group of each stored log from the ontology edge that placed
 // it in a group.

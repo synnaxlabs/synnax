@@ -73,8 +73,14 @@ var _ = Describe("Log", func() {
 	})
 
 	Describe("Validate", func() {
-		It("Should accept a defaulted log with an absent precision", func() {
+		It("Should reject a channel of 0", func() {
 			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.channel")))
+		})
+
+		It("Should accept a defaulted log with an absent precision", func() {
+			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Channel: 1}}}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(Succeed())
 		})
@@ -82,8 +88,10 @@ var _ = Describe("Log", func() {
 		DescribeTable("Should accept a precision in range",
 			func(precision uint8) {
 				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
+					Name: "valid",
+					Channels: []v3.ChannelEntry{
+						{Channel: 1, Precision: new(precision)},
+					},
 				}
 				l.ApplyDefaults()
 				Expect(l.Validate()).To(Succeed())
@@ -95,8 +103,10 @@ var _ = Describe("Log", func() {
 		DescribeTable("Should reject a precision out of range",
 			func(precision uint8) {
 				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
+					Name: "valid",
+					Channels: []v3.ChannelEntry{
+						{Channel: 1, Precision: new(precision)},
+					},
 				}
 				l.ApplyDefaults()
 				Expect(
@@ -108,8 +118,10 @@ var _ = Describe("Log", func() {
 
 		It("Should accept an alias at the maximum length", func() {
 			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 64)}},
+				Name: "valid",
+				Channels: []v3.ChannelEntry{
+					{Channel: 1, Alias: strings.Repeat("a", 64)},
+				},
 			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(Succeed())
@@ -117,8 +129,10 @@ var _ = Describe("Log", func() {
 
 		It("Should reject an alias past the maximum length", func() {
 			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 65)}},
+				Name: "valid",
+				Channels: []v3.ChannelEntry{
+					{Channel: 1, Alias: strings.Repeat("a", 65)},
+				},
 			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
@@ -134,7 +148,10 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should path an invalid notation to its channel", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Notation: "bogus"}}}
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Channel: 1, Notation: "bogus"}},
+			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
 		})
@@ -159,8 +176,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 86 bytes", func() {
-			Expect(encode()).To(HaveLen(86))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -187,9 +204,10 @@ var _ = Describe("Log", func() {
 			Entry("timestamp precision", 80),
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
-			Entry("group presence", 83),
-			Entry("project presence", 84),
-			Entry("range presence", 85),
+			Entry("time zone", 85),
+			Entry("group presence", 87),
+			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

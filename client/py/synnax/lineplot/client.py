@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
@@ -20,8 +20,9 @@ from synnax.lineplot.types_gen import (
     RetrieveRequest,
     RetrieveResponse,
     Where,
+    WhereInput,
 )
-from synnax.util import one
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -100,56 +101,85 @@ class Client:
         return res.line_plots[0] if is_single else res.line_plots
 
     @overload
-    def retrieve(self, *, key: Key) -> LinePlot: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        one: bool = ...,
+    ) -> LinePlot: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
+        key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[True],
+    ) -> LinePlot: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        one: Literal[False] = ...,
     ) -> list[LinePlot]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
         where: Where | None = None,
-        projects: list[project_.Key] | None = None,
-        ranges: list[ranger.Key] | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> LinePlot | list[LinePlot]:
-        """Retrieves line plots. With no arguments, it retrieves all of them.
+        """Retrieves line plots. With no arguments, retrieves every line plot.
 
-        :param key: The key of a single line plot to retrieve.
-        :param keys: The keys of the line plots to retrieve.
-        :param where: A filter that the line plots must also match.
-        :param projects: The keys of projects. Only the line plots these projects own
-            are returned.
-        :param ranges: The keys of ranges. Only the line plots these ranges own are
-            returned.
-        :returns: The line plot when ``key`` is provided, otherwise a list.
-            The list leaves out keys that do not exist.
-        :raises NotFoundError: If ``key`` is provided and no line plot has it.
+        Each filter field takes a value, a list of values, or an operator, and a line
+        plot must match every field. A plain ``key`` returns one line plot.
+
+        :param key: Keeps line plots with this key.
+        :param and_: Keeps line plots that match every filter in the list.
+        :param or_: Keeps line plots that match any filter in the list.
+        :param not_: Keeps line plots that do not match the filter.
+        :param where: A filter tree that the line plots must also match.
+        :param keys: Keeps line plots with one of these keys.
+        :param projects: Keeps the line plots owned by any of these projects.
+        :param ranges: Keeps the line plots owned by any of these ranges.
+        :param one: Returns one line plot for any filter.
+        :returns: One line plot for a plain ``key`` or when ``one`` is set, otherwise a
+            list of line plots. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one line plot is wanted and none matches.
+        :raises MultipleFoundError: If one line plot is wanted and more than one
+            matches.
+        :raises ValidationError: If a filter field is None.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        flat = Where(
-            key=None if keys is None else filter.Set[Key](in_=keys),
-            projects=projects,
-            ranges=ranges,
+        single = returns_one(fields, one, None, 0)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields)
         )
-        res = self._client.send(
-            "/lineplot/retrieve",
-            RetrieveRequest(where=filter.merge(where, flat)),
-            RetrieveResponse,
-        )
-        if not is_single:
-            return res.line_plots
-        return one("Line plot", key, res.line_plots)
+        res = self._client.send("/lineplot/retrieve", req, RetrieveResponse)
+        return sole("Line plot", fields, res.line_plots) if single else res.line_plots
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.

@@ -25,6 +25,12 @@ value of every output of the task in one call.
 Before you start, you need a
 [configured device](/reference/hardware/ni/configure-device).
 
+The Console gives the analog write tasks of a device one state index channel, and only
+one writer can hold an index channel. So only one of these tasks can run on a device at
+a time, even when the tasks use different ports. A second task stops right after it
+starts, with an error that names the running task. Tasks from a client library have this
+limit only when they share an index channel.
+
 <Divider.Divider x />
 
 ## Create an NI analog write task
@@ -246,6 +252,19 @@ Two channels use the same port.
 <Problem.Fix>
 
 Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has no control authority - it is currently held by ..."}>
+<Problem.Cause>
+
+Another running task writes to the same index channel. The error names that task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other task, or move its channels into this task.
 
 </Problem.Fix>
 </Problem.Item>

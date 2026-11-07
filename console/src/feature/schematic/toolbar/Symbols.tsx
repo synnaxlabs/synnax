@@ -240,7 +240,7 @@ const RemoteListEmptyContent = ({
 
 const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
-    initialQuery: { groups: [groupKey] },
+    query: { groups: [groupKey] },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
@@ -454,7 +454,7 @@ const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
-  const remoteData = Group.useList({ initialQuery: Schematic.Symbol.GROUP_QUERY });
+  const remoteData = Group.useList({ query: Schematic.Symbol.GROUP_QUERY });
   useEffect(
     () => remoteData.retrieve(Schematic.Symbol.GROUP_QUERY),
     [remoteData.retrieve],
@@ -503,7 +503,7 @@ const searchListItem = Component.renderProp(SearchListItem);
 
 const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList({
-    initialQuery: { searchTerm },
+    query: { searchTerm },
   });
   const staticData = List.useStaticData<string, Schematic.Node.Spec>({
     data: Schematic.Node.STATIC_SPECS,

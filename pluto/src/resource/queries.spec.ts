@@ -108,7 +108,7 @@ describe("Resource Queries", () => {
       await expect
         .poll(async () => (await client.resources.search(query)).length)
         .toEqual(1);
-      const { result } = renderHook(() => Resource.useList({ initialQuery: query }), {
+      const { result } = renderHook(() => Resource.useList({ query }), {
         wrapper,
       });
       expect(result.current.data).toEqual([resource.idToString(l)]);

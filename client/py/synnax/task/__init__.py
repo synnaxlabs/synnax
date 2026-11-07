@@ -34,6 +34,7 @@ from synnax.task.types_gen import (
     StatusDetails,
     TableScale,
     Where,
+    WhereInput,
     WriteConfig,
     resource_id,
 )
@@ -62,6 +63,7 @@ __all__ = [
     "TableScale",
     "Task",
     "Where",
+    "WhereInput",
     "WriteConfig",
     "assign_keys",
     "resource_id",

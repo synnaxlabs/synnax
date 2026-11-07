@@ -650,6 +650,20 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		data.AddInternal("x/cpp/json/json.h")
 	}
 
+	if entry.Filter != nil {
+		sd.IsFilter = true
+		data.AddSystem("utility")
+	}
+
+	if where, ok := requestFilter(entry, data.table); ok {
+		sd.Where = where.Name
+		sd.OptionsName = strings.TrimSuffix(sd.Name, "Request") + "Options"
+		sd.Options = lo.Filter(sd.Fields, func(f fieldData, _ int) bool {
+			return f.Name != "where"
+		})
+		data.AddSystem("utility")
+	}
+
 	if form.IsGeneric() {
 		data.AddSystem("type_traits")
 	}
@@ -866,6 +880,8 @@ func (p *Plugin) processField(
 	var defaultValue string
 	if !field.Optional {
 		defaultValue = p.zeroValue(field.Type, data)
+	} else if lineType, ok := p.filterLineType(field, entry, data); ok {
+		cppType = lineType
 	} else if Indirect(field, entry, data.table) {
 		data.AddInternal("x/cpp/mem/indirect.h")
 		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
@@ -893,6 +909,47 @@ func (p *Plugin) processField(
 		Doc:          doc.Get(field.Domains),
 		DefaultValue: defaultValue,
 	}
+}
+
+// requestFilter returns the filter that derives entry as its retrieve request.
+func requestFilter(
+	entry resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	return lo.Find(table.StructTypes(), func(t resolution.Type) bool {
+		return t.Filter != nil && t.Filter.Request == entry.QualifiedName
+	})
+}
+
+// filterLineType returns the C++ type of a line of the filter entry, which takes a
+// plain value or a list in a designated initializer. A bare line holds an operator in
+// an x::filter::Field, and a typed list line is an x::filter::List. It returns false
+// for any other field.
+func (p *Plugin) filterLineType(
+	field resolution.Field,
+	entry resolution.Type,
+	data *templateData,
+) (string, bool) {
+	if entry.Filter == nil {
+		return "", false
+	}
+	line, ok := lo.Find(entry.Filter.Lines, func(l resolution.Field) bool {
+		return l.Name == field.Name
+	})
+	if !ok {
+		return "", false
+	}
+	if !line.HasType() {
+		data.AddInternal("x/cpp/filter/field.h")
+		op := p.typeRefToCpp(field.Type, data)
+		return fmt.Sprintf("::x::filter::Field<%s>", op), true
+	}
+	if field.Type.Name == "Array" && field.Type.ArraySize == nil {
+		data.AddInternal("x/cpp/filter/field.h")
+		elem := p.typeRefToCpp(field.Type.TypeArgs[0], data)
+		return fmt.Sprintf("::x::filter::List<%s>", elem), true
+	}
+	return "", false
 }
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
@@ -1280,6 +1337,14 @@ type structData struct {
 	IsAlias           bool
 	IsGeneric         bool
 	HasExtends        bool
+	// IsFilter is true for the Where of a filter, which combines with &&, ||, and !.
+	IsFilter bool
+	// Where is the filter of a retrieve request, and is empty for any other struct.
+	Where string
+	// OptionsName names the struct that holds Options.
+	OptionsName string
+	// Options are the fields of a retrieve request other than where.
+	Options []fieldData
 }
 
 // inheritedDefaultData assigns a new default to a member declared by a base struct.
@@ -1584,6 +1649,18 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- $s := $d.Struct}}
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
+{{- if $s.Options}}
+/// @brief {{$s.OptionsName}} holds every field of a {{$s.Name}} except where.
+struct {{$s.OptionsName}} {
+{{- range $s.Options}}
+{{- if .Doc}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
+{{- end}}
+    {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+};
+
+{{end}}
 {{- if $s.Doc}}
 {{formatDoc $s.Name $s.Doc}}
 {{end}}
@@ -1605,6 +1682,47 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- range $s.InheritedDefaults}}
         this->{{.Name}} = {{.Value}};
 {{- end}}
+    }
+{{- end}}
+
+{{- if $s.IsFilter}}
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend {{$s.Name}} operator&&({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend {{$s.Name}} operator||({{$s.Name}} a, {{$s.Name}} b) {
+        {{$s.Name}} w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend {{$s.Name}} operator!({{$s.Name}} a) {
+        {{$s.Name}} w;
+        w.not_ = std::move(a);
+        return w;
+    }
+{{- end}}
+{{- if $s.Options}}
+
+    /// @brief returns a request for the records that where selects.
+    static {{$s.Name}}
+    from({{$s.Where}} where, const {{$s.OptionsName}} &options = {}) {
+        return {
+            .where = std::move(where),
+{{- range $s.Options}}
+            .{{.Name}} = options.{{.Name}},
+{{- end}}
+        };
     }
 {{- end}}
 

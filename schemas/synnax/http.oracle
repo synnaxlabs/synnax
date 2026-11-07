@@ -119,6 +119,18 @@ ReadField struct {
     disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
+    optional    bool = false {
+        @doc value """
+            is true when a missing value is normal for this field. The task writes
+            fill_value, or NaN on a float channel, and sends no warning.
+        """
+    }
+    fill_value  any?           {
+        @doc value """
+            is the value written when an optional field is missing, typed by the
+            channel. Unset writes NaN, which needs a float channel.
+        """
+    }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
         @ref on_delete restrict

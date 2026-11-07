@@ -62,6 +62,26 @@ class TestGroupClient:
         with pytest.raises(sy.NotFoundError):
             client.groups.retrieve(uuid4())
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.groups.create(str(uuid4()), scope="channel")
+        res = client.groups.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one group for a plain key beside other fields."""
+        a = client.groups.create(str(uuid4()), scope="channel")
+        assert client.groups.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(sy.NotFoundError, match=r"Group matching .* not found"):
+            client.groups.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the groups that match any filter in or_."""
+        a = client.groups.create(str(uuid4()), scope="channel")
+        b = client.groups.create(str(uuid4()), scope="channel")
+        res = client.groups.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename an existing group."""
         g = client.groups.create(str(uuid4()), scope="channel")
