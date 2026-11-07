@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -252,6 +253,52 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Description).To(ContainSubstring("connecting to cluster"))
 			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+		},
+	)
+
+	It("Should return the error from Exec for a start it could not answer",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			unwritable := newFactory(
+				kafka.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
+			)
+			dt := MustSucceed(unwritable.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(MatchError(errCommit))
+		},
+	)
+
+	It("Should return no error from Exec for a start answered before ctx ended",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			canceling := newFactory(kafka.FactoryConfig{
+				DB:          gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
+				PingTimeout: 100 * telem.Millisecond,
+			})
+			dt := MustSucceed(canceling.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(cmdCtx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Failed to start task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)

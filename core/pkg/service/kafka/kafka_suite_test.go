@@ -124,6 +124,36 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
+var errCommit = errors.New("commit failed")
+
+// uncommittableDB is a kv.DB whose transactions fail to commit.
+type uncommittableDB struct{ kv.DB }
+
+func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
+
+type uncommittableTx struct{ kv.Tx }
+
+func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
+
+// cancelingDB is a kv.DB whose transactions call cancel once they commit.
+type cancelingDB struct {
+	kv.DB
+	cancel context.CancelFunc
+}
+
+func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type cancelingTx struct {
+	kv.Tx
+	db cancelingDB
+}
+
+func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
+	err := t.Tx.Commit(ctx, opts...)
+	t.db.cancel()
+	return err
+}
+
 // gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
 type gatedDB struct {
 	kv.DB

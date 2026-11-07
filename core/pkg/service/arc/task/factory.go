@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -153,7 +154,7 @@ func (f *factory) ConfigureTask(
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
-		if err := arcTask.start(ctx, driver.NoCommand); err != nil {
+		if err := errors.Combine(arcTask.start(ctx, driver.NoCommand)); err != nil {
 			return nil, err
 		}
 	}

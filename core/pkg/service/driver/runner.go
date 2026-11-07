@@ -112,32 +112,33 @@ func NewRunner(cfgs ...RunnerConfig) (*Runner, error) {
 	}, nil
 }
 
-// Exec implements Task. Start and stop answer the command, failures included, so Exec
-// returns nil for them unless ctx ended.
+// Exec implements Task. Start and stop answer the command with a status, failures
+// included, so Exec returns an error only when that status was not written.
 func (r *Runner) Exec(ctx context.Context, cmd task.Command) error {
-	var err error
+	var err, answerErr error
 	switch cmd.Type {
 	case startCommandType:
-		err = r.Start(ctx, cmd.Key)
+		err, answerErr = r.start(ctx, cmd.Key)
 	case stopCommandType:
-		err = r.stop(ctx, cmd.Key, true)
+		err, answerErr = r.stop(ctx, cmd.Key, true)
 	default:
 		return ErrUnsupportedCommand
 	}
-	// The Runner answered cmd, unless ctx ended first and the status write failed too.
-	if err == nil || ctx.Err() != nil {
-		return err
+	if answerErr != nil {
+		return errors.Combine(err, answerErr)
 	}
-	r.cfg.L.Error("failed to execute command",
-		zap.Stringer("command", cmd),
-		zap.Error(err),
-	)
+	if err != nil {
+		r.cfg.L.Error("failed to execute command",
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 
 // Stop implements Task.
 func (r *Runner) Stop(sendStatus bool) error {
-	return r.stop(context.TODO(), NoCommand, sendStatus)
+	return errors.Combine(r.stop(context.TODO(), NoCommand, sendStatus))
 }
 
 // release forgets active and reports whether it was still the current run. The
@@ -181,26 +182,33 @@ func (r *Runner) current() *activeRun {
 }
 
 // Start opens and starts a run, and answers cmdKey. A factory calls it with NoCommand
-// for a task that starts automatically.
+// for a task that starts automatically. It returns an error when the run did not start
+// or its status was not written.
 func (r *Runner) Start(ctx context.Context, cmdKey string) error {
+	return errors.Combine(r.start(ctx, cmdKey))
+}
+
+// start returns the error that kept the run from starting, and the error of the status
+// write that answers cmdKey.
+func (r *Runner) start(ctx context.Context, cmdKey string) (err, answerErr error) {
 	r.lifecycle.Lock()
 	defer r.lifecycle.Unlock()
 	r.mu.Lock()
 	if r.mu.active != nil {
 		defer r.mu.Unlock()
-		return r.status.Ack(ctx, cmdKey, true)
+		return nil, r.status.Ack(ctx, cmdKey, true)
 	}
 	r.mu.Unlock()
 	run, err := r.cfg.Open(ctx)
 	if err != nil {
-		return errors.Combine(err, r.status.Send(
+		return err, r.status.Send(
 			ctx,
 			cmdKey,
 			status.VariantError,
 			false,
 			"Failed to start task",
 			err.Error(),
-		))
+		)
 	}
 	active := &activeRun{}
 	active.sCtx, active.cancel = signal.Isolated(
@@ -211,7 +219,14 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	r.mu.Unlock()
 	// The running status goes out before the run starts, so a run that fails at once
 	// cannot have its error status overwritten.
-	err = r.status.Send(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
+	answerErr = r.status.Send(
+		ctx,
+		cmdKey,
+		status.VariantSuccess,
+		true,
+		"Started task",
+		"",
+	)
 	active.sCtx.Go(func(ctx context.Context) error {
 		err := r.runRecovered(ctx, run)
 		// A stop that already released the run waits on this error and reports it.
@@ -220,17 +235,17 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 		}
 		return nil
 	})
-	if err == nil {
-		return nil
+	if answerErr == nil {
+		return nil, nil
 	}
-	// A caller that gets an error drops the task, so the run must not outlive it.
+	// The caller sees the start fail, so the run must not outlive it.
 	if r.release(active) {
 		active.cancel()
 	}
-	if wErr := active.sCtx.Wait(); !errors.Is(wErr, context.Canceled) {
-		err = errors.Combine(err, wErr)
+	if err = active.sCtx.Wait(); errors.Is(err, context.Canceled) {
+		err = nil
 	}
-	return err
+	return err, answerErr
 }
 
 // runRecovered returns the error of run, or an error for its panic.
@@ -253,30 +268,38 @@ func (r *Runner) runRecovered(
 	return run(ctx)
 }
 
-func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+// stop returns the error that ended the run, and the error of the status write that
+// answers cmdKey.
+func (r *Runner) stop(
+	ctx context.Context,
+	cmdKey string,
+	sendStatus bool,
+) (err, answerErr error) {
 	r.lifecycle.Lock()
 	defer r.lifecycle.Unlock()
 	active := r.current()
 	if !r.release(active) {
 		if sendStatus {
-			return r.status.Ack(ctx, cmdKey, false)
+			return nil, r.status.Ack(ctx, cmdKey, false)
 		}
-		return nil
+		return nil, nil
 	}
 	active.cancel()
-	err := active.sCtx.Wait()
+	err = active.sCtx.Wait()
 	if errors.Is(err, context.Canceled) {
 		err = nil
 	}
 	if !sendStatus {
-		return err
+		return err, nil
 	}
 	if err != nil {
-		return errors.Combine(err, r.status.Send(
+		return err, r.status.Send(
 			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
-		))
+		)
 	}
-	return r.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
+	return nil, r.status.Send(
+		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
+	)
 }
 
 // Report writes the health of a run to the task status: the warning of an err from

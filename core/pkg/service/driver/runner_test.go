@@ -38,6 +38,25 @@ type uncommittableTx struct{ kv.Tx }
 
 func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
 
+// cancelingDB is a kv.DB whose transactions call cancel once they commit.
+type cancelingDB struct {
+	kv.DB
+	cancel context.CancelFunc
+}
+
+func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type cancelingTx struct {
+	kv.Tx
+	db cancelingDB
+}
+
+func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
+	err := t.Tx.Commit(ctx, opts...)
+	t.db.cancel()
+	return err
+}
+
 // gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
 type gatedDB struct {
 	kv.DB
@@ -181,15 +200,36 @@ var _ = Describe("Runner", func() {
 			},
 		)
 
-		It("Should return the error from Exec for a start it could not answer",
+		It("Should return no error from Exec for a start answered before ctx ended",
 			func(ctx SpecContext) {
+				cmdCtx, cancel := context.WithCancel(ctx)
+				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
+					DB:     gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
+					Status: statusSvc,
+					Task:   t,
+					Open: func(context.Context) (func(context.Context) error, error) {
+						return nil, errors.New("port is in use")
+					},
+				}))
+				Expect(r.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-1"})).
+					To(Succeed())
+				Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+				stat := retrieve(ctx)
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+			},
+		)
+
+		DescribeTable(
+			"Should return the error from Exec for a command it could not answer",
+			func(ctx SpecContext, cmdType string) {
 				unwritable := gorp.Wrap(uncommittableDB{DB: db.KV()})
 				r := openOn(unwritable, waitRun)
-				canceled, cancel := context.WithCancel(ctx)
-				cancel()
-				Expect(r.Exec(canceled, task.Command{Type: "start", Key: "cmd-1"})).
+				Expect(r.Exec(ctx, task.Command{Type: cmdType, Key: "cmd-1"})).
 					To(MatchError(errCommit))
 			},
+			Entry("start", "start"),
+			Entry("stop", "stop"),
 		)
 
 		It("Should report a run that ends on its own", func(ctx SpecContext) {

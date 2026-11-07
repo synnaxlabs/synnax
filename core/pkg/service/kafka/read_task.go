@@ -309,33 +309,34 @@ func enums(entries []http.EnumEntry) []xjson.Enum {
 	return out
 }
 
-// Exec implements driver.Task. Every command it handles ends in a status carrying the
-// command key, failures included, so Exec returns nil for it unless ctx ended.
+// Exec implements driver.Task. Start and stop answer the command with a status,
+// failures included, so Exec returns an error only when that status was not written.
 func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
-	var err error
+	var err, answerErr error
 	switch cmd.Type {
 	case "start":
-		err = t.start(ctx, cmd.Key)
+		err, answerErr = t.start(ctx, cmd.Key)
 	case "stop":
-		err = t.stop(ctx, cmd.Key, true)
+		err, answerErr = t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
-	// The task answered cmd, unless ctx ended first and the status write failed too.
-	if err == nil || ctx.Err() != nil {
-		return err
+	if answerErr != nil {
+		return errors.Combine(err, answerErr)
 	}
-	t.factoryCfg.L.Error("failed to execute command",
-		zap.Stringer("task", t.task.Key),
-		zap.Stringer("command", cmd),
-		zap.Error(err),
-	)
+	if err != nil {
+		t.factoryCfg.L.Error("failed to execute command",
+			zap.Stringer("task", t.task.Key),
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 
 // Stop implements driver.Task.
 func (t *readTask) Stop(sendStatus bool) error {
-	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
 }
 
 // isRunning reports whether the consumer is up. A consumer that failed on its own sets
@@ -351,10 +352,11 @@ func (t *readTask) release() error {
 	return err
 }
 
-func (t *readTask) start(ctx context.Context, cmdKey string) error {
+// start returns the error that kept the consumer from starting, and the error of the
+// status write that answers cmdKey.
+func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
 	if t.isRunning() {
-		t.ackCurrent(ctx, cmdKey, true)
-		return nil
+		return nil, t.status.Ack(ctx, cmdKey, true)
 	}
 	if t.closer != nil {
 		if err := t.release(); err != nil {
@@ -364,8 +366,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 			)
 		}
 	}
-	if err := t.open(ctx); err != nil {
-		t.setStatus(
+	if err = t.open(ctx); err != nil {
+		return err, t.status.Send(
 			ctx,
 			cmdKey,
 			status.VariantError,
@@ -373,38 +375,43 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 			"Failed to start task",
 			err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
+	if answerErr = t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
+	); answerErr != nil {
+		// The caller sees the start fail, so the consumer must not outlive it.
+		return t.release(), answerErr
+	}
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
 	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
-	return nil
+	return nil, nil
 }
 
-func (t *readTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+// stop returns the error that ended the consumer, and the error of the status write
+// that answers cmdKey.
+func (t *readTask) stop(
+	ctx context.Context,
+	cmdKey string,
+	sendStatus bool,
+) (err, answerErr error) {
 	if t.closer == nil {
 		if sendStatus {
-			t.ackCurrent(ctx, cmdKey, false)
+			return nil, t.status.Ack(ctx, cmdKey, false)
 		}
-		return nil
+		return nil, nil
 	}
-	err := t.release()
+	err = t.release()
 	if !sendStatus {
-		return err
+		return err, nil
 	}
 	if err != nil {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to stop task",
-			err.Error(),
+		return err, t.status.Send(
+			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
-	return nil
+	return nil, t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
+	)
 }
 
 // resetOffset maps the configured start offset onto the consumer's reset offset. A
@@ -897,18 +904,6 @@ func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
 	if err != nil {
 		t.factoryCfg.L.Error("failed to write task warning",
 			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
-}
-
-// ackCurrent answers cmdKey with the task's current status, for a command that needs
-// no work.
-func (t *readTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
-		t.factoryCfg.L.Error("failed to acknowledge command",
-			zap.Stringer("task", t.task.Key),
-			zap.String("cmd", cmdKey),
 			zap.Error(err),
 		)
 	}
