@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -123,10 +124,10 @@ var _ = Describe("Service", func() {
 			go func() {
 				defer GinkgoRecover()
 				for range 10 {
-					sym := symbol.Symbol{
+					sym := defaults.Fill(symbol.Symbol{
 						Name: "concurrent-write",
 						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-					}
+					})
 					Expect(
 						svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID()),
 					).To(Succeed())

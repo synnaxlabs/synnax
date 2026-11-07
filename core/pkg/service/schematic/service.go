@@ -207,6 +207,9 @@ func (s *Service) Dispatch(
 					if err = reduced.Validate(); err != nil {
 						return Schematic{}, err
 					}
+					if err = validateScales(reduced); err != nil {
+						return Schematic{}, err
+					}
 					return reduced, nil
 				}).Exec(ctx, tx)
 		},
