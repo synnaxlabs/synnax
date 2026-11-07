@@ -42,7 +42,7 @@ const renderStream = async (options: RenderTaskFormTabOptions = {}) => {
 describe("Sift stream form", () => {
   it("should show the asset, channel, and label fields", async () => {
     await renderStream();
-    expect(await screen.findByPlaceholderText("Test stand 1")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /New asset/ })).toBeTruthy();
     expect(screen.getByText("Select channels to send")).toBeTruthy();
     expect(
       screen.getByText("A range with one of these labels becomes a Sift run."),

@@ -15,6 +15,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Asset } from "@/feature/sift/asset";
 import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { MAKE } from "@/feature/sift/device/types";
 import {
@@ -32,16 +33,9 @@ const path = deep.path<Task.Values<StreamSchemas>>();
 const Properties = () => (
   <>
     <SelectDevice />
-    <PForm.TextField
-      path={path.config.asset}
-      label="Asset"
-      inputProps={ASSET_INPUT_PROPS}
-      grow
-    />
+    <Asset.Field path={path.config.asset} devicePath={path.config.device} grow />
   </>
 );
-
-const ASSET_INPUT_PROPS = { placeholder: "Test stand 1" } as const;
 
 // Sift stores only persisted data channels. The Core sends each index on its own.
 const CHANNEL_QUERY: Channel.ListQuery = {
