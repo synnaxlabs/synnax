@@ -13,13 +13,13 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
-#include "driver/ethercat/testutil/clock.h"
 #include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat::engine {
@@ -127,13 +127,13 @@ protected:
     /// distributed clock that runs 0.5% fast slips through one and a half periods.
     static constexpr size_t FRAMES = 300;
     const x::telem::TimeSpan period = x::telem::MILLISECOND * 10;
-    testutil::SimClock clock;
+    const x::loop::HostClock clock = x::loop::fake_clock();
 
     void SetUp() override {
-        this->master = std::make_shared<testutil::Master>("eth0", this->clock.now());
+        this->master = std::make_shared<testutil::Master>("eth0", this->clock);
         this->master->add_slave(io_slave(0));
         Config cfg;
-        cfg.host_clock = HostClock(this->clock.loop());
+        cfg.host_clock = this->clock;
         this->engine = std::make_shared<Engine>(this->master, cfg);
         this->brk.start();
     }
