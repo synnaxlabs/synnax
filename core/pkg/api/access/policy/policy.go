@@ -22,9 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -197,9 +195,12 @@ func (s *Service) retrieve(
 		return nil, nil
 	}
 	var stored []rbacpolicy.Policy
-	err := s.internal.Policy.NewRetrieve().
+	if err := s.internal.Policy.NewRetrieve().
 		Where(rbacpolicy.MatchKeys(keys...)).
+		SkipMissingKeys().
 		Entries(&stored).
-		Exec(ctx, tx)
-	return stored, errors.Skip(err, query.ErrNotFound)
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return stored, nil
 }
