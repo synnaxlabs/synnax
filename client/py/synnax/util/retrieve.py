@@ -13,37 +13,45 @@ from typing import Any
 from pydantic import BaseModel
 
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
+from x import filter
 
 
-def sole[T](name: str, query: object, results: Sequence[T]) -> T:
+def sole[T](name: str, where: BaseModel | None, results: Sequence[T]) -> T:
     """Returns the only record that a single retrieve found.
 
-    :param name: The kind of record, such as "Range", for the error message.
-    :param query: What the caller asked for, for the error message.
-    :param results: The records that matched the query.
+    :param name: The kind of record, such as "range", for the error message.
+    :param where: The filter that the retrieve sent. The errors describe it.
+    :param results: The records that matched the filter.
     :raises NotFoundError: If no record matched.
     :raises MultipleFoundError: If more than one record matched.
     """
-    found = sole_or_none(name, query, results)
+    found = sole_or_none(name, where, results)
     if found is None:
-        raise NotFoundError(f"{name} matching {query} not found")
+        raise NotFoundError(f"Found no {name}{_clause(where)}")
     return found
 
 
-def sole_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
+def sole_or_none[T](
+    name: str, where: BaseModel | None, results: Sequence[T]
+) -> T | None:
     """Returns the only record that a single retrieve found, or None if no record
     matched.
 
-    :param name: The kind of record, such as "Range", for the error message.
-    :param query: What the caller asked for, for the error message.
-    :param results: The records that matched the query.
+    :param name: The kind of record, such as "range", for the error message.
+    :param where: The filter that the retrieve sent. The errors describe it.
+    :param results: The records that matched the filter.
     :raises MultipleFoundError: If more than one record matched.
     """
     if len(results) > 1:
         raise MultipleFoundError(
-            f"Expected one {name} matching {query}, but found {len(results)}"
+            f"Expected one {name}{_clause(where)}, but found {len(results)}"
         )
     return results[0] if results else None
+
+
+def _clause(where: BaseModel | None) -> str:
+    description = filter.describe(where)
+    return "" if description == "" else f" where {description}"
 
 
 def request_where[W: BaseModel](
