@@ -983,6 +983,15 @@ TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
     );
 }
 
+/// @brief it should leave a sync unit that the PDI owns out of the SYNC0 line-up check,
+/// since the master does not start its SYNC0 events.
+TEST_F(SOEMMasterTest, ActivateIgnoresTheSYNC0CycleOfASyncUnitThePDIOwns) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_cycle = 150'000}}
+    );
+    ASSERT_NIL(this->activate());
+}
+
 /// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
 /// the clock of a slave stays more than 10 us off the reference clock.
 TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
