@@ -283,7 +283,6 @@ void Engine::run() {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
-                timer = this->config.host_clock.timer(sched->rate.period());
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->master->dc_sync())
                     if (regs.marks_data())
@@ -292,6 +291,11 @@ void Engine::run() {
                             .event = master::DC_EPOCH +
                                      x::telem::TimeSpan(regs.sync0_shift),
                         });
+                // The lock window is a part of a SYNC0 cycle, which a late wake misses.
+                timer = this->config.host_clock.timer(
+                    sched->rate.period(),
+                    !syncs.empty()
+                );
                 if (syncs.empty())
                     phase.reset();
                 else

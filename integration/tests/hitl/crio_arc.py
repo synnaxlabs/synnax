@@ -23,7 +23,7 @@ func double() {x f64} f64 {
 crio_arc_in -> double() -> crio_arc_out
 """
 
-# Over the error of setting the clock through SSH, and far under a broken sync.
+# Over the latency of the output and the error of NTP, and far under a broken sync.
 _MAX_CLOCK_SKEW = sy.TimeSpan.SECOND
 
 

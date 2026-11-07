@@ -81,10 +81,13 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
-        status.description = health.al_status.empty()
-                               ? "The device reports an error without an error "
-                                 "code. With IgH, the kernel log (dmesg) shows it."
-                               : health.al_status;
+        if (!health.startup_error.empty())
+            status.description = health.startup_error;
+        else if (!health.al_status.empty())
+            status.description = health.al_status;
+        else
+            status.description = "The device reports an error without an error "
+                                 "code. With IgH, the kernel log (dmesg) shows it.";
         return;
     }
     status.variant = synnax::status::VARIANT_WARNING;
