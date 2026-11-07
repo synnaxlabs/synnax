@@ -81,7 +81,7 @@ class TestRackClient:
         client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Rack matching .*{name}.*, but found 2",
+            match=rf"Expected one rack where .*{name}.*, but found 2",
         ):
             client.racks.retrieve(name=name)
 

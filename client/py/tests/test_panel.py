@@ -205,7 +205,7 @@ class TestClient:
         """Should return one panel for a plain key beside other fields."""
         a = client.panels.create(name="A", project=project)
         assert client.panels.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
             client.panels.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.project.Key) -> None:
@@ -219,7 +219,7 @@ class TestClient:
         self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
         """Should raise NotFoundError for one panel of a project with no panels."""
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
             client.panels.retrieve(projects=[project], one=True)
 
     def test_retrieve_none_field_by_project_without_panels(

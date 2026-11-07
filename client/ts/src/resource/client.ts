@@ -123,7 +123,12 @@ export class Client {
       table: this.table,
       fetch: async (key) => {
         const resources = await this.table.retrieve([key]);
-        checkForMultipleOrNoResults("Resource", parseID(key), resources, true);
+        checkForMultipleOrNoResults(
+          "resource",
+          { where: { id: { eq: key } } },
+          resources,
+          true,
+        );
         return [key];
       },
       compose: ([r]) => r,

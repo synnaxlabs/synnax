@@ -176,7 +176,7 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields)
         )
         res = self._client.send("/table/retrieve", req, RetrieveResponse)
-        return sole("Table", fields, res.tables) if single else res.tables
+        return sole("table", req, res.tables) if single else res.tables
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.

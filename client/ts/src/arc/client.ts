@@ -397,8 +397,9 @@ export class Client extends query.Retriever<
   // copy is only as fresh as the streamer. Fetches always hit the network; only the
   // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
-    const arcs = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    const { where } = singleRetrieveParamsZ.parse(q);
+    const arcs = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 

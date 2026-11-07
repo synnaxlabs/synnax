@@ -265,18 +265,7 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        connection::Config test_conn_cfg;
-        test_conn_cfg.endpoint = conn_cfg.endpoint;
-        test_conn_cfg.security_mode = "None";
-        test_conn_cfg.security_policy = "None";
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(test_conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     /// @returns a unary source that reads cfg_json.

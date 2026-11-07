@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
 import threading
 from typing import Any, assert_type
 from uuid import UUID, uuid4
@@ -134,7 +133,7 @@ class TestTaskClient:
             client.tasks.create(name=name, type="pagerduty_alert")
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Task matching .*{name}.*, but found 2",
+            match=rf"Expected one task where .*{name}.*, but found 2",
         ):
             client.tasks.retrieve(name=name)
         with pytest.raises(sy.MultipleFoundError):
@@ -420,7 +419,9 @@ class TestTaskClient:
     def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
         """Should raise when the config names a device that does not exist."""
         tsk = sy.Task(name="test", type="modbus_read", config={"device": "missing"})
-        with pytest.raises(sy.NotFoundError, match=r"(?i)not found"):
+        with pytest.raises(
+            sy.NotFoundError, match='Found no device where key = "missing"'
+        ):
             client.tasks.configure(tsk)
 
     def test_list_tasks(self, client: sy.Synnax) -> None:
@@ -484,7 +485,7 @@ class TestTaskClient:
         )
         client.ranges.delete(rng.key)
         with pytest.raises(
-            sy.NotFoundError, match=re.escape(f"Task matching {snap.key} not found")
+            sy.NotFoundError, match=f"Found no task where key = {snap.key}"
         ):
             client.tasks.retrieve(key=snap.key)
 

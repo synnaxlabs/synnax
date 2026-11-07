@@ -61,6 +61,12 @@ Rack struct {
         """
         @filter
     }
+    version      string?    {
+        @doc value """
+            is the version of the Driver that runs the rack, written at each connect.
+            Absent until a Driver reports it.
+        """
+    }
     group        group.Key? {
         @cpp omit
         @doc value     "is the group the rack sits in, if any."

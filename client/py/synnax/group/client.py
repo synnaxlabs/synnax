@@ -178,7 +178,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/group/retrieve", req, RetrieveResponse)
-        return sole("Group", fields, res.groups) if single else res.groups
+        return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send("/group/rename", _RenameReq(key=key, name=name), Empty)

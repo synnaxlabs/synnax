@@ -183,7 +183,7 @@ class TestClient:
         """Should return one log for a plain key beside other fields."""
         a = client.logs.create(sy.Log(name="A", project=project.key))
         assert client.logs.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Log matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no log where .+"):
             client.logs.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
