@@ -41,7 +41,10 @@ In the messages below, `<name>` stands for a value that changes.
     any value. `<name>` is the constant as the code writes it, and `<check>` is the
     `is_nan` of its module, or `is_nan from the math module`.
   </Problem.Cause>
-  <Problem.Fix>Use `math.is_nan(x)`.</Problem.Fix>
+  <Problem.Fix>
+    Use `math.is_nan(x)` in place of `x == math.nan`, and `not math.is_nan(x)` in place
+    of `x != math.nan`.
+  </Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
@@ -233,7 +236,7 @@ This section lists the most common diagnostics without a code, not all of them.
 
 <Problem.Item message={"input value for '<p>' must be a literal"}>
   <Problem.Cause>A parameter in `()` gets a channel or an expression.</Problem.Cause>
-  <Problem.Fix>Use a literal or a variable.</Problem.Fix>
+  <Problem.Fix>Use a literal, a constant such as `math.inf`, or a variable.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>"}>
   <Problem.Cause>The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`.</Problem.Cause>
