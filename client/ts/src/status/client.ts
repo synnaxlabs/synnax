@@ -382,7 +382,12 @@ export class Client extends query.Retriever<
       key = held.key;
     }
     const prev = this.store.get(key);
-    return { ...status, key, labels: prev?.labels ?? status.labels };
+    return {
+      ...status,
+      key,
+      labels: prev?.labels ?? status.labels,
+      owner: status.owner ?? prev?.owner,
+    };
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
