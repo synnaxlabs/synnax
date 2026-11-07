@@ -19,7 +19,6 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -49,11 +48,6 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	}
 	if err != nil {
 		return Arc{}, err
-	}
-	// An older version lifts through Go code that cannot tell an absent field from a
-	// zero one, so its zero fields take their defaults.
-	if env.Version != Latest {
-		a = defaults.Fill(a)
 	}
 	b := a.Base()
 	// Importing always materializes a new resource, so any key on the wire is dropped

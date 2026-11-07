@@ -75,6 +75,13 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		})))
 	})
 
+	It("Should give a Console export without a scale the default", func(
+		ctx SpecContext,
+	) {
+		Expect(decode(ctx, "testdata/import_console_unscaled.json").Data.Scale).
+			To(Equal(1.0))
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v2.json").Key).To(Equal(uuid.Nil()))
 	})
