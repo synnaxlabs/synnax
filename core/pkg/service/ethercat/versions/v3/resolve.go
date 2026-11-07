@@ -56,3 +56,41 @@ func ResolveReadConfig(
 	}
 	return nil
 }
+
+// ResolveWriteConfig addresses each unresolved channel in cfg to the output entry its
+// slave lists under the channel's entry name. A channel stays unresolved when the name
+// matches no entry, or entries at more than one address.
+func ResolveWriteConfig(
+	ctx context.Context,
+	tx gorp.Tx,
+	slaves v2.Slaves,
+	cfg *WriteConfig,
+) error {
+	found, err := v2.ReadSlaves(
+		ctx,
+		tx,
+		slaves,
+		lo.FilterMap(cfg.Channels, func(ch WriteChannel, _ int) (string, bool) {
+			u, ok := ch.Variant.(UnresolvedWriteChannel)
+			return u.Device, ok
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	for i, ch := range cfg.Channels {
+		u, ok := ch.Variant.(UnresolvedWriteChannel)
+		if !ok {
+			continue
+		}
+		if e, ok := v2.FindEntry(found[u.Device].Outputs, u.Pdo); ok {
+			cfg.Channels[i].Variant = EntryWriteChannel{
+				BaseWriteChannel: u.BaseWriteChannel,
+				Index:            e.Index,
+				SubIndex:         e.SubIndex,
+				DataType:         e.DataType,
+			}
+		}
+	}
+	return nil
+}
