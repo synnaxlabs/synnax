@@ -109,6 +109,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the line plot outside the writer. The
+	// service publishes it as a create, which replaces the cached document.
+	ok(nil, io.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p LinePlot) {
+			create := NewCreateAction(CreatePayload{LinePlot: p})
+			s.state.Dispatcher().Notify(ctx, p.Key, create)
+		},
+	)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}

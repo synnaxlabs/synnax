@@ -771,6 +771,33 @@ describe("Task", async () => {
     });
   });
 
+  describe("references", () => {
+    it("should clear a deleted status from the cached task's alerts", async () => {
+      await waitForStreamLive(client.connection);
+      const st = await client.statuses.set({
+        key: uuid.create(),
+        name: "detached",
+        variant: "info",
+        message: "detached",
+      });
+      const t = await testRack.createTask({
+        name: `detach-${id.create()}`,
+        config: { routingKey: "dog", alerts: [{ key: "a", status: st.key }] },
+        type: "pagerduty_alert",
+      });
+      await client.statuses.delete(st.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config.alerts).toEqual([
+        expect.objectContaining({ key: "a", status: "" }),
+      ]);
+      expect(stored.configHash).not.toBe(t.configHash);
+      await expect
+        .poll(() => expectLive(client.tasks.getCached(t.key)).configHash)
+        .toBe(stored.configHash);
+      expect(expectLive(client.tasks.getCached(t.key)).config).toEqual(stored.config);
+    });
+  });
+
   describe("lifecycle methods", () => {
     it("should start a task", async () => {
       const t = await testRack.createTask({

@@ -111,7 +111,7 @@ export const createExecutingHandleError =
   };
 
 /** Lists the groups whose parent is the node. */
-export const listChildGroups: Tree.Children = ({ client, id }) => [
+const listChildGroups: Tree.Children = ({ client, id }) => [
   Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
 ];
 

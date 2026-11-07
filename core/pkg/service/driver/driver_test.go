@@ -457,6 +457,62 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
+			"should rebuild the task when a delete detaches its stored config",
+			func(ctx SpecContext) {
+				var (
+					configCount atomic.Int32
+					config      atomic.Value
+					taskKey     atomic.Value
+				)
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == taskKey.Load() {
+							config.Store(t.Config)
+							configCount.Add(1)
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				sw := statusSvc.NewWriter(nil)
+				Expect(sw.Set(ctx, &status.Status[any]{
+					Key:     "st-detach",
+					Name:    "st-detach",
+					Variant: status.VariantInfo,
+					Time:    telem.Now(),
+				})).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				t.Config = map[string]any{
+					"routing_key": "rk-1",
+					"alerts": []any{
+						map[string]any{"key": "a", "status": "st-detach"},
+					},
+				}
+				taskKey.Store(t.Key)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(configCount.Load).Should(Equal(int32(1)))
+
+				Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
+				)
+				Eventually(configCount.Load).Should(Equal(int32(2)))
+				Expect(config.Load()).To(HaveKeyWithValue(
+					"alerts",
+					HaveExactElements(HaveKeyWithValue("status", "")),
+				))
+			},
+		)
+
+		It(
 			"should not rebuild when only metadata changes between starts",
 			func(ctx SpecContext) {
 				var (

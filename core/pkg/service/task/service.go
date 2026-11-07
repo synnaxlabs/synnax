@@ -32,9 +32,11 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -196,6 +198,10 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	for _, t := range cfg.Configs.Types() {
+		store, _ := cfg.Configs.Store(t)
+		ok(nil, xio.NoFailCloserFunc(store.ObserveDetaches().OnChange(s.syncConfig)))
+	}
 	if cfg.Signals != nil {
 		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
@@ -267,6 +273,22 @@ func (s *Service) Dispatch(
 		return nil, err
 	}
 	return added, nil
+}
+
+// syncConfig stores the hash of a config that a delete detached and broadcasts the
+// config, so open clients and the Driver see the change.
+func (s *Service) syncConfig(ctx context.Context, key Key) {
+	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
+		return s.NewWriter(tx).syncConfig(ctx, key)
+	})
+	// The delete that detached the config can delete its task too.
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error(
+			"failed to sync a detached task config",
+			zap.Stringer("task", key),
+			zap.Error(err),
+		)
+	}
 }
 
 func (s *Service) CommandChannelKey() channel.Key {

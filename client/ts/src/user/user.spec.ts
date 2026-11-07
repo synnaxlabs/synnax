@@ -15,6 +15,7 @@ import { query } from "@/query";
 import {
   createTestClient,
   expectDeleted,
+  expectLive,
   holdResponses,
   TEST_CREDENTIALS,
   waitForStreamLive,
@@ -388,6 +389,23 @@ describe("cached reads", () => {
     } finally {
       off();
     }
+  });
+
+  test("should drop a deleted role from the cached user", async () => {
+    const [deleted, kept] = await client.access.roles.create([
+      { name: `deleted-${id.create()}` },
+      { name: `kept-${id.create()}` },
+    ]);
+    const u = await client.users.create({
+      username: id.create(),
+      password: "test",
+      roles: [deleted.key, kept.key],
+    });
+    await client.users.retrieve(u.key);
+    await remote.access.roles.delete(deleted.key);
+    await expect
+      .poll(() => expectLive(client.users.getCached(u.key)).roles)
+      .toEqual([kept.key]);
   });
 
   test("should deliver a remote delete as a deleted result", async () => {
