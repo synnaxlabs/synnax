@@ -265,6 +265,82 @@ TEST(testConfig, testInterpretStringAsNumber) {
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
 
+/// @brief it should reject a number above the range of an unsigned field.
+TEST(testConfig, testRejectsANumberAboveAnUnsignedRange) {
+    Parser parser(json{{"index", 65536}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "index");
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative number for an unsigned field.
+TEST(testConfig, testRejectsANegativeNumberForAnUnsignedField) {
+    Parser parser(json{{"index", -1}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject an unsigned number above the maximum of a signed field.
+TEST(testConfig, testRejectsAnUnsignedNumberAboveASignedMaximum) {
+    Parser parser(json{{"offset", 9223372036854775808ULL}});
+    EXPECT_EQ(parser.field<int64_t>("offset"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "must be between -9223372036854775808 and 9223372036854775807"
+    );
+}
+
+/// @brief it should reject a float outside the range of an integer field.
+TEST(testConfig, testRejectsAFloatOutsideAnIntegerRange) {
+    Parser parser(json{{"index", 70000.5}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should accept the limits of an integer field and a whole float.
+TEST(testConfig, testAcceptsIntegerLimitsAndWholeFloats) {
+    Parser parser(json{{"max", 65535}, {"min", -32768}, {"whole", 1.0}});
+    EXPECT_EQ(parser.field<uint16_t>("max"), 65535);
+    EXPECT_EQ(parser.field<int16_t>("min"), -32768);
+    EXPECT_EQ(parser.field<uint16_t>("whole"), 1);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should reject a string number above the range of an integer field.
+TEST(testConfig, testRejectsAStringNumberAboveAnIntegerRange) {
+    Parser parser(json{{"index", "65536"}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative string number for an unsigned field.
+TEST(testConfig, testRejectsANegativeStringNumberForAnUnsignedField) {
+    Parser parser(json{{"index", "-1"}});
+    EXPECT_EQ(parser.field<uint16_t>("index"), 0);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should read a string number into a byte field as a number.
+TEST(testConfig, testReadsAStringNumberIntoAByteField) {
+    Parser parser(json{{"count", "65"}});
+    EXPECT_EQ(parser.field<uint8_t>("count"), 65);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should read a string number above the signed 64-bit maximum into an
+/// unsigned 64-bit field.
+TEST(testConfig, testReadsAStringNumberAboveTheSigned64BitMaximum) {
+    Parser parser(json{{"count", "18446744073709551615"}});
+    EXPECT_EQ(parser.field<uint64_t>("count"), 18446744073709551615ULL);
+    EXPECT_TRUE(parser.ok());
+}
+
 /// @brief it should parse array fields successfully.
 TEST(testConfig, testArray) {
     const json j = {{"array", {1, 2, 3, 4, 5}}};
