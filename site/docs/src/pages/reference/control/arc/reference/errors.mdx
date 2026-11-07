@@ -41,7 +41,10 @@ In the messages below, `<name>` stands for a value that changes.
     any value. `<name>` is the constant as the code writes it, and `<check>` is the
     `is_nan` of its module, or `is_nan from the math module`.
   </Problem.Cause>
-  <Problem.Fix>Use `math.is_nan(x)`.</Problem.Fix>
+  <Problem.Fix>
+    Use `math.is_nan(x)` in place of `x == math.nan`, and `not math.is_nan(x)` in place
+    of `x != math.nan`.
+  </Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
