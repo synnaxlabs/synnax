@@ -172,6 +172,7 @@ var _ = Describe("Reference", func() {
 		deviceRef deviceRefs
 		ownerRef  *gorp.TargetReference[string, refStatus]
 		open      = func(ctx SpecContext, opts ...gorp.Option) {
+			GinkgoHelper()
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 			)
@@ -202,11 +203,13 @@ var _ = Describe("Reference", func() {
 			))
 		}
 		createRack = func(ctx SpecContext, key uint32) {
+			GinkgoHelper()
 			Expect(
 				racks.NewCreate().Entry(&refRack{Key: key}).Exec(ctx, db),
 			).To(Succeed())
 		}
 		createLabels = func(ctx SpecContext, keys ...string) {
+			GinkgoHelper()
 			for _, k := range keys {
 				Expect(labels.NewCreate().Entry(&refLabel{Key: k}).Exec(ctx, db)).
 					To(Succeed())
@@ -216,11 +219,13 @@ var _ = Describe("Reference", func() {
 			return devices.NewCreate().Entry(&d).Exec(ctx, db)
 		}
 		deviceExists = func(ctx SpecContext, key string) bool {
+			GinkgoHelper()
 			return MustSucceed(devices.NewRetrieve().
 				Where(gorp.MatchKeys[string, refDevice](key)).
 				Exists(ctx, db))
 		}
 		rackExists = func(ctx SpecContext, key uint32) bool {
+			GinkgoHelper()
 			return MustSucceed(racks.NewRetrieve().
 				Where(gorp.MatchKeys[uint32, refRack](key)).
 				Exists(ctx, db))
@@ -1134,6 +1139,7 @@ var _ = Describe("Reference closure", func() {
 	// open opens a project that groups and schematics cascade from, and schematics
 	// that reference their group with policy.
 	open := func(ctx SpecContext, policy gorp.OnDelete, opts ...gorp.Option) {
+		GinkgoHelper()
 		db = DeferClose(
 			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 		)
@@ -1202,6 +1208,7 @@ var _ = Describe("Reference closure", func() {
 			Exec(ctx, db)
 	}
 	schematicExists := func(ctx SpecContext) bool {
+		GinkgoHelper()
 		return MustSucceed(schematics.NewRetrieve().
 			Where(gorp.MatchKeys[string, refSchematic]("s")).
 			Exists(ctx, db))

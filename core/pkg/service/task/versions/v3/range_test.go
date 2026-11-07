@@ -31,6 +31,7 @@ var _ = Describe("RangeMigration", func() {
 		gone     = uuid.New()
 		inRange  = uuid.New()
 		inGone   = uuid.New()
+		liveIn   = uuid.New()
 		inArc    = uuid.New()
 		onRack   = uuid.New()
 		rackID   = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -54,6 +55,7 @@ var _ = Describe("RangeMigration", func() {
 		stored := []v2.Task{
 			{Key: inRange, Name: "In Range", Snapshot: true},
 			{Key: inGone, Name: "In Deleted Range", Snapshot: true},
+			{Key: liveIn, Name: "Live In Range"},
 			{Key: inArc, Name: "Arc Task"},
 			{Key: onRack, Name: "Rack Task"},
 		}
@@ -67,6 +69,7 @@ var _ = Describe("RangeMigration", func() {
 		edges := []ontology.Relationship{
 			parentOf(rangeID(rng), inRange),
 			parentOf(rangeID(gone), inGone),
+			parentOf(rangeID(rng), liveIn),
 			parentOf(
 				resource.ID{Type: resource.TypeArc, Key: uuid.New().String()},
 				inArc,
@@ -95,7 +98,7 @@ var _ = Describe("RangeMigration", func() {
 	})
 
 	It("Should keep every task", func() {
-		Expect(tasks).To(HaveLen(4))
+		Expect(tasks).To(HaveLen(5))
 		Expect(tasks[inRange].Name).To(Equal("In Range"))
 	})
 
@@ -106,6 +109,7 @@ var _ = Describe("RangeMigration", func() {
 	DescribeTable("Should leave no range on a task",
 		func(key func() uuid.UUID) { Expect(tasks[key()].Range).To(BeNil()) },
 		Entry("in a deleted range", func() uuid.UUID { return inGone }),
+		Entry("live in a stored range", func() uuid.UUID { return liveIn }),
 		Entry("under an Arc", func() uuid.UUID { return inArc }),
 		Entry("on a rack", func() uuid.UUID { return onRack }),
 	)

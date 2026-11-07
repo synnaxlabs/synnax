@@ -255,6 +255,32 @@ TEST(PropertiesParse, RoundTripsOpModes) {
     EXPECT_EQ(parsed.op_modes, props.op_modes);
 }
 
+/// @brief it should give back the chosen mode of a slave after a JSON round trip, and
+/// pass it to the master in the slave settings.
+TEST(PropertiesParse, RoundTripsTheChosenMode) {
+    const Properties props{
+        .name = "6xSTG",
+        .op_mode =
+            dc::Choice{
+                .index = 1,
+                .assign_activate = 0x0300,
+                .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
+            },
+        .enabled = true,
+    };
+    auto parser = x::json::Parser(props.to_json());
+    const auto parsed = Properties::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(parsed.op_mode, props.op_mode);
+    EXPECT_EQ(parsed.config().op_mode, props.op_mode);
+}
+
+/// @brief it should leave out the chosen mode of a slave with no choice, as the Console
+/// stores no choice as a missing key.
+TEST(PropertiesToJson, LeavesOutAMissingChoice) {
+    EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
+}
+
 TEST(PropertiesToJson, SerializesAllFields) {
     Properties props{
         .network = "eth0",

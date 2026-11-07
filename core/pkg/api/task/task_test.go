@@ -56,6 +56,23 @@ func createTask(ctx SpecContext) task.Task {
 	return t
 }
 
+func createRange(ctx SpecContext) ranger.Range {
+	GinkgoHelper()
+	r := ranger.Range{
+		Name:      "Snapshot Range",
+		TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
+	}
+	Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	return r
+}
+
+func countInRange(ctx SpecContext, r ranger.Range) int {
+	GinkgoHelper()
+	return MustSucceed(svc.Task.NewRetrieve().
+		Where(task.MatchRanges(r.Key)).
+		Count(ctx, nil))
+}
+
 func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	GinkgoHelper()
 	var t task.Task
@@ -216,6 +233,27 @@ var _ = Describe("Create", func() {
 			)
 			Expect(res.Tasks).To(HaveLen(1))
 			Expect(keys).To(Equal([]string{"dk-create"}))
+		},
+	)
+
+	It(
+		"Should refuse a snapshot in a range the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			r := createRange(ctx)
+			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apitask.CreateRequest{
+				Tasks: []task.Task{{
+					Type:     pagerduty.AlertTaskType,
+					Rack:     svc.Rack.EmbeddedKey,
+					Name:     "Snapshot",
+					Snapshot: true,
+					Range:    &r.Key,
+				}},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(countInRange(ctx, r)).To(BeZero())
 		},
 	)
 })
@@ -643,11 +681,8 @@ var _ = Describe("Copy", func() {
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeTask,
 		})
-		r := ranger.Range{
-			Name:      "Snapshot Range",
-			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
-		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		r := createRange(ctx)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(r.Key))
 		res := MustSucceed(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
 			Key:      t.Key,
 			Name:     "Copy",
@@ -661,4 +696,26 @@ var _ = Describe("Copy", func() {
 		Expect(found.Tasks).To(HaveLen(1))
 		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
 	})
+
+	It(
+		"Should refuse a snapshot copy into a range the subject cannot update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeTask,
+			})
+			r := createRange(ctx)
+			Expect(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+				Key:      t.Key,
+				Name:     "Copy",
+				Snapshot: true,
+				Range:    &r.Key,
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(countInRange(ctx, r)).To(BeZero())
+		},
+	)
 })

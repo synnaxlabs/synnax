@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -73,14 +75,13 @@ func openTargets(ctx SpecContext) (
 
 var _ = Describe("Tasks", func() {
 	var (
+		db     *gorp.DB
 		svc    *arctask.Service
 		tasks  *tasktestutil.Tasks
 		arcKey arc.Key
 	)
-	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+	createArc := func(ctx SpecContext) arc.Key {
+		GinkgoHelper()
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{
 				Key:    uuid.New(),
@@ -90,11 +91,18 @@ var _ = Describe("Tasks", func() {
 		}
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entry(&a).Exec(ctx, db)).
 			To(Succeed())
-		arcKey = a.Base().Key
+		return a.Base().Key
+	}
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db, Ontology: otg}))
+		arcKey = createArc(ctx)
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-			DB:     db,
-			Stores: svc.Stores(),
+			DB:        db,
+			Stores:    svc.Stores(),
+			MatchArcs: svc.MatchArcs,
 		}))
 	})
 
@@ -112,6 +120,24 @@ var _ = Describe("Tasks", func() {
 			"arc_key":     uuid.New().String(),
 			"performance": "BOGUS",
 		})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+	})
+
+	It("Should filter the tasks by Arc", func(ctx SpecContext) {
+		create := func(a arc.Key) task.Key {
+			GinkgoHelper()
+			return MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
+				"arc_key": a.String(),
+			}))
+		}
+		first, second := create(arcKey), create(arcKey)
+		create(createArc(ctx))
+		var matched []task.Task
+		Expect(tasks.NewRetrieve().
+			Where(task.MatchArcs(arcKey)).
+			Entries(&matched).
+			Exec(ctx, db)).To(Succeed())
+		Expect(lo.Map(matched, func(t task.Task, _ int) task.Key { return t.Key })).
+			To(ConsistOf(first, second))
 	})
 })
 
