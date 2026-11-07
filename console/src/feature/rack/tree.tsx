@@ -164,16 +164,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           {hasTaskCreatePermission && <NIScannerItem rackKey={rackKey} />}
           <OPCUADriverCertificateItem rackKey={rackKey} />
           <Menu.Item
-            itemKey="credentials"
+            itemKey="signIn"
             onClick={() =>
               openCredentials({
                 subject: ontologyIDs[0],
-                title: ["Credentials", getResource(ids[0]).name],
+                title: ["Sign-in", getResource(ids[0]).name],
               })
             }
           >
             <Icon.Lock />
-            Manage credentials
+            Manage sign-in
           </Menu.Item>
         </>
       )}

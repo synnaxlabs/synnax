@@ -23,6 +23,9 @@ export const FLAGS = {
   // Owner: Patrick Dotson. Umbrella: SY-5105. Removed in the release that ships the
   // Kafka integration.
   kafka: ENABLED,
+  // Owner: Emiliano Bonilla. Umbrella: SY-5552. Removed in the release that moves
+  // PagerDuty to secrets.
+  credentials: ENABLED,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

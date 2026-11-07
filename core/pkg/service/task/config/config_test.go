@@ -109,7 +109,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key, arcKey := uuid.New(), uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
 				"performance": "high",
 			}))
@@ -121,7 +121,7 @@ var _ = Describe("Service", func() {
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
 			data := MustSucceed(svc.Read(ctx, nil, key))
@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
 			key := uuid.New()
-			stored := MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			stored := MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
 			Expect(stored["performance"]).To(Equal("auto"))
@@ -141,11 +141,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
 			}))
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "low",
 			}))
@@ -156,7 +156,7 @@ var _ = Describe("Service", func() {
 		It("Should return a validation error when the data does not decode", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key": 123,
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
@@ -164,7 +164,7 @@ var _ = Describe("Service", func() {
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
@@ -176,7 +176,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.WriteStrict(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "high",
 			}))
@@ -186,9 +186,11 @@ var _ = Describe("Service", func() {
 
 		It("Should return the stored record as Read returns it", func(ctx SpecContext) {
 			key := uuid.New()
-			stored := MustSucceed(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			}))
+			stored := MustSucceed(
+				svc.WriteStrict(ctx, nil, key, "", msgpack.EncodedJSON{
+					"arc_key": uuid.New().String(),
+				}),
+			)
 			Expect(stored["performance"]).To(Equal("auto"))
 			Expect(stored).To(Equal(MustSucceed(svc.Read(ctx, nil, key))))
 		})
@@ -197,7 +199,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(svc.WriteStrict(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performnace": "high",
 			})).Error().To(SatisfyAll(
@@ -212,7 +214,7 @@ var _ = Describe("Service", func() {
 		It("Should return the record's validation error when it fails validation", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.WriteStrict(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.WriteStrict(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
@@ -224,7 +226,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 				"extra":   true,
 			}))
@@ -234,7 +236,7 @@ var _ = Describe("Service", func() {
 		Context("With a resolve hook", func() {
 			openResolving := func(
 				ctx SpecContext,
-				resolve func(context.Context, gorp.Tx, *arctask.Config) error,
+				resolve func(context.Context, gorp.Tx, string, *arctask.Config) error,
 			) *config.Service[arctask.Config] {
 				GinkgoHelper()
 				return MustOpen(config.OpenService(
@@ -256,6 +258,7 @@ var _ = Describe("Service", func() {
 				resolving := openResolving(ctx, func(
 					_ context.Context,
 					tx gorp.Tx,
+					_ string,
 					c *arctask.Config,
 				) error {
 					Expect(tx).ToNot(BeNil())
@@ -263,7 +266,7 @@ var _ = Describe("Service", func() {
 					return nil
 				})
 				key := uuid.New()
-				MustSucceed(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+				MustSucceed(resolving.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
 				}))
@@ -271,18 +274,47 @@ var _ = Describe("Service", func() {
 				Expect(data["performance"]).To(Equal("low"))
 			})
 
+			DescribeTable("Should give the hook the name of the task", func(
+				ctx SpecContext,
+				strict bool,
+			) {
+				var name string
+				resolving := openResolving(ctx, func(
+					_ context.Context,
+					_ gorp.Tx,
+					n string,
+					_ *arctask.Config,
+				) error {
+					name = n
+					return nil
+				})
+				write := resolving.Write
+				if strict {
+					write = resolving.WriteStrict
+				}
+				MustSucceed(write(ctx, nil, uuid.New(), "Pump", msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "low",
+				}))
+				Expect(name).To(Equal("Pump"))
+			},
+				Entry("Write", false),
+				Entry("WriteStrict", true),
+			)
+
 			It("Should return the hook's error and store nothing", func(
 				ctx SpecContext,
 			) {
 				resolving := openResolving(ctx, func(
 					context.Context,
 					gorp.Tx,
+					string,
 					*arctask.Config,
 				) error {
 					return errors.New("resolve failed")
 				})
 				key := uuid.New()
-				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+				Expect(resolving.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 					"arc_key": uuid.New().String(),
 				})).Error().To(MatchError("resolve failed"))
 				Expect(resolving.Read(ctx, nil, key)).Error().
@@ -301,7 +333,7 @@ var _ = Describe("Service", func() {
 	Describe("Delete", func() {
 		It("Should remove a stored record idempotently", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"arc_key": uuid.New().String(),
 			}))
 			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
@@ -313,7 +345,7 @@ var _ = Describe("Service", func() {
 		It("Should remove multiple records in one call", func(ctx SpecContext) {
 			k1, k2 := uuid.New(), uuid.New()
 			for _, k := range []uuid.UUID{k1, k2} {
-				MustSucceed(svc.Write(ctx, nil, k, msgpack.EncodedJSON{
+				MustSucceed(svc.Write(ctx, nil, k, "", msgpack.EncodedJSON{
 					"arc_key": uuid.New().String(),
 				}))
 			}
@@ -329,7 +361,7 @@ var _ = Describe("Service", func() {
 		It("Should duplicate a record under a new key", func(ctx SpecContext) {
 			from, to := uuid.New(), uuid.New()
 			arcKey := uuid.New()
-			MustSucceed(svc.Write(ctx, nil, from, msgpack.EncodedJSON{
+			MustSucceed(svc.Write(ctx, nil, from, "", msgpack.EncodedJSON{
 				"arc_key": arcKey.String(),
 			}))
 			Expect(svc.Copy(ctx, nil, from, to)).To(Succeed())

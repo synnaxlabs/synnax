@@ -148,6 +148,23 @@ describe("Ontology", () => {
           '  ✗ "type": "bad",  × expected one of [',
       );
     });
+    test("reject a missing ID", async () => {
+      const missing = group.ontologyID(crypto.randomUUID());
+      await expect(client.ontology.retrieve({ ids: [missing] })).rejects.toThrow(
+        `Resources with keys [group:${missing.key}] not found`,
+      );
+    });
+    test("drop a missing ID when ignoring not found", async () => {
+      const g = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: randomName(),
+      });
+      const found = await client.ontology.retrieve({
+        ids: [group.ontologyID(g.key), group.ontologyID(crypto.randomUUID())],
+        ignoreNotFoundError: true,
+      });
+      expect(found.map((r) => r.id)).toEqual([group.ontologyID(g.key)]);
+    });
     test("retrieve by string ID", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });

@@ -107,7 +107,7 @@ export const recordResponses = (
 
 /**
  * Holds each response to target until release is called. responded resolves when the
- * first held response arrives.
+ * first held response arrives, and sent returns the count of requests to target.
  */
 export const holdResponses = (
   client: Synnax,
@@ -120,7 +120,9 @@ export const holdResponses = (
   const responded = new Promise<void>((resolve) => (respond = resolve));
   let release = (): void => {};
   const released = new Promise<void>((resolve) => (release = resolve));
+  let sent = 0;
   vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) sent++;
     const res = await send(...args);
     if (args[0] === target) {
       respond();
@@ -128,5 +130,5 @@ export const holdResponses = (
     }
     return res;
   });
-  return { responded, release };
+  return { responded, release, sent: () => sent };
 };

@@ -133,6 +133,11 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/secret/grant/create",
 			),
+			Entry(
+				"unary certificate create",
+				http.MethodPost,
+				"/api/v1/certificate/create",
+			),
 		)
 
 		It("Should not register a route for an unknown path", func() {

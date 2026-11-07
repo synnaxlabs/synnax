@@ -51,6 +51,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
 	{Type: ontology.ResourceTypeSecret},
+	{Type: ontology.ResourceTypeCertificate},
 }
 
 var (
@@ -109,6 +110,7 @@ var (
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
 				{Type: ontology.ResourceTypeSecret},
+				{Type: ontology.ResourceTypeCertificate},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -171,6 +173,15 @@ var (
 			Name:     "Driver Secret View Access",
 			Objects:  []ontology.ID{{Type: ontology.ResourceTypeSecret}},
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Driver Certificate Access",
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeCertificate}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+			},
 			Internal: true,
 		},
 		{

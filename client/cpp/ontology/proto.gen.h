@@ -69,6 +69,8 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_ARC_DIRECTORY,
              ::service::ontology::pb::RESOURCE_TYPE_ARC_DIRECTORY},
             {RESOURCE_TYPE_SECRET, ::service::ontology::pb::RESOURCE_TYPE_SECRET},
+            {RESOURCE_TYPE_CERTIFICATE,
+             ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -147,6 +149,8 @@ resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_ARC_DIRECTORY, x::errors::NIL};
         case ::service::ontology::pb::RESOURCE_TYPE_SECRET:
             return {RESOURCE_TYPE_SECRET, x::errors::NIL};
+        case ::service::ontology::pb::RESOURCE_TYPE_CERTIFICATE:
+            return {RESOURCE_TYPE_CERTIFICATE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }

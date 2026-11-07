@@ -23,6 +23,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching secrets to skip.
 	Offset uint32 `json:"offset" msgpack:"offset"`
+	// IncludeUses includes the uses of each record.
+	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
 // RetrieveResponse holds the secrets a RetrieveRequest selects.
