@@ -24,6 +24,7 @@
 
 #include "driver/common/scan_task.h"
 #include "driver/opcua/certificate/store.h"
+#include "driver/opcua/errors/errors.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/testutil/server.h"
@@ -1091,9 +1092,10 @@ synnax::task::Status run_command(
     const std::shared_ptr<certificate::Store> &store,
     const std::string &type,
     const int port,
-    x::json::json args
+    x::json::json args,
+    const std::chrono::steady_clock::duration read_node_deadline = READ_NODE_DEADLINE
 ) {
-    Scanner scanner(ctx, task, pool, store);
+    Scanner scanner(ctx, task, pool, store, read_node_deadline);
     auto cmd = command(
         type,
         "opc.tcp://localhost:" + std::to_string(port),
@@ -1291,6 +1293,115 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
     EXPECT_TRUE(data.at("truncated").get<bool>());
     EXPECT_EQ(data.at("channels")[0]["name"], "V0");
     generated->stop();
+}
+
+/// @brief starts a server that takes one node in each Read, and waits delay before it
+/// handles each request once the pool holds a connection to it.
+std::unique_ptr<testutil::Server> start_one_node_server(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store,
+    const x::telem::TimeSpan delay
+) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4882;
+    cfg.max_nodes_per_read = 1;
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    const auto status = run_command(
+        ctx,
+        task,
+        pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}}
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    server->probe_delay = delay;
+    return server;
+}
+
+/// @brief it should send a separate read for each attribute of a node.
+TEST_F(TestScanTask, testReadNodeOneNodePerRequest) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}}
+    );
+    EXPECT_GT(
+        std::chrono::steady_clock::now() - start,
+        11 * std::chrono::milliseconds(50)
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    slow->stop();
+}
+
+/// @brief it should fail with a reason once the reads of a node use up their time.
+TEST_F(TestScanTask, testReadNodeStopsAtDeadline) {
+    const auto delay = 100 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        std::chrono::milliseconds(300)
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read node");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    slow->stop();
+}
+
+/// @brief it should count the check of an idle connection against the deadline, so the
+/// namespace read never goes out.
+TEST_F(TestScanTask, testReadNodeDeadlineCoversNamespaceRead) {
+    const auto delay = 100 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read node");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    slow->stop();
+}
+
+/// @brief it should fail without connecting when the deadline passes first.
+TEST_F(TestScanTask, testReadNodeDeadlineCoversConnection) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        std::chrono::milliseconds(0)
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to connect to server");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
 }
 
 /// @brief it should read the attributes and the value of a variable.

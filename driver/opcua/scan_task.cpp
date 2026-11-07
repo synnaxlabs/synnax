@@ -87,12 +87,14 @@ Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
     std::shared_ptr<connection::Pool> conn_pool,
-    std::shared_ptr<certificate::Store> store
+    std::shared_ptr<certificate::Store> store,
+    const std::chrono::steady_clock::duration read_node_deadline
 ):
     ctx(std::move(ctx)),
     task(std::move(task)),
     conn_pool(std::move(conn_pool)),
-    store(std::move(store)) {}
+    store(std::move(store)),
+    read_node_deadline(read_node_deadline) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -591,13 +593,16 @@ std::optional<std::string> date_text(const UA_DateTime time) {
 
 /// @returns the name of the data type, reading its BrowseName when the client does not
 /// know it.
-std::pair<std::string, x::errors::Error>
-type_name(const connection::Pool::Connection &conn, const UA_NodeId &data_type) {
+std::pair<std::string, x::errors::Error> type_name(
+    const connection::Pool::Connection &conn,
+    const UA_NodeId &data_type,
+    const std::chrono::steady_clock::time_point deadline
+) {
     if (const auto *type = UA_findDataType(&data_type))
         return {type->typeName, x::errors::NIL};
     types::ReadRequestBuilder req;
     req.add_node(data_type, UA_ATTRIBUTEID_BROWSENAME);
-    auto [res, err] = conn.read(req.build());
+    auto [res, err] = conn.read(req.build(), deadline);
     if (err) return {"", err};
     const auto name = scalar<UA_QualifiedName>(
         res.get().results[0],
@@ -609,11 +614,13 @@ type_name(const connection::Pool::Connection &conn, const UA_NodeId &data_type) 
 
 /// @returns the attributes and current value of a node as the reply to a read node
 /// command. A field reads a member of the structure value of the node.
-/// @returns x::errors::VALIDATION if field does not name a member of the node's value.
+/// @returns x::errors::VALIDATION if field does not name a member of the node's value,
+/// or errors::DEADLINE_EXCEEDED if deadline stops the reads.
 std::pair<x::json::json, x::errors::Error> read_details(
     const connection::Pool::Connection &conn,
     const UA_NodeId &id,
-    const structure::Path &field
+    const structure::Path &field,
+    const std::chrono::steady_clock::time_point deadline
 ) {
     constexpr std::array attributes{
         UA_ATTRIBUTEID_NODECLASS,
@@ -633,7 +640,7 @@ std::pair<x::json::json, x::errors::Error> read_details(
         req.add_node(id, attribute);
     auto raw_req = req.build();
     raw_req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
-    auto [res, read_err] = conn.read(raw_req);
+    auto [res, read_err] = conn.read(raw_req, deadline);
     if (read_err) return {{}, read_err};
     const auto *r = res.get().results;
     if (const auto node_err = errors::parse(r[0].status)) return {{}, node_err};
@@ -660,7 +667,7 @@ std::pair<x::json::json, x::errors::Error> read_details(
         const auto type_id = scalar<UA_NodeId>(r[4], UA_TYPES[UA_TYPES_NODEID]);
         const auto rank = scalar<UA_Int32>(r[5], UA_TYPES[UA_TYPES_INT32]);
         if (type_id.has_value()) {
-            auto [type_text, name_err] = type_name(conn, *type_id);
+            auto [type_text, name_err] = type_name(conn, *type_id, deadline);
             if (name_err) return {{}, name_err};
             out["type_name"] = type_text;
         }
@@ -695,7 +702,11 @@ std::pair<x::json::json, x::errors::Error> read_details(
             (!field.empty() ||
              (value.value.type != nullptr &&
               value.value.type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT))) {
-            auto [read_types, types_err] = structure::Types::read(conn, {*type_id});
+            auto [read_types, types_err] = structure::Types::read(
+                conn,
+                {*type_id},
+                deadline
+            );
             if (types_err) return {{}, types_err};
             types = std::move(read_types);
         }
@@ -743,7 +754,8 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     const x::json::Parser &parser,
     const ScanCommandArgs &args,
     synnax::task::Status &status,
-    const std::string &failure
+    const std::string &failure,
+    const std::chrono::steady_clock::time_point deadline
 ) const {
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
@@ -752,7 +764,8 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
         ctx->set_status(status);
         return std::nullopt;
     }
-    auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
+    auto [connection, err] = conn_pool
+                                 ->acquire(args.connection, SCAN_LOG_PREFIX, deadline);
     if (err) {
         status.message = "Failed to connect to server";
         status.description = err.data;
@@ -763,7 +776,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     // index, which a restart can move.
     types::ReadRequestBuilder ns_req;
     ns_req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
-    auto [ns_res, ns_err] = connection.read(ns_req.build());
+    auto [ns_res, ns_err] = connection.read(ns_req.build(), deadline);
     if (!ns_err) ns_err = connection.update_namespaces(ns_res.get().results[0]).second;
     if (ns_err) {
         status.message = failure;
@@ -787,7 +800,8 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to browse nodes");
+    auto
+        target = this->target(parser, args, status, "Failed to browse nodes", deadline);
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
 
@@ -845,7 +859,13 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to find variables");
+    auto target = this->target(
+        parser,
+        args,
+        status,
+        "Failed to find variables",
+        deadline
+    );
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
     auto [search, search_err] = find_variables(connection, start, deadline);
@@ -882,13 +902,14 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
 }
 
 void Scanner::read_node(const synnax::task::Command &cmd) const {
+    const auto deadline = std::chrono::steady_clock::now() + this->read_node_deadline;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to read node");
+    auto target = this->target(parser, args, status, "Failed to read node", deadline);
     if (!target.has_value()) return;
     auto &[connection, id] = *target;
-    auto [data, details_err] = read_details(connection, id, args.field);
+    auto [data, details_err] = read_details(connection, id, args.field, deadline);
     if (details_err) {
         status.message = "Failed to read node";
         status.description = details_err.data;
