@@ -149,8 +149,12 @@ sequence main {
 - `inf` -> the positive infinity value. `-math.inf` is negative infinity.
 
 A constant fits `f32` or `f64`, and it defaults to `f64`. It does not fit an integer
-type. Use a constant in an expression or a function body. A flow variable initializer
-and a function input value must be literals, so they cannot use a constant.
+type. Use a constant in an expression or a function body. Outside a function, a variable
+whose initializer reads a constant must also read a channel, as
+`scaled := raw * math.inf` does. A flow has no value to read for `limit := math.inf`, so
+it fails with `'limit' cannot be initialized from math.inf outside a function`. A
+function input value and a `$=` initializer must be literals, so they cannot use a
+constant.
 
 ```arc bodies="lowest"
 import math
