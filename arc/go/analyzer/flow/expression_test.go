@@ -12,6 +12,7 @@ package flow_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
@@ -381,6 +382,47 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("undefined symbol: bar"))
 		})
 	})
+})
+
+var _ = Describe("Expression type variables", func() {
+	DescribeTable("Should give the output and the body one type variable",
+		func(bCtx SpecContext, source string, sink types.Type) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(
+				nil,
+				symbol.Symbol{
+					Name: "x",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				symbol.Symbol{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   2,
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var literals []types.Type
+			for node, t := range ctx.TypeMap {
+				if lit, ok := node.(parser.ILiteralContext); ok &&
+					lit.NumericLiteral() != nil {
+					literals = append(literals, t)
+				}
+			}
+			Expect(literals).ToNot(BeEmpty())
+			Expect(literals).To(HaveEach(sink))
+		},
+		Entry("integers to i32", "x -> 1 + 2 -> out", types.I32()),
+		Entry("floats to f32", "x -> 1.5 + 2.5 -> out", types.F32()),
+		Entry(
+			"integers to i32 in a stage",
+			"sequence main {\n stage a {\n 1 + 2 -> out\n }\n}\nx => main",
+			types.I32(),
+		),
+	)
 })
 
 var _ = Describe("LiftVarReads", func() {

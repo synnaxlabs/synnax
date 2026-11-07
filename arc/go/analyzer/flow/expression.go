@@ -31,16 +31,13 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	}
 	// enclosing is the lexical scope the expression appears in.
 	enclosing := ctx.Scope
-	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
-	t.Outputs = append(
-		t.Outputs,
-		types.Param{Name: ir.DefaultOutputParam, Type: exprType},
-	)
 
 	// Literals register as KindConstant; format strings with placeholders register
 	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
+		exprType := atypes.InferFromExpression(ctx).Unwrap()
+		t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if strTerm := parser.StringTerminal(lit); strTerm != nil {
 				body, flags, ok := literal.StripQuotes(strTerm.GetText())
@@ -110,7 +107,13 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
-	expression.Analyze(ctx.WithScope(blockScope))
+	// Inferring in the body's scope gives the output and the body one type variable.
+	body := ctx.WithScope(blockScope)
+	fnScope.Type.Outputs = types.Params{{
+		Name: ir.DefaultOutputParam,
+		Type: atypes.InferFromExpression(body).Unwrap(),
+	}}
+	expression.Analyze(body)
 }
 
 // analyzeWASMCall registers a WASM-only call in a flow as a synthetic expression node.

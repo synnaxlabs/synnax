@@ -244,7 +244,7 @@ func resolveUpstreamType(
 		return idSym.Type.Unwrap(), true
 	}
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		return atypes.InferFromExpression(ctx.Child(prevExpr)).Unwrap(), true
+		return expressionType(ctx, prevExpr).Unwrap(), true
 	}
 	if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
 		if isFedByRoutingTable(ctx) {
@@ -439,7 +439,7 @@ func flowSourceType(
 	prevNode parser.IFlowNodeContext,
 ) (types.Type, string) {
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		exprType := atypes.InferFromExpression(ctx.Child(prevExpr))
+		exprType := expressionType(ctx, prevExpr)
 		return exprType, fmt.Sprintf("expression type %s", exprType)
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
@@ -950,7 +950,7 @@ func analyzeRoutingTargetWithParam(
 // in a routing-entry chain.
 func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types.Type {
 	if expr := ctx.AST.Expression(); expr != nil {
-		return atypes.InferFromExpression(ctx.Child(expr))
+		return expressionType(ctx, expr)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)
@@ -975,4 +975,18 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 		return sym.Type.Unwrap()
 	}
 	return types.Type{}
+}
+
+// expressionType returns the output type of the node AnalyzeSingleExpression
+// registered for expr, or an invalid type if it registered none.
+func expressionType[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) types.Type {
+	sym, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return types.Type{}
+	}
+	out, _ := sym.Type.Outputs.Get(ir.DefaultOutputParam)
+	return out.Type
 }
