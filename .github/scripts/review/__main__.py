@@ -21,10 +21,10 @@ review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that r
 Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
-policy commit, the usage, and the review. `post` posts the review in a record. `compare`
-takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints
-a Markdown comparison of the records of the last days with Greptile's reviews of the
-same commits.
+policy commit, the usage, the review, and each pass before the join. `post` posts the
+review in a record. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
+with full history, and prints a Markdown comparison of the records of the last days
+with Greptile's reviews of the same commits.
 """
 
 import dataclasses
