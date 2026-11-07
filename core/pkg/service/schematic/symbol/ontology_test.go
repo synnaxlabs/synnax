@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,10 +22,10 @@ import (
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
-		s := symbol.Symbol{
+		s := defaults.Fill(symbol.Symbol{
 			Name: name,
 			Data: symbol.Spec{SVG: "<svg></svg>", Variant: "valve"},
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &s, proj.OntologyID())).To(Succeed())
 		return symbol.OntologyID(s.Key)
 	}

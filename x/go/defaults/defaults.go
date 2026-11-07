@@ -29,7 +29,7 @@ func Fill[T any](v T) T {
 // SetDefaults method sets the defaults of the nested structs too, so only a struct
 // without one fills its struct fields itself.
 func fillFresh(dst, src reflect.Value) {
-	s, ok := dst.Addr().Interface().(setter)
+	s, ok := reflect.TypeAssert[setter](dst.Addr())
 	if ok {
 		s.SetDefaults()
 	}
@@ -91,8 +91,8 @@ func overlay(dst, src reflect.Value) {
 // opaque reports whether t has an unexported field, such as time.Time. Fill cannot
 // reach that state field by field, so it copies such a value whole.
 func opaque(t reflect.Type) bool {
-	for i := range t.NumField() {
-		if !t.Field(i).IsExported() {
+	for f := range t.Fields() {
+		if !f.IsExported() {
 			return true
 		}
 	}
