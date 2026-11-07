@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // Config configures a Server.
@@ -603,4 +604,49 @@ func (s *Server) ListRuns(
 		}
 	}
 	return res, nil
+}
+
+// UpdateRun implements runsv2.RunServiceServer. It updates the name, start_time,
+// stop_time, and tags fields that the update mask names.
+func (s *Server) UpdateRun(
+	_ context.Context,
+	req *runsv2.UpdateRunRequest,
+) (*runsv2.UpdateRunResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if req.Run == nil || req.UpdateMask == nil {
+		return nil, status.Error(
+			codes.InvalidArgument,
+			"run and update_mask are required",
+		)
+	}
+	i := slices.IndexFunc(s.runs, func(r *runsv2.Run) bool {
+		return r.RunId == req.Run.RunId
+	})
+	if i < 0 {
+		return nil, status.Errorf(codes.NotFound, "run %q not found", req.Run.RunId)
+	}
+	run := proto.CloneOf(s.runs[i])
+	for _, path := range req.UpdateMask.Paths {
+		switch path {
+		case "name":
+			run.Name = req.Run.Name
+		case "start_time":
+			run.StartTime = req.Run.StartTime
+		case "stop_time":
+			run.StopTime = req.Run.StopTime
+		case "tags":
+			run.Tags = req.Run.Tags
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, "cannot update %q", path)
+		}
+	}
+	if !run.StartTime.AsTime().Before(run.StopTime.AsTime()) {
+		return nil, status.Error(
+			codes.InvalidArgument,
+			"start_time must be before stop_time",
+		)
+	}
+	s.runs[i] = run
+	return &runsv2.UpdateRunResponse{Run: run}, nil
 }

@@ -184,13 +184,15 @@ const liveBuffer = 1024
 var errBehind = errors.New("fell behind the live samples")
 
 // Engine sends the samples of a fixed set of channels to one Sift asset. An Engine is
-// not safe for concurrent use.
+// not safe for concurrent use, except that SetRun may run alongside Upload or Stream.
 type Engine struct {
-	cfg      Config
-	flows    []flow
-	ingest   ingestv1.IngestServiceClient
-	configs  ingestionconfigsv2.IngestionConfigServiceClient
-	runs     runsv2.RunServiceClient
+	cfg     Config
+	flows   []flow
+	ingest  ingestv1.IngestServiceClient
+	configs ingestionconfigsv2.IngestionConfigServiceClient
+	runs    runsv2.RunServiceClient
+	// mu guards configID and assetID.
+	mu       sync.Mutex
 	configID string
 	assetID  string
 	// confirms counts the checkpoints Sift has confirmed.
@@ -530,9 +532,22 @@ func (e *Engine) retry(
 	}
 }
 
+// asset returns the ID of the Sift asset, creating the ingestion config of the engine
+// when it does not exist yet.
+func (e *Engine) asset(ctx context.Context) (string, error) {
+	if _, err := e.ingestionConfig(ctx); err != nil {
+		return "", err
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.assetID, nil
+}
+
 // ingestionConfig returns the ID of the Sift ingestion config for the engine's flows,
 // creating it the first time.
 func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if e.configID != "" {
 		return e.configID, nil
 	}

@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -418,6 +419,44 @@ var _ = Describe("Server", func() {
 				StopTime:  start,
 			})).Error().To(MatchError(ContainSubstring("start_time must be before")))
 		})
+
+		It("Should update the fields the mask names", func(ctx SpecContext) {
+			created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				Tags: []string{"cold"},
+			})).Run
+			MustSucceed(runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+				Run: &runsv2.Run{
+					RunId: created.RunId,
+					Name:  "renamed",
+					Tags:  []string{"hot"},
+				},
+				UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"name"}},
+			}))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("Name", "renamed"),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
+
+		DescribeTable("Should reject an invalid update",
+			func(ctx SpecContext, run *runsv2.Run, paths []string, code codes.Code) {
+				created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+				if run.RunId == "" {
+					run.RunId = created.Run.RunId
+				}
+				_, err := runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+					Run:        run,
+					UpdateMask: &fieldmaskpb.FieldMask{Paths: paths},
+				})
+				Expect(status.Code(err)).To(Equal(code))
+			},
+			Entry("missing run", &runsv2.Run{RunId: "run-9"}, []string{"name"},
+				codes.NotFound),
+			Entry("client key", &runsv2.Run{}, []string{"client_key"},
+				codes.InvalidArgument),
+			Entry("stop before start", &runsv2.Run{StopTime: start},
+				[]string{"stop_time"}, codes.InvalidArgument),
+		)
 
 		It("Should return the errors FailRuns sets, in order", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "down"))

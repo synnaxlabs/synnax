@@ -532,7 +532,7 @@ var _ = Describe("Engine", func() {
 			})
 	})
 
-	Describe("CreateRun", func() {
+	Describe("SetRun", func() {
 		var (
 			ch  channel.Channel
 			run ingest.Run
@@ -550,7 +550,7 @@ var _ = Describe("Engine", func() {
 
 		It("Should create an ad hoc run of the asset", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
-			id := MustSucceed(e.CreateRun(ctx, run))
+			id := MustSucceed(e.SetRun(ctx, run))
 			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
 				HaveField("RunId", id),
 				HaveField("Name", "hotfire 1"),
@@ -561,18 +561,33 @@ var _ = Describe("Engine", func() {
 			)))
 		})
 
-		It("Should return the run that already has the key", func(ctx SpecContext) {
+		It("Should update the run that already has the key", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
-			id := MustSucceed(e.CreateRun(ctx, run))
+			id := MustSucceed(e.SetRun(ctx, run))
 			run.Name = "renamed"
-			Expect(e.CreateRun(ctx, run)).To(Equal(id))
-			Expect(server.Runs()).To(HaveLen(1))
+			run.TimeRange.End = at(9)
+			run.Tags = nil
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "renamed"),
+				HaveField("StopTime.AsTime()", time.Unix(9, 0).UTC()),
+				HaveField("Tags", BeEmpty()),
+			)))
+		})
+
+		It("Should leave a run that already matches", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			before := server.Runs()[0]
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()[0]).To(BeIdenticalTo(before))
 		})
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
 			e := open(ctx, channel.Keys{ch.Key()})
-			MustSucceed(e.CreateRun(ctx, run))
+			MustSucceed(e.SetRun(ctx, run))
 			Expect(rec.retryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
@@ -582,7 +597,7 @@ var _ = Describe("Engine", func() {
 		It("Should stop at a permanent failure", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.PermissionDenied, "no runs for you"))
 			e := open(ctx, channel.Keys{ch.Key()})
-			Expect(e.CreateRun(ctx, run)).Error().
+			Expect(e.SetRun(ctx, run)).Error().
 				To(MatchError(ContainSubstring("no permission")))
 			Expect(rec.retryErrors()).To(BeEmpty())
 		})
