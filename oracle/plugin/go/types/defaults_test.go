@@ -1528,6 +1528,25 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should clear a list that an enclosing default filled",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			A struct { items int32[] }
+			T struct { a A = { items = [1] } }
+			Parent struct { t T = {} }
+			Child struct extends Parent { t T = { a = { items = [] } } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"\t\tv0 := T{}\n\t\tv0.SetDefaults()\n\t\tv0.A.Items = nil\n" +
+					"\t\tc.T = v0\n",
+			)
+		},
+	)
+
+	It(
 		"Should set the defaults of a required field typed by an alias",
 		func(ctx SpecContext) {
 			source := `
