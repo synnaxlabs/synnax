@@ -187,7 +187,7 @@ class Client:
     def delete(self, keys: list[UUID]) -> Empty:
         return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
 
-    def set_parent(self, keys: list[UUID], parent: CrudeID | None = None) -> Empty:
+    def set_parent(self, keys: list[Key], parent: CrudeID | None = None) -> Empty:
         """Moves groups under a parent, or to the top level when the parent is None.
 
         :param keys: The keys of the groups to move.
