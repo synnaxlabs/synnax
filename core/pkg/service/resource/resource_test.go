@@ -10,6 +10,8 @@
 package resource_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -17,6 +19,26 @@ import (
 )
 
 var _ = Describe("ID", func() {
+	Describe("ParseUUIDKey", func() {
+		It("Should parse the key of an ID as a UUID", func() {
+			key := uuid.New()
+			Expect(resource.ParseUUIDKey(resource.ID{
+				Type: resource.TypeLog,
+				Key:  key.String(),
+			})).To(Equal(key))
+		})
+
+		It("Should return a validation error for a malformed key", func() {
+			Expect(resource.ParseUUIDKey(resource.ID{
+				Type: resource.TypeLog,
+				Key:  "pump",
+			})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`invalid log key "pump"`)),
+			))
+		})
+	})
+
 	Describe("ParseID", func() {
 		It("Should parse an ID from a string", func() {
 			Expect(resource.ParseID("channel:bar")).To(Equal(resource.ID{

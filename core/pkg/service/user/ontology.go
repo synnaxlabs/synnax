@@ -41,7 +41,7 @@ func ResourceIDsFromUsers(users []User) []resource.ID {
 	return lo.Map(users, func(u User, _ int) resource.ID { return u.ResourceID() })
 }
 
-func KeyFromResourceID(id resource.ID) (Key, error) { return uuid.Parse(id.Key) }
+func KeyFromResourceID(id resource.ID) (Key, error) { return resource.ParseUUIDKey(id) }
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":       zyn.UUID(),
@@ -103,5 +103,5 @@ func (s *Service) Search(
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
+	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

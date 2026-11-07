@@ -12,6 +12,7 @@ package resource
 import (
 	"context"
 	"strings"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -39,6 +40,20 @@ func ParseID(key string) (ID, error) {
 		)
 	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
+}
+
+// ParseUUIDKey parses the key of id as a UUID. A malformed key is a validation error.
+func ParseUUIDKey(id ID) (uuid.UUID, error) {
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return uuid.Nil(), errors.Wrapf(
+			validate.ErrValidation,
+			"invalid %s key %q",
+			id.Type,
+			id.Key,
+		)
+	}
+	return key, nil
 }
 
 // ParseIDs parses the given keys into IDs.

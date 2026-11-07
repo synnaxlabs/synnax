@@ -22,7 +22,7 @@ const DEFAULT_NAME = "New panel";
 const resolveName = async (client: Client | null, tab: panel.Tab): Promise<string> => {
   if (client == null || tab.variant !== "resource") return DEFAULT_NAME;
   try {
-    return (await client.ontology.retrieve(tab.resource)).name;
+    return (await client.resources.retrieve(tab.resource)).name;
   } catch {
     return DEFAULT_NAME;
   }

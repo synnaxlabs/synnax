@@ -51,6 +51,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // stack is a rack service and the services it depends on. Closing it closes all of
@@ -745,6 +746,55 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("Resources", func() {
+		BeforeEach(openTx)
+		It("Should return the ID and name of each rack", func(ctx SpecContext) {
+			a := rack.Rack{Name: "rack a"}
+			b := rack.Rack{Name: "rack b"}
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(writer.Create(ctx, &b)).To(Succeed())
+			Expect(svc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{a.ResourceID(), b.ResourceID()},
+			)).To(ConsistOf(
+				resource.Resource{ID: a.ResourceID(), Name: "rack a"},
+				resource.Resource{ID: b.ResourceID(), Name: "rack b"},
+			))
+		})
+
+		It("Should return a validation error for a key that is not a rack key",
+			func(ctx SpecContext) {
+				Expect(svc.Resources().Retrieve(
+					ctx,
+					tx,
+					[]resource.ID{{Type: resource.TypeRack, Key: "pump"}},
+				)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(`invalid rack key "pump"`)),
+				))
+			},
+		)
+
+		It("Should leave out an ID that names no rack", func(ctx SpecContext) {
+			r := rack.Rack{Name: "present rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			Expect(svc.Resources().Retrieve(
+				ctx,
+				tx,
+				[]resource.ID{rack.Key(4294967295).ResourceID(), r.ResourceID()},
+			)).To(Equal([]resource.Resource{{ID: r.ResourceID(), Name: r.Name}}))
+		})
+
+		It("Should list each rack by its name", func(ctx SpecContext) {
+			r := rack.Rack{Name: "listed rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
+				resource.Resource{ID: r.ResourceID(), Name: r.Name},
+			))
+		})
 	})
 
 	Describe("Create with Integrations", func() {

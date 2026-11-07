@@ -193,7 +193,7 @@ func (s *Service) Search(
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, resourceID, q)
+	return resource.SearchIndex(ctx, tx, s.search, resourceID, q)
 }
 
 // resourceID returns the resource ID of the alias with the given gorp key.

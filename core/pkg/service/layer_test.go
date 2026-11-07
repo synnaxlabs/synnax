@@ -397,6 +397,46 @@ var _ = Describe("Workspace-era upgrade", func() {
 	)
 })
 
+var _ = Describe("Resource search", Ordered, func() {
+	var layer *service.Layer
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	})
+
+	DescribeTable(
+		"Should search every type that names records",
+		func(ctx SpecContext, t resource.Type) {
+			Expect(layer.Resource.Search(ctx, nil, resource.SearchQuery{
+				Term:  "pump",
+				Types: []resource.Type{t},
+			})).Error().ToNot(HaveOccurred())
+		},
+		Entry("Arc", resource.TypeArc),
+		Entry("Channel", resource.TypeChannel),
+		Entry("Device", resource.TypeDevice),
+		Entry("Group", resource.TypeGroup),
+		Entry("Label", resource.TypeLabel),
+		Entry("Lineplot", resource.TypeLineplot),
+		Entry("Log", resource.TypeLog),
+		Entry("Node", resource.TypeNode),
+		Entry("Panel", resource.TypePanel),
+		Entry("Policy", resource.TypePolicy),
+		Entry("Project", resource.TypeProject),
+		Entry("Rack", resource.TypeRack),
+		Entry("Range", resource.TypeRange),
+		Entry("RangeAlias", resource.TypeRangeAlias),
+		Entry("Role", resource.TypeRole),
+		Entry("Schematic", resource.TypeSchematic),
+		Entry("SchematicSymbol", resource.TypeSchematicSymbol),
+		Entry("Status", resource.TypeStatus),
+		Entry("Table", resource.TypeTable),
+		Entry("Task", resource.TypeTask),
+		Entry("User", resource.TypeUser),
+		Entry("View", resource.TypeView),
+	)
+})
+
 var _ = Describe("Group moves", Ordered, func() {
 	var (
 		l      *service.Layer

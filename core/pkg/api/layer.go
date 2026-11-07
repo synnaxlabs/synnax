@@ -45,6 +45,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
@@ -124,6 +125,9 @@ type Transport struct {
 	OntologyAddChildren    freighter.UnaryServer[ontology.AddChildrenRequest, struct{}]
 	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, struct{}]
 	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, struct{}]
+	// RESOURCE
+	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
+	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
 	// GROUP
 	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
@@ -268,6 +272,7 @@ type Layer struct {
 	Connectivity *connectivity.Service
 	License      *license.Service
 	Ontology     *ontology.Service
+	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
 	Alias        *alias.Service
@@ -369,6 +374,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OntologyAddChildren,
 		t.OntologyRemoveChildren,
 		t.OntologyMoveChildren,
+
+		// RESOURCE
+		t.ResourceSearch,
+		t.ResourceRetrieve,
 
 		// GROUP
 		t.GroupCreate,
@@ -593,6 +602,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OntologyMoveChildren.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Ontology.MoveChildren),
 	)
+
+	// RESOURCE
+	t.ResourceSearch.BindHandler(l.Resource.Search)
+	t.ResourceRetrieve.BindHandler(l.Resource.Retrieve)
 
 	// GROUP
 	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
@@ -876,6 +889,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Ontology, err = ontology.NewService(ontology.ServiceConfig{
 		Ontology: cfg.Service.Ontology,
+		RBAC:     cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Resource, err = apiresource.NewService(apiresource.ServiceConfig{
+		Resource: cfg.Service.Resource,
 		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err

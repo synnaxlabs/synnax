@@ -18,33 +18,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
-
-// named is a table entry whose name the DB stores.
-type named struct {
-	Key  string
-	Name string
-}
-
-func (n named) GorpKey() string { return n.Key }
-
-func (named) SetOptions() []any { return nil }
-
-func newNameIndex() *gorp.SearchIndex[string, named] {
-	return gorp.NewSearchIndex("name", func(n *named) []string {
-		return []string{n.Name}
-	})
-}
-
-func parseID(key string) resource.ID {
-	GinkgoHelper()
-	return MustSucceed(resource.ParseID(key))
-}
 
 // constService is an ontology.Service whose resources always carry a fixed name, used
 // to distinguish which of several registered services answered a retrieval.
@@ -71,69 +49,6 @@ func (constService) Search(
 ) (search.Result[resource.ID], error) {
 	return search.Result[resource.ID]{}, nil
 }
-
-var _ = Describe("SearchIndex", func() {
-	var (
-		d   *gorp.DB
-		idx *gorp.SearchIndex[string, named]
-	)
-	BeforeEach(func(ctx SpecContext) {
-		d = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
-		idx = newNameIndex()
-		table := MustOpen(
-			gorp.OpenTable(ctx, gorp.TableConfig[string, named]{
-				DB:      d,
-				Indexes: []gorp.Index[string, named]{idx},
-			}),
-		)
-		entries := []named{
-			{Key: newSampleType("a").String(), Name: "turbopump inlet"},
-			{Key: newSampleType("b").String(), Name: "turbopump"},
-		}
-		Expect(table.NewCreate().Entries(&entries).Exec(ctx, d)).To(Succeed())
-	})
-
-	DescribeTable("Should return the IDs of at most limit matches, closest match first",
-		func(ctx SpecContext, limit int, expected []resource.ID) {
-			Expect(MustSucceed(
-				ontology.SearchIndex(
-					ctx,
-					d,
-					idx,
-					parseID,
-					search.Query[resource.ID]{Term: "turbopump", Limit: limit},
-				),
-			).Keys).To(Equal(expected))
-		},
-		Entry("every match", 10, []resource.ID{newSampleType("b"), newSampleType("a")}),
-		Entry("the first match", 1, []resource.ID{newSampleType("b")}),
-	)
-
-	It("Should leave out the IDs that except names", func(ctx SpecContext) {
-		Expect(MustSucceed(ontology.SearchIndex(
-			ctx,
-			d,
-			idx,
-			parseID,
-			search.Query[resource.ID]{
-				Term:   "turbopump inlet",
-				Except: func(id resource.ID) bool { return id == newSampleType("a") },
-			},
-		)).Keys).To(Equal([]resource.ID{newSampleType("b")}))
-	})
-
-	It("Should return the error of the index search", func(ctx SpecContext) {
-		canceled, cancel := context.WithCancel(ctx)
-		cancel()
-		Expect(ontology.SearchIndex(
-			canceled,
-			d,
-			newNameIndex(),
-			parseID,
-			search.Query[resource.ID]{Term: "turbopump", Limit: 10},
-		)).Error().To(MatchError(context.Canceled))
-	})
-})
 
 var _ = Describe("Service", func() {
 	It(

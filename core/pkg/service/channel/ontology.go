@@ -111,5 +111,5 @@ func (s *Service) Search(
 	tx gorp.Tx,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
+	return resource.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

@@ -253,6 +253,8 @@ type Layer struct {
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology.
 	Node *node.Service
+	// Resource searches and names records of every type.
+	Resource *resource.Service
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// Signals propagates changes to distribution and service layer data structures
@@ -635,16 +637,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Panel) {
 		return nil, err
 	}
-	if l.Bundle, err = bundle.NewService(bundle.Config{
-		DB:       cfg.Distribution.DB,
-		Ontology: l.Ontology,
-		Project:  l.Project,
-		Group:    l.Group,
-		Panel:    l.Panel,
-		ImEx:     l.ImEx,
-	}); err != nil {
-		return nil, err
-	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
@@ -802,6 +794,45 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Ontology:        l.Ontology,
 		},
 	); !ok(err, l.View) {
+		return nil, err
+	}
+	if l.Resource, err = resource.NewService(resource.ServiceConfig{
+		DB: cfg.Distribution.DB,
+		Providers: map[resource.Type]resource.Provider{
+			resource.TypeArc:             l.Arc.Resources(),
+			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeDevice:          l.Device.Resources(),
+			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeLabel:           l.Label.Resources(),
+			resource.TypeLineplot:        l.LinePlot.Resources(),
+			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNode:            l.Node.Resources(),
+			resource.TypePanel:           l.Panel.Resources(),
+			resource.TypePolicy:          l.RBAC.Policy.Resources(),
+			resource.TypeProject:         l.Project.Resources(),
+			resource.TypeRack:            l.Rack.Resources(),
+			resource.TypeRange:           l.Ranger.Resources(),
+			resource.TypeRangeAlias:      l.Alias.Resources(),
+			resource.TypeRole:            l.RBAC.Role.Resources(),
+			resource.TypeSchematic:       l.Schematic.Resources(),
+			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
+			resource.TypeStatus:          l.Status.Resources(),
+			resource.TypeTable:           l.Table.Resources(),
+			resource.TypeTask:            l.Task.Resources(),
+			resource.TypeUser:            l.User.Resources(),
+			resource.TypeView:            l.View.Resources(),
+		},
+	}); !ok(err, nil) {
+		return nil, err
+	}
+	if l.Bundle, err = bundle.NewService(bundle.Config{
+		DB:       cfg.Distribution.DB,
+		Resource: l.Resource,
+		Project:  l.Project,
+		Group:    l.Group,
+		Panel:    l.Panel,
+		ImEx:     l.ImEx,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Metrics, err = metrics.OpenService(

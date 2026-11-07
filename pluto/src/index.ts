@@ -33,6 +33,7 @@ export { Pluto } from "@/pluto";
 export { Project } from "@/project";
 export { Rack } from "@/rack";
 export { Ranger } from "@/ranger";
+export { Resource } from "@/resource";
 export { Schematic } from "@/schematic";
 export { Scope } from "@/scope";
 export { Status } from "@/status";

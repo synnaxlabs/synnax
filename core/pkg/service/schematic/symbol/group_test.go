@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // createGroup creates a symbol group, under parent when one is given.
@@ -95,7 +96,10 @@ var _ = Describe("DeleteGroup", func() {
 		tx := DeferClose(db.OpenTx())
 		Expect(svc.DeleteGroup(ctx, tx, g.Key, []resource.ID{
 			{Type: resource.TypeSchematicSymbol, Key: "not-a-uuid"},
-		})).To(MatchError(ContainSubstring("invalid uuid")))
+		})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`key "not-a-uuid"`)),
+		))
 	})
 })
 
