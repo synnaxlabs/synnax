@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax } from "@synnaxlabs/client";
+import { type ontology, type resource, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
 import { type destructor } from "@synnaxlabs/x";
@@ -17,8 +17,8 @@ import { type Panel } from "@/platform/panel";
 import { type Session } from "@/session";
 
 export interface GetResource {
-  (id: ontology.ID | string): ontology.Resource;
-  (ids: (ontology.ID | string)[]): ontology.Resource[];
+  (id: resource.ID | string): ontology.Resource;
+  (ids: (resource.ID | string)[]): ontology.Resource[];
 }
 
 export interface TreeState {
@@ -45,11 +45,11 @@ export interface BaseProps {
 export interface ContextMenuProps extends BaseProps {
   selection: {
     /** Null when the top selected items sit under more than one parent. */
-    parentID: ontology.ID | null;
-    rootID: ontology.ID;
-    ids: ontology.ID[];
+    parentID: resource.ID | null;
+    rootID: resource.ID;
+    ids: resource.ID[];
     /** The shallowest selected items, without any inside another selected item. */
-    top: ontology.ID[];
+    top: resource.ID[];
   };
   state: TreeState;
 }

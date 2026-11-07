@@ -16,19 +16,19 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var roleType = ontology.ID{Type: ontology.ResourceTypeRole}
+var roleType = resource.ID{Type: resource.TypeRole}
 
 var _ = Describe("Retrieve", func() {
 	It("Should return the roles the request selects when retrieve is granted", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		r := grantOn(ctx, u.OntologyID(), access.ActionRetrieve, roleType)
+		r := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, roleType)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		}))
@@ -67,7 +67,7 @@ var _ = Describe("Unassign", func() {
 		target := createUser(ctx)
 		r := createRole(ctx)
 		Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
-			ctx, target.OntologyID(), r.Key,
+			ctx, target.ResourceID(), r.Key,
 		)).To(Succeed())
 		Expect(apiSvc.Unassign(
 			AuthedCtx(ctx, u), nil,

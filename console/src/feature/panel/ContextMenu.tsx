@@ -102,7 +102,7 @@ const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
   const canEdit = Panel.useCanEdit({});
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const handleMove = () => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
@@ -20,7 +20,7 @@ const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
 
 describe("CopyLinkToolbarButton", () => {
   let writeText: Mock;
-  const id: ontology.ID = { type: "range", key: "range-key" };
+  const id: resource.ID = { type: "range", key: "range-key" };
 
   beforeEach(() => {
     writeText = stubClipboardWriteText();
@@ -32,7 +32,7 @@ describe("CopyLinkToolbarButton", () => {
 
   it("should copy the resource link when clicked", async () => {
     await renderCoreUI(
-      <Core.CopyLinkToolbarButton name="My Range" ontologyID={id} />,
+      <Core.CopyLinkToolbarButton name="My Range" resourceID={id} />,
       createCoreState([CORE], CORE.key),
     );
     const button = screen.getByRole("button");

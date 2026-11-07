@@ -13,24 +13,16 @@ import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
 import {
-  type ID,
-  idsEqual,
-  idToString,
-  idZ,
   oppositeRelationshipDirection,
   PARENT_OF_RELATIONSHIP_TYPE,
-  parseID,
   parseIDs,
   type Relationship,
   type RelationshipDirection,
   relationshipToString,
   relationshipZ,
   type Resource,
-  type ResourceType,
-  resourceTypeZ,
   resourceZ,
   ROOT_ID,
-  stringIDZ,
 } from "@/ontology/payload";
 import {
   Cache,
@@ -42,13 +34,22 @@ import {
 } from "@/ontology/store";
 import { Writer } from "@/ontology/writer";
 import { query } from "@/query";
+import { resource } from "@/resource";
+import {
+  type ID,
+  idsEqual,
+  idToString,
+  idZ,
+  parseID,
+  stringIDZ,
+} from "@/resource/payload";
 
 const wireReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
-  types: resourceTypeZ.array().optional(),
+  types: resource.typeZ.array().optional(),
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
@@ -81,7 +82,7 @@ const parentRel = (from: ID, to: ID): Relationship => ({
 type NormalizedRequest = {
   ids?: string[];
   excludeFieldData?: boolean;
-  types?: ResourceType[];
+  types?: resource.Type[];
   searchTerm?: string;
   root?: string;
   limit?: number;
@@ -91,7 +92,7 @@ type NormalizedRequest = {
 /** Request key for children/parents listings of a set of resources. */
 type DependentRequest = {
   ids: string[];
-  types?: ResourceType[];
+  types?: resource.Type[];
   searchTerm?: string;
   offset?: number;
   limit?: number;
@@ -101,7 +102,7 @@ type DependentRequest = {
 /** Query addressing the children or parents of a set of resources. */
 export type DependentParams = {
   ids: ID | ID[];
-  types?: ResourceType[];
+  types?: resource.Type[];
   searchTerm?: string;
   offset?: number;
   limit?: number;
@@ -158,7 +159,7 @@ const retrieveRequestZ = z
   .strictObject({
     ids: idZ.array().optional(),
     excludeFieldData: z.boolean().optional(),
-    types: resourceTypeZ.array().optional(),
+    types: resource.typeZ.array().optional(),
     searchTerm: z.string().optional(),
     root: idZ.optional(),
     limit: z.int().optional(),
@@ -185,7 +186,7 @@ const retrieveMultiParamsZ = retrieveRequestZ.or(
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const singleParamsZ = z
-  .union([z.strictObject({ type: resourceTypeZ, key: z.string() }), stringIDZ])
+  .union([z.strictObject({ type: resource.typeZ, key: z.string() }), stringIDZ])
   .transform((id) => idToString(id));
 
 /**

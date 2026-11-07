@@ -376,7 +376,7 @@ func (d *Driver) refuseCommand(
 	} else {
 		var stat task.Status
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](tsk.OntologyID().String())).
+			Where(status.MatchKeys[task.StatusDetails](tsk.ResourceID().String())).
 			Entry(&stat).
 			Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 			d.cfg.L.Error(
@@ -410,7 +410,7 @@ func (d *Driver) answer(
 	edit func(*task.Status),
 ) error {
 	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		stat := task.Status{Key: t.OntologyID().String(), Name: t.Name}
+		stat := task.Status{Key: t.ResourceID().String(), Name: t.Name}
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
 			Entry(&stat).

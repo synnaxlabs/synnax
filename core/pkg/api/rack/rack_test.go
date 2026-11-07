@@ -19,8 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -57,9 +57,9 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 var _ = Describe("Create", func() {
 	It("Should reply with the status of a new rack", func(ctx SpecContext) {
 		u := createUser(ctx)
-		rackType := ontology.ID{Type: ontology.ResourceTypeRack}
-		grant(ctx, access.ActionCreate, u.OntologyID(), rackType)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), rackType)
+		rackType := resource.ID{Type: resource.TypeRack}
+		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), rackType)
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New"}}},
@@ -77,8 +77,8 @@ var _ = Describe("Create", func() {
 			grant(
 				ctx,
 				access.ActionCreate,
-				u.OntologyID(),
-				ontology.ID{Type: ontology.ResourceTypeRack},
+				u.ResourceID(),
+				resource.ID{Type: resource.TypeRack},
 			)
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u), nil,
@@ -94,7 +94,7 @@ var _ = Describe("Create", func() {
 		func(ctx SpecContext) {
 			u := createUser(ctx)
 			hidden := createRackWithStatus(ctx, "Hidden")
-			grant(ctx, access.ActionUpdate, u.OntologyID(), hidden.OntologyID())
+			grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{hidden}},
@@ -108,10 +108,10 @@ var _ = Describe("Create", func() {
 		readable := createRackWithStatus(ctx, "Readable")
 		hidden := createRackWithStatus(ctx, "Hidden")
 		grant(
-			ctx, access.ActionUpdate, u.OntologyID(),
-			readable.OntologyID(), hidden.OntologyID(),
+			ctx, access.ActionUpdate, u.ResourceID(),
+			readable.ResourceID(), hidden.ResourceID(),
 		)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), readable.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{readable, hidden}},
@@ -123,7 +123,7 @@ var _ = Describe("Create", func() {
 	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
 		r := createRackWithStatus(ctx, "Existing")
 		res := MustSucceed(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		))
 		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
@@ -132,7 +132,7 @@ var _ = Describe("Create", func() {
 		r := createRackWithStatus(ctx, "Old")
 		r.Name = "New"
 		res := MustSucceed(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		))
 		Expect(res.Racks[0].Status.Name).To(Equal("New"))
@@ -143,7 +143,7 @@ var _ = Describe("Create", func() {
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		r.Integrations = []string{"ni"}
 		Expect(apiSvc.Create(
-			SubjectCtx(ctx, r.OntologyID()), nil,
+			SubjectCtx(ctx, r.ResourceID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
@@ -154,7 +154,7 @@ var _ = Describe("Create", func() {
 			r := rack.Rack{Name: "Self"}
 			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(apiSvc.Create(
-				SubjectCtx(ctx, r.OntologyID()), nil,
+				SubjectCtx(ctx, r.ResourceID()), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
 			)).Error().ToNot(HaveOccurred())
 		},
@@ -165,7 +165,7 @@ var _ = Describe("Create", func() {
 			r := rack.Rack{Name: "Self"}
 			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(apiSvc.Create(
-				SubjectCtx(ctx, r.OntologyID()), nil,
+				SubjectCtx(ctx, r.ResourceID()), nil,
 				apirack.CreateRequest{Racks: []rack.Rack{{Name: "Other"}}},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
@@ -175,8 +175,8 @@ var _ = Describe("Create", func() {
 		grant(
 			ctx,
 			access.ActionCreate,
-			u.OntologyID(),
-			ontology.ID{Type: ontology.ResourceTypeRack},
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeRack},
 		)
 		r := rack.Rack{Name: "Existing"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -192,7 +192,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before", Integrations: []string{"ni"}}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: "After"},
@@ -204,7 +204,7 @@ var _ = Describe("Rename", func() {
 	It("Should keep the embedded flag of the embedded rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := svc.Rack.EmbeddedKey
-		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "Renamed Embedded"},
@@ -217,7 +217,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: ""},
@@ -227,7 +227,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := rack.NewKey(1, 60000)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "After"},
@@ -256,8 +256,8 @@ var _ = Describe("Retrieve", func() {
 			ctx, rack.StatusKey(withoutStatus.Key),
 		)).To(Succeed())
 		grant(
-			ctx, access.ActionRetrieve, u.OntologyID(),
-			withStatus.OntologyID(), withoutStatus.OntologyID(),
+			ctx, access.ActionRetrieve, u.ResourceID(),
+			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
@@ -276,7 +276,7 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Present"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
 			Where: &rack.Where{Key: &filter.Set[rack.Key]{
 				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
@@ -304,9 +304,9 @@ var _ = Describe("Retrieve", func() {
 			u := createUser(ctx)
 			r := createRackWithStatus(ctx, "Target")
 			key := rack.StatusKey(r.Key)
-			grant(ctx, access.ActionCreate, u.OntologyID(), status.OntologyID(key))
-			grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
-			grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+			grant(ctx, access.ActionCreate, u.ResourceID(), status.ResourceID(key))
+			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 			Expect(statusAPI.Set(
 				AuthedCtx(ctx, u), nil,
 				apistatus.SetRequest{Statuses: []status.Status[any]{{
@@ -348,9 +348,9 @@ var _ = Describe("Delete", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Doomed"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionDelete, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionDelete, u.ResourceID(), r.ResourceID())
 		_, key := MustSucceed2(
-			svc.APIKey.NewWriter(nil).Create(ctx, r.OntologyID(), "driver"),
+			svc.APIKey.NewWriter(nil).Create(ctx, r.ResourceID(), "driver"),
 		)
 		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
 			Variant: auth.APIKeyProof{

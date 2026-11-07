@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -48,21 +48,21 @@ export const createState = (
   resources: ontology.Resource[],
   overrides: Partial<Tree.TreeState> = {},
 ): Tree.TreeState => {
-  const byKey = new Map(resources.map((r) => [ontology.idToString(r.id), r]));
-  const lookup = (id: ontology.ID | string): ontology.Resource | undefined =>
-    byKey.get(typeof id === "string" ? id : ontology.idToString(id));
-  const resolve = (id: ontology.ID | string): ontology.Resource => {
-    const resource = lookup(id);
-    if (resource != null) return resource;
-    const key = typeof id === "string" ? id : ontology.idToString(id);
+  const byKey = new Map(resources.map((r) => [resource.idToString(r.id), r]));
+  const lookup = (id: resource.ID | string): ontology.Resource | undefined =>
+    byKey.get(typeof id === "string" ? id : resource.idToString(id));
+  const resolve = (id: resource.ID | string): ontology.Resource => {
+    const found = lookup(id);
+    if (found != null) return found;
+    const key = typeof id === "string" ? id : resource.idToString(id);
     throw new Error(`resource ${key} not found in test state`);
   };
   // Like the tree's, the list form leaves out the IDs it holds no resource for.
-  const getResource = ((id: ontology.ID | string | (ontology.ID | string)[]) =>
+  const getResource = ((id: resource.ID | string | (resource.ID | string)[]) =>
     Array.isArray(id)
       ? id.map(lookup).filter((r) => r != null)
       : resolve(id)) as Tree.GetResource;
-  const nodes = resources.map((r) => ({ key: ontology.idToString(r.id) }));
+  const nodes = resources.map((r) => ({ key: resource.idToString(r.id) }));
   return {
     nodes,
     shape: PTree.flatten({ nodes, expanded: [] }),
@@ -79,11 +79,11 @@ export const createState = (
 
 /** Builds an ontology resource for the given id with an optional name and data payload. */
 export const createResource = (
-  id: ontology.ID,
+  id: resource.ID,
   name: string,
   data?: Record<string, unknown>,
 ): ontology.Resource => ({
-  key: ontology.idToString(id),
+  key: resource.idToString(id),
   id,
   name,
   ...(data != null ? { data } : {}),
@@ -111,9 +111,9 @@ export const createExecutingHandleError =
   };
 
 export interface CreateSelectionParams {
-  ids: ontology.ID[];
-  rootID?: ontology.ID;
-  parentID?: ontology.ID;
+  ids: resource.ID[];
+  rootID?: resource.ID;
+  parentID?: resource.ID;
 }
 
 /** Builds the selection portion of {@link Tree.ContextMenuProps}. */
@@ -157,7 +157,7 @@ export interface RenderOntologyTreeOptions extends Pick<
   "onCaughtError"
 > {
   client: Synnax;
-  root: ontology.ID | null;
+  root: resource.ID | null;
   /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
   items?: Tree.Items;
   /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
@@ -180,7 +180,7 @@ export interface OntologyTreeHandle extends RenderResult {
  * onSelect handlers that place a tab have a project to create panels under.
  */
 interface SearchableTreeProps {
-  root: ontology.ID | null;
+  root: resource.ID | null;
 }
 
 const createSearchableTree = (useSearch: Tree.UseSearch) => {
@@ -327,11 +327,11 @@ export interface RenderTreeContextMenuOptions extends Pick<
   /** Resources backing the tree state. */
   resources: ontology.Resource[];
   /** The selected ids; defaults to every resource. */
-  selected?: ontology.ID[];
+  selected?: resource.ID[];
   /** The tree root; defaults to the ontology root. */
-  rootID?: ontology.ID;
+  rootID?: resource.ID;
   /** The tree parent of the selection; defaults to the root. */
-  parentID?: ontology.ID;
+  parentID?: resource.ID;
   store?: TestStore;
   baseOverrides?: Partial<Tree.BaseProps>;
   stateOverrides?: Partial<Tree.TreeState>;

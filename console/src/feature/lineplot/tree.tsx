@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, ontology } from "@synnaxlabs/client";
+import { lineplot, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, LinePlot as Base, Mosaic } from "@synnaxlabs/pluto";
@@ -35,7 +35,7 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: lineplot.ontologyID,
+  resourceID: lineplot.resourceID,
   convertKey: String,
 });
 
@@ -73,7 +73,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+              handleLink({ name: getResource(firstID).name, resourceID: firstID })
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
@@ -92,7 +92,7 @@ const TreeItem = Tree.createItem({
   icon: <Icon.LinePlot />,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 

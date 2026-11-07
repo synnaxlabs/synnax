@@ -11,7 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax import ontology
+from synnax import resource
+from synnax.user.types_gen import Key
 
 
 class New(BaseModel):
@@ -26,12 +27,12 @@ class User(BaseModel):
     name: str
 
     @property
-    def ontology_id(self) -> ontology.ID:
-        return _ontology_id(self.key)
+    def resource_id(self) -> resource.ID:
+        return _resource_id(self.key)
 
 
-_ONTOLOGY_TYPE = ontology.ID(type="user")
+_RESOURCE_TYPE = resource.ID(type="user")
 
 
-def _ontology_id(key: UUID) -> ontology.ID:
-    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
+def _resource_id(key: Key) -> resource.ID:
+    return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))

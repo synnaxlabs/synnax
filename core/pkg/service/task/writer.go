@@ -60,7 +60,7 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 			variant = status.VariantDisabled
 		}
 		return &Status{
-			Key:     t.OntologyID().String(),
+			Key:     t.ResourceID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: message,
@@ -68,7 +68,7 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = t.OntologyID().String()
+	provided.Key = t.ResourceID().String()
 	provided.Details.Task = t.Key
 	provided.Name = t.Name
 	return provided
@@ -130,7 +130,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 		existed = false
 	}
-	otgID := t.OntologyID()
+	otgID := t.ResourceID()
 	if existed && existing.Snapshot {
 		t.ConfigHash = existing.ConfigHash
 		existingStore, ok := w.configs.Store(existing.Type)
@@ -205,7 +205,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	return w.otgWriter.DefineRelationships(
 		ctx,
-		w.group.OntologyID(),
+		w.group.ResourceID(),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
@@ -225,7 +225,7 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
-		w.status.Rename(ctx, OntologyID(key).String(), name),
+		w.status.Rename(ctx, ResourceID(key).String(), name),
 		query.ErrNotFound,
 	)
 }
@@ -330,10 +330,10 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, OntologyID(key).String())
+	return w.status.Delete(ctx, ResourceID(key).String())
 }
 
 // DeleteByRacks deletes every task attached to the given racks, along with each task's
@@ -383,7 +383,7 @@ func (w Writer) Copy(
 	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
 		return Task{}, err
 	}
-	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, ResourceID(newKey)); err != nil {
 		return Task{}, err
 	}
 	if store, ok := w.configs.Store(res.Type); ok {

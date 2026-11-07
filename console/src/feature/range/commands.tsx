@@ -19,7 +19,7 @@ const CreateCommand = Command.create({
   name: "Create range",
   icon: <Ranger.CreateIcon />,
   useOnSelect: Range.useCreateModal,
-  useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(ranger.TYPE_RESOURCE_ID),
 });
 
 const OpenExplorerCommand = Command.create({
@@ -27,7 +27,7 @@ const OpenExplorerCommand = Command.create({
   name: "Open range explorer",
   icon: <Ranger.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
-  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand, OpenExplorerCommand];

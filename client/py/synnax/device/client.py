@@ -15,6 +15,7 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import resource
 from synnax.device.types_gen import (
     Device,
     Key,
@@ -23,7 +24,6 @@ from synnax.device.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID as OntologyID
 from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
 from x.lists import normalize
@@ -69,7 +69,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: OntologyID | None = None,
+        parent: resource.ID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -96,7 +96,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: OntologyID | None = None,
+        parent: resource.ID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -344,7 +344,7 @@ class Client:
         :param limit: The maximum number of devices to retrieve.
         :param offset: The number of devices to skip.
         :param include_status: Whether to populate each device's status.
-        :param include_parent: Whether to populate each device's parent ontology ID.
+        :param include_parent: Whether to populate each device's parent resource ID.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
             wanted and none matches.

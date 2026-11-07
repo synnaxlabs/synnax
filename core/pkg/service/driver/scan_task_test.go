@@ -245,12 +245,12 @@ var _ = Describe("ScanTask", func() {
 
 	deviceStatus := func(ctx context.Context, dev device.Device) device.Status {
 		GinkgoHelper()
-		return retrieveStatus[device.StatusDetails](ctx, dev.OntologyID().String())
+		return retrieveStatus[device.StatusDetails](ctx, dev.ResourceID().String())
 	}
 
 	taskStatus := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 	}
 
 	Describe("NewScanTask", func() {

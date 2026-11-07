@@ -393,7 +393,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						task.OntologyID(ghost).String(),
+						task.ResourceID(ghost).String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -644,7 +644,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						t.OntologyID().String(),
+						t.ResourceID().String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(Succeed())
@@ -691,7 +691,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, true)
 				details.ConfigHash = "deployed"
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:     t.OntologyID().String(),
+					Key:     t.ResourceID().String(),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -720,7 +720,7 @@ var _ = Describe("Driver", func() {
 					ctx SpecContext,
 				) {
 					Expect(
-						statusSvc.NewWriter(nil).Delete(ctx, t.OntologyID().String()),
+						statusSvc.NewWriter(nil).Delete(ctx, t.ResourceID().String()),
 					).
 						To(Succeed())
 					writeCommand(ctx, task.Command{
@@ -848,7 +848,7 @@ var _ = Describe("Driver", func() {
 									return nil
 								}
 								stat := task.Status{
-									Key:     t.OntologyID().String(),
+									Key:     t.ResourceID().String(),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
 									Message: "Stopped task",
@@ -880,7 +880,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						t.OntologyID().String(),
+						t.ResourceID().String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -1047,7 +1047,7 @@ var _ = Describe("Driver", func() {
 					var statuses []status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							task.OntologyID(t.Key).String(),
+							task.ResourceID(t.Key).String(),
 						)).
 						Entries(&statuses).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1078,7 +1078,7 @@ var _ = Describe("Driver", func() {
 					var stat status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							task.OntologyID(t.Key).String(),
+							task.ResourceID(t.Key).String(),
 						)).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1565,7 +1565,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
 				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
@@ -1590,7 +1590,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
@@ -1626,7 +1626,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			})))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
 				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
@@ -1817,7 +1817,7 @@ var _ = Describe("Driver", func() {
 				t.Rack = embeddedRackKey(ctx)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:     t.OntologyID().String(),
+					Key:     t.ResourceID().String(),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -1828,7 +1828,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Consistently(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					).Details.Cmd
 				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-1"))
 			},
@@ -1852,7 +1852,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -1885,7 +1885,7 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 				otherRack := rack.Rack{Name: "Other Rack"}
@@ -1896,7 +1896,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 				Consistently(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					).Details.Cmd
 				}, 200*time.Millisecond, 50*time.Millisecond).ShouldNot(Equal("cmd-2"))
 			},
@@ -1920,7 +1920,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, false)
 				details.Cmd = "cmd-0"
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:         t.OntologyID().String(),
+					Key:         t.ResourceID().String(),
 					Name:        t.Name,
 					Time:        telem.Now(),
 					Variant:     status.VariantError,
@@ -1936,7 +1936,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -1971,14 +1971,14 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2084,7 +2084,7 @@ var _ = Describe("Driver", func() {
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-fail"})
 
 			Eventually(func(g Gomega) {
-				stat := retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 				g.Expect(stat.Details.Cmd).To(Equal("cmd-fail"))
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Failed to start task"))
@@ -2132,7 +2132,7 @@ var _ = Describe("Driver", func() {
 
 			Consistently(func() status.Key {
 				return retrieveStatus[task.StatusDetails](
-					ctx, t.OntologyID().String(),
+					ctx, t.ResourceID().String(),
 				).Key
 			}, 200*time.Millisecond, 50*time.Millisecond).Should(BeEmpty())
 		})
@@ -2194,7 +2194,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-panic"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2255,7 +2255,7 @@ var _ = Describe("Driver", func() {
 				)
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					).Details.Cmd
 				}).Should(Equal("cmd-1"))
 
@@ -2263,7 +2263,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					stat := retrieveStatus[task.StatusDetails](
-						ctx, t.OntologyID().String(),
+						ctx, t.ResourceID().String(),
 					)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2323,7 +2323,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
 				Eventually(func() bool {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.OntologyID().String(),
+						ctx, scanTask.ResourceID().String(),
 					).Details.Running
 				}).Should(BeTrue())
 				writeCommand(ctx, task.Command{
@@ -2337,7 +2337,7 @@ var _ = Describe("Driver", func() {
 				Eventually(scanner.release).Should(BeSent(struct{}{}))
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.OntologyID().String(),
+						ctx, scanTask.ResourceID().String(),
 					).Details.Cmd
 				}).Should(Equal("cmd-wait"))
 			},
@@ -2391,7 +2391,7 @@ var _ = Describe("Driver", func() {
 				var stat status.Status[task.StatusDetails]
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						task.OntologyID(t.Key).String(),
+						task.ResourceID(t.Key).String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -2448,7 +2448,7 @@ var _ = Describe("Driver", func() {
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Eventually(execStarted).Should(Receive())
 			Eventually(func(g Gomega) {
-				stat := retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 				g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Failed to start task"))

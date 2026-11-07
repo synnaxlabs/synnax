@@ -21,14 +21,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns a unique identifier for a Node to use within a resource Ontology.
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeNode, Key: strconv.Itoa(int(key))}
+// ResourceID returns a unique identifier for a Node to use within a resource Ontology.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeNode, Key: strconv.Itoa(int(key))}
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -40,7 +41,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 var _ ontology.Service = (*Service)(nil)
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
+func (s *Service) Type() resource.Type { return resource.TypeNode }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -68,8 +69,8 @@ func (s *Service) RetrieveResource(
 func (s *Service) Search(
 	_ context.Context,
 	_ gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
 	nodes := s.cfg.Cluster.CopyState().Nodes
 	idx := search.New[Key]()
 	for _, key := range slices.Sorted(maps.Keys(nodes)) {
@@ -77,10 +78,10 @@ func (s *Service) Search(
 	}
 	res := idx.Search(search.Query[Key]{
 		Term:   q.Term,
-		Except: func(key Key) bool { return q.Except != nil && q.Except(OntologyID(key)) },
+		Except: func(key Key) bool { return q.Except != nil && q.Except(ResourceID(key)) },
 		Limit:  q.Limit,
 	})
-	return search.MapKeys(res, OntologyID), nil
+	return search.MapKeys(res, ResourceID), nil
 }
 
 // OnChange implements ontology.Service.
@@ -96,7 +97,7 @@ func (s *Service) OnChange(
 func translateChange(ch Change, _ int) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     OntologyID(ch.Key).String(),
+		Key:     ResourceID(ch.Key).String(),
 		Value:   newResource(ch.Value),
 	}
 }
@@ -104,5 +105,5 @@ func translateChange(ch Change, _ int) ontology.Change {
 func name(key Key) string { return fmt.Sprintf("Node %v", key) }
 
 func newResource(n Node) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(n.Key), name(n.Key), n)
+	return ontology.NewResource(schema, ResourceID(n.Key), name(n.Key), n)
 }

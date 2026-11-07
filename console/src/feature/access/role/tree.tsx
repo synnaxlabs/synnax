@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology, user } from "@synnaxlabs/client";
+import { access, resource, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -24,7 +24,7 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Access.Role.useRename,
-  ontologyID: access.role.ontologyID,
+  resourceID: access.role.resourceID,
   convertKey: String,
 });
 
@@ -75,7 +75,7 @@ const TreeItem = Tree.createItem({
     return (
       resources.length > 0 &&
       resources.every(
-        ({ key }) => ontology.parseID(key).type === user.TYPE_ONTOLOGY_ID.type,
+        ({ key }) => resource.parseID(key).type === user.TYPE_RESOURCE_ID.type,
       ) &&
       User.filterHaulItems(items).every(({ data }) => !data.rootUser)
     );

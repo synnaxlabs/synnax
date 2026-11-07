@@ -15,8 +15,8 @@
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/proto.gen.h"
-#include "client/cpp/ontology/types.gen.h"
+#include "client/cpp/resource/proto.gen.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -165,7 +165,7 @@ Device::from_proto(const ::service::device::pb::Device &pb) {
         cpp.status = v;
     }
     if (pb.has_parent()) {
-        auto [v, err] = ::synnax::ontology::ID::from_proto(pb.parent());
+        auto [v, err] = ::synnax::resource::ID::from_proto(pb.parent());
         if (err) return {{}, err};
         cpp.parent = v;
     }

@@ -42,9 +42,9 @@ def _log_envelope_json(name: str) -> str:
 
 
 @pytest.fixture
-def parent(client: sy.Synnax) -> sy.ontology.ID:
+def parent(client: sy.Synnax) -> sy.resource.ID:
     proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
-    return sy.project.ontology_id(proj.key)
+    return sy.project.resource_id(proj.key)
 
 
 @pytest.mark.imex
@@ -55,7 +55,7 @@ class TestImex:
     """
 
     def test_import_valid(
-        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.resource.ID
     ) -> None:
         """Path source → streamed upload."""
         name = f"imex-path-{uuid.uuid4()}"
@@ -66,7 +66,7 @@ class TestImex:
         uuid.UUID(id.key)
 
     def test_import_invalid(
-        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.resource.ID
     ) -> None:
         """An envelope with an unrecognized type is rejected."""
         path = tmp_path / "in.json"
@@ -77,7 +77,7 @@ class TestImex:
             client.imex.import_(path, parent=parent)
 
     def test_import_names_from_file(
-        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.resource.ID
     ) -> None:
         """A nameless envelope is named after the file, extension stripped."""
         name = f"imex-file-{uuid.uuid4()}"
@@ -91,7 +91,7 @@ class TestImex:
         assert json.loads(out.read_bytes())["name"] == name
 
     def test_import_body_name_wins(
-        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.resource.ID
     ) -> None:
         """A name in the envelope body takes precedence over the file name."""
         name = f"imex-body-{uuid.uuid4()}"
@@ -107,8 +107,8 @@ class TestImex:
         proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-parent-{uuid.uuid4()}"))
-        id = client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
-        children = client.ontology.retrieve_children(sy.project.ontology_id(proj.key))
+        id = client.imex.import_(path, parent=sy.project.resource_id(proj.key))
+        children = client.ontology.retrieve_children(sy.project.resource_id(proj.key))
         assert id.key in [child.key for child in children]
 
     def test_import_with_nonexistent_parent(
@@ -118,10 +118,10 @@ class TestImex:
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-orphan-{uuid.uuid4()}"))
         with pytest.raises(sy.NotFoundError):
-            client.imex.import_(path, parent=sy.project.ontology_id(uuid.uuid4()))
+            client.imex.import_(path, parent=sy.project.resource_id(uuid.uuid4()))
 
     def test_export(
-        self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
+        self, client: sy.Synnax, tmp_path: Path, parent: sy.resource.ID
     ) -> None:
         """Path dest → streamed download; on-disk content parses back."""
         name = f"imex-export-path-{uuid.uuid4()}"
@@ -136,7 +136,7 @@ class TestImex:
 
     def test_export_nonexistent(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Exporting a resource that does not exist raises NotFoundError."""
-        id = sy.ontology.ID(type="log", key=str(uuid.uuid4()))
+        id = sy.resource.ID(type="log", key=str(uuid.uuid4()))
         out = tmp_path / "log.json"
         with pytest.raises(sy.NotFoundError):
             client.imex.export(id, out)

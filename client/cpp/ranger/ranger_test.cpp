@@ -329,12 +329,12 @@ TEST(RangerTests, testKVDelete) {
     ASSERT_OCCURRED_AS_P(range.kv.get("test"), x::errors::NOT_FOUND);
 }
 
-/// @brief it should convert a range key to an ontology ID
-TEST(RangerTests, testRangeOntologyId) {
+/// @brief it should convert a range key to a resource ID
+TEST(RangerTests, testRangeResourceID) {
     const auto key = ASSERT_NIL_P(
         x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
     );
-    const auto id = ontology_id(key);
+    const auto id = resource_id(key);
     ASSERT_EQ(id.type, "range");
     ASSERT_EQ(id.key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
 }
