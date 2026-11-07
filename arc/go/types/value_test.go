@@ -75,6 +75,10 @@ var _ = Describe("Value", func() {
 		Expect(types.DecodeValue(1.5, types.F64())).To(Equal(1.5))
 	})
 
+	It("Should keep other text in a float param", func() {
+		Expect(types.DecodeValue("text", types.F64())).To(Equal("text"))
+	})
+
 	It("Should keep NaN text in a string param", func() {
 		Expect(types.DecodeValue("NaN", types.String())).To(Equal("NaN"))
 		Expect(types.DecodeValue("NaN", types.VarRef(types.String(), "n"))).To(
