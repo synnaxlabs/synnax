@@ -11,8 +11,8 @@
 # Runs only under disk pressure so the Bazel output tree stays warm and builds stay
 # incremental:
 # - If free space >= MinFreeGB, nothing is cleaned.
-# - Otherwise: `bazel clean` first (largest consumer), then oldest Go/binary files
-#   until MinFreeGB is available.
+# - Otherwise: `bazel clean` first (largest consumer) when the output base is on C:,
+#   then oldest Go/binary files until MinFreeGB is available.
 #
 # Usage: CleanBuildCaches.ps1 [-MinFreeGB 30]
 
@@ -71,12 +71,23 @@ if (Test-EnoughSpace) {
 }
 
 # --- Below threshold: Bazel is the largest consumer, so clean it first ---
-# The runner bazelrc pins --output_base=C:/_bazel, so `bazel clean` frees it.
+# A bot that keeps the output base on another drive, such as its NVMe D:, frees
+# nothing on C: by cleaning it.
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$outputBase = $null
 if (Test-Path $repoRoot) {
     Push-Location $repoRoot
     $outputBase = (bazel info output_base 2>$null)
+    Pop-Location
+}
+if (-not (Test-Path $repoRoot)) {
+    Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
+} elseif ($outputBase -and -not $outputBase.StartsWith(
+        $drive.Name.Substring(0, 2), [System.StringComparison]::OrdinalIgnoreCase)) {
+    Write-Output ("  {0,-35} skipped (not on {1})" -f $outputBase, $drive.Name)
+} else {
+    Push-Location $repoRoot
     $before = 0
     if ($outputBase -and (Test-Path $outputBase)) {
         $before = [math]::Round(
@@ -98,8 +109,6 @@ if (Test-Path $repoRoot) {
     $script:totalFreed += ($before - $after)
     Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f `
         $label, $before, $after, ($before - $after))
-} else {
-    Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
 }
 Write-Output ""
 
