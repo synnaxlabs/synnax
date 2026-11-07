@@ -69,6 +69,7 @@ const (
 	ResourceType_RESOURCE_TYPE_NI_DEVICE        ResourceType = 30
 	ResourceType_RESOURCE_TYPE_OPCUA_SERVER     ResourceType = 31
 	ResourceType_RESOURCE_TYPE_ARC_DIRECTORY    ResourceType = 32
+	ResourceType_RESOURCE_TYPE_SECRET           ResourceType = 33
 )
 
 // Enum value maps for ResourceType.
@@ -107,6 +108,7 @@ var (
 		30: "RESOURCE_TYPE_NI_DEVICE",
 		31: "RESOURCE_TYPE_OPCUA_SERVER",
 		32: "RESOURCE_TYPE_ARC_DIRECTORY",
+		33: "RESOURCE_TYPE_SECRET",
 	}
 	ResourceType_value = map[string]int32{
 		"RESOURCE_TYPE_ARC":              0,
@@ -142,6 +144,7 @@ var (
 		"RESOURCE_TYPE_NI_DEVICE":        30,
 		"RESOURCE_TYPE_OPCUA_SERVER":     31,
 		"RESOURCE_TYPE_ARC_DIRECTORY":    32,
+		"RESOURCE_TYPE_SECRET":           33,
 	}
 )
 
@@ -242,7 +245,7 @@ const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"+core/pkg/service/ontology/pb/ontology.proto\x12\x13service.ontology.pb\"M\n" +
 	"\x02ID\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xa1\a\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xbb\a\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
 	"\x15RESOURCE_TYPE_BUILTIN\x10\x01\x12\x19\n" +
@@ -277,7 +280,8 @@ const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x18RESOURCE_TYPE_NI_CHASSIS\x10\x1d\x12\x1b\n" +
 	"\x17RESOURCE_TYPE_NI_DEVICE\x10\x1e\x12\x1e\n" +
 	"\x1aRESOURCE_TYPE_OPCUA_SERVER\x10\x1f\x12\x1f\n" +
-	"\x1bRESOURCE_TYPE_ARC_DIRECTORY\x10 B\xcc\x01\n" +
+	"\x1bRESOURCE_TYPE_ARC_DIRECTORY\x10 \x12\x18\n" +
+	"\x14RESOURCE_TYPE_SECRET\x10!B\xcc\x01\n" +
 	"\x17com.service.ontology.pbB\rOntologyProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/ontology/pb\xa2\x02\x03SOP\xaa\x02\x13Service.Ontology.Pb\xca\x02\x13Service\\Ontology\\Pb\xe2\x02\x1fService\\Ontology\\Pb\\GPBMetadata\xea\x02\x15Service::Ontology::Pbb\x06proto3"
 
 var (

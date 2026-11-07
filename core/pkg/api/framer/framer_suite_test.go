@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -54,6 +55,7 @@ var (
 	channelSvc    *channel.Service
 	rbacSvc       *rbac.Service
 	userSvc       *user.Service
+	secretSvc     *secret.Service
 	root          user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
@@ -81,12 +83,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Username: rootUsername,
 			Password: "p",
 		},
+		SecretsKey: secret.NewEncryptionKey(),
 	}))
 	framerSvc = svc.Framer
 	channelWriter = svc.Channel.NewWriter(nil)
 	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
+	secretSvc = svc.Secret
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
 		Framer:  svc.Framer,
 		Channel: svc.Channel,

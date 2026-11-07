@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -60,6 +61,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Storage:         node.Storage,
 		RootCredentials: creds,
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
@@ -125,6 +127,12 @@ var _ = Describe("HTTP", func() {
 			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary secret grant create",
+				http.MethodPost,
+				"/api/v1/secret/grant/create",
+			),
 		)
 
 		It("Should not register a route for an unknown path", func() {
@@ -153,6 +161,7 @@ var _ = Describe("HTTP", func() {
 				Storage:         node.Storage,
 				RootCredentials: creds,
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
+				SecretsKey:      secret.NewEncryptionKey(),
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,

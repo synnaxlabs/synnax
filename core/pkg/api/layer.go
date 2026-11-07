@@ -46,12 +46,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcsecret "github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 )
@@ -232,6 +234,13 @@ type Transport struct {
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
+	// SECRET
+	SecretCreate      freighter.UnaryServer[secret.CreateRequest, secret.CreateResponse]
+	SecretRetrieve    freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
+	SecretRename      freighter.UnaryServer[secret.RenameRequest, struct{}]
+	SecretDelete      freighter.UnaryServer[secret.DeleteRequest, struct{}]
+	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
+	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -258,6 +267,7 @@ type Layer struct {
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
+	Secret       *secret.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -475,6 +485,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewRename,
+
+		// SECRET
+		t.SecretCreate,
+		t.SecretRetrieve,
+		t.SecretRename,
+		t.SecretDelete,
+		t.SecretGrantCreate,
+		t.SecretResolve,
 
 		// ARC
 		t.ArcCreate,
@@ -707,6 +725,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
 	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
+	// SECRET
+	t.SecretCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Create))
+	t.SecretRetrieve.BindHandler(l.Secret.Retrieve)
+	t.SecretRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Rename))
+	t.SecretDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Delete))
+	t.SecretGrantCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+	)
+	t.SecretResolve.BindHandler(l.Secret.Resolve)
+
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
@@ -773,7 +801,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records: map[svcchannel.Key]framer.RecordOf{
-			cfg.Service.Task.ActionChannelKey(): svctask.ActionRecord,
+			cfg.Service.Task.ActionChannelKey():   svctask.ActionRecord,
+			cfg.Service.Secret.SetChannelKey():    svcsecret.SetRecord,
+			cfg.Service.Secret.DeleteChannelKey(): svcsecret.DeleteRecord,
 		},
 	}); err != nil {
 		return nil, err
@@ -927,6 +957,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
 		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Secret, err = secret.NewService(secret.ServiceConfig{
+		Secret: cfg.Service.Secret,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

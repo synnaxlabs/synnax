@@ -50,6 +50,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
+	{Type: ontology.ResourceTypeSecret},
 }
 
 var (
@@ -107,6 +108,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
+				{Type: ontology.ResourceTypeSecret},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -162,6 +164,12 @@ var (
 		{
 			Name:     "Driver Channel View Access",
 			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:     "Driver Secret View Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeSecret}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},

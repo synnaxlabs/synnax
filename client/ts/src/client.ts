@@ -43,6 +43,7 @@ import { query } from "@/query";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { schematic } from "@/schematic";
+import { secret } from "@/secret";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
@@ -153,6 +154,7 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly secrets: secret.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -328,6 +330,7 @@ export default class Synnax extends framer.Client {
       statusStore: this.statuses.store,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
+    this.secrets = new secret.Client({ unary, cache, ontology: this.ontology });
     this.groups = new group.Client({
       unary,
       ontology: this.ontology,

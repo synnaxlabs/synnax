@@ -74,6 +74,8 @@ const (
 	ResourceTypeNiDevice       ResourceType = versions.ResourceTypeNiDevice
 	ResourceTypeOpcuaServer    ResourceType = versions.ResourceTypeOpcuaServer
 	ResourceTypeArcDirectory   ResourceType = versions.ResourceTypeArcDirectory
+	// ResourceTypeSecret identifies a secret.
+	ResourceTypeSecret ResourceType = versions.ResourceTypeSecret
 )
 
 // RelationshipType is the kind of link between two resources.

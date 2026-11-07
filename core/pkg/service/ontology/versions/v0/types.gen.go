@@ -74,13 +74,15 @@ const (
 	ResourceTypeNiDevice       ResourceType = "ni_device"
 	ResourceTypeOpcuaServer    ResourceType = "opcua_server"
 	ResourceTypeArcDirectory   ResourceType = "arc_directory"
+	// ResourceTypeSecret identifies a secret.
+	ResourceTypeSecret ResourceType = "secret"
 )
 
 // IsValid reports whether r is one of the defined ResourceType
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer, ResourceTypeArcDirectory:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeEthercatMaster, ResourceTypeEthercatSlave, ResourceTypeHTTPServer, ResourceTypeLabjackDevice, ResourceTypeModbusServer, ResourceTypeNiChassis, ResourceTypeNiDevice, ResourceTypeOpcuaServer, ResourceTypeArcDirectory, ResourceTypeSecret:
 		return true
 	default:
 		return false

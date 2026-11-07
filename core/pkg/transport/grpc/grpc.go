@@ -33,6 +33,7 @@ import (
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
@@ -197,6 +198,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
 	t.AccessAssignRole = noop.UnaryServer[role.AssignRequest, struct{}]{}
 	t.AccessUnassignRole = noop.UnaryServer[role.UnassignRequest, struct{}]{}
+
+	// SECRET
+	t.SecretCreate = noop.UnaryServer[apisecret.CreateRequest, apisecret.CreateResponse]{}
+	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
+	t.SecretRename = noop.UnaryServer[apisecret.RenameRequest, struct{}]{}
+	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
+	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
+	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

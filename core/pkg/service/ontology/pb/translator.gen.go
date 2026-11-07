@@ -139,6 +139,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_OPCUA_SERVER, nil
 	case ontology.ResourceTypeArcDirectory:
 		return ResourceType_RESOURCE_TYPE_ARC_DIRECTORY, nil
+	case ontology.ResourceTypeSecret:
+		return ResourceType_RESOURCE_TYPE_SECRET, nil
 	default:
 		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
@@ -213,6 +215,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeOpcuaServer, nil
 	case ResourceType_RESOURCE_TYPE_ARC_DIRECTORY:
 		return ontology.ResourceTypeArcDirectory, nil
+	case ResourceType_RESOURCE_TYPE_SECRET:
+		return ontology.ResourceTypeSecret, nil
 	default:
 		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}

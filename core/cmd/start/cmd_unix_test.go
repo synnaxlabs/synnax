@@ -12,10 +12,13 @@
 package start_test
 
 import (
+	"bytes"
+	"encoding/base64"
 	"io"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -89,6 +93,24 @@ var _ = Describe("Start", func() {
 		session.Signal(syscall.SIGTERM)
 		Eventually(session, 30*time.Second).Should(gexec.Exit(0))
 		Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
+	})
+
+	Describe("Secrets key", func() {
+		var path string
+		BeforeEach(func() {
+			path = filepath.Join(GinkgoT().TempDir(), "secrets.key")
+		})
+
+		It("Should create the secrets key file it is given", func() {
+			startCore("--secrets-key-file", path)
+			Expect(MustSucceed(os.Stat(path)).Mode().Perm()).To(Equal(xfs.UserRW))
+		})
+
+		It("Should use the secrets key before the secrets key file", func() {
+			key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
+			startCore("--secrets-key", key, "--secrets-key-file", path)
+			Expect(path).ToNot(BeAnExistingFile())
+		})
 	})
 
 	It("Should exit at once on two signals after the stop keyword", func() {

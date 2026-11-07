@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -461,6 +463,67 @@ var _ = Describe("Framer", func() {
 			Expect(res.Frame.Get(records.Key()).Series).To(BeEmpty())
 			Expect(res.Frame.Get(other.Key()).Series).To(HaveLen(1))
 		})
+
+		It(
+			"Should send only the secret records that the subject can retrieve",
+			func(ctx SpecContext) {
+				records := map[channel.Key]apiframer.RecordOf{
+					secretSvc.SetChannelKey():    secret.SetRecord,
+					secretSvc.DeleteChannelKey(): secret.DeleteRecord,
+				}
+				svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+					Framer:  framerSvc,
+					Channel: channelSvc,
+					RBAC:    rbacSvc,
+					Records: records,
+				}))
+				newSecret := func(name string) secret.Secret {
+					return secret.Secret{Variant: secret.FileSecret{
+						Base: secret.Base{Key: uuid.New(), Name: name},
+						Path: "/etc/" + name,
+					}}
+				}
+				denied, readable := newSecret("denied"), newSecret("readable")
+				keys := channel.Keys{
+					secretSvc.SetChannelKey(),
+					secretSvc.DeleteChannelKey(),
+				}
+				u := createUserGranted(
+					ctx,
+					access.ActionRetrieve,
+					append(svcframer.OntologyIDs(keys), readable.OntologyID())...,
+				)
+				secretClient, server := freightertestutil.NewStreams[
+					apiframer.StreamerRequest,
+					apiframer.StreamerResponse,
+				](ctx)
+				done := make(chan error, 1)
+				go func() {
+					done <- svc.Stream(subjectCtx(ctx, u.OntologyID()), server)
+				}()
+				DeferCleanup(func() {
+					Expect(secretClient.CloseSend()).To(Succeed())
+					Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+				})
+				Expect(secretClient.Send(apiframer.StreamerRequest{Keys: keys})).
+					To(Succeed())
+				Expect(MustSucceed(secretClient.Receive()).Frame.Empty()).To(BeTrue())
+				w := secretSvc.NewWriter(nil)
+				Expect(w.Create(ctx, &denied, nil)).To(Succeed())
+				Expect(w.Create(ctx, &readable, nil)).To(Succeed())
+				Expect(w.Delete(ctx, denied.Base().Key)).To(Succeed())
+				Expect(w.Delete(ctx, readable.Base().Key)).To(Succeed())
+				for _, key := range keys {
+					res := MustSucceed(secretClient.Receive())
+					Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
+					var received []ontology.ID
+					for sample := range res.Frame.SeriesAt(0).Samples() {
+						received = append(received, MustSucceed(records[key](sample)))
+					}
+					Expect(received).To(Equal([]ontology.ID{readable.OntologyID()}))
+				}
+			},
+		)
 
 		It(
 			"Should leave a frame with no record channel as it is",

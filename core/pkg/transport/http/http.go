@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -633,6 +634,32 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewRename: unary[view.RenameRequest, struct{}](
 			router,
 			"/api/v1/view/rename",
+		),
+
+		// SECRET
+		SecretCreate: unary[secret.CreateRequest, secret.CreateResponse](
+			router,
+			"/api/v1/secret/create",
+		),
+		SecretRetrieve: unary[secret.RetrieveRequest, secret.RetrieveResponse](
+			router,
+			"/api/v1/secret/retrieve",
+		),
+		SecretRename: unary[secret.RenameRequest, struct{}](
+			router,
+			"/api/v1/secret/rename",
+		),
+		SecretDelete: unary[secret.DeleteRequest, struct{}](
+			router,
+			"/api/v1/secret/delete",
+		),
+		SecretGrantCreate: unary[secret.GrantCreateRequest, secret.GrantCreateResponse](
+			router,
+			"/api/v1/secret/grant/create",
+		),
+		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
+			router,
+			"/api/v1/secret/resolve",
 		),
 
 		// IMPORT/EXPORT
