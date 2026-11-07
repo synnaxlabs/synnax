@@ -96,7 +96,7 @@ describe("license", () => {
     it("should read the license with a retrieve grant on its ID", async () => {
       const granted = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [license.ONTOLOGY_ID],
+        objects: [license.RESOURCE_ID],
         actions: ["retrieve"],
       });
       await expect(granted.license.retrieve()).resolves.toBeDefined();

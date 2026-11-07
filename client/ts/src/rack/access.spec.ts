@@ -34,7 +34,7 @@ describe("rack", () => {
     it("should allow the caller to retrieve racks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [rack.ontologyID(0)],
+        objects: [rack.resourceID(0)],
         actions: ["retrieve"],
       });
       const randomRack = await client.racks.create({
@@ -48,7 +48,7 @@ describe("rack", () => {
     it("should allow the caller to create racks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [rack.ontologyID(0)],
+        objects: [rack.resourceID(0)],
         actions: ["create"],
       });
       await userClient.racks.create({
@@ -59,7 +59,7 @@ describe("rack", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [rack.ontologyID(0)],
+        objects: [rack.resourceID(0)],
         actions: [],
       });
       await expect(
@@ -72,7 +72,7 @@ describe("rack", () => {
     it("should allow the caller to delete racks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [rack.ontologyID(0)],
+        objects: [rack.resourceID(0)],
         actions: ["delete", "retrieve"],
       });
       const randomRack = await client.racks.create({
@@ -87,7 +87,7 @@ describe("rack", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [rack.ontologyID(0)],
+        objects: [rack.resourceID(0)],
         actions: [],
       });
       const randomRack = await client.racks.create({

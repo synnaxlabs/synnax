@@ -12,7 +12,7 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type Label, type Where } from "@/label/types.gen";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
@@ -61,7 +61,7 @@ const inputs = {
   /** name selects by name. */
   name: filter.stringInputZ.exactOptional(),
   /** for matches the labels attached to the given resource. */
-  for: ontology.idZ.exactOptional(),
+  for: resource.idZ.exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */

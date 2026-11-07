@@ -88,7 +88,7 @@ const DOMAINS: Domain[] = [
       (
         await writer.panels.create({
           name: `p-${id.create()}`,
-          parent: project.ontologyID(proj.key),
+          parent: project.resourceID(proj.key),
         })
       ).key,
     del: async (key) => await writer.panels.delete(key),

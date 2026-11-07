@@ -44,7 +44,7 @@ describe("device", () => {
     it("should allow the caller to retrieve devices with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: ["retrieve"],
       });
       const rack = await client.racks.create({
@@ -67,7 +67,7 @@ describe("device", () => {
     it("should allow the caller to create devices with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: ["create"],
       });
       const rack = await client.racks.create({
@@ -87,7 +87,7 @@ describe("device", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: [],
       });
       const rack = await client.racks.create({
@@ -109,7 +109,7 @@ describe("device", () => {
     it("should allow the caller to delete devices with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const rack = await client.racks.create({
@@ -133,7 +133,7 @@ describe("device", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [device.ontologyID("")],
+        objects: [device.resourceID("")],
         actions: [],
       });
       const rack = await client.racks.create({

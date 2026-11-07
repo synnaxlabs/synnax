@@ -44,7 +44,7 @@ const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
@@ -81,8 +81,8 @@ const Internal = (): ReactElement => {
           )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
-          <Export.ToolbarButton id={table.ontologyID(key)} />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
+          <Export.ToolbarButton id={table.resourceID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={table.resourceID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
@@ -191,7 +191,7 @@ interface NotEditableContentProps {
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
   const key = Table.useKey();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   return (
     <Empty.Action
       message={`${name} is not editable`}

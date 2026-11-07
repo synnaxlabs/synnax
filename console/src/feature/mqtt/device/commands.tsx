@@ -20,7 +20,7 @@ const ConnectBrokerCommand = Command.create({
   name: "Connect an MQTT broker",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useConnectModal,
-  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(device.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = FLAGS.mqtt ? [ConnectBrokerCommand] : [];

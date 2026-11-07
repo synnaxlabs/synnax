@@ -41,7 +41,7 @@ User struct {
     """
     @go marshal
     @go migrate
-    @ontology type   "user"
+    @resource type   "user"
     @retrieve custom
 }
 

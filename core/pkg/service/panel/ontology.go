@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,19 +26,19 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypePanel, Key: k.String()}
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypePanel, Key: k.String()}
 }
 
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-func OntologyIDsFromPanels(panels []Panel) []ontology.ID {
-	return lo.Map(panels, func(p Panel, _ int) ontology.ID { return p.OntologyID() })
+func ResourceIDsFromPanels(panels []Panel) []resource.ID {
+	return lo.Map(panels, func(p Panel, _ int) resource.ID { return p.ResourceID() })
 }
 
-func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
@@ -56,14 +57,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Panel) ontology.Resource {
-	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
+	return ontology.NewResource(schema, p.ResourceID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Panel]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypePanel }
+func (s *Service) Type() resource.Type { return resource.TypePanel }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -85,7 +86,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -104,7 +105,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

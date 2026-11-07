@@ -234,7 +234,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+		Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
@@ -245,7 +245,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+		Where(status.MatchKeys[device.StatusDetails](dev.ResourceID().String())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat

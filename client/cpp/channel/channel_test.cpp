@@ -349,10 +349,10 @@ TEST(TestChannel, testRetrieveRejectsPage) {
     }
 }
 
-/// @brief it should convert a channel key to an ontology ID
-TEST(TestChannel, testOntologyId) {
+/// @brief it should convert a channel key to a resource ID
+TEST(TestChannel, testResourceID) {
     constexpr Key key = 42;
-    const auto id = ontology_id(key);
+    const auto id = resource_id(key);
     ASSERT_EQ(id.type, "channel");
     ASSERT_EQ(id.key, "42");
 }

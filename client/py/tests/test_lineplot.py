@@ -95,11 +95,11 @@ class TestLinePlot:
                 {"key": "a", "label": "A", "axis": "z1", "position": 0}
             )
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a line plot."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a line plot."""
         key = uuid4()
-        assert lineplot.ontology_id(key).type == lineplot.ONTOLOGY_TYPE.type
-        assert lineplot.ontology_id(key).key == str(key)
+        assert lineplot.resource_id(key).type == lineplot.TYPE_RESOURCE_ID.type
+        assert lineplot.resource_id(key).key == str(key)
         p = lineplot.LinePlot(name="Pressure")
         assert hash(p) == hash(p.key)
 

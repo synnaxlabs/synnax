@@ -33,12 +33,12 @@ describe("policy", () => {
       ]);
       const r = await client.access.roles.create({ name: "holder", description: "" });
       await client.ontology.addChildren(
-        role.ontologyID(r.key),
-        policy.ontologyID(held.key),
+        role.resourceID(r.key),
+        policy.resourceID(held.key),
       );
       const u = await client.users.create({ username: id.create(), password: "test" });
       await client.access.roles.assign({ user: u.key, role: r.key });
-      const subjects = [user.ontologyID(u.key)];
+      const subjects = [user.resourceID(u.key)];
       const key = { in: [held.key, other.key] };
       const matched = await client.access.policies.retrieve({
         where: { subjects, key },
@@ -94,7 +94,7 @@ describe("policy", () => {
     it("should allow the caller to retrieve policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
@@ -112,7 +112,7 @@ describe("policy", () => {
     it("should allow the caller to create policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["create"],
       });
       await userClient.access.policies.create({
@@ -126,7 +126,7 @@ describe("policy", () => {
       // Create a user with no create policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(
@@ -141,7 +141,7 @@ describe("policy", () => {
     it("should allow the caller to delete policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["delete"],
       });
       const randomPolicy = await client.access.policies.create({
@@ -159,7 +159,7 @@ describe("policy", () => {
       // Create a user with no delete policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({

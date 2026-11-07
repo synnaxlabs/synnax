@@ -48,7 +48,7 @@ var _ = Describe("Where", func() {
 		for _, r := range v.Records {
 			Expect(labelSvc.NewWriter(tx).Label(
 				ctx,
-				r.OntologyID(),
+				r.ResourceID(),
 				lo.Map(r.Labels, func(l label.Label, _ int) label.Key { return l.Key }),
 			)).To(Succeed())
 		}

@@ -223,7 +223,7 @@ var _ = Describe("Writer", func() {
 					entries := []ontology.Resource{}
 					Expect(otg.
 						NewRetrieve().
-						WhereIDs(ch.OntologyID()).
+						WhereIDs(ch.ResourceID()).
 						TraverseTo(ontology.ParentsTraverser).
 						Entries(&entries).
 						Exec(ctx, nil),
@@ -440,7 +440,7 @@ var _ = Describe("Writer", func() {
 						originalKey := ch.Key()
 						Expect(otg.
 							NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
+							WhereIDs(channel.ResourceID(originalKey)).
 							Exists(ctx, nil),
 						).To(BeTrue())
 
@@ -460,11 +460,11 @@ var _ = Describe("Writer", func() {
 						Expect(newCh.Key()).ToNot(Equal(originalKey))
 
 						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(originalKey)).
+							WhereIDs(channel.ResourceID(originalKey)).
 							Exists(ctx, nil),
 						).To(BeFalse())
 						Expect(otg.NewRetrieve().
-							WhereIDs(channel.OntologyID(newCh.Key())).
+							WhereIDs(channel.ResourceID(newCh.Key())).
 							Exists(ctx, nil),
 						).To(BeTrue())
 					},

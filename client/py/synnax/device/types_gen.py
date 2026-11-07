@@ -16,10 +16,10 @@ from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from synnax import ontology
 from synnax import rack as rack_
+from synnax import resource
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 Key: TypeAlias = str
@@ -145,7 +145,7 @@ class Device(BaseModel):
     configured: bool = False
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
-    parent: ontology.ID | None = None
+    parent: resource.ID | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -165,8 +165,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="device")
+TYPE_RESOURCE_ID = ID(type="device")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="device", key=str(key))

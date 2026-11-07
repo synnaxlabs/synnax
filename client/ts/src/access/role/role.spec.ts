@@ -132,10 +132,10 @@ describe("role", () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
       const { key } = await viewer.users.current.retrieve();
-      const subject = user.ontologyID(key);
+      const subject = user.resourceID(key);
       const granted = async (action: Action) =>
         await viewer.access.granted.retrieve(subject, {
-          objects: channel.TYPE_ONTOLOGY_ID,
+          objects: channel.TYPE_RESOURCE_ID,
           action,
         });
       await expect(granted("create")).resolves.toBe(false);

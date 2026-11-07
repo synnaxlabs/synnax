@@ -48,11 +48,11 @@ const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
         {
           variant: "resource",
           key: uuid.create(),
-          resource: schematic.ontologyID(uuid.create()),
+          resource: schematic.resourceID(uuid.create()),
         },
       ],
     },
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
   });
 
 interface Harness {

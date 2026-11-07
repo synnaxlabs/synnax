@@ -48,7 +48,7 @@ export type OnDropProps = DropPosition & {
 export type OnCreateProps = DropPosition & {
   /** The key of the leaf the items were dropped on. */
   nodeKey: number;
-  /** The keys of the dropped creation items, e.g. ontology ID strings. */
+  /** The keys of the dropped creation items, e.g. resource ID strings. */
   tabKeys: string[];
 };
 

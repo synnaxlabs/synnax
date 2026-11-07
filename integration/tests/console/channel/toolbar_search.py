@@ -33,13 +33,13 @@ class ToolbarSearch(ConsoleCase):
         created = create_indexed_channels(
             self.client, [*self.names, self.other], index_key=self.index.key
         )
-        channels_group = sy.group.ontology_id(self.client.channels.retrieve_group().key)
+        channels_group = sy.group.resource_id(self.client.channels.retrieve_group().key)
         grp = self.client.groups.create(channels_group, self.group_name)
         self.group_key = grp.key
         self.client.ontology.move_children(
             channels_group,
-            sy.group.ontology_id(grp.key),
-            *[ch.ontology_id for ch in created],
+            sy.group.resource_id(grp.key),
+            *[ch.resource_id for ch in created],
         )
 
     def run(self) -> None:

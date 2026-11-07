@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -47,14 +48,14 @@ var CompositionMigrations = []gorp.Migration{
 // migratableLayoutTypes maps the Console layout types whose layout key is the key of a
 // backing core document to that document's ontology resource type. Consoles up to v0.50
 // stored Arc editors as arc_editor.
-var migratableLayoutTypes = map[string]ontology.ResourceType{
-	"arc":        ontology.ResourceTypeArc,
-	"arc_editor": ontology.ResourceTypeArc,
-	"lineplot":   ontology.ResourceTypeLineplot,
-	"log":        ontology.ResourceTypeLog,
-	"overview":   ontology.ResourceTypeRange,
-	"schematic":  ontology.ResourceTypeSchematic,
-	"table":      ontology.ResourceTypeTable,
+var migratableLayoutTypes = map[string]resource.Type{
+	"arc":        resource.TypeArc,
+	"arc_editor": resource.TypeArc,
+	"lineplot":   resource.TypeLineplot,
+	"log":        resource.TypeLog,
+	"overview":   resource.TypeRange,
+	"schematic":  resource.TypeSchematic,
+	"table":      resource.TypeTable,
 }
 
 // viewLayoutTypes maps the legacy Console layout types that render inline app views
@@ -116,11 +117,11 @@ type legacySlice struct {
 const mainWindowKey = "main"
 
 // stagedLayout is a project layout gathered from the staging prefix for conversion: the
-// KV key it was read from, the owning project's ontology ID, and the parsed mosaic
+// KV key it was read from, the owning project's resource ID, and the parsed mosaic
 // state.
 type stagedLayout struct {
 	key       []byte
-	projectID ontology.ID
+	projectID resource.ID
 	slice     legacySlice
 }
 
@@ -179,8 +180,8 @@ func scanStagedLayouts(
 		}
 		out = append(out, stagedLayout{
 			key: key,
-			projectID: ontology.ID{
-				Type: ontology.ResourceTypeProject,
+			projectID: resource.ID{
+				Type: resource.TypeProject,
 				Key:  strings.TrimPrefix(string(key), project.LegacyLayoutKVPrefix),
 			},
 			slice: slice,
@@ -190,11 +191,11 @@ func scanStagedLayouts(
 }
 
 // createPanels converts every migratable window mosaic in slice into a panel owned by
-// the project with the given ontology ID.
+// the project with the given resource ID.
 func createPanels(
 	ctx context.Context,
 	tx gorp.Tx,
-	projectID ontology.ID,
+	projectID resource.ID,
 	slice legacySlice,
 ) error {
 	panelWriter := gorp.WrapWriter[Key, Panel](tx)
@@ -216,7 +217,7 @@ func createPanels(
 		if err := panelWriter.Set(ctx, pan); err != nil {
 			return err
 		}
-		panelID := pan.OntologyID()
+		panelID := pan.ResourceID()
 		if err := resourceWriter.Set(ctx, ontology.Resource{ID: panelID}); err != nil {
 			return err
 		}
@@ -320,7 +321,7 @@ func convertNode(
 			}
 			continue
 		}
-		id := ontology.ID{Type: resourceType, Key: t.TabKey}
+		id := resource.ID{Type: resourceType, Key: t.TabKey}
 		exists, err := gorp.NewRetrieve[string, ontology.Resource]().
 			Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
 			Exists(ctx, tx)
@@ -381,7 +382,7 @@ func convertTaskTab(
 		}
 		return &Tab{Variant: ResourceTab{
 			Key:      uuid.New(),
-			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+			Resource: resource.ID{Type: resource.TypeTask, Key: key},
 		}}, nil
 	}
 	return nil, nil
@@ -466,7 +467,7 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 			}
 			tab.Variant = ResourceTab{
 				TabBase:  view.TabBase,
-				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+				Resource: resource.ID{Type: resource.TypeTask, Key: key},
 			}
 			changed = true
 		}
@@ -482,13 +483,13 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 // resourceTabTypes is the set of resource types a tab can display, as the panel schema
 // currently enforces.
 var resourceTabTypes = set.New(
-	ontology.ResourceTypeSchematic,
-	ontology.ResourceTypeLineplot,
-	ontology.ResourceTypeLog,
-	ontology.ResourceTypeTable,
-	ontology.ResourceTypeArc,
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeRange,
+	resource.TypeSchematic,
+	resource.TypeLineplot,
+	resource.TypeLog,
+	resource.TypeTable,
+	resource.TypeArc,
+	resource.TypeTask,
+	resource.TypeRange,
 )
 
 // stripInvalidResourceTabs removes every resource tab whose type is outside

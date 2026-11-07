@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -27,48 +28,48 @@ import (
 )
 
 var _ = Describe("Ontology Helpers", func() {
-	Describe("OntologyID", func() {
-		It("Should return the ontology ID for the channel key", func() {
-			Expect(channel.OntologyID(distchannel.NewKey(1, 2))).To(Equal(ontology.ID{
+	Describe("ResourceID", func() {
+		It("Should return the resource ID for the channel key", func() {
+			Expect(channel.ResourceID(distchannel.NewKey(1, 2))).To(Equal(resource.ID{
 				Type: "channel",
 				Key:  distchannel.NewKey(1, 2).String(),
 			}))
 		})
 	})
-	Describe("KeysFromOntologyIDs", func() {
-		It("Should parse a list of ontology IDs into a list of keys", func() {
-			ids := []ontology.ID{
+	Describe("KeysFromResourceIDs", func() {
+		It("Should parse a list of resource IDs into a list of keys", func() {
+			ids := []resource.ID{
 				{Type: "channel", Key: "1"},
 				{Type: "channel", Key: "2"},
 			}
-			Expect(channel.KeysFromOntologyIDs(ids)).To(Equal(channel.Keys{1, 2}))
+			Expect(channel.KeysFromResourceIDs(ids)).To(Equal(channel.Keys{1, 2}))
 		})
 		It("Should return an error if a key cannot be parsed", func() {
-			ids := []ontology.ID{
+			ids := []resource.ID{
 				{Type: "channel", Key: "1"},
 				{Type: "channel", Key: "a"},
 			}
-			Expect(channel.KeysFromOntologyIDs(ids)).Error().To(SatisfyAll(
+			Expect(channel.KeysFromResourceIDs(ids)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("a is not a valid channel key")),
 			))
 		})
 	})
-	Describe("OntologyIDsFromKeys", func() {
-		It("Should return the ontology ID for each key", func() {
+	Describe("ResourceIDsFromKeys", func() {
+		It("Should return the resource ID for each key", func() {
 			keys := channel.Keys{distchannel.NewKey(1, 2), distchannel.NewKey(3, 4)}
-			Expect(channel.OntologyIDsFromKeys(keys)).To(Equal([]ontology.ID{
-				channel.OntologyID(keys[0]),
-				channel.OntologyID(keys[1]),
+			Expect(channel.ResourceIDsFromKeys(keys)).To(Equal([]resource.ID{
+				channel.ResourceID(keys[0]),
+				channel.ResourceID(keys[1]),
 			}))
 		})
 	})
 })
 
 var _ = Describe("Ontology", Ordered, func() {
-	Describe("OntologyID", func() {
+	Describe("ResourceID", func() {
 		It(
-			"Should correctly return the ontology.ID for the specified channel",
+			"Should correctly return the resource.ID for the specified channel",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
 					Name:     UniqueChannelName(),
@@ -76,7 +77,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					Virtual:  true,
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-				Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
+				Expect(ch.ResourceID()).To(Equal(channel.ResourceID(ch.Key())))
 			},
 		)
 	})
@@ -110,13 +111,13 @@ var _ = Describe("Ontology", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
 				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
-				q := search.Query[ontology.ID]{Term: "turbopump inlet", Limit: 10}
+				q := search.Query[resource.ID]{Term: "turbopump inlet", Limit: 10}
 				Expect(
 					MustSucceed(svc.Search(ctx, db, q)).Keys,
-				).To(Equal([]ontology.ID{inlet.OntologyID()}))
-				q = search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				).To(Equal([]resource.ID{inlet.ResourceID()}))
+				q = search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(ConsistOf(inlet.OntologyID(), outlet.OntologyID()))
+					To(ConsistOf(inlet.ResourceID(), outlet.ResourceID()))
 			},
 		)
 	})
@@ -145,7 +146,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				Expect(c).To(HaveLen(1))
 				v := c[0]
 				Expect(v.Variant).To(Equal(change.VariantSet))
-				Expect(v.Key).To(Equal(channel.OntologyID(ch.Key()).String()))
+				Expect(v.Key).To(Equal(channel.ResourceID(ch.Key()).String()))
 			})
 		})
 	})

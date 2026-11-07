@@ -105,7 +105,7 @@ var _ = Describe("Signals", func() {
 		"Should not broadcast a create rejected by ontology validation",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
-			missing := user.OntologyID(uuid.New())
+			missing := user.ResourceID(uuid.New())
 			p := panel.Panel{Name: "sig-reject", Parent: &missing}
 			Expect(writer.Create(ctx, &p)).To(MatchError(query.ErrNotFound))
 			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())

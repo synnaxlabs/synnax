@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ontology,
   project,
+  type resource,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
@@ -61,22 +62,22 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 
 const createChannelGroup = async (
   ...channels: { key: channelClient.Key }[]
-): Promise<ontology.ID> => {
+): Promise<resource.ID> => {
   const grp = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("chgrp"),
   });
   const channelsGroup = await client.channels.retrieveGroup();
   await client.ontology.moveChildren(
-    group.ontologyID(channelsGroup.key),
-    group.ontologyID(grp.key),
-    ...channels.map((c) => channelClient.ontologyID(c.key)),
+    group.resourceID(channelsGroup.key),
+    group.resourceID(grp.key),
+    ...channels.map((c) => channelClient.resourceID(c.key)),
   );
-  return group.ontologyID(grp.key);
+  return group.resourceID(grp.key);
 };
 
 const renderChannelTree = async (
-  root: ontology.ID,
+  root: resource.ID,
   onCaughtError?: RenderOptions["onCaughtError"],
 ) =>
   await renderOntologyTree({
@@ -91,7 +92,7 @@ describe("channel/ontology", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();
       const items = Item.haulItems(
-        createResource(channelClient.ontologyID(ch.key), ch.name, {
+        createResource(channelClient.resourceID(ch.key), ch.name, {
           internal: false,
         }),
       );
@@ -103,7 +104,7 @@ describe("channel/ontology", () => {
     it("hauls an internal channel as a schematic value element only", async () => {
       const ch = await createChannel();
       const items = Item.haulItems(
-        createResource(channelClient.ontologyID(ch.key), ch.name, {
+        createResource(channelClient.resourceID(ch.key), ch.name, {
           internal: true,
         }),
       );
@@ -143,14 +144,14 @@ describe("channel/ontology", () => {
       const tabKey = uuid.create();
       const pan = await client.panels.create({
         name: uniqueName("panel"),
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
         root: {
           variant: "leaf",
           tabs: [
             {
               variant: "resource",
               key: tabKey,
-              resource: lineplot.ontologyID(plot.key),
+              resource: lineplot.resourceID(plot.key),
             },
           ],
         },
@@ -292,7 +293,7 @@ describe("channel/ontology", () => {
       await renderTreeContextMenu(Item.ContextMenu, {
         client,
         resources: [
-          createResource(channelClient.ontologyID(ch.key), ch.name, ch.payload),
+          createResource(channelClient.resourceID(ch.key), ch.name, ch.payload),
         ],
       });
       expect(await screen.findByText("Reload Console")).toBeTruthy();
@@ -305,7 +306,7 @@ describe("channel/ontology", () => {
       const { store } = await renderTreeContextMenu(Item.ContextMenu, {
         client,
         resources: [
-          createResource(channelClient.ontologyID(ch.key), ch.name, {
+          createResource(channelClient.resourceID(ch.key), ch.name, {
             ...ch.payload,
             internal: true,
           }),
@@ -328,7 +329,7 @@ describe("permission to write the channel", () => {
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
       resources: [
-        createResource(channelClient.ontologyID(ch.key), ch.name, { ...ch.payload }),
+        createResource(channelClient.resourceID(ch.key), ch.name, { ...ch.payload }),
       ],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();

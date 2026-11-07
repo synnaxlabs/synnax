@@ -31,7 +31,7 @@ describe("arc/search", () => {
   it("opens the arc as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("arc");
-    const resource = createResource(arc.ontologyID(key), name);
+    const resource = createResource(arc.resourceID(key), name);
     const SearchListItem = Arc.SEARCH_LIST_ITEMS.arc;
     if (SearchListItem == null) throw new Error("arc SearchListItem is not defined");
     const Harness = (): ReactElement => {

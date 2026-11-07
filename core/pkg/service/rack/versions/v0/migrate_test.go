@@ -94,7 +94,7 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-			Where(status.MatchKeys[v0.StatusDetails](r.OntologyID().String())).
+			Where(status.MatchKeys[v0.StatusDetails](r.ResourceID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -193,7 +193,7 @@ var _ = Describe("Status backfill", func() {
 			// legacy data where the key was encoded as a MessagePack float64 instead of
 			// uint32.
 			legacyStatus := status.Status[any]{
-				Key:     rackKey.OntologyID().String(),
+				Key:     rackKey.ResourceID().String(),
 				Name:    "Legacy Rack Status",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -223,7 +223,7 @@ var _ = Describe("Status backfill", func() {
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
+				Where(status.MatchKeys[v0.StatusDetails](rackKey.ResourceID().String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))

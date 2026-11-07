@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -64,14 +65,14 @@ func (w Writer) Create(
 		return err
 	}
 	if !exists {
-		otgID := s.OntologyID()
+		otgID := s.ResourceID()
 		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
 		if projectKey != uuid.Nil() {
 			if err := w.otgWriter.DefineRelationships(
 				ctx,
-				project.OntologyID(projectKey),
+				project.ResourceID(projectKey),
 				ontology.RelationshipTypeParentOf,
 				otgID,
 			); err != nil {
@@ -109,9 +110,9 @@ func (w Writer) findParentProject(
 ) (project.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
+		WhereIDs(ResourceID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeProject).
+		WhereTypes(resource.TypeProject).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return uuid.Nil(), false, err
@@ -150,7 +151,7 @@ func (w Writer) Copy(
 	if err != nil || !ok {
 		return err
 	}
-	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, ResourceID(newKey)); err != nil {
 		return err
 	}
 	// In the case of a snapshot, don't create a relationship to the project.
@@ -159,9 +160,9 @@ func (w Writer) Copy(
 	}
 	return w.otgWriter.DefineRelationships(
 		ctx,
-		project.OntologyID(projectKey),
+		project.ResourceID(projectKey),
 		ontology.RelationshipTypeParentOf,
-		OntologyID(newKey),
+		ResourceID(newKey),
 	)
 }
 
@@ -176,5 +177,5 @@ func (w Writer) Delete(
 	if err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }

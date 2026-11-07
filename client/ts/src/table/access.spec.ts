@@ -37,7 +37,7 @@ describe("table", () => {
     it("should allow the caller to retrieve tables with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.ontologyID("")],
+        objects: [table.resourceID("")],
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({
@@ -54,7 +54,7 @@ describe("table", () => {
     it("should allow the caller to create tables with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.ontologyID("")],
+        objects: [table.resourceID("")],
         actions: ["create"],
       });
       const proj = await client.projects.create({
@@ -68,7 +68,7 @@ describe("table", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.ontologyID("")],
+        objects: [table.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({
@@ -84,7 +84,7 @@ describe("table", () => {
     it("should allow the caller to delete tables with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.ontologyID("")],
+        objects: [table.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({
@@ -102,7 +102,7 @@ describe("table", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [table.ontologyID("")],
+        objects: [table.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({

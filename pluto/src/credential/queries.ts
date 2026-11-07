@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type auth, type ontology } from "@synnaxlabs/client";
+import { type auth, type resource } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
 export type SubjectQuery = {
-  subject: ontology.ID;
+  subject: resource.ID;
 };
 
 export const { useResult: useResultKeys, useInvalidate: useInvalidateKeys } =
@@ -31,7 +31,7 @@ export const { useResult: useResultSessions, useInvalidate: useInvalidateSession
   });
 
 export interface CreateKeyParams {
-  subject: ontology.ID;
+  subject: resource.ID;
   name: string;
 }
 

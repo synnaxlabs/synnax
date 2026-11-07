@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -396,19 +396,19 @@ type ImportOptions struct {
 	// for workspace items, a group for symbols. Required: Service.Import rejects a zero
 	// Parent. The registry passes it through untouched; each Importer decides how the
 	// parent applies to its resource type.
-	Parent ontology.ID
+	Parent resource.ID
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
-	// Import validates and persists the given envelope on tx, returning the ontology.ID
+	// Import validates and persists the given envelope on tx, returning the resource.ID
 	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
 	// by the time Import is called — the registry has already applied the file-name
 	// fallback — so importers should treat it as the resource's name rather than
 	// re-deriving one from the body. The importer owns all ontology writes for the
 	// resource, including attaching it under opts.Parent when one is given.
-	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
+	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (resource.ID, error)
 	// Match reports whether the envelope body, decoded as a flat map, is this
 	// importer's resource. It routes envelopes carrying no `type` header: some legacy
 	// Console state files never carried one, so Service.ResolveType offers the body to
@@ -416,11 +416,11 @@ type Importer interface {
 	// markers Match tests are frozen — they describe historical file shapes. Importers
 	// with no typeless legacy formats return false.
 	Match(map[string]any) bool
-	// Type returns the broader ontology resource type the importer creates. For
-	// services with asymmetric registration (e.g. a task service registered under
-	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
-	// resource type used for access control and ontology accounting.
-	Type() ontology.ResourceType
+	// Type returns the broader resource type the importer creates. For services with
+	// asymmetric registration (e.g. a task service registered under "http_read" and
+	// "opc_scan") this is the coarser resource type ("task"); it is the resource type
+	// used for access control and ontology accounting.
+	Type() resource.Type
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
@@ -428,9 +428,9 @@ type Importer interface {
 type Exporter interface {
 	// Export retrieves the resource identified by id and serializes it, stamping the
 	// exporter's per-schema Version.
-	Export(context.Context, ontology.ID) (Envelope, error)
+	Export(context.Context, resource.ID) (Envelope, error)
 	// Type returns the ontology resource type this exporter handles.
-	Type() ontology.ResourceType
+	Type() resource.Type
 }
 
 // ImportExporter is a service that implements both Importer and Exporter under the same

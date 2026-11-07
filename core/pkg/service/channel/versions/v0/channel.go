@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/vmihailenco/msgpack/v5"
@@ -174,9 +174,9 @@ func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// OntologyID returns the ontology.ID for the channel.
-func (c Channel) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: c.Key().String()}
+// ResourceID returns the resource.ID for the channel.
+func (c Channel) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeChannel, Key: c.Key().String()}
 }
 
 // ToPayload returns a map representation of the channel for use in ontology resources

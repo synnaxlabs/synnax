@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -24,27 +25,27 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns a unique ID for the view with the given key within the Synnax
+// ResourceID returns a unique ID for the view with the given key within the Synnax
 // ontology.
-func OntologyID(keys Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeView, Key: keys.String()}
+func ResourceID(keys Key) resource.ID {
+	return resource.ID{Type: resource.TypeView, Key: keys.String()}
 }
 
-// OntologyIDs returns the ontology IDs for the given keys.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+// ResourceIDs returns the resource IDs for the given keys.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-// KeysFromOntologyIDs returns the keys of the views for the given ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+// KeysFromResourceIDs returns the keys of the views for the given resource IDs.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
 		return uuid.Parse(id.Key)
 	})
 }
 
-// OntologyIDsFromViews converts a slice of views to a slice of ontology IDs.
-func OntologyIDsFromViews(views []View) []ontology.ID {
-	return lo.Map(views, func(v View, _ int) ontology.ID { return v.OntologyID() })
+// ResourceIDsFromViews converts a slice of views to a slice of resource IDs.
+func ResourceIDsFromViews(views []View) []resource.ID {
+	return lo.Map(views, func(v View, _ int) resource.ID { return v.ResourceID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -55,7 +56,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 
 func newResource(v View) ontology.Resource {
 	base := v.Base()
-	return ontology.NewResource(schema, v.OntologyID(), base.Name, map[string]any{
+	return ontology.NewResource(schema, v.ResourceID(), base.Name, map[string]any{
 		"key":  base.Key,
 		"name": base.Name,
 		"type": string(v.Type()),
@@ -66,7 +67,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, View]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
+func (s *Service) Type() resource.Type { return resource.TypeView }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,
@@ -87,7 +88,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -105,7 +106,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

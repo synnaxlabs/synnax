@@ -104,7 +104,7 @@ describe("validation", () => {
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
-  it("should accept a device with an optional parent ontology ID", () => {
+  it("should accept a device with an optional parent resource ID", () => {
     const result = device.deviceZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "rack", key: "rack-1" },

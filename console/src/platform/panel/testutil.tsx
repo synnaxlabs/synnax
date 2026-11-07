@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type ontology,
   type panel,
   type project,
+  type resource,
   type Synnax,
 } from "@synnaxlabs/client";
 import { createPanelParent } from "@synnaxlabs/client/testutil";
@@ -60,12 +60,15 @@ export interface ResourceTab {
  */
 export const createResourceTab = async (
   client: Synnax,
-  resource: ontology.ID,
+  id: resource.ID,
 ): Promise<ResourceTab> => {
   const tabKey = uuid.create();
   const { key: panelKey } = await client.panels.create({
     name: uniqueName("panel"),
-    root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: id }],
+    },
     parent: await createPanelParent(client),
   });
   return { panelKey, tabKey };

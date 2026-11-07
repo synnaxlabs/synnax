@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
+import { label, query, type resource, status, TimeStamp } from "@synnaxlabs/client";
 import { deep, primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
@@ -43,7 +43,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
 
 export interface SetParams {
   statuses: status.New | status.New[];
-  parent?: ontology.ID;
+  parent?: resource.ID;
 }
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
@@ -130,7 +130,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   retrieve: async ({ client, query }) => {
     const [stat, labels] = await Promise.all([
       client.statuses.retrieve(query),
-      client.labels.retrieve({ for: status.ontologyID(query.key) }),
+      client.labels.retrieve({ for: status.resourceID(query.key) }),
     ]);
     return { ...stat, labels: labels.map((l) => l.key) };
   },
@@ -143,7 +143,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     if (labelKeys != null)
       await Label.setLabelsFor({
         client,
-        data: { id: status.ontologyID(res.key), labels: labelKeys },
+        data: { id: status.resourceID(res.key), labels: labelKeys },
       });
     set(formPath.key, res.key);
   },

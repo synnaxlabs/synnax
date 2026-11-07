@@ -28,7 +28,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
     afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),
+      openTab({ variant: "resource", resource: lineplot.resourceID(key), key: tabKey }),
     afterSuccess: () => capture("plot_created", {}),
   });
   return (params = {}) =>

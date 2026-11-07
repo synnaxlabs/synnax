@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,8 +30,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func subject() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+func subject() resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 }
 
 func proof(username, pwd string) auth.Proof {
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 		svc      *auth.Service
 		pw       *password.Service
 		clock    *timetestutil.Clock
-		alice    ontology.ID
+		alice    resource.ID
 		username string
 	)
 	login := func(ctx SpecContext) (auth.Session, string) {

@@ -460,7 +460,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -487,7 +487,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -518,7 +518,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -551,7 +551,7 @@ var _ = Describe("Task", Ordered, func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
@@ -585,7 +585,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
@@ -619,7 +619,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -647,7 +647,7 @@ var _ = Describe("Task", Ordered, func() {
 					To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -673,7 +673,7 @@ var _ = Describe("Task", Ordered, func() {
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -702,7 +702,7 @@ var _ = Describe("Task", Ordered, func() {
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -734,7 +734,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -763,7 +763,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Started task"))
@@ -951,7 +951,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						svcTask.OntologyID().String(),
+						svcTask.ResourceID().String(),
 					)).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
@@ -2018,7 +2018,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				Expect(fw.Close()).To(Succeed())
 
-				taskKey := svcTask.OntologyID().String()
+				taskKey := svcTask.ResourceID().String()
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
@@ -3411,7 +3411,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+						Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Message).To(Equal("Node failed"))
@@ -3556,7 +3556,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).

@@ -9,8 +9,8 @@
 
 import {
   NotFoundError,
-  type ontology,
   type project,
+  type resource,
   type Synnax,
 } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
@@ -36,7 +36,7 @@ export interface Content extends FC<record.Empty> {}
 export interface RestoreParams {
   client: Synnax;
   project: project.Key;
-  resource: ontology.ID;
+  resource: resource.ID;
 }
 
 export interface ResourceGuardProps {

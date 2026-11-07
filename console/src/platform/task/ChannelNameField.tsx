@@ -95,7 +95,7 @@ interface BoundProps extends StoredProps {
 const Bound = ({ channel: key, ...rest }: BoundProps) => {
   const result = Channel.useResultName({ key });
   const { update } = Channel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   const isPreview = useIsPreview();
   if (isMissing(result))
     return (

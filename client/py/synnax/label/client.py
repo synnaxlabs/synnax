@@ -21,17 +21,17 @@ from synnax.label.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
 from x import color as color_
 from x import filter
 from x.lists import normalize
 
-ONTOLOGY_TYPE = ID(type="label")
+TYPE_RESOURCE_ID = ID(type="label")
 
 
-def ontology_id(key: Key) -> ID:
-    """Returns the ontology ID of the label with the given key."""
+def resource_id(key: Key) -> ID:
+    """Returns the resource ID of the label with the given key."""
     return ID(key=str(key), type="label")
 
 
@@ -187,7 +187,7 @@ class Client:
 
         :param key: Keeps labels with this key.
         :param name: Keeps labels with this name.
-        :param for_: Keeps the labels on the resource with this ontology ID.
+        :param for_: Keeps the labels on the resource with this resource ID.
         :param and_: Keeps labels that match every filter in the list.
         :param or_: Keeps labels that match any filter in the list.
         :param not_: Keeps labels that do not match the filter.
@@ -234,7 +234,7 @@ class Client:
     ) -> None:
         """Adds labels to a resource.
 
-        :param id: The ontology ID of the resource to label.
+        :param id: The resource ID of the resource to label.
         :param labels: A single label key or a list of keys to add.
         :param replace: If true, removes every other label from the resource.
         """
@@ -244,7 +244,7 @@ class Client:
     def remove(self, id: CrudeID, labels: Key | list[Key]) -> None:
         """Removes labels from a resource.
 
-        :param id: The ontology ID of the resource.
+        :param id: The resource ID of the resource.
         :param labels: A single label key or a list of keys to remove.
         """
         req = _RemoveRequest(id=ID(id), labels=normalize(labels))

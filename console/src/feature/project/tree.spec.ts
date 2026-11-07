@@ -38,7 +38,7 @@ const createProject = async () =>
   await client.projects.create({ name: uniqueName("project") });
 
 const projectResource = (key: string, name: string) =>
-  createResource(project.ontologyID(key), name);
+  createResource(project.resourceID(key), name);
 
 // The context menu's hooks require an active project, matching the Project.Guard the
 // production tree renders within.
@@ -146,7 +146,7 @@ describe("project ontology service", () => {
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
     const [parent] = await client.ontology.parents.retrieve({
-      ids: project.ontologyID(p.key),
+      ids: project.resourceID(p.key),
     });
     const { store } = await renderOntologyTree({
       client,

@@ -53,7 +53,7 @@ const renderCreate = (
 const expectParent = async (key: string, projectKey: project.Key) =>
   await waitFor(async () => {
     const parents = await client.ontology.parents.retrieve({
-      ids: lineplot.ontologyID(key),
+      ids: lineplot.resourceID(key),
     });
     expect(
       parents.some((p) => p.id.type === "project" && p.id.key === projectKey),
@@ -127,7 +127,7 @@ describe("lineplot useCreate", () => {
       );
       expect(tab.variant).toEqual("resource");
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
-      expect(tab.resource.type).toEqual(lineplot.ontologyID(key).type);
+      expect(tab.resource.type).toEqual(lineplot.resourceID(key).type);
     });
   });
 

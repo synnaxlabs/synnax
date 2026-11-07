@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -117,11 +118,11 @@ var _ = Describe("Device", func() {
 				var res ontology.Resource
 				Expect(
 					otg.NewRetrieve().
-						WhereIDs(d.OntologyID()).
+						WhereIDs(d.ResourceID()).
 						Entry(&res).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(d.OntologyID()))
+				Expect(res.ID).To(Equal(d.ResourceID()))
 			},
 		)
 		It(
@@ -137,7 +138,7 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &chassis)).To(Succeed())
 
-				chassisOntologyID := chassis.OntologyID()
+				chassisResourceID := chassis.ResourceID()
 				child := device.Device{
 					Key:      "module1",
 					Rack:     rackSvc.EmbeddedKey,
@@ -145,18 +146,18 @@ var _ = Describe("Device", func() {
 					Name:     "NI-9205",
 					Make:     "NI",
 					Model:    "NI-9205",
-					Parent:   &chassisOntologyID,
+					Parent:   &chassisResourceID,
 				}
 				Expect(w.Create(ctx, &child)).To(Succeed())
 
 				var children []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(chassis.OntologyID()).
+					WhereIDs(chassis.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&children).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(children).To(HaveLen(1))
-				Expect(children[0].ID).To(Equal(child.OntologyID()))
+				Expect(children[0].ID).To(Equal(child.ResourceID()))
 			},
 		)
 		It(
@@ -173,12 +174,12 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+					WhereIDs(rackSvc.EmbeddedKey.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(d.OntologyID()))
+				Expect(res.ID).To(Equal(d.ResourceID()))
 			},
 		)
 		It(
@@ -194,9 +195,9 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 				Expect(otg.NewWriter(tx).DeleteRelationships(ctx, ontology.Relationship{
-					From: rackSvc.EmbeddedKey.OntologyID(),
+					From: rackSvc.EmbeddedKey.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   d.OntologyID(),
+					To:   d.ResourceID(),
 				})).To(Succeed())
 				d2 := device.Device{
 					Key:      "device3",
@@ -209,7 +210,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d2)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+					WhereIDs(rackSvc.EmbeddedKey.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
@@ -251,17 +252,17 @@ var _ = Describe("Device", func() {
 				// Step 4 - assert that device is a child of new rack
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(rack2.Key.OntologyID()).
+					WhereIDs(rack2.Key.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(d2.OntologyID()))
+				Expect(res.ID).To(Equal(d2.ResourceID()))
 
 				// Step 5 - verify device is no longer a child of the original rack
 				var nRes ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(rack1.Key.OntologyID()).
+					WhereIDs(rack1.Key.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&nRes).
 					Exec(ctx, tx),
@@ -293,7 +294,7 @@ var _ = Describe("Device", func() {
 
 				var deviceStatus device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Name).To(Equal("New Name"))
@@ -323,14 +324,14 @@ var _ = Describe("Device", func() {
 
 				var deviceStatus device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 				Expect(deviceStatus.Message).To(Equal("Device is connected"))
 				Expect(deviceStatus.Description).To(Equal("Custom device description"))
 				// Key should be auto-assigned
-				Expect(deviceStatus.Key).To(Equal(d.OntologyID().String()))
+				Expect(deviceStatus.Key).To(Equal(d.ResourceID().String()))
 				// Name should be auto-filled
 				Expect(deviceStatus.Name).To(Equal(d.Name))
 				// Details should be auto-filled
@@ -377,7 +378,7 @@ var _ = Describe("Device", func() {
 				Expect(d.Status.Variant).To(Equal(status.VariantWarning))
 				Expect(d.Status.Name).To(Equal("Populated Device"))
 				Expect(d.Parent).ToNot(BeNil())
-				Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.OntologyID()))
+				Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.ResourceID()))
 			},
 		)
 		It(
@@ -394,9 +395,9 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				Expect(stat.NewWriter(tx).
-					Delete(ctx, d.OntologyID().String())).To(Succeed())
+					Delete(ctx, d.ResourceID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := device.Device{
@@ -411,7 +412,7 @@ var _ = Describe("Device", func() {
 
 				var healed device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Device).To(Equal(d.Key))
@@ -448,7 +449,7 @@ var _ = Describe("Device", func() {
 
 				var preserved device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -469,7 +470,7 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 				live := device.Status{
-					Key:     d.OntologyID().String(),
+					Key:     d.ResourceID().String(),
 					Name:    d.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -506,13 +507,13 @@ var _ = Describe("Device", func() {
 				func(_ context.Context, d *device.Device) { d.Name = "Renamed Device" },
 			),
 			Entry("sent with a parent", func(_ context.Context, d *device.Device) {
-				parent := d.Rack.OntologyID()
+				parent := d.Rack.ResourceID()
 				d.Parent = &parent
 			}),
 			Entry(
 				"renamed with a parent",
 				func(_ context.Context, d *device.Device) {
-					parent := d.Rack.OntologyID()
+					parent := d.Rack.ResourceID()
 					d.Name = "Renamed Device"
 					d.Parent = &parent
 				},
@@ -540,7 +541,7 @@ var _ = Describe("Device", func() {
 					Model:    "Test Model",
 				}
 				Expect(stat.NewWriter(tx).Set(ctx, &device.Status{
-					Key:     d.OntologyID().String(),
+					Key:     d.ResourceID().String(),
 					Name:    d.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -576,7 +577,7 @@ var _ = Describe("Device", func() {
 
 				var stored device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&stored).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(stored.Message).To(Equal("Device is connected"))
@@ -621,7 +622,7 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &chassis)).To(Succeed())
 
-				chassisID := device.OntologyID("pop-chassis")
+				chassisID := device.ResourceID("pop-chassis")
 				module := device.Device{
 					Key:      "pop-module",
 					Rack:     rackSvc.EmbeddedKey,
@@ -670,7 +671,7 @@ var _ = Describe("Device", func() {
 	})
 	Describe("Parent Ontology Relationship", func() {
 		It(
-			"Should parent a device to another device via ontology ID",
+			"Should parent a device to another device via resource ID",
 			func(ctx SpecContext) {
 				chassis := device.Device{
 					Key:      "pd-chassis-1",
@@ -690,18 +691,18 @@ var _ = Describe("Device", func() {
 					Make:     "Test Make",
 					Model:    "Test Model",
 				}
-				chassisParent := device.OntologyID("pd-chassis-1")
+				chassisParent := device.ResourceID("pd-chassis-1")
 				module.Parent = &chassisParent
 				Expect(w.Create(ctx, &module)).To(Succeed())
 
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(device.OntologyID("pd-chassis-1")).
+					WhereIDs(device.ResourceID("pd-chassis-1")).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(module.OntologyID()))
+				Expect(res.ID).To(Equal(module.ResourceID()))
 			},
 		)
 
@@ -718,12 +719,12 @@ var _ = Describe("Device", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+				WhereIDs(rackSvc.EmbeddedKey.ResourceID()).
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res.ID).To(Equal(d.OntologyID()))
+			Expect(res.ID).To(Equal(d.ResourceID()))
 		})
 
 		It("Should re-parent a device when parent changes", func(ctx SpecContext) {
@@ -746,7 +747,7 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &chassisA)).To(Succeed())
 			Expect(w.Create(ctx, &chassisB)).To(Succeed())
 
-			chassisAParent := device.OntologyID("pd-chassis-a")
+			chassisAParent := device.ResourceID("pd-chassis-a")
 			module := device.Device{
 				Key:      "pd-moving-module",
 				Rack:     rackSvc.EmbeddedKey,
@@ -760,29 +761,29 @@ var _ = Describe("Device", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(device.OntologyID("pd-chassis-a")).
+				WhereIDs(device.ResourceID("pd-chassis-a")).
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res.ID).To(Equal(module.OntologyID()))
+			Expect(res.ID).To(Equal(module.ResourceID()))
 
 			// Re-parent to chassis B
-			chassisBParent := device.OntologyID("pd-chassis-b")
+			chassisBParent := device.ResourceID("pd-chassis-b")
 			module.Parent = &chassisBParent
 			Expect(w.Create(ctx, &module)).To(Succeed())
 
 			Expect(otg.NewRetrieve().
-				WhereIDs(device.OntologyID("pd-chassis-b")).
+				WhereIDs(device.ResourceID("pd-chassis-b")).
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res.ID).To(Equal(module.OntologyID()))
+			Expect(res.ID).To(Equal(module.ResourceID()))
 
 			var nRes ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(device.OntologyID("pd-chassis-a")).
+				WhereIDs(device.ResourceID("pd-chassis-a")).
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&nRes).
 				Exec(ctx, tx),
@@ -804,12 +805,12 @@ var _ = Describe("Device", func() {
 
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+					WhereIDs(rackSvc.EmbeddedKey.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(module.OntologyID()))
+				Expect(res.ID).To(Equal(module.ResourceID()))
 
 				chassis := device.Device{
 					Key:      "pd-converge-chassis",
@@ -822,18 +823,18 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &chassis)).To(Succeed())
 
 				// Re-send module with parent set (scanner would do this)
-				convergeParent := device.OntologyID("pd-converge-chassis")
+				convergeParent := device.ResourceID("pd-converge-chassis")
 				module.Parent = &convergeParent
 				Expect(w.Create(ctx, &module)).To(Succeed())
 
 				var childRes ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(device.OntologyID("pd-converge-chassis")).
+					WhereIDs(device.ResourceID("pd-converge-chassis")).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&childRes).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(childRes.ID).To(Equal(module.OntologyID()))
+				Expect(childRes.ID).To(Equal(module.ResourceID()))
 			},
 		)
 
@@ -861,18 +862,18 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				// Update: same rack, but now with an explicit parent
-				skipParent := device.OntologyID("pd-skip-chassis")
+				skipParent := device.ResourceID("pd-skip-chassis")
 				d.Parent = &skipParent
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(device.OntologyID("pd-skip-chassis")).
+					WhereIDs(device.ResourceID("pd-skip-chassis")).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(res.ID).To(Equal(d.OntologyID()))
+				Expect(res.ID).To(Equal(d.ResourceID()))
 			},
 		)
 	})
@@ -1060,7 +1061,7 @@ var _ = Describe("Device", func() {
 				Expect(res.Properties).To(Equal(d.Properties))
 				var renamed device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&renamed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(renamed.Name).To(Equal("After"))
@@ -1099,7 +1100,7 @@ var _ = Describe("Device", func() {
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, d.OntologyID().String())).
+			Expect(stat.NewWriter(tx).Delete(ctx, d.ResourceID().String())).
 				To(Succeed())
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
 		})
@@ -1128,7 +1129,7 @@ var _ = Describe("Device", func() {
 					To(MatchError(query.ErrNotFound))
 				var deletedStatus device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 					Entry(&deletedStatus).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
@@ -1149,7 +1150,7 @@ var _ = Describe("Device", func() {
 				var res ontology.Resource
 				Expect(
 					otg.NewRetrieve().
-						WhereIDs(d.OntologyID()).
+						WhereIDs(d.ResourceID()).
 						Entry(&res).
 						Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
@@ -1269,7 +1270,7 @@ var _ = Describe("Device", func() {
 				Eventually(func(g Gomega) {
 					var deviceStatus device.Status
 					g.Expect(stat.NewRetrieve[device.StatusDetails]().
-						Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+						Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
@@ -1282,7 +1283,7 @@ var _ = Describe("Device", func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, key, name string) ontology.ID {
+		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
 			d := device.Device{
 				Key:      key,
@@ -1293,7 +1294,7 @@ var _ = Describe("Device", func() {
 				Location: "bay7",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			return device.OntologyID(d.Key)
+			return device.ResourceID(d.Key)
 		}
 
 		It(
@@ -1301,21 +1302,21 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
 		DescribeTable("Should match a device by its",
 			func(ctx SpecContext, term string) {
 				id := create(ctx, "igniter", "igniter")
-				q := search.Query[ontology.ID]{Term: term}
+				q := search.Query[resource.ID]{Term: term}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{id}))
+					To(Equal([]resource.ID{id}))
 			},
 			Entry("name", "igniter"),
 			Entry("make", "acme"),
@@ -1327,7 +1328,7 @@ var _ = Describe("Device", func() {
 			"Should not match a staged device outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector", "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)

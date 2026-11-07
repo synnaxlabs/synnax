@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -41,18 +42,18 @@ func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	return r, c, nil
 }
 
-// OntologyID returns the ontology ID for an alias.
-func OntologyID(r ranger.Key, ch channel.Key) ontology.ID {
-	return ontology.ID{
-		Type: ontology.ResourceTypeRangeAlias,
+// ResourceID returns the resource ID for an alias.
+func ResourceID(r ranger.Key, ch channel.Key) resource.ID {
+	return resource.ID{
+		Type: resource.TypeRangeAlias,
 		Key:  Alias{Range: r, Channel: ch}.GorpKey(),
 	}
 }
 
-// OntologyIDs returns ontology IDs for multiple aliases.
-func OntologyIDs(r ranger.Key, chs []channel.Key) []ontology.ID {
-	return lo.Map(chs, func(ch channel.Key, _ int) ontology.ID {
-		return OntologyID(r, ch)
+// ResourceIDs returns resource IDs for multiple aliases.
+func ResourceIDs(r ranger.Key, chs []channel.Key) []resource.ID {
+	return lo.Map(chs, func(ch channel.Key, _ int) resource.ID {
+		return ResourceID(r, ch)
 	})
 }
 
@@ -65,7 +66,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 func newResource(a Alias) ontology.Resource {
 	return ontology.NewResource(
 		schema,
-		OntologyID(a.Range, a.Channel),
+		ResourceID(a.Range, a.Channel),
 		a.Alias,
 		a,
 	)

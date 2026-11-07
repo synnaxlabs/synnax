@@ -20,7 +20,7 @@ describe("Export.ToolbarButton", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
       <>
-        <Export.ToolbarButton id={log.ontologyID("k")} />
+        <Export.ToolbarButton id={log.resourceID("k")} />
         <CaptureStatuses onStatuses={(next) => (statuses = next)} />
       </>,
     );
@@ -36,7 +36,7 @@ describe("Export.ToolbarButton", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
       <>
-        <Export.ToolbarButton id={log.ontologyID("k")} disabled />
+        <Export.ToolbarButton id={log.resourceID("k")} disabled />
         <CaptureStatuses onStatuses={(next) => (statuses = next)} />
       </>,
     );

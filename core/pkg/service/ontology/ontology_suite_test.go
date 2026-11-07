@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,13 +39,13 @@ var _ ontology.Service = (*sampleService)(nil)
 
 type Sample struct{ Key string }
 
-func newSampleType(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
+func newSampleType(key string) resource.ID {
+	return resource.ID{Key: key, Type: resource.TypeChannel}
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
+func (s *sampleService) Type() resource.Type { return resource.TypeChannel }
 
 func (s *sampleService) RetrieveResource(
 	_ context.Context,
@@ -59,9 +60,9 @@ func (s *sampleService) RetrieveResource(
 func (*sampleService) Search(
 	context.Context,
 	gorp.Tx,
-	search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return search.Result[ontology.ID]{}, nil
+	search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return search.Result[resource.ID]{}, nil
 }
 
 var (

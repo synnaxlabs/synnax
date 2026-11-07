@@ -33,7 +33,7 @@ describe("lineplot", () => {
     it("should allow the caller to retrieve lineplots with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [lineplot.ontologyID("")],
+        objects: [lineplot.resourceID("")],
         actions: ["retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -46,7 +46,7 @@ describe("lineplot", () => {
     it("should allow the caller to create lineplots with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [lineplot.ontologyID("")],
+        objects: [lineplot.resourceID("")],
         actions: ["create"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -56,7 +56,7 @@ describe("lineplot", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [lineplot.ontologyID("")],
+        objects: [lineplot.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -68,7 +68,7 @@ describe("lineplot", () => {
     it("should allow the caller to delete lineplots with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [lineplot.ontologyID("")],
+        objects: [lineplot.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const proj = await client.projects.create({ name: "test" });
@@ -82,7 +82,7 @@ describe("lineplot", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [lineplot.ontologyID("")],
+        objects: [lineplot.resourceID("")],
         actions: [],
       });
       const proj = await client.projects.create({ name: "test" });

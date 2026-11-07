@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -163,8 +164,8 @@ func migrateConfigsToRecords(
 		if err := rows.Set(ctx, t); err != nil {
 			return err
 		}
-		taskID := ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		taskID := resource.ID{
+			Type: resource.TypeTask,
 			Key:  t.Key.String(),
 		}
 		if err := otgW.DefineResources(ctx, taskID); err != nil {
@@ -206,7 +207,7 @@ func stageAndRemove(
 	if err := gorp.WrapWriter[v2.Key, v2.Task](tx).Delete(ctx, t.Key); err != nil {
 		return err
 	}
-	taskID := ontology.ID{Type: ontology.ResourceTypeTask, Key: t.Key.String()}
+	taskID := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
 	statusKey := taskID.String()
 	if err := gorp.WrapWriter[string, status.Status[v2.StatusDetails]](tx).
 		Delete(ctx, statusKey); err != nil {

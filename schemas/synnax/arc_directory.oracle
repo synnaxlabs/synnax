@@ -29,5 +29,5 @@ Directory struct {
     @doc value     "holds Arcs and other directories below the Arcs root."
     @go marshal
     @go migrate
-    @ontology type "arc_directory"
+    @resource type "arc_directory"
 }

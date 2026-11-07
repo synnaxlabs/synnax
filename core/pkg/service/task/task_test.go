@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -505,11 +506,11 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				Expect(otg.NewRetrieve().
-					WhereIDs(t.OntologyID()).
+					WhereIDs(t.ResourceID()).
 					Exists(ctx, tx)).To(BeTrue())
 				var parents []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(t.OntologyID()).
+					WhereIDs(t.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
 					Entries(&parents).
 					Exec(ctx, tx)).To(Succeed())
@@ -527,12 +528,12 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(w.Create(ctx, t)).To(Succeed())
 				var parents []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(t.OntologyID()).
+					WhereIDs(t.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
 					Entries(&parents).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(parents).To(HaveLen(1))
-				Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeGroup))
+				Expect(parents[0].ID.Type).To(Equal(resource.TypeGroup))
 			},
 		)
 	})
@@ -730,7 +731,7 @@ var _ = Describe("Task", Ordered, func() {
 			var renamed task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](
-					alerts.OntologyID().String(),
+					alerts.ResourceID().String(),
 				)).
 				Entry(&renamed).
 				Exec(ctx, nil)).To(Succeed())
@@ -738,7 +739,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should rename a task that has no status", func(ctx SpecContext) {
-			Expect(stat.NewWriter(db).Delete(ctx, alerts.OntologyID().String())).
+			Expect(stat.NewWriter(db).Delete(ctx, alerts.ResourceID().String())).
 				To(Succeed())
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -1073,7 +1074,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(MatchError(query.ErrNotFound))
 				var deletedStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
 					Entry(&deletedStatus).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
@@ -1152,7 +1153,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var taskStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
 					Entry(&taskStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
@@ -1185,14 +1186,14 @@ var _ = Describe("Task", Ordered, func() {
 
 				var taskStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](m.ResourceID().String())).
 					Entry(&taskStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 				Expect(taskStatus.Message).To(Equal("Custom task status"))
 				Expect(taskStatus.Description).To(Equal("Task is running"))
 				// Key should be auto-assigned
-				Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
+				Expect(taskStatus.Key).To(Equal(m.ResourceID().String()))
 				// Name should be auto-filled
 				Expect(taskStatus.Name).To(Equal(m.Name))
 				// Details.Task should be auto-filled
@@ -1232,9 +1233,9 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(w.Create(ctx, t)).To(Succeed())
 
 				Expect(stat.NewWriter(tx).
-					Delete(ctx, t.OntologyID().String())).To(Succeed())
+					Delete(ctx, t.ResourceID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
@@ -1242,7 +1243,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var healed task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
@@ -1271,7 +1272,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var preserved task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -1304,7 +1305,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var renamed task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&renamed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(renamed.Name).To(Equal("After Task"))
@@ -1369,7 +1370,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var copiedStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](copied.ResourceID().String())).
 					Entry(&copiedStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
@@ -1386,7 +1387,7 @@ var _ = Describe("Task", Ordered, func() {
 			GinkgoHelper()
 			var got task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 				Entry(&got).
 				Exec(ctx, nil)).To(Succeed())
 			return got
@@ -1421,7 +1422,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var taskStatus task.Status
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
@@ -1482,7 +1483,7 @@ var _ = Describe("Task", Ordered, func() {
 					var taskStatus task.Status
 					g.Expect(stat.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							running.OntologyID().String(),
+							running.ResourceID().String(),
 						)).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
@@ -1562,11 +1563,11 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}
 			Expect(w.Create(ctx, &t)).To(Succeed())
-			return task.OntologyID(t.Key)
+			return task.ResourceID(t.Key)
 		}
 
 		It(
@@ -1574,18 +1575,18 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
 		It("Should match a task by its type", func(ctx SpecContext) {
 			id := create(ctx, "igniter")
-			q := search.Query[ontology.ID]{Term: testType}
+			q := search.Query[resource.ID]{Term: testType}
 			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 				To(ContainElement(id))
 		})
@@ -1594,7 +1595,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not match a staged task outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)

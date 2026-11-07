@@ -20,6 +20,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -148,14 +149,14 @@ var _ = Describe("NewRootMigration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		owner := otg.Own(ontology.Ownership{
-			Children: []ontology.ResourceType{
-				ontology.ResourceTypeArc,
-				ontology.ResourceTypeArcDirectory,
+			Children: []resource.Type{
+				resource.TypeArc,
+				resource.TypeArcDirectory,
 			},
-			Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
+			Parents: []resource.Type{resource.TypeArcDirectory},
 		})
-		root := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "root"}
-		sub := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "sub"}
+		root := resource.ID{Type: resource.TypeArcDirectory, Key: "root"}
+		sub := resource.ID{Type: resource.TypeArcDirectory, Key: "sub"}
 		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
 			DB: db,
 		}))
@@ -178,13 +179,13 @@ var _ = Describe("NewRootMigration", func() {
 		Expect(table.NewCreate().Entry(&placed).Exec(ctx, tx)).To(Succeed())
 		w := owner.NewWriter(tx)
 		Expect(w.DefineResources(
-			ctx, root, sub, orphan.OntologyID(), placed.OntologyID(),
+			ctx, root, sub, orphan.ResourceID(), placed.ResourceID(),
 		)).To(Succeed())
 		Expect(w.DefineRelationships(
 			ctx, root, ontology.RelationshipTypeParentOf, sub,
 		)).To(Succeed())
 		Expect(w.DefineRelationships(
-			ctx, sub, ontology.RelationshipTypeParentOf, placed.OntologyID(),
+			ctx, sub, ontology.RelationshipTypeParentOf, placed.ResourceID(),
 		)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(tx.Close()).To(Succeed())
@@ -202,7 +203,7 @@ var _ = Describe("NewRootMigration", func() {
 			},
 		})).To(Succeed())
 
-		parentsOf := func(id ontology.ID) []ontology.ID {
+		parentsOf := func(id resource.ID) []resource.ID {
 			GinkgoHelper()
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
@@ -211,13 +212,13 @@ var _ = Describe("NewRootMigration", func() {
 				ExcludeFieldData(true).
 				Entries(&parents).
 				Exec(ctx, nil)).To(Succeed())
-			ids := make([]ontology.ID, 0, len(parents))
+			ids := make([]resource.ID, 0, len(parents))
 			for _, p := range parents {
 				ids = append(ids, p.ID)
 			}
 			return ids
 		}
-		Expect(parentsOf(orphan.OntologyID())).To(ConsistOf(root))
-		Expect(parentsOf(placed.OntologyID())).To(ConsistOf(sub))
+		Expect(parentsOf(orphan.ResourceID())).To(ConsistOf(root))
+		Expect(parentsOf(placed.ResourceID())).To(ConsistOf(sub))
 	})
 })

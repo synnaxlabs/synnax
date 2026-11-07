@@ -30,8 +30,8 @@ EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics T
 
 
 class _ResourceTab(sy.panel.TabBase):
-    """A resource tab of an exported panel. Its resource is a member path, not an
-    ontology ID."""
+    """A resource tab of an exported panel. Its resource is a member path, not a
+    resource ID."""
 
     variant: Literal["resource"] = "resource"
     resource: str

@@ -342,7 +342,7 @@ func (d *Driver) ackFailure(
 // and config hash.
 func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
 	stat := task.Status{
-		Key:     t.OntologyID().String(),
+		Key:     t.ResourceID().String(),
 		Name:    t.Name,
 		Variant: status.VariantWarning,
 		Message: "Config changed",

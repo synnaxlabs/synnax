@@ -150,7 +150,7 @@ describe("Status queries", () => {
         message: "Filter label test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID("filter-label-test"), [label.key]);
+      await client.labels.label(status.resourceID("filter-label-test"), [label.key]);
 
       const { result } = renderHook(
         () => Status.useList({ query: { where: { labels: [label.key] } } }),
@@ -181,7 +181,7 @@ describe("Status queries", () => {
         message: "Labeled status test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID("labeled-status-test"), [label.key]);
+      await client.labels.label(status.resourceID("labeled-status-test"), [label.key]);
       act(() => {
         result.current.retrieve({ where: { labels: [label.key] } });
       });
@@ -544,7 +544,7 @@ describe("Status queries", () => {
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
+      const parentResourceID = group.resourceID(parentGroup.key);
 
       const { result } = renderHook(() => Status.useSet(), { wrapper });
 
@@ -557,12 +557,12 @@ describe("Status queries", () => {
             message: "Has parent",
             time: TimeStamp.now(),
           },
-          parent: parentOntologyID,
+          parent: parentResourceID,
         });
       });
 
       const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
+        ids: parentResourceID,
       });
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
@@ -1005,7 +1005,7 @@ describe("Status queries", () => {
         message: "Testing labels",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(key), [label1.key]);
+      await client.labels.label(status.resourceID(key), [label1.key]);
       const { result } = await renderHookSuspended(
         () => Status.useForm({ query: { key } }),
         { wrapper },
@@ -1022,7 +1022,7 @@ describe("Status queries", () => {
       });
       await waitFor(async () => {
         const labels = await client.labels.retrieve({
-          where: { for: status.ontologyID(key) },
+          where: { for: status.resourceID(key) },
         });
         const labelKeys = labels.map((l) => l.key);
         expect(labelKeys).not.toContain(label1.key);
@@ -1055,13 +1055,13 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().labels).toEqual([]);
       await act(async () => {
-        await client.labels.label(status.ontologyID(key), [label1.key]);
+        await client.labels.label(status.resourceID(key), [label1.key]);
       });
       await waitFor(() =>
         expect(result.current.form.value().labels).toContain(label1.key),
       );
       await act(async () => {
-        await client.labels.label(status.ontologyID(key), [label2.key]);
+        await client.labels.label(status.resourceID(key), [label2.key]);
       });
       await waitFor(() => {
         const labels = result.current.form.value().labels;
@@ -1069,7 +1069,7 @@ describe("Status queries", () => {
         expect(labels).toContain(label2.key);
       });
       await act(async () => {
-        await client.labels.remove(status.ontologyID(key), [label1.key]);
+        await client.labels.remove(status.resourceID(key), [label1.key]);
       });
       await waitFor(() => {
         const labels = result.current.form.value().labels;

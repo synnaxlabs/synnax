@@ -12,12 +12,12 @@ import { type destructor } from "@synnaxlabs/x";
 import { type Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 /** A permission question: may the subject apply the action to the objects? */
 export interface GrantedQuery {
-  objects: ontology.ID | ontology.ID[];
+  objects: resource.ID | resource.ID[];
   action: Action;
 }
 
@@ -53,8 +53,8 @@ export class Granted {
 
   // A subject's entry holds its canonical key and a stable `{ for }` query, so
   // repeat reads stringify once and stay on the retriever's normalization memo.
-  private subjectFor(subject: ontology.ID): SubjectEntry {
-    const key = ontology.idToString(subject);
+  private subjectFor(subject: resource.ID): SubjectEntry {
+    const key = resource.idToString(subject);
     let held = this.subjects.get(key);
     if (held == null) {
       held = { key, query: { where: { subjects: [subject] } } };
@@ -64,7 +64,7 @@ export class Granted {
   }
 
   /** Fetches the subject's policies and answers the question. */
-  async retrieve(subject: ontology.ID, q: GrantedQuery): Promise<boolean> {
+  async retrieve(subject: resource.ID, q: GrantedQuery): Promise<boolean> {
     const policies = await this.policies.retrieveForSubject(subject);
     return allowRequest({ subject, objects: q.objects, action: q.action }, policies);
   }
@@ -74,7 +74,7 @@ export class Granted {
    * cannot change the answer never reaches the handler.
    */
   onChange(
-    subject: ontology.ID,
+    subject: resource.ID,
     q: GrantedQuery,
     handler: (granted: boolean) => void,
   ): destructor.Destructor {
@@ -97,7 +97,7 @@ export class Granted {
    * not cached. Repeat calls with the same query object skip the policy
    * evaluation until the cached policies change.
    */
-  getCached(subject: ontology.ID, q: GrantedQuery): boolean | undefined {
+  getCached(subject: resource.ID, q: GrantedQuery): boolean | undefined {
     const { key: subjectKey, query: policiesQuery } = this.subjectFor(subject);
     const cached = this.policies.getCached(policiesQuery);
     if (!query.isLive(cached)) return undefined;

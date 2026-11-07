@@ -39,7 +39,7 @@ const ListItem = (props: List.ItemProps<project.Key>): ReactElement | null => {
   const { itemKey } = props;
   const proj = List.useItem<project.Key, project.Project>(itemKey);
   const { update: rename } = Project.useRename();
-  const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(project.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
   if (proj == null) return null;
   return (
@@ -72,7 +72,7 @@ export const ContextMenu = ({
   keys,
   getItem,
 }: ContextMenuProps): ReactElement | null => {
-  const ids = project.ontologyID(keys);
+  const ids = project.resourceID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Modals.useConfirmDelete({ type: "Project" });
@@ -130,7 +130,7 @@ export const Selector = (): ReactElement | null => {
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const handleChange = (key: project.Key | null) => {
     if (key == null) return;
     const proj = getItem(key);
@@ -142,7 +142,7 @@ export const Selector = (): ReactElement | null => {
     setDialogVisible(false);
     openCreate();
   };
-  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_RESOURCE_ID);
   const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
     <ContextMenu {...props} getItem={getItem} />
   );

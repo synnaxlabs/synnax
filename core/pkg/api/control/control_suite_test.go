@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -116,7 +117,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // authedCtx returns a freighter context carrying u as the authenticated subject.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
+	fctx.Set("Subject", u.ResourceID())
 	return fctx
 }
 
@@ -130,9 +131,9 @@ func newUser(ctx SpecContext) user.User {
 // grantOn assigns a role granting the given actions on the given objects to subject.
 func grantOn(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	actions []access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)

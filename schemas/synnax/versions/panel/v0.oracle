@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/ontology/v0"
+import "schemas/synnax/versions/resource/v0"
 import "schemas/x/versions/spatial/v0"
 
 TabKey = uuid {
@@ -51,7 +51,7 @@ View struct {
 
 Tab union on variant extends TabBase {
     resource {
-        resource ontology.ID {
+        resource resource.ID {
             @doc value """
                 is the visualization resource displayed by this tab, set via
                 SetTabResource.
@@ -131,7 +131,7 @@ Panel struct {
     root   Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent ontology.ID? {
+    parent resource.ID? {
         @doc value  """
             is the parent resource for the panel in the ontology, required on create.
             Parenthood lives in the ontology graph, so the field is not persisted on the

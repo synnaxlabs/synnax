@@ -14,17 +14,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// tabResource is the ontology ID the tab helper derives from a tab key, so each
+// tabResource is the resource ID the tab helper derives from a tab key, so each
 // tab in a fixture backs a distinct resource.
-func tabResource(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: "lineplot", Key: key.String()}
+func tabResource(key uuid.UUID) resource.ID {
+	return resource.ID{Type: "lineplot", Key: key.String()}
 }
 
 // tab constructs a resource Tab with a fixed UUID and a key-derived resource. Tests

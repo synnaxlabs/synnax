@@ -13,7 +13,7 @@ package policy
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -40,7 +40,7 @@ type Where struct {
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Subjects matches the policies of the roles that any of the given subjects hold.
-	Subjects []ontology.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
+	Subjects []resource.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

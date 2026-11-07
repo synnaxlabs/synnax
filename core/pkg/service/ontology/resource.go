@@ -10,50 +10,15 @@
 package ontology
 
 import (
-	"strings"
-
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// ParseID parses the given key into an ID.
-func ParseID(key string) (ID, error) {
-	// We explicitly allow IDs that have multiple colons, i.e. "foo:bar:baz" will be
-	// parsed as ID{Type: "foo", Key: "bar:baz"}.
-	split := strings.SplitN(key, ":", 2)
-	if len(split) != 2 {
-		return ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s",
-			key,
-		)
-	}
-	if split[0] == "" {
-		return ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"[ontology.resource] - failed to parse id: %s (empty type)",
-			key,
-		)
-	}
-	return ID{Type: ResourceType(split[0]), Key: split[1]}, nil
-}
-
-// ParseIDs parses the given keys into IDs.
-func ParseIDs(keys []string) ([]ID, error) {
-	return lo.MapErr(keys, func(key string, _ int) (ID, error) { return ParseID(key) })
-}
-
-// IDsToKeys converts a slice of IDs to a slice of their string representations.
-func IDsToKeys(ids []ID) []string {
-	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
-}
-
 // NewResource creates a new Resource with the given schema, name, and data. NewResource
 // panics if the provided data value does not fit the Resource's schema.
-func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
+func NewResource(schema zyn.Schema, id resource.ID, name string, data any) Resource {
 	return Resource{
 		ID:   id,
 		Name: name,
@@ -62,8 +27,8 @@ func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
 }
 
 // ResourceIDs extracts the IDs from a slice of Resources.
-func ResourceIDs(resources []Resource) []ID {
-	return lo.Map(resources, func(r Resource, _ int) ID { return r.ID })
+func ResourceIDs(resources []Resource) []resource.ID {
+	return lo.Map(resources, func(r Resource, _ int) resource.ID { return r.ID })
 }
 
 // Change is a change to a Resource.

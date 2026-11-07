@@ -12,7 +12,7 @@
 import { telem, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const METHODS = ["password", "api_key"] as const;
 export const methodZ = z.enum(METHODS);
@@ -71,7 +71,7 @@ export const sessionZ = z.object({
   /** key is the unique identifier for this session. */
   key: sessionKeyZ.default(uuid.create),
   /** subject is the user or rack that logged in. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** credential is the key of the credential record the login matched. */
   credential: z.uuid(),
   /**

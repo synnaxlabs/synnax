@@ -107,7 +107,7 @@ export const renderTable = async (
   await loadTable(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    clientTable.ontologyID(created.key),
+    clientTable.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // React counts a `use` read as a suspend even when it is cached. A sync act leaves

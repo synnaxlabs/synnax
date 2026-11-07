@@ -11,7 +11,7 @@ package v8
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Schematic{}
@@ -22,7 +22,7 @@ func (s Schematic) GorpKey() Key { return s.Key }
 // SetOptions implements gorp.Entry.
 func (Schematic) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the schematic.
-func (s Schematic) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeSchematic, Key: s.Key.String()}
+// ResourceID returns the unique resource identifier for the schematic.
+func (s Schematic) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeSchematic, Key: s.Key.String()}
 }

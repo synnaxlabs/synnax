@@ -36,7 +36,7 @@ describe("user", () => {
     it("should allow the caller to retrieve users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: ["retrieve"],
       });
       const randomUser = await client.users.create({
@@ -50,7 +50,7 @@ describe("user", () => {
     it("should allow the caller to create users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: ["create"],
       });
       await userClient.users.create({
@@ -62,7 +62,7 @@ describe("user", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: [],
       });
       await expect(
@@ -76,7 +76,7 @@ describe("user", () => {
     it("should allow the caller to delete users with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: ["delete"],
       });
       const randomUser = await client.users.create({
@@ -92,7 +92,7 @@ describe("user", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [user.ontologyID("")],
+        objects: [user.resourceID("")],
         actions: [],
       });
       const randomUser = await client.users.create({

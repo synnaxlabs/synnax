@@ -13,7 +13,7 @@ import { control, filter, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { node } from "@/node";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32().or(
@@ -188,5 +188,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("channel");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("channel");
+export const TYPE_RESOURCE_ID = resourceID(0);

@@ -44,7 +44,7 @@ describe("Symbol queries", () => {
       });
       const symbol1 = await client.schematics.symbols.create({
         name: "symbol1",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -57,7 +57,7 @@ describe("Symbol queries", () => {
       });
       const symbol2 = await client.schematics.symbols.create({
         name: "symbol2",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -70,12 +70,12 @@ describe("Symbol queries", () => {
       });
 
       const { result } = renderHook(
-        () => Symbol.useList({ query: { parent: group.ontologyID(parent.key) } }),
+        () => Symbol.useList({ query: { parent: group.resourceID(parent.key) } }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -100,7 +100,7 @@ describe("Symbol queries", () => {
       });
       await client.schematics.symbols.create({
         name: "valve red",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -113,7 +113,7 @@ describe("Symbol queries", () => {
       });
       await client.schematics.symbols.create({
         name: "pump blue",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -126,7 +126,7 @@ describe("Symbol queries", () => {
       });
       await client.schematics.symbols.create({
         name: "valve purple",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -142,7 +142,7 @@ describe("Symbol queries", () => {
         () =>
           Symbol.useList({
             query: {
-              parent: group.ontologyID(parent.key),
+              parent: group.resourceID(parent.key),
               searchTerm: "valve",
             },
           }),
@@ -151,7 +151,7 @@ describe("Symbol queries", () => {
 
       act(() => {
         result.current.retrieve({
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
           searchTerm: "valve",
         });
       });
@@ -173,7 +173,7 @@ describe("Symbol queries", () => {
       });
       await client.schematics.symbols.create({
         name: "initial-symbol",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -188,13 +188,13 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            query: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -205,7 +205,7 @@ describe("Symbol queries", () => {
       await act(async () => {
         await client.schematics.symbols.create({
           name: "new-symbol",
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
           data: {
             svg: "<svg></svg>",
             states: [],
@@ -272,7 +272,7 @@ describe("Symbol queries", () => {
       await act(async () => {
         result.current.form.set(path.name, "created-symbol");
         result.current.form.set(path.data.svg, "<svg>created</svg>");
-        result.current.form.set(path.parent, group.ontologyID(parent.key));
+        result.current.form.set(path.parent, group.resourceID(parent.key));
         result.current.save();
       });
 
@@ -288,7 +288,7 @@ describe("Symbol queries", () => {
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
 
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(parent.key),
+        ids: group.resourceID(parent.key),
       });
       expect(children.length).toBe(1);
       expect(children[0].id.key).toBe(retrieved.key);
@@ -302,7 +302,7 @@ describe("Symbol queries", () => {
       });
       const symbol = await client.schematics.symbols.create({
         name: "warm-symbol",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg>warm</svg>",
           states: [],
@@ -313,7 +313,7 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      const id = schematic.symbol.ontologyID(symbol.key);
+      const id = schematic.symbol.resourceID(symbol.key);
       // The cache answers only queries it maintains, so both reads need a live
       // subscriber before they are within reach of getCached.
       const stopSymbol = client.schematics.symbols.onChange(symbol.key, () => {});
@@ -329,7 +329,7 @@ describe("Symbol queries", () => {
         expect(result.current.form.get(path.name).value).toBe("warm-symbol");
         expect(result.current.form.get(path.data.svg).value).toBe("<svg>warm</svg>");
         expect(result.current.form.get(path.parent).value).toEqual(
-          group.ontologyID(parent.key),
+          group.resourceID(parent.key),
         );
       } finally {
         stopSymbol();
@@ -344,7 +344,7 @@ describe("Symbol queries", () => {
       });
       const symbol = await client.schematics.symbols.create({
         name: "original-name",
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         data: {
           svg: "<svg>original</svg>",
           states: [],
@@ -367,7 +367,7 @@ describe("Symbol queries", () => {
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toBe("original-name");
         expect(result.current.form.get(path.parent).value).toEqual(
-          group.ontologyID(parent.key),
+          group.resourceID(parent.key),
         );
         expect(result.current.form.get(path.data.svg).value).toBe(
           "<svg>original</svg>",
@@ -495,7 +495,7 @@ describe("Symbol queries", () => {
       });
       const symbol = await client.schematics.symbols.create({
         name: "symbol-in-group",
-        parent: group.ontologyID(grp.key),
+        parent: group.resourceID(grp.key),
         data: SYMBOL_DATA,
       });
       return { grp, symbol };

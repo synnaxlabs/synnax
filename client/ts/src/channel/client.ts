@@ -38,11 +38,11 @@ import {
   keyZ,
   type Name,
   type New,
-  ontologyID,
   type Operation,
   operationZ,
   type Payload,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
@@ -58,11 +58,12 @@ import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -199,9 +200,9 @@ export class Channel {
     return isCalculated(this.payload);
   }
 
-  /** @returns the ontology ID of the channel */
-  get ontologyID(): ontology.ID {
-    return ontologyID(this.key);
+  /** @returns the resource ID of the channel */
+  get resourceID(): resource.ID {
+    return resourceID(this.key);
   }
 
   /**
@@ -586,11 +587,11 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const ids = ontologyID(keys);
+      const ids = resourceID(keys);
       const drop = () => [
         this.cfg.ontology.cache.deleteRelationships(ids),
         this.store.delete(keys),
-        this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
+        this.cfg.ontology.cache.resources.delete(resource.idToString(ids)),
       ];
       await query.optimistic({
         rollbacks: drop(),
@@ -620,7 +621,7 @@ export class Client extends query.Retriever<
         const name = namesArr[i];
         return [
           this.renameThrough(key, name),
-          this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+          this.cfg.ontology.cache.renameResource(resourceID(key), name),
         ];
       });
     await query.optimistic({

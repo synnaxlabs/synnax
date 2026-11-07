@@ -12,7 +12,7 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type Policy, type Where } from "@/access/policy/types.gen";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
@@ -60,7 +60,7 @@ const inputs = {
   /** internal selects by internal. */
   internal: filter.boolInputZ.exactOptional(),
   /** subjects matches the policies of the roles that any of the given subjects hold. */
-  subjects: filter.listInputZ(ontology.idZ).exactOptional(),
+  subjects: filter.listInputZ(resource.idZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */

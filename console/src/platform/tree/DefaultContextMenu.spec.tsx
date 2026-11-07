@@ -24,7 +24,7 @@ import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const rootID = group.ontologyID(id.create());
+const rootID = group.resourceID(id.create());
 
 const renderMenu = async (as: Client): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });

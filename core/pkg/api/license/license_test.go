@@ -17,12 +17,12 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var object = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
+var object = resource.ID{Type: resource.TypeBuiltin, Key: "license"}
 
 var _ = Describe("Service", Ordered, func() {
 	It("Should refuse retrieval without a retrieve permission", func(ctx SpecContext) {
@@ -36,7 +36,7 @@ var _ = Describe("Service", Ordered, func() {
 		reader := freshUser(ctx)
 		grantOn(
 			ctx,
-			reader.OntologyID(),
+			reader.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			object,
 		)
@@ -69,7 +69,7 @@ var _ = Describe("Service", Ordered, func() {
 			reader := freshUser(ctx)
 			grantOn(
 				ctx,
-				reader.OntologyID(),
+				reader.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				object,
 			)
@@ -82,7 +82,7 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should activate a license key for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
-		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
+		grantOn(ctx, owner.ResourceID(), []access.Action{access.ActionUpdate}, object)
 		lic := svctestutil.NewLicense()
 		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
@@ -111,7 +111,7 @@ var _ = Describe("Service", Ordered, func() {
 			reader := freshUser(ctx)
 			grantOn(
 				ctx,
-				reader.OntologyID(),
+				reader.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				object,
 			)
@@ -126,7 +126,7 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should deactivate a license key for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
-		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
+		grantOn(ctx, owner.ResourceID(), []access.Action{access.ActionUpdate}, object)
 		jti := licenseSvc.Retrieve().License.Jti
 		info := MustSucceed(apiSvc.Deactivate(
 			AuthedCtx(ctx, owner),

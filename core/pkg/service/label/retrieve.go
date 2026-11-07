@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is a builder for querying labels.
@@ -27,7 +28,7 @@ type Retrieve struct {
 
 // MatchFor returns a filter that matches the labels attached to the resource with the
 // given ID. A resource that does not exist has no labels.
-func MatchFor(id ontology.ID) Filter {
+func MatchFor(id resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Label] {
 		return gorp.MatchKeysFunc[Key, Label](func(ctx gorp.Context) ([]Key, error) {
 			start := r.ontology.NewRetrieve().WhereIDs(id)
@@ -37,8 +38,8 @@ func MatchFor(id ontology.ID) Filter {
 }
 
 // ForIDs returns the IDs that the for lines of w name, at any depth.
-func (w Where) ForIDs() []ontology.ID {
-	var ids []ontology.ID
+func (w Where) ForIDs() []resource.ID {
+	var ids []resource.ID
 	if w.For != nil {
 		ids = append(ids, *w.For)
 	}
@@ -64,16 +65,16 @@ func resolveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	return KeysFromOntologyIDs(ontology.ResourceIDs(labels))
+	return KeysFromResourceIDs(ontology.ResourceIDs(labels))
 }
 
-// RetrieveFor retrieves all labels that are associated with the provided ontology ID.
+// RetrieveFor retrieves all labels that are associated with the provided resource ID.
 // If a tx is provided, RetrieveFor will use it to execute the query. Otherwise, it will
 // execute against the underlying gorp.DB. A resource that does not exist has no labels.
 // It returns query.ErrNotFound if one of the resource's labels does not exist.
 func (s *Service) RetrieveFor(
 	ctx context.Context,
-	id ontology.ID,
+	id resource.ID,
 	tx gorp.Tx,
 ) ([]Label, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)

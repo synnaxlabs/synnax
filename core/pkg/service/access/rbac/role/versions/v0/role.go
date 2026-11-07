@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Role{}
@@ -22,7 +22,7 @@ func (r Role) GorpKey() Key { return r.Key }
 // SetOptions implements the gorp.Entry interface.
 func (Role) SetOptions() []any { return nil }
 
-// OntologyID returns the ontology ID for this role.
-func (r Role) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRole, Key: r.Key.String()}
+// ResourceID returns the resource ID for this role.
+func (r Role) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeRole, Key: r.Key.String()}
 }

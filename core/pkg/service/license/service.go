@@ -130,10 +130,10 @@ var DefaultServiceConfig = ServiceConfig{
 }
 
 const (
-	// OntologyKey is the key of the license's ontology resource.
-	OntologyKey = "license"
+	// ResourceKey is the key of the license's resource ID.
+	ResourceKey = "license"
 	// SetChannelName is the channel the Core announces license changes on. Each sample
-	// is OntologyKey, never the license itself, so a reader refetches it through the
+	// is ResourceKey, never the license itself, so a reader refetches it through the
 	// permission checks of the retrieve endpoint.
 	SetChannelName = "sy_license_set"
 )
@@ -211,7 +211,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
 
-// OnChange calls handler with OntologyKey each time the value Retrieve returns may have
+// OnChange calls handler with ResourceKey each time the value Retrieve returns may have
 // changed.
 func (s *Service) OnChange(handler func(context.Context, string)) observe.Disconnect {
 	return s.changes.OnChange(handler)
@@ -404,7 +404,7 @@ func (s *Service) load(ctx context.Context) error {
 	s.mu.Lock()
 	s.mu.info = *chosen
 	s.mu.Unlock()
-	s.changes.Notify(ctx, OntologyKey)
+	s.changes.Notify(ctx, ResourceKey)
 	return nil
 }
 

@@ -43,7 +43,7 @@ interface ToolbarHandle {
 const renderToolbar = async (arcKey: string): Promise<ToolbarHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   let statuses: Status.NotificationSpec[] = [];
-  const { panelKey, tabKey } = await createResourceTab(client, arc.ontologyID(arcKey));
+  const { panelKey, tabKey } = await createResourceTab(client, arc.resourceID(arcKey));
   await act(async () => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>

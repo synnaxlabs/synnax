@@ -15,7 +15,8 @@ import { AccessDeniedError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
+import { resource } from "@/resource";
+import { DELETE_CHANNEL_NAME, resourceID, SET_CHANNEL_NAME } from "@/status/payload";
 import {
   type Key,
   keyZ,
@@ -37,7 +38,7 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
 ) =>
   z.object({
-    parent: ontology.idZ.optional(),
+    parent: resource.idZ.optional(),
     statuses: statusZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -82,7 +83,7 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   });
 
 export interface SetOptions extends query.WriteOptions {
-  parent?: ontology.ID;
+  parent?: resource.ID;
 }
 
 export interface ClientConfig {
@@ -115,7 +116,7 @@ export class Client extends query.Retriever<
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
             const next = { ...prev, ...changed };
-            const id = ontologyID(changed.key);
+            const id = resourceID(changed.key);
             next.labels = label.cachedLabelsOf(ontologyClient.cache, labels.store, id);
             return next;
           },
@@ -167,7 +168,7 @@ export class Client extends query.Retriever<
     this.store = store;
     this.lines = {
       labels: (status, keys) =>
-        label.cachedLabeledByAny(ontologyClient.cache, ontologyID(status.key), keys),
+        label.cachedLabeledByAny(ontologyClient.cache, resourceID(status.key), keys),
     };
     cache.listen({
       channel: SET_CHANNEL_NAME,
@@ -257,7 +258,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -278,7 +279,7 @@ export class Client extends query.Retriever<
     const drop = () => [
       this.store.delete(keysArr),
       this.cfg.ontology.cache.relationships.delete((r) =>
-        keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
+        keysArr.some((key) => label.matchLabeledBy(r, resourceID(key))),
       ),
     ];
     await query.optimistic({
@@ -346,7 +347,7 @@ export class Client extends query.Retriever<
     const labels = label.cachedLabelsOf(
       this.cfg.ontology.cache,
       this.cfg.labels.store,
-      ontologyID(cached.key),
+      resourceID(cached.key),
     );
     return { ...cached, labels };
   }
@@ -356,12 +357,12 @@ export class Client extends query.Retriever<
     this.store.ingest(status, { since });
     if (status.labels == null) return;
     this.cfg.labels.store.ingest(status.labels);
-    const id = ontologyID(status.key);
+    const id = resourceID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {
         from: id,
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(l.key),
+        to: label.resourceID(l.key),
       };
       this.cfg.ontology.cache.relationships.set(
         ontology.relationshipToString(rel),
@@ -427,7 +428,7 @@ export class Client extends query.Retriever<
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
     return this.cfg.ontology.cache
-      .relationshipsTo(label.ontologyID(labelKey))
+      .relationshipsTo(label.resourceID(labelKey))
       .filter(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&

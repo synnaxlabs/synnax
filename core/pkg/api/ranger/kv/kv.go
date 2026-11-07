@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -90,7 +90,7 @@ func (s *Service) Get(ctx context.Context, req GetRequest) (GetResponse, error) 
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
+		Objects: []resource.ID{ranger.ResourceID(req.Range)},
 	}); err != nil {
 		return GetResponse{}, err
 	}
@@ -123,7 +123,7 @@ func (s *Service) Set(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
+		Objects: []resource.ID{ranger.ResourceID(req.Range)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -143,7 +143,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
+		Objects: []resource.ID{ranger.ResourceID(req.Range)},
 	}); err != nil {
 		return struct{}{}, err
 	}

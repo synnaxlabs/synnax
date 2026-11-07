@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -24,22 +25,22 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns unique identifier for the schematic within the ontology.
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeSchematic, Key: k.String()}
+// ResourceID returns unique identifier for the schematic within the ontology.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeSchematic, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the schematics within the ontology.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID {
-		return OntologyID(key)
+// ResourceIDs returns unique identifiers for the schematics within the ontology.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID {
+		return ResourceID(key)
 	})
 }
 
-// OntologyIDsFromSchematics returns the ontology IDs of the schematics.
-func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
-	return lo.Map(schematics, func(s Schematic, _ int) ontology.ID {
-		return s.OntologyID()
+// ResourceIDsFromSchematics returns the resource IDs of the schematics.
+func ResourceIDsFromSchematics(schematics []Schematic) []resource.ID {
+	return lo.Map(schematics, func(s Schematic, _ int) resource.ID {
+		return s.ResourceID()
 	})
 }
 
@@ -50,14 +51,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Schematic) ontology.Resource {
-	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
+	return ontology.NewResource(schema, s.ResourceID(), s.Name, s)
 }
 
 type change = xchange.Change[Key, Schematic]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeSchematic }
+func (s *Service) Type() resource.Type { return resource.TypeSchematic }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -82,7 +83,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -101,7 +102,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

@@ -19,7 +19,7 @@ const CreateCommand = Command.create({
   key: "create_arc",
   name: "Create Arc automation",
   icon: <Icon.Arc />,
-  useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(arc.TYPE_RESOURCE_ID),
   useOnSelect: Arc.useCreate,
 });
 
@@ -28,7 +28,7 @@ const OpenExplorerCommand = Command.create({
   name: "Open Arc explorer",
   icon: <PArc.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
-  useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand, OpenExplorerCommand];

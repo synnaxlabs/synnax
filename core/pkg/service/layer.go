@@ -60,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -266,7 +267,7 @@ func revokePasswordSessions(
 	ctx context.Context,
 	passwords *password.Service,
 	sessions *auth.Service,
-	subject ontology.ID,
+	subject resource.ID,
 ) error {
 	var p password.Password
 	if err := passwords.NewRetrieve().
@@ -519,7 +520,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ctx,
 			l.Password,
 			l.Auth,
-			root.OntologyID(),
+			root.ResourceID(),
 		); !ok(err, nil) {
 			return nil, err
 		}

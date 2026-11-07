@@ -63,7 +63,7 @@ const Item = (props: List.ItemProps<label.Key>) => {
   const { itemKey } = props;
   const { form } = Label.useForm({ query: { key: itemKey } });
   const { update: handleDelete } = Label.useDelete();
-  const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
+  const canDelete = Access.useDeleteGranted(label.resourceID(itemKey));
   return (
     <List.Item
       className={CSS.BE("label", "list-item")}
@@ -164,7 +164,7 @@ const Edit = () => {
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   return (
     <Modal.Frame y className={CSS.BE("label", "edit")}>
       <Modal.Header icon={<Icon.Label />}>Label.Edit</Modal.Header>

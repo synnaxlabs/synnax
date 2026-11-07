@@ -46,7 +46,7 @@ const resourceKeys = (node: panel.Node): string[] => {
 };
 
 const retrieveSample = async (key: project.Key): Promise<Sample> => {
-  const panels = await client.panels.retrieve({ parent: project.ontologyID(key) });
+  const panels = await client.panels.retrieve({ parent: project.resourceID(key) });
   expect(panels).toHaveLength(1);
   const { key: panelKey, root } = panels[0];
   if (root.variant !== "split" || root.first.variant !== "split")
@@ -286,10 +286,10 @@ describe("Sample project", () => {
 
   it("should move the schematic back under the project on a reset", async () => {
     const { sample, open, waitForOpened } = await openFromPalette();
-    const projectID = project.ontologyID(sample.project);
-    const schematicID = schematic.ontologyID(sample.schematic);
+    const projectID = project.resourceID(sample.project);
+    const schematicID = schematic.resourceID(sample.schematic);
     const folder = await client.groups.create({ parent: projectID, name: "Folder" });
-    const folderID = group.ontologyID(folder.key);
+    const folderID = group.resourceID(folder.key);
     await client.ontology.moveChildren(projectID, folderID, schematicID);
     await open();
     fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
@@ -307,11 +307,11 @@ describe("Sample project", () => {
     await open();
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: project.ontologyID(sample.project),
+        ids: project.resourceID(sample.project),
       });
       const ids = children.map(({ id }) => id);
-      expect(ids).toContainEqual(schematic.ontologyID(sample.schematic));
-      expect(ids).toContainEqual(lineplot.ontologyID(sample.linePlot));
+      expect(ids).toContainEqual(schematic.resourceID(sample.schematic));
+      expect(ids).toContainEqual(lineplot.resourceID(sample.linePlot));
     });
     await waitForOpened(sample);
   });

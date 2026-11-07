@@ -20,7 +20,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -51,7 +51,7 @@ const Body = (): ReactElement => {
 
 const EmptyContent = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No users"
@@ -69,5 +69,5 @@ export const TOOLBAR: Nav.Toolbar = {
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   trigger: ["U"],
-  useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(user.TYPE_RESOURCE_ID),
 };

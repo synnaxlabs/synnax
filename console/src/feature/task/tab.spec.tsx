@@ -154,7 +154,7 @@ describe("task tab", () => {
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: created.ontologyID });
+    await restore({ client, project: project.key, resource: created.resourceID });
 
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.

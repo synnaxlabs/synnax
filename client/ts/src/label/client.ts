@@ -41,6 +41,7 @@ import {
 } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_label_action_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -49,7 +50,7 @@ const createReqZ = z.object({ labels: labelZ.array(), dispatchKey: z.string() })
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
-  id: ontology.idZ,
+  id: resource.idZ,
   labels: keyZ.array(),
   replace: z.boolean().optional(),
 });
@@ -67,14 +68,14 @@ const retrieveMultiParamsZ = filter.requestInputZ(
 );
 
 /** @returns the resources that the for lines of where name. */
-const forIDs = (where: Where): ontology.ID[] => [
+const forIDs = (where: Where): resource.ID[] => [
   ...(where.for != null ? [where.for] : []),
   ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
   ...(where.not != null ? forIDs(where.not) : []),
 ];
 
 /** @returns the resource whose labels a request selects, and nothing else, or null. */
-const labelsOf = ({ where, ...rest }: RetrieveRequest): ontology.ID | null => {
+const labelsOf = ({ where, ...rest }: RetrieveRequest): resource.ID | null => {
   if (where?.for == null || Object.values(rest).some((v) => v != null)) return null;
   const { for: id, ...others } = where;
   return Object.values(others).every((v) => v == null) ? id : null;
@@ -113,12 +114,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     const labelSets = new Set<string>();
     cache.onEpoch(() => labelSets.clear());
     // Null when the client neither saw the relationship nor holds every label of id.
-    const labeledBy = (id: ontology.ID, key: Key): boolean | null => {
+    const labeledBy = (id: resource.ID, key: Key): boolean | null => {
       const status = relationships.status(
         ontology.relationshipToString(labeledByRel(id, key)),
       );
       if (status === "present") return true;
-      if (status === "tombstoned" || labelSets.has(ontology.idToString(id)))
+      if (status === "tombstoned" || labelSets.has(resource.idToString(id)))
         return false;
       return null;
     };
@@ -168,7 +169,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
             relationships.ingestDeletes(vanished, since);
             fetched.forEach((rel, key) => relationships.ingest(key, rel, { since }));
           });
-          labelSets.add(ontology.idToString(id));
+          labelSets.add(resource.idToString(id));
           return labels;
         },
         matches: (l, req) => {
@@ -201,7 +202,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   }
 
   async label(
-    id: ontology.ID,
+    id: resource.ID,
     labels: Key[],
     opts: SetOptions & query.WriteOptions = {},
   ): Promise<void> {
@@ -230,7 +231,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   }
 
   async remove(
-    id: ontology.ID,
+    id: resource.ID,
     labels: Key[],
     opts: query.WriteOptions = {},
   ): Promise<void> {
@@ -331,11 +332,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   }
 }
 
-const labeledByRel = (id: ontology.ID, key: Key): ontology.Relationship => ({
+const labeledByRel = (id: resource.ID, key: Key): ontology.Relationship => ({
   from: id,
   type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  to: ontologyID(key),
+  to: resourceID(key),
 });
 
-export const ontologyID = ontology.createIDFactory<Key>("label");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("label");
+export const TYPE_RESOURCE_ID = resourceID("");

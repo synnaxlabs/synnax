@@ -30,10 +30,10 @@ import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadFileOptions, type ReadOptions } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
-export const ontologyID = ontology.createIDFactory<string>("framer");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<string>("framer");
+export const TYPE_RESOURCE_ID = resourceID("");
 
 /** Config for {@link Client}. */
 export interface ClientConfig {

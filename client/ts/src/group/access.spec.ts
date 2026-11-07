@@ -22,7 +22,7 @@ describe("group", () => {
     it("should allow the caller to create groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["create"],
       });
       await userClient.groups.create({
@@ -34,7 +34,7 @@ describe("group", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       await expect(
@@ -48,7 +48,7 @@ describe("group", () => {
     it("should allow the caller to delete groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomGroup = await client.groups.create({
@@ -61,7 +61,7 @@ describe("group", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       const randomGroup = await client.groups.create({
@@ -78,13 +78,13 @@ describe("group", () => {
         parent: ontology.ROOT_ID,
         name: `test-${id.create()}`,
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       await client.groups.create({ parent: parentID, name: "a" });
       await client.groups.create({ parent: parentID, name: "b" });
       const [first] = await client.groups.retrieve({ parent: parentID, limit: 1 });
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID(first.key)],
+        objects: [group.resourceID(first.key)],
         actions: ["retrieve"],
       });
       const page = await userClient.groups.retrieve({ parent: parentID, limit: 1 });

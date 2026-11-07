@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel, ranger
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import color as color_
 from x import filter, spatial, text
 
@@ -352,8 +352,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="lineplot")
+TYPE_RESOURCE_ID = ID(type="lineplot")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="lineplot", key=str(key))

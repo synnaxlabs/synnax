@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -75,7 +76,7 @@ var _ = Describe("Members", func() {
 		Expect(members).To(HaveLen(2))
 		Expect(members[0].LayoutKey).To(Equal("k1"))
 		Expect(members[0].Path).To(Equal("Metrics.json"))
-		Expect(members[0].Env.Type).To(Equal(string(ontology.ResourceTypeLog)))
+		Expect(members[0].Env.Type).To(Equal(string(resource.TypeLog)))
 		Expect(members[1].LayoutKey).To(Equal("k2"))
 	})
 
@@ -148,19 +149,19 @@ var _ = Describe("HasPanels", func() {
 
 var _ = Describe("CreatePanels", func() {
 	var (
-		parent ontology.ID
-		refs   map[string]ontology.ID
+		parent resource.ID
+		refs   map[string]resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
 		g := MustSucceed(
 			groupSvc.NewWriter(tx).Create(ctx, "Legacy Parent", ontology.RootID),
 		)
-		parent = g.OntologyID()
+		parent = g.ResourceID()
 		l := log.Log{Name: "Metrics"}
 		Expect(logSvc.NewWriter(tx).Create(ctx, project.Key{}, &l)).To(Succeed())
-		refs = map[string]ontology.ID{"k1": log.OntologyID(l.Key)}
+		refs = map[string]resource.ID{"k1": log.ResourceID(l.Key)}
 	})
-	panelsUnder := func(ctx SpecContext, parent ontology.ID) []panel.Panel {
+	panelsUnder := func(ctx SpecContext, parent resource.ID) []panel.Panel {
 		GinkgoHelper()
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
@@ -168,16 +169,16 @@ var _ = Describe("CreatePanels", func() {
 			TraverseTo(ontology.ChildrenTraverser).
 			Entries(&children).
 			Exec(ctx, tx)).To(Succeed())
-		var ids []ontology.ID
+		var ids []resource.ID
 		for _, c := range children {
-			if c.ID.Type == ontology.ResourceTypePanel {
+			if c.ID.Type == resource.TypePanel {
 				ids = append(ids, c.ID)
 			}
 		}
 		if len(ids) == 0 {
 			return nil
 		}
-		keys := MustSucceed(panel.KeysFromOntologyIDs(ids))
+		keys := MustSucceed(panel.KeysFromResourceIDs(ids))
 		var panels []panel.Panel
 		Expect(panelSvc.NewRetrieve().
 			Where(panel.MatchKeys(keys...)).

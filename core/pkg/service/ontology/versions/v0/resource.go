@@ -9,7 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"github.com/synnaxlabs/gorp"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+)
 
 // Resource represents an instance matching of a resource in the ontology.
 type Resource struct {
@@ -17,7 +20,7 @@ type Resource struct {
 	// schema.
 	Data any `json:"data" msgpack:"data"`
 	// ID is the unique identifier for the Resource.
-	ID ID `json:"id" msgpack:"id"`
+	ID resource.ID `json:"id" msgpack:"id"`
 	// Name is a human-readable name for the Resource.
 	Name string `json:"name" msgpack:"name"`
 }

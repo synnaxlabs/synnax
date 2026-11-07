@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -42,13 +43,13 @@ const (
 // enters a bundle, and an import leaves each where its importer put it rather than
 // under the directory that held it.
 var unreachedTypes = set.New(
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeArc,
+	resource.TypeTask,
+	resource.TypeArc,
 )
 
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
-// and a manifest naming the project at the root. It also returns the ontology ID of
+// and a manifest naming the project at the root. It also returns the resource ID of
 // every resource that shaped the artifact — documents, panels, and groups — so a caller
 // can enforce access on them. The encoder decides both the serialization and the
 // extension every file takes.
@@ -65,7 +66,7 @@ func (s *Service) Export(
 	ctx context.Context,
 	key Key,
 	encoder encoding.FileEncoder,
-) (files zip.Files, members []ontology.ID, err error) {
+) (files zip.Files, members []resource.ID, err error) {
 	tx := s.cfg.DB.OpenTx()
 	defer func() { err = errors.Combine(err, tx.Close()) }()
 	var proj Project
@@ -79,12 +80,12 @@ func (s *Service) Export(
 		svc:     s,
 		tx:      tx,
 		ext:     encoder.Extension(),
-		visited: set.New[ontology.ID](),
-		refs:    map[ontology.ID]string{},
+		visited: set.New[resource.ID](),
+		refs:    map[resource.ID]string{},
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
 	claims := imex.NewClaims(manifestFileName)
-	if err = w.directory(ctx, OntologyID(key), "", claims); err != nil {
+	if err = w.directory(ctx, ResourceID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
 	files = make(zip.Files, len(w.refs)+len(w.panels)+1)
@@ -123,14 +124,14 @@ type bundleWalk struct {
 	ext string
 	// visited holds every resource the walk already placed, so a resource with multiple
 	// parents in the project is placed only once.
-	visited set.Set[ontology.ID]
+	visited set.Set[resource.ID]
 	// refs maps each member document to its path from the bundle root. Panel encoding
 	// resolves resource tabs through it.
-	refs map[ontology.ID]string
+	refs map[resource.ID]string
 	// panels pairs each member panel's document with its path from the bundle root.
 	panels []bundlePanel
 	// groups holds every group that contributed a directory to the artifact.
-	groups []ontology.ID
+	groups []resource.ID
 }
 
 // bundlePanel pairs a member panel's document with its path from the bundle root.
@@ -141,13 +142,13 @@ type bundlePanel struct {
 
 // members returns the ID of every resource that shaped the artifact, for access
 // enforcement by the caller.
-func (w *bundleWalk) members() []ontology.ID {
-	members := make([]ontology.ID, 0, len(w.refs)+len(w.panels)+len(w.groups))
+func (w *bundleWalk) members() []resource.ID {
+	members := make([]resource.ID, 0, len(w.refs)+len(w.panels)+len(w.groups))
 	for id := range w.refs {
 		members = append(members, id)
 	}
 	for _, p := range w.panels {
-		members = append(members, p.panel.OntologyID())
+		members = append(members, p.panel.ResourceID())
 	}
 	return append(members, w.groups...)
 }
@@ -156,7 +157,7 @@ func (w *bundleWalk) members() []ontology.ID {
 // bundle root, "a/b/" otherwise). claims tracks the file names taken in this directory.
 func (w *bundleWalk) directory(
 	ctx context.Context,
-	parent ontology.ID,
+	parent resource.ID,
 	prefix string,
 	claims *imex.Claims,
 ) error {
@@ -174,7 +175,7 @@ func (w *bundleWalk) directory(
 			continue
 		}
 		switch {
-		case child.ID.Type == ontology.ResourceTypeGroup:
+		case child.ID.Type == resource.TypeGroup:
 			dirName, err := filename.Sanitize(child.Name, "")
 			if err != nil {
 				return err
@@ -192,7 +193,7 @@ func (w *bundleWalk) directory(
 				continue
 			}
 			w.groups = append(w.groups, child.ID)
-		case child.ID.Type == ontology.ResourceTypePanel:
+		case child.ID.Type == resource.TypePanel:
 			fileName, err := filename.Sanitize(child.Name, w.ext)
 			if err != nil {
 				return err
@@ -226,9 +227,9 @@ func (w *bundleWalk) directory(
 // retrievePanel reads the panel document behind id on the walk's transaction.
 func (w *bundleWalk) retrievePanel(
 	ctx context.Context,
-	id ontology.ID,
+	id resource.ID,
 ) (panel.Panel, error) {
-	keys, err := panel.KeysFromOntologyIDs([]ontology.ID{id})
+	keys, err := panel.KeysFromResourceIDs([]resource.ID{id})
 	if err != nil {
 		return panel.Panel{}, err
 	}
@@ -335,17 +336,17 @@ func (s *Service) Import(
 	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
 		return Project{}, err
 	}
-	projID := OntologyID(proj.Key)
+	projID := ResourceID(proj.Key)
 	groups, err := s.createGroups(ctx, tx, projID, members)
 	if err != nil {
 		return Project{}, err
 	}
 	var (
-		refs      = make(map[string]ontology.ID, len(members))
+		refs      = make(map[string]resource.ID, len(members))
 		otgWriter = s.cfg.Ontology.NewWriter(tx)
 	)
 	for _, m := range members {
-		if m.env.Type == string(ontology.ResourceTypePanel) {
+		if m.env.Type == string(resource.TypePanel) {
 			continue
 		}
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.env, imex.ImportOptions{
@@ -377,7 +378,7 @@ func (s *Service) Import(
 	}
 	panelWriter := s.cfg.Panel.NewWriter(tx)
 	for _, m := range members {
-		if m.env.Type != string(ontology.ResourceTypePanel) {
+		if m.env.Type != string(resource.TypePanel) {
 			continue
 		}
 		p, err := panel.DecodeBundle(ctx, m.env, refs)
@@ -417,8 +418,8 @@ func (s *Service) importLegacy(
 	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
 		return Project{}, err
 	}
-	projID := OntologyID(proj.Key)
-	refs := make(map[string]ontology.ID, len(members))
+	projID := ResourceID(proj.Key)
+	refs := make(map[string]resource.ID, len(members))
 	for _, m := range members {
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
 			FileName: m.Path,
@@ -437,23 +438,23 @@ func (s *Service) importLegacy(
 	return proj, nil
 }
 
-// ImportObjects returns the type-level ontology ID of every resource kind Import
+// ImportObjects returns the type-level resource ID of every resource kind Import
 // creates for files, so callers can enforce access before any import work. An invalid
 // bundle fails here with Import's error.
 func (s *Service) ImportObjects(
 	ctx context.Context,
 	files zip.Files,
-) ([]ontology.ID, error) {
+) ([]resource.ID, error) {
 	var (
-		objects = []ontology.ID{{Type: ontology.ResourceTypeProject}}
-		seen    = set.New(ontology.ResourceTypeProject)
+		objects = []resource.ID{{Type: resource.TypeProject}}
+		seen    = set.New(resource.TypeProject)
 	)
-	add := func(t ontology.ResourceType) {
+	add := func(t resource.Type) {
 		if seen.Contains(t) {
 			return
 		}
 		seen.Add(t)
-		objects = append(objects, ontology.ID{Type: t})
+		objects = append(objects, resource.ID{Type: t})
 	}
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
@@ -476,7 +477,7 @@ func (s *Service) ImportObjects(
 			members = append(members, importMember{path: m.Path, env: m.Env})
 		}
 		if legacy.HasPanels(ctx, layoutData, legMembers) {
-			add(ontology.ResourceTypePanel)
+			add(resource.TypePanel)
 		}
 	} else {
 		if _, err = decodeManifest(ctx, manifestData, manifestFileName); err != nil {
@@ -487,8 +488,8 @@ func (s *Service) ImportObjects(
 		}
 	}
 	for _, m := range members {
-		if m.env.Type == string(ontology.ResourceTypePanel) {
-			add(ontology.ResourceTypePanel)
+		if m.env.Type == string(resource.TypePanel) {
+			add(resource.TypePanel)
 			continue
 		}
 		resourceType, err := s.cfg.ImEx.ImporterType(m.env.Type)
@@ -499,7 +500,7 @@ func (s *Service) ImportObjects(
 	}
 	for _, m := range members {
 		if path.Dir(m.path) != "." {
-			add(ontology.ResourceTypeGroup)
+			add(resource.TypeGroup)
 			break
 		}
 	}
@@ -572,7 +573,7 @@ func (s *Service) bundleMembers(
 		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
-		if env.Type != string(ontology.ResourceTypePanel) {
+		if env.Type != string(resource.TypePanel) {
 			typ, err := s.cfg.ImEx.ResolveType(env)
 			if err != nil {
 				return nil, errors.Wrap(err, path)
@@ -622,13 +623,13 @@ func validateMemberPaths(paths []string) error {
 }
 
 // createGroups recreates each bundle directory as a group, outer before inner, and
-// returns each directory's group ontology ID keyed by path ("." is the project).
+// returns each directory's group resource ID keyed by path ("." is the project).
 func (s *Service) createGroups(
 	ctx context.Context,
 	tx gorp.Tx,
-	projID ontology.ID,
+	projID resource.ID,
 	members []importMember,
-) (map[string]ontology.ID, error) {
+) (map[string]resource.ID, error) {
 	dirs := set.New[string]()
 	for _, m := range members {
 		for dir := path.Dir(m.path); dir != "."; dir = path.Dir(dir) {
@@ -636,7 +637,7 @@ func (s *Service) createGroups(
 		}
 	}
 	var (
-		groups = map[string]ontology.ID{".": projID}
+		groups = map[string]resource.ID{".": projID}
 		writer = s.cfg.Group.NewWriter(tx)
 	)
 	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
@@ -645,7 +646,7 @@ func (s *Service) createGroups(
 		if err != nil {
 			return nil, errors.Wrap(err, dir)
 		}
-		groups[dir] = g.OntologyID()
+		groups[dir] = g.ResourceID()
 	}
 	return groups, nil
 }

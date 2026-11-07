@@ -13,8 +13,8 @@ import { caseconv, filter, type optional, record, uuid, zod } from "@synnaxlabs/
 import { z } from "zod";
 
 import { device } from "@/device";
-import { ontology } from "@/ontology";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 /** KeyedConfig is the base for every stored task configuration record. */
@@ -319,5 +319,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("task");
+export const TYPE_RESOURCE_ID = resourceID("");

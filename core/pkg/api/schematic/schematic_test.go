@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -50,9 +50,9 @@ var _ = Describe("Service", func() {
 		) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypeSchematic},
+				resource.ID{Type: resource.TypeSchematic},
 			)
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(schematicSvc.OnAction(rec.Record))
@@ -78,8 +78,8 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := createSchematic(ctx, "partial-survivor")
 				missing := uuid.New()
-				grantOn(ctx, author.OntologyID(), access.ActionRetrieve,
-					schematic.OntologyID(s.Key), schematic.OntologyID(missing))
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve,
+					schematic.ResourceID(s.Key), schematic.ResourceID(missing))
 				res := MustSucceed(
 					apiSvc.Retrieve(
 						AuthedCtx(ctx, author),
@@ -148,7 +148,7 @@ var _ = Describe("Service", func() {
 				"Should accept the request when the subject's policy permits update on the target schematic",
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "with-policy")
-					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
@@ -182,7 +182,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					a := createSchematic(ctx, "policy-target")
 					b := createSchematic(ctx, "no-policy-target")
-					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
@@ -210,7 +210,7 @@ var _ = Describe("Service", func() {
 				"Should apply a multi-action sequence to the target schematic",
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "multi-action")
-					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
@@ -267,7 +267,7 @@ var _ = Describe("Service", func() {
 						schematicSvc.NewWriter(nil).
 							Copy(ctx, s.Key, "snap", true, &snap),
 					).To(Succeed())
-					grantUpdateOn(ctx, author.OntologyID(), snap.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
 					Expect(
 						apiSvc.Dispatch(
 							AuthedCtx(ctx, author),
@@ -295,8 +295,8 @@ var _ = Describe("Service", func() {
 					missing := uuid.New()
 					grantUpdateOn(
 						ctx,
-						author.OntologyID(),
-						schematic.OntologyID(missing),
+						author.ResourceID(),
+						schematic.ResourceID(missing),
 					)
 					Expect(
 						apiSvc.Dispatch(
@@ -325,7 +325,7 @@ var _ = Describe("Service", func() {
 				"Should pass the DispatchKey verbatim into the action observer",
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "session-propagation")
-					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
+					grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
 					seen := make(chan scopedAction, 1)
 					disconnect := schematicSvc.OnAction(
 						func(_ context.Context, sa scopedAction) {

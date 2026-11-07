@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology } from "@synnaxlabs/client";
+import { group, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
@@ -18,7 +18,7 @@ import { Group } from "@/platform/group";
 import { type TreeState } from "@/platform/tree/types";
 
 export interface DefaultContextMenuProps {
-  root: ontology.ID;
+  root: resource.ID;
   state: TreeState;
 }
 
@@ -27,7 +27,7 @@ export const DefaultContextMenu = ({
   state,
 }: DefaultContextMenuProps): ReactElement => {
   const createGroup = Group.useCreateEmpty({ parent: root, state, root });
-  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   return (
     <ContextMenu.Menu>
       {hasCreatePermission && (

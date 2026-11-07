@@ -43,7 +43,7 @@ const createChannel = async () =>
 const setup = async (target: channel.Channel) => {
   const store = await createTestStore();
   const propsFor = (ch: channel.Channel): Tree.ContextMenuProps => {
-    const otgID = channel.ontologyID(ch.key);
+    const otgID = channel.resourceID(ch.key);
     return {
       ...createBaseProps({ client, store }),
       selection: createSelection({ ids: [otgID] }),

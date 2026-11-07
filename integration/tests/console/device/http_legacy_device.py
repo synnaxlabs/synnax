@@ -82,7 +82,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
     def test_driver_connects(self) -> None:
         """The Driver health checks the legacy device and reports it connected."""
         self.log("Testing: Driver connects the legacy device")
-        status_key = str(sy.ontology.ID(type="device", key=self.legacy.key))
+        status_key = str(sy.resource.ID(type="device", key=self.legacy.key))
         timer = sy.Timer()
         while True:
             statuses = self.client.statuses.retrieve(keys=[status_key])

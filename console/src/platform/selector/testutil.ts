@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 import { act, renderHook, type RenderHookResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -37,7 +37,7 @@ export interface Visibility {
  */
 export const renderVisible = (
   selectable: Selectable,
-  id: ontology.ID,
+  id: resource.ID,
   wrapper: Wrapper,
 ): RenderHookResult<Visibility, unknown> => {
   const { useVisible } = selectable;

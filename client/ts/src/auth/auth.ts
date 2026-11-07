@@ -31,7 +31,7 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -41,7 +41,7 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
@@ -53,7 +53,7 @@ const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: apiKeyKeyZ,
   /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** name is a label that tells the subject's keys apart. */
   name: z.string(),
   /** created is when the key was created. */
@@ -88,20 +88,20 @@ export const apiKeyID = (token: string): APIKeyKey => {
 
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
 }
 
-const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
+const keyCreateReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
 const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** The new password. */
   password: string;
   /** The caller's current password. Required when the caller sets its own. */
@@ -109,7 +109,7 @@ export interface SetPasswordParams {
 }
 
 const passwordSetReqZ = z.object({
-  subject: ontology.idZ.optional(),
+  subject: resource.idZ.optional(),
   password: z.string(),
   currentPassword: z.string().optional(),
   cookie: z.boolean().optional(),
@@ -237,7 +237,7 @@ export class Client {
   }
 
   /** The subject the client logged in as, once logged in. */
-  get subject(): ontology.ID | undefined {
+  get subject(): resource.ID | undefined {
     return this.authState.authenticated ? this.authState.session.subject : undefined;
   }
 
@@ -298,7 +298,7 @@ export class Client {
    * sessions.
    * @throws {AuthError} when the login before the request fails.
    */
-  async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
+  async retrieveSessions(subjects?: resource.ID[]): Promise<Session[]> {
     const res = await this.client.send(
       SESSION_RETRIEVE_ENDPOINT,
       { subjects },
@@ -337,7 +337,7 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not retrieve another subject's
    * keys.
    */
-  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+  async retrieveKeys(subjects?: resource.ID[]): Promise<APIKey[]> {
     const res = await this.client.send(
       KEY_RETRIEVE_ENDPOINT,
       { subjects },

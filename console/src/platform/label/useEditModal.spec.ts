@@ -185,7 +185,7 @@ describe("Label.useEditModal permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [label.TYPE_ONTOLOGY_ID],
+      retrieve: [label.TYPE_RESOURCE_ID],
     });
 
   const createLabel = async () =>
@@ -193,7 +193,7 @@ describe("Label.useEditModal permissions", () => {
 
   it("should withhold the delete button from a subject who cannot delete labels", async () => {
     const { name } = await createLabel();
-    await openEditModal(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
+    await openEditModal(await createSubject({ create: [label.TYPE_RESOURCE_ID] }));
     // The create grant resolving proves the permission queries answered, so the
     // missing delete button is the gate and not a check still in flight.
     await findAddButton();
@@ -202,7 +202,7 @@ describe("Label.useEditModal permissions", () => {
 
   it("should offer the delete button to a subject who may delete labels", async () => {
     const { name } = await createLabel();
-    await openEditModal(await createSubject({ delete: [label.TYPE_ONTOLOGY_ID] }));
+    await openEditModal(await createSubject({ delete: [label.TYPE_RESOURCE_ID] }));
     const row = await findLabelRow(name);
     await waitFor(() => expect(queryIconButton(row, "delete")).toBeTruthy());
     expect(queryAddButton()).toBeNull();

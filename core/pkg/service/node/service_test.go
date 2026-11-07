@@ -56,7 +56,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should define the free-node sentinel resource in the ontology",
 			func(ctx SpecContext) {
-				Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
+				Expect(testOtg.NewRetrieve().WhereIDs(node.ResourceID(node.KeyFree)).
 					Exists(ctx, nil)).To(BeTrue())
 			},
 		)

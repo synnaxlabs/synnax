@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ontology
+from synnax import resource
 from x import color as color_
 from x import filter
 
@@ -62,7 +62,7 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
-    for_: ontology.ID | None = Field(default=None, alias="for")
+    for_: resource.ID | None = Field(default=None, alias="for")
 
 
 # WhereInput is a Where written as a partial record.
@@ -75,7 +75,7 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
-        "for": ontology.ID,
+        "for": resource.ID,
     },
     total=False,
 )

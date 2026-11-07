@@ -19,7 +19,7 @@ const EditCommand = Command.create({
   name: "Edit labels",
   icon: <Icon.Label />,
   useOnSelect: Label.useEditModal,
-  useVisible: () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(label.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [EditCommand];

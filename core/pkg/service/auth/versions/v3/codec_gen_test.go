@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -39,7 +39,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v3.Session{
 				Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Hash:              []byte{2, 3, 4},
-				Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+				Subject:           resource.ID{Type: resource.Type("arc"), Key: "test_5"},
 				Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 				CredentialVersion: telem.TimeStamp(8),
 				LastActive:        telem.TimeStamp(9),
@@ -47,7 +47,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v3.Session{
 				Key:               uuid.Nil(),
 				Hash:              nil,
-				Subject:           ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+				Subject:           resource.ID{Type: resource.Type(""), Key: ""},
 				Credential:        uuid.Nil(),
 				CredentialVersion: telem.TimeStamp(0),
 				LastActive:        telem.TimeStamp(0),
@@ -60,7 +60,7 @@ func BenchmarkEncodeDecodeSession(b *testing.B) {
 	seed := v3.Session{
 		Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Hash:              []byte{2, 3, 4},
-		Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+		Subject:           resource.ID{Type: resource.Type("arc"), Key: "test_5"},
 		Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 		CredentialVersion: telem.TimeStamp(8),
 		LastActive:        telem.TimeStamp(9),
@@ -85,7 +85,7 @@ func FuzzDecodeSession(f *testing.F) {
 		seed := v3.Session{
 			Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Hash:              []byte{2, 3, 4},
-			Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+			Subject:           resource.ID{Type: resource.Type("arc"), Key: "test_5"},
 			Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 			CredentialVersion: telem.TimeStamp(8),
 			LastActive:        telem.TimeStamp(9),
@@ -100,7 +100,7 @@ func FuzzDecodeSession(f *testing.F) {
 		seed := v3.Session{
 			Key:               uuid.Nil(),
 			Hash:              nil,
-			Subject:           ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			Subject:           resource.ID{Type: resource.Type(""), Key: ""},
 			Credential:        uuid.Nil(),
 			CredentialVersion: telem.TimeStamp(0),
 			LastActive:        telem.TimeStamp(0),

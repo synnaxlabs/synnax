@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/spatial"
@@ -47,7 +47,7 @@ View struct {
 
 Tab union on variant extends TabBase {
     resource {
-        resource ontology.ID {
+        resource resource.ID {
             @doc value """
                 is the visualization resource displayed by this tab, set via
                 SetTabResource.
@@ -130,7 +130,7 @@ Panel struct {
     root   Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent ontology.ID? {
+    parent resource.ID? {
         @doc value  """
             is the parent resource for the panel in the ontology. Required on create and
             absent on retrieve.
@@ -251,7 +251,7 @@ Panel struct {
 
     action SetTabResource {
         key      TabKey
-        resource ontology.ID
+        resource resource.ID
 
         @doc value """
             sets the visualization resource displayed by the tab with the given key,
@@ -277,7 +277,7 @@ Panel struct {
     @doc value     "is a project-owned tree of visualization tabs."
     @go marshal
     @go migrate
-    @ontology type "panel"
+    @resource type "panel"
     @retrieve
 }
 

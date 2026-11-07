@@ -20,7 +20,7 @@ import { Tree } from "@/platform/tree";
 
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
@@ -51,7 +51,7 @@ const Body = (): ReactElement => {
 
 const EmptyContent = () => {
   const openCreate = PlatformProject.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const handleClick = () => openCreate();
   return (
     <Empty.Action

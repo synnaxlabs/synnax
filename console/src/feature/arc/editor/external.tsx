@@ -43,5 +43,5 @@ const TAB: Panel.Tab = {
 };
 
 export const TABS: Panel.Tabs = {
-  [arc.TYPE_ONTOLOGY_ID.type]: TAB,
+  [arc.TYPE_RESOURCE_ID.type]: TAB,
 };

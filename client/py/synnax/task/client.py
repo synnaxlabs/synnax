@@ -25,9 +25,9 @@ from synnax import rack as rack_
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
-from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
+from synnax.resource import ID
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -37,7 +37,7 @@ from synnax.task.types_gen import (
     Status,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
@@ -160,8 +160,8 @@ class Task:
         self._cached_frame_client = task._cached_frame_client
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.

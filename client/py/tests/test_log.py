@@ -36,11 +36,11 @@ class TestLog:
                 {"channel": 1, "color": "#00ff00", "precision": 18}
             )
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a log."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a log."""
         key = uuid4()
-        assert log.ontology_id(key).type == log.ONTOLOGY_TYPE.type
-        assert log.ontology_id(key).key == str(key)
+        assert log.resource_id(key).type == log.TYPE_RESOURCE_ID.type
+        assert log.resource_id(key).key == str(key)
         lg = log.Log(name="Events")
         assert hash(lg) == hash(lg.key)
 

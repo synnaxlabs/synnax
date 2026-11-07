@@ -58,9 +58,9 @@ type Options struct {
 	// name must be imex — the templates qualify every call with that identifier.
 	// Required.
 	RuntimeImportPath string
-	// OntologyImportPath is the Go package supplying the ID the generated Export takes.
-	// Its package name must be ontology. Required.
-	OntologyImportPath string
+	// ResourceImportPath is the Go package supplying the ID the generated Export takes.
+	// Its package name must be resource. Required.
+	ResourceImportPath string
 }
 
 // DefaultOptions returns the production defaults: imex.gen.go against the Core's imex
@@ -69,7 +69,7 @@ func DefaultOptions() Options {
 	return Options{
 		FileNamePattern:    "imex.gen.go",
 		RuntimeImportPath:  "github.com/synnaxlabs/synnax/pkg/service/imex",
-		OntologyImportPath: "github.com/synnaxlabs/synnax/pkg/service/ontology",
+		ResourceImportPath: "github.com/synnaxlabs/synnax/pkg/service/resource",
 	}
 }
 
@@ -102,8 +102,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if p.options.RuntimeImportPath == "" {
 		return nil, errors.New("go/imex requires Options.RuntimeImportPath")
 	}
-	if p.options.OntologyImportPath == "" {
-		return nil, errors.New("go/imex requires Options.OntologyImportPath")
+	if p.options.ResourceImportPath == "" {
+		return nil, errors.New("go/imex requires Options.ResourceImportPath")
 	}
 	ctx := context.Background()
 	var (
@@ -305,7 +305,7 @@ func (p *Plugin) generatePackage(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 		),
 		Runtime:  p.options.RuntimeImportPath,
-		Ontology: p.options.OntologyImportPath,
+		Resource: p.options.ResourceImportPath,
 	}); err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ type exportData struct {
 	Name     string
 	Versions string
 	Runtime  string
-	Ontology string
+	Resource string
 }
 
 var exportTemplate = template.Must(
@@ -384,13 +384,13 @@ import (
 	"uuid"
 
 	"{{.Runtime}}"
-	"{{.Ontology}}"
+	"{{.Resource}}"
 	"{{.Versions}}"
 )
 
 // Export retrieves the {{.Type}} identified by id and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no {{.Type}} has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err

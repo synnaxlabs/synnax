@@ -393,7 +393,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						task.OntologyID(ghost).String(),
+						task.ResourceID(ghost).String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -644,7 +644,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						t.OntologyID().String(),
+						t.ResourceID().String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(Succeed())
@@ -691,7 +691,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, true)
 				details.ConfigHash = "deployed"
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
-					Key:     t.OntologyID().String(),
+					Key:     t.ResourceID().String(),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -720,7 +720,7 @@ var _ = Describe("Driver", func() {
 					ctx SpecContext,
 				) {
 					Expect(
-						statusSvc.NewWriter(nil).Delete(ctx, t.OntologyID().String()),
+						statusSvc.NewWriter(nil).Delete(ctx, t.ResourceID().String()),
 					).
 						To(Succeed())
 					writeCommand(ctx, task.Command{
@@ -848,7 +848,7 @@ var _ = Describe("Driver", func() {
 									return nil
 								}
 								stat := task.Status{
-									Key:     t.OntologyID().String(),
+									Key:     t.ResourceID().String(),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
 									Message: "Stopped task",
@@ -880,7 +880,7 @@ var _ = Describe("Driver", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						t.OntologyID().String(),
+						t.ResourceID().String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -1047,7 +1047,7 @@ var _ = Describe("Driver", func() {
 					var statuses []status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							task.OntologyID(t.Key).String(),
+							task.ResourceID(t.Key).String(),
 						)).
 						Entries(&statuses).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1078,7 +1078,7 @@ var _ = Describe("Driver", func() {
 					var stat status.Status[task.StatusDetails]
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
-							task.OntologyID(t.Key).String(),
+							task.ResourceID(t.Key).String(),
 						)).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
@@ -1565,7 +1565,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
 				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
@@ -1590,7 +1590,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
@@ -1626,7 +1626,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			})))
 
-			statusKey := embeddedRackKey(ctx).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).ResourceID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
 				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
@@ -2094,7 +2094,7 @@ var _ = Describe("Driver", func() {
 				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
 				Eventually(func() bool {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.OntologyID().String(),
+						ctx, scanTask.ResourceID().String(),
 					).Details.Running
 				}).Should(BeTrue())
 				writeCommand(ctx, task.Command{
@@ -2108,7 +2108,7 @@ var _ = Describe("Driver", func() {
 				Eventually(scanner.release).Should(BeSent(struct{}{}))
 				Eventually(func() string {
 					return retrieveStatus[task.StatusDetails](
-						ctx, scanTask.OntologyID().String(),
+						ctx, scanTask.ResourceID().String(),
 					).Details.Cmd
 				}).Should(Equal("cmd-wait"))
 			},
@@ -2162,7 +2162,7 @@ var _ = Describe("Driver", func() {
 				var stat status.Status[task.StatusDetails]
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
-						task.OntologyID(t.Key).String(),
+						task.ResourceID(t.Key).String(),
 					)).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())

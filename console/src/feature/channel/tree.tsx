@@ -9,7 +9,14 @@
 
 import "@/feature/channel/tree.css";
 
-import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import {
+  channel,
+  isCalculated,
+  type ontology,
+  ranger,
+  resource,
+  status,
+} from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -61,7 +68,7 @@ const beforeSetAlias = async ({
 }: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
   if (data.channel == null) return false;
   const [alias, renamed] = await Text.asyncEdit(
-    List.itemNameID(ontology.idToString(channel.ontologyID(data.channel))),
+    List.itemNameID(resource.idToString(channel.resourceID(data.channel))),
   );
   if (!renamed) return false;
   return { ...data, alias };
@@ -84,7 +91,7 @@ const useSetAlias = ({
 
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
-  ontologyID: channel.ontologyID,
+  resourceID: channel.resourceID,
   convertKey: Number,
 });
 
@@ -129,16 +136,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
 
   const hasUpdatePermission = Access.useUpdateGranted(
-    ids.map((id) => channel.ontologyID(Number(id.key))),
+    ids.map((id) => channel.resourceID(Number(id.key))),
   );
   const hasDeletePermission = Access.useDeleteGranted(
-    ids.map((id) => channel.ontologyID(Number(id.key))),
+    ids.map((id) => channel.resourceID(Number(id.key))),
   );
   const hasAliasCreatePermission = Access.useCreateGranted(
-    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
   );
   const hasAliasDeletePermission = Access.useDeleteGranted(
-    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
   );
   const handleRename = useRename(props);
 
@@ -193,7 +200,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+            onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
@@ -220,7 +227,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
       <Text.MaybeEditable
-        id={List.itemNameID(ontology.idToString(resource.id))}
+        id={List.itemNameID(resource.key)}
         allowDoubleClick={false}
         value={name}
         overflow="fade"

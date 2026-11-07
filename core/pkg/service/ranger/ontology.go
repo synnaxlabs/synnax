@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,23 +27,23 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns the unique ID to identify the range within the Synnax ontology.
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRange, Key: key.String()}
+// ResourceID returns the unique ID to identify the range within the Synnax ontology.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeRange, Key: key.String()}
 }
 
-// OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+// ResourceIDs converts a slice of keys to a slice of resource IDs.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }
+func KeyFromResourceID(id resource.ID) (Key, error) { return uuid.Parse(id.Key) }
 
-// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning an
+// KeysFromResourceIDs converts a slice of resource IDs to a slice of keys, returning an
 // error if any of the IDs are invalid.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return KeyFromOntologyID(id)
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
+		return KeyFromResourceID(id)
 	})
 }
 
@@ -54,14 +55,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Range) ontology.Resource {
-	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
+	return ontology.NewResource(schema, r.ResourceID(), r.Name, r)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, Range]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
+func (s *Service) Type() resource.Type { return resource.TypeRange }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -83,7 +84,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -102,7 +103,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

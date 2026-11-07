@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 import "schemas/synnax/status"
 import "schemas/synnax/versions/rack/v1"
 
@@ -80,7 +80,7 @@ Device struct<
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }
-    parent     ontology.ID? {
+    parent     resource.ID? {
         @doc value  """
             is an optional parent resource ID for hierarchical device organization
             (e.g., NI chassis containing modules).

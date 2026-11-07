@@ -27,7 +27,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
-        "//client/cpp/ontology",
+        "//client/cpp/resource",
         "//client/cpp/status",
         "//client/cpp/task",
         "//core/pkg/api/rack:rack_grpc",

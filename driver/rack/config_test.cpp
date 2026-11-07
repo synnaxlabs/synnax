@@ -111,7 +111,7 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     });
     ASSERT_EQ(tasks.size(), 1);
     EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
-    const auto key = synnax::rack::ontology_id(rack.key).string();
+    const auto key = synnax::rack::resource_id(rack.key).string();
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
         client->statuses.retrieve<synnax::rack::StatusDetails>(key).first.message,
         "Driver " + std::string(SYNNAX_DRIVER_VERSION) +

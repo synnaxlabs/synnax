@@ -195,10 +195,10 @@ TEST(TaskTests, testDeleteTask) {
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
 }
 
-/// @brief it should convert a task key to an ontology ID
-TEST(TaskTests, testTaskOntologyId) {
+/// @brief it should convert a task key to a resource ID
+TEST(TaskTests, testTaskResourceID) {
     const auto key = x::uuid::create();
-    const auto id = ontology_id(key);
+    const auto id = resource_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, key.to_string());
 }

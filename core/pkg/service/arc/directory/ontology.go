@@ -12,19 +12,19 @@ package directory
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// OntologyID returns the ID of the directory with key in the ontology.
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: key.String()}
+// ResourceID returns the ID of the directory with key in the ontology.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeArcDirectory, Key: key.String()}
 }
 
-// KeyFromOntologyID returns the directory key in id, or a validation error.
-func KeyFromOntologyID(id ontology.ID) (Key, error) {
-	if id.Type != ontology.ResourceTypeArcDirectory {
+// KeyFromResourceID returns the directory key in id, or a validation error.
+func KeyFromResourceID(id resource.ID) (Key, error) {
+	if id.Type != resource.TypeArcDirectory {
 		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "must be an Arc directory, got %q", id.Type,
 		)

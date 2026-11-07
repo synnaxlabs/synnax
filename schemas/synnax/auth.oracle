@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/auth"
@@ -36,7 +36,7 @@ Session struct {
         @py omit
         @ts omit
     }
-    subject            ontology.ID     {
+    subject            resource.ID     {
         @doc value    "is the user or rack that logged in."
         @filter
         @index lookup

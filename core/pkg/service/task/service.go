@@ -178,7 +178,7 @@ func OpenService(
 		return nil, err
 	}
 	// Task files carry the fine-grained type ("opc_read") while export routes under
-	// the coarse "task" ontology type, so the importer registers per config type.
+	// the coarse "task" resource type, so the importer registers per config type.
 	for _, t := range cfg.Configs.Types() {
 		if slices.Contains(cfg.ImExExcluded, t) {
 			continue
@@ -333,7 +333,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	reported, err := s.cfg.Status.Join[StatusDetails](
 		ctx,
 		nil,
-		OntologyIDsFromTasks(tasks),
+		ResourceIDsFromTasks(tasks),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")

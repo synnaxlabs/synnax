@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Directory{}
@@ -22,7 +22,7 @@ func (d Directory) GorpKey() Key { return d.Key }
 // SetOptions implements gorp.Entry.
 func (Directory) SetOptions() []any { return nil }
 
-// OntologyID returns the ID of the directory in the ontology.
-func (d Directory) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: d.Key.String()}
+// ResourceID returns the ID of the directory in the ontology.
+func (d Directory) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeArcDirectory, Key: d.Key.String()}
 }

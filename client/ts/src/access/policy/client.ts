@@ -15,9 +15,9 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Policy,
   policyZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -28,8 +28,9 @@ import {
   retrieveInputZ,
   serverComputed,
 } from "@/access/policy/where.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
@@ -112,7 +113,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = ontologyID(keysArr);
+    const ids = resourceID(keysArr);
     const drop = () => [
       this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
@@ -130,7 +131,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     });
     drop();
     this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
+      ids.some((id) => resource.idsEqual(r.from, id) || resource.idsEqual(r.to, id)),
     );
   }
 
@@ -138,7 +139,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     const existing = await this.retrieve(key);
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -154,14 +155,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
    * Retrieves every policy governing the subject, warming the role links of
    * the subject and its policies so role reads resolve from the cache.
    */
-  async retrieveForSubject(subject: ontology.ID): Promise<Policy[]> {
+  async retrieveForSubject(subject: resource.ID): Promise<Policy[]> {
     const policies = await this.retrieve({ where: { subjects: [subject] } });
     const { parents } = this.cfg.ontology;
     const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
     if (policies.length > 0)
       warms.push(
         parents.retrieve({
-          ids: policies.map((p) => ontologyID(p.key)),
+          ids: policies.map((p) => resourceID(p.key)),
           types: ["role"],
         }),
       );

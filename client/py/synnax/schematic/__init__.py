@@ -10,7 +10,7 @@
 from synnax.schematic import symbol
 from synnax.schematic.client import Client
 from synnax.schematic.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     AgitatorElementConfig,
     AgitatorNodeConfig,
     AngledReliefValveElementConfig,
@@ -262,11 +262,11 @@ from synnax.schematic.types_gen import (
     VentNodeConfig,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "AgitatorElementConfig",
     "AgitatorNodeConfig",
     "AngledReliefValveElementConfig",
@@ -519,6 +519,6 @@ __all__ = [
     "VentNodeConfig",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
     "symbol",
 ]

@@ -55,7 +55,7 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 ## Device hierarchy
 
-Device create API takes optional `parent` ontology ID (e.g. `"device:SERIAL"`),
+Device create API takes optional `parent` resource ID (e.g. `"device:SERIAL"`),
 atomically creating the device + `ParentOf` relationship; defaults to the rack when
 absent (`core/pkg/service/device/writer.go`). The common scan task
 (`driver/common/scan_task.h`) tracks parent changes between cycles and re-creates the

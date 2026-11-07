@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Project", func() {
@@ -31,11 +31,11 @@ var _ = Describe("Project", func() {
 			Expect(v1.Project{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the project ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the project resource identifier", func() {
 			k := uuid.New()
-			Expect(v1.Project{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeProject, Key: k.String(),
+			Expect(v1.Project{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeProject, Key: k.String(),
 			}))
 		})
 	})

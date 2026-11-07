@@ -105,7 +105,7 @@ var _ = Describe("OpenService", func() {
 		func(ctx SpecContext) {
 			l := log.Log{Name: "auto-registered"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
+			env := MustSucceed(imexSvc.Export(ctx, l.ResourceID()))
 			Expect(env.Type).To(Equal("log"))
 		},
 	)

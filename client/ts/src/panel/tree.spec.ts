@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
+import { type resource } from "@/resource";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
@@ -85,7 +85,7 @@ describe("tree", () => {
   });
 
   describe("findTabByResource", () => {
-    const lp: ontology.ID = { type: "lineplot", key: "lp-1" };
+    const lp: resource.ID = { type: "lineplot", key: "lp-1" };
     const withResource: panel.Node = {
       variant: "split",
       direction: "x",

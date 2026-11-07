@@ -52,7 +52,7 @@ export const useMintPanelForTab = (): MintPanelForTab => {
     const created = await create({
       key,
       name: await resolveName(client, tab),
-      parent: project.ontologyID(projectKey),
+      parent: project.resourceID(projectKey),
       root: { variant: "leaf", tabs: [tab] },
     });
     if (!created) return undefined;

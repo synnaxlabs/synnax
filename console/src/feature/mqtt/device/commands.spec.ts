@@ -49,7 +49,7 @@ describe("MQTT.Device Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(device.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(device.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

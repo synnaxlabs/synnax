@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
@@ -27,61 +28,61 @@ import (
 )
 
 var _ = Describe("Ontology", func() {
-	Describe("OntologyID", func() {
+	Describe("ResourceID", func() {
 		It(
-			"Should build an ontology ID with the user resource type and the key",
+			"Should build a resource ID with the user resource type and the key",
 			func() {
 				key := uuid.New()
-				id := user.OntologyID(key)
-				Expect(id.Type).To(Equal(ontology.ResourceTypeUser))
+				id := user.ResourceID(key)
+				Expect(id.Type).To(Equal(resource.TypeUser))
 				Expect(id.Key).To(Equal(key.String()))
 			},
 		)
 	})
-	Describe("OntologyIDsFromKeys", func() {
-		It("Should map a slice of keys to a slice of ontology IDs", func() {
+	Describe("ResourceIDsFromKeys", func() {
+		It("Should map a slice of keys to a slice of resource IDs", func() {
 			a, b := uuid.New(), uuid.New()
-			ids := user.OntologyIDsFromKeys([]user.Key{a, b})
+			ids := user.ResourceIDsFromKeys([]user.Key{a, b})
 			Expect(ids).To(HaveLen(2))
-			Expect(ids[0]).To(Equal(user.OntologyID(a)))
-			Expect(ids[1]).To(Equal(user.OntologyID(b)))
+			Expect(ids[0]).To(Equal(user.ResourceID(a)))
+			Expect(ids[1]).To(Equal(user.ResourceID(b)))
 		})
 		It("Should return an empty slice when given no keys", func() {
-			Expect(user.OntologyIDsFromKeys(nil)).To(BeEmpty())
+			Expect(user.ResourceIDsFromKeys(nil)).To(BeEmpty())
 		})
 	})
-	Describe("User.OntologyID", func() {
-		It("Should return an ontology ID populated from the user's key", func() {
+	Describe("User.ResourceID", func() {
+		It("Should return a resource ID populated from the user's key", func() {
 			u := user.User{Key: uuid.New(), Name: "alice"}
-			Expect(u.OntologyID()).To(Equal(u.OntologyID()))
+			Expect(u.ResourceID()).To(Equal(u.ResourceID()))
 		})
 	})
-	Describe("OntologyIDsFromUsers", func() {
-		It("Should map a slice of users to a slice of ontology IDs", func() {
+	Describe("ResourceIDsFromUsers", func() {
+		It("Should map a slice of users to a slice of resource IDs", func() {
 			a := user.User{Key: uuid.New(), Name: "a"}
 			b := user.User{Key: uuid.New(), Name: "b"}
-			ids := user.OntologyIDsFromUsers([]user.User{a, b})
-			Expect(ids).To(ConsistOf(a.OntologyID(), b.OntologyID()))
+			ids := user.ResourceIDsFromUsers([]user.User{a, b})
+			Expect(ids).To(ConsistOf(a.ResourceID(), b.ResourceID()))
 		})
 		It("Should return an empty slice when given no users", func() {
-			Expect(user.OntologyIDsFromUsers(nil)).To(BeEmpty())
+			Expect(user.ResourceIDsFromUsers(nil)).To(BeEmpty())
 		})
 	})
-	Describe("KeyFromOntologyID", func() {
-		It("Should round-trip a key through OntologyID", func() {
+	Describe("KeyFromResourceID", func() {
+		It("Should round-trip a key through ResourceID", func() {
 			key := uuid.New()
-			Expect(user.KeyFromOntologyID(user.OntologyID(key))).To(Equal(key))
+			Expect(user.KeyFromResourceID(user.ResourceID(key))).To(Equal(key))
 		})
 		It("Should return an error when the ID key is not a valid UUID", func() {
-			Expect(user.KeyFromOntologyID(ontology.ID{
-				Type: ontology.ResourceTypeUser,
+			Expect(user.KeyFromResourceID(resource.ID{
+				Type: resource.TypeUser,
 				Key:  "not-a-uuid",
 			})).Error().To(MatchError("invalid uuid"))
 		})
 	})
 	Describe("Type", func() {
 		It("Should return the user resource type", func() {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypeUser))
+			Expect(svc.Type()).To(Equal(resource.TypeUser))
 		})
 	})
 	Describe("Search", func() {
@@ -93,9 +94,9 @@ var _ = Describe("Ontology", func() {
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
 				})
-				q := search.Query[ontology.ID]{Term: term, Limit: 10}
+				q := search.Query[resource.ID]{Term: term, Limit: 10}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
-					To(ContainElement(created.OntologyID()))
+					To(ContainElement(created.ResourceID()))
 			},
 			Entry("first word", "Persephone"),
 			Entry("last word", "Quintarelli"),
@@ -110,7 +111,7 @@ var _ = Describe("Ontology", func() {
 			}))
 			Expect(svc.RetrieveResource(ctx, key.String(), nil)).To(
 				Equal(ontology.Resource{
-					ID:   created.OntologyID(),
+					ID:   created.ResourceID(),
 					Name: "Patrick Star",
 					Data: map[string]any{
 						"key":       key.String(),
@@ -137,7 +138,7 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("OnChange", func() {
 		// OnChange publishes the gorp-table change stream through translateChange so
-		// each ontology.Change carries the ontology ID built from the user key and a
+		// each ontology.Change carries the resource ID built from the user key and a
 		// Resource parseable back to the User. We assert on the produced changes for
 		// both Set and Delete variants — covering the translateChange function
 		// end-to-end.
@@ -157,7 +158,7 @@ var _ = Describe("Ontology", func() {
 				DeferCleanup(disconnect)
 
 				created := MustSucceed(writer.Create(ctx, user.User{Name: "Octavian"}))
-				expectedID := created.OntologyID().String()
+				expectedID := created.ResourceID().String()
 
 				Eventually(func(g Gomega) {
 					mu.Lock()
@@ -166,7 +167,7 @@ var _ = Describe("Ontology", func() {
 						return c.Key == expectedID && c.Variant == change.VariantSet
 					})
 					g.Expect(setIdx).ToNot(Equal(-1))
-					g.Expect(changes[setIdx].Value.ID).To(Equal(created.OntologyID()))
+					g.Expect(changes[setIdx].Value.ID).To(Equal(created.ResourceID()))
 					g.Expect(changes[setIdx].Value.Name).To(Equal("Octavian"))
 				}).Should(Succeed())
 

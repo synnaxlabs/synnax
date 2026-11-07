@@ -273,7 +273,7 @@ describe("Toolbar", () => {
       const root = await client.schematics.symbols.retrieveGroup();
       const symbol = await client.schematics.symbols.create({
         ...createSymbolPayload(uniqueName("custom")),
-        parent: group.ontologyID(root.key),
+        parent: group.resourceID(root.key),
       });
       const { key } = await renderSelected({
         n1: Schematic.Node.createConfig({ variant: "valve" }),

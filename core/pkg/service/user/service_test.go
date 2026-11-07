@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -131,7 +131,7 @@ var _ = Describe("Service", func() {
 				username = uuid.New().String()
 				u = MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
 				Expect(
-					passwordSvc.NewWriter(tx).Set(ctx, u.OntologyID(), auth.Credentials{
+					passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
 						Username: username,
 						Password: "p",
 					}),
@@ -184,7 +184,7 @@ var _ = Describe("Service", func() {
 				rackName := uuid.New().String()
 				Expect(passwordSvc.NewWriter(tx).Set(
 					ctx,
-					ontology.ID{Type: ontology.ResourceTypeRack, Key: rackName},
+					resource.ID{Type: resource.TypeRack, Key: rackName},
 					auth.Credentials{Username: rackName, Password: "p"},
 				)).To(Succeed())
 				var ret []user.User

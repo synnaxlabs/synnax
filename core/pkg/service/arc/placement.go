@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -28,20 +29,20 @@ import (
 func (w Writer) Move(
 	ctx context.Context,
 	from, to directory.Key,
-	ids ...ontology.ID,
+	ids ...resource.ID,
 ) error {
-	source := directory.OntologyID(from)
-	parent := directory.OntologyID(to)
+	source := directory.ResourceID(from)
+	parent := directory.ResourceID(to)
 	for _, id := range ids {
 		switch {
-		case id == directory.OntologyID(w.root):
+		case id == directory.ResourceID(w.root):
 			return errRoot("moved")
 		case id == parent:
 			return errors.Wrap(
 				validate.ErrValidation, "a directory cannot move into itself",
 			)
-		case id.Type != ontology.ResourceTypeArc &&
-			id.Type != ontology.ResourceTypeArcDirectory:
+		case id.Type != resource.TypeArc &&
+			id.Type != resource.TypeArcDirectory:
 			return errors.Wrapf(
 				validate.ErrValidation, "a %s cannot go in an Arc directory", id.Type,
 			)
@@ -70,7 +71,7 @@ func (w Writer) Move(
 			)
 		}
 		identifier := true
-		if entry.ID.Type == ontology.ResourceTypeArc {
+		if entry.ID.Type == resource.TypeArc {
 			if identifier, err = w.isModule(ctx, entry.ID); err != nil {
 				return err
 			}
@@ -97,7 +98,7 @@ func (w Writer) Move(
 // in no directory is not checked.
 func (w Writer) validateName(
 	ctx context.Context,
-	id ontology.ID,
+	id resource.ID,
 	name string,
 	identifier bool,
 ) error {
@@ -109,16 +110,16 @@ func (w Writer) validateName(
 }
 
 // parentOf returns the directory that holds id, or a zero ID when no directory does.
-func (w Writer) parentOf(ctx context.Context, id ontology.ID) (ontology.ID, error) {
+func (w Writer) parentOf(ctx context.Context, id resource.ID) (resource.ID, error) {
 	var parents []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(id).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeArcDirectory).
+		WhereTypes(resource.TypeArcDirectory).
 		ExcludeFieldData(true).
 		Entries(&parents).
 		Exec(ctx, w.tx); err != nil || len(parents) == 0 {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	return parents[0].ID, nil
 }
@@ -127,7 +128,7 @@ func (w Writer) parentOf(ctx context.Context, id ontology.ID) (ontology.ID, erro
 // of an identifier entry must be an identifier.
 func (w Writer) validateEntry(
 	ctx context.Context,
-	parent, id ontology.ID,
+	parent, id resource.ID,
 	name string,
 	identifier bool,
 ) error {
@@ -138,7 +139,7 @@ func (w Writer) validateEntry(
 			name,
 		)
 	}
-	if parent == directory.OntologyID(w.root) && w.reserved.Contains(name) {
+	if parent == directory.ResourceID(w.root) && w.reserved.Contains(name) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"%q is a standard module name and cannot go directly under Arcs",
@@ -161,7 +162,7 @@ func (w Writer) validateEntry(
 	return nil
 }
 
-func (w Writer) isModule(ctx context.Context, id ontology.ID) (bool, error) {
+func (w Writer) isModule(ctx context.Context, id resource.ID) (bool, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return false, err

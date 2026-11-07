@@ -12,7 +12,7 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32();
@@ -124,5 +124,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("rack");
+export const TYPE_RESOURCE_ID = resourceID(0);

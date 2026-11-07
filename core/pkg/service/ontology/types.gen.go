@@ -13,81 +13,8 @@ package ontology
 
 import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 
-// ResourceType is the type of the resource.
-type ResourceType = versions.ResourceType
-
-const (
-	// ResourceTypeArc identifies an Arc module.
-	ResourceTypeArc ResourceType = versions.ResourceTypeArc
-	// ResourceTypeBuiltin identifies a resource that the Core defines.
-	ResourceTypeBuiltin ResourceType = versions.ResourceTypeBuiltin
-	// ResourceTypeChannel identifies a channel.
-	ResourceTypeChannel ResourceType = versions.ResourceTypeChannel
-	// ResourceTypeDevice identifies a device.
-	ResourceTypeDevice ResourceType = versions.ResourceTypeDevice
-	// ResourceTypeFramer identifies the telemetry of a channel.
-	ResourceTypeFramer ResourceType = versions.ResourceTypeFramer
-	// ResourceTypeGroup identifies a group of resources.
-	ResourceTypeGroup ResourceType = versions.ResourceTypeGroup
-	// ResourceTypeLabel identifies a label.
-	ResourceTypeLabel ResourceType = versions.ResourceTypeLabel
-	// ResourceTypeLineplot identifies a line plot.
-	ResourceTypeLineplot ResourceType = versions.ResourceTypeLineplot
-	// ResourceTypeLog identifies a log.
-	ResourceTypeLog ResourceType = versions.ResourceTypeLog
-	// ResourceTypeNode identifies a node of a cluster.
-	ResourceTypeNode ResourceType = versions.ResourceTypeNode
-	// ResourceTypePanel identifies a panel.
-	ResourceTypePanel ResourceType = versions.ResourceTypePanel
-	// ResourceTypePolicy identifies an access control policy.
-	ResourceTypePolicy ResourceType = versions.ResourceTypePolicy
-	// ResourceTypeProject identifies a project.
-	ResourceTypeProject ResourceType = versions.ResourceTypeProject
-	// ResourceTypeRack identifies a rack.
-	ResourceTypeRack ResourceType = versions.ResourceTypeRack
-	// ResourceTypeRange identifies a range.
-	ResourceTypeRange ResourceType = versions.ResourceTypeRange
-	// ResourceTypeRangeAlias identifies an alias of a channel on a range.
-	ResourceTypeRangeAlias ResourceType = versions.ResourceTypeRangeAlias
-	// ResourceTypeRole identifies an access control role.
-	ResourceTypeRole ResourceType = versions.ResourceTypeRole
-	// ResourceTypeSchematic identifies a schematic.
-	ResourceTypeSchematic ResourceType = versions.ResourceTypeSchematic
-	// ResourceTypeSchematicSymbol identifies a schematic symbol.
-	ResourceTypeSchematicSymbol ResourceType = versions.ResourceTypeSchematicSymbol
-	// ResourceTypeStatus identifies a status.
-	ResourceTypeStatus ResourceType = versions.ResourceTypeStatus
-	// ResourceTypeTable identifies a table.
-	ResourceTypeTable ResourceType = versions.ResourceTypeTable
-	// ResourceTypeTask identifies a task.
-	ResourceTypeTask ResourceType = versions.ResourceTypeTask
-	// ResourceTypeUser identifies a user.
-	ResourceTypeUser ResourceType = versions.ResourceTypeUser
-	// ResourceTypeView identifies a view.
-	ResourceTypeView           ResourceType = versions.ResourceTypeView
-	ResourceTypeEthercatMaster ResourceType = versions.ResourceTypeEthercatMaster
-	ResourceTypeEthercatSlave  ResourceType = versions.ResourceTypeEthercatSlave
-	ResourceTypeHTTPServer     ResourceType = versions.ResourceTypeHTTPServer
-	ResourceTypeLabjackDevice  ResourceType = versions.ResourceTypeLabjackDevice
-	ResourceTypeModbusServer   ResourceType = versions.ResourceTypeModbusServer
-	ResourceTypeNiChassis      ResourceType = versions.ResourceTypeNiChassis
-	ResourceTypeNiDevice       ResourceType = versions.ResourceTypeNiDevice
-	ResourceTypeOpcuaServer    ResourceType = versions.ResourceTypeOpcuaServer
-	ResourceTypeArcDirectory   ResourceType = versions.ResourceTypeArcDirectory
-)
-
 // RelationshipType is the kind of link between two resources.
 type RelationshipType = versions.RelationshipType
-
-// ID is a unique identifier for a Resource. An example:
-//
-// userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
-//
-// The ID has two elements for several reasons. First, by storing the Type we know which
-// service to query for additional info on the Resource. Second, while a Key may be
-// unique for a particular resource (e.g. channel), it might not be unique across all
-// resources. We need something universally unique across the entire Synnax Core.
-type ID = versions.ID
 
 // Resource is a resource in the ontology system with its identifier, name, and optional
 // metadata.

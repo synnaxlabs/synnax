@@ -83,7 +83,7 @@ const expectNotOpened = async (store: TestStore, key: string): Promise<void> => 
   const panelKey = Session.Panel.selectSelected(store.getState());
   if (panelKey == null) return;
   const doc = await client.panels.retrieve(panelKey);
-  expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeUndefined();
+  expect(panel.findTabByResource(doc.root, schematic.resourceID(key))).toBeUndefined();
 };
 
 describe("Schematic.useHandleNodeClickAction", () => {

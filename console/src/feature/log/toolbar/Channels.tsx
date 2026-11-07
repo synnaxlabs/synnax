@@ -224,7 +224,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 export const Channels = (): ReactElement => {
   const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
-  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(log.resourceID(key));
   return (
     <Flex.Box
       y

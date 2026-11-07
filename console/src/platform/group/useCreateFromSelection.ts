@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, type ontology, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -31,7 +31,7 @@ const base = Flux.createUpdate<CreateParams>({
     if (parentID == null)
       throw new Error("Cannot group items that sit under more than one parent");
     await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(parentID, group.ontologyID(key), ...top);
+    await client.ontology.moveChildren(parentID, group.resourceID(key), ...top);
     return data;
   },
 });
@@ -45,8 +45,8 @@ const beforeUpdate = async ({
     state: { nodes, setNodes, setSelection, setResource },
     group: { key },
   } = data;
-  const newID = group.ontologyID(key);
-  const newIDString = ontology.idToString(newID);
+  const newID = group.resourceID(key);
+  const newIDString = resource.idToString(newID);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
@@ -56,7 +56,7 @@ const beforeUpdate = async ({
   const destination =
     PTree.findNodeParent({
       tree: nodes,
-      key: ontology.idToString(top[0]),
+      key: resource.idToString(top[0]),
     })?.key ?? null;
   let nextNodes = PTree.setNode({
     tree: nodes,
@@ -66,7 +66,7 @@ const beforeUpdate = async ({
   nextNodes = PTree.moveNode({
     tree: nextNodes,
     destination: newIDString,
-    keys: top.map((id) => ontology.idToString(id)),
+    keys: top.map((id) => resource.idToString(id)),
   });
   setNodes([...nextNodes]);
   setSelection([newIDString]);

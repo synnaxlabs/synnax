@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,7 +25,7 @@ import (
 var _ = Describe("Resource", func() {
 	Describe("GorpKey", func() {
 		It("Should return the resource ID formatted as type:key", func() {
-			r := v0.Resource{ID: v0.ID{Type: "channel", Key: "qux"}}
+			r := v0.Resource{ID: resource.ID{Type: "channel", Key: "qux"}}
 			Expect(r.GorpKey()).To(Equal("channel:qux"))
 		})
 	})
@@ -43,7 +44,7 @@ var _ = Describe("ResourceNormalizeKeys", func() {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
 			e := v0.Resource{
-				ID:   v0.ID{Type: v0.ResourceTypeLabel, Key: "critical"},
+				ID:   resource.ID{Type: resource.TypeLabel, Key: "critical"},
 				Name: "Critical",
 			}
 			legacy := gorptestutil.SetPreV54Row(

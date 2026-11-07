@@ -10,16 +10,16 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { type query } from "@/query";
+import { type resource } from "@/resource";
 import { createPanelParent, createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Panel Client", () => {
   // Panel creation requires a parent; every panel here shares this one.
-  let parent: ontology.ID;
+  let parent: resource.ID;
 
   beforeAll(async () => {
     parent = await createPanelParent(client);
@@ -85,7 +85,7 @@ describe("Panel Client", () => {
 
     it("should restore the ontology resource name when the write fails", async () => {
       const pan = await createPanel();
-      const panelID = panel.ontologyID(pan.key);
+      const panelID = panel.resourceID(pan.key);
       await client.ontology.retrieve(panelID);
       await expect(
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),

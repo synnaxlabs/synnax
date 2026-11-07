@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type ID, idZ } from "@/ontology/payload";
+import { type ID, idZ } from "@/resource/payload";
 
 const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
 const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });

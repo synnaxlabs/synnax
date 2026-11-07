@@ -66,7 +66,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;

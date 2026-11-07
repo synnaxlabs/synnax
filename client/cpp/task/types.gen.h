@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "client/cpp/device/key.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
@@ -395,9 +395,9 @@ struct RetrieveResponse {
     from_proto(const ::api::task::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("task", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("task", key.to_string());
 }
 }

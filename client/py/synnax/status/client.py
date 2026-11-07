@@ -13,7 +13,7 @@ from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
 from synnax import label
-from synnax.ontology import ID
+from synnax.resource import ID
 from synnax.status.types_gen import (
     Key,
     RetrieveRequest,
@@ -101,7 +101,7 @@ class Client:
 
         Args:
             status: A single status or list of statuses to create or update.
-            parent: Optional parent ontology ID for organizing the status.
+            parent: Optional parent resource ID for organizing the status.
 
         Returns:
             The created/updated status or list of statuses.
@@ -131,8 +131,8 @@ class Client:
                 ... ])
 
             Create with parent:
-                >>> from synnax.status import ontology_id
-                >>> parent_id = ontology_id("parent-key")
+                >>> from synnax.status import resource_id
+                >>> parent_id = resource_id("parent-key")
                 >>> status = client.statuses.set(
                 ...     Status(variant="info", name="Valve 3", message="Opened valve"),
                 ...     parent=parent_id
@@ -295,8 +295,8 @@ class Client:
         self.client.send(_DELETE_ENDPOINT, _DeleteRequest(keys=normalize(keys)), Empty)
 
 
-ONTOLOGY_TYPE = ID(type="status")
+TYPE_RESOURCE_ID = ID(type="status")
 
 
-def ontology_id(key: str) -> ID:
+def resource_id(key: str) -> ID:
     return ID(type="status", key=str(key))

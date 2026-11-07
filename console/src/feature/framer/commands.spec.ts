@@ -50,7 +50,7 @@ describe("Framer Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(framer.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(framer.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

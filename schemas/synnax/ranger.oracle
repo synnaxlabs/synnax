@@ -101,9 +101,9 @@ Range struct {
     """
     @go marshal
     @go migrate
-    @ontology type   "range"
     @pb
     @py name         "Payload"
+    @resource type   "range"
     @retrieve custom
     @ts name         "Payload"
 }

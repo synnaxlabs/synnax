@@ -40,7 +40,7 @@ const ConnectDeviceIcon = Icon.createComposite(Icon.Device, {
 
 const useRename = Tree.createUseRename({
   useUpdate: Rack.useRename,
-  ontologyID: rack.ontologyID,
+  resourceID: rack.resourceID,
   convertKey: Number,
 });
 
@@ -121,12 +121,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state: { shape, getResource },
   } = props;
   const { ids, rootID, parentID } = selection;
-  const ontologyIDs = ids.map((id) => rack.ontologyID(Number(id.key)));
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const resourceIDs = ids.map((id) => rack.resourceID(Number(id.key)));
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
+  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
+  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+  const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -172,7 +172,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             itemKey="credentials"
             onClick={() =>
               openCredentials({
-                subject: ontologyIDs[0],
+                subject: resourceIDs[0],
                 title: ["Credentials", getResource(ids[0]).name],
               })
             }

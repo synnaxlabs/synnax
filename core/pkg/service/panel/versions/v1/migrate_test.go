@@ -15,9 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -37,7 +37,7 @@ var _ = Describe("Migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Panel]{DB: db}))
 		viewKey, resourceKey, nestedKey := uuid.New(), uuid.New(), uuid.New()
-		resource := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: "lp"}
+		resource := resource.ID{Type: resource.TypeLineplot, Key: "lp"}
 		seed := v0.Panel{
 			Key:  uuid.New(),
 			Name: "Main",

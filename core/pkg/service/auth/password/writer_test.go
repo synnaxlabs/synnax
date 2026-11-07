@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -25,7 +25,7 @@ var _ = Describe("Writer", func() {
 	var (
 		svc   *password.Service
 		w     password.Writer
-		alice ontology.ID
+		alice resource.ID
 		name  string
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -36,7 +36,7 @@ var _ = Describe("Writer", func() {
 		Expect(w.Set(ctx, alice, auth.Credentials{Username: name, Password: "p"})).
 			To(Succeed())
 	})
-	retrieve := func(ctx SpecContext, subject ontology.ID) password.Password {
+	retrieve := func(ctx SpecContext, subject resource.ID) password.Password {
 		GinkgoHelper()
 		var p password.Password
 		Expect(svc.NewRetrieve().Where(password.MatchSubjects(subject)).Entry(&p).

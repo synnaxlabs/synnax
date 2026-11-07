@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -114,8 +114,8 @@ func (s *Service) RenewSession(
 	return SessionRenewResponse{Session: session, User: u}, nil
 }
 
-func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, error) {
-	if subject.Type != ontology.ResourceTypeUser {
+func (s *Service) userOf(ctx context.Context, subject resource.ID) (*user.User, error) {
+	if subject.Type != resource.TypeUser {
 		return nil, nil
 	}
 	key, err := uuid.Parse(subject.Key)
@@ -135,7 +135,7 @@ func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, 
 // SessionRetrieveRequest selects sessions to list.
 type SessionRetrieveRequest struct {
 	// Subjects limits the result to these subjects' sessions. Empty means the caller.
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 }
 
 // SessionRetrieveResponse lists sessions.
@@ -153,7 +153,7 @@ func (s *Service) RetrieveSessions(
 	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []ontology.ID{caller}
+		subjects = []resource.ID{caller}
 	}
 	if err := s.enforceOthers(
 		ctx,
@@ -194,7 +194,7 @@ func (s *Service) DeleteSessions(
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return struct{}{}, err
 	}
-	subjects := lo.Uniq(lo.Map(sessions, func(e auth.Session, _ int) ontology.ID {
+	subjects := lo.Uniq(lo.Map(sessions, func(e auth.Session, _ int) resource.ID {
 		return e.Subject
 	}))
 	if err := s.enforceOthers(
@@ -213,11 +213,11 @@ func (s *Service) DeleteSessions(
 
 func (s *Service) enforceOthers(
 	ctx context.Context,
-	caller ontology.ID,
+	caller resource.ID,
 	action access.Action,
-	subjects []ontology.ID,
+	subjects []resource.ID,
 ) error {
-	others := lo.Filter(subjects, func(id ontology.ID, _ int) bool {
+	others := lo.Filter(subjects, func(id resource.ID, _ int) bool {
 		return id != caller
 	})
 	if len(others) == 0 {

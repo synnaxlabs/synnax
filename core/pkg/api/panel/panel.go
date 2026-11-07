@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -99,7 +99,7 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (res CreateResponse, err error) {
-	objects := []ontology.ID{{Type: ontology.ResourceTypePanel}}
+	objects := []resource.ID{{Type: resource.TypePanel}}
 	for i := range req.Panels {
 		if req.Panels[i].Parent == nil || req.Panels[i].Parent.IsZero() {
 			return res, errors.Wrapf(
@@ -141,7 +141,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: panel.OntologyIDsFromPanels(res.Panels),
+		Objects: panel.ResourceIDsFromPanels(res.Panels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -165,7 +165,7 @@ func (s *Service) Dispatch(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{panel.OntologyID(req.Key)},
+		Objects: []resource.ID{panel.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -185,7 +185,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: panel.OntologyIDs(req.Keys),
+		Objects: panel.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

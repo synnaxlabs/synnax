@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -68,14 +69,14 @@ func newRetrieve(
 }
 
 // WhereIDs filters resources by the provided keys.
-func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
+func (r Retrieve) WhereIDs(ids ...resource.ID) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...))
+	c.Retrieve = c.Where(gorp.MatchKeys[string, Resource](resource.IDsToKeys(ids)...))
 	return r.setCurrentClause(c)
 }
 
 // WhereTypes filters resources by the provided types.
-func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
+func (r Retrieve) WhereTypes(types ...resource.Type) Retrieve {
 	c := r.currentClause()
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
@@ -124,13 +125,13 @@ const (
 // RawTraversal is a callback that operates on raw Orc-encoded relationship bytes. It
 // checks whether the row matches any of the target IDs and, if so, appends the
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
-type RawTraversal func(data []byte, nextIDs *[]ID) error
+type RawTraversal func(data []byte, nextIDs *[]resource.ID) error
 
 // RelationshipPrefix returns a FilterPrefix function that scopes traversal queries to
 // relationships of the given type originating from a specific resource.
-func RelationshipPrefix(relType RelationshipType) func(id ID) []byte {
+func RelationshipPrefix(relType RelationshipType) func(id resource.ID) []byte {
 	suffix := []byte("->" + string(relType) + "->")
-	return func(id ID) []byte {
+	return func(id resource.ID) []byte {
 		idStr := id.String()
 		prefix := make([]byte, 0, len(idStr)+len(suffix))
 		prefix = append(prefix, idStr...)
@@ -140,10 +141,10 @@ func RelationshipPrefix(relType RelationshipType) func(id ID) []byte {
 }
 
 // ReadRawID reads a Type+Key ID pair from the current position in raw data.
-func ReadRawID(r orc.Raw) ID {
+func ReadRawID(r orc.Raw) resource.ID {
 	t, r := r.ReadString()
 	k, _ := r.ReadString()
-	return ID{Type: ResourceType(t), Key: string(k)}
+	return resource.ID{Type: resource.Type(t), Key: string(k)}
 }
 
 // Traverser is a struct that defines the traversal of a relationship between entities
@@ -151,11 +152,11 @@ func ReadRawID(r orc.Raw) ID {
 type Traverser struct {
 	// FilterPrefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
-	FilterPrefix func(ID) []byte
+	FilterPrefix func(resource.ID) []byte
 	// Traverse builds a raw byte callback for the given IDs that extracts matching
 	// relationship targets directly from encoded bytes without decoding. When set,
 	// traverseByScan uses this instead of Filter.
-	Traverse func([]ID) RawTraversal
+	Traverse func([]resource.ID) RawTraversal
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 	// Index, if set, is invoked instead of traverseByPrefix / traverseByScan and is
@@ -164,14 +165,14 @@ type Traverser struct {
 	// probes honor per-tx delta overlays: a traverse inside a write tx must see
 	// relationships written earlier in the same tx, not just committed state. When nil
 	// the dispatcher falls back to FilterPrefix or a full scan.
-	Index func(Retrieve, gorp.Tx, []ID) ([]ID, error)
+	Index func(Retrieve, gorp.Tx, []resource.ID) ([]resource.ID, error)
 }
 
 var (
 	relationshipTypeParentOfBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
-		Traverse: func(ids []ID) RawTraversal {
+		Traverse: func(ids []resource.ID) RawTraversal {
 			w := orc.NewWriter(64)
 			encoded := make([][]byte, len(ids))
 			for i, id := range ids {
@@ -180,7 +181,7 @@ var (
 				w.String(id.Key)
 				encoded[i] = w.Copy()
 			}
-			return func(data []byte, nextIDs *[]ID) error {
+			return func(data []byte, nextIDs *[]resource.ID) error {
 				raw, err := orc.NewRaw(data)
 				if err != nil {
 					return err
@@ -191,8 +192,8 @@ var (
 				if bytes.Equal(relType, relationshipTypeParentOfBytes) {
 					for _, enc := range encoded {
 						if bytes.HasPrefix(r, enc) {
-							*nextIDs = append(*nextIDs, ID{
-								Type: ResourceType(fromType),
+							*nextIDs = append(*nextIDs, resource.ID{
+								Type: resource.Type(fromType),
 								Key:  string(fromKey),
 							})
 						}
@@ -219,8 +220,8 @@ var (
 // inside the same write tx that just created a new parent relationship will see that
 // pending write and include it in the next-hop set, preserving read-your-own-writes for
 // graph traversal.
-func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
-	nextIDs := make([]ID, 0, len(ids)*4)
+func parentsByIndex(r Retrieve, tx gorp.Tx, ids []resource.ID) ([]resource.ID, error) {
+	nextIDs := make([]resource.ID, 0, len(ids)*4)
 	for _, id := range ids {
 		keys, err := r.relIndexes.byTo.Get(tx, id)
 		if err != nil {
@@ -242,8 +243,8 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 
 // ChildrenTraverser traverse to the children of a resource.
 var ChildrenTraverser = Traverser{
-	Traverse: func(_ []ID) RawTraversal {
-		return func(data []byte, nextIDs *[]ID) error {
+	Traverse: func(_ []resource.ID) RawTraversal {
+		return func(data []byte, nextIDs *[]resource.ID) error {
 			reader, err := orc.NewRaw(data)
 			if err != nil {
 				return err
@@ -283,12 +284,12 @@ func (r Retrieve) Entries(res *[]Resource) Retrieve {
 
 // Exec executes the query.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	var nextIDs []ID
+	var nextIDs []resource.ID
 	tx = gorp.OverrideTx(r.tx, tx)
 	for i, cls := range r.clauses {
 		if i != 0 {
 			cls.Retrieve = cls.Where(
-				gorp.MatchKeys[string, Resource](IDsToKeys(nextIDs)...),
+				gorp.MatchKeys[string, Resource](resource.IDsToKeys(nextIDs)...),
 			)
 		}
 		atLast := len(r.clauses) == i+1
@@ -297,7 +298,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
 			var err error
-			if nextIDs, err = ParseIDs(cls.GetFilterKeys()); err != nil {
+			if nextIDs, err = resource.ParseIDs(cls.GetFilterKeys()); err != nil {
 				return err
 			}
 		} else {
@@ -387,10 +388,10 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []resource.ID {
 	entries := clause.GetEntries()
 	resources := entries.All()
-	ids := make([]ID, 0, len(resources))
+	ids := make([]resource.ID, 0, len(resources))
 	for _, res := range resources {
 		if !res.ID.IsZero() {
 			ids = append(ids, res.ID)
@@ -403,8 +404,8 @@ func (r Retrieve) traverse(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
-	ids []ID,
-) ([]ID, error) {
+	ids []resource.ID,
+) ([]resource.ID, error) {
 	if traverse.Index != nil {
 		nextIDs, err := traverse.Index(r, tx, ids)
 		if err == nil {
@@ -427,9 +428,9 @@ func (r Retrieve) traverseByPrefix(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
-	ids []ID,
-) ([]ID, error) {
-	nextIDs := make([]ID, 0, len(ids)*4)
+	ids []resource.ID,
+) ([]resource.ID, error) {
+	nextIDs := make([]resource.ID, 0, len(ids)*4)
 	rt := traverse.Traverse(ids)
 	for _, id := range ids {
 		q := r.relationshipTable.NewRetrieve().
@@ -448,10 +449,10 @@ func (r Retrieve) traverseByScan(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
-	ids []ID,
-) ([]ID, error) {
+	ids []resource.ID,
+) ([]resource.ID, error) {
 	var (
-		nextIDs = make([]ID, 0, len(ids)*4)
+		nextIDs = make([]resource.ID, 0, len(ids)*4)
 		rt      = traverse.Traverse(ids)
 		q       = r.relationshipTable.NewRetrieve().
 			WhereRaw(func(_, data []byte) (bool, error) {

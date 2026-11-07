@@ -146,7 +146,7 @@ describe("range", () => {
         parent: parentRange,
       });
       const children = await client.ontology.children.retrieve({
-        ids: parentRange.ontologyID,
+        ids: parentRange.resourceID,
       });
       expect(children).toHaveLength(1);
     });
@@ -324,7 +324,7 @@ describe("range", () => {
         name: "My New One Second Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
+      await client.ontology.addChildren(parent.resourceID, child.resourceID);
       const newParent = await client.ranges.retrieve({
         where: { key: { in: [child.key] } },
       });
@@ -844,7 +844,7 @@ describe("cached reads", () => {
       const off = client.ranges.onChange(rng.key, vi.fn());
       try {
         await client.ranges.retrieve(rng.key);
-        await remote.labels.label(rng.ontologyID, [lbl.key]);
+        await remote.labels.label(rng.resourceID, [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
@@ -932,7 +932,7 @@ describe("cached reads", () => {
       const child = await createRange(client, { parent: { key: parent.key } });
       const res = await client.ranges.retrieveParent(child.key);
       expect(res?.key).toEqual(parent.key);
-      const cached = client.ranges.parent.getCached(ranger.ontologyID(child.key));
+      const cached = client.ranges.parent.getCached(ranger.resourceID(child.key));
       expect(expectLive(cached)?.key).toEqual(parent.key);
     });
   });
@@ -944,7 +944,7 @@ describe("cached reads", () => {
         color: "#FF0000",
       });
       const labeled = await createRange();
-      await client.labels.label(ranger.ontologyID(labeled.key), [lbl.key]);
+      await client.labels.label(ranger.resourceID(labeled.key), [lbl.key]);
       const handler = vi.fn();
       const params = { where: { labels: [lbl.key] } };
       const off = client.ranges.onChange(params, handler);
@@ -952,14 +952,14 @@ describe("cached reads", () => {
         const initial = await client.ranges.retrieve(params);
         expect(initial.map((r) => r.key)).toEqual([labeled.key]);
         const late = await createRange();
-        await client.labels.label(ranger.ontologyID(late.key), [lbl.key]);
+        await client.labels.label(ranger.resourceID(late.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(params);
             return query.isLive(cached) && cached.some((r) => r.key === late.key);
           })
           .toBe(true);
-        await client.labels.remove(ranger.ontologyID(labeled.key), [lbl.key]);
+        await client.labels.remove(ranger.resourceID(labeled.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(params);
@@ -995,14 +995,14 @@ describe("cached reads", () => {
         const unseen = uuid.create();
         const links: ontology.Relationship[] = [
           {
-            from: ranger.ontologyID(parent.key),
+            from: ranger.resourceID(parent.key),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: ranger.ontologyID(unseen),
+            to: ranger.resourceID(unseen),
           },
           {
-            from: ranger.ontologyID(unseen),
+            from: ranger.resourceID(unseen),
             type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-            to: label.ontologyID(lbl.key),
+            to: label.resourceID(lbl.key),
           },
         ];
         links.forEach((rel) =>
@@ -1040,9 +1040,9 @@ describe("cached reads", () => {
       });
       const unseen = uuid.create();
       const rel: ontology.Relationship = {
-        from: ranger.ontologyID(unseen),
+        from: ranger.resourceID(unseen),
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(lbl.key),
+        to: label.resourceID(lbl.key),
       };
       const { relationships } = local.ontology.cache;
       relationships.set(ontology.relationshipToString(rel), rel);
@@ -1079,7 +1079,7 @@ describe("cached reads", () => {
       const off = local.ranges.onChange(params, vi.fn());
       try {
         expect(await local.ranges.retrieve(params)).toEqual([]);
-        await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+        await remote.labels.label(ranger.resourceID(rng.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = local.ranges.getCached(params);
@@ -1099,7 +1099,7 @@ describe("cached reads", () => {
       const past = TimeStamp.now().sub(TimeSpan.days(7300));
       const timeRange = new TimeRange(past, past.add(TimeSpan.seconds(1)));
       const rng = await createRange(remote, { timeRange });
-      await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+      await remote.labels.label(ranger.resourceID(rng.key), [lbl.key]);
       const local = createTestClient();
       await local.connect();
       const params = {
@@ -1108,7 +1108,7 @@ describe("cached reads", () => {
       const off = local.ranges.onChange(params, vi.fn());
       try {
         expect(await local.ranges.retrieve(params)).toEqual([]);
-        await remote.labels.remove(ranger.ontologyID(rng.key), [lbl.key]);
+        await remote.labels.remove(ranger.resourceID(rng.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = local.ranges.getCached(params);

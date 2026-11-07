@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type user } from "@synnaxlabs/client";
+import { resource, type user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -33,7 +33,7 @@ const useRename = ({
 }: Tree.ContextMenuProps): (() => void) => {
   const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<User.RenameParams>) => {
     const [name, renamed] = await Text.asyncEdit(
-      List.itemNameID(ontology.idToString(firstID)),
+      List.itemNameID(resource.idToString(firstID)),
     );
     if (!renamed) return false;
     return { ...data, name };

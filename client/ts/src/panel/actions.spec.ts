@@ -10,8 +10,8 @@
 import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
+import { type resource } from "@/resource";
 
 const a = uuid.create();
 const b = uuid.create();
@@ -25,12 +25,12 @@ const viewTab = (key: string, type: string = "selector"): panel.Tab => ({
   type,
 });
 
-const resource = (key: string): ontology.ID => ({ type: "lineplot", key });
+const lineplotID = (key: string): resource.ID => ({ type: "lineplot", key });
 
 const resourceTab = (key: string, resourceKey: string = key): panel.Tab => ({
   variant: "resource",
   key,
-  resource: resource(resourceKey),
+  resource: lineplotID(resourceKey),
 });
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
@@ -541,7 +541,7 @@ describe("reduceAll", () => {
   describe("setTabResource", () => {
     it("should swap a view tab to the resource in place", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.setTabResource({ key: a, resource: resource(c) }),
+        panel.setTabResource({ key: a, resource: lineplotID(c) }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual([a, b]);
@@ -551,7 +551,7 @@ describe("reduceAll", () => {
     it("should no-op when the resource already backs a different tab", () => {
       const prev = state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] });
       const { next } = panel.reduceAll(prev, [
-        panel.setTabResource({ key: b, resource: resource(a) }),
+        panel.setTabResource({ key: b, resource: lineplotID(a) }),
       ]);
       expect(next).toBe(prev);
     });
@@ -559,7 +559,7 @@ describe("reduceAll", () => {
     it("should be a no-op when no tab matches the key", () => {
       const prev = state(leaf(a, b));
       const { next } = panel.reduceAll(prev, [
-        panel.setTabResource({ key: missing, resource: resource(c) }),
+        panel.setTabResource({ key: missing, resource: lineplotID(c) }),
       ]);
       expect(next).toBe(prev);
     });

@@ -19,7 +19,7 @@ import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const channelID = ({ key }: channel.Channel) => channel.ontologyID(key);
+const channelID = ({ key }: channel.Channel) => channel.resourceID(key);
 
 // Channels match by alias under the active range, as the tree shows them.
 const useChannelMatches: Tree.UseMatches = (query) => {
@@ -45,7 +45,7 @@ interface ActionsProps {
 const Actions = ({ search }: ActionsProps): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Actions>
       <Tree.SearchAction search={search} />
@@ -68,7 +68,7 @@ const Content = (): ReactElement => {
   // Does not suspend, so the header stays painted while the body reads the group.
   const channels = Channel.useResultGroup({});
   const search = useSearch(
-    channels.variant === "success" ? group.ontologyID(channels.data.key) : null,
+    channels.variant === "success" ? group.resourceID(channels.data.key) : null,
   );
   return (
     <Toolbar.Content>
@@ -98,13 +98,13 @@ interface BodyProps {
 
 const Body = ({ search }: BodyProps): ReactElement => {
   const g = Channel.useGroup({});
-  const root = group.ontologyID(g.key);
+  const root = group.resourceID(g.key);
   return <Tree.Tree root={root} emptyContent={<EmptyContent />} search={search} />;
 };
 
 const EmptyContent = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No channels"
@@ -122,5 +122,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["C"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
 };

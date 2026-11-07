@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -81,7 +81,7 @@ func (s *Service) Create(
 ) (CreateResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
+		Objects: []resource.ID{{Type: resource.TypePolicy}},
 		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreateRequest{}, err
@@ -109,7 +109,7 @@ func (s *Service) Retrieve(
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rbacpolicy.OntologyIDsFromPolicies(res.Policies),
+		Objects: rbacpolicy.ResourceIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -129,7 +129,7 @@ func (s *Service) Delete(
 ) (struct{}, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: rbacpolicy.OntologyIDs(req.Keys),
+		Objects: rbacpolicy.ResourceIDs(req.Keys),
 		Action:  access.ActionDelete,
 	}); err != nil {
 		return struct{}{}, err

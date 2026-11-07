@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -68,7 +69,7 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
+				WhereIDs(r.ResourceID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -84,7 +85,7 @@ var _ = Describe("Writer", func() {
 
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
+				WhereIDs(r.ResourceID()).
 				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).
@@ -208,7 +209,7 @@ var _ = Describe("Writer", func() {
 	Describe("AssignRole", func() {
 		var (
 			r       *role.Role
-			subject ontology.ID
+			subject resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
 			r = &role.Role{
@@ -216,7 +217,7 @@ var _ = Describe("Writer", func() {
 				Description: "Test role",
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			subject = resource.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
@@ -229,7 +230,7 @@ var _ = Describe("Writer", func() {
 				ExcludeFieldData(true).
 				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
-				WhereTypes(ontology.ResourceTypeRole).
+				WhereTypes(resource.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
@@ -246,7 +247,7 @@ var _ = Describe("Writer", func() {
 				ExcludeFieldData(true).
 				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
-				WhereTypes(ontology.ResourceTypeRole).
+				WhereTypes(resource.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
@@ -256,7 +257,7 @@ var _ = Describe("Writer", func() {
 	Describe("UnassignRole", func() {
 		var (
 			r       *role.Role
-			subject ontology.ID
+			subject resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
 			r = &role.Role{
@@ -264,7 +265,7 @@ var _ = Describe("Writer", func() {
 				Description: "Test role",
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			subject = resource.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
@@ -276,7 +277,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeRole).
+				WhereTypes(resource.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(BeEmpty())
@@ -290,7 +291,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeRole).
+				WhereTypes(resource.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(BeEmpty())
@@ -471,7 +472,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypeRole))
+			Expect(svc.Type()).To(Equal(resource.TypeRole))
 		})
 	})
 
@@ -513,23 +514,23 @@ var _ = Describe("Ontology Integration", func() {
 					Description: "Search test role",
 				}
 				Expect(svc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
-				q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{r.OntologyID()}))
+					To(Equal([]resource.ID{r.ResourceID()}))
 			},
 		)
 	})
 
-	Describe("OntologyIDsFromRoles", func() {
+	Describe("ResourceIDsFromRoles", func() {
 		It("Should return an empty slice when given no roles", func() {
-			Expect(role.OntologyIDsFromRoles(nil)).To(BeEmpty())
-			Expect(role.OntologyIDsFromRoles([]role.Role{})).To(BeEmpty())
+			Expect(role.ResourceIDsFromRoles(nil)).To(BeEmpty())
+			Expect(role.ResourceIDsFromRoles([]role.Role{})).To(BeEmpty())
 		})
 
-		It("Should map a single role to its ontology ID", func() {
+		It("Should map a single role to its resource ID", func() {
 			r := role.Role{Key: uuid.New(), Name: "single"}
-			Expect(role.OntologyIDsFromRoles([]role.Role{r})).To(ConsistOf(ontology.ID{
-				Type: ontology.ResourceTypeRole,
+			Expect(role.ResourceIDsFromRoles([]role.Role{r})).To(ConsistOf(resource.ID{
+				Type: resource.TypeRole,
 				Key:  r.Key.String(),
 			}))
 		})
@@ -540,22 +541,22 @@ var _ = Describe("Ontology Integration", func() {
 				{Key: uuid.New(), Name: "second"},
 				{Key: uuid.New(), Name: "third"},
 			}
-			Expect(role.OntologyIDsFromRoles(roles)).To(Equal([]ontology.ID{
-				role.OntologyID(roles[0].Key),
-				role.OntologyID(roles[1].Key),
-				role.OntologyID(roles[2].Key),
+			Expect(role.ResourceIDsFromRoles(roles)).To(Equal([]resource.ID{
+				role.ResourceID(roles[0].Key),
+				role.ResourceID(roles[1].Key),
+				role.ResourceID(roles[2].Key),
 			}))
 		})
 
-		It("Should produce ontology IDs equivalent to (Role).OntologyID", func() {
+		It("Should produce resource IDs equivalent to (Role).ResourceID", func() {
 			roles := []role.Role{
 				{Key: uuid.New(), Name: "alpha"},
 				{Key: uuid.New(), Name: "beta"},
 			}
-			ids := role.OntologyIDsFromRoles(roles)
+			ids := role.ResourceIDsFromRoles(roles)
 			Expect(ids).To(HaveLen(2))
-			Expect(ids[0]).To(Equal(roles[0].OntologyID()))
-			Expect(ids[1]).To(Equal(roles[1].OntologyID()))
+			Expect(ids[0]).To(Equal(roles[0].ResourceID()))
+			Expect(ids[1]).To(Equal(roles[1].ResourceID()))
 		})
 	})
 })

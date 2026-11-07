@@ -70,7 +70,7 @@ describe("Label.Select permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [label.TYPE_ONTOLOGY_ID],
+      retrieve: [label.TYPE_RESOURCE_ID],
     });
 
   const renderPicker = async (as: Client): Promise<string> => {
@@ -97,7 +97,7 @@ describe("Label.Select permissions", () => {
   });
 
   it("should offer the new-label action to a subject who may create labels", async () => {
-    await renderPicker(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
+    await renderPicker(await createSubject({ create: [label.TYPE_RESOURCE_ID] }));
     expect(await screen.findByText("New label")).toBeTruthy();
   });
 });

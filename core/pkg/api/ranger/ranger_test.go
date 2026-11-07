@@ -19,8 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -38,7 +38,7 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{Where: &ranger.Where{
@@ -56,7 +56,7 @@ var _ = Describe("Retrieve", func() {
 			TimeRange: telem.TimeRange{Start: 1, End: 2},
 		}
 		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apiranger.RetrieveRequest{
@@ -146,7 +146,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should apply the actions when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -167,7 +167,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), ranger.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), ranger.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -181,8 +181,8 @@ var _ = Describe("Create", func() {
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
-				Type: ontology.ResourceTypeRange,
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeRange,
 			})
 			rec := &Recorder[ranger.Key, ranger.Action]{}
 			DeferCleanup(svc.Ranger.OnAction(rec.Record))

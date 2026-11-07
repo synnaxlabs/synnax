@@ -28,9 +28,9 @@ cc_library(
     deps = [
         ":key",
         "//client/cpp/errors",
-        "//client/cpp/ontology",
         "//client/cpp/rack",
         "//client/cpp/rack:key",
+        "//client/cpp/resource",
         "//client/cpp/status",
         "//core/pkg/api/device:device_grpc",
         "//core/pkg/transport/grpc:api_grpc",

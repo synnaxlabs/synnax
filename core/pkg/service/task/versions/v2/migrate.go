@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -46,9 +47,9 @@ func LegacyKeyKVKey(legacy v1.Key) []byte {
 // Migration re-keys stored tasks from legacy composite uint64 keys to UUIDs.
 var Migration = migrate.New("v56_task_uuid_key", migrateKeysToUUID)
 
-// ontologyID returns the ontology identifier for the task with the given key.
-func ontologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: key.String()}
+// resourceID returns the resource identifier for the task with the given key.
+func resourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeTask, Key: key.String()}
 }
 
 // resourceSchema is a frozen copy of the task ontology resource schema as of this
@@ -142,9 +143,9 @@ func migrateKeysToUUID(
 	return nil
 }
 
-// legacyKeyFromOntology parses a legacy uint64 task key out of an ontology key string,
-// returning false when the string is not a legacy key.
-func legacyKeyFromOntology(key string) (v1.Key, bool) {
+// parseLegacyKey parses a legacy uint64 task key out of a resource ID key, returning
+// false when the string is not a legacy key.
+func parseLegacyKey(key string) (v1.Key, bool) {
 	n, err := strconv.ParseUint(key, 10, 64)
 	if err != nil {
 		return 0, false
@@ -162,7 +163,7 @@ func rewriteStatuses(
 	keys map[v1.Key]Key,
 	byKey map[Key]Task,
 ) error {
-	statusKeyPrefix := string(ontology.ResourceTypeTask) + ":"
+	statusKeyPrefix := string(resource.TypeTask) + ":"
 	var stale []status.Status[v1.StatusDetails]
 	if err := gorp.NewRetrieve[string, status.Status[v1.StatusDetails]]().
 		WherePrefix([]byte(statusKeyPrefix)).
@@ -174,7 +175,7 @@ func rewriteStatuses(
 	del := gorp.WrapWriter[string, status.Status[v1.StatusDetails]](tx)
 	for _, s := range stale {
 		oldKey := s.Key
-		legacy, ok := legacyKeyFromOntology(strings.TrimPrefix(s.Key, statusKeyPrefix))
+		legacy, ok := parseLegacyKey(strings.TrimPrefix(s.Key, statusKeyPrefix))
 		if !ok {
 			continue
 		}
@@ -186,7 +187,7 @@ func rewriteStatuses(
 			continue
 		}
 		if err := w.Set(ctx, Status{
-			Key:         ontologyID(key).String(),
+			Key:         resourceID(key).String(),
 			Name:        s.Name,
 			Variant:     s.Variant,
 			Message:     s.Message,
@@ -219,15 +220,15 @@ func rewriteResources(
 	keys map[v1.Key]Key,
 	byKey map[Key]Task,
 ) error {
-	statusKeyPrefix := string(ontology.ResourceTypeTask) + ":"
+	statusKeyPrefix := string(resource.TypeTask) + ":"
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[string, ontology.Resource](tx),
 		func(r ontology.Resource) bool {
-			if r.ID.Type == ontology.ResourceTypeTask {
+			if r.ID.Type == resource.TypeTask {
 				return true
 			}
-			return r.ID.Type == ontology.ResourceTypeStatus &&
+			return r.ID.Type == resource.TypeStatus &&
 				strings.HasPrefix(r.ID.Key, statusKeyPrefix)
 		},
 	)
@@ -240,7 +241,7 @@ func rewriteResources(
 			oldKey    = r.GorpKey()
 			legacyStr = strings.TrimPrefix(r.ID.Key, statusKeyPrefix)
 		)
-		legacy, ok := legacyKeyFromOntology(legacyStr)
+		legacy, ok := parseLegacyKey(legacyStr)
 		if !ok {
 			continue
 		}
@@ -248,11 +249,11 @@ func rewriteResources(
 		if !ok {
 			continue
 		}
-		if r.ID.Type == ontology.ResourceTypeTask {
+		if r.ID.Type == resource.TypeTask {
 			t := byKey[key]
-			r = ontology.NewResource(resourceSchema, ontologyID(key), t.Name, t)
+			r = ontology.NewResource(resourceSchema, resourceID(key), t.Name, t)
 		} else {
-			r.ID.Key = ontologyID(key).String()
+			r.ID.Key = resourceID(key).String()
 		}
 		if err := w.Set(ctx, r); err != nil {
 			return err
@@ -267,19 +268,19 @@ func rewriteResources(
 // rewriteRelationships repoints every relationship endpoint referencing a task or a
 // task status at the re-keyed resource, preserving direction and type.
 func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) error {
-	statusKeyPrefix := string(ontology.ResourceTypeTask) + ":"
-	rewriteEndpoint := func(id ontology.ID) (ontology.ID, bool) {
+	statusKeyPrefix := string(resource.TypeTask) + ":"
+	rewriteEndpoint := func(id resource.ID) (resource.ID, bool) {
 		var legacyStr string
 		switch {
-		case id.Type == ontology.ResourceTypeTask:
+		case id.Type == resource.TypeTask:
 			legacyStr = id.Key
-		case id.Type == ontology.ResourceTypeStatus &&
+		case id.Type == resource.TypeStatus &&
 			strings.HasPrefix(id.Key, statusKeyPrefix):
 			legacyStr = strings.TrimPrefix(id.Key, statusKeyPrefix)
 		default:
 			return id, false
 		}
-		legacy, ok := legacyKeyFromOntology(legacyStr)
+		legacy, ok := parseLegacyKey(legacyStr)
 		if !ok {
 			return id, false
 		}
@@ -287,10 +288,10 @@ func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) 
 		if !ok {
 			return id, false
 		}
-		if id.Type == ontology.ResourceTypeTask {
+		if id.Type == resource.TypeTask {
 			id.Key = key.String()
 		} else {
-			id.Key = ontologyID(key).String()
+			id.Key = resourceID(key).String()
 		}
 		return id, true
 	}

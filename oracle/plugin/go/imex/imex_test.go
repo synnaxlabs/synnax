@@ -117,11 +117,11 @@ var _ = Describe("Go ImEx Plugin", func() {
 			))
 		})
 
-		It("Should error when no ontology import path is configured", func() {
+		It("Should error when no resource import path is configured", func() {
 			opts := imex.DefaultOptions()
-			opts.OntologyImportPath = ""
+			opts.ResourceImportPath = ""
 			Expect(imex.New(opts).Generate(nil)).Error().To(MatchError(
-				ContainSubstring("go/imex requires Options.OntologyImportPath"),
+				ContainSubstring("go/imex requires Options.ResourceImportPath"),
 			))
 		})
 	})
@@ -179,8 +179,8 @@ var _ = Describe("Go ImEx Plugin", func() {
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
 					"package log",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
-					`"github.com/synnaxlabs/synnax/pkg/service/ontology"`,
-					"func (s *Service) Export(ctx context.Context, id ontology.ID) "+
+					`"github.com/synnaxlabs/synnax/pkg/service/resource"`,
+					"func (s *Service) Export(ctx context.Context, id resource.ID) "+
 						"(imex.Envelope, error)",
 					"var v Log",
 					"Where(MatchKeys(key))",
@@ -450,7 +450,7 @@ Symbol struct {
 			custom := imex.New(imex.Options{
 				FileNamePattern:    "imex.gen.go",
 				RuntimeImportPath:  "github.com/acme/portable/imex",
-				OntologyImportPath: "github.com/acme/portable/ontology",
+				ResourceImportPath: "github.com/acme/portable/resource",
 			})
 			req := chainRequest(
 				ctx, GinkgoT().TempDir(), liveLog,

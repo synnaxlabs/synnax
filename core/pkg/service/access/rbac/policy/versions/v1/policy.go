@@ -11,7 +11,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Policy{}
@@ -22,7 +22,7 @@ func (p Policy) GorpKey() Key { return p.Key }
 // SetOptions implements the gorp.Entry interface.
 func (Policy) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the policy.
-func (p Policy) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypePolicy, Key: p.Key.String()}
+// ResourceID returns the unique resource identifier for the policy.
+func (p Policy) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypePolicy, Key: p.Key.String()}
 }

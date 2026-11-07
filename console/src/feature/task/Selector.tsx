@@ -75,7 +75,7 @@ const GROUPS: Base.Group[] = [
   },
 ].filter((g) => g.selectables.length > 0);
 
-const useCreateGranted = (): boolean => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+const useCreateGranted = (): boolean => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
 
 /** The task types, one group per integration, for a user who may create tasks. */
 export const SECTION: Base.Section = {

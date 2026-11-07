@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux } from "@synnaxlabs/pluto";
@@ -17,7 +17,7 @@ import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameParams<K extends record.Key> {
   useUpdate: Flux.UseUpdate<record.KeyedNamed<K>>;
-  ontologyID: (key: K) => ontology.ID;
+  resourceID: (key: K) => resource.ID;
   convertKey: (key: string) => K;
   beforeUpdate?: (
     query: Flux.BeforeUpdateParams<record.KeyedNamed<K>> &
@@ -27,7 +27,7 @@ export interface CreateUseRenameParams<K extends record.Key> {
 
 export const createUseRename = <K extends record.Key>({
   useUpdate,
-  ontologyID,
+  resourceID,
   convertKey,
   beforeUpdate,
 }: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) => {
@@ -45,7 +45,7 @@ export const createUseRename = <K extends record.Key>({
         // The row may display a derived value (a channel alias); the edit always
         // targets the resource's real name.
         const [name, renamed] = await Text.asyncEdit(
-          List.itemNameID(ontology.idToString(ontologyID(key))),
+          List.itemNameID(resource.idToString(resourceID(key))),
           { initialValue: oldName },
         );
         if (!renamed) return false;

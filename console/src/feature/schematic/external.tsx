@@ -23,7 +23,7 @@ export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/tree";
 export * from "@/platform/schematic/external";
 
-const TAB_TYPE = schematic.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = schematic.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 

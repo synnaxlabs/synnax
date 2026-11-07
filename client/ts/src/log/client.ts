@@ -26,7 +26,7 @@ import {
   type Log,
   logZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -151,7 +151,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
         resource();
@@ -226,7 +226,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteRelationships(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({

@@ -13,8 +13,8 @@ import { color, filter, spatial, text, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 
 export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
 export const axisKeyZ = z.enum(AXIS_KEYS);
@@ -286,5 +286,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("lineplot");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("lineplot");
+export const TYPE_RESOURCE_ID = resourceID("");

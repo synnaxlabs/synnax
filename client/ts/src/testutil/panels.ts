@@ -10,16 +10,16 @@
 import { id } from "@synnaxlabs/x";
 
 import type Synnax from "@/client";
-import { type ontology } from "@/ontology";
 import { project } from "@/project";
+import { type resource } from "@/resource";
 
 /**
- * Creates a throwaway project and returns its ontology ID. Panel creation requires a
+ * Creates a throwaway project and returns its resource ID. Panel creation requires a
  * parent, so tests that mint panels directly parent them here.
  */
-export const createPanelParent = async (client: Synnax): Promise<ontology.ID> => {
+export const createPanelParent = async (client: Synnax): Promise<resource.ID> => {
   const proj = await client.projects.create({
     name: `project-${id.create()}`,
   });
-  return project.ontologyID(proj.key);
+  return project.resourceID(proj.key);
 };

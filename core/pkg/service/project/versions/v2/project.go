@@ -11,7 +11,7 @@ package v2
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Project{}
@@ -22,7 +22,7 @@ func (p Project) GorpKey() Key { return p.Key }
 // SetOptions implements gorp.Entry.
 func (Project) SetOptions() []any { return nil }
 
-// OntologyID returns the ontology.ID of the resource.
-func (p Project) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeProject, Key: p.Key.String()}
+// ResourceID returns the resource.ID of the resource.
+func (p Project) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeProject, Key: p.Key.String()}
 }

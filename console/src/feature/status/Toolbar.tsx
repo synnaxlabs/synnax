@@ -34,7 +34,7 @@ import { Session } from "@/session";
 
 const NoStatuses = (): ReactElement => {
   const openExplorer = Explorer.useOpenTab();
-  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No favorited statuses"
@@ -77,7 +77,7 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const { data: item } = Status.useResult({ key: itemKey });
-  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
@@ -143,8 +143,8 @@ const Content = (): ReactElement => (
 const Actions = (): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();
   const openCreate = PlatformStatus.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
@@ -168,5 +168,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["S"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_RESOURCE_ID),
 };

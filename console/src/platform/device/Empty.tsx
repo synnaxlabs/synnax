@@ -46,7 +46,7 @@ export const NoneSelected = ({
 }: NoneSelectedProps): ReactElement => {
   const ctx = Form.useContext();
   const isPreview = Task.useIsPreview(ctx);
-  const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleChange = useHandleChange(onConfigure);
   const devices = Device.useMultiple({ where: { make: { eq: make } }, limit: 1 });
   if (devices.length > 0)

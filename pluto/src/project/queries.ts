@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
+import { project, query, resource, type Synnax } from "@synnaxlabs/client";
 import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -93,18 +93,18 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
 });
 
 export type RetrieveChildrenQuery = {
-  resourceID?: ontology.ID;
-  types: ontology.ResourceType[];
+  resourceID?: resource.ID;
+  types: resource.Type[];
 };
 
 export interface Child extends record.KeyedNamed {
-  type: ontology.ResourceType;
+  type: resource.Type;
 }
 
 const collectChildren = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  parentID: ontology.ID,
-  types: ontology.ResourceType[],
+  parentID: resource.ID,
+  types: resource.Type[],
   exclude?: string,
 ): Promise<Child[]> => {
   const children = await client.ontology.children.retrieve({
@@ -125,10 +125,10 @@ const collectChildren = async (
 
 const findProjectAncestor = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  resourceID: ontology.ID,
-): Promise<ontology.ID | null> => {
+  resourceID: resource.ID,
+): Promise<resource.ID | null> => {
   const { paths } = await client.ontology.ancestors.retrieve({ ids: resourceID });
-  for (const path of paths[ontology.idToString(resourceID)] ?? [])
+  for (const path of paths[resource.idToString(resourceID)] ?? [])
     for (const id of path.toReversed()) {
       if (id.type === "project") return id;
       if (id.type !== "group") break;

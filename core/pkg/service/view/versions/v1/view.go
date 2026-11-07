@@ -11,7 +11,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = View{}
@@ -22,7 +22,7 @@ func (v View) GorpKey() Key { return v.Base().Key }
 // SetOptions returns no additional storage options.
 func (View) SetOptions() []any { return nil }
 
-// OntologyID returns the view's ontology identifier.
-func (v View) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeView, Key: v.Base().Key.String()}
+// ResourceID returns the view's resource identifier.
+func (v View) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeView, Key: v.Base().Key.String()}
 }

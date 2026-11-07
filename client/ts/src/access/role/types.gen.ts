@@ -12,7 +12,7 @@
 import { filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -88,5 +88,5 @@ export const retrieveRequestZ = z.strictObject({
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("role");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("role");
+export const TYPE_RESOURCE_ID = resourceID("");

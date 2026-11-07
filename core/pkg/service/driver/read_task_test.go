@@ -128,7 +128,7 @@ var _ = Describe("ReadTask", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 	}
 
 	// name formats ch as an error message names it.

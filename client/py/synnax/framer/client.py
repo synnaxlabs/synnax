@@ -20,7 +20,6 @@ from freighter import (
     UnaryClient,
     WebsocketClient,
 )
-from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
@@ -52,8 +51,6 @@ _FrameParams: TypeAlias = (
     | list[str]
     | tuple[str, ...]
 )
-
-_ontology_type = ontology.ID(type="framer")
 
 
 class Client:

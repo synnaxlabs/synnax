@@ -38,7 +38,7 @@ describe("arc", () => {
     it("should allow the caller to retrieve arcs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: ["retrieve"],
       });
       const randomArc = await client.arcs.create({
@@ -54,7 +54,7 @@ describe("arc", () => {
     it("should allow the caller to create arcs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: ["create"],
       });
       await userClient.arcs.create({
@@ -67,7 +67,7 @@ describe("arc", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: [],
       });
       await expect(
@@ -82,7 +82,7 @@ describe("arc", () => {
     it("should allow the caller to delete arcs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomArc = await client.arcs.create({
@@ -99,7 +99,7 @@ describe("arc", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: [],
       });
       const randomArc = await client.arcs.create({

@@ -13,8 +13,9 @@ import { z } from "zod";
 
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -179,7 +180,7 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: [
         query.partialUpdate(this.store, key, { name }),
-        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+        this.cfg.ontology.cache.renameResource(resourceID(key), name),
       ],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
@@ -195,7 +196,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({
@@ -232,5 +233,5 @@ const checkSingle = (params: SingleParams, users: User[]): void => {
     );
 };
 
-export const ontologyID = ontology.createIDFactory<Key>("user");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("user");
+export const TYPE_RESOURCE_ID = resourceID("");

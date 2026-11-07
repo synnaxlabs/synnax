@@ -10,7 +10,7 @@
 import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
@@ -36,7 +36,7 @@ export const JSON_OPTIONS: Options = { encoding: "JSON" };
 /** The wire shape of the per-import request params. Both fields are required. */
 const importParamsZ = z.object({
   fileName: z.string().min(1),
-  parent: ontology.idZ.transform((id) => ontology.idToString(id)),
+  parent: resource.idZ.transform((id) => resource.idToString(id)),
 });
 
 /** Options for a single import call. */
@@ -52,7 +52,7 @@ export interface ImportOptions extends Options {
    * items, a group for symbols. The Core creates the resource and its parent
    * relationship in a single transaction, so a parenting failure rolls back the import.
    */
-  parent: ontology.ID;
+  parent: resource.ID;
 }
 
 /**
@@ -97,17 +97,17 @@ export class Client {
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
    * the parent resource to create the resource under.
-   * @returns the new resource's ontology ID as stamped by the Core.
+   * @returns the new resource's resource ID as stamped by the Core.
    */
   async import(
     source: UploadBody,
     { encoding, ...params }: ImportOptions,
-  ): Promise<ontology.ID> {
+  ): Promise<resource.ID> {
     return await this.cfg.file.upload(
       "/imex/import",
       source,
       { encoding, params, paramsSchema: importParamsZ },
-      ontology.idZ,
+      resource.idZ,
     );
   }
 
@@ -119,7 +119,7 @@ export class Client {
    * @param options - the export options, including the desired wire format.
    * @returns the serialized resource as a stream of bytes.
    */
-  async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
-    return await this.cfg.file.download("/imex/export", id, ontology.idZ, options);
+  async export(id: resource.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download("/imex/export", id, resource.idZ, options);
   }
 }

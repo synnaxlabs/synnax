@@ -235,8 +235,8 @@ Arc union on type Type extends Base {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "arc"
     @py name       "Payload"
+    @resource type "arc"
     @retrieve
 }
 

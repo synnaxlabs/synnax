@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -108,7 +109,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+		Objects: []resource.ID{{Type: resource.TypeDevice}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -132,7 +133,7 @@ func (s *Service) attachReadableStatuses(
 		err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{devices[i].OntologyID()},
+			Objects: []resource.ID{devices[i].ResourceID()},
 		})
 		// Create access does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
@@ -157,7 +158,7 @@ func (s *Service) attachStatuses(
 	statuses, err := s.status.Join[device.StatusDetails](
 		ctx,
 		tx,
-		device.OntologyIDsFromDevices(devices),
+		device.ResourceIDsFromDevices(devices),
 	)
 	if err != nil {
 		return err
@@ -188,7 +189,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(res.Devices),
+		Objects: device.ResourceIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -196,7 +197,7 @@ func (s *Service) Retrieve(
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
-				WhereIDs(d.OntologyID()).
+				WhereIDs(d.ResourceID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).
@@ -208,7 +209,7 @@ func (s *Service) Retrieve(
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			pid := ontology.ID(parent.ID)
+			pid := resource.ID(parent.ID)
 			res.Devices[i].Parent = &pid
 		}
 	}
@@ -232,7 +233,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{device.OntologyID(req.Key)},
+		Objects: []resource.ID{device.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -251,7 +252,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: device.OntologyIDs(req.Keys),
+		Objects: device.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

@@ -572,7 +572,7 @@ describe("queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          parentID: group.resourceID(parentGroup.key),
         });
       });
 
@@ -615,7 +615,7 @@ describe("queries", () => {
             { key: task1.key, name: task1.name },
             { key: task2.key, name: task2.name },
           ],
-          parentID: group.ontologyID(parentGroup.key),
+          parentID: group.resourceID(parentGroup.key),
         });
       });
 
@@ -658,14 +658,14 @@ describe("queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          parentID: group.resourceID(parentGroup.key),
         });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(parentGroup.key),
+        ids: group.resourceID(parentGroup.key),
       });
       expect(children.length).toBeGreaterThan(0);
 
@@ -700,7 +700,7 @@ describe("queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          parentID: group.resourceID(parentGroup.key),
         });
       });
 

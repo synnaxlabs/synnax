@@ -16,7 +16,7 @@ from synnax.arc.ir import Edge, Handle
 from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     GraphSource,
     Key,
     Mode,
@@ -25,12 +25,12 @@ from synnax.arc.types_gen import (
     TextSource,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from x.spatial import XY as Position
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Arc",
     "Automation",
     "Client",
@@ -55,8 +55,8 @@ __all__ = [
     "compiler",
     "graph",
     "ir",
-    "ontology_id",
     "program",
+    "resource_id",
     "text",
     "types",
 ]

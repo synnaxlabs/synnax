@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -221,9 +222,9 @@ func (s *Service) RetrieveParentKey(
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var resources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().
-		WhereIDs(OntologyID(key)).
+		WhereIDs(ResourceID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeRange).
+		WhereTypes(resource.TypeRange).
 		ExcludeFieldData(true).
 		Entries(&resources).
 		Exec(ctx, tx); err != nil {
@@ -236,5 +237,5 @@ func (s *Service) RetrieveParentKey(
 			key,
 		)
 	}
-	return KeyFromOntologyID(resources[0].ID)
+	return KeyFromResourceID(resources[0].ID)
 }

@@ -1539,19 +1539,19 @@ var _ = Describe("C++ PB Plugin", func() {
 				"Should include its own types.gen.h instead of json.gen.h",
 				func(ctx SpecContext) {
 					source := `
-					@cpp output "client/cpp/ontology"
-					@pb output "core/pkg/ontology/pb"
+					@cpp output "client/cpp/resource"
+					@pb output "core/pkg/service/resource/pb"
 
-					ResourceType enum {
+					Type enum {
 						channel = "channel"
 						device = "device"
 					}
 				`
-					resp := MustGenerate(ctx, source, "ontology", loader, pbPlugin)
+					resp := MustGenerate(ctx, source, "resource", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
-						ToContain(`#include "client/cpp/ontology/types.gen.h"`).
-						ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
+						ToContain(`#include "client/cpp/resource/types.gen.h"`).
+						ToNotContain(`#include "client/cpp/resource/json.gen.h"`)
 				},
 			)
 
@@ -1600,19 +1600,19 @@ var _ = Describe("C++ PB Plugin", func() {
 				"Should include its own types.gen.h instead of json.gen.h",
 				func(ctx SpecContext) {
 					source := `
-					@cpp output "client/cpp/ontology"
-					@pb output "core/pkg/ontology/pb"
+					@cpp output "client/cpp/resource"
+					@pb output "core/pkg/service/resource/pb"
 
-					ResourceType enum {
+					Type enum {
 						channel = "channel"
 						device = "device"
 					}
 				`
-					resp := MustGenerate(ctx, source, "ontology", loader, pbPlugin)
+					resp := MustGenerate(ctx, source, "resource", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
-						ToContain(`#include "client/cpp/ontology/types.gen.h"`).
-						ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
+						ToContain(`#include "client/cpp/resource/types.gen.h"`).
+						ToNotContain(`#include "client/cpp/resource/json.gen.h"`)
 				},
 			)
 

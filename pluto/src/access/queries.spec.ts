@@ -12,10 +12,10 @@ import {
   AuthError,
   channel,
   framer,
-  type ontology,
   project,
   query,
   ranger,
+  type resource,
   type Synnax,
   user,
 } from "@synnaxlabs/client";
@@ -31,15 +31,15 @@ import { Access } from "@/access";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
-const subjectOf = (c: Synnax): ontology.ID => {
+const subjectOf = (c: Synnax): resource.ID => {
   const u = c.users.current.getCached();
   assert(query.isLive(u), "client has no signed-in user");
-  return user.ontologyID(u.key);
+  return user.resourceID(u.key);
 };
 
 const cachedPoliciesOf = (
   c: Synnax,
-  subject: ontology.ID = subjectOf(c),
+  subject: resource.ID = subjectOf(c),
 ): access.policy.Policy[] => {
   const cached = c.access.policies.getCached({ where: { subjects: [subject] } });
   return query.isLive(cached) ? cached : [];
@@ -55,24 +55,24 @@ describe("Access Queries", () => {
     controller.abort();
   });
 
-  const baseObjects: ontology.ID[] = [
-    channel.TYPE_ONTOLOGY_ID,
-    framer.TYPE_ONTOLOGY_ID,
-    user.TYPE_ONTOLOGY_ID,
-    access.role.TYPE_ONTOLOGY_ID,
-    access.policy.TYPE_ONTOLOGY_ID,
+  const baseObjects: resource.ID[] = [
+    channel.TYPE_RESOURCE_ID,
+    framer.TYPE_RESOURCE_ID,
+    user.TYPE_RESOURCE_ID,
+    access.role.TYPE_RESOURCE_ID,
+    access.policy.TYPE_RESOURCE_ID,
   ];
 
   describe("useGranted", () => {
     it("should return true when the user has the appropriate permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -88,7 +88,7 @@ describe("Access Queries", () => {
       });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -100,13 +100,13 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -129,7 +129,7 @@ describe("Access Queries", () => {
       });
       const p = await client.access.policies.create({
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const r = await client.access.roles.create({
@@ -137,14 +137,14 @@ describe("Access Queries", () => {
         description: "test",
       });
       await client.ontology.addChildren(
-        access.role.ontologyID(r.key),
-        access.policy.ontologyID(p.key),
+        access.role.resourceID(r.key),
+        access.policy.resourceID(p.key),
       );
       await client.access.roles.assign({ user: u.key, role: r.key });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -174,7 +174,7 @@ describe("Access Queries", () => {
         });
         rangePolicy = await client.access.policies.create({
           name: id.create(),
-          objects: [ranger.TYPE_ONTOLOGY_ID],
+          objects: [ranger.TYPE_RESOURCE_ID],
           actions: ["retrieve"],
         });
         role = await client.access.roles.create({
@@ -182,9 +182,9 @@ describe("Access Queries", () => {
           description: "test",
         });
         await client.ontology.addChildren(
-          access.role.ontologyID(role.key),
-          access.policy.ontologyID(base.key),
-          access.policy.ontologyID(rangePolicy.key),
+          access.role.resourceID(role.key),
+          access.policy.resourceID(base.key),
+          access.policy.resourceID(rangePolicy.key),
         );
         await client.access.roles.assign({ user: u.key, role: role.key });
       });
@@ -192,7 +192,7 @@ describe("Access Queries", () => {
       const renderGranted = (userClient: Synnax) =>
         renderHook(
           () =>
-            Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+            Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
           { wrapper: createSynnaxWrapper({ client: userClient }) },
         );
 
@@ -233,12 +233,12 @@ describe("Access Queries", () => {
         await userClient.connect();
         const granting = await client.access.policies.create({
           name: id.create(),
-          objects: [ranger.TYPE_ONTOLOGY_ID],
+          objects: [ranger.TYPE_RESOURCE_ID],
           actions: ["retrieve"],
         });
         await client.ontology.addChildren(
-          access.role.ontologyID(role.key),
-          access.policy.ontologyID(granting.key),
+          access.role.resourceID(role.key),
+          access.policy.resourceID(granting.key),
         );
         await waitFor(() => {
           expect(result.current).toBe(true);
@@ -249,7 +249,7 @@ describe("Access Queries", () => {
     it("should ignore relationship changes that cannot affect permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       let renders = 0;
@@ -257,7 +257,7 @@ describe("Access Queries", () => {
         () => {
           renders++;
           return Access.useGranted({
-            objects: ranger.TYPE_ONTOLOGY_ID,
+            objects: ranger.TYPE_RESOURCE_ID,
             action: "retrieve",
           });
         },
@@ -287,13 +287,13 @@ describe("Access Queries", () => {
     it("should pass an identity-stable query to the client on every render", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const spy = vi.spyOn(userClient.access.granted, "getCached");
       const { result, rerender } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -311,13 +311,13 @@ describe("Access Queries", () => {
     it("should handle multiple objects correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, channel.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = renderHook(
         () =>
           Access.useGranted({
-            objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID],
+            objects: [ranger.TYPE_RESOURCE_ID, channel.TYPE_RESOURCE_ID],
             action: "retrieve",
           }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
@@ -333,13 +333,13 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -347,7 +347,7 @@ describe("Access Queries", () => {
       });
       const result = Access.isGranted({
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" },
       });
       expect(result).toBe(true);
     });
@@ -362,7 +362,7 @@ describe("Access Queries", () => {
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -370,7 +370,7 @@ describe("Access Queries", () => {
       });
       const result = Access.isGranted({
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
@@ -378,7 +378,7 @@ describe("Access Queries", () => {
     it("should return false when client is null", () => {
       const result = Access.isGranted({
         client: null,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
@@ -387,13 +387,13 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -405,17 +405,17 @@ describe("Access Queries", () => {
       expect(policies.length).toBe(1);
       const resultRetrieve = Access.isGranted({
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "retrieve" },
       });
       expect(resultRetrieve).toBe(true);
       const resultCreate = Access.isGranted({
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "create" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "create" },
       });
       expect(resultCreate).toBe(true);
       const resultDelete = Access.isGranted({
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "delete" },
+        query: { objects: ranger.TYPE_RESOURCE_ID, action: "delete" },
       });
       expect(resultDelete).toBe(false);
     });
@@ -425,11 +425,11 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = await renderHookSuspended(
-        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -444,7 +444,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const { result } = await renderHookSuspended(
-        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -452,17 +452,17 @@ describe("Access Queries", () => {
       });
     });
 
-    it("should handle multiple ontology IDs", async () => {
+    it("should handle multiple resource IDs", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, channel.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = await renderHookSuspended(
         () =>
           Access.useRetrieveGranted([
-            ranger.TYPE_ONTOLOGY_ID,
-            channel.TYPE_ONTOLOGY_ID,
+            ranger.TYPE_RESOURCE_ID,
+            channel.TYPE_RESOURCE_ID,
           ]),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -476,11 +476,11 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve and update permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "update", "create"],
       });
       const { result } = renderHook(
-        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -491,11 +491,11 @@ describe("Access Queries", () => {
     it("should return false when user only has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -508,11 +508,11 @@ describe("Access Queries", () => {
     it("should return true when user has all required permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "update", "delete"],
       });
       const { result } = renderHook(
-        () => Access.useDeleteGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useDeleteGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -523,11 +523,11 @@ describe("Access Queries", () => {
     it("should return false when user lacks delete permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "update"],
       });
       const { result } = renderHook(
-        () => Access.useDeleteGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useDeleteGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -540,11 +540,11 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve and create permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       const { result } = renderHook(
-        () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useCreateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -555,11 +555,11 @@ describe("Access Queries", () => {
     it("should return false when user lacks create permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useCreateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -573,12 +573,12 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = await renderHookSuspended(
-        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -586,7 +586,7 @@ describe("Access Queries", () => {
       });
       const result = Access.viewGranted({
         client: userClient,
-        id: ranger.TYPE_ONTOLOGY_ID,
+        id: ranger.TYPE_RESOURCE_ID,
       });
       expect(result).toBe(true);
     });
@@ -597,12 +597,12 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "update", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
-        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -610,7 +610,7 @@ describe("Access Queries", () => {
       });
       const result = Access.updateGranted({
         client: userClient,
-        id: ranger.TYPE_ONTOLOGY_ID,
+        id: ranger.TYPE_RESOURCE_ID,
       });
       expect(result).toBe(true);
     });
@@ -621,12 +621,12 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "update", "delete"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
-        () => Access.useDeleteGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useDeleteGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -634,7 +634,7 @@ describe("Access Queries", () => {
       });
       const result = Access.deleteGranted({
         client: userClient,
-        id: ranger.TYPE_ONTOLOGY_ID,
+        id: ranger.TYPE_RESOURCE_ID,
       });
       expect(result).toBe(true);
     });
@@ -645,12 +645,12 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
-        () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useCreateGranted(ranger.TYPE_RESOURCE_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -658,7 +658,7 @@ describe("Access Queries", () => {
       });
       const result = Access.createGranted({
         client: userClient,
-        id: ranger.TYPE_ONTOLOGY_ID,
+        id: ranger.TYPE_RESOURCE_ID,
       });
       expect(result).toBe(true);
     });
@@ -668,13 +668,13 @@ describe("Access Queries", () => {
     it("should grant a read on its first committed render", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       const { result } = await renderHookSuspended(
         () => {
           Access.useEnsurePermissions({});
-          return Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+          return Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID);
         },
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -685,7 +685,7 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       await renderHookSuspended(() => Access.useEnsurePermissions({}), {
@@ -703,7 +703,7 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
       await renderHookSuspended(() => Access.useEnsurePermissions({}), {
@@ -718,7 +718,7 @@ describe("Access Queries", () => {
       );
       const roleToPolicy = relationships.find((r) => r.to.key === policy!.key);
       expect(roleToPolicy).toBeDefined();
-      expect(roleToPolicy!.to).toEqual(access.policy.ontologyID(policy!.key));
+      expect(roleToPolicy!.to).toEqual(access.policy.resourceID(policy!.key));
     });
   });
 });

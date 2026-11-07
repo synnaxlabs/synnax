@@ -83,7 +83,7 @@ var _ = Describe("Factory", func() {
 					To(MatchError(validate.ErrValidation))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&stat).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},

@@ -13,6 +13,7 @@ import {
   NotFoundError,
   ontology,
   rack,
+  type resource,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -41,21 +42,21 @@ const roles = new RoleClients(client);
 
 const createDeviceGroup = async (
   ...devices: { key: string; rack: number }[]
-): Promise<ontology.ID> => {
+): Promise<resource.ID> => {
   const grp = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("devgrp"),
   });
   for (const dev of devices)
     await client.ontology.moveChildren(
-      rack.ontologyID(dev.rack),
-      group.ontologyID(grp.key),
-      deviceClient.ontologyID(dev.key),
+      rack.resourceID(dev.rack),
+      group.resourceID(grp.key),
+      deviceClient.resourceID(dev.key),
     );
-  return group.ontologyID(grp.key);
+  return group.resourceID(grp.key);
 };
 
-const renderDeviceTree = async (root: ontology.ID) =>
+const renderDeviceTree = async (root: resource.ID) =>
   await renderOntologyTree({
     client,
     root,
@@ -130,7 +131,7 @@ describe("permission to write the device", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+      resources: [createResource(deviceClient.resourceID(dev.key), dev.name)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -141,7 +142,7 @@ describe("permission to write the device", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+      resources: [createResource(deviceClient.resourceID(dev.key), dev.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

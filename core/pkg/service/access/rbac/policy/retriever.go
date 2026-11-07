@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 type Retrieve struct {
@@ -29,7 +30,7 @@ type Retrieve struct {
 func (s *Service) ResolveSubjects(
 	ctx context.Context,
 	tx gorp.Tx,
-	subjects ...ontology.ID,
+	subjects ...resource.ID,
 ) ([]Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return resolveSubjects(ctx, tx, s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...))
@@ -37,7 +38,7 @@ func (s *Service) ResolveSubjects(
 
 // MatchSubjects returns a filter that matches the policies of the roles that any of the
 // subjects hold. A subject that does not exist holds no roles.
-func MatchSubjects(subjects ...ontology.ID) Filter {
+func MatchSubjects(subjects ...resource.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
 			start := r.ontology.NewRetrieve().WhereIDs(subjects...)
@@ -55,12 +56,12 @@ func resolveSubjects(
 	if err := subjects.
 		ExcludeFieldData(true).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeRole).
+		WhereTypes(resource.TypeRole).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypePolicy).
+		WhereTypes(resource.TypePolicy).
 		Entries(&policyResources).
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	return KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
+	return KeysFromResourceIDs(ontology.ResourceIDs(policyResources))
 }

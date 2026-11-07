@@ -20,7 +20,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -56,7 +56,7 @@ func authed(ctx context.Context, token string) freighter.Context {
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Name: username}))
-	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
 		Username: username,
 		Password: pwd,
 	})).To(Succeed())
@@ -85,7 +85,7 @@ var _ = Describe("Login", func() {
 			)
 			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
-			Expect(session.Subject).To(Equal(root.OntologyID()))
+			Expect(session.Subject).To(Equal(root.ResourceID()))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
 			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
@@ -112,7 +112,7 @@ var _ = Describe("ChangePassword", func() {
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Name: own.Username,
 		}))
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), own)).To(Succeed())
+		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), own)).To(Succeed())
 	})
 	It(
 		"Should replace the password when the current one is right",
@@ -204,7 +204,7 @@ var _ = Describe("SetPassword", func() {
 			CurrentPassword: "old",
 		}))
 		Expect(res.Session).ToNot(BeNil())
-		Expect(res.Session.Subject).To(Equal(bob.OntologyID()))
+		Expect(res.Session.Subject).To(Equal(bob.ResourceID()))
 		Expect(authSvc.Authenticate(ctx, res.Token)).To(Equal(*res.Session))
 		for _, token := range []string{bobToken, other} {
 			Expect(authSvc.Authenticate(ctx, token)).Error().
@@ -264,7 +264,7 @@ var _ = Describe("SetPassword", func() {
 	})
 	It("Should let the owner set another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  bob.OntologyID(),
+			Subject:  bob.ResourceID(),
 			Password: "new",
 		})).To(Equal(apiauth.PasswordSetResponse{}))
 		MustSucceed(authSvc.Authenticate(ctx, rootToken))
@@ -274,13 +274,13 @@ var _ = Describe("SetPassword", func() {
 	})
 	It("Should deny a user setting another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Subject:  root.OntologyID(),
+			Subject:  root.ResourceID(),
 			Password: "new",
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject a subject that is not a user", func(ctx SpecContext) {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  ontology.ID{Type: ontology.ResourceTypeRack, Key: "1"},
+			Subject:  resource.ID{Type: resource.TypeRack, Key: "1"},
 			Password: "new",
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
@@ -289,13 +289,13 @@ var _ = Describe("SetPassword", func() {
 			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  u.OntologyID(),
+			Subject:  u.ResourceID(),
 			Password: "new",
 		})).Error().To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject an empty password", func(ctx SpecContext) {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject: bob.OntologyID(),
+			Subject: bob.ResourceID(),
 		})).Error().To(MatchError(ContainSubstring("password: required")))
 	})
 })
@@ -336,7 +336,7 @@ var _ = Describe("Middleware", func() {
 				},
 			),
 		))
-		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
+		Expect(apiauth.GetSubject(seen)).To(Equal(root.ResourceID()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
@@ -389,7 +389,7 @@ var _ = Describe("CreateSession", func() {
 		))
 		session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 		Expect(session.Key).To(Equal(res.Session.Key))
-		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
+		Expect(res.Session.Subject).To(Equal(root.ResourceID()))
 		Expect(res.Session.Credential).To(Equal(session.Credential))
 		Expect(res.User.Key).To(Equal(root.Key))
 	})
@@ -435,7 +435,7 @@ var _ = Describe("RenewSession", func() {
 		))
 		res := MustSucceed(apiSvc.RenewSession(authed(ctx, created.Token), struct{}{}))
 		Expect(res.Session.Key).To(Equal(created.Session.Key))
-		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
+		Expect(res.Session.Subject).To(Equal(root.ResourceID()))
 		Expect(res.User).ToNot(BeNil())
 		Expect(res.User.Key).To(Equal(root.Key))
 	})
@@ -535,7 +535,7 @@ var _ = Describe("Sessions", func() {
 				apiauth.SessionRetrieveRequest{},
 			))
 			Expect(res.Sessions).To(HaveLen(1))
-			Expect(res.Sessions[0].Subject).To(Equal(bob.OntologyID()))
+			Expect(res.Sessions[0].Subject).To(Equal(bob.ResourceID()))
 		})
 		It(
 			"Should let the owner list another subject's sessions",
@@ -543,11 +543,11 @@ var _ = Describe("Sessions", func() {
 				res := MustSucceed(apiSvc.RetrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
-						Subjects: []ontology.ID{bob.OntologyID()},
+						Subjects: []resource.ID{bob.ResourceID()},
 					},
 				))
 				Expect(res.Sessions).To(HaveLen(1))
-				Expect(res.Sessions[0].Subject).To(Equal(bob.OntologyID()))
+				Expect(res.Sessions[0].Subject).To(Equal(bob.ResourceID()))
 			},
 		)
 		It(
@@ -557,7 +557,7 @@ var _ = Describe("Sessions", func() {
 				res := MustSucceed(apiSvc.RetrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
-						Subjects: []ontology.ID{idle.OntologyID()},
+						Subjects: []resource.ID{idle.ResourceID()},
 					},
 				))
 				Expect(res.Sessions).ToNot(BeNil())
@@ -570,7 +570,7 @@ var _ = Describe("Sessions", func() {
 				Expect(apiSvc.RetrieveSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionRetrieveRequest{
-						Subjects: []ontology.ID{root.OntologyID()},
+						Subjects: []resource.ID{root.ResourceID()},
 					},
 				)).Error().To(MatchError(access.ErrDenied))
 			},

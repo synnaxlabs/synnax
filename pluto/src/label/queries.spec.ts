@@ -225,7 +225,7 @@ describe("queries", () => {
   });
 
   describe("retrieveLabelsOf", () => {
-    it("should retrieve labels for an ontology ID", async () => {
+    it("should retrieve labels for a resource ID", async () => {
       const label1 = await client.labels.create({
         name: "entityLabel1",
         color: "#FF0000",
@@ -239,13 +239,13 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [
+      await client.labels.label(label.resourceID(targetLabel.key), [
         label1.key,
         label2.key,
       ]);
 
       const { result } = renderHook(
-        () => Label.useResultLabelsOf({ id: label.ontologyID(targetLabel.key) }).data,
+        () => Label.useResultLabelsOf({ id: label.resourceID(targetLabel.key) }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -264,7 +264,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -275,7 +275,7 @@ describe("queries", () => {
         name: "addedLabel",
         color: "#FFFF00",
       });
-      await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [newLabel.key]);
 
       await waitFor(() => {
         expect(result.current).toHaveLength(initialLength + 1);
@@ -293,19 +293,19 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [labelToRemove.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [labelToRemove.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
       expect(result.current?.map((l) => l.key)).toContain(labelToRemove.key);
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [], {
+      await client.labels.label(label.resourceID(targetLabel.key), [], {
         replace: true,
       });
 
@@ -324,12 +324,12 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [originalLabel.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [originalLabel.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -360,12 +360,12 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      await client.labels.label(label.ontologyID(targetLabel.key), [labelToDelete.key]);
+      await client.labels.label(label.resourceID(targetLabel.key), [labelToDelete.key]);
 
       const { result } = renderHook(
         () =>
           Label.useResultLabelsOf({
-            id: label.ontologyID(targetLabel.key),
+            id: label.resourceID(targetLabel.key),
           }).data,
         { wrapper },
       );
@@ -474,7 +474,7 @@ describe("queries", () => {
         { name: "added", color: "#0000FF" },
         { name: "target", color: "#000000" },
       ]);
-      const id = label.ontologyID(target.key);
+      const id = label.resourceID(target.key);
       await client.labels.label(id, [kept.key, removed.key]);
       const { result } = renderHook(Label.useEditFor, { wrapper });
       await act(async () => {

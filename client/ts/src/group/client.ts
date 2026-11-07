@@ -16,7 +16,7 @@ import {
   groupZ,
   type Key,
   keyZ,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -24,8 +24,8 @@ import {
 } from "@/group/types.gen";
 import { matches, retrieveInputZ, serverComputed } from "@/group/where.gen";
 import { ontology } from "@/ontology";
-import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
@@ -33,7 +33,7 @@ export const DELETE_CHANNEL_NAME = "sy_group_delete";
 const resZ = z.object({ group: groupZ });
 
 const createReqZ = z.object({
-  parent: ontologyIDZ,
+  parent: resource.idZ,
   key: keyZ.optional(),
   name: z.string(),
 });
@@ -47,7 +47,7 @@ export interface CreateParams extends z.infer<typeof createReqZ> {}
 // The Core knows nothing of parents, so the client resolves parent through the ontology
 // graph.
 const parentRequestZ = retrieveRequestZ.extend({
-  parent: ontologyIDZ.optional(),
+  parent: resource.idZ.optional(),
 });
 const retrieveMultiParamsZ = filter.requestInputZ(
   parentRequestZ,
@@ -60,7 +60,7 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface MultipleRequest extends z.infer<typeof parentRequestZ> {}
 
-const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
+const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -130,7 +130,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     const rel: ontology.Relationship = {
       from: params.parent,
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: ontologyID(res.group.key),
+      to: resourceID(res.group.key),
     };
     this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
@@ -139,7 +139,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -172,12 +172,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     drop();
   }
 
-  private isCachedChild(parent: ontology.ID, key: Key): boolean {
+  private isCachedChild(parent: resource.ID, key: Key): boolean {
     return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ontologyID(key),
+        to: resourceID(key),
       }),
     );
   }
@@ -214,7 +214,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   private async fetchChildren(
-    parent: ontology.ID,
+    parent: resource.ID,
     page: { limit?: number; offset?: number } = {},
   ): Promise<Group[]> {
     const res = await this.requireOntology().children.retrieve({
@@ -228,7 +228,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       const rel: ontology.Relationship = {
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ontologyID(g.key),
+        to: resourceID(g.key),
       };
       rels.set(ontology.relationshipToString(rel), rel);
     });

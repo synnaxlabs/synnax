@@ -39,7 +39,7 @@ export const ContextMenu = ({
   getItem,
   textIdPrefix = "text",
 }: ContextMenuProps) => {
-  const ids = arc.ontologyID(keys);
+  const ids = arc.resourceID(keys);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const someSelected = keys.length > 0;
@@ -75,13 +75,13 @@ export const ContextMenu = ({
         message: "Failed to open Arc editor",
         description: "The Arc no longer exists.",
       });
-    openTab({ variant: "resource", resource: arc.ontologyID(retrieved.key) });
+    openTab({ variant: "resource", resource: arc.resourceID(retrieved.key) });
   };
 
   const handleCopyLink = () => {
     const name = getItem(keys[0])?.name;
     if (name == null) return;
-    handleLink({ name, ontologyID: arc.ontologyID(keys[0]) });
+    handleLink({ name, resourceID: arc.resourceID(keys[0]) });
   };
 
   return (

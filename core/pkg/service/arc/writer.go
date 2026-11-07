@@ -21,6 +21,7 @@ import (
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/debounce"
@@ -109,7 +110,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	module := a.Type() == TypeModule
 	if !exists {
 		if err = w.validateEntry(
-			ctx, directory.OntologyID(w.root), a.OntologyID(), b.Name, module,
+			ctx, directory.ResourceID(w.root), a.ResourceID(), b.Name, module,
 		); err != nil {
 			return err
 		}
@@ -118,7 +119,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 			return err
 		}
 		if existing.Base().Name != b.Name {
-			if err = w.validateName(ctx, a.OntologyID(), b.Name, module); err != nil {
+			if err = w.validateName(ctx, a.ResourceID(), b.Name, module); err != nil {
 				return err
 			}
 		}
@@ -127,14 +128,14 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		return err
 	}
 	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, a.ResourceID()); err != nil {
 			return err
 		}
 		if err = w.otgWriter.DefineRelationships(
 			ctx,
-			directory.OntologyID(w.root),
+			directory.ResourceID(w.root),
 			ontology.RelationshipTypeParentOf,
-			a.OntologyID(),
+			a.ResourceID(),
 		); err != nil {
 			return err
 		}
@@ -175,7 +176,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)
@@ -201,9 +202,9 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
 	var children []ontology.Resource
 	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
+		WhereIDs(ResourceID(key)).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypeTask).
+		WhereTypes(resource.TypeTask).
 		Entries(&children).
 		ExcludeFieldData(true).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -212,7 +213,7 @@ func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) 
 	if len(children) == 0 {
 		return nil, nil
 	}
-	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+	return task.KeysFromResourceIDs(ontology.ResourceIDs(children))
 }
 
 // TaskUpdate holds the fields of an arc's task to change. A nil field stays as it is.
@@ -314,9 +315,9 @@ func (w Writer) writeTask(
 	if len(existing) == 0 {
 		if err := w.otgWriter.DefineRelationships(
 			ctx,
-			OntologyID(a.Key),
+			ResourceID(a.Key),
 			ontology.RelationshipTypeParentOf,
-			tsk.OntologyID(),
+			tsk.ResourceID(),
 		); err != nil {
 			return nil, err
 		}
@@ -367,7 +368,7 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
 		err := w.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
+			Where(status.MatchKeys[task.StatusDetails](task.ResourceID(taskKey).String())).
 			Entry(&stat).
 			Exec(ctx, w.tx)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {

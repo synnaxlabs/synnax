@@ -38,7 +38,7 @@ describe("use", () => {
       name: uniqueName("project"),
     });
     const original = await client.logs.create(proj.key, { name: uniqueName("log") });
-    const stream = await client.imex.export(log.ontologyID(original.key), {
+    const stream = await client.imex.export(log.resourceID(original.key), {
       encoding: "JSON",
     });
     const data = await new Response(stream).text();
@@ -51,10 +51,10 @@ describe("use", () => {
     picker.selectFiles([fakePickedFile("widget.json", data)]);
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: [project.ontologyID(proj.key)],
+        ids: [project.resourceID(proj.key)],
       });
       const logs = children.filter(
-        (child) => child.id.type === log.TYPE_ONTOLOGY_ID.type,
+        (child) => child.id.type === log.TYPE_RESOURCE_ID.type,
       );
       expect(logs).toHaveLength(2);
       expect(logs.map(({ name }) => name)).toEqual([original.name, original.name]);

@@ -31,7 +31,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });

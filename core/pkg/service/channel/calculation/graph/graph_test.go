@@ -83,7 +83,7 @@ func openGraph(ctx context.Context) *graph.Graph {
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
 	var statuses []calculation.Status
 	err := statusSvc.NewRetrieve[struct{}]().
-		Where(status.MatchKeys[struct{}](channel.OntologyID(key).String())).
+		Where(status.MatchKeys[struct{}](channel.ResourceID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
@@ -1084,7 +1084,7 @@ var _ = Describe("Graph", func() {
 				Expect(s.Variant).To(Equal(status.VariantError))
 				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
-				Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
+				Expect(s.Key).To(Equal(channel.ResourceID(calc.Key()).String()))
 				Expect(s.Name).To(Equal("st_detail"))
 			},
 		)
@@ -1108,7 +1108,7 @@ var _ = Describe("Graph", func() {
 				openGraph(ctx)
 				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
 				expectStatus(ctx, calc.Key())
-				id := status.OntologyID(calculation.StatusKey(calc.Key()))
+				id := status.ResourceID(calculation.StatusKey(calc.Key()))
 
 				By("The set defines the status resource")
 				var res []ontology.Resource
@@ -1141,7 +1141,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
 
 				eventuallyExpectNoStatus(ctx, calc.Key())
-				id := status.OntologyID(calculation.StatusKey(calc.Key()))
+				id := status.ResourceID(calculation.StatusKey(calc.Key()))
 				Eventually(func() error {
 					return otg.NewRetrieve().
 						WhereIDs(id).

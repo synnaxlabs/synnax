@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -30,8 +31,8 @@ import (
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
 var LabelsOntologyTraverser = ontology.Traverser{
-	Traverse: func(_ []ontology.ID) ontology.RawTraversal {
-		return func(data []byte, nextIDs *[]ontology.ID) error {
+	Traverse: func(_ []resource.ID) ontology.RawTraversal {
+		return func(data []byte, nextIDs *[]resource.ID) error {
 			raw, err := orc.NewRaw(data)
 			if err != nil {
 				return err
@@ -44,25 +45,25 @@ var LabelsOntologyTraverser = ontology.Traverser{
 	FilterPrefix: ontology.RelationshipPrefix(OntologyRelationshipTypeLabeledBy),
 }
 
-// OntologyID constructs a unique ontology.ID for the label with the given key.
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeLabel, Key: k.String()}
+// ResourceID constructs a unique resource.ID for the label with the given key.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeLabel, Key: k.String()}
 }
 
-// OntologyIDs constructs a slice of unique ontology.IDs for the labels with the given
+// ResourceIDs constructs a slice of unique resource.IDs for the labels with the given
 // keys.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
 }
 
-// OntologyIDsFromLabels constructs a slice of unique ontology.IDs for the given labels.
-func OntologyIDsFromLabels(labels []Label) []ontology.ID {
-	return lo.Map(labels, func(l Label, _ int) ontology.ID { return l.OntologyID() })
+// ResourceIDsFromLabels constructs a slice of unique resource.IDs for the given labels.
+func ResourceIDsFromLabels(labels []Label) []resource.ID {
+	return lo.Map(labels, func(l Label, _ int) resource.ID { return l.ResourceID() })
 }
 
-// KeysFromOntologyIDs extracts the label keys from the given ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+// KeysFromResourceIDs extracts the label keys from the given resource.IDs.
+func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id resource.ID, _ int) (Key, error) {
 		return uuid.Parse(id.Key)
 	})
 }
@@ -74,14 +75,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(l Label) ontology.Resource {
-	return ontology.NewResource(schema, l.OntologyID(), l.Name, l)
+	return ontology.NewResource(schema, l.ResourceID(), l.Name, l)
 }
 
 type change = xchange.Change[Key, Label]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLabel }
+func (s *Service) Type() resource.Type { return resource.TypeLabel }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -103,7 +104,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -122,7 +123,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

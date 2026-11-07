@@ -251,7 +251,7 @@ Log struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "log"
+    @resource type "log"
     @retrieve
 }
 

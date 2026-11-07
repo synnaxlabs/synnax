@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, ontology } from "@synnaxlabs/client";
+import { arc, type ontology, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -17,8 +17,8 @@ import { uuid } from "@synnaxlabs/x";
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateDirectoryProps {
-  parent: ontology.ID;
-  root: ontology.ID;
+  parent: resource.ID;
+  root: resource.ID;
   state: Tree.TreeState;
 }
 
@@ -36,14 +36,14 @@ export const useCreateDirectory = ({
       data,
       rollbacks,
     }: Flux.BeforeUpdateParams<Arc.Directory.CreateParams>) => {
-      const newID = arc.directory.ontologyID(uuid.create());
-      const newIDString = ontology.idToString(newID);
+      const newID = arc.directory.resourceID(uuid.create());
+      const newIDString = resource.idToString(newID);
       const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
       const node: PTree.Node<string> = { key: newIDString, children: [] };
       setResource(res);
-      const destination = ontology.idsEqual(parent, root)
+      const destination = resource.idsEqual(parent, root)
         ? null
-        : ontology.idToString(parent);
+        : resource.idToString(parent);
       if (destination != null) expand(destination);
       setNodes([...PTree.setNode({ tree, destination, additions: node })]);
       rollbacks.push(() =>

@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Group{}
@@ -22,7 +22,7 @@ func (g Group) GorpKey() Key { return g.Key }
 // SetOptions implements gorp.Entry.
 func (Group) SetOptions() []any { return nil }
 
-// OntologyID returns the ontology.ID for the group.
-func (g Group) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeGroup, Key: g.Key.String()}
+// ResourceID returns the resource.ID for the group.
+func (g Group) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}
 }

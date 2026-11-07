@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions/v0"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -34,8 +34,8 @@ var _ = Describe("Password", func() {
 	})
 	It("Should validate its subject", func() {
 		Expect(v0.Password{}.Validate()).To(MatchError(ContainSubstring("subject")))
-		Expect(v0.Password{Subject: ontology.ID{
-			Type: ontology.ResourceTypeUser,
+		Expect(v0.Password{Subject: resource.ID{
+			Type: resource.TypeUser,
 			Key:  uuid.New().String(),
 		}}.Validate()).To(Succeed())
 	})
@@ -84,7 +84,7 @@ var _ = Describe("NewMove", func() {
 			Expect(run(ctx)).To(Succeed())
 			ps := passwords(ctx)
 			Expect(ps).To(HaveLen(1))
-			Expect(ps[0].Subject).To(Equal(alice.OntologyID()))
+			Expect(ps[0].Subject).To(Equal(alice.ResourceID()))
 			Expect(ps[0].Username).To(Equal("alice"))
 			Expect(ps[0].Hash).To(Equal([]byte("hash")))
 			Expect(ps[0].Created).ToNot(BeZero())

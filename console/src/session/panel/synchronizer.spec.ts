@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, project, query } from "@synnaxlabs/client";
+import { panel, project, query, type resource } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
@@ -27,7 +27,7 @@ const client = createTestClient();
 
 // Panel creation requires a parent; panels whose project is irrelevant to the
 // test at hand share this one.
-let defaultParent: ontology.ID;
+let defaultParent: resource.ID;
 
 beforeAll(async () => {
   await client.connect();
@@ -183,7 +183,7 @@ const createProjectPanel = async (
   await client.panels.create({
     key,
     name,
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
     root: leaf(uuid.create()),
   });
 
@@ -271,8 +271,8 @@ describe("reconcile panel order and selection", () => {
       await client.panels.delete(pan.key);
       // The racing repair retrieve resolves after the delete; give every
       // in-flight repair a full round-trip to land before judging.
-      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
-      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
+      await client.panels.retrieve({ parent: project.resourceID(proj.key) });
+      await client.panels.retrieve({ parent: project.resourceID(proj.key) });
     });
     await waitFor(() => {
       expect(violations).toEqual([]);

@@ -84,7 +84,7 @@ export const renderLog = async (
   await loadLog(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    clientLog.ontologyID(created.key),
+    clientLog.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // The toolbar suspends on channel fetches; a tree that suspends inside a sync

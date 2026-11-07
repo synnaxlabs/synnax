@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -278,11 +279,11 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	s.owner = cfg.Ontology.Own(ontology.Ownership{
-		Children: []ontology.ResourceType{
-			ontology.ResourceTypeArc,
-			ontology.ResourceTypeArcDirectory,
+		Children: []resource.Type{
+			resource.TypeArc,
+			resource.TypeArcDirectory,
 		},
-		Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
+		Parents: []resource.Type{resource.TypeArcDirectory},
 	})
 	if s.directories, err = openDirectories(ctx, cfg); !ok(err, s.directories.table) {
 		return nil, err
@@ -296,7 +297,7 @@ func OpenService(
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Ontology: cfg.Ontology,
 			Owner:    s.owner,
-			Root:     directory.OntologyID(s.root),
+			Root:     directory.ResourceID(s.root),
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

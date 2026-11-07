@@ -9,18 +9,18 @@
 
 from synnax.log.client import Client
 from synnax.log.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     ChannelEntry,
     Key,
     Log,
     TimestampConfig,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "ChannelEntry",
     "Client",
     "Key",
@@ -28,5 +28,5 @@ __all__ = [
     "TimestampConfig",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]
