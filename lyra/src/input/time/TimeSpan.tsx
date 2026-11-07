@@ -38,6 +38,8 @@ export interface TimeSpanProps
   resolution?: XTimeSpan;
   /** The unit of a number typed alone. Defaults to seconds. */
   unit?: XTimeSpan;
+  /** The step the value rounds to when shown or compared. Defaults to 1µs. */
+  precision?: XTimeSpan;
   /** What the input says while it has no value. */
   placeholder?: string;
 }
@@ -69,6 +71,7 @@ export const TimeSpan = ({
   elapsedSince,
   resolution,
   unit = XTimeSpan.SECOND,
+  precision = XTimeSpan.MICROSECOND,
   placeholder,
   className,
   tooltip,
@@ -76,7 +79,7 @@ export const TimeSpan = ({
 }: TimeSpanProps): ReactElement => {
   const elapsed = useElapsed(elapsedSince);
 
-  const exact = value == null ? null : new XTimeSpan(roundNumeric(value));
+  const exact = value == null ? null : new XTimeSpan(roundNumeric(value, precision));
   const formatted = exact == null ? "" : formatTimeSpan(exact);
   const shown =
     exact == null || resolution == null
@@ -95,7 +98,7 @@ export const TimeSpan = ({
     if (
       elapsedSince != null ||
       value == null ||
-      roundNumeric(next) !== roundNumeric(value)
+      roundNumeric(next, precision) !== roundNumeric(value, precision)
     )
       onChange(next);
   };

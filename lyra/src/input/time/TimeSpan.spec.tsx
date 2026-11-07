@@ -40,6 +40,38 @@ describe("Input.TimeSpan", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe("precision", () => {
+    const field = (): HTMLInputElement => screen.getByRole<HTMLInputElement>("textbox");
+    const CYCLE = 62_500;
+
+    it("should show and commit a value to the nanosecond", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.TimeSpan
+          inline
+          precision={TimeSpan.NANOSECOND}
+          value={CYCLE}
+          onChange={onChange}
+        />,
+      );
+      expect(field().value).toBe("62μs 500ns");
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "62.6us" } });
+      fireEvent.blur(field());
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(62_600);
+    });
+
+    it("should round a value to the microsecond by default", () => {
+      const onChange = vi.fn();
+      render(<Input.TimeSpan inline value={CYCLE} onChange={onChange} />);
+      expect(field().value).toBe("63μs");
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "62.6us" } });
+      fireEvent.blur(field());
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
   it("should advance an elapsed readout every second", () => {
     // A float64 holds the nanoseconds of a whole second exactly.
     vi.useFakeTimers({ now: new Date(2026, 0, 1, 12) });
