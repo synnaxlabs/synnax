@@ -18,6 +18,8 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/binary/binary.h"
+
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/slave/slave.h"
@@ -65,24 +67,6 @@ namespace {
 /// @brief converts a span to the microseconds that SOEM timeouts take.
 int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
-}
-
-/// @brief returns the little-endian bytes of value.
-template<typename T>
-std::vector<uint8_t> little_endian(const T value) {
-    std::vector<uint8_t> bytes(sizeof(T));
-    for (size_t i = 0; i < sizeof(T); ++i)
-        bytes[i] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * i));
-    return bytes;
-}
-
-/// @brief returns the value of little-endian bytes.
-template<typename T, size_t N>
-T from_little_endian(const std::array<uint8_t, N> &bytes) {
-    uint64_t value = 0;
-    for (size_t i = 0; i < N; ++i)
-        value |= static_cast<uint64_t>(bytes[i]) << (8 * i);
-    return static_cast<T>(value);
 }
 }
 
@@ -1053,12 +1037,16 @@ bool Master::scan_object_dictionary_for_pdos(
     return found_any;
 }
 
-x::errors::Error Master::write_dc_register(
-    const uint16_t pos,
-    const uint16_t address,
-    std::vector<uint8_t> data
-) {
-    if (this->api->write_register(pos, address, std::move(data), EC_TIMEOUTRET) == 1)
+template<std::integral T>
+x::errors::Error
+Master::write_dc_register(const uint16_t pos, const uint16_t address, const T value) {
+    const auto bytes = x::binary::to_little_endian(value);
+    if (this->api->write_register(
+            pos,
+            address,
+            {bytes.begin(), bytes.end()},
+            EC_TIMEOUTRET
+        ) == 1)
         return x::errors::NIL;
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
@@ -1071,22 +1059,24 @@ x::errors::Error Master::write_dc_register(
     );
 }
 
-x::errors::Error Master::read_dc_register(
-    const uint16_t pos,
-    const uint16_t address,
-    const std::span<uint8_t> data
-) {
-    if (this->api->read_register(pos, address, data, EC_TIMEOUTRET) == 1)
-        return x::errors::NIL;
-    return x::errors::Error(
-        errors::ACTIVATION_ERROR,
-        std::format(
-            "slave {} ({}) did not answer a read of DC register 0x{:04X}",
-            pos,
-            this->api->slave_name(pos),
-            address
+template<std::integral T>
+std::pair<T, x::errors::Error>
+Master::read_dc_register(const uint16_t pos, const uint16_t address) {
+    std::array<uint8_t, sizeof(T)> bytes{};
+    if (this->api->read_register(pos, address, bytes, EC_TIMEOUTRET) == 1)
+        return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
+    return {
+        0,
+        x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            std::format(
+                "slave {} ({}) did not answer a read of DC register 0x{:04X}",
+                pos,
+                this->api->slave_name(pos),
+                address
+            )
         )
-    );
+    };
 }
 
 x::errors::Error Master::clear_dc_activation() {
@@ -1098,7 +1088,7 @@ x::errors::Error Master::clear_dc_activation() {
         // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
         // writes to 0x0981.
         for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
-            if (const auto err = this->write_dc_register(pos, address, {0})) {
+            if (const auto err = this->write_dc_register<uint8_t>(pos, address, 0)) {
                 if (!failed.empty()) failed += "; ";
                 failed += err.data;
                 break;
@@ -1153,13 +1143,13 @@ x::errors::Error Master::wait_for_dc_settle() {
         x::telem::TimeSpan worst(0);
         for (const auto &setup: this->dc_setups) {
             const auto pos = setup.position;
-            std::array<uint8_t, 4> raw{};
-            if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSDIFF, raw))
-                return err;
-            // Bit 31 is the sign. The rest is the difference in nanoseconds.
-            const x::telem::TimeSpan diff(
-                from_little_endian<uint32_t>(raw) & 0x7FFFFFFF
+            const auto [raw, err] = this->read_dc_register<uint32_t>(
+                pos,
+                ECT_REG_DCSYSDIFF
             );
+            if (err) return err;
+            // Bit 31 is the sign. The rest is the difference in nanoseconds.
+            const x::telem::TimeSpan diff(raw & 0x7FFFFFFF);
             if (diff > worst) {
                 worst = diff;
                 worst_pos = pos;
@@ -1189,39 +1179,28 @@ x::errors::Error Master::start_dc() {
     for (const auto &[pos, regs]: this->dc_setups) {
         const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
         const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, {cuc})) return err;
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, cuc)) return err;
         // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
         if ((cuc & 0x01) != 0) continue;
-        std::array<uint8_t, 8> raw{};
-        if (auto err = this->read_dc_register(pos, ECT_REG_DCSYSTIME, raw)) return err;
+        const auto [time, time_err] = this->read_dc_register<int64_t>(
+            pos,
+            ECT_REG_DCSYSTIME
+        );
+        if (time_err) return time_err;
         const int64_t cycle = regs.sync0_cycle;
         const int64_t shift = regs.sync0_shift;
-        const int64_t ahead = from_little_endian<int64_t>(raw) +
-                              DC_START_DELAY.nanoseconds();
+        const int64_t ahead = time + DC_START_DELAY.nanoseconds();
         // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the
         // cycle lock uses. The first one is at least DC_START_DELAY away.
         int64_t start = ahead;
         if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCCYCLE0,
-                little_endian(regs.sync0_cycle)
-            ))
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE0, regs.sync0_cycle))
             return err;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCCYCLE1,
-                little_endian(regs.sync1_cycle)
-            ))
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE1, regs.sync1_cycle))
             return err;
-        if (auto err = this->write_dc_register(
-                pos,
-                ECT_REG_DCSTART0,
-                little_endian(start)
-            ))
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCSTART0, start))
             return err;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, {act}))
-            return err;
+        if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, act)) return err;
         LOG(INFO) << std::format(
             "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
             "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
