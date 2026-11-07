@@ -97,8 +97,8 @@ public:
     activate(x::telem::TimeSpan period, const std::function<void()> &start_cycle) = 0;
 
     /// @brief returns why each slave refused a state in the last activate(), keyed by
-    /// position. Empty when no slave refused, or when every enabled slave refused, as
-    /// the bus cannot start without all of them.
+    /// position. Empty when no slave refused, or when every enabled slave with process
+    /// data refused, as the bus then has nothing to run.
     [[nodiscard]] virtual std::map<uint16_t, slave::Refusal> refusals() const = 0;
 
     /// @brief returns whether a slave that kept the last activate() from finishing

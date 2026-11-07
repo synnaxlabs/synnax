@@ -120,8 +120,8 @@ yet.
 - **A module that refuses to start** -> With the built-in master, the network starts
   without a module that refuses SAFE-OP or OP. The device status of the module shows
   why, and a task that uses the module does not start. The other tasks start. The Driver
-  tries the module again the next time the network starts. If every module refuses, or a
-  module does not reach OP in time, no task on the port starts.
+  tries the module again the next time the network starts. If every module with inputs
+  or outputs refuses, or a module does not reach OP in time, no task on the port starts.
 - **DC sync** -> The Driver runs a module in SM sync when the module lists an SM sync
   mode. With the built-in master, it runs a module that lists only DC sync modes in DC
   sync, and starts SYNC0 and SYNC1 before the module goes to SAFE-OP. A module that is

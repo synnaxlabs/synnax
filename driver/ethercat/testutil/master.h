@@ -341,16 +341,17 @@ public:
                 "failed to reach OP: no process data"
             );
         std::map<uint16_t, slave::Refusal> refused;
-        size_t on_bus = 0;
+        bool io_left = false;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
-            on_bus++;
             if (const auto it = this->refusing.find(pos); it != this->refusing.end())
                 refused.insert(*it);
+            else
+                io_left |= slave.properties.pdo_count() > 0;
         }
         if (!refused.empty()) {
-            if (refused.size() < on_bus) this->start_refusals = refused;
+            if (io_left) this->start_refusals = refused;
             this->start_dc_sync_refused = std::ranges::any_of(
                 refused | std::views::values,
                 &slave::Refusal::dc_sync_invalid
