@@ -423,12 +423,11 @@ BO_TX_BU_ 256 : Ecu,Gateway;
 	)
 
 	It("Should return an *Error that names where parsing failed", func() {
-		_, err := dbc.Parse([]byte("VERSION 1"))
-		var perr *dbc.Error
-		Expect(err).To(BeAssignableToTypeOf(perr))
-		perr = err.(*dbc.Error)
-		Expect(perr.Pos.Line).To(Equal(1))
-		Expect(perr.Pos.Column).To(Equal(9))
-		Expect(perr.Reason).To(Equal("expected a string"))
+		Expect(dbc.Parse([]byte("VERSION 1"))).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(&dbc.Error{}),
+			HaveField("Pos.Line", 1),
+			HaveField("Pos.Column", 9),
+			HaveField("Reason", "expected a string"),
+		))
 	})
 })
