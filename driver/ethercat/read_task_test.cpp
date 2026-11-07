@@ -862,6 +862,41 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
     );
 }
 
+/// @brief it should fail to start, naming the network, when the Driver cannot read the
+/// slave settings from the Core.
+TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
+    auto client_cfg = test_client_config();
+    client_cfg.password = "not-the-password";
+    auto unauthorized = std::make_shared<synnax::Synnax>(client_cfg);
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), std::move(unauthorized), this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    const auto &status = this->ctx->statuses.back();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(
+        status.description,
+        "The Driver could not read the slave settings for eth0 from the Core: invalid "
+        "credentials: auth error"
+    );
+}
+
 /// @brief it should fail to start, naming both devices, when two devices at one
 /// position have different settings, and start once their settings match.
 TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {

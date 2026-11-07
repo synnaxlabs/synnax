@@ -88,7 +88,15 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             .rack = rack,
         }
     );
-    if (dev_err) return {{}, dev_err};
+    if (dev_err)
+        return {
+            {},
+            x::errors::Error(
+                dev_err,
+                "The Driver could not read the slave settings for " + network +
+                    " from the Core: " + dev_err.data
+            )
+        };
     std::map<uint16_t, slave::Config> configs;
     std::map<uint16_t, std::string> labels;
     for (const auto &dev: devices) {
