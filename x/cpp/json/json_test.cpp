@@ -1197,6 +1197,34 @@ TEST(testConfig, testMapWithInvalidNumericKey) {
     EXPECT_EQ(err["message"], "Invalid numeric key: 'not_a_number'");
 }
 
+/// @brief it should reject a map key above the range of its integer type.
+TEST(testConfig, testMapRejectsAKeyAboveItsIntegerRange) {
+    Parser parser(json{{"slaves", {{"65536", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(slaves.empty());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "slaves.65536");
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should reject a negative map key for an unsigned key type.
+TEST(testConfig, testMapRejectsANegativeKeyForAnUnsignedType) {
+    Parser parser(json{{"slaves", {{"-1", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(slaves.empty());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["message"], "must be between 0 and 65535");
+}
+
+/// @brief it should accept a map key at the limit of its integer type.
+TEST(testConfig, testMapAcceptsAKeyAtItsIntegerLimit) {
+    Parser parser(json{{"slaves", {{"65535", "drive"}}}});
+    const auto slaves = parser.field<std::map<uint16_t, std::string>>("slaves");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves.at(65535), "drive");
+}
+
 /// @brief it should parse maps with numeric keys and complex values.
 TEST(testConfig, testMapWithNumericKeysAndComplexValues) {
     const json j = {
