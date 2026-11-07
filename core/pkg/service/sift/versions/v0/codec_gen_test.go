@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -47,6 +48,43 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("StreamConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.StreamConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.StreamConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.StreamConfig{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
+				Device:    "test_3",
+				Asset:     "test_4",
+				Channels:  []channel.Key{channel.Key(6)},
+				Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
+			}),
+			Entry("zero values", v0.StreamConfig{
+				Key:       uuid.Nil(),
+				AutoStart: false,
+				Device:    "",
+				Asset:     "",
+				Channels:  []channel.Key{},
+				Labels:    []uuid.UUID{},
+			}),
+			Entry("empty collections", v0.StreamConfig{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
+				Device:    "test_3",
+				Asset:     "test_4",
+				Channels:  []channel.Key{},
+				Labels:    []uuid.UUID{},
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
@@ -63,6 +101,30 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.ScanConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStreamConfig(b *testing.B) {
+	seed := v0.StreamConfig{
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart: false,
+		Device:    "test_3",
+		Asset:     "test_4",
+		Channels:  []channel.Key{channel.Key(6)},
+		Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.StreamConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -107,6 +169,74 @@ func FuzzDecodeScanConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.ScanConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStreamConfig(f *testing.F) {
+	{
+		seed := v0.StreamConfig{
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
+			Device:    "test_3",
+			Asset:     "test_4",
+			Channels:  []channel.Key{channel.Key(6)},
+			Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamConfig{
+			Key:       uuid.Nil(),
+			AutoStart: false,
+			Device:    "",
+			Asset:     "",
+			Channels:  []channel.Key{},
+			Labels:    []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamConfig{
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
+			Device:    "test_3",
+			Asset:     "test_4",
+			Channels:  []channel.Key{},
+			Labels:    []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.StreamConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.StreamConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

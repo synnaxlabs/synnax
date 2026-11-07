@@ -43,3 +43,23 @@ func decodeScanConfig(
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("sift.ScanConfig", version, Latest)
 }
+
+// StreamConfigLadder decodes StreamConfig bodies stamped at any exported version and
+// migrates them to the current shape.
+var StreamConfigLadder = imex.Ladder[StreamConfig]{
+	First:  v0.Version,
+	Latest: Latest,
+	Decode: decodeStreamConfig,
+}
+
+func decodeStreamConfig(
+	ctx context.Context,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (StreamConfig, error) {
+	switch version {
+	case v0.Version:
+		return imex.DecodeBlob[StreamConfig](data, "sift.StreamConfig", version)
+	}
+	return StreamConfig{}, imex.NewErrUnsupportedVersion("sift.StreamConfig", version, Latest)
+}

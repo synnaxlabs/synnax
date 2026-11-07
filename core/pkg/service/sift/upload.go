@@ -318,7 +318,7 @@ func (u *uploader) finish(
 	default:
 		s.Variant = status.VariantSuccess
 		s.Message = "Uploaded to Sift"
-		s.Description = progress(s.Details)
+		s.Description = uploadProgress(s.Details)
 	}
 	u.write(ctx, up, s)
 }
@@ -350,17 +350,18 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	uploading := func() {
 		s.Variant = status.VariantLoading
 		s.Message = "Uploading to Sift"
-		s.Description = progress(*d)
+		s.Description = uploadProgress(*d)
 	}
 	uploading()
 	u.write(ctx, up, s)
 	e, err := ingest.New(ctx, ingest.Config{
-		Instrumentation: u.cfg.Child("upload"),
-		Framer:          u.cfg.Framer,
-		Channel:         u.cfg.Channel,
-		Conn:            conn,
-		Asset:           d.Asset,
-		Keys:            d.Channels,
+		Instrumentation:    u.cfg.Child("upload"),
+		Framer:             u.cfg.Framer,
+		Channel:            u.cfg.Channel,
+		Conn:               conn,
+		Asset:              d.Asset,
+		Keys:               d.Channels,
+		CheckpointInterval: u.cfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
 			d.Positions = toPositions(cp.Positions)
 			d.Samples += cp.Samples
@@ -381,10 +382,15 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
+	tags, err := rangeTags(ctx, u.cfg.Label, d.Range)
+	if err != nil {
+		return err
+	}
 	_, err = e.SetRun(ctx, ingest.Run{
 		Key:       d.Range.String(),
 		Name:      s.Name,
 		TimeRange: d.TimeRange,
+		Tags:      tags,
 	})
 	return err
 }
@@ -406,7 +412,7 @@ func (u *uploader) write(ctx context.Context, up *upload, s *UploadStatus) {
 	}
 }
 
-func progress(d UploadDetails) string {
+func uploadProgress(d UploadDetails) string {
 	return fmt.Sprintf("Sent %d samples to asset %s.", d.Samples, d.Asset)
 }
 

@@ -880,6 +880,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ranger:          l.Ranger,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
+		Label:           l.Label,
 	})
 	if !ok(err, nil) {
 		return nil, err

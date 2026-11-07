@@ -51,7 +51,9 @@ func (c ServiceConfig) Validate() error {
 // Service stores the configuration records of Sift tasks.
 type Service struct {
 	// Scan stores sift_scan task configuration records.
-	Scan   *config.Service[ScanConfig]
+	Scan *config.Service[ScanConfig]
+	// Stream stores sift_stream task configuration records.
+	Stream *config.Service[StreamConfig]
 	closer xio.MultiCloser
 }
 
@@ -76,6 +78,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Scan) {
 		return nil, err
 	}
+	if s.Stream, err = config.OpenService(
+		ctx, config.ServiceConfig[StreamConfig]{
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            StreamTaskType,
+			Ladder:          versions.StreamConfigLadder,
+			SetEntryKey:     (*StreamConfig).SetKey,
+		},
+	); !ok(err, s.Stream) {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -84,4 +97,4 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // Stores returns the config stores the service owns, for registry assembly.
-func (s *Service) Stores() []config.Store { return []config.Store{s.Scan} }
+func (s *Service) Stores() []config.Store { return []config.Store{s.Scan, s.Stream} }

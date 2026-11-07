@@ -11,7 +11,12 @@
 
 package v0
 
-import task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+)
 
 // ScanConfig configures a Sift scan task.
 type ScanConfig struct {
@@ -21,4 +26,18 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// StreamConfig configures a task that streams live data to Sift.
+type StreamConfig struct {
+	task.StartConfig
+	// Device is the key of the Sift device the task sends to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Asset is the name of the Sift asset that receives the data.
+	Asset string `json:"asset" msgpack:"asset"`
+	// Channels are the channels the task sends.
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	// Labels are the labels that make a range a Sift run. A range with any of them
+	// becomes a run once Sift has its data. Empty makes no runs.
+	Labels []label.Key `json:"labels" msgpack:"labels"`
 }

@@ -12,3 +12,7 @@ package v0
 // CustomTypeName gives ScanConfig records a table prefix that cannot collide with the
 // identically named config types of other integrations.
 func (ScanConfig) CustomTypeName() string { return "sift_scan_config" }
+
+// CustomTypeName gives StreamConfig records a table prefix that cannot collide with
+// the identically named config types of other integrations.
+func (StreamConfig) CustomTypeName() string { return "sift_stream_config" }
