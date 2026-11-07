@@ -89,6 +89,9 @@ class TestGhAPI:
             "could not create workflow dispatch event: HTTP 502 (https://x/dispatches)",
             'Post "https://x": dial tcp: lookup api.github.com: no such host',
             "read tcp 10.0.0.1:443: read: connection reset by peer",
+            'Post "https://x": dial tcp 140.82.112.6:443: i/o timeout',
+            'Post "https://x": net/http: TLS handshake timeout',
+            'Post "https://x": unexpected EOF',
         ],
     )
     def test_retries_a_server_or_network_error(self, gh: FakeGH, error: str) -> None:
@@ -100,9 +103,15 @@ class TestGhAPI:
         assert error not in result.stderr
         assert len(gh.calls()) == 2
 
-    def test_fails_a_rejected_dispatch_at_once(self, gh: FakeGH) -> None:
-        """Should not retry a 422, such as a workflow with no dispatch trigger."""
-        error = "gh: Workflow does not have 'workflow_dispatch' trigger (HTTP 422)"
+    @pytest.mark.parametrize(
+        "error",
+        [
+            "gh: Workflow does not have 'workflow_dispatch' trigger (HTTP 422)",
+            "gh: Validation Failed (HTTP 422): input is over 500 characters",
+        ],
+    )
+    def test_fails_a_client_error_at_once(self, gh: FakeGH, error: str) -> None:
+        """Should not retry a 4xx, even one whose text holds 500."""
         gh.serve("api */dispatches")
         gh.fail("api */dispatches", error)
         result = run(gh, "repos/a/b/actions/workflows/c.yaml/dispatches", "-X", "POST")

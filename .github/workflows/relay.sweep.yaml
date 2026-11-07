@@ -70,6 +70,7 @@ jobs:
       - name: Start the workflows
         env:
           PRS: ${{ steps.prs.outputs.prs }}
+          # A `schedule` payload includes `repository`, so this is the default branch.
           REF: ${{ github.event.repository.default_branch }}
         run: |
           dispatch() {
