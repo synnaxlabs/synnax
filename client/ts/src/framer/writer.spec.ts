@@ -14,7 +14,6 @@ import { describe, expect, it, test } from "vitest";
 import { channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import { WriterCommand } from "@/framer/types.gen";
 import { NotFoundError } from "@/index";
 import {
   createTestClient,
@@ -386,7 +385,7 @@ describe("Writer", () => {
           receive: async () => {
             if (state.ended || state.queued || state.sendClosed) throw new EOF();
             return {
-              command: WriterCommand.Open,
+              command: framer.WriterCommand.Open,
               end: TimeStamp.ZERO,
               authorized: true,
             };
