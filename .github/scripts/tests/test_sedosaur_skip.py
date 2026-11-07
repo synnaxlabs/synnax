@@ -15,7 +15,6 @@ import pytest
 from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "sedosaur_skip.sh"
-REQUESTED = "2026-11-07T20:07:38Z"
 BEFORE = "2026-11-07T20:07:30Z"
 AFTER = "2026-11-07T20:09:05Z"
 
@@ -37,8 +36,7 @@ def review(
 
 
 class Harness:
-    """A fake gh serving the run that asks for the review and the check runs of the
-    head."""
+    """A fake gh serving the check runs of the head."""
 
     def __init__(self, path: Path) -> None:
         self.gh = FakeGH(path)
@@ -46,14 +44,12 @@ class Harness:
             **os.environ,
             "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
-            "GITHUB_RUN_ID": "9",
             "HEAD_SHA": "head",
             "KEY": "7:main",
             "FORK": "false",
             "REPEAT": "false",
             "REPLAY": "false",
         }
-        self.gh.serve("api */actions/runs/9", {"run_started_at": REQUESTED})
         self.reviews()
 
     def reviews(self, *runs: dict[str, object]) -> None:
@@ -118,29 +114,12 @@ class TestRequest:
 
 
 class TestRepeat:
-    def test_should_skip_when_the_last_review_began_after_the_request(
+    def test_should_review_a_repeat_without_reading_the_reviews(
         self, harness: Harness
     ) -> None:
         harness.reviews(review(AFTER))
-        assert harness.run(REPEAT="true")
-
-    def test_should_review_when_the_last_review_began_before_the_request(
-        self, harness: Harness
-    ) -> None:
-        harness.reviews(review(BEFORE))
         assert not harness.run(REPEAT="true")
-
-    def test_should_review_when_the_last_review_began_at_the_request(
-        self, harness: Harness
-    ) -> None:
-        harness.reviews(review(REQUESTED))
-        assert not harness.run(REPEAT="true")
-
-    def test_should_review_when_the_review_after_the_request_failed(
-        self, harness: Harness
-    ) -> None:
-        harness.reviews(review(AFTER, "failure"))
-        assert not harness.run(REPEAT="true")
+        assert harness.gh.calls() == []
 
 
 class TestFork:
@@ -154,5 +133,5 @@ class TestFork:
 class TestReplay:
     def test_should_review_a_replay_of_a_reviewed_head(self, harness: Harness) -> None:
         harness.reviews(review(AFTER))
-        assert not harness.run(REPLAY="true", REPEAT="true")
+        assert not harness.run(REPLAY="true")
         assert harness.gh.calls() == []
