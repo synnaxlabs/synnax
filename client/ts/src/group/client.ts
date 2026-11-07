@@ -192,8 +192,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
-   * Retrieves every group on the parent chain above the groups, each once. The chain
-   * stops at a project or rack, which the topmost group names as its parent.
+   * Retrieves every group above the groups that is not one of them, each once. The
+   * chain stops at a project or rack, which the topmost group names as its parent.
    */
   async retrieveAncestors(keys: Key | Key[]): Promise<Group[]> {
     const since = this.store.stamp();
@@ -208,23 +208,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
-   * Returns the cached groups on the parent chain above the groups, each once, or
+   * Returns every cached group above the groups that is not one of them, each once, or
    * undefined when a group on the chain is not cached.
    */
   getCachedAncestors(keys: Key | Key[]): Group[] | undefined {
-    const ancestors = new Map<Key, Group>();
-    for (const key of array.toArray(keys)) {
+    const starts = array.toArray(keys);
+    const visited = new Set<string>(starts);
+    const ancestors: Group[] = [];
+    for (const key of starts) {
       const start = this.store.get(key);
       if (start == null) return undefined;
       let parent = start.parent;
-      while (parent?.type === "group" && !ancestors.has(parent.key)) {
+      while (parent?.type === "group" && !visited.has(parent.key)) {
         const g = this.store.get(parent.key);
         if (g == null) return undefined;
-        ancestors.set(g.key, g);
+        visited.add(g.key);
+        ancestors.push(g);
         parent = g.parent;
       }
     }
-    return [...ancestors.values()];
+    return ancestors;
   }
 
   /**
