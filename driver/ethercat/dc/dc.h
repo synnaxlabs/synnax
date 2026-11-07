@@ -80,6 +80,10 @@ constexpr uint16_t SYNC0_ACTIVE = 0x0200;
 constexpr uint16_t SYNC1_ACTIVE = 0x0400;
 /// @brief the largest time a 32-bit DC register holds.
 const x::telem::TimeSpan REGISTER_LIMIT(std::numeric_limits<uint32_t>::max());
+/// @brief the shortest SYNC0 cycle whose events mark when a slave takes or applies
+/// process data, the period of the fastest bus rate. A faster SYNC0 clocks hardware in
+/// the slave, such as an ADC.
+const x::telem::TimeSpan MIN_EVENT_CYCLE = x::telem::MICROSECOND * 100;
 
 /// @brief values for the DC registers of a slave at one bus cycle.
 struct Registers {
@@ -94,7 +98,19 @@ struct Registers {
     int32_t sync0_shift = 0;
 
     bool operator==(const Registers &) const = default;
+
+    /// @brief true when the SYNC0 events mark when the slave takes or applies process
+    /// data: SYNC0 runs with a cycle of MIN_EVENT_CYCLE or more.
+    [[nodiscard]] bool marks_data() const {
+        return x::telem::TimeSpan(this->sync0_cycle) >= MIN_EVENT_CYCLE;
+    }
 };
+
+/// @brief returns the largest span in nanoseconds that divides each cycle a whole
+/// number of times and divides the period within a nanosecond. SYNC0 events with these
+/// cycles fall at the same phases in each span. Requires at least one cycle, and each
+/// cycle must be positive.
+double grid(x::telem::TimeSpan period, const std::vector<x::telem::TimeSpan> &cycles);
 
 /// @brief returns the mode a slave runs in when no mode is chosen for it: its first DC
 /// mode, or nullopt when it lists an SM mode or no mode.

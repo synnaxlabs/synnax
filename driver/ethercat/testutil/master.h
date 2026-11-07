@@ -37,6 +37,7 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
+    std::vector<dc::Registers> syncs;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
     /// nullopt when it does not follow the host clock.
     std::optional<double> host_dc_rate;
@@ -375,6 +376,17 @@ public:
         std::lock_guard lock(this->mu);
         this->host_dc_rate = rate;
         this->host_dc_start.reset();
+    }
+
+    /// @brief sets the value dc_sync() returns.
+    void set_dc_sync(const std::vector<dc::Registers> &syncs) {
+        std::lock_guard lock(this->mu);
+        this->syncs = syncs;
+    }
+
+    std::vector<dc::Registers> dc_sync() const override {
+        std::lock_guard lock(this->mu);
+        return this->syncs;
     }
 
     /// @brief gives the bus a distributed clock that advances by step at each

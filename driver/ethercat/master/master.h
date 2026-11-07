@@ -21,6 +21,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 
@@ -78,6 +79,10 @@ public:
     /// NIL, or errors::WORKING_COUNTER_ERROR while the slaves move to OP. After that, a
     /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
+
+    /// @brief returns the DC registers of each enabled slave whose SYNC0 events the
+    /// master starts. Valid from the start_cycle call of activate() until deactivate().
+    [[nodiscard]] virtual std::vector<dc::Registers> dc_sync() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;
