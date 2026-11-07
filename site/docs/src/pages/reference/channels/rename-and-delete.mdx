@@ -111,9 +111,10 @@ client.channels.delete("tank_pressure")
 client.channels.delete(["tank_pressure", "tank_temperature"])
 ```
 
-A [pattern](/reference/channels/find#by-pattern) deletes every channel that it matches.
-`delete("tank_.*")` deletes all channels whose names start with `tank_`. `delete` raises
-no error when a channel does not exist, so you can call it again.
+A name matches exactly. To delete the channels that a
+[pattern](/reference/channels/find#by-pattern) matches, retrieve them first and delete
+their keys. `delete` raises no error when a channel does not exist, so you can call it
+again.
 
   </Fragment>
 
@@ -129,9 +130,10 @@ await client.channels.delete("tank_pressure");
 await client.channels.delete(["tank_pressure", "tank_temperature"]);
 ```
 
-A [pattern](/reference/channels/find#by-pattern) deletes every channel that it matches.
-`delete("tank_.*")` deletes all channels whose names start with `tank_`. `delete` throws
-no error when a channel does not exist, so you can call it again.
+A name matches exactly. To delete the channels that a
+[pattern](/reference/channels/find#by-pattern) matches, retrieve them first and delete
+their keys. `delete` throws no error when a channel does not exist, so you can call it
+again.
 
   </Fragment>
 

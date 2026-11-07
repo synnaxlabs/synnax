@@ -7,30 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
-
 from synnax import task
+from synnax.arc.task.types_gen import Config, Performance
 
 _TASK_TYPE = "arc"
 
-Performance = Literal["auto", "low", "medium", "high"]
 
-
-class TaskConfig(BaseModel):
-    """Configuration for an Arc task."""
-
-    arc_key: str
-    """The key of the Arc program to execute (UUID as string)."""
-    auto_start: bool = False
-    """Whether to start the task automatically when created."""
-    performance: Performance = "auto"
-    """How closely the task holds its timing deadlines. A higher level uses more CPU."""
-
-
-class Task(task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Protocol):
+class Task(task.StarterStopperMixin, task.JSONConfigMixin[Config], task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
     TYPE = _TASK_TYPE
@@ -55,11 +40,11 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Prot
         """
         if internal is not None:
             self._internal = internal
-            self.config = TaskConfig.model_validate(internal.config)
+            self.config = Config.model_validate(internal.config)
             return
         if arc_key is None:
             raise ValueError("arc_key is required when creating a new Arc task")
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = TaskConfig(
-            arc_key=str(arc_key), auto_start=auto_start, performance=performance
+        self.config = Config(
+            arc_key=UUID(str(arc_key)), auto_start=auto_start, performance=performance
         )

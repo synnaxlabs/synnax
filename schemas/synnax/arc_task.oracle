@@ -11,6 +11,7 @@ import "schemas/synnax/arc"
 import "schemas/synnax/task"
 
 @go output "core/pkg/service/arc/task"
+@py output "client/py/synnax/arc/task"
 @ts output "client/ts/src/arc/task"
 
 Performance enum {

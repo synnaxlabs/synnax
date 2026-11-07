@@ -1488,6 +1488,79 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should write a zero default that overrides an inherited default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Parent struct { rate float64 = 0.2 }
+			Child struct extends Parent { rate float64 = 0 }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n" +
+					"\tc.Rate = 0\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set the defaults of a required field typed by an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rate int32 = 5 }
+			Alias = Inner
+			Outer struct { child Alias }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (o *Outer) SetDefaults() {\n\to.Child.SetDefaults()\n}")
+		},
+	)
+
+	It(
+		"Should set the defaults of a parent named through an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate int32 = 10 }
+			Alias = Base
+			Child struct extends Alias { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Alias.SetDefaults()\n" +
+					"\tc.Mode = \"auto\"\n}",
+			)
+		},
+	)
+
+	It(
+		"Should write a zero leaf that overrides a nested type's own default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct {
+				rate int32 = 5
+				tags string[] = ["a"]
+			}
+			Outer struct { inner Inner = { rate = 0, tags = [] } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n"+
+						"\to.Inner.Rate = 0\n\to.Inner.Tags = nil\n}",
+				).
+				ToNotContain("o.Inner.Rate == 0", "o.Inner.Tags == nil")
+		},
+	)
+
+	It(
 		"Should set a union base's defaults on a defaulted variant",
 		func(ctx SpecContext) {
 			source := `

@@ -170,7 +170,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
-        return sole("Policy", fields, res.policies) if single else res.policies
+        return sole("policy", req.where, res.policies) if single else res.policies
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
