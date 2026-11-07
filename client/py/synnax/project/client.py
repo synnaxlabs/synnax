@@ -248,4 +248,4 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/project/retrieve", req, RetrieveResponse)
-        return sole("Project", fields, res.projects) if single else res.projects
+        return sole("project", req.where, res.projects) if single else res.projects

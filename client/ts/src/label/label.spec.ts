@@ -68,9 +68,7 @@ describe("Label", () => {
     it("should throw a NotFoundError for a name that no label has", async () => {
       const name = `missing-label-${id.create()}`;
       await expect(client.labels.retrieve(name)).rejects.toThrow(
-        new NotFoundError(
-          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
-        ),
+        new NotFoundError(`Found no label where name = "${name}"`),
       );
     });
     it("should retrieve labels by search term", async () => {
@@ -150,6 +148,12 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
       ).rejects.toThrow(MultipleFoundError);
     });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.labels.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
     it("should reject a filter that sets one beside a limit", async () => {
       await expect(
         // @ts-expect-error - a page could hide a second match.
@@ -174,7 +178,7 @@ describe("Label", () => {
       const name = `other-${id.create()}`;
       await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
         new NotFoundError(
-          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+          `Found no label where key = "${lbl.key}" and name = "${name}"`,
         ),
       );
     });
@@ -353,10 +357,12 @@ describe("cached reads", () => {
       await fresh.labels.remove(itemID, [lbl.key]);
       expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
       await sleep.sleep(TimeSpan.milliseconds(250));
-      expect(send.mock.calls.map(([target]) => target)).toEqual([
-        "/label/set",
-        "/label/remove",
-      ]);
+      // Other specs on the shared Core make the client fetch labels they attach.
+      const own = send.mock.calls.filter(([, req]) => {
+        const body = JSON.stringify(req);
+        return body.includes(item.key) || body.includes(lbl.key);
+      });
+      expect(own.map(([target]) => target)).toEqual(["/label/set", "/label/remove"]);
     } finally {
       off();
     }

@@ -42,7 +42,7 @@ on:
         type: boolean
         default: false
       policy:
-        description: "Ref whose prompt, rules, and model settings a replay uses instead"
+        description: "Ref whose prompt, rules, and review settings a replay uses"
         type: string
         required: false
 
@@ -238,7 +238,7 @@ jobs:
           def config(ref):
               show = ["git", "show", f"{ref}:.sedosaur/config.toml"]
               return tomllib.loads(subprocess.check_output(show, text=True))
-          allowed = {"model", "effort", "caps", "excluded", "diff_chars"}
+          allowed = {"model", "effort", "caps", "excluded", "diff_chars", "lens"}
           ours, theirs = config("HEAD"), config("FETCH_HEAD")
           if any(ours.get(k) != theirs.get(k) for k in ours.keys() | theirs.keys()
                  if k not in allowed):
