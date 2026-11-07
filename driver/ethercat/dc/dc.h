@@ -10,11 +10,9 @@
 #pragma once
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <format>
 #include <limits>
-#include <numeric>
 #include <optional>
 #include <string>
 #include <utility>
@@ -112,33 +110,11 @@ struct Registers {
     }
 };
 
-namespace details {
-/// @brief returns the fraction with the smallest denominator in [lo, hi], as a
-/// numerator and denominator. Requires 0 < lo <= hi.
-inline std::pair<double, double> simplest_fraction(const double lo, const double hi) {
-    if (std::ceil(lo) <= hi) return {std::ceil(lo), 1};
-    const double whole = std::floor(lo);
-    const auto [num, den] = simplest_fraction(1 / (hi - whole), 1 / (lo - whole));
-    return {(whole * num) + den, num};
-}
-}
-
 /// @brief returns the largest span in nanoseconds that divides each cycle a whole
 /// number of times and divides the period within a nanosecond. SYNC0 events with these
 /// cycles fall at the same phases in each span. Requires at least one cycle, and each
 /// cycle must be positive.
-inline double
-grid(const x::telem::TimeSpan period, const std::vector<x::telem::TimeSpan> &cycles) {
-    int64_t gcd = 0;
-    for (const auto &c: cycles)
-        gcd = std::gcd(gcd, c.nanoseconds());
-    // The period of a rate such as 300 Hz is rounded to whole nanoseconds, so it can
-    // miss a multiple of a SYNC0 cycle by a nanosecond. gcd / n divides the period
-    // within a nanosecond when period / gcd is within 1 / gcd of a fraction m / n.
-    const auto p = static_cast<double>(period.nanoseconds());
-    const auto g = static_cast<double>(gcd);
-    return g / details::simplest_fraction((p - 1) / g, (p + 1) / g).second;
-}
+double grid(x::telem::TimeSpan period, const std::vector<x::telem::TimeSpan> &cycles);
 
 /// @brief SYNC0 and SYNC1 cycles that replace the cycles a mode gives.
 struct Cycles {
