@@ -291,13 +291,19 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	return postfix.PrimaryExpression()
 }
 
-// SoleOperand returns the primary expression node reduces to after removing parentheses
-// and unary minus, and whether the minus signs negate it. Returns nil if node contains
-// any other operator.
+// SoleOperand returns the primary expression node reduces to after removing
+// parentheses, f32 and f64 casts, and unary minus, and whether the minus signs negate
+// it. Returns nil
+// if node contains any other operator.
 func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
 	if primary, ok := node.(IPrimaryExpressionContext); ok {
 		if primary.LPAREN() != nil && primary.Expression() != nil {
 			return SoleOperand(primary.Expression())
+		}
+		if cast := primary.TypeCast(); cast != nil {
+			if t := cast.Type_().GetText(); t == "f32" || t == "f64" {
+				return SoleOperand(cast.Expression())
+			}
 		}
 		return primary, false
 	}

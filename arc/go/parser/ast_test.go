@@ -40,6 +40,10 @@ var _ = Describe("AST Utilities", func() {
 			Entry("minus in parentheses", "(-x)", "x", true),
 			Entry("minus on both sides", "-(-x)", "x", false),
 			Entry("literal", "1.5", "1.5", false),
+			Entry("f32 cast", "f32(x)", "x", false),
+			Entry("f64 cast", "f64(-x)", "x", true),
+			Entry("minus on a cast", "-f64((x))", "x", true),
+			Entry("integer cast", "i64(x)", "i64(x)", false),
 		)
 
 		DescribeTable("Should reject any other operator",
