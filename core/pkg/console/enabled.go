@@ -21,4 +21,10 @@ import (
 //go:embed all:dist
 var embeddedAssets embed.FS
 
-var defaultFS = lo.Must(fs.Sub(embeddedAssets, "dist"))
+//go:embed all:update
+var embeddedUpdate embed.FS
+
+var (
+	defaultFS       = lo.Must(fs.Sub(embeddedAssets, "dist"))
+	defaultUpdateFS = lo.Must(fs.Sub(embeddedUpdate, "update"))
+)

@@ -14,7 +14,6 @@ package relay
 
 import (
 	"io"
-	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -65,11 +64,12 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
-	// a streamer to receive a response before dropping the frame.
+	// StreamerBufferSize sets the channel buffer size, in frames, between the relay and
+	// each streamer. The relay drops a frame for a streamer whose buffer is full, so a
+	// slow streamer never delays the relay or other streamers.
 	//
-	// [OPTIONAL] - Defaults to 20ms.
-	SlowConsumerTimeout time.Duration
+	// [OPTIONAL] - Defaults to 100.
+	StreamerBufferSize int
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
@@ -89,7 +89,7 @@ var (
 	// configuration is not valid on its own and must be overridden with the required
 	// fields. See Config for more information.
 	DefaultConfig = Config{
-		SlowConsumerTimeout: time.Millisecond * 20,
+		StreamerBufferSize: 100,
 		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
@@ -103,9 +103,9 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.SlowConsumerTimeout = override.Numeric(
-		c.SlowConsumerTimeout,
-		other.SlowConsumerTimeout,
+	c.StreamerBufferSize = override.Numeric(
+		c.StreamerBufferSize,
+		other.StreamerBufferSize,
 	)
 	c.ResponseBufferSize = override.Numeric(
 		c.ResponseBufferSize,
@@ -122,7 +122,7 @@ func (c Config) Validate() error {
 	v.NotNil("host_resolver", c.HostResolver)
 	v.NotNil("ts", c.TS)
 	v.NotNil("free_writes", c.FreeWrites)
-	v.Positive("slow_consumer_timeout", c.SlowConsumerTimeout)
+	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
 	v.Positive("response_buffer_size", c.ResponseBufferSize)
 	v.Positive("demand_buffer_size", c.DemandBufferSize)
 	return v.Error()
@@ -153,10 +153,7 @@ func Open(configs ...Config) (*Relay, error) {
 	tpr.InFrom(demands)
 	r.demands = demands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response](
-		cfg.SlowConsumerTimeout,
-		cfg.Instrumentation,
-	)
+	r.delta = confluence.NewLossyDynamicDeltaMultiplier[Response](cfg.Instrumentation)
 	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
@@ -191,11 +188,9 @@ func (r *Relay) Close() error {
 	return err
 }
 
-func (r *Relay) connectToDelta(
-	buf int,
-) (confluence.Outlet[Response], observe.Disconnect) {
+func (r *Relay) connectToDelta() (confluence.Outlet[Response], observe.Disconnect) {
 	var (
-		data = confluence.NewStream[Response](buf)
+		data = confluence.NewStream[Response](r.cfg.StreamerBufferSize)
 		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())
 	)
 	data.SetInletAddress(addr)
