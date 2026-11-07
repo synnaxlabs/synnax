@@ -24,6 +24,7 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
+import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -155,6 +156,7 @@ export default class Synnax extends framer.Client {
   readonly arcs: arc.Client;
   readonly views: view.Client;
   readonly secrets: secret.Client;
+  readonly certificates: certificate.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -331,6 +333,11 @@ export default class Synnax extends framer.Client {
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
     this.secrets = new secret.Client({ unary, cache, ontology: this.ontology });
+    this.certificates = new certificate.Client({
+      unary,
+      cache,
+      ontology: this.ontology,
+    });
     this.groups = new group.Client({
       unary,
       ontology: this.ontology,

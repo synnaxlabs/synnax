@@ -157,17 +157,17 @@ var _ = Describe("Writer", func() {
 					{
 						Secret: s.Base().Key,
 						Resource: ontology.ID{
-							Type: ontology.ResourceTypeDevice,
-							Key:  "d",
+							Type: ontology.ResourceTypeCertificate,
+							Key:  "c",
 						},
-						Name: "Plant PLC",
+						Name: "Plant certificate",
 					},
 				}
 				Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
-						`cannot delete secret "Plant key" because device `+
-							`"Plant PLC" uses it`,
+						`cannot delete secret "Plant key" because certificate `+
+							`"Plant certificate" uses it`,
 					)),
 				))
 				Expect(e.retrieve(ctx, s.Base().Key).Base().Name).To(Equal("Plant key"))

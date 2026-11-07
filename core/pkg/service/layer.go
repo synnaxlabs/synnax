@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -263,6 +264,8 @@ type Layer struct {
 	Grant *grant.Service
 	// Secret stores the hidden values that devices and tasks connect with.
 	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology.
@@ -779,10 +782,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Grant) {
 		return nil, err
 	}
-	// Nothing uses a secret yet.
-	noSecretUses := func(context.Context, gorp.Tx, []secret.Key) ([]secret.Use, error) {
-		return nil, nil
-	}
 	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
 		Instrumentation: cfg.Child("secret"),
 		DB:              cfg.Distribution.DB,
@@ -790,10 +789,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		Signals:         l.Signals,
 		Channel:         l.Channel,
-		Uses:            noSecretUses,
+		Uses:            certificate.FindSecretUses,
 		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,
 	}); !ok(err, l.Secret) {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
 	if l.Metrics, err = metrics.OpenService(
