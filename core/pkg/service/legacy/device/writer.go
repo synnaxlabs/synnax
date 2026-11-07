@@ -36,7 +36,7 @@ type Writer struct {
 func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     d.OntologyID().String(),
+			Key:     d.ResourceID().String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -45,7 +45,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 		}
 	}
 	stat := *provided
-	stat.Key = d.OntologyID().String()
+	stat.Key = d.ResourceID().String()
 	stat.Name = d.Name
 	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
@@ -67,7 +67,7 @@ func (w Writer) writeStatus(
 	}
 	var stored Status
 	err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](d.OntologyID().String())).
+		Where(gorp.MatchKeys[string, Status](d.ResourceID().String())).
 		Entry(&stored).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -99,7 +99,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 
 	callerProvidedParent := device.Parent != nil && !device.Parent.IsZero()
 	if !callerProvidedParent {
-		rackID := device.Rack.OntologyID()
+		rackID := device.Rack.ResourceID()
 		device.Parent = &rackID
 	}
 	parentID := *device.Parent
@@ -135,7 +135,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	if unmoved {
 		return nil
 	}
-	otgID := device.OntologyID()
+	otgID := device.ResourceID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -183,17 +183,17 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	}
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
-		w.status.Rename(ctx, OntologyID(key).String(), name),
+		w.status.Rename(ctx, ResourceID(key).String(), name),
 		query.ErrNotFound,
 	)
 }
 
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
+	if err := w.otg.DeleteResources(ctx, ResourceID(key)); err != nil {
 		return err
 	}
-	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
+	if err := w.status.Delete(ctx, ResourceID(key).String()); err != nil {
 		return err
 	}
 	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)

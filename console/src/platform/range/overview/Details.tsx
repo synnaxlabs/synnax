@@ -34,7 +34,7 @@ interface ParentRangeButtonProps {
 }
 
 const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = Ranger.useParent({ id: ranger.ontologyID(rangeKey) });
+  const parent = Ranger.useParent({ id: ranger.resourceID(rangeKey) });
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
@@ -49,7 +49,7 @@ const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => 
         gap="small"
         className={CSS.BE("range-overview", "parent-button")}
         onClick={() =>
-          openTab({ variant: "resource", resource: ranger.ontologyID(parent.key) })
+          openTab({ variant: "resource", resource: ranger.resourceID(parent.key) })
         }
       >
         <Icon />
@@ -75,7 +75,7 @@ const Labels = ({ rangeKey, preview }: LabelsProps): ReactElement => {
   const { update } = PLabel.useEditFor();
   const handleChange = (next: label.Key[]): void =>
     update({
-      id: ranger.ontologyID(rangeKey),
+      id: ranger.resourceID(rangeKey),
       added: next.filter((key) => !value.includes(key)),
       removed: value.filter((key) => !next.includes(key)),
     });
@@ -99,8 +99,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
-  const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
-  const parent = Ranger.useResultParent({ id: ranger.ontologyID(rangeKey) }).data;
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(rangeKey));
+  const parent = Ranger.useResultParent({ id: ranger.resourceID(rangeKey) }).data;
   const { form } = Ranger.useForm({
     query: { key: rangeKey },
     mode: canEdit ? "normal" : "preview",
@@ -181,7 +181,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <Divider.Divider y />
             <Core.CopyLinkToolbarButton
               name={name}
-              ontologyID={ranger.ontologyID(rangeKey)}
+              resourceID={ranger.resourceID(rangeKey)}
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               textColor={9}

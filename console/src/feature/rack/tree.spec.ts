@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ontology,
   rack,
+  type resource,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -73,7 +74,7 @@ const createOPCUARackWithScanner = async () => {
 };
 
 const rackResource = (key: number, name: string) =>
-  createResource(rack.ontologyID(key), name);
+  createResource(rack.resourceID(key), name);
 
 const renderMenu = async (
   racks: { key: number; name: string }[],
@@ -92,10 +93,10 @@ const renderMenu = async (
  * A client that may rename racks and read everything the menu touches, differing only
  * in the type it may create.
  */
-const createRackWriter = async (creatable: ontology.ID) =>
+const createRackWriter = async (creatable: resource.ID) =>
   await createTestClientWithGrants(client, {
-    retrieve: [rack.TYPE_ONTOLOGY_ID, task.TYPE_ONTOLOGY_ID, arc.TYPE_ONTOLOGY_ID],
-    update: [rack.TYPE_ONTOLOGY_ID],
+    retrieve: [rack.TYPE_RESOURCE_ID, task.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID],
+    update: [rack.TYPE_RESOURCE_ID],
     create: [creatable],
   });
 
@@ -219,27 +220,27 @@ describe("permission to write the rack", () => {
 
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Connect device")).toBeNull();
   });
 
   it("should offer Connect device to a subject who may create devices", async () => {
     const r = await createRack();
-    await renderMenu([r], await createRackWriter(device.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(device.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Connect device")).toBeTruthy();
   });
 
   it("should offer the scanner toggle to a subject who may create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
-    await renderMenu([r], await createRackWriter(task.TYPE_ONTOLOGY_ID));
+    await renderMenu([r], await createRackWriter(task.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Toggle NI device scanner")).toBeTruthy();
   });
 });
@@ -254,8 +255,8 @@ describe("rack tree item", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("rackgrp"),
     });
-    const root = group.ontologyID(grp.key);
-    await client.ontology.addChildren(root, rack.ontologyID(r.key));
+    const root = group.resourceID(grp.key);
+    await client.ontology.addChildren(root, rack.resourceID(r.key));
     await renderOntologyTree({ client, root, items: Rack.TREE_ITEMS });
     const row = await findTreeRow(r.name);
     expect(row.contains(await screen.findByText("v0.61.3"))).toBe(true);

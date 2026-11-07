@@ -12,8 +12,8 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 )
 
@@ -46,10 +46,10 @@ var _ = Describe("Key", func() {
 		)
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return the task ontology identifier", func() {
-			Expect(key.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeTask,
+	Describe("ResourceID", func() {
+		It("Should return the task resource identifier", func() {
+			Expect(key.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeTask,
 				Key:  key.String(),
 			}))
 		})
@@ -74,9 +74,9 @@ var _ = Describe("Task", func() {
 			Expect(v0.Task{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the task ontology identifier", func() {
-			Expect(v0.Task{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
+	Describe("ResourceID", func() {
+		It("Should return the task resource identifier", func() {
+			Expect(v0.Task{Key: key}.ResourceID()).To(Equal(key.ResourceID()))
 		})
 	})
 })

@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // String returns a formatted string representation of the Status.
@@ -83,9 +83,9 @@ func (s Status[D]) GorpKey() Key { return s.Key }
 // SetOptions implements gorp.Entry.
 func (Status[D]) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the status.
-func (s Status[D]) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeStatus, Key: s.Key}
+// ResourceID returns the unique resource identifier for the status.
+func (s Status[D]) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeStatus, Key: s.Key}
 }
 
 // CustomTypeName implements types.CustomTypeName to ensure that Status struct does

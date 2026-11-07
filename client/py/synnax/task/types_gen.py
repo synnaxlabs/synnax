@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from synnax import device as device_
 from synnax import rack as rack_
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter, telem
 
 Key: TypeAlias = UUID
@@ -328,8 +328,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="task")
+TYPE_RESOURCE_ID = ID(type="task")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="task", key=str(key))

@@ -94,7 +94,7 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
-                .key = synnax::rack::ontology_id(this->rack_key).string(),
+                .key = synnax::rack::resource_id(this->rack_key).string(),
                 .name = this->ctx->rack_name(),
                 .variant = this->health.variant,
                 .message = this->health.message,

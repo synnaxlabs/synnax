@@ -43,9 +43,9 @@ describe("project/Splash", () => {
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });

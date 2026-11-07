@@ -26,7 +26,7 @@ describe("range/search", () => {
   describe("SearchListItem", () => {
     it("renders the resource name and time range", async () => {
       const rng = await createTestRange(client);
-      const resource = createResource(ranger.ontologyID(rng.key), rng.name, {
+      const resource = createResource(ranger.resourceID(rng.key), rng.name, {
         timeRange: rng.timeRange.numeric,
       });
       const SearchListItem = Range.SEARCH_LIST_ITEMS.range;

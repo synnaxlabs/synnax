@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { resource, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
@@ -39,8 +39,8 @@ export interface Rule {
   warningsDelayed?: boolean;
 }
 
-/** The rule of each feature that owns status keys, by the ontology type of its keys. */
-export type Rules = Partial<Record<ontology.ResourceType, Rule>>;
+/** The rule of each feature that owns status keys, by the resource type of its keys. */
+export type Rules = Partial<Record<resource.Type, Rule>>;
 
 const WARNING_DELAY = TimeSpan.seconds(5);
 const PROBLEM_VARIANTS: status.Variant[] = ["warning", "error"];
@@ -54,7 +54,7 @@ interface Owner {
 const getOwner = (rules: Rules, key: status.Key): Owner | null => {
   const separator = key.indexOf(":");
   if (separator < 0) return null;
-  const type = ontology.resourceTypeZ.safeParse(key.slice(0, separator));
+  const type = resource.typeZ.safeParse(key.slice(0, separator));
   const rule = type.success ? rules[type.data] : undefined;
   if (rule == null) return null;
   return { rule, key: key.slice(separator + 1) };

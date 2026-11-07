@@ -9,7 +9,7 @@
 
 from synnax.panel.client import Client
 from synnax.panel.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Key,
     LeafNode,
     Node,
@@ -23,11 +23,11 @@ from synnax.panel.types_gen import (
     ViewTab,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "LeafNode",
@@ -42,5 +42,5 @@ __all__ = [
     "ViewTab",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

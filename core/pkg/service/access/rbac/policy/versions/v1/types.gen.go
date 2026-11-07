@@ -16,7 +16,7 @@ import (
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -32,7 +32,7 @@ type Policy struct {
 	// Name is a human-readable name for the policy.
 	Name string `json:"name" msgpack:"name"`
 	// Objects is the list of ontology resources this policy applies to.
-	Objects []ontology.ID `json:"objects" msgpack:"objects"`
+	Objects []resource.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions this policy permits.
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Internal is true if this is a built-in system policy that cannot be deleted.

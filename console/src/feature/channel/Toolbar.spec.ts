@@ -66,13 +66,13 @@ const createGroupedChannel = async (
   const groupName = uniqueName("grp");
   const channels = await client.channels.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(channels.key),
+    parent: group.resourceID(channels.key),
     name: groupName,
   });
   await client.ontology.moveChildren(
-    group.ontologyID(channels.key),
-    group.ontologyID(grp.key),
-    channel.ontologyID(ch.key),
+    group.resourceID(channels.key),
+    group.resourceID(grp.key),
+    channel.resourceID(ch.key),
   );
   return { ch, groupName };
 };
