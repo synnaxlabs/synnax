@@ -350,11 +350,13 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		ctx.AST.Type_(),
 	)
 	if !varType.IsValid() {
-		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
+		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: name,
 			Type: types.Type{},
 			AST:  ctx.AST,
-		})
+		}); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		}
 		return
 	}
 
@@ -442,12 +444,14 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		ctx.AST.Type_(),
 	)
 	if !varType.IsValid() {
-		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
+		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindStatefulVariable,
 			Type: types.Type{},
 			AST:  ctx.AST,
-		})
+		}); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		}
 		return
 	}
 	// Stateful variables store VALUES, not channel references.
@@ -773,14 +777,16 @@ func addHiddenLocal(
 	// (e.g. __for_limit) conflicts with the identically-named local in the outer
 	// loop scope, causing Add to silently fail and the inner loop to share the
 	// outer loop's limit variable.
-	child, _ := ctx.Scope.Add(ctx, symbol.Symbol{
+	child, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindVariable,
 		Type: t,
 		AST:  clause,
 	})
-	if child != nil {
-		child.Name = name
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, clause))
+		return
 	}
+	child.Name = name
 }
 
 func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {

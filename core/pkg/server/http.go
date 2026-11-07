@@ -17,8 +17,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/pprof"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 // SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
@@ -26,6 +28,7 @@ import (
 type SecureHTTPBranch struct {
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
+	ins      alamos.Instrumentation
 	// Transports is a list of transports that the Branch will serve.
 	Transports []http.BindableTransport
 	// MaxIdleWorkerDuration sets fasthttp's idle worker reap interval, which also
@@ -50,6 +53,7 @@ func (*SecureHTTPBranch) Key() string { return "http" }
 
 // Init implements Branch.
 func (b *SecureHTTPBranch) Init(ctx BranchContext) {
+	b.ins = ctx.Instrumentation
 	b.internal = fiber.New(b.getConfig(ctx))
 	if b.MaxIdleWorkerDuration > 0 {
 		b.internal.Server().MaxIdleWorkerDuration = b.MaxIdleWorkerDuration
@@ -68,8 +72,11 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (b *SecureHTTPBranch) Stop() {
-	if b.internal != nil {
-		_ = b.internal.Shutdown()
+	if b.internal == nil {
+		return
+	}
+	if err := b.internal.Shutdown(); err != nil {
+		b.ins.L.Error("failed to shut down http server", zap.Error(err))
 	}
 }
 

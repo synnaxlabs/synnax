@@ -127,7 +127,7 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 // Flow starts the tapper goroutines, which listen for demands that update relevant taps
 // into remote nodes, the host time-series db, or the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	t.taps[node.KeyFree], _ = t.tapInto(sCtx, node.KeyFree, channel.Keys{})
+	t.taps[node.KeyFree] = t.tapIntoFreeWrites()
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral runs
 		// before we close the inlet to the delta.
@@ -200,7 +200,7 @@ func (t *tapper) tapInto(
 	keys channel.Keys,
 ) (tap, error) {
 	if nodeKey.IsFree() {
-		return t.tapIntoFreeWrites()
+		return t.tapIntoFreeWrites(), nil
 	}
 	if nodeKey == t.HostResolver.HostKey() {
 		return t.tapIntoGateway(keys)
@@ -266,11 +266,11 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 
 // tapIntoFreeWrites opens the always-on tap that filters free-channel writes from the
 // distribution write pipeline into the relay.
-func (t *tapper) tapIntoFreeWrites() (tap, error) {
+func (t *tapper) tapIntoFreeWrites() tap {
 	f := &freeWriteTap{freeWrites: t.freeWrites}
 	t.freeTap = f
 	requests, closer := t.startTap(f, "free_write_tap")
-	return tap{Closer: closer, requests: requests}, nil
+	return tap{Closer: closer, requests: requests}
 }
 
 // freeWriteTap filters writes to free channels from the distribution write pipeline

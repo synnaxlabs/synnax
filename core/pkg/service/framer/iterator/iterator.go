@@ -54,28 +54,28 @@ type Iterator struct {
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandNext, Span: span})
+	return i.exec(Request{Command: CommandNext, Span: span}).Ack
 }
 
 // Prev reads all channel data occupying the previous span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandPrev, Span: span})
+	return i.exec(Request{Command: CommandPrev, Span: span}).Ack
 }
 
 // SeekFirst seeks the Iterator the start of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekFirst})
+	return i.exec(Request{Command: CommandSeekFirst}).Ack
 }
 
 // SeekLast seeks the Iterator the end of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekLast})
+	return i.exec(Request{Command: CommandSeekLast}).Ack
 }
 
 // SeekLE seeks the Iterator to the first whose timestamp is less than or equal
@@ -83,7 +83,7 @@ func (i *Iterator) SeekLast() bool {
 // to any valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekLE, Stamp: stamp})
+	return i.exec(Request{Command: CommandSeekLE, Stamp: stamp}).Ack
 }
 
 // SeekGE seeks the Iterator to the first whose timestamp is greater than the
@@ -91,18 +91,17 @@ func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 // any valid segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = i.value[:0]
-	return i.exec(Request{Command: CommandSeekGE, Stamp: stamp})
+	return i.exec(Request{Command: CommandSeekGE, Stamp: stamp}).Ack
 }
 
 // Valid returns true if the Iterator is pointing at valid data and is error free.
 func (i *Iterator) Valid() bool {
-	return i.exec(Request{Command: CommandValid})
+	return i.exec(Request{Command: CommandValid}).Ack
 }
 
 // Error returns any errors accumulated during the iterators lifetime.
 func (i *Iterator) Error() error {
-	_, err := i.execErr(Request{Command: CommandError})
-	return err
+	return i.exec(Request{Command: CommandError}).Error
 }
 
 // Close closes the Iterator, ensuring that all in-progress reads complete before
@@ -114,7 +113,7 @@ func (i *Iterator) Close() error { return i.pipeline.Close() }
 
 // SetBounds sets the lower and upper bounds of the Iterator.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
-	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds})
+	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds}).Ack
 }
 
 func (i *Iterator) Value() framer.Frame {
@@ -129,11 +128,4 @@ func (i *Iterator) Value() framer.Frame {
 	return frame.Merge(i.valueFrames)
 }
 
-func (i *Iterator) exec(req Request) bool {
-	ok, _ := i.execErr(req)
-	return ok
-}
-
-func (i *Iterator) execErr(req Request) (bool, error) {
-	return i.pipeline.Exec(req, &i.value)
-}
+func (i *Iterator) exec(req Request) Response { return i.pipeline.Exec(req, &i.value) }

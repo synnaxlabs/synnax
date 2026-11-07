@@ -116,7 +116,11 @@ func newFeedbackSender(cfg Config) sink {
 
 func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
 	msg := FeedbackMessage{Sender: f.Cluster.Host().Key, Digests: bd.digests()}
-	sender, _ := f.Cluster.Node(bd.Sender)
+	sender, err := f.Cluster.Node(bd.Sender)
+	if err != nil {
+		f.L.Error("feedback gossip failed", zap.Error(err))
+		return nil
+	}
 	if _, err := f.FeedbackTransportClient.Send(ctx, sender.Address, msg); err != nil {
 		f.L.Error("feedback gossip failed", zap.Error(err))
 	}

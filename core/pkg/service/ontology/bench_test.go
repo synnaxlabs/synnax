@@ -92,7 +92,11 @@ func (e *benchEnv) close(b *testing.B) {
 
 func (e *benchEnv) populate(b *testing.B, count int) []ontology.ID {
 	tx := e.db.OpenTx()
-	defer func() { _ = tx.Close() }()
+	defer func() {
+		if err := tx.Close(); err != nil {
+			b.Error(err)
+		}
+	}()
 	w := e.otg.NewWriter(tx)
 	ids := make([]ontology.ID, count)
 	for i := range count {
@@ -112,7 +116,11 @@ func (e *benchEnv) populateTree(
 	depth, width int,
 ) (root ontology.ID, leaves []ontology.ID) {
 	tx := e.db.OpenTx()
-	defer func() { _ = tx.Close() }()
+	defer func() {
+		if err := tx.Close(); err != nil {
+			b.Error(err)
+		}
+	}()
 	w := e.otg.NewWriter(tx)
 	counter := 0
 	var build func(d int, parent ontology.ID) []ontology.ID
@@ -336,7 +344,11 @@ func (e *benchEnv) populateParentsWithChildren(
 	numParents, childrenPerParent int,
 ) []ontology.ID {
 	tx := e.db.OpenTx()
-	defer func() { _ = tx.Close() }()
+	defer func() {
+		if err := tx.Close(); err != nil {
+			b.Error(err)
+		}
+	}()
 	w := e.otg.NewWriter(tx)
 	parents := make([]ontology.ID, numParents)
 	counter := 0
@@ -443,7 +455,11 @@ func (e *benchEnv) populateLinkedPairs(
 	count int,
 ) (parents, children []ontology.ID) {
 	tx := e.db.OpenTx()
-	defer func() { _ = tx.Close() }()
+	defer func() {
+		if err := tx.Close(); err != nil {
+			b.Error(err)
+		}
+	}()
 	w := e.otg.NewWriter(tx)
 	parents = make([]ontology.ID, count)
 	children = make([]ontology.ID, count)
@@ -481,7 +497,9 @@ func runDeleteBench(b *testing.B, env *benchEnv, op func(w ontology.Writer) erro
 		if err := op(w); err != nil {
 			b.Fatalf("delete failed: %v", err)
 		}
-		_ = tx.Close()
+		if err := tx.Close(); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

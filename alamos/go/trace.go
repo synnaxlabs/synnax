@@ -194,7 +194,7 @@ func (s span) End() {
 
 // EndWith implements Span.
 func (s span) EndWith(err error, exclude ...error) error {
-	_ = s.Error(err, exclude...)
+	err = s.Error(err, exclude...)
 	s.End()
 	return err
 }

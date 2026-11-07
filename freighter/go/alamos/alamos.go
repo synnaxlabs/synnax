@@ -100,7 +100,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		if *cfg.EnableTracing {
-			_ = span.EndWith(err)
+			err = span.EndWith(err)
 		}
 
 		return oCtx, err

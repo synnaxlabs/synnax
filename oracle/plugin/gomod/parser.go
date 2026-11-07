@@ -23,12 +23,12 @@ import (
 // DefaultModulePrefix is the fallback import path when go.mod resolution fails.
 const DefaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
-func parseModuleName(modPath string) (string, error) {
+func parseModuleName(modPath string) (name string, err error) {
 	file, err := os.Open(modPath)
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = file.Close() }()
+	defer func() { err = errors.Combine(err, file.Close()) }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

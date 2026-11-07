@@ -103,12 +103,14 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
-		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
-		// (devDSN) as it stops the SDK. That collector is not running during tests, so
-		// the flush fails with a connection error — but the SDK's background goroutines
-		// stop regardless, which is all this cleanup needs. Drop the upload error so a
-		// clean teardown does not fail the suite.
-		ginkgo.DeferCleanup(func(ctx context.Context) { _ = uptrace.Shutdown(ctx) })
+		// The dev collector does not run during tests, so the final flush fails. The
+		// SDK
+		// still stops, which is all this cleanup needs.
+		ginkgo.DeferCleanup(func(ctx context.Context) {
+			if err := uptrace.Shutdown(ctx); err != nil {
+				zap.S().Warnw("failed to flush telemetry", "error", err)
+			}
+		})
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))

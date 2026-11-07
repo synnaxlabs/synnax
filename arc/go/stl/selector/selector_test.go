@@ -150,7 +150,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[bool]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -167,7 +167,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, true, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -189,7 +189,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false, false, false, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -211,7 +211,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -237,7 +237,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueTime := selectNode.OutputTime(0)
@@ -257,7 +257,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseTime := selectNode.OutputTime(1)
@@ -276,7 +276,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -296,7 +296,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -322,7 +322,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(data...)
 			*source.OutputTime(0) = telem.NewSeriesV(times...)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -339,7 +339,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false, false, true, true, true, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -361,7 +361,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, true, false, false, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
@@ -515,7 +515,7 @@ var _ = Describe("Select", func() {
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
 				source.MarkFresh(0)
 
-				n, _ := factory.Create(cfg)
+				n := MustSucceed(factory.Create(cfg))
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 				selectNode := s.Node("select")

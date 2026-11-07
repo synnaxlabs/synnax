@@ -578,7 +578,11 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
 					return
 				}
-				targetType, _ := types.InferFromTypeContext(typeCtx)
+				targetType, err := types.InferFromTypeContext(typeCtx)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+					return
+				}
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
 						diagnostics.Errorf(

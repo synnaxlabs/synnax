@@ -99,13 +99,13 @@ var _ = Describe("Cluster", func() {
 		It("Should return a node by its Name", func() {
 			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
-			Eventually(func() node.Key {
-				n, _ := c2.Node(c1.HostKey())
-				return n.Key
+			Eventually(func() (node.Key, error) {
+				n, err := c2.Node(c1.HostKey())
+				return n.Key, err
 			}).Should(Equal(c1.HostKey()))
-			Eventually(func() node.Key {
-				n, _ := c1.Node(c2.HostKey())
-				return n.Key
+			Eventually(func() (node.Key, error) {
+				n, err := c1.Node(c2.HostKey())
+				return n.Key, err
 			}).Should(Equal(c2.HostKey()))
 		})
 	})
@@ -114,13 +114,11 @@ var _ = Describe("Cluster", func() {
 		It("Should resolve the address of a node by its Name", func() {
 			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
-			Eventually(func() address.Address {
-				addr, _ := c1.Resolve(c2.HostKey())
-				return addr
+			Eventually(func() (address.Address, error) {
+				return c1.Resolve(c2.HostKey())
 			}).Should(Equal(address.Address("localhost:1")))
-			Eventually(func() address.Address {
-				addr, _ := c2.Resolve(c1.HostKey())
-				return addr
+			Eventually(func() (address.Address, error) {
+				return c2.Resolve(c1.HostKey())
 			}).Should(Equal(address.Address("localhost:0")))
 		})
 	})

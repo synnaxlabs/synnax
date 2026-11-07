@@ -254,7 +254,10 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
 			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
-			success, _ := m.Match(s)
+			success, err := m.Match(s)
+			if err != nil {
+				return err.Error()
+			}
 			if !success {
 				return m.FailureMessage(s)
 			}
@@ -280,7 +283,10 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
 			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
-			success, _ := m.Match(s)
+			success, err := m.Match(s)
+			if err != nil {
+				return err.Error()
+			}
 			if success {
 				return fmt.Sprintf("Frames match for key %v", k)
 			}

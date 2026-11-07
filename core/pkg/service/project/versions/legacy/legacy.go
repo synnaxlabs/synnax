@@ -195,9 +195,11 @@ func CreatePanels(
 	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return nil
 	}
-	var slice layoutSlice
 	// The slice only names panels, so a failed decode falls back to window keys.
-	_ = imex.Codec.Decode(ctx, layoutData, &slice)
+	var slice layoutSlice
+	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+		slice = layoutSlice{}
+	}
 	writer := svc.NewWriter(tx)
 	for _, windowKey := range sortedWindowKeys(t.Mosaics) {
 		root := convertNode(t.Mosaics[windowKey].Root, refs)

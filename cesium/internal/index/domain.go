@@ -67,7 +67,7 @@ func (i *Domain) Distance(
 		if err != nil {
 			approx = DistanceApproximation{}
 		}
-		_ = span.EndWith(err, ErrDiscontinuous)
+		err = span.EndWith(err, ErrDiscontinuous)
 	}()
 
 	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
@@ -314,7 +314,7 @@ func (i *Domain) Stamp(
 		if err != nil {
 			approx = TimeStampApproximation{}
 		}
-		_ = span.EndWith(err, ErrDiscontinuous)
+		err = span.EndWith(err, ErrDiscontinuous)
 	}()
 	if offset == 0 {
 		approx, err = i.zeroStamp(ctx, ref)
@@ -567,7 +567,7 @@ func (i *Domain) backwardStamp(
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "backward_stamp")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() { err = span.EndWith(err, ErrDiscontinuous) }()
 	absOffset := -offset
 
 	iter := i.DB.OpenIterator(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))

@@ -994,9 +994,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IteratorConfig{Bounds: telem.TimeRangeMax},
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1141,9 +1141,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IterRange(telem.TimeRangeMax),
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1259,9 +1259,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w2.Close())
 
 							By("Asserting that the data is correct", func() {
-								i, _ := dataDB.OpenIterator(
+								i := MustSucceed(dataDB.OpenIterator(
 									unary.IterRange(telem.TimeRangeMax),
-								)
+								))
 								Expect(i.SeekFirst(ctx)).To(BeTrue())
 								Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 								f := i.Value()
@@ -1364,9 +1364,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
-							i, _ := dataDB.OpenIterator(
+							i := MustSucceed(dataDB.OpenIterator(
 								unary.IteratorConfig{Bounds: telem.TimeRangeMax},
-							)
+							))
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()

@@ -1943,7 +1943,7 @@ var _ = Describe("Channel", func() {
 					s := rnode.New(analyzed)
 
 					factory := mod
-					source1, _ := factory.Create(rnode.Config{
+					source1 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -1951,8 +1951,8 @@ var _ = Describe("Channel", func() {
 							},
 						},
 						State: s.Node("read1"),
-					})
-					source2, _ := factory.Create(rnode.Config{
+					}))
+					source2 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -1960,8 +1960,8 @@ var _ = Describe("Channel", func() {
 							},
 						},
 						State: s.Node("read2"),
-					})
-					sink1, _ := factory.Create(rnode.Config{
+					}))
+					sink1 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "write",
 							Inputs: types.Params{
@@ -1969,8 +1969,8 @@ var _ = Describe("Channel", func() {
 							},
 						},
 						State: s.Node("write1"),
-					})
-					sink2, _ := factory.Create(rnode.Config{
+					}))
+					sink2 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "write",
 							Inputs: types.Params{
@@ -1978,7 +1978,7 @@ var _ = Describe("Channel", func() {
 							},
 						},
 						State: s.Node("write2"),
-					})
+					}))
 					fr := telem.Frame[uint32]{}
 					fr = fr.Append(10, telem.NewSeriesV[float32](1.1, 2.2))
 					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 200))

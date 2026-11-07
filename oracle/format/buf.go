@@ -34,12 +34,12 @@ func (b *BufFormat) Format(
 	ctx context.Context,
 	content []byte,
 	absPath string,
-) ([]byte, error) {
+) (out []byte, err error) {
 	dir, err := os.MkdirTemp("", "oracle-buf-format-*")
 	if err != nil {
 		return nil, errors.Wrap(err, "create temp dir")
 	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	defer func() { err = errors.Combine(err, os.RemoveAll(dir)) }()
 	tmpFile := filepath.Join(dir, filepath.Base(absPath))
 	if err := os.WriteFile(tmpFile, content, 0o644); err != nil {
 		return nil, errors.Wrap(err, "write temp proto")

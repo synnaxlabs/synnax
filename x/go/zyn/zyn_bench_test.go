@@ -146,7 +146,9 @@ func BenchmarkStringParse(b *testing.B) {
 	var dest string
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse("temperature_sensor_01", &dest)
+		if err := schema.Parse("temperature_sensor_01", &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -154,7 +156,9 @@ func BenchmarkStringDump(b *testing.B) {
 	schema := zyn.String()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump("temperature_sensor_01")
+		if _, err := schema.Dump("temperature_sensor_01"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -164,7 +168,9 @@ func BenchmarkUUIDParse(b *testing.B) {
 	var dest uuid.UUID
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse(id, &dest)
+		if err := schema.Parse(id, &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -173,7 +179,9 @@ func BenchmarkUUIDDump(b *testing.B) {
 	id := uuid.New()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump(id)
+		if _, err := schema.Dump(id); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -183,7 +191,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest float64
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(42.5, &dest)
+			if err := schema.Parse(42.5, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("uint32_coerce", func(b *testing.B) {
@@ -191,7 +201,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest uint32
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(uint32(42), &dest)
+			if err := schema.Parse(uint32(42), &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("int64_coerce", func(b *testing.B) {
@@ -199,7 +211,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest int64
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(int64(1700000000), &dest)
+			if err := schema.Parse(int64(1700000000), &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -209,14 +223,18 @@ func BenchmarkNumberDump(b *testing.B) {
 		schema := zyn.Uint32().Coerce()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = schema.Dump(uint32(42))
+			if _, err := schema.Dump(uint32(42)); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("int64", func(b *testing.B) {
 		schema := zyn.Int64().Coerce()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = schema.Dump(int64(1700000000))
+			if _, err := schema.Dump(int64(1700000000)); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -226,7 +244,9 @@ func BenchmarkBoolParse(b *testing.B) {
 	var dest bool
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse(true, &dest)
+		if err := schema.Parse(true, &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -234,7 +254,9 @@ func BenchmarkBoolDump(b *testing.B) {
 	schema := zyn.Bool()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump(true)
+		if _, err := schema.Dump(true); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -245,35 +267,45 @@ func BenchmarkObjectDump(b *testing.B) {
 		data := workspacePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = workspaceSchema.Dump(data)
+			if _, err := workspaceSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("user_5f", func(b *testing.B) {
 		data := userPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = userSchema.Dump(data)
+			if _, err := userSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("device_7f", func(b *testing.B) {
 		data := devicePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = deviceSchema.Dump(data)
+			if _, err := deviceSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = channelSchema.Dump(data)
+			if _, err := channelSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("range_4f_nested", func(b *testing.B) {
 		data := rangePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = rangeSchema.Dump(data)
+			if _, err := rangeSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -306,7 +338,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest Workspace
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = workspaceSchema.Parse(data, &dest)
+			if err := workspaceSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("user_5f", func(b *testing.B) {
@@ -314,7 +348,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest User
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = userSchema.Parse(data, &dest)
+			if err := userSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
@@ -322,7 +358,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest Channel
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = channelSchema.Parse(data, &dest)
+			if err := channelSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -332,14 +370,18 @@ func BenchmarkObjectValidate(b *testing.B) {
 		data := workspacePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = workspaceSchema.Validate(data)
+			if err := workspaceSchema.Validate(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = channelSchema.Validate(data)
+			if err := channelSchema.Validate(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -351,14 +393,18 @@ func BenchmarkNewResourceSimulation(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = channelSchema.Dump(data)
+			if _, err := channelSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("range_nested", func(b *testing.B) {
 		data := rangePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = rangeSchema.Dump(data)
+			if _, err := rangeSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }

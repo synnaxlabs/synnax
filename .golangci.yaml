@@ -35,6 +35,8 @@ linters:
               desc: use github.com/synnaxlabs/x/errors
             - pkg: "github.com/pkg/errors"
               desc: use github.com/synnaxlabs/x/errors
+    errcheck:
+      check-blank: true
     forbidigo:
       forbid:
         - pattern: ^fmt\.Errorf$

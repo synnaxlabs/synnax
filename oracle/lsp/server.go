@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"io"
+	"log"
 	"strings"
 	"sync"
 
@@ -32,6 +33,7 @@ type Server struct {
 	capabilities protocol.ServerCapabilities
 	documents    map[uri.URI]*document
 	client       protocol.Client
+	logger       *log.Logger
 	mu           sync.RWMutex
 }
 
@@ -43,9 +45,11 @@ type document struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// New creates a new Oracle LSP server.
-func New() *Server {
+// New creates an Oracle LSP server that logs the errors it cannot return to the client
+// to logger.
+func New(logger *log.Logger) *Server {
 	return &Server{
+		logger:    logger,
 		documents: make(map[uri.URI]*document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
@@ -161,11 +165,7 @@ func (s *Server) DidClose(
 	s.mu.Lock()
 	delete(s.documents, docURI)
 	s.mu.Unlock()
-	// A notification handler error fails the jsonrpc2 v1 connection; drop it instead.
-	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         docURI,
-		Diagnostics: []protocol.Diagnostic{},
-	})
+	s.publish(ctx, docURI, []protocol.Diagnostic{})
 	return nil
 }
 
@@ -184,10 +184,7 @@ func (s *Server) publishDiagnostics(
 
 	_, parseDiag := parser.Parse(content)
 	if parseDiag != nil && !parseDiag.Ok() {
-		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         docURI,
-			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
-		})
+		s.publish(ctx, docURI, xlsp.TranslateDiagnostics(*parseDiag, translateSource))
 		return
 	}
 	namespace := deriveNamespaceFromURI(docURI)
@@ -200,16 +197,25 @@ func (s *Server) publishDiagnostics(
 	)
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()
-		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         docURI,
-			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
-		})
+		s.publish(ctx, docURI, xlsp.TranslateDiagnostics(flat, translateSource))
 		return
 	}
-	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+	s.publish(ctx, docURI, []protocol.Diagnostic{})
+}
+
+// publish sends diagnostics to the client. A notification handler error fails the
+// jsonrpc2 v1 connection, so publish logs the error instead.
+func (s *Server) publish(
+	ctx context.Context,
+	docURI uri.URI,
+	diagnostics []protocol.Diagnostic,
+) {
+	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
-		Diagnostics: []protocol.Diagnostic{},
-	})
+		Diagnostics: diagnostics,
+	}); err != nil {
+		s.logger.Printf("failed to publish diagnostics for %s: %v", docURI, err)
+	}
 }
 
 // deriveNamespaceFromURI extracts a namespace from the document URI. A version file's

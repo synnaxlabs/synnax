@@ -52,7 +52,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			collectInputs(ctx, fn.InputList(), &inputs)
 			triggerStart := len(inputs)
 			collectTriggers(ctx.Child(fn.TriggerList()), &inputs)
-			collectOutputs(fn.OutputType(), &outputs)
+			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
 			if len(inputs) > triggerStart {
@@ -90,7 +90,7 @@ func collectInputs[T antlr.ParserRuleContext](
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any
@@ -126,6 +126,18 @@ func collectInputs[T antlr.ParserRuleContext](
 	}
 }
 
+// inferType infers the type that typeCtx names and reports a type it cannot infer.
+func inferType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	typeCtx parser.ITypeContext,
+) types.Type {
+	t, err := atypes.InferFromTypeContext(typeCtx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+	}
+	return t
+}
+
 // collectTriggers extracts trigger parameter types without adding them to scope.
 func collectTriggers(
 	ctx acontext.Context[parser.ITriggerListContext],
@@ -138,7 +150,7 @@ func collectTriggers(
 	for _, trigger := range ctx.AST.AllTrigger() {
 		var triggerType types.Type
 		if typeCtx := trigger.Type_(); typeCtx != nil {
-			triggerType, _ = atypes.InferFromTypeContext(typeCtx)
+			triggerType = inferType(ctx, typeCtx)
 		}
 		triggerName := trigger.IDENTIFIER().GetText()
 
@@ -176,7 +188,8 @@ func collectTriggers(
 }
 
 // collectOutputs extracts output types without adding them to scope.
-func collectOutputs(
+func collectOutputs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	outputs *types.Params,
 ) {
@@ -188,14 +201,14 @@ func collectOutputs(
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 		return
 	}
 
 	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
-		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
+		outputTypeVal := inferType(ctx, typeCtx)
 		*outputs = append(
 			*outputs,
 			types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal},
@@ -210,7 +223,7 @@ func collectOutputs(
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			*outputs = append(
 				*outputs,
@@ -276,7 +289,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name: outputName,
 			Kind: symbol.KindOutput,
@@ -300,7 +313,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			if _, err := scope.Add(ctx, symbol.Symbol{
 				Name: outputName,
@@ -361,7 +374,7 @@ func addTriggersToScope(
 	for _, trigger := range ctx.AST.AllTrigger() {
 		var triggerType types.Type
 		if typeCtx := trigger.Type_(); typeCtx != nil {
-			triggerType, _ = atypes.InferFromTypeContext(typeCtx)
+			triggerType = inferType(ctx, typeCtx)
 		}
 		triggerName := trigger.IDENTIFIER().GetText()
 
@@ -437,7 +450,7 @@ func addInputsToScope[T antlr.ParserRuleContext](
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any

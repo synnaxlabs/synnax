@@ -631,22 +631,23 @@ var _ = Describe("Index", func() {
 
 					var wg sync.WaitGroup
 					wg.Go(func() {
+						defer GinkgoRecover()
 						for i := range int32(100) {
-							_ = gorp.NewCreate[int32, indexedEntry]().
+							Expect(gorp.NewCreate[int32, indexedEntry]().
 								Entry(&indexedEntry{ID: i, Name: "shared"}).
-								Exec(ctx, idxDB)
+								Exec(ctx, idxDB)).To(Succeed())
 						}
 					})
 					wg.Go(func() {
+						defer GinkgoRecover()
 						for range 200 {
-							_, _ = nameIdx.Get(nil, "shared")
+							MustSucceed(nameIdx.Get(nil, "shared"))
 						}
 					})
 					wg.Wait()
-					Eventually(func() int {
-						keys, _ := nameIdx.Get(nil, "shared")
-						return len(keys)
-					}).Should(Equal(100))
+					Eventually(func() ([]int32, error) {
+						return nameIdx.Get(nil, "shared")
+					}).Should(HaveLen(100))
 				},
 			)
 
