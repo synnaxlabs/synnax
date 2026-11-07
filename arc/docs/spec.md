@@ -475,7 +475,7 @@ func counter() i64 {
 ```
 
 In a function, a `$=` initializer can be any expression, such as `low f64 $= math.inf`.
-It runs on the first call only.
+It runs on each call, but only the value from the first call is kept.
 
 ### Channel operations in functions
 
