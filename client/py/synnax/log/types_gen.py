@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import color as color_
 from x import filter, telem
 from x import notation as notation_
@@ -122,6 +122,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
+        time_zone: Is the time zone of the line times and day rows of the log.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -130,6 +131,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
+    time_zone: telem.TimeZone = "local"
 
     @_override
     def __hash__(self) -> int:
@@ -149,8 +151,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="log")
+TYPE_RESOURCE_ID = ID(type="log")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="log", key=str(key))

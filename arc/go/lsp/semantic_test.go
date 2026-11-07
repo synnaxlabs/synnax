@@ -703,6 +703,16 @@ func cat() {
 				))
 			},
 		)
+
+		It("routes export to the keyword token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "export func f() {}\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			lengths := make([]uint32, 0)
+			for _, tok := range filterByType(tokens, tokenTypeKeyword) {
+				lengths = append(lengths, tok.Length)
+			}
+			Expect(lengths).To(ConsistOf(uint32(6), uint32(4)))
+		})
 	})
 
 	Describe("variable kinds", func() {

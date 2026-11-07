@@ -13,12 +13,14 @@ import {
   NotFoundError,
   ontology,
   rack,
+  type resource,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
@@ -41,21 +43,21 @@ const roles = new RoleClients(client);
 
 const createDeviceGroup = async (
   ...devices: { key: string; rack: number }[]
-): Promise<ontology.ID> => {
+): Promise<resource.ID> => {
   const grp = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("devgrp"),
   });
   for (const dev of devices)
     await client.ontology.moveChildren(
-      rack.ontologyID(dev.rack),
-      group.ontologyID(grp.key),
-      deviceClient.ontologyID(dev.key),
+      rack.resourceID(dev.rack),
+      group.resourceID(grp.key),
+      deviceClient.resourceID(dev.key),
     );
-  return group.ontologyID(grp.key);
+  return group.resourceID(grp.key);
 };
 
-const renderDeviceTree = async (root: ontology.ID) =>
+const renderDeviceTree = async (root: resource.ID) =>
   await renderOntologyTree({
     client,
     root,
@@ -112,6 +114,18 @@ describe("device/ontology", () => {
     expect(await screen.findByText("Save and create read task")).toBeTruthy();
   });
 
+  it("should open the EtherCAT form from Configure on a configured slave", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, rack.key, { identifier });
+    const root = await createDeviceGroup(slave);
+    await renderDeviceTree(root);
+    await openTreeRowContextMenu(slave.name);
+    fireEvent.click(await screen.findByText("Configure"));
+    expect(await screen.findByDisplayValue(identifier)).toBeTruthy();
+    expect(screen.queryByText("Save and create read task")).toBeNull();
+  });
+
   it("should open the connect form from Edit connection", async () => {
     const dev = await createModbusDevice(client);
     const root = await createDeviceGroup(dev);
@@ -130,7 +144,7 @@ describe("permission to write the device", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+      resources: [createResource(deviceClient.resourceID(dev.key), dev.name)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -141,7 +155,7 @@ describe("permission to write the device", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+      resources: [createResource(deviceClient.resourceID(dev.key), dev.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

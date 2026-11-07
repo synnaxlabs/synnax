@@ -36,11 +36,11 @@ class TestLog:
                 {"channel": 1, "color": "#00ff00", "precision": 18}
             )
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a log."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a log."""
         key = uuid4()
-        assert log.ontology_id(key).type == log.ONTOLOGY_TYPE.type
-        assert log.ontology_id(key).key == str(key)
+        assert log.resource_id(key).type == log.TYPE_RESOURCE_ID.type
+        assert log.resource_id(key).key == str(key)
         lg = log.Log(name="Events")
         assert hash(lg) == hash(lg.key)
 
@@ -145,7 +145,7 @@ class TestClient:
         """Should return one log for a plain key beside other fields."""
         a = client.logs.create(project.key, sy.Log(name="A"))
         assert client.logs.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Log matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no log where .+"):
             client.logs.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:

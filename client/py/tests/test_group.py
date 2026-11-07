@@ -29,10 +29,10 @@ class TestGroupClient:
     def test_create_nested(self, client: sy.Synnax) -> None:
         """Should create a group nested under another group."""
         parent = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        child = client.groups.create(sy.group.ontology_id(parent.key), str(uuid4()))
+        child = client.groups.create(sy.group.resource_id(parent.key), str(uuid4()))
         assert child.key is not None
-        children = client.ontology.retrieve_children(sy.group.ontology_id(parent.key))
-        assert children == [sy.group.ontology_id(child.key)]
+        children = client.ontology.retrieve_children(sy.group.resource_id(parent.key))
+        assert children == [sy.group.resource_id(child.key)]
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""
@@ -69,7 +69,7 @@ class TestGroupClient:
         """Should return one group for a plain key beside other fields."""
         a = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         assert client.groups.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(sy.NotFoundError, match=r"Group matching .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Found no group where .+"):
             client.groups.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:

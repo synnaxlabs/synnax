@@ -68,9 +68,7 @@ describe("Label", () => {
     it("should throw a NotFoundError for a name that no label has", async () => {
       const name = `missing-label-${id.create()}`;
       await expect(client.labels.retrieve(name)).rejects.toThrow(
-        new NotFoundError(
-          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
-        ),
+        new NotFoundError(`Found no label where name = "${name}"`),
       );
     });
     it("should retrieve labels by search term", async () => {
@@ -90,11 +88,11 @@ describe("Label", () => {
         { name: `${prefix}-item`, color: "#E774D0" },
         { name: `${prefix}-attached`, color: "#E774D0" },
       ]);
-      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      await client.labels.label(label.resourceID(item.key), [attached.key]);
       const labels = await client.labels.retrieve({
         where: {
           name: { regex: `^${prefix}` },
-          not: { for: label.ontologyID(item.key) },
+          not: { for: label.resourceID(item.key) },
         },
       });
       expect(labels.map((l) => l.key)).toEqual([item.key]);
@@ -105,10 +103,10 @@ describe("Label", () => {
         { name: `${prefix}-item`, color: "#E774D0" },
         { name: `${prefix}-attached`, color: "#E774D0" },
       ]);
-      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      await client.labels.label(label.resourceID(item.key), [attached.key]);
       const params: label.RetrieveMultipleParams = {
         name: { regex: `^${prefix}` },
-        not: { for: label.ontologyID(item.key) },
+        not: { for: label.resourceID(item.key) },
       };
       const labels = await client.labels.retrieve(params);
       expect(labels.map((l) => l.key)).toEqual([item.key]);
@@ -124,10 +122,10 @@ describe("Label", () => {
         { name: `${prefix}-item`, color: "#E774D0" },
         { name: `${prefix}-attached`, color: "#E774D0" },
       ]);
-      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      await client.labels.label(label.resourceID(item.key), [attached.key]);
       const retrieved: label.Label = await client.labels.retrieve({
         name: attached.name,
-        for: label.ontologyID(item.key),
+        for: label.resourceID(item.key),
       });
       expect(retrieved.key).toEqual(attached.key);
     });
@@ -149,6 +147,18 @@ describe("Label", () => {
       await expect(
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
       ).rejects.toThrow(MultipleFoundError);
+    });
+    it("should name the search term when a search that sets one matches nothing", async () => {
+      const term = id.create();
+      await expect(
+        client.labels.retrieve({ searchTerm: term, one: true }),
+      ).rejects.toThrow(new NotFoundError(`Found no label matching "${term}"`));
+    });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.labels.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
     });
     it("should reject a filter that sets one beside a limit", async () => {
       await expect(
@@ -174,7 +184,7 @@ describe("Label", () => {
       const name = `other-${id.create()}`;
       await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
         new NotFoundError(
-          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+          `Found no label where key = "${lbl.key}" and name = "${name}"`,
         ),
       );
     });
@@ -209,9 +219,9 @@ describe("Label", () => {
     it("should set a label on an item", async () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.ontologyID(l1.key), [l2.key]);
+      await client.labels.label(label.resourceID(l1.key), [l2.key]);
       const labels = await client.labels.retrieve({
-        where: { for: label.ontologyID(l1.key) },
+        where: { for: label.resourceID(l1.key) },
       });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
@@ -219,10 +229,10 @@ describe("Label", () => {
     it("should replace the labels on an item", async () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.ontologyID(l1.key), [l2.key]);
-      await client.labels.label(label.ontologyID(l1.key), [l1.key], { replace: true });
+      await client.labels.label(label.resourceID(l1.key), [l2.key]);
+      await client.labels.label(label.resourceID(l1.key), [l1.key], { replace: true });
       const labels = await client.labels.retrieve({
-        where: { for: label.ontologyID(l1.key) },
+        where: { for: label.resourceID(l1.key) },
       });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l1.key);
@@ -278,18 +288,18 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { where: { for: label.ontologyID(item.key) } };
+    const params = { where: { for: label.resourceID(item.key) } };
     const off = client.labels.onChange(params, vi.fn());
     try {
       await client.labels.retrieve(params);
-      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
       await expect
         .poll(() => {
           const cached = client.labels.getCached(params);
           return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
         })
         .toBe(true);
-      await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.remove(label.resourceID(item.key), [lbl.key]);
       await expect
         .poll(() => {
           const cached = client.labels.getCached(params);
@@ -310,7 +320,7 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { where: { not: { for: label.ontologyID(item.key) } } };
+    const params = { where: { not: { for: label.resourceID(item.key) } } };
     const has = () => {
       const cached = client.labels.getCached(params);
       return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
@@ -319,9 +329,9 @@ describe("cached reads", () => {
     try {
       await client.labels.retrieve(params);
       await expect.poll(has).toBe(true);
-      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
       await expect.poll(has).toBe(false);
-      await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.remove(label.resourceID(item.key), [lbl.key]);
       await expect.poll(has).toBe(true);
     } finally {
       off();
@@ -339,7 +349,7 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const itemID = label.ontologyID(item.key);
+    const itemID = label.resourceID(item.key);
     const params = { where: { for: itemID } };
     const off = fresh.labels.onChange(params, vi.fn());
     const send = spyOnSend(fresh);
@@ -353,10 +363,12 @@ describe("cached reads", () => {
       await fresh.labels.remove(itemID, [lbl.key]);
       expect(expectLive(fresh.labels.getCached(params))).toEqual([]);
       await sleep.sleep(TimeSpan.milliseconds(250));
-      expect(send.mock.calls.map(([target]) => target)).toEqual([
-        "/label/set",
-        "/label/remove",
-      ]);
+      // Other specs on the shared Core make the client fetch labels they attach.
+      const own = send.mock.calls.filter(([, req]) => {
+        const body = JSON.stringify(req);
+        return body.includes(item.key) || body.includes(lbl.key);
+      });
+      expect(own.map(([target]) => target)).toEqual(["/label/set", "/label/remove"]);
     } finally {
       off();
     }
@@ -372,7 +384,7 @@ describe("cached reads", () => {
         name: `qry-attached-${id.create()}`,
         color: "#E774D0",
       });
-      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
       return { item, lbl };
     };
 
@@ -380,7 +392,7 @@ describe("cached reads", () => {
       const { item, lbl } = await attach();
       const fresh = createTestClient();
       await fresh.connect();
-      const params = { where: { for: label.ontologyID(item.key) } };
+      const params = { where: { for: label.resourceID(item.key) } };
       const off = fresh.labels.onChange(params, vi.fn());
       try {
         await fresh.labels.retrieve(params);
@@ -402,7 +414,7 @@ describe("cached reads", () => {
       const { item, lbl } = await attach();
       const fresh = createTestClient();
       await fresh.connect();
-      const params = { where: { not: { for: label.ontologyID(item.key) } } };
+      const params = { where: { not: { for: label.resourceID(item.key) } } };
       const off = fresh.labels.onChange(params, vi.fn());
       try {
         await fresh.labels.retrieve(params);
@@ -435,7 +447,7 @@ describe("cached reads", () => {
       const [item, kept, changed] = await local.labels.create(
         [0, 1, 2].map(() => ({ name: `qry-gap-${id.create()}`, color: "#E774D0" })),
       );
-      const itemID = label.ontologyID(item.key);
+      const itemID = label.resourceID(item.key);
       const params = { where: { for: itemID } };
       const keys = () => {
         const cached = local.labels.getCached(params);

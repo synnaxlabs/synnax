@@ -29,8 +29,8 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const ranges = getItem?.(keys) ?? [];
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
-  const ids = ranger.ontologyID(keys);
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const ids = ranger.resourceID(keys);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const openTab = Panel.useOpenTab();
@@ -57,7 +57,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const handleLink = Core.useCopyLinkToClipboard();
 
   const handleDetails = () => {
-    openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
+    openTab({ variant: "resource", resource: ranger.resourceID(ranges[0].key) });
   };
   const handleRename = () => Text.edit(List.itemNameID(ranges[0].key));
   const handleDelete = () => {
@@ -103,7 +103,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           onClick={() =>
             handleLink({
               name: ranges[0].name,
-              ontologyID: ranger.ontologyID(ranges[0].key),
+              resourceID: ranger.resourceID(ranges[0].key),
             })
           }
         />

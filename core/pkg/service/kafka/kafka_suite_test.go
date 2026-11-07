@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
@@ -121,6 +123,36 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var errCommit = errors.New("commit failed")
+
+// uncommittableDB is a kv.DB whose transactions fail to commit.
+type uncommittableDB struct{ kv.DB }
+
+func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
+
+type uncommittableTx struct{ kv.Tx }
+
+func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
+
+// cancelingDB is a kv.DB whose transactions call cancel once they commit.
+type cancelingDB struct {
+	kv.DB
+	cancel context.CancelFunc
+}
+
+func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
+
+type cancelingTx struct {
+	kv.Tx
+	db cancelingDB
+}
+
+func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
+	err := t.Tx.Commit(ctx, opts...)
+	t.db.cancel()
+	return err
+}
 
 // gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
 type gatedDB struct {
@@ -232,7 +264,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+		Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
@@ -243,7 +275,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+		Where(status.MatchKeys[device.StatusDetails](dev.ResourceID().String())).
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
@@ -271,6 +303,77 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 		rec.Key = []byte(key)
 	}
 	Expect(cl.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+}
+
+// produceInTransaction produces count JSON records to topic in one transaction and
+// commits it. The commit writes a control record after them.
+func produceInTransaction(ctx context.Context, topic string, count int) {
+	GinkgoHelper()
+	cl := newKafkaClient(kgo.TransactionalID(uniqueTopic()))
+	Expect(cl.BeginTransaction()).To(Succeed())
+	for i := range count {
+		produceJSON(ctx, cl, topic, "", map[string]int{"v": i})
+	}
+	Expect(cl.EndTransaction(ctx, kgo.TryCommit)).To(Succeed())
+}
+
+// newSlowCluster starts a cluster that holds topic with one record and drops every
+// fetch.
+func newSlowCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	slow := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(slow.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(slow.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	slow.ControlKey(int16(kmsg.Fetch), func(kmsg.Request) (kmsg.Response, error, bool) {
+		slow.KeepControl()
+		return nil, errors.New("fetch cut"), true
+	})
+	return slow
+}
+
+// newLeaderlessCluster starts a cluster that holds topic with one record and answers
+// each offset listing with no leader for each partition.
+func newLeaderlessCluster(ctx context.Context, topic string) *kfake.Cluster {
+	GinkgoHelper()
+	c := MustSucceed(
+		kfake.NewCluster(kfake.NumBrokers(1), kfake.SeedTopics(1, topic)),
+	)
+	DeferCleanup(c.Close)
+	cl := newKafkaClient(kgo.SeedBrokers(c.ListenAddrs()...))
+	produceJSON(ctx, cl, topic, "", map[string]int{"v": 1})
+	c.ControlKey(
+		int16(kmsg.ListOffsets),
+		func(kreq kmsg.Request) (kmsg.Response, error, bool) {
+			c.KeepControl()
+			req := kreq.(*kmsg.ListOffsetsRequest)
+			res := req.ResponseKind().(*kmsg.ListOffsetsResponse)
+			for _, rt := range req.Topics {
+				t := kmsg.NewListOffsetsResponseTopic()
+				t.Topic = rt.Topic
+				for _, rp := range rt.Partitions {
+					p := kmsg.NewListOffsetsResponseTopicPartition()
+					p.Partition = rp.Partition
+					p.ErrorCode = kerr.LeaderNotAvailable.Code
+					t.Partitions = append(t.Partitions, p)
+				}
+				res.Topics = append(res.Topics, t)
+			}
+			return res, nil, true
+		},
+	)
+	return c
+}
+
+// closedAddress returns a local address that refuses connections.
+func closedAddress() string {
+	GinkgoHelper()
+	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+	addr := l.Addr().String()
+	Expect(l.Close()).To(Succeed())
+	return addr
 }
 
 // uniqueTopic returns a topic name no other spec uses.

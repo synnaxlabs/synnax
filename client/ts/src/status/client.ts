@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, filter } from "@synnaxlabs/x";
 import z from "zod";
 
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, isConnectionError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
+import { resource } from "@/resource";
+import { DELETE_CHANNEL_NAME, resourceID, SET_CHANNEL_NAME } from "@/status/payload";
 import {
   type Key,
   keyZ,
@@ -37,7 +38,7 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
 ) =>
   z.object({
-    parent: ontology.idZ.optional(),
+    parent: resource.idZ.optional(),
     statuses: statusZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -53,19 +54,16 @@ export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
 const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(callerRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  callerRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 const singleRetrieveParamsZ = z
   .strictObject({ key: keyZ })
   .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
 const retrieveParamsZ = z
-  .union([singleRetrieveParamsZ, callerRequestZ, filterParamsZ])
+  .union([singleRetrieveParamsZ, requestParamsZ])
   .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
@@ -85,7 +83,7 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   });
 
 export interface SetOptions extends query.WriteOptions {
-  parent?: ontology.ID;
+  parent?: resource.ID;
 }
 
 export interface ClientConfig {
@@ -118,7 +116,7 @@ export class Client extends query.Retriever<
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
             const next = { ...prev, ...changed };
-            const id = ontologyID(changed.key);
+            const id = resourceID(changed.key);
             next.labels = label.cachedLabelsOf(ontologyClient.cache, labels.store, id);
             return next;
           },
@@ -170,7 +168,7 @@ export class Client extends query.Retriever<
     this.store = store;
     this.lines = {
       labels: (status, keys) =>
-        label.cachedLabeledByAny(ontologyClient.cache, ontologyID(status.key), keys),
+        label.cachedLabeledByAny(ontologyClient.cache, resourceID(status.key), keys),
     };
     cache.listen({
       channel: SET_CHANNEL_NAME,
@@ -205,7 +203,12 @@ export class Client extends query.Retriever<
     if (detailsSchema != null) {
       const request = query.dropOne(rest);
       const statuses = await this.execRetrieve(request, detailsSchema);
-      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
+      checkForMultipleOrNoResults(
+        "status",
+        retrieveParamsZ.parse(request),
+        statuses,
+        isSingle,
+      );
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
@@ -255,7 +258,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -276,7 +279,7 @@ export class Client extends query.Retriever<
     const drop = () => [
       this.store.delete(keysArr),
       this.cfg.ontology.cache.relationships.delete((r) =>
-        keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
+        keysArr.some((key) => label.matchLabeledBy(r, resourceID(key))),
       ),
     ];
     await query.optimistic({
@@ -344,7 +347,7 @@ export class Client extends query.Retriever<
     const labels = label.cachedLabelsOf(
       this.cfg.ontology.cache,
       this.cfg.labels.store,
-      ontologyID(cached.key),
+      resourceID(cached.key),
     );
     return { ...cached, labels };
   }
@@ -354,12 +357,12 @@ export class Client extends query.Retriever<
     this.store.ingest(status, { since });
     if (status.labels == null) return;
     this.cfg.labels.store.ingest(status.labels);
-    const id = ontologyID(status.key);
+    const id = resourceID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {
         from: id,
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(l.key),
+        to: label.resourceID(l.key),
       };
       this.cfg.ontology.cache.relationships.set(
         ontology.relationshipToString(rel),
@@ -385,7 +388,12 @@ export class Client extends query.Retriever<
 
   private async fetchSingle(key: Key): Promise<Status> {
     const statuses = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Status", key, statuses, true);
+    checkForMultipleOrNoResults(
+      "status",
+      { where: { key: { eq: key } } },
+      statuses,
+      true,
+    );
     return statuses[0];
   }
 
@@ -396,8 +404,9 @@ export class Client extends query.Retriever<
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
     this.cfg.labels.retrieve(rel.to.key).catch((exc: unknown) => {
-      // The relationship reaches callers who cannot read the label.
-      if (AccessDeniedError.matches(exc)) return;
+      // The relationship reaches callers who cannot read the label. A client that
+      // closes or loses the Core ends the fetch, and the next epoch refetches answers.
+      if (AccessDeniedError.matches(exc) || isConnectionError(exc)) return;
       this.cfg.cache.onError(new Error("failed to fetch status label", { cause: exc }));
     });
   }
@@ -420,7 +429,7 @@ export class Client extends query.Retriever<
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
     return this.cfg.ontology.cache
-      .relationshipsTo(label.ontologyID(labelKey))
+      .relationshipsTo(label.resourceID(labelKey))
       .filter(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&

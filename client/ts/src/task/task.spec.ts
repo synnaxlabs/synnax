@@ -14,9 +14,9 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { task } from "@/task";
 import {
@@ -321,6 +321,20 @@ describe("Task", async () => {
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.tasks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - internal takes a boolean.
+        client.tasks.retrieve({ internal: "yes" }),
+      ).rejects.toThrow('✗ "internal": "yes"  × expected boolean');
+    });
+
     it("should retrieve tasks by search term", async () => {
       const prefix = `searchable-task-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
@@ -345,7 +359,7 @@ describe("Task", async () => {
           type: "pagerduty_alert",
         });
         const communicatedStatus: task.Status = {
-          key: ontology.idToString(task.ontologyID(t.key)),
+          key: resource.idToString(task.resourceID(t.key)),
           name: "test",
           variant: "success",
           details: {
@@ -2019,9 +2033,9 @@ describe("Task", async () => {
         {
           name: "set-readable",
           objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            task.ontologyID(readable.key),
+            channel.TYPE_RESOURCE_ID,
+            framer.TYPE_RESOURCE_ID,
+            task.resourceID(readable.key),
           ],
           actions: ["retrieve"],
         },
@@ -2130,7 +2144,7 @@ describe("status composition", () => {
       type: "pagerduty_alert",
     });
     const communicatedStatus: task.Status = {
-      key: ontology.idToString(task.ontologyID(t.key)),
+      key: resource.idToString(task.resourceID(t.key)),
       name: "test",
       variant: "success",
       details: {
@@ -2178,7 +2192,7 @@ describe("status composition", () => {
       const time = TimeStamp.now();
       const details = { task: t.key, running: false, cmd: "", data: undefined };
       await client.statuses.set({
-        key: ontology.idToString(task.ontologyID(t.key)),
+        key: resource.idToString(task.resourceID(t.key)),
         name: "test",
         variant: "error",
         message: "boom",

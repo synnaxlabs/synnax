@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// framerTypeOnly is the type-level ontology ID granting access across all channels.
-var framerTypeOnly = ontology.ID{Type: ontology.ResourceTypeFramer}
+// framerTypeOnly is the type-level resource ID granting access across all channels.
+var framerTypeOnly = resource.ID{Type: resource.TypeFramer}
 
 // channelCounter names each channel distinctly. The mock cluster persists channels
 // across specs in the suite.
@@ -66,7 +66,7 @@ var _ = Describe("Service.Retrieve", func() {
 		author := newUser(ctx)
 		grantOn(
 			ctx,
-			author.OntologyID(),
+			author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)
@@ -86,7 +86,7 @@ var _ = Describe("Service.Retrieve", func() {
 		author := newUser(ctx)
 		grantOn(
 			ctx,
-			author.OntologyID(),
+			author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)

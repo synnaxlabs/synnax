@@ -8,19 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep } from "@synnaxlabs/x";
+import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  ontologyID,
   type Payload,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -29,6 +29,7 @@ import {
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
 import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -36,10 +37,10 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
@@ -180,7 +181,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({
@@ -200,7 +201,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -238,8 +239,8 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
+        ({ key, name, status, integrations, embedded, version }) =>
+          new Rack(key, name, this.cfg.tasks, status, integrations, embedded, version),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -284,11 +285,17 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Rack", q, racks, true);
+      checkForMultipleOrNoResults(
+        "rack",
+        { where: { key: { eq: q.key } } },
+        racks,
+        true,
+      );
       return this.sugar(racks[0]);
     }
     const racks = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Rack", q, racks, true);
+    const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
+    checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }
@@ -299,6 +306,7 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  version?: string;
   private readonly tasks: task.Client;
 
   constructor(
@@ -308,6 +316,7 @@ export class Rack {
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    version?: string,
   ) {
     this.key = key;
     this.name = name;
@@ -315,6 +324,7 @@ export class Rack {
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.version = version;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -346,8 +356,9 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      version: this.version,
     };
   }
 }
 
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

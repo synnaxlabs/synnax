@@ -124,6 +124,7 @@ class Scanner final : public common::Scanner {
                 .details = synnax::device::StatusDetails{
                     .rack = rack,
                     .device = sy_dev.key,
+                    .connected = true,
                 }
             };
             devices.push_back(sy_dev);

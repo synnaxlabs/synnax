@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,35 +30,35 @@ func newNameIndex() *gorp.SearchIndex[string, ontology.Resource] {
 	})
 }
 
-func parseID(key string) ontology.ID {
+func parseID(key string) resource.ID {
 	GinkgoHelper()
-	return MustSucceed(ontology.ParseID(key))
+	return MustSucceed(resource.ParseID(key))
 }
 
 // constService is an ontology.Service whose resources always carry a fixed name, used
 // to distinguish which of several registered services answered a retrieval.
 type constService struct {
 	observe.Noop[iter.Seq[ontology.Change]]
-	typ  ontology.ResourceType
+	typ  resource.Type
 	name string
 }
 
-func (s constService) Type() ontology.ResourceType { return s.typ }
+func (s constService) Type() resource.Type { return s.typ }
 
 func (s constService) RetrieveResource(
 	_ context.Context, key string, _ gorp.Tx,
 ) (ontology.Resource, error) {
 	return ontology.NewResource(
-		schema, ontology.ID{Type: s.typ, Key: key}, s.name, Sample{Key: key},
+		schema, resource.ID{Type: s.typ, Key: key}, s.name, Sample{Key: key},
 	), nil
 }
 
 func (constService) Search(
 	context.Context,
 	gorp.Tx,
-	search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return search.Result[ontology.ID]{}, nil
+	search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return search.Result[resource.ID]{}, nil
 }
 
 var _ = Describe("SearchIndex", func() {
@@ -89,19 +90,19 @@ var _ = Describe("SearchIndex", func() {
 	})
 
 	DescribeTable("Should return the IDs of at most limit matches, closest match first",
-		func(ctx SpecContext, limit int, expected []ontology.ID) {
+		func(ctx SpecContext, limit int, expected []resource.ID) {
 			Expect(MustSucceed(
 				ontology.SearchIndex(
 					ctx,
 					d,
 					idx,
 					parseID,
-					search.Query[ontology.ID]{Term: "turbopump", Limit: limit},
+					search.Query[resource.ID]{Term: "turbopump", Limit: limit},
 				),
 			).Keys).To(Equal(expected))
 		},
-		Entry("every match", 10, []ontology.ID{newSampleType("b"), newSampleType("a")}),
-		Entry("the first match", 1, []ontology.ID{newSampleType("b")}),
+		Entry("every match", 10, []resource.ID{newSampleType("b"), newSampleType("a")}),
+		Entry("the first match", 1, []resource.ID{newSampleType("b")}),
 	)
 
 	It("Should leave out the IDs that except names", func(ctx SpecContext) {
@@ -110,11 +111,11 @@ var _ = Describe("SearchIndex", func() {
 			d,
 			idx,
 			parseID,
-			search.Query[ontology.ID]{
+			search.Query[resource.ID]{
 				Term:   "turbopump inlet",
-				Except: func(id ontology.ID) bool { return id == newSampleType("a") },
+				Except: func(id resource.ID) bool { return id == newSampleType("a") },
 			},
-		)).Keys).To(Equal([]ontology.ID{newSampleType("b")}))
+		)).Keys).To(Equal([]resource.ID{newSampleType("b")}))
 	})
 
 	It("Should return the error of the index search", func(ctx SpecContext) {
@@ -125,7 +126,7 @@ var _ = Describe("SearchIndex", func() {
 			d,
 			newNameIndex(),
 			parseID,
-			search.Query[ontology.ID]{Term: "turbopump", Limit: 10},
+			search.Query[resource.ID]{Term: "turbopump", Limit: 10},
 		)).Error().To(MatchError(context.Canceled))
 	})
 })
@@ -134,7 +135,7 @@ var _ = Describe("Service", func() {
 	It(
 		"Should panic when retrieving a resource whose service is not registered",
 		func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeUser, Key: "unregistered"}
+			id := resource.ID{Type: resource.TypeUser, Key: "unregistered"}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource
 			Expect(func() {
@@ -151,12 +152,12 @@ var _ = Describe("Service", func() {
 			d := DeferClose(gorp.Wrap(memkv.New()))
 			o := MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
 			o.RegisterService(
-				constService{typ: ontology.ResourceTypeChannel, name: "first"},
+				constService{typ: resource.TypeChannel, name: "first"},
 			)
 			o.RegisterService(
-				constService{typ: ontology.ResourceTypeChannel, name: "second"},
+				constService{typ: resource.TypeChannel, name: "second"},
 			)
-			id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "dup"}
+			id := resource.ID{Type: resource.TypeChannel, Key: "dup"}
 			Expect(o.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource
 			Expect(

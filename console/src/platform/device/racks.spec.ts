@@ -58,6 +58,22 @@ describe("getBlockedReason", () => {
       );
     });
 
+    it("should name the error of a rack whose Driver reports one", () => {
+      const r = rack.payloadZ.parse({
+        key: 1,
+        name: "Rack 1",
+        integrations: ["opc"],
+        status: status.create<typeof rack.statusDetailsZ>({
+          variant: "error",
+          message: "Driver 0.59.3 cannot work with Core 0.60.1",
+          details: { rack: 1 },
+        }),
+      });
+      expect(Device.getBlockedReason([r], { ...OPC, rack: 1 })).toBe(
+        "Driver 0.59.3 cannot work with Core 0.60.1",
+      );
+    });
+
     it("should return null when that rack runs the integration", () => {
       const racks = [createRack(1, ["opc"], true), createRack(2, [], false)];
       expect(Device.getBlockedReason(racks, { ...OPC, rack: 1 })).toBeNull();

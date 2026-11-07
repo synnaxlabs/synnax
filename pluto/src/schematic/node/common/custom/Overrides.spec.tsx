@@ -55,7 +55,7 @@ describe("StateOverrideForm", () => {
     });
     return await client.schematics.symbols.create({
       name: "actuated",
-      parent: group.ontologyID(parent.key),
+      parent: group.resourceID(parent.key),
       data: {
         svg:
           '<svg viewBox="0 0 10 10">' +

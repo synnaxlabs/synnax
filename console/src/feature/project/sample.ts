@@ -13,8 +13,8 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  ontology,
   project,
+  resource,
   schematic,
   status,
   type Synnax,
@@ -217,16 +217,16 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   // Overwriting an existing schematic or line plot does not link it to the project, and
   // the user can have moved either one. Both go back under the project alone. The link
   // comes first, so a failed reset cannot leave a view with no parent.
-  const projectID = project.ontologyID(KEYS.project);
+  const projectID = project.resourceID(KEYS.project);
   const ids = [
-    schematic.ontologyID(KEYS.schematic),
-    lineplot.ontologyID(KEYS.linePlot),
+    schematic.resourceID(KEYS.schematic),
+    lineplot.resourceID(KEYS.linePlot),
   ];
   await client.ontology.addChildren(projectID, ...ids);
   for (const id of ids) {
     const parents = await client.ontology.parents.retrieve({ ids: id });
     for (const { id: parent } of parents)
-      if (!ontology.idsEqual(parent, projectID))
+      if (!resource.idsEqual(parent, projectID))
         await client.ontology.removeChildren(parent, id);
   }
   await client.arcs.create([
@@ -248,7 +248,7 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.panels.create({
     key: KEYS.panel,
     name: NAME,
-    parent: project.ontologyID(KEYS.project),
+    parent: project.resourceID(KEYS.project),
     root: {
       variant: "split",
       direction: "x",
@@ -260,19 +260,19 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
         first: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", resource: schematic.ontologyID(KEYS.schematic) },
+            { variant: "resource", resource: schematic.resourceID(KEYS.schematic) },
           ],
         },
         last: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
+          tabs: [{ variant: "resource", resource: lineplot.resourceID(KEYS.linePlot) }],
         },
       },
       last: {
         variant: "leaf",
         tabs: [
-          { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
-          { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
+          { variant: "resource", resource: arc.resourceID(KEYS.sequence) },
+          { variant: "resource", resource: arc.resourceID(KEYS.simulator) },
         ],
       },
     },

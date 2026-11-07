@@ -128,7 +128,7 @@ export const setTestDeviceStatus = async (
       name,
       variant: "success",
       message: TEST_DEVICE_STATUS_MESSAGE,
-      details: { rack, device: key },
+      details: { rack, device: key, connected: true },
     }),
   );
 };
@@ -140,7 +140,7 @@ export const setTestDeviceStatus = async (
 export const createDeviceResource = (
   dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
 ): ontology.Resource =>
-  createResource(device.ontologyID(dev.key), dev.name, {
+  createResource(device.resourceID(dev.key), dev.name, {
     configured: dev.configured ?? false,
   });
 

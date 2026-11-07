@@ -28,6 +28,7 @@ import {
   setChannelTimestampTz,
   setTimestampPrecision,
   setTimestampsHidden,
+  setTimeZone,
   swapChannel,
 } from "@/log/actions.gen";
 import { channelEntryZ } from "@/log/types.gen";
@@ -198,6 +199,15 @@ const handlers: Handlers = {
     state.timestampsHidden = payload.timestampsHidden;
     return {
       inverse: [setTimestampsHidden({ timestampsHidden: oldValue })],
+      targets: [state.key],
+    };
+  },
+
+  setTimeZone: (state, payload) => {
+    const oldTimeZone = state.timeZone;
+    state.timeZone = payload.timeZone;
+    return {
+      inverse: [setTimeZone({ timeZone: oldTimeZone })],
       targets: [state.key],
     };
   },

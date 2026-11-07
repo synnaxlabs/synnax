@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "client/cpp/node/types.gen.h"
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -78,10 +78,6 @@ struct Where {
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
-    /// @brief name_patterns matches channels whose name matches any of the given
-    /// patterns. A valid channel name matches exactly, and any other pattern is a
-    /// regular expression, anchored when unanchored.
-    ::x::filter::List<std::string> name_patterns;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -142,6 +138,18 @@ struct Operation {
     from_proto(const ::service::channel::pb::Operation &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching channels to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve channels.
 struct RetrieveRequest {
     /// @brief where selects the channels to retrieve. An absent where selects all of
@@ -155,6 +163,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -234,9 +253,9 @@ struct RetrieveResponse {
     from_proto(const ::api::channel::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("channel", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("channel", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("channel", std::to_string(key));
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("channel", std::to_string(key));
 }
 }

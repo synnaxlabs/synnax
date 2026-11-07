@@ -22,7 +22,7 @@ from synnax.access.policy.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -39,7 +39,7 @@ class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-_ONTOLOGY_TYPE = ID(type="policy")
+_RESOURCE_TYPE = ID(type="policy")
 
 
 class Client:
@@ -170,7 +170,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
-        return sole("Policy", fields, res.policies) if single else res.policies
+        return sole("policy", req, res.policies) if single else res.policies
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -30,15 +30,16 @@ import {
 } from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -78,9 +79,9 @@ export type UnassignParams = z.input<typeof unassignReqZ>;
 const unassignResZ = z.object({});
 
 const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => ({
-  from: ontologyID(role),
+  from: resourceID(role),
   type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to: user.ontologyID(userKey),
+  to: user.resourceID(userKey),
 });
 
 export interface ClientConfig {
@@ -134,7 +135,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
 
   async delete(params: DeleteParams, opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(params);
-    const ids = ontologyID(keysArr);
+    const ids = resourceID(keysArr);
     const drop = () => [
       this.cfg.ontology.cache.deleteResources(ids),
       this.store.delete(keysArr),
@@ -152,7 +153,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     });
     drop();
     this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
+      ids.some((id) => resource.idsEqual(r.from, id) || resource.idsEqual(r.to, id)),
     );
   }
 
@@ -160,7 +161,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     const existing = await this.retrieve(key);
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),

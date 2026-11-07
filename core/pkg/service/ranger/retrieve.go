@@ -37,7 +37,7 @@ func MatchOverlaps(tr telem.TimeRange) Filter {
 // provided labels.
 func MatchLabels(matchLabels ...label.Key) Filter {
 	return Match(func(ctx gorp.Context, r Retrieve, rng *Range) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
+		labels, err := r.label.RetrieveFor(ctx, rng.ResourceID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}

@@ -44,7 +44,7 @@ describe("range", () => {
     it("should allow the caller to retrieve ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: ["retrieve"],
       });
       const randomRange = await client.ranges.create({
@@ -60,7 +60,7 @@ describe("range", () => {
     it("should allow the caller to create ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: ["create"],
       });
       await userClient.ranges.create({
@@ -73,7 +73,7 @@ describe("range", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: [],
       });
       await expect(
@@ -88,7 +88,7 @@ describe("range", () => {
     it("should allow the caller to delete ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: ["delete"],
       });
       const randomRange = await client.ranges.create({
@@ -105,7 +105,7 @@ describe("range", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: [],
       });
       const randomRange = await client.ranges.create({
@@ -127,9 +127,9 @@ describe("range", () => {
         {
           name: "test",
           objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            ranger.ontologyID(""),
+            channel.TYPE_RESOURCE_ID,
+            framer.TYPE_RESOURCE_ID,
+            ranger.resourceID(""),
           ],
           actions: ["retrieve"],
         },
@@ -142,7 +142,7 @@ describe("range", () => {
         timeRange: new TimeRange({ start: 1, end: 2 }),
       });
       onTestFinished(userClient.ranges.onChange(rng.key, vi.fn()));
-      await client.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+      await client.labels.label(ranger.resourceID(rng.key), [lbl.key]);
       await expect.poll(() => fetches.length).toBeGreaterThan(0);
       for (const fetch of fetches)
         await expect(fetch).rejects.toSatisfy(AccessDeniedError.matches);

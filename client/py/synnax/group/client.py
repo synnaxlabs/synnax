@@ -21,7 +21,7 @@ from synnax.group.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 
@@ -150,7 +150,7 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/ontology/retrieve-group", req, RetrieveResponse)
-        return sole("Group", fields, res.groups) if single else res.groups
+        return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(

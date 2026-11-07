@@ -27,7 +27,7 @@ export const RackField = ({ integration }: RackFieldProps): ReactElement => (
       <Rack.SelectSingle
         value={value}
         onChange={onChange}
-        initialQuery={{ where: { integrations: { any: [integration] } } }}
+        query={{ where: { integrations: { any: [integration] } } }}
       />
     )}
   </Form.Field>

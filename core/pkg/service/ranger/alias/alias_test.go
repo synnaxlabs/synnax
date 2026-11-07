@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -337,13 +338,13 @@ var _ = Describe("Alias", Ordered, func() {
 		It("Should find aliases through the ontology search", func(ctx SpecContext) {
 			Expect(otg.Search(
 				ctx, tx, ontology.SearchQuery{Term: "turbopump inlet"},
-			)).To(Equal([]ontology.ID{alias.OntologyID(r.Key, inlet.Key())}))
+			)).To(Equal([]resource.ID{alias.ResourceID(r.Key, inlet.Key())}))
 		})
 
 		It(
 			"Should drop a deleted alias from the ontology search",
 			func(ctx SpecContext) {
-				id := alias.OntologyID(r.Key, inlet.Key())
+				id := alias.ResourceID(r.Key, inlet.Key())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(otg.Search(
 					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
@@ -515,12 +516,12 @@ var _ = Describe("Alias", Ordered, func() {
 			).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
+				WhereIDs(alias.ResourceID(r.Key, ch.Key())).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal(ontology.Resource{
-				ID:   alias.OntologyID(r.Key, ch.Key()),
+				ID:   alias.ResourceID(r.Key, ch.Key()),
 				Name: "Alias",
 				Data: map[string]any{
 					"range":   r.Key.String(),

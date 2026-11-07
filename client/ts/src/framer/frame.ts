@@ -493,10 +493,13 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
 };
 
 /** Reduces a {@link Series} to its wire form. */
-export const seriesToPayload = (series: Series): SeriesPayload => ({
-  timeRange: series.timeRange,
-  dataType: series.dataType,
-  data: new Uint8Array(series.data.buffer),
-  alignment: series.alignment,
-  alignmentMultiple: series.alignmentMultiple,
-});
+export const seriesToPayload = (series: Series): SeriesPayload => {
+  const { data } = series;
+  return {
+    timeRange: series.timeRange,
+    dataType: series.dataType,
+    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    alignment: series.alignment,
+    alignmentMultiple: series.alignmentMultiple,
+  };
+};

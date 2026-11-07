@@ -12,18 +12,19 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, filter, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
 import { imex } from "@/imex";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -36,20 +37,22 @@ import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/wher
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
-const createReqZ = z.object({ symbols: symbolZ.array(), parent: ontology.idZ });
+const createReqZ = z.object({ symbols: symbolZ.array(), parent: resource.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 // The Core knows nothing of parents, so the client resolves parent through the ontology
 // graph.
 const parentRequestZ = retrieveRequestZ.extend({
-  parent: ontology.idZ.optional(),
+  parent: resource.idZ.optional(),
 });
 type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): Request => query.keysRequest(keys)),
-  parentRequestZ,
-  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    parentRequestZ,
+    retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
@@ -65,21 +68,21 @@ const importGroupResZ = z.object({ group: group.groupZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
-  parent: ontology.ID;
+  parent: resource.ID;
 }
 
 export interface CreateMultipleParams {
   symbols: New[];
-  parent: ontology.ID;
+  parent: resource.ID;
 }
 
-const childRel = (parent: ontology.ID, key: Key): ontology.Relationship => ({
+const childRel = (parent: resource.ID, key: Key): ontology.Relationship => ({
   from: parent,
   type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to: ontologyID(key),
+  to: resourceID(key),
 });
 
-const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
+const matchChildRel = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -194,7 +197,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     cache.relationships.delete(
       keysArr.flatMap((k) =>
         cache
-          .relationshipsTo(ontologyID(k))
+          .relationshipsTo(resourceID(k))
           .filter((r) => r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
           .map(ontology.relationshipToString),
       ),
@@ -242,9 +245,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const parent = await this.retrieveGroup();
     this.cfg.groupStore.set(res.group);
     const rel: ontology.Relationship = {
-      from: group.ontologyID(parent.key),
+      from: group.resourceID(parent.key),
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: group.ontologyID(res.group.key),
+      to: group.resourceID(res.group.key),
     };
     this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
@@ -256,7 +259,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * is not a symbol survives: the Core moves it to the permanent symbol group.
    */
   async deleteGroup(key: group.Key, opts: query.WriteOptions = {}): Promise<void> {
-    const groupID = group.ontologyID(key);
+    const groupID = group.resourceID(key);
     const cache = this.cfg.ontology.cache;
     // Read the members before the delete drops the relationships naming them.
     const memberKeys = cache
@@ -309,7 +312,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
   }
 
   /** Resolves a parent scope to its symbol children's keys via the ontology. */
-  private async resolveChildKeys(parent: ontology.ID): Promise<Key[]> {
+  private async resolveChildKeys(parent: resource.ID): Promise<Key[]> {
     // The children space writes the parent relationships through, so
     // membership checks in matches see them.
     const children = await this.cfg.ontology.children.retrieve({
@@ -337,7 +340,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     });
   }
 
-  private isChildOf(parent: ontology.ID, key: Key): boolean {
+  private isChildOf(parent: resource.ID, key: Key): boolean {
     return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString(childRel(parent, key)),
     );

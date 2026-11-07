@@ -14,8 +14,8 @@ package pb
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -26,8 +26,9 @@ import (
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Rack:   uint32(r.Rack),
-		Device: r.Device,
+		Rack:      uint32(r.Rack),
+		Device:    r.Device,
+		Connected: r.Connected,
 	}
 	if r.Data != nil {
 		var err error
@@ -47,6 +48,7 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	}
 	r.Rack = rack.Key(pb.Rack)
 	r.Device = pb.Device
+	r.Connected = pb.Connected
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()
 	}
@@ -382,7 +384,7 @@ func DeviceToPB(
 	}
 	if r.Parent != nil {
 		var err error
-		pb.Parent, err = ontologypb.IDToPB(*r.Parent)
+		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
 		if err != nil {
 			return nil, err
 		}
@@ -415,7 +417,7 @@ func DeviceFromPB(
 		r.Status = &val
 	}
 	if pb.Parent != nil {
-		val, err := ontologypb.IDFromPB(pb.Parent)
+		val, err := resourcepb.IDFromPB(pb.Parent)
 		if err != nil {
 			return device.Device{}, err
 		}

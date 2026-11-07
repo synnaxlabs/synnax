@@ -96,7 +96,7 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.list();
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
@@ -491,7 +491,7 @@ void Manager::monitor_loop() {
                     if (entry->timed_out.exchange(true)) continue;
                     LOG(ERROR) << "task " << key << " operation timed out";
                     synnax::task::Status status;
-                    status.key = synnax::task::ontology_id(key).string();
+                    status.key = synnax::task::resource_id(key).string();
                     status.variant = synnax::status::VARIANT_ERROR;
                     status.message = "Failed to complete task operation";
                     status.description = "The operation did not finish within " +
@@ -531,7 +531,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     // the start so the sender does not wait forever.
                     if (!err.matches(x::errors::NOT_FOUND)) {
                         synnax::task::Status status;
-                        status.key = synnax::task::ontology_id(op.task_key).string();
+                        status.key = synnax::task::resource_id(op.task_key).string();
                         status.variant = synnax::status::VARIANT_ERROR;
                         status.message = "Failed to start task";
                         status.description = err.data;

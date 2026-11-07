@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.ontology import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from synnax.schematic.symbol.types_gen import (
     Key,
     RetrieveRequest,
@@ -76,7 +76,7 @@ class Client:
         """Creates one or more symbols under a parent resource.
 
         :param symbols: A single symbol or a list of them.
-        :param parent: The ontology ID of the resource to create the symbols under,
+        :param parent: The resource ID of the resource to create the symbols under,
             such as the group from ``retrieve_group``.
         :returns: The created symbol, or a list of created symbols when ``symbols`` is
             a list.
@@ -165,7 +165,7 @@ class Client:
             search_term=search_term,
         )
         res = self._client.send("/schematic/symbol/retrieve", req, RetrieveResponse)
-        return sole("Symbol", fields, res.symbols) if single else res.symbols
+        return sole("symbol", req, res.symbols) if single else res.symbols
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.

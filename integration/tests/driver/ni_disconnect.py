@@ -218,7 +218,7 @@ def _delete_replaced_device(client: sy.Synnax, location: str, key: str) -> None:
     keys a simulated device by that name. The Driver then creates a second device at
     the same location, and a retrieve by that location finds two.
     """
-    devices = client.devices.retrieve(locations=[location])
+    devices = client.devices.retrieve(location=location)
     if any(d.key != key for d in devices):
         client.devices.delete([key])
 

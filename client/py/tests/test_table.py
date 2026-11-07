@@ -53,11 +53,11 @@ class TestTable:
         with pytest.raises(ValidationError):
             table.Row(size=0)
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a table."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a table."""
         key = uuid4()
-        assert table.ontology_id(key).type == table.ONTOLOGY_TYPE.type
-        assert table.ontology_id(key).key == str(key)
+        assert table.resource_id(key).type == table.TYPE_RESOURCE_ID.type
+        assert table.resource_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
 
@@ -131,7 +131,7 @@ class TestClient:
         """Should return one table for a plain key beside other fields."""
         a = client.tables.create(project.key, name="A")
         assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Table matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no table where .+"):
             client.tables.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:

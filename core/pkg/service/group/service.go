@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -79,7 +80,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
 	groupName string,
-	parent ontology.ID,
+	parent resource.ID,
 ) (Group, error) {
 	var res Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -143,13 +144,13 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	name string,
-	parent ontology.ID,
+	parent resource.ID,
 ) (Group, error) {
 	g := Group{Key: uuid.New(), Name: name}
 	if err := g.Validate(); err != nil {
 		return Group{}, err
 	}
-	id := g.OntologyID()
+	id := g.ResourceID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}
@@ -171,7 +172,7 @@ func (w Writer) CreateWithKey(
 	ctx context.Context,
 	key Key,
 	name string,
-	parent ontology.ID,
+	parent resource.ID,
 ) (Group, error) {
 	g := Group{Key: key, Name: name}
 	if g.Key == uuid.Nil() {
@@ -180,7 +181,7 @@ func (w Writer) CreateWithKey(
 	if err := g.Validate(); err != nil {
 		return Group{}, err
 	}
-	id := g.OntologyID()
+	id := g.ResourceID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}
@@ -206,7 +207,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
 		var children []ontology.Resource
 		if err := w.otg.NewRetrieve().
-			WhereIDs(OntologyID(key)).
+			WhereIDs(ResourceID(key)).
 			TraverseTo(ontology.ChildrenTraverser).
 			ExcludeFieldData(true).
 			Entries(&children).
@@ -222,7 +223,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 				"cannot delete a group with children",
 			)
 		}
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
 			return err
 		}
 	}

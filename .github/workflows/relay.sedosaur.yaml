@@ -49,6 +49,7 @@ jobs:
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
     steps:
+      # A comment never asks for a repeat, so a head with a review gets no other one.
       - name: Start Review - Sedosaur
         run: |
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \

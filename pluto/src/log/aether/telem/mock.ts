@@ -47,6 +47,8 @@ export class MockLogSource implements LogSource {
 
   timeRange: TimeRange | null = null;
 
+  exhausted = false;
+
   /** The number of times the log asked to return to the newest samples. */
   resumeCalls = 0;
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -54,7 +54,7 @@ interface Sibling extends record.KeyedNamed {
 }
 
 const selectKey = (page?: schematic.Page | null): string =>
-  page == null || page.key.length === 0 ? "" : ontology.idToString(page);
+  page == null || page.key.length === 0 ? "" : resource.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
@@ -66,7 +66,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
     const cleared = v == null || v.length === 0;
     ctx.set(
       path.page,
-      cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+      cleared ? undefined : schematic.pageZ.parse(resource.stringIDZ.parse(v)),
     );
     const hadPage = prev != null && prev.key.length > 0;
     if (!hadPage && !cleared)
@@ -83,7 +83,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     if (client == null || schematicKey == null) return;
     handleError(async () => {
       const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(schematicKey),
+        resourceID: schematic.resourceID(schematicKey),
         types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
@@ -92,7 +92,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
-            key: ontology.idToString({ type: pageType.data, key }),
+            key: resource.idToString({ type: pageType.data, key }),
             name,
             icon: <PageIcon />,
           };

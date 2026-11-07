@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
@@ -114,6 +114,18 @@ struct Where {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching racks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
 /// @brief RetrieveRequest is a request to retrieve racks.
 struct RetrieveRequest {
     /// @brief where selects the racks to retrieve. An absent where selects all of them.
@@ -126,6 +138,17 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -154,6 +177,9 @@ struct Rack {
     /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
     /// integrations.
     std::vector<std::string> integrations = {};
+    /// @brief version is the version of the Driver that runs the rack, written at each
+    /// connect. Absent until a Driver reports it.
+    std::optional<std::string> version;
 
     static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -181,9 +207,9 @@ struct RetrieveResponse {
     from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("rack", std::to_string(key));
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("rack", std::to_string(key));
 }
 }

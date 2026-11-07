@@ -9,8 +9,8 @@
 
 import {
   NotFoundError,
-  ontology,
   project as clientProject,
+  resource,
   table as clientTable,
   type table,
 } from "@synnaxlabs/client";
@@ -60,7 +60,7 @@ interface SetupParams {
 }
 
 const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) => {
-  const ids = tables.map((t) => clientTable.ontologyID(t.key));
+  const ids = tables.map((t) => clientTable.resourceID(t.key));
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(tables[0].key),
@@ -75,7 +75,7 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   const { wrapper } = await createConsoleWrapper({ client, store });
   const Menu = Item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
-  const itemID = List.itemNameID(ontology.idToString(ids[0]));
+  const itemID = List.itemNameID(resource.idToString(ids[0]));
   render(
     <>
       <Menu {...props} />
@@ -172,7 +172,7 @@ describe("table/ontology", () => {
       const t = await createTable();
       const { store } = await renderOntologyTree({
         client,
-        root: clientProject.ontologyID(await project()),
+        root: clientProject.resourceID(await project()),
         items: Table.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(t.name));
@@ -184,7 +184,7 @@ describe("table/ontology", () => {
 
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
-      const id = clientTable.ontologyID("11111111-1111-1111-1111-111111111111");
+      const id = clientTable.resourceID("11111111-1111-1111-1111-111111111111");
       const items = Item.haulItems(createResource(id, "My Table"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");

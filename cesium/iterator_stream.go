@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -126,6 +127,10 @@ type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
 	internal []*unary.Iterator
+	// cache is shared by every iterator in internal, so channels on one index resolve
+	// each index lookup once. It is reset before each command and each chunk, because
+	// writes can change the index between them.
+	cache *index.Cache
 	// limited is true when the read has a limit reduction. A limited read is never
 	// chunked, because a chunk edge would cut its groups.
 	limited   bool
@@ -183,6 +188,7 @@ func (s *streamIterator) exec(
 	if err := validateIteratorCommand(req.Command); err != nil {
 		return false, err
 	}
+	s.cache.Reset()
 	switch req.Command {
 	case IteratorCommandNext:
 		if s.limited || req.Span == AutoSpan {
@@ -271,6 +277,7 @@ func (s *streamIterator) readInChunks(
 		last = max(last, tr.End)
 	}
 	for {
+		s.cache.Reset()
 		end := last
 		probed := make(set.Set[channel.Key], len(s.internal))
 		for j, i := range s.internal {

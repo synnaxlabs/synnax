@@ -35,7 +35,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     dispatch(Session.Status.toggleFavorite(itemKey));
   };
   const item = List.useItem<status.Key, status.Status>(itemKey);
-  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
 
   if (item == null) return null;

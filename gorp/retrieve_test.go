@@ -162,6 +162,18 @@ var _ = Describe("Retrieve", func() {
 					Expect(res).To(Equal(entries[:2]))
 				},
 			)
+			It("Should retrieve a repeated key once", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](
+						entries[1].GorpKey(),
+						entries[0].GorpKey(),
+						entries[1].GorpKey(),
+					)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[1], entries[0]}))
+			})
 			Describe("Exists", func() {
 				It(
 					"Should return true if ALL keys have matching entries",

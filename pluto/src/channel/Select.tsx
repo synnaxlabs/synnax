@@ -66,13 +66,13 @@ const withDefaults = <P extends { className?: string }>(props?: P) => ({
 });
 
 export const SelectMultiple = ({
-  initialQuery,
+  query,
   filter,
   triggerProps,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+    query,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
@@ -104,13 +104,13 @@ export interface SelectSingleProps
     Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
 
 export const SelectSingle = ({
-  initialQuery,
+  query,
   filter,
   triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+    query,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

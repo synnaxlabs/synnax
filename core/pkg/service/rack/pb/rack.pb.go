@@ -95,7 +95,10 @@ type Rack struct {
 	Status *pb.Status `protobuf:"bytes,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations  []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
+	Integrations []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
+	// version is the version of the Driver that runs the rack, written at each connect.
+	// Absent until a Driver reports it.
+	Version       *string `protobuf:"bytes,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,6 +166,13 @@ func (x *Rack) GetIntegrations() []string {
 		return x.Integrations
 	}
 	return nil
+}
+
+func (x *Rack) GetVersion() string {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return ""
 }
 
 type WhereList struct {
@@ -515,14 +525,17 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
 	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"#\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaf\x01\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xda\x01\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bembedded\x18\x03 \x01(\bR\bembedded\x126\n" +
 	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
-	"\fintegrations\x18\x05 \x03(\tR\fintegrationsB\t\n" +
-	"\a_status\";\n" +
+	"\fintegrations\x18\x05 \x03(\tR\fintegrations\x12\x1d\n" +
+	"\aversion\x18\x06 \x01(\tH\x01R\aversion\x88\x01\x01B\t\n" +
+	"\a_statusB\n" +
+	"\n" +
+	"\b_version\";\n" +
 	"\tWhereList\x12.\n" +
 	"\x06values\x18\x01 \x03(\v2\x16.service.rack.pb.WhereR\x06values\"!\n" +
 	"\aKeyList\x12\x16\n" +

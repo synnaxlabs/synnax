@@ -304,8 +304,9 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     );
     CaptureSink sink;
     for (std::size_t i = 0; i < 3; i++) {
-        auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
-        ASSERT_FALSE(err) << err;
+        const auto devices = ASSERT_NIL_P(
+            scanner.scan(common::ScannerContext{.count = i})
+        );
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].key, "01A2B3C4");
     }
@@ -326,9 +327,7 @@ std::vector<synnax::device::Device> scan_once(
         ScanTaskConfig(p),
         synnax::task::Task{}
     );
-    auto [devices, err] = scanner.scan(common::ScannerContext{});
-    EXPECT_FALSE(err) << err;
-    return devices;
+    return ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
 }
 
 /// @brief the scanner should skip cRIO and unknown devices whether or not their product
@@ -522,10 +521,9 @@ struct HardwareScanner {
 
     /// @brief scans once and stores the devices found, as the scan task does.
     synnax::device::Device scan() {
-        auto [devices, err] = this->scanner.scan(
-            common::ScannerContext{.devices = &this->stored}
+        auto devices = ASSERT_NIL_P(
+            this->scanner.scan(common::ScannerContext{.devices = &this->stored})
         );
-        EXPECT_FALSE(err) << err;
         EXPECT_EQ(devices.size(), 1);
         auto &dev = devices.at(0);
         auto &stored = this->stored[dev.key];
