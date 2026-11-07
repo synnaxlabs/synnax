@@ -523,13 +523,13 @@ describe("line", () => {
         m.line.render(showing(0, N - 1));
         expect(m.strips().slice(-2)).toEqual([
           [0, N / 32],
-          [0, 2],
+          [0, 3],
         ]);
         const top = N / 2 + tail.indexOf(Math.max(...tail));
-        expect(uploads(m).slice(before)).toEqual([
-          [top, N / 2 + 9],
-          [Math.fround(Math.max(...tail)), -5],
-        ]);
+        const [xs, ys] = uploads(m).slice(before);
+        // The tail starts at the last complete point.
+        expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
+        expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
         write(x, indexes(N / 2 + 10, N / 2 + 32));
         write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
         const grown = uploads(m).length;

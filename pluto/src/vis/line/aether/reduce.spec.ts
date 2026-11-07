@@ -55,9 +55,19 @@ const spanned = (o: DrawOperation, start: number, end: number): DrawOperation =>
 const reduceOne = (o: DrawOperation, aggregation: Aggregation, size: number) =>
   new Reducer().reduce([o], aggregation, size);
 
-// Returns the x or y points of ops in order.
+// Returns the x or y points of ops in order, once each. A tail repeats the last point
+// of the op before it.
 const values = (ops: DrawOperation[], key: "x" | "y"): number[] =>
-  ops.flatMap((o) => Array.from(o[key], Number));
+  ops.flatMap((o, i) => {
+    const points = Array.from(o[key], Number);
+    const prev = ops[i - 1];
+    const repeats =
+      prev != null &&
+      o.x.alignment === prev.x.alignmentBounds.upper - prev.x.alignmentMultiple &&
+      o.x.at(0) === prev.x.at(-1) &&
+      o.y.at(0) === prev.y.at(-1);
+    return repeats ? points.slice(1) : points;
+  });
 
 describe("groupSize", () => {
   const N = 8000;
@@ -389,14 +399,20 @@ describe("Reducer", () => {
     expect(reduceOne(o, "min_max", 1)[0]).toBe(o);
   });
 
-  it("should draw a partial group as a tail at the end of the op's span", () => {
+  it("should start a partial group's tail at the last complete point", () => {
     const o = spanned(op(ramp(6), ramp(6)), 0, 6);
     const [complete, tail] = reduceOne(o, "min_max", 4);
-    expect(complete.span).toEqual(o.span);
-    expect(tail.span).toEqual(new TimeRange(o.span.end, o.span.end));
-    expect(Array.from(bridgeVertices([complete, tail], scale.XY.IDENTITY))).toEqual([
-      3, 3, 4, 4,
-    ]);
+    expect(Array.from(complete.y)).toEqual([0, 3]);
+    expect(Array.from(tail.y)).toEqual([3, 4, 5]);
+    expect(tail.y.alignment).toBe(2n);
+    expect([complete.span, tail.span]).toEqual([o.span, o.span]);
+  });
+
+  it("should bridge from the tail of an op to the op after it", () => {
+    const o = spanned(op(ramp(6), ramp(6)), 0, 6);
+    const next = spanned(op(ramp(2, alignment(1, 0)), ramp(2, alignment(1, 0))), 6, 8);
+    const ops = new Reducer().reduce([o, next], "min_max", 4);
+    expect(Array.from(bridgeVertices(ops, scale.XY.IDENTITY))).toEqual([5, 5, 0, 0]);
   });
 
   describe("contiguous ops", () => {

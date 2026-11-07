@@ -206,7 +206,7 @@ const releaseReduced = (r: Reduced | null): void => {
 // it, reading past its end into the ops that continue it. With no op before it, it also
 // draws the group it starts inside. Complete groups reduce once and append to series
 // that grow, so only new groups upload. A trailing partial group reduces again into a
-// separate tail.
+// separate tail, which starts at the last complete point so the two draw as one line.
 class Pair {
   private readonly x: Series;
   private readonly y: Series;
@@ -221,6 +221,8 @@ class Pair {
   // The op index where the last complete group ends.
   private reach = 0;
   private complete: Reduced | null = null;
+  // The last point of complete, as GL values.
+  private last: { x: number; y: number } | null = null;
   private tail: Reduced | null = null;
   private count = 0;
   private available = 0;
@@ -271,15 +273,21 @@ class Pair {
       this.next += groupSize;
       this.reach = this.next;
     }
-    if (complete.xs.length > 0)
+    if (complete.xs.length > 0) {
       this.complete = {
         x: this.append(this.complete?.x, this.x, complete.xs),
         y: this.append(this.complete?.y, this.y, complete.ys),
       };
+      const i = complete.xs.length - 1;
+      this.last = { x: complete.xs[i], y: complete.ys[i] };
+    }
     releaseReduced(this.tail);
     this.tail = null;
     if (this.next < count) {
-      const partial: Points = { xs: [], ys: [] };
+      const partial: Points =
+        this.last == null
+          ? { xs: [], ys: [] }
+          : { xs: [this.last.x], ys: [this.last.y] };
       this.reduceGroup(links, Math.max(this.next, 0), available, partial);
       this.tail = {
         x: this.series(this.x, partial.xs),
@@ -313,6 +321,7 @@ class Pair {
     this.reach = 0;
     releaseReduced(this.complete);
     this.complete = null;
+    this.last = null;
   }
 
   // Appends the points the aggregation keeps from chain samples [lo, hi), where lo lies
@@ -388,7 +397,8 @@ class Pair {
   }
 
   private series(source: Series, values: number[]): Series {
-    const s = new Series({ data: values, ...this.props(source, this.next) });
+    const at = this.last == null ? this.next : this.next - this.step;
+    const s = new Series({ data: values, ...this.props(source, at) });
     s.acquire();
     return s;
   }
@@ -396,14 +406,19 @@ class Pair {
   // Returns the series props of reduced points of source whose first group starts at op
   // index at.
   private props(source: Series, at: number) {
-    const { aggregation, groupSize } = this;
     return {
       dataType: source.glDataType,
       timeRange: source.timeRange,
       sampleOffset: source.glOffset,
       alignment: this.start + BigInt(at),
-      alignmentMultiple: BigInt(aggregation === "min_max" ? groupSize / 2 : groupSize),
+      alignmentMultiple: BigInt(this.step),
     };
+  }
+
+  // The op samples between two reduced points.
+  private get step(): number {
+    const { aggregation, groupSize } = this;
+    return aggregation === "min_max" ? groupSize / 2 : groupSize;
   }
 }
 
@@ -501,15 +516,7 @@ export class Reducer {
       drawn.add(pair);
       const reduced = pair.update(chainOf(op, after, groupSize), preceded);
       const last = out.at(-1);
-      // A tail spans no time at the end of the op, so bridges join it to the complete
-      // groups before it and to the op after it.
-      if (reduced.length > 0)
-        reduced.forEach((r, i) =>
-          out.push({
-            ...r,
-            span: i === 0 ? op.span : new TimeRange(op.span.end, op.span.end),
-          }),
-        );
+      if (reduced.length > 0) reduced.forEach((r) => out.push({ ...r, span: op.span }));
       else if (last != null && touching(last, op))
         out[out.length - 1] = {
           ...last,
