@@ -308,8 +308,13 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, default to `f64`, and do not fit an integer type. `==` or `!=` with `math.nan`
-gives warning ARC2004.
+`f64`, default to `f64`, and do not fit an integer type. A function input value, a `$=`
+initializer, and a variable outside a function can hold a constant on its own, such as
+`-math.inf` or `f32(math.nan)`. Outside a function, an initializer that computes with a
+constant must also read a channel, as `scaled := raw * math.inf` does: a flow has no
+value to read for `limit := math.inf * 2.0`, which fails with
+`'limit' cannot be initialized from math.inf*2.0 outside a function`. `==` or `!=` with
+`math.nan` gives warning ARC2004.
 
 ```arc
 import math
