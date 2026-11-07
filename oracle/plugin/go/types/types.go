@@ -869,6 +869,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
 	}
 	sd.SetFills = allFills(sd.DefaultFills, sd.DefaultGroups)
+	sd.DefaultFills = applyFills(sd.DefaultFills)
 	sd.DecodeHooks = (len(sd.SetSteps) > 0 || len(sd.SetFills) > 0) &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
 	if sd.DecodeHooks {

@@ -307,6 +307,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		)
 		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
 		vd.SetFills = allFills(vd.DefaultFills, vd.DefaultGroups)
+		vd.DefaultFills = applyFills(vd.DefaultFills)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,

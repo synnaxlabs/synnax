@@ -42,6 +42,9 @@ type defaultFillData struct {
 	// Setup holds the statements that build a union literal's variant in local
 	// variables before Expr assigns it. Empty for every other default.
 	Setup []string
+	// SetOnly marks a zero value that overrides a default SetDefaults set first.
+	// ApplyDefaults skips it, since it fills only zero fields.
+	SetOnly bool
 }
 
 // enumCheckData describes a single enum-membership assertion emitted by a generated
@@ -53,9 +56,10 @@ type enumCheckData struct {
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
 // yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
-// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key). It
-// returns nil for fields with no default, nullable/optional fields, defaults that equal
-// the zero value (nothing to fill), and non-static defaults such as create/now.
+// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key), and
+// a SetOnly fill for a zero leaf that overrides a nested default. It returns nil for
+// fields with no default, nullable/optional fields, defaults that equal the zero value,
+// and non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -87,7 +91,8 @@ func componentFill(
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
-// component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
+// component and a SetOnly fill per zero leaf that overrides a nested default. prefix is
+// the Go selector to the struct field (e.g. "X1"), structRef its
 // type, and val the literal. Nested struct components recurse with an extended
 // selector.
 func structDefaultFills(
@@ -165,7 +170,7 @@ func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, boo
 	default:
 		return defaultFillData{}, false
 	}
-	return defaultFillData{GoName: goName, ZeroLit: lit, Expr: lit}, true
+	return defaultFillData{GoName: goName, ZeroLit: lit, Expr: lit, SetOnly: true}, true
 }
 
 // unionLiteralFill returns the fill for a union field defaulted by an object literal
@@ -1074,6 +1079,11 @@ func setDefaultsSteps(
 		}
 	}
 	return steps
+}
+
+// applyFills returns the fills that ApplyDefaults assigns: every fill but SetOnly ones.
+func applyFills(fills []defaultFillData) []defaultFillData {
+	return lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.SetOnly })
 }
 
 // allFills returns fills followed by the fills of every group. SetDefaults assigns

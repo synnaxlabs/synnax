@@ -1505,6 +1505,22 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should set the defaults of a required field typed by an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rate int32 = 5 }
+			Alias = Inner
+			Outer struct { child Alias }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (o *Outer) SetDefaults() {\n\to.Child.SetDefaults()\n}")
+		},
+	)
+
+	It(
 		"Should set the defaults of a parent named through an alias",
 		func(ctx SpecContext) {
 			source := `
@@ -1535,10 +1551,12 @@ var _ = Describe("Decode-time default generation", func() {
 			Outer struct { inner Inner = { rate = 0, tags = [] } }
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n" +
-					"\to.Inner.Rate = 0\n\to.Inner.Tags = nil\n}",
-			)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n"+
+						"\to.Inner.Rate = 0\n\to.Inner.Tags = nil\n}",
+				).
+				ToNotContain("o.Inner.Rate == 0", "o.Inner.Tags == nil")
 		},
 	)
 
