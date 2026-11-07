@@ -36,6 +36,26 @@ export const commandStatePairZ = z.object({
 });
 export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
 
+/** Identity holds the device fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the device is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /**
+   * serial is the serial number of the device, or its NI-MAX resource name when it is
+   * simulated.
+   */
+  serial: z.string().min(1, "serial is required"),
+  /** model is the product name of the device. */
+  model: z.string(),
+  /** alias is the DAQmx alias of the device. */
+  alias: z.string(),
+  /** simulated is true when the device is simulated in NI-MAX. */
+  simulated: z.boolean().default(false),
+  /** chassis is the chassis that holds the device. Absent for a standalone device. */
+  chassis: z.uuid().optional(),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -57,8 +77,60 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
+/** Configuration holds the device fields that the user owns. */
+export const configurationZ = z.object({
+  /** name is a human-readable name for the device. */
+  name: z.string().min(1, "name is required"),
+  /**
+   * identifier is the prefix of the device's channel names. The device is unconfigured
+   * while it is empty.
+   */
+  identifier: z.string().default(""),
+  /** analogInput are the channels of the analog input ports. */
+  analogInput: inputPortsZ.prefault({}),
+  /** analogOutput are the channels of the analog output ports. */
+  analogOutput: outputPortsZ.prefault({}),
+  /** counterInput are the channels of the counter input ports. */
+  counterInput: inputPortsZ.prefault({}),
+  /** digitalInput are the channels of the digital input lines. */
+  digitalInput: inputPortsZ.prefault({}),
+  /** digitalOutput are the channels of the digital output lines. */
+  digitalOutput: outputPortsZ.prefault({}),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
+
+/** IdentityUpdate writes the fields that the scanner owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/** ConfigurationUpdate writes the fields that the user owns. */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a device. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 /** Device is an NI module in a chassis, or a standalone USB or PCIe device. */
 export const deviceZ = z.object({

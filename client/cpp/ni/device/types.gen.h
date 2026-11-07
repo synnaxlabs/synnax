@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <variant>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ni/chassis/types.gen.h"
@@ -27,8 +28,10 @@ namespace synnax::ni::device {
 
 struct InputPorts;
 struct CommandStatePair;
+struct Identity;
 struct StatusDetails;
 struct OutputPorts;
+struct Configuration;
 struct Device;
 
 using Key = x::uuid::UUID;
@@ -55,6 +58,27 @@ struct CommandStatePair {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Identity holds the device fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the device is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the device, or its NI-MAX resource name
+    /// when it is simulated.
+    std::string serial;
+    /// @brief model is the product name of the device.
+    std::string model;
+    /// @brief alias is the DAQmx alias of the device.
+    std::string alias;
+    /// @brief simulated is true when the device is simulated in NI-MAX.
+    bool simulated = false;
+    /// @brief chassis is the chassis that holds the device. Absent for a standalone
+    /// device.
+    std::optional<x::uuid::UUID> chassis;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
 struct StatusDetails {
     /// @brief rack is the key of the rack the device belongs to.
@@ -78,6 +102,28 @@ struct OutputPorts {
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Configuration holds the device fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the device.
+    std::string name;
+    /// @brief identifier is the prefix of the device's channel names. The device is
+    /// unconfigured while it is empty.
+    std::string identifier = "";
+    /// @brief analog_input are the channels of the analog input ports.
+    InputPorts analog_input = {};
+    /// @brief analog_output are the channels of the analog output ports.
+    OutputPorts analog_output = {};
+    /// @brief counter_input are the channels of the counter input ports.
+    InputPorts counter_input = {};
+    /// @brief digital_input are the channels of the digital input lines.
+    InputPorts digital_input = {};
+    /// @brief digital_output are the channels of the digital output lines.
+    OutputPorts digital_output = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Device is an NI module in a chassis, or a standalone USB or PCIe device.
 struct Device {
@@ -118,6 +164,28 @@ struct Device {
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate writes the fields that the user owns.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a device.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 const synnax::ontology::ID ONTOLOGY_TYPE("ni_device", "");
 
