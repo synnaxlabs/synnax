@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -45,6 +46,41 @@ var _ = Describe("Channel references", func() {
 			Exec(ctx, db)).To(Succeed())
 		return res
 	}
+
+	It(
+		"Should broadcast an edit that commits between a detach and its broadcast",
+		func(ctx SpecContext) {
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 2))
+			gone, kept := keys[0], keys[1]
+			l := log.Log{
+				Project:  &proj.Key,
+				Name:     "edited",
+				Channels: []log.ChannelEntry{{Channel: gone}, {Channel: kept}},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
+			})
+			rec := &Recorder[log.Key, log.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			tx := DeferClose(db.OpenTx())
+			gorp.OnCommit(tx, func() {
+				Expect(svc.Dispatch(ctx, l.Key, "", []log.Action{
+					log.NewRenameAction(log.RenamePayload{Name: "renamed"}),
+				})).To(Succeed())
+			})
+			Expect(channelSvc.NewWriter(tx).Delete(ctx, gone, false)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).ToNot(BeEmpty())
+			last := seen[len(seen)-1]
+			Expect(last.Actions).To(HaveLen(1))
+			Expect(last.Actions[0].Create).ToNot(BeNil())
+			Expect(last.Actions[0].Create.Log.Name).To(Equal("renamed"))
+			Expect(channelsOf(last.Actions[0].Create.Log)).
+				To(Equal([]channel.Key{kept}))
+		},
+	)
 
 	It("Should refuse a channel the Core does not hold", func(ctx SpecContext) {
 		l := log.Log{
