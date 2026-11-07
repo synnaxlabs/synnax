@@ -133,6 +133,28 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.logs.retrieve(key=uuid4())
 
+    def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        res = client.logs.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should return one log for a plain key beside other fields."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        assert client.logs.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no log where .+"):
+            client.logs.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve the logs that match any filter in or_."""
+        a = client.logs.create(project.key, sy.Log(name="A"))
+        b = client.logs.create(project.key, sy.Log(name="B"))
+        res = client.logs.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a log."""
         log = client.logs.create(project.key, sy.Log(name="Before"))

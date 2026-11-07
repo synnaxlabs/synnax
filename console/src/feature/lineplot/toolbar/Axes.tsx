@@ -61,7 +61,7 @@ const BoundInput = ({
   <Input.Numeric
     value={manual ? value : undefined}
     placeholder="Enter a value to override"
-    endContent={manual ? undefined : <Input.AutoChip />}
+    endContent={manual ? undefined : <Input.AutoBadge />}
     onChange={onChange}
     onClear={onAuto}
     resetValue={0}

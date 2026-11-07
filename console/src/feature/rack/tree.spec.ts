@@ -10,9 +10,10 @@
 import {
   arc,
   device,
+  group,
   ni,
   NotFoundError,
-  type ontology,
+  ontology,
   rack,
   type Synnax as Client,
   task,
@@ -29,6 +30,8 @@ import { answerNextCommand } from "@/platform/task/testutil";
 import {
   createResource,
   findModalButton,
+  findTreeRow,
+  renderOntologyTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
@@ -238,5 +241,23 @@ describe("permission to write the rack", () => {
     const { rack: r } = await createNIRackWithScanner();
     await renderMenu([r], await createRackWriter(task.TYPE_ONTOLOGY_ID));
     expect(await screen.findByText("Toggle NI device scanner")).toBeTruthy();
+  });
+});
+
+describe("rack tree item", () => {
+  it("should show the version that the Driver of the rack reports", async () => {
+    const r = await client.racks.create({
+      name: uniqueName("rack"),
+      version: "0.61.3",
+    });
+    const grp = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("rackgrp"),
+    });
+    const root = group.ontologyID(grp.key);
+    await client.ontology.addChildren(root, rack.ontologyID(r.key));
+    await renderOntologyTree({ client, root, items: Rack.TREE_ITEMS });
+    const row = await findTreeRow(r.name);
+    expect(row.contains(await screen.findByText("v0.61.3"))).toBe(true);
   });
 });

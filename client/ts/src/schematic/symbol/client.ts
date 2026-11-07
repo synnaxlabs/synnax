@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, filter, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -31,7 +31,7 @@ import {
   symbolZ,
   type Where,
 } from "@/schematic/symbol/types.gen";
-import { matches, serverComputed } from "@/schematic/symbol/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -45,11 +45,15 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
-export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
+type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
-  parentRequestZ,
+  keyZ.array().transform((keys): Request => query.keysRequest(keys)),
+  filter.requestInputZ(
+    parentRequestZ,
+    retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  ),
 ]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
@@ -117,18 +121,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
           (req.parent == null || this.isChildOf(req.parent, sym.key)),
         serverComputed: (req) => serverComputed(req.where),
         watch: [
-          query.watch(
-            ontologyClient.cache.relationships,
-            (event, req: RetrieveMultipleParams) => {
-              if (req.parent == null) return null;
-              const rel =
-                event.variant === "set"
-                  ? event.value
-                  : ontology.relationshipZ.parse(event.key);
-              if (!matchChildRel(rel, req.parent)) return null;
-              return [rel.to.key];
-            },
-          ),
+          query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
+            if (req.parent == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!matchChildRel(rel, req.parent)) return null;
+            return [rel.to.key];
+          }),
         ],
       },
     });
@@ -320,10 +321,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     return children.map(({ id: { key } }) => key);
   }
 
-  private async fetchRequest({
-    parent,
-    ...req
-  }: RetrieveMultipleParams): Promise<Symbol[]> {
+  private async fetchRequest({ parent, ...req }: Request): Promise<Symbol[]> {
     if (parent == null) return await this.execRetrieve(req);
     const keys = await this.resolveChildKeys(parent);
     if (keys.length === 0) return [];

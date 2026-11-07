@@ -132,6 +132,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
     // A connection test that releases the check must also release the connection.
     d.reset();
     lock.unlock();
+    details.connected = !err;
     if (err)
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),

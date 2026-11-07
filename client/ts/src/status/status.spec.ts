@@ -714,6 +714,86 @@ describe("Status", () => {
       expect(results).toHaveLength(0);
     });
 
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should return one status for a plain key beside other fields", async () => {
+      const key = `one-status-${id.create()}`;
+      await client.statuses.set({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+      });
+      const retrieved: status.Status = await client.statuses.retrieve({
+        key,
+        variant: "error",
+      });
+      expect(retrieved.key).toEqual(key);
+      await expect(client.statuses.retrieve({ key, variant: "info" })).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a plain key and a details schema", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-details-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 3 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key,
+        variant: "error",
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(3);
+      await expect(
+        client.statuses.retrieve({ key, variant: "info", detailsSchema }),
+      ).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a key list that sets one", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-option-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 4 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key: [key],
+        one: true,
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(4);
+    });
+
     it("should filter statuses by a tree of filters", async () => {
       const prefix = `variant-tree-${Date.now()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];

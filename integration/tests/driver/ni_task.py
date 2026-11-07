@@ -16,6 +16,7 @@ from abc import abstractmethod
 from collections.abc import Callable, Sequence
 
 import synnax as sy
+from framework import resources
 from tests.driver.task import (
     ReadTaskCase,
     ReadTaskT,
@@ -56,6 +57,35 @@ def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
     log("NI MAX config imported successfully")
 
 
+# The scan task polls every 5 s.
+_PRESENT_TIMEOUT = 30 * sy.TimeSpan.SECOND
+
+
+def retrieve_present_device(client: sy.Synnax, location: str) -> sy.Device:
+    """Return the device at an NI MAX location that the Driver reports as present.
+
+    The Driver keeps a device that it no longer sees, so after an NI MAX change a
+    location can hold a disconnected device next to the present one.
+
+    :raises TimeoutError: If the location does not hold exactly one present device
+        within 30 seconds.
+    """
+    timer = sy.Timer()
+    while True:
+        devices = client.devices.retrieve(location=location, include_status=True)
+        present = [
+            d for d in devices if d.status is not None and d.status.variant == "success"
+        ]
+        if len(present) == 1:
+            return present[0]
+        if timer.elapsed() > _PRESENT_TIMEOUT:
+            raise TimeoutError(
+                f"Expected one present device at {location}, but found "
+                f"{len(present)} of {len(devices)}"
+            )
+        sy.sleep(0.5)
+
+
 class _NITaskMixin(TaskCase[TaskT]):
     """Shared setup for all NI task tests.
 
@@ -68,6 +98,10 @@ class _NITaskMixin(TaskCase[TaskT]):
 
     device_locations: list[str] = []
     devices: dict[str, sy.Device]
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
 
     @property
     def _device_key(self) -> str:
@@ -85,12 +119,14 @@ class _NITaskMixin(TaskCase[TaskT]):
         # Resolve all locations upfront so concrete tests can use
         # devices[location] in create_channels without additional retrieves.
         self.devices = {
-            loc: self.client.devices.retrieve(location=loc)
+            loc: retrieve_present_device(self.client, loc)
             for loc in self.device_locations
         }
-        # TaskCase.setup() retrieves by name — use the first device.
-        self.device_name = self.devices[self.device_locations[0]].name
         super().setup()
+
+    def retrieve_device(self) -> sy.Device:
+        # Every NI device of one model shares a name, so use the first location.
+        return self.devices[self.device_locations[0]]
 
 
 class _NIReadTaskBase(_NITaskMixin[ReadTaskT], ReadTaskCase[ReadTaskT]):

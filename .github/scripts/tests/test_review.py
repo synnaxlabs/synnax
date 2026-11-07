@@ -8,11 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
+import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, parse, post
+from review import Finding, Review, Target, parse, post, reviewed
+from review import gh as call_gh
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(
@@ -65,6 +69,7 @@ class FakeGH:
             {"filename": "image.png", "patch": None},
         ]
         self.threads: list[dict[str, Any]] = []
+        self.edits: list[dict[str, Any]] = []
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
@@ -78,7 +83,8 @@ class FakeGH:
         if path.startswith(f"repos/{REPO}/compare/base...head"):
             return lines(self.files)
         if path == "graphql":
-            return lines(self.threads)
+            query = next(a for a in args if a.startswith("query="))
+            return lines(self.edits if "userContentEdits" in query else self.threads)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
         if path == f"repos/{REPO}/commits/head":
@@ -304,3 +310,42 @@ class TestSummary:
         assert done["conclusion"] == "success"
         assert done["output"]["title"] == "Confidence Score: 4/5"
         assert done["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
+
+
+def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:
+    block = f"[c](https://github.com/{REPO}/commit/{commit})"
+    body = f"Fixes A.\n<!-- sedosaur_comment -->\n{block}\n<!-- /sedosaur_comment -->"
+    return {"editor": {"__typename": "Bot", "login": login}, "diff": body}
+
+
+class TestReviewed:
+    """Tests reading the commits that the bot reviewed."""
+
+    def test_should_list_them_newest_first_once_each(self, gh: FakeGH) -> None:
+        a, b = "a" * 40, "b" * 40
+        gh.edits = [summary_edit(b), summary_edit(a), summary_edit(b)]
+        assert reviewed(TARGET, gh) == [b, a]
+
+    def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
+        assert reviewed(TARGET, gh) == []
+
+
+class TestGH:
+    """Tests the helper that runs the `gh` executable."""
+
+    def test_should_show_the_error_of_a_failed_call(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+    ) -> None:
+        fake = tmp_path / "gh"
+        fake.write_text(
+            "#!/bin/sh\necho 'HTTP 422: Unprocessable Entity' >&2\nexit 1\n"
+        )
+        fake.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews")
+        assert "HTTP 422: Unprocessable Entity" in capfd.readouterr().err

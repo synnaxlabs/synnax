@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -36,7 +36,7 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { matches, serverComputed } from "@/schematic/where.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -49,11 +49,17 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type CopyParams = z.input<typeof copyReqZ>;
 
 const createReqZ = z.object({

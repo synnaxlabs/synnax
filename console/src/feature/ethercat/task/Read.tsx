@@ -21,6 +21,7 @@ import {
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
 import {
+  bindOrphanedChannels,
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
@@ -140,14 +141,21 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
-    const toCreate = await findChannelsToCreate(
+    const missing = await findChannelsToCreate(
       client,
       channels,
       slave.properties.read.channels,
     );
+    if (missing.length > 0) modified = true;
+    const toCreate = await bindOrphanedChannels({
+      client,
+      channels: missing,
+      names: missing.map((ch) => readChannelName(slave, ch)),
+      index: () => slave.properties.readIndex,
+      map: slave.properties.read.channels,
+    });
 
     if (toCreate.length > 0) {
-      modified = true;
       const created = await client.channels.create(
         toCreate.map((ch) => ({
           name: readChannelName(slave, ch),

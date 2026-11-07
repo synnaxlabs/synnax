@@ -76,7 +76,7 @@ describe("View queries", () => {
       ]);
       const keys = views.map((v) => v.key);
       const where = { key: { in: keys } };
-      const { result } = renderHook(() => View.useList({ initialQuery: { where } }), {
+      const { result } = renderHook(() => View.useList({ query: { where } }), {
         wrapper,
       });
       await act(async () => {

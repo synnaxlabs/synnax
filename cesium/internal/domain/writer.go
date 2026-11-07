@@ -250,7 +250,8 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	if err := w.internal.Close(); err != nil {
 		return err
 	}
-	key, size, internal, err := w.fc.acquireWriter(ctx)
+	// The writer gave up its handle, so a canceled wait would leave it with none.
+	key, size, internal, err := w.fc.acquireWriter(context.WithoutCancel(ctx))
 	if err != nil {
 		return err
 	}
@@ -389,9 +390,9 @@ func (w *Writer) Close() error {
 		return err
 	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
-		w.idx.mu.RLock()
+		w.idx.mu.Lock()
 		write := w.idx.indexPersist.prepare(w.idx.persistHead)
-		w.idx.mu.RUnlock()
+		w.idx.mu.Unlock()
 		return write.run()
 	}
 	return nil

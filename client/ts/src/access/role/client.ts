@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -22,7 +22,12 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { matches, serverComputed } from "@/access/role/where.gen";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { user } from "@/user";
@@ -30,7 +35,10 @@ import { user } from "@/user";
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -43,7 +51,7 @@ export type CreateParams = z.input<typeof createParamsZ>;
 const createResZ = z.object({ roles: roleZ.array() });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const deleteResZ = z.object({});
@@ -98,6 +106,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     super(cache, {
       name: "role",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
