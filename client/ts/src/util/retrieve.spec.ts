@@ -10,8 +10,10 @@
 import { type primitive } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import {
   analyzeParams,
+  checkForMultipleOrNoResults,
   type ParamAnalysisResult,
   type PartialTypeNameRecord,
 } from "@/util/retrieve";
@@ -44,6 +46,45 @@ describe("retrieve utils", () => {
       it(`should analyze ${JSON.stringify(args)} with ${JSON.stringify(variantMap)}`, () => {
         expect(analyzeParams(args, variantMap)).toEqual(expected);
       });
+    });
+  });
+
+  describe("check for multiple or no results", () => {
+    const where = { name: { startsWith: "press" } };
+
+    it("should accept exactly one result", () => {
+      expect(() =>
+        checkForMultipleOrNoResults("range", where, [1], true),
+      ).not.toThrow();
+    });
+
+    it("should check nothing for a retrieve of many", () => {
+      expect(() =>
+        checkForMultipleOrNoResults("range", where, [], false),
+      ).not.toThrow();
+    });
+
+    it("should describe the filter when nothing matches", () => {
+      expect(() => checkForMultipleOrNoResults("range", where, [], true)).toThrow(
+        new NotFoundError('Found no range where name starts with "press"'),
+      );
+    });
+
+    it("should describe the filter when more than one record matches", () => {
+      expect(() => checkForMultipleOrNoResults("range", where, [1, 2], true)).toThrow(
+        new MultipleFoundError(
+          'Expected one range where name starts with "press", but found 2',
+        ),
+      );
+    });
+
+    it("should leave out the filter when it is empty", () => {
+      expect(() => checkForMultipleOrNoResults("range", undefined, [], true)).toThrow(
+        new NotFoundError("Found no range"),
+      );
+      expect(() => checkForMultipleOrNoResults("range", {}, [1, 2], true)).toThrow(
+        new MultipleFoundError("Expected one range, but found 2"),
+      );
     });
   });
 });
