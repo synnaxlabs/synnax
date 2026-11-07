@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
@@ -125,6 +126,20 @@ const EMPTY_CERTIFICATES = (
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
+type ListState = Pick<NonNullable<ListsData["secrets"]>, "answered" | "status">;
+
+const emptyContent = (list: ListState, empty: ReactElement): ReactNode => {
+  if (list.status.variant === "error")
+    return (
+      <Status.Summary
+        status={list.status}
+        level="small"
+        className={CSS.BE("credentials", "empty")}
+      />
+    );
+  return list.answered && empty;
+};
+
 interface ListSectionProps<L> {
   list: NonNullable<L>;
   selected: string | undefined;
@@ -158,7 +173,7 @@ const SecretSection = ({
           className={CSS.BE("credentials", "scroll")}
         >
           <List.Items<secret.Key, secret.Secret>
-            emptyContent={list.answered && EMPTY_SECRETS}
+            emptyContent={emptyContent(list, EMPTY_SECRETS)}
           >
             {({ key, ...p }) => <SecretItem key={key} {...p} />}
           </List.Items>
@@ -196,7 +211,7 @@ const CertificateSection = ({
           className={CSS.BE("credentials", "scroll")}
         >
           <List.Items<certificate.Key, certificate.Certificate>
-            emptyContent={list.answered && EMPTY_CERTIFICATES}
+            emptyContent={emptyContent(list, EMPTY_CERTIFICATES)}
           >
             {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
           </List.Items>
