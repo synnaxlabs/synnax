@@ -234,6 +234,44 @@ func (i *Domain) AppendSegments(
 	}
 }
 
+// Coverage walks the run of continuous domains that holds tr.Start. When the run
+// reaches tr.End, Coverage stops there. It returns the end of the domain that reaches
+// tr.End and a count of zero, and it does not read the index from disk. Otherwise, it
+// returns the end of the run and the number of samples in the run at or after tr.Start.
+// It returns zero values when no domain holds tr.Start.
+func (i *Domain) Coverage(
+	ctx context.Context,
+	tr telem.TimeRange,
+) (end telem.TimeStamp, count int64, err error) {
+	iter := i.DB.OpenIterator(domain.IterRange(tr.Start.SpanRange(telem.TimeSpanMax)))
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			end, count = 0, 0
+		}
+	}()
+	if !iter.SeekFirst(ctx) || !iter.TimeRange().ContainsStamp(tr.Start) {
+		return 0, 0, nil
+	}
+	first := iter.TimeRange().Start
+	for {
+		if end = iter.TimeRange().End; tr.End <= end {
+			return end, 0, nil
+		}
+		count += sampleCount(iter.Size())
+		if !iter.Next() || iter.TimeRange().Start != end {
+			break
+		}
+	}
+	if tr.Start > first && iter.SeekFirst(ctx) {
+		var pos int64
+		if pos, err = i.position(ctx, iter, tr.Start); err != nil {
+			return 0, 0, err
+		}
+		count -= pos
+	}
+	return end, count, nil
+}
+
 // position returns the position in the current domain of iter of the first sample at or
 // after ts.
 func (i *Domain) position(

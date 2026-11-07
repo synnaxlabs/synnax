@@ -37,6 +37,16 @@ inline x::errors::Error unexpected_missing_error(const std::string &name) {
     );
 }
 
+/// @brief returns the error for a query for one record that sets a limit or an offset,
+/// since a page could hide a second match.
+inline x::errors::Error paged_one_error() {
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "a query for one record takes no limit or offset, since a page could hide a "
+        "second match"
+    );
+}
+
 inline x::errors::Error
 not_found_error(const std::string &resource_name, const std::string &query) {
     return x::errors::Error(

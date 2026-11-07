@@ -42,7 +42,7 @@ const item = Component.renderProp(RenderItem);
 
 const Inner = (): ReactElement => {
   const listProps = Ranger.useList({
-    initialQuery: { where: View.useContext().getInitialView().where },
+    query: { where: View.useContext().getInitialView().where },
   });
   return (
     <View.Form {...listProps}>

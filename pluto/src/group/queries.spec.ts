@@ -50,7 +50,7 @@ describe("Group queries", () => {
       });
 
       const { result } = renderHook(
-        () => Group.useList({ initialQuery: { parent: group.resourceID(parent.key) } }),
+        () => Group.useList({ query: { parent: group.resourceID(parent.key) } }),
         { wrapper },
       );
 
@@ -73,7 +73,7 @@ describe("Group queries", () => {
     });
 
     it("should return an empty list when parent is not provided", async () => {
-      const { result } = renderHook(() => Group.useList({ initialQuery: {} }), {
+      const { result } = renderHook(() => Group.useList({ query: {} }), {
         wrapper,
       });
 
@@ -105,7 +105,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: {
+            query: {
               parent: group.resourceID(parent.key),
               limit: 2,
               offset: 1,
@@ -149,7 +149,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            query: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -330,7 +330,7 @@ describe("Group queries", () => {
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            query: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -347,7 +347,7 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            query: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -376,7 +376,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            query: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
@@ -416,7 +416,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent2.key) },
+            query: { parent: group.resourceID(parent2.key) },
           }),
         { wrapper },
       );
@@ -464,7 +464,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent1.key) },
+            query: { parent: group.resourceID(parent1.key) },
           }),
         { wrapper },
       );

@@ -10,7 +10,6 @@
 import { type log } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
@@ -35,6 +34,7 @@ export interface LogProps extends Omit<
   | "channelNamesHidden"
   | "timestampsHidden"
   | "timestampPrecision"
+  | "timeZone"
 > {}
 
 // Log is the connected log visualization. It reads the full log document from the
@@ -44,21 +44,23 @@ export interface LogProps extends Omit<
 // cache, so callers must render it within a Log.Suspended boundary.
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
-  const { channels, channelNamesHidden, timestampsHidden, timestampPrecision } = use({
-    key,
-  });
+  const {
+    channels,
+    channelNamesHidden,
+    timestampsHidden,
+    timestampPrecision,
+    timeZone,
+  } = use({ key });
   const undoRedo = useUndoRedo(key, enableTriggers);
-  // A channel entry with key 0 is an unconfigured placeholder row; the telem source
-  // must not subscribe to it.
-  const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
   const telem = streamMultiChannelLog({ channels: [] });
   return (
     <Base
       telem={telem}
-      channels={activeChannels}
+      channels={channels}
       channelNamesHidden={channelNamesHidden}
       timestampsHidden={timestampsHidden}
       timestampPrecision={timestampPrecision}
+      timeZone={timeZone}
       enableTriggers={enableTriggers}
       undoRedo={undoRedo}
       {...rest}

@@ -24,6 +24,7 @@ from synnax.arc.types_gen import (
     Source,
     TextSource,
     Where,
+    WhereInput,
     resource_id,
 )
 from x.spatial import XY as Position
@@ -50,6 +51,7 @@ __all__ = [
     "Text",
     "TextSource",
     "Where",
+    "WhereInput",
     "compiler",
     "graph",
     "ir",

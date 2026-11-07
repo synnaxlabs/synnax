@@ -70,6 +70,15 @@ func (p Pointer) String() string {
 	return b.String()
 }
 
+// MarshalText implements encoding.TextMarshaler.
+func (p Pointer) MarshalText() ([]byte, error) { return []byte(p.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (p *Pointer) UnmarshalText(text []byte) (err error) {
+	*p, err = ParsePointer(string(text))
+	return err
+}
+
 // arrayIndex parses an RFC 6901 array index: decimal digits with no leading zero.
 func arrayIndex(token string) (int, bool) {
 	if token == "" || (len(token) > 1 && token[0] == '0') {

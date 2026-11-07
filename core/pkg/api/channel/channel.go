@@ -121,8 +121,12 @@ func (s *Service) RetrieveDataTypes(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
-		return ch.DataType
+	dataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		dataTypes[ch.Key()] = ch.DataType
+	}
+	return lo.Map(keys, func(k channel.Key, _ int) telem.DataType {
+		return dataTypes[k]
 	}), nil
 }
 
@@ -398,7 +402,7 @@ func (s *Service) Delete(
 	if len(req.Names) > 0 {
 		res := make([]channel.Channel, 0, len(req.Names))
 		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNamePatterns(req.Names...)).
+			Where(channel.MatchNames(req.Names...)).
 			Entries(&res).
 			Exec(ctx, tx); err != nil {
 			return struct{}{}, err
@@ -410,7 +414,7 @@ func (s *Service) Delete(
 		}); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, w.DeleteManyByNamePatterns(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
 }

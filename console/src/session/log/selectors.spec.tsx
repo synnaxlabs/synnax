@@ -20,6 +20,7 @@ const KEY = "log-1";
 
 const customState: Log.State = {
   hold: true,
+  position: "",
   toolbar: { selectedTab: "properties" },
 };
 
@@ -67,6 +68,13 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe(false);
+  });
+
+  it("should default the position to empty for a log with no stored state", () => {
+    const { result } = renderHook(() => Log.useSelectPosition({ key: "absent" }), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe("");
   });
 
   it("should track hold across dispatches", () => {

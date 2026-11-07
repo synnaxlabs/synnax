@@ -150,6 +150,7 @@ func (h *StatusHandler) Reply(
 	cmdKey string,
 	variant status.Variant,
 	message string,
+	description string,
 	data msgpack.EncodedJSON,
 ) error {
 	h.mu.Lock()
@@ -157,7 +158,7 @@ func (h *StatusHandler) Reply(
 	stat := h.stamp()
 	stat.Variant = variant
 	stat.Message = message
-	stat.Description = ""
+	stat.Description = description
 	stat.Details.Cmd = cmdKey
 	stat.Details.Data = data
 	return h.write(ctx, stat)

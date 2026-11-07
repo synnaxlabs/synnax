@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep } from "@synnaxlabs/x";
+import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -28,7 +28,7 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, serverComputed } from "@/rack/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
 import { resource } from "@/resource";
 import { type status } from "@/status";
 import { type task } from "@/task";
@@ -37,7 +37,10 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
@@ -113,7 +116,8 @@ export class Client extends query.Retriever<
   Omit<Payload, "status">,
   Rack,
   RetrieveSingleParams,
-  SingleQuery
+  SingleQuery,
+  Key | string
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
@@ -153,6 +157,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "rack",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),

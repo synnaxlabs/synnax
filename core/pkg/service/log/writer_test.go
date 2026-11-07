@@ -69,6 +69,23 @@ var _ = Describe("Writer", func() {
 			Entry("above maximum", uint8(18), "channels.0.precision: must be less"),
 		)
 
+		It("Should reject a channel of 0", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			l := log.Log{Name: "test", Channels: []log.ChannelEntry{{}}}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+				To(MatchError(ContainSubstring("channels.0.channel")))
+		})
+
+		It("Should reject two entries for one channel", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			l := log.Log{
+				Name:     "test",
+				Channels: []log.ChannelEntry{{Channel: 5}, {Channel: 5}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+				To(MatchError(ContainSubstring("channels.1.channel")))
+		})
+
 		It("Should keep a channel precision of 0", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			l := log.Log{
@@ -510,6 +527,26 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
+				"Should treat SwapChannel as a no-op when the to channel has an entry",
+				func(ctx SpecContext) {
+					l := log.Log{
+						Name: "test",
+						Channels: []log.ChannelEntry{
+							{Channel: 1, Alias: "one"},
+							{Channel: 2, Alias: "two"},
+						},
+					}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSwapChannelAction(
+							log.SwapChannelPayload{From: 1, To: 2},
+						),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Channels).To(Equal(l.Channels))
+				},
+			)
+
+			It(
 				"Should set the timestamp precision via SetTimestampPrecision",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
@@ -584,6 +621,18 @@ var _ = Describe("Writer", func() {
 					"channels.0.timestamp",
 				),
 				Entry(
+					"added channel of 0",
+					log.NewAddChannelAction(log.AddChannelPayload{Channel: 0}),
+					"channels.1.channel",
+				),
+				Entry(
+					"channels that repeat one channel",
+					log.NewSetChannelsAction(log.SetChannelsPayload{
+						Channels: []log.ChannelEntry{entry(5, ""), entry(5, "")},
+					}),
+					"channels.1.channel",
+				),
+				Entry(
 					"channels with no timestamp",
 					log.NewSetChannelsAction(
 						log.SetChannelsPayload{
@@ -593,6 +642,26 @@ var _ = Describe("Writer", func() {
 					"channels.0.timestamp",
 				),
 			)
+
+			It("Should set the time zone via SetTimeZone", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneLocal))
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetTimeZoneAction(
+						log.SetTimeZonePayload{TimeZone: telem.TimeZoneUTC},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).TimeZone).To(Equal(telem.TimeZoneUTC))
+			})
+
+			It("Should reject an invalid time zone", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetTimeZoneAction(log.SetTimeZonePayload{TimeZone: "Mars"}),
+				})).To(MatchError(ContainSubstring("time_zone")))
+			})
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}

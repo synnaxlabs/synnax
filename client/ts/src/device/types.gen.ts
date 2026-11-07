@@ -28,6 +28,11 @@ export const statusDetailsZ = z.object({
   rack: rack.keyZ,
   /** device is the device identifier. */
   device: keyZ,
+  /**
+   * connected is true while the Driver confirms that it can reach the device. A device
+   * whose state is unknown is not connected.
+   */
+  connected: z.boolean().default(false),
   /** data contains device-specific status data. */
   data: zod.nullToUndefined(record.unknownZ()),
 });

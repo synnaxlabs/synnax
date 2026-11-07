@@ -144,13 +144,12 @@ export const {
   onChange: ({ client }, handler) =>
     subscribeForCurrent(
       client,
-      (subject) =>
-        client.access.policies.onChange({ where: { subjects: [subject] } }, handler),
+      (subject) => client.access.policies.onChange({ subjects: [subject] }, handler),
       () => handler(undefined),
     ),
   getCached: ({ client }) => {
     const subject = subjectOf(client);
     if (subject == null) return undefined;
-    return client.access.policies.getCached({ where: { subjects: [subject] } });
+    return client.access.policies.getCached({ subjects: [subject] });
   },
 });

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -54,6 +54,20 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+    },
+    total=False,
+)
 
 
 class ChannelEntry(BaseModel):
@@ -108,6 +122,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
+        time_zone: Is the time zone of the line times and day rows of the log.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -116,6 +131,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
+    time_zone: telem.TimeZone = "local"
 
     @_override
     def __hash__(self) -> int:
