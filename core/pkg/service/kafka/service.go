@@ -82,38 +82,35 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ReadTaskType,
-			Ladder:             versions.ReadConfigLadder,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            ReadTaskType,
+			Ladder:          versions.ReadConfigLadder,
+			SetEntryKey:     (*ReadConfig).SetKey,
+			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               WriteTaskType,
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            WriteTaskType,
+			Ladder:          versions.WriteConfigLadder,
+			SetEntryKey:     (*WriteConfig).SetKey,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ScanTaskType,
-			Ladder:             versions.ScanConfigLadder,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            ScanTaskType,
+			Ladder:          versions.ScanConfigLadder,
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
