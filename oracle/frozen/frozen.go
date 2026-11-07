@@ -191,9 +191,11 @@ func omittedDependencies(
 		ref := queue[len(queue)-1]
 		queue = append(queue[:len(queue)-1], ref.TypeArgs...)
 		t, ok := table.Get(ref.Name)
-		if !ok || t.Namespace == ns || reached.Contains(t.QualifiedName) {
+		if !ok || reached.Contains(t.QualifiedName) {
 			continue
 		}
+		// An own declaration, such as an alias, is walked through but not rendered:
+		// the version's own surface already covers it.
 		reached.Add(t.QualifiedName)
 		switch form := t.Form.(type) {
 		case resolution.StructForm:
@@ -214,7 +216,9 @@ func omittedDependencies(
 	}
 	decls := make([]versions.Decl, 0, len(reached))
 	for _, name := range slices.Sorted(maps.Keys(reached)) {
-		decls = append(decls, versions.Decl{Type: table.MustGet(name)})
+		if t := table.MustGet(name); t.Namespace != ns {
+			decls = append(decls, versions.Decl{Type: t})
+		}
 	}
 	return versions.Render(decls, versions.RenderOptions{Resolve: table.Get}), nil
 }
