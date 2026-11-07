@@ -11,10 +11,9 @@
 
 # Decides the Review gate commit status for a pull request. Usage: check_review.sh
 # <pr_number>. Prints "<state>\t<description>" where state is pending, failure, or
-# success. A pull request needs one tier label and a Greptile 5/5 of the head. A pull
-# request Dependabot opened and wrote every
-# commit of passes, since Greptile does not review it. Exits non-zero only when the
-# GitHub API fails.
+# success. A pull request needs one tier label and a Sedosaur 5/5 of the head. A pull
+# request Dependabot opened and wrote every commit of passes without a review. Exits
+# non-zero only when the GitHub API fails.
 
 set -euo pipefail
 
@@ -27,9 +26,9 @@ report() {
     exit 0
 }
 
-PULL=$("$GH_API" "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.user.login) \(
-    [.labels[].name | select(startswith("review/"))] | join(","))"')
-read -r HEAD AUTHOR TIER <<< "$PULL"
+PULL=$("$GH_API" "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.base.ref) \(
+    .user.login) \([.labels[].name | select(startswith("review/"))] | join(","))"')
+read -r HEAD BASE AUTHOR TIER <<< "$PULL"
 
 # Git author emails are free to set, so a commit counts as Dependabot's only when GitHub
 # also signed and committed it.
@@ -48,45 +47,22 @@ case "$TIER" in
     *) report pending "waiting for one label: review/bot or review/human" ;;
 esac
 
-# Only a review of the head counts: a push after the review needs a new one. The latest
-# filter keeps a rerun's verdict from being shadowed by an earlier success.
-REVIEW=$("$GH_API" \
-    "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page=100" \
-    --paginate \
-    --jq '.check_runs[]
-        | select(.name == "Greptile Review" and .conclusion == "success") | .id')
-if [ -z "$REVIEW" ]; then
-    report pending "waiting for the Greptile review of the head"
-fi
-
-# The check run succeeds at any score. The score lives only in the description, which
-# the author can edit, so only the latest revision Greptile wrote counts, and only when
-# its own block names the head: another reviewer's block can name it too. Every score
-# marker must be a 5: a commit title can quote one. The diff field holds the whole
-# description at that revision, not a delta.
-# shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
-SCORE=$("$GH_API" graphql \
-    -f query='query($owner: String!, $name: String!, $number: Int!) {
-        repository(owner: $owner, name: $name) {
-            pullRequest(number: $number) {
-                userContentEdits(first: 100) {
-                    nodes { editor { __typename login } diff }
-                }
-            }
-        }
-    }' \
-    -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$PR" \
-    --jq '[.data.repository.pullRequest.userContentEdits.nodes[]
-            | select(.editor | .__typename == "Bot" and .login == "greptile-apps")]
-        | (.[0].diff // "")
-        | ([match("<!-- greptile_comment -->[\\s\\S]*?<!-- /greptile_comment -->")
-            .string] | first // "")
-        | select(contains("/commit/'"$HEAD"')"))
-        | [scan("greptile_confidence_score:([0-9]+)")[]] | unique | join(" ")')
-if [ -z "$SCORE" ]; then
-    report pending "waiting for Greptile to score the head"
-elif [ "$SCORE" != 5 ]; then
-    report failure "Greptile scored the head ${SCORE}/5, not 5/5"
-fi
-
-report success "Greptile scored the head 5/5"
+# Only a review of the head counts: a push after the review needs a new one. The newest
+# review of this pull request and base decides, since a commit can head two pull
+# requests and a rerun must not be shadowed by an earlier success. Only the Sedosaur app
+# can write its check runs, so the score in the title is its own.
+export KEY="${PR}:${BASE}"
+RUNS="repos/${REPO}/commits/${HEAD}/check-runs"
+REVIEW=$("$GH_API" "${RUNS}?check_name=Sedosaur%20Review&filter=all&per_page=100" \
+    --jq '[.check_runs[] | select(.app.slug == "sedosaur" and .external_id == env.KEY)]
+        | max_by(.started_at) // {}
+        | "\(.conclusion // "none") \(.output.title // ""
+            | capture("^Confidence Score: (?<n>[0-9])/5$").n // "none")"')
+read -r CONCLUSION SCORE <<< "$REVIEW"
+case "$CONCLUSION:$SCORE" in
+    none:*) report pending "waiting for the Sedosaur review of the head" ;;
+    success:5) report success "Sedosaur scored the head 5/5" ;;
+    success:none) report failure "Sedosaur left no score on the head" ;;
+    success:*) report failure "Sedosaur scored the head ${SCORE}/5, not 5/5" ;;
+    *) report failure "the Sedosaur review of the head ended ${CONCLUSION}" ;;
+esac

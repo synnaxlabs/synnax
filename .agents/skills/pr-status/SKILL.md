@@ -3,7 +3,7 @@ name: pr-status
 description:
   Report where the session's PRs stand as one short board. Use when the user invokes
   /pr-status, asks for the status of the PRs, asks what is blocking them, or asks if a
-  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Greptile
+  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Sedosaur
   and human review, and merge conflicts, in categories, with stack order and backmerge
   health.
 ---
@@ -38,13 +38,13 @@ for n in $PRS; do
   gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest
     | .headRefOid as $sha
     | ((.body // "")
-      | [match("<!-- greptile_comment -->[\\s\\S]*?<!-- /greptile_comment -->").string]
-      | first // "") as $greptile | {
+      | [match("<!-- sedosaur_comment -->[\\s\\S]*?<!-- /sedosaur_comment -->").string]
+      | first // "") as $sedosaur | {
     number, url, title, state, draft: .isDraft, mergeable,
     head: .headRefName, base: .baseRefName, mergeCommit: .mergeCommit.oid,
     tier: ([.labels.nodes[].name | select(startswith("review/"))] | first),
-    greptile: ($greptile | [scan("Confidence Score: ([0-9])/5")] | first | first),
-    greptileCurrent: ($greptile | contains("commit/" + $sha)),
+    sedosaur: ($sedosaur | [scan("Confidence Score: ([0-9])/5")] | first | first),
+    sedosaurCurrent: ($sedosaur | contains("commit/" + $sha)),
     humans: [.latestOpinionatedReviews.nodes[]
       | select(.author.login | endswith("[bot]") | not)
       | {login: .author.login, state}],
@@ -85,12 +85,12 @@ fails. Ignore Vercel and other workflows.
 A PR that conflicts with its merge target gets no CI run, so check conflicts first when
 you see `No run`.
 
-**Review.** One cell holds Greptile, human review, and open threads.
+**Review.** One cell holds Sedosaur, human review, and open threads.
 
-- Greptile: `5/5` is good. Below 5 fails the `Review gate`. A clean re-review posts no
-  review object, so the only source is the summary in the PR body. If `greptileCurrent`
-  is false, the score is for an older commit: write `Greptile 5/5 on an older commit`.
-  If `greptile` is null, write `no Greptile review`.
+- Sedosaur: `5/5` is good. Below 5 fails the `Review gate`. A clean re-review posts no
+  review object, so the only source is the summary in the PR body. If `sedosaurCurrent`
+  is false, the score is for an older commit: write `Sedosaur 5/5 on an older commit`.
+  If `sedosaur` is null, write `no Sedosaur review`.
 - Human: on `review/human`, name who approved or requested changes, or write
   `human pending`. On `review/bot`, omit the human part unless `humans` is not empty.
   With no tier label, write `no tier label`.
@@ -153,8 +153,8 @@ that starts with a verb, in 12 words or less. Do not copy the title. Mark a draf
 
 | PR                         | What                                           | CI         | Review                          | Conflicts |
 | -------------------------- | ---------------------------------------------- | ---------- | ------------------------------- | --------- |
-| [#4167](https://github...) | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Greptile 5/5                 | ✅ None   |
-| [#4166](https://github...) | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Greptile 4/5, 2 open threads | ✅ None   |
+| [#4167](https://github...) | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Sedosaur 5/5                 | ✅ None   |
+| [#4166](https://github...) | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Sedosaur 4/5, 2 open threads | ✅ None   |
 
 **NI ports stack**, bottom to top
 
