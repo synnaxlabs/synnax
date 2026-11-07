@@ -212,6 +212,23 @@ trig -> f()`
 		)
 	})
 
+	DescribeTable("Should place a placeholder diagnostic after non-ASCII text",
+		func(specCtx SpecContext, placeholder, message string) {
+			diags := analyze(
+				specCtx,
+				"func f() {\n    log = f\"温度 "+placeholder+"\"\n}",
+			)
+			d := findError(diags, message)
+			Expect(d).ToNot(BeNil(), diags.String())
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(15)))
+			Expect(d.Range.End.Character).To(Equal(uint32(15 + len(placeholder))))
+		},
+		Entry("an empty placeholder", "{}", "must contain an expression"),
+		Entry("a parse error", "{1 +}", "invalid placeholder expression"),
+		Entry("a bad format spec", "{1:q}", "invalid format spec"),
+	)
+
 	It("Should count placeholder columns in runes", func(specCtx SpecContext) {
 		code := "func f() {\n    log = f\"温度°: {1 + undeclared}\"\n}"
 		diags := analyze(specCtx, code)

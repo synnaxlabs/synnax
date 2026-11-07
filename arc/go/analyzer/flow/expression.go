@@ -50,7 +50,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 					return
 				}
 				if flags.Format {
-					segs, err := literal.FmtStrParse(body)
+					segs, err := literal.FmtStrSplit(body, flags)
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 						return

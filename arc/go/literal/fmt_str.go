@@ -88,19 +88,29 @@ func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
 // pass through verbatim. Literal-brace escapes ({{ and }}) are handled by
 // FmtStrParse. Errors only on a trailing backslash or an incomplete \uXXXX escape.
 func UnescapeString(body string, multi bool) (string, error) {
+	value, _, err := unescape(body, multi)
+	return value, err
+}
+
+// unescape applies the escape table to body. It also returns, for each byte of the
+// result and one past its end, the offset in body that byte came from.
+func unescape(body string, multi bool) (string, []int, error) {
 	var b strings.Builder
 	b.Grow(len(body))
+	offsets := make([]int, 0, len(body)+1)
 	for i := 0; i < len(body); {
 		c := body[i]
 		if c != '\\' {
 			b.WriteByte(c)
+			offsets = append(offsets, i)
 			i++
 			continue
 		}
 		if i+1 >= len(body) {
-			return "", errors.New("trailing backslash in string literal")
+			return "", nil, errors.New("trailing backslash in string literal")
 		}
 		next := body[i+1]
+		width := 2
 		switch {
 		case next == 'b':
 			b.WriteByte('\b')
@@ -120,25 +130,54 @@ func UnescapeString(body string, multi bool) (string, error) {
 			b.WriteByte('\\')
 		case next == 'u':
 			if i+6 > len(body) {
-				return "", errors.New(`incomplete \u escape in string literal`)
+				return "", nil, errors.New(`incomplete \u escape in string literal`)
 			}
 			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
 			if err != nil {
-				return "", errors.Newf(
+				return "", nil, errors.Newf(
 					`invalid \u escape %q in string literal`,
 					body[i:i+6],
 				)
 			}
 			b.WriteRune(rune(cp))
-			i += 6
-			continue
+			width = 6
 		default:
+			// The escape passes through, so each byte keeps its own offset.
 			b.WriteByte('\\')
 			b.WriteByte(next)
+			offsets = append(offsets, i, i+1)
 		}
-		i += 2
+		for len(offsets) < b.Len() {
+			offsets = append(offsets, i)
+		}
+		i += width
 	}
-	return b.String(), nil
+	return b.String(), append(offsets, len(body)), nil
+}
+
+// FmtStrSplit applies the escapes in body, unless flags.Raw, and then splits the
+// result into segments as FmtStrParse does. Each segment's Text has its escapes
+// applied, and its Start, End, and SpecOffset index body as written.
+func FmtStrSplit(body string, flags StringFlags) ([]FmtStrSegment, error) {
+	if flags.Raw {
+		return FmtStrParse(body)
+	}
+	value, offsets, err := unescape(body, flags.Multi)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := FmtStrParse(value)
+	if err != nil {
+		return nil, err
+	}
+	for i := range segments {
+		seg := &segments[i]
+		seg.Start, seg.End = offsets[seg.Start], offsets[seg.End]
+		if seg.SpecOffset >= 0 {
+			seg.SpecOffset = offsets[seg.SpecOffset]
+		}
+	}
+	return segments, nil
 }
 
 // FmtStrParse splits a format-string body into ordered segments at `{...}`

@@ -44,7 +44,7 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	if !flags.Format {
 		return
 	}
-	segments, err := literal.FmtStrParse(body)
+	segments, err := literal.FmtStrSplit(body, flags)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -64,18 +64,8 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 			analyzePlaceholder(ctx, body, base, seg, &stored[i], analyzed)
 			continue
 		}
-		if analyzed {
-			continue
-		}
-		stored[i].Text = seg.Text
-		if flags.Raw {
-			continue
-		}
-		if stored[i].Text, err = literal.UnescapeString(
-			seg.Text,
-			flags.Multi,
-		); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		if !analyzed {
+			stored[i].Text = seg.Text
 		}
 	}
 }
@@ -101,8 +91,8 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	out *parser.FmtSegment,
 	analyzed bool,
 ) {
-	segStart := diagnostics.Advance(base, body, seg.Start)
-	segEnd := diagnostics.Advance(base, body, seg.End)
+	segStart := runePosition(base, body[:seg.Start])
+	segEnd := runePosition(base, body[:seg.End])
 	emit := func(d diagnostics.Diagnostic) {
 		ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 	}
@@ -111,8 +101,13 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 		return
 	}
 	if !analyzed {
-		line, column := runePosition(base, body[:seg.Start+1])
-		expr, diags := parser.ParseExpressionAt(seg.Text, line, column, ctx.Config)
+		start := runePosition(base, body[:seg.Start+1])
+		expr, diags := parser.ParseExpressionAt(
+			seg.Text,
+			int(start.Line)+1,
+			int(start.Character),
+			ctx.Config,
+		)
 		if diags != nil && !diags.Ok() {
 			emit(diagnostics.Errorf(ctx.AST,
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
@@ -143,12 +138,18 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	}
 }
 
-// runePosition returns the 1-based line and the rune column, as ANTLR counts them, of
-// the source just past prefix, where base is the source position of prefix[0].
-func runePosition(base protocol.Position, prefix string) (line, column int) {
-	line = int(base.Line) + 1 + strings.Count(prefix, "\n")
+// runePosition returns the position just past prefix, with the column in runes as
+// ANTLR counts it. base is the position of prefix[0].
+func runePosition(base protocol.Position, prefix string) protocol.Position {
+	line := base.Line + uint32(strings.Count(prefix, "\n"))
 	if _, last, found := strings.CutLast(prefix, "\n"); found {
-		return line, utf8.RuneCountInString(last)
+		return protocol.Position{
+			Line:      line,
+			Character: uint32(utf8.RuneCountInString(last)),
+		}
 	}
-	return line, int(base.Character) + utf8.RuneCountInString(prefix)
+	return protocol.Position{
+		Line:      line,
+		Character: base.Character + uint32(utf8.RuneCountInString(prefix)),
+	}
 }
