@@ -50,7 +50,7 @@ describe("Group queries", () => {
       });
 
       const { result } = renderHook(
-        () => Group.useList({ initialQuery: { parent: group.ontologyID(parent.key) } }),
+        () => Group.useList({ query: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -73,7 +73,7 @@ describe("Group queries", () => {
     });
 
     it("should return an empty list when parent is not provided", async () => {
-      const { result } = renderHook(() => Group.useList({ initialQuery: {} }), {
+      const { result } = renderHook(() => Group.useList({ query: {} }), {
         wrapper,
       });
 
@@ -84,52 +84,6 @@ describe("Group queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toHaveLength(0);
-      });
-    });
-
-    it("should filter groups by search term", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: `test-parent-search-${uniqueId}`,
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "apple red",
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "banana blue",
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "apple purple",
-      });
-
-      const { result } = renderHook(
-        () =>
-          Group.useList({
-            initialQuery: {
-              parent: group.ontologyID(parent.key),
-              searchTerm: "apple",
-            },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({
-          parent: group.ontologyID(parent.key),
-          searchTerm: "apple",
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-        const names = result.current.getItem(result.current.data).map((g) => g.name);
-        expect(names).toContain("apple red");
-        expect(names).toContain("apple purple");
       });
     });
 
@@ -151,7 +105,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: {
+            query: {
               parent: group.ontologyID(parent.key),
               limit: 2,
               offset: 1,
@@ -195,7 +149,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -376,7 +330,7 @@ describe("Group queries", () => {
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -393,7 +347,7 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -422,7 +376,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            query: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -462,7 +416,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent2.key) },
+            query: { parent: group.ontologyID(parent2.key) },
           }),
         { wrapper },
       );
@@ -510,7 +464,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent1.key) },
+            query: { parent: group.ontologyID(parent1.key) },
           }),
         { wrapper },
       );

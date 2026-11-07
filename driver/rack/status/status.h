@@ -101,7 +101,7 @@ public:
             const auto now = x::telem::TimeStamp::now();
             if (now - last_beat > LATE_GAP) resend_pending = true;
             last_beat = now;
-            if (!resend_pending) continue;
+            if (!resend_pending && !this->ctx->statuses_stale()) continue;
             if (const auto resend_err = this->ctx->resend_statuses()) {
                 LOG(ERROR) << "[rack_status] failed to send task statuses again: "
                            << resend_err;
@@ -114,6 +114,23 @@ public:
         stat.details.running = false;
         this->ctx->set_status(stat);
     };
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        synnax::task::Status stat{
+            .key = synnax::task::status_key(this->task),
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_ERROR,
+            .message = "Failed to report Driver status",
+            .description = err.data,
+            .time = x::telem::TimeStamp::now(),
+            .details = synnax::task::StatusDetails{
+                .task = this->task.key,
+                .running = false,
+                .config_hash = this->task.config_hash,
+            }
+        };
+        this->ctx->set_status(stat);
+    }
 };
 
 /// @brief a task that periodically

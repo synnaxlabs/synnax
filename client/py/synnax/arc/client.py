@@ -9,20 +9,35 @@
 
 from __future__ import annotations
 
-from typing import overload
+from collections.abc import Sequence
+from typing import Any, Literal, overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
-from synnax.arc.program import Program
 from synnax.arc.text import Text
-from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
-from synnax.exceptions import MultipleFoundError, NotFoundError
+from synnax.arc.types_gen import (
+    AutomationPayload,
+    GraphSource,
+    Key,
+    Mode,
+    ModulePayload,
+    Payload,
+    RetrieveRequest,
+    RetrieveResponse,
+    Source,
+    TextSource,
+    Type,
+    Where,
+    WhereInput,
+    ontology_id,
+)
 from synnax.ontology.payload import ID
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
-from x.uuid import NIL
 
 
 class _CreateRequest(BaseModel):
@@ -33,66 +48,50 @@ class _CreateResponse(BaseModel):
     arcs: list[Payload] = []
 
 
-class _RetrieveRequest(BaseModel):
-    keys: list[UUID] | None = None
-    names: list[str] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    compile: bool = False
-
-
-class _RetrieveResponse(BaseModel):
-    arcs: list[Payload] = Field(default_factory=list)
-
-
 class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class Arc(Payload):
-    """An Arc is a user-defined automation sequence or control program.
+class Automation(AutomationPayload):
+    """An Arc that runs on a rack as a task. It is written in one of two modes:
 
-    Arcs can be created in two modes:
     - 'text': Source code written in the Arc programming language
     - 'graph': Visual programming using a node-based editor
     """
-
-    _client: Client | None = PrivateAttr(None)
-
-    def __init__(
-        self,
-        *,
-        key: UUID = NIL,
-        name: str = "",
-        graph: Graph | None = None,
-        text: Text | None = None,
-        mode: Mode = "text",
-        program: Program | None = None,
-        _client: Client | None = None,
-    ):
-        super().__init__(
-            key=key,
-            name=name,
-            graph=graph if graph is not None else Graph(),
-            text=text if text is not None else Text(),
-            mode=mode,
-            program=program,
-        )
-        self._client = _client
 
     @property
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
-    def to_payload(self) -> Payload:
-        return Payload(
-            key=self.key,
-            name=self.name,
-            graph=self.graph,
-            text=self.text,
-            mode=self.mode,
-        )
+
+class Module(ModulePayload):
+    """An Arc that holds code for other Arcs to import."""
+
+    @property
+    def ontology_id(self) -> ID:
+        return ontology_id(self.key)
+
+
+Arc = Automation | Module
+
+_PAYLOADS: dict[Type, type[AutomationPayload] | type[ModulePayload]] = {
+    "automation": AutomationPayload,
+    "module": ModulePayload,
+}
+_ARCS: dict[Type, type[Automation] | type[Module]] = {
+    "automation": Automation,
+    "module": Module,
+}
+
+
+def _source(mode: Mode, text: Text | None, graph: Graph | None) -> Source:
+    if mode == "graph":
+        if text is not None:
+            raise ValueError("a graph-mode Arc takes no text")
+        return GraphSource(graph=graph if graph is not None else Graph())
+    if graph is not None:
+        raise ValueError("a text-mode Arc takes no graph")
+    return TextSource(text=text if text is not None else Text())
 
 
 class Client:
@@ -111,39 +110,33 @@ class Client:
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc: ...
 
     @overload
     def create(self, arc: Arc) -> Arc: ...
 
     @overload
-    def create(self, arc: list[Arc]) -> list[Arc]: ...
+    def create(self, arc: Sequence[Arc]) -> list[Arc]: ...
 
     def create(
         self,
-        arc: Arc | list[Arc] | None = None,
+        arc: Arc | Sequence[Arc] | None = None,
         *,
         name: str = "",
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc | list[Arc]:
-        is_single = True
-        if arc is not None:
-            if isinstance(arc, list):
-                is_single = False
-                to_create = [a.to_payload() for a in arc]
-            else:
-                to_create = [arc.to_payload()]
+        is_single = not isinstance(arc, Sequence)
+        to_create: list[Payload]
+        if isinstance(arc, Sequence):
+            to_create = list(arc)
+        elif arc is not None:
+            to_create = [arc]
         else:
-            to_create = [
-                Payload(
-                    name=name,
-                    graph=graph if graph is not None else Graph(),
-                    text=text if text is not None else Text(),
-                    mode=mode,
-                )
-            ]
+            to_create = [_PAYLOADS[type](name=name, source=_source(mode, text, graph))]
 
         res = self._client.send(
             "/arc/create", _CreateRequest(arcs=to_create), _CreateResponse
@@ -152,81 +145,128 @@ class Client:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, *, key: Key, compile: bool = False) -> Arc: ...
-
-    @overload
-    def retrieve(self, *, name: str, compile: bool = False) -> Arc: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: bool = ...,
+    ) -> Arc: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        compile: bool = False,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: bool = ...,
+    ) -> Arc: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        include_program: bool = ...,
+        one: Literal[True],
+    ) -> Arc: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_program: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Arc]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
-        compile: bool = False,
+        offset: int = 0,
+        include_program: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> Arc | list[Arc]:
-        """Retrieve Arcs. When compile is True, the Core compiles each Arc and sets
-        its program, raising an error if any Arc fails to compile.
+        """Retrieves Arcs from the Core. With no arguments, retrieves every Arc.
+
+        Each filter field takes a value, a list of values, or an operator, and an Arc
+        must match every field. A plain ``key`` or ``name`` returns one Arc.
+
+        :param key: Keeps Arcs with this key.
+        :param name: Keeps Arcs with this name.
+        :param and_: Keeps Arcs that match every filter in the list.
+        :param or_: Keeps Arcs that match any filter in the list.
+        :param not_: Keeps Arcs that do not match the filter.
+        :param where: A filter tree that the Arcs must also match.
+        :param keys: Keeps Arcs with one of these keys.
+        :param names: Keeps Arcs with one of these names.
+        :param search_term: A fuzzy search term matched against Arc names.
+        :param limit: The maximum number of Arcs to retrieve.
+        :param offset: The number of Arcs to skip.
+        :param include_program: Whether the Core compiles each automation and sets
+            its program. The Core raises an error if any automation fails to compile.
+        :param one: Returns one Arc for any filter.
+        :returns: One Arc for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of Arcs. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one Arc is wanted and none matches.
+        :raises MultipleFoundError: If one Arc is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one Arc is wanted
+            beside a limit or an offset.
         """
-        if key is not None:
-            keys = [key]
-        if name is not None:
-            names = [name]
-
-        is_single = key is not None or name is not None
-        res = self._client.send(
-            "/arc/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                names=names,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                compile=compile,
-            ),
-            _RetrieveResponse,
+        single = returns_one(fields, one, limit, offset)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
         )
-
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_program=include_program,
+        )
+        res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        if not is_single:
-            return arcs
-        if len(arcs) == 0:
-            identifier = key if key is not None else name
-            raise NotFoundError(f"Arc {identifier} not found")
-        if len(arcs) > 1:
-            identifier = key if key is not None else name
-            raise MultipleFoundError(f"Multiple Arcs matching {identifier} found")
-        return arcs[0]
+        return sole("Arc", req.where, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 
     def _sugar(self, payloads: list[Payload]) -> list[Arc]:
-        return [
-            Arc(
-                key=p.key,
-                name=p.name,
-                graph=p.graph,
-                text=p.text,
-                mode=p.mode,
-                program=p.program,
-                _client=self,
-            )
-            for p in payloads
-        ]
+        return [_ARCS[p.type].model_validate(p, from_attributes=True) for p in payloads]

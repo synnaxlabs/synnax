@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -64,7 +64,7 @@ var _ = Describe("Video", func() {
 		Expect(v.Key).ToNot(Equal(uuid.Nil()))
 		res := MustSucceed(
 			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Keys: []video.Key{v.Key},
+				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
 			}),
 		)
 		Expect(res.Videos).To(Equal([]video.Video{v}))
@@ -102,7 +102,7 @@ var _ = Describe("Video", func() {
 		)
 		res := MustSucceed(
 			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Keys: []video.Key{v.Key},
+				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
 			}),
 		)
 		Expect(res.Videos[0].Channel).To(Equal(channel.Key(9)))
@@ -113,13 +113,9 @@ var _ = Describe("Video", func() {
 		MustSucceed(apiSvc.Delete(AuthedCtx(ctx, editor), nil, apivideo.DeleteRequest{
 			Keys: []video.Key{v.Key},
 		}))
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-			Keys: []video.Key{v.Key},
-		})).Error().To(MatchError(query.ErrNotFound))
 		res := MustSucceed(
 			apiSvc.Retrieve(AuthedCtx(ctx, editor), apivideo.RetrieveRequest{
-				Keys:                []video.Key{v.Key},
-				IgnoreNotFoundError: true,
+				Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
 			}),
 		)
 		Expect(res.Videos).To(BeEmpty())
@@ -141,7 +137,7 @@ var _ = Describe("Video", func() {
 				stranger := newUser(ctx)
 				Expect(
 					apiSvc.Retrieve(AuthedCtx(ctx, stranger), apivideo.RetrieveRequest{
-						Keys: []video.Key{v.Key},
+						Where: &video.Where{Key: &filter.Set[video.Key]{Eq: &v.Key}},
 					}),
 				).Error().
 					To(MatchError(access.ErrDenied))

@@ -1149,6 +1149,10 @@ describe("TimeSpan", () => {
     expect(ts.equals(1000)).toBe(true);
   });
 
+  test("construct from a Rate gives its period", () => {
+    expect(new TimeSpan(new Rate(2)).equals(TimeSpan.milliseconds(500))).toBe(true);
+  });
+
   describe("fromMilliseconds", () => {
     it("should interpret a pure number or bigint as milliseconds", () => {
       const ts = TimeSpan.fromMilliseconds(1000);
@@ -1598,9 +1602,7 @@ describe("TimeSpan", () => {
       const rate = new Rate(100);
       const ts = TimeSpan.z.parse(rate);
       expect(ts).toBeInstanceOf(TimeSpan);
-      // The schema transforms Rate to TimeSpan using new TimeSpan(rate)
-      // which uses rate.valueOf() directly (100) as nanoseconds
-      expect(ts.valueOf()).toBe(100n);
+      expect(ts.equals(TimeSpan.milliseconds(10))).toBe(true);
     });
 
     it("should handle edge cases", () => {

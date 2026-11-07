@@ -11,7 +11,6 @@ package framer_test
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
@@ -113,18 +112,7 @@ var _ = Describe("MP4", func() {
 				telem.NewVideoSeriesV(keyframe(), delta(), keyframe()),
 			)
 			res := read(ctx, index, channels...)
-			res.OpenIterator = func(
-				ctx context.Context,
-				keys svcchannel.Keys,
-			) (*svcframer.Iterator, error) {
-				return framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-					Keys: keys,
-					Bounds: telem.TimeRange{
-						Start: 2 * telem.SecondTS,
-						End:   telem.TimeStampMax,
-					},
-				})
-			}
+			res.Bounds.Start = 2 * telem.SecondTS
 			var parts fmp4.Parts
 			Expect(parts.Unmarshal(MustSucceed(framer.MP4Encoder.Encode(ctx, res)))).
 				To(Succeed())

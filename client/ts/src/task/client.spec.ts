@@ -1,0 +1,164 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  EOF,
+  HTTPClient,
+  type UnaryClient,
+  WebSocketClient,
+} from "@synnaxlabs/freighter";
+import { binary, Series, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { type channel } from "@/channel";
+import { framer } from "@/framer";
+import { label } from "@/label";
+import { ontology } from "@/ontology";
+import { query } from "@/query";
+import { ranger } from "@/ranger";
+import { status } from "@/status";
+import { task } from "@/task";
+import { TEST_CORE_ADDRESS } from "@/testutil";
+
+/** A change stream that delivers the frames the spec pushes, in push order. */
+class PushStreamer implements framer.Streamer {
+  keys: channel.Key[] = [];
+  dropped: channel.Key[] = [];
+  private readonly frames: framer.Frame[] = [];
+  private done = false;
+
+  push(frame: framer.Frame): void {
+    this.frames.push(frame);
+  }
+
+  async update(): Promise<void> {}
+
+  close(): void {
+    this.done = true;
+  }
+
+  async next(): Promise<IteratorResult<framer.Frame>> {
+    while (!this.done) {
+      const frame = this.frames.shift();
+      if (frame != null) return { done: false, value: frame };
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    return { done: true, value: undefined };
+  }
+
+  async read(): Promise<framer.Frame> {
+    const res = await this.next();
+    if (res.done) throw new EOF();
+    return res.value;
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
+    return this;
+  }
+}
+
+// Every request fails, so the cache holds only what the stream delivers.
+const unary: UnaryClient = {
+  use: () => {},
+  send: async (target: string) => {
+    throw new Error(`unexpected request to ${target}`);
+  },
+};
+
+const createStreamedClient = async () => {
+  const stream = new PushStreamer();
+  const cache = new query.Cache({
+    openStreamer: async () => stream,
+    breaker: { baseInterval: TimeSpan.milliseconds(1) },
+    onError: () => {},
+  });
+  onTestFinished(async () => await cache.close());
+  const ont = new ontology.Client({ unary, cache });
+  const labels = new label.Client({ unary, cache, ontology: ont });
+  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const frames = new framer.Client({
+    stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+    unary,
+    file: new HTTPClient(coreURL, binary.JSON_CODEC),
+    retrieveChannels: async () => [],
+  });
+  const ranges = new ranger.Client({
+    unary,
+    cache,
+    labels,
+    ontology: ont,
+    framer: frames,
+    channels: async () => [],
+  });
+  const statuses = new status.Client({ unary, cache, ontology: ont, labels });
+  const tasks = new task.Client({
+    unary,
+    framer: frames,
+    ontology: ont,
+    ranges,
+    cache,
+    statuses,
+  });
+  await cache.ensureStreaming();
+  return { stream, tasks };
+};
+
+const createStatus = (key: task.Key, message: string, time: TimeStamp) => ({
+  key: task.statusKey(key),
+  name: "Task status",
+  variant: "warning" as const,
+  message,
+  time,
+  details: { task: key, running: false, cmd: "", data: {} },
+});
+
+describe("task.Client", () => {
+  describe("a task another client creates", () => {
+    it("should hold the status its create carries before the status streams in", async () => {
+      const { stream, tasks } = await createStreamedClient();
+      const key = "0a7d3c2e-6f1b-4c5d-9e8f-1a2b3c4d5e6f";
+      const cachedMessage = () => {
+        const cached = tasks.getCached(key);
+        return query.isLive(cached) ? cached.status?.message : undefined;
+      };
+      stream.push(
+        new framer.Frame({
+          [task.ACTION_CHANNEL_NAME]: new Series([
+            {
+              key,
+              dispatchKey: "remote-dispatch",
+              seq: 1,
+              actions: [
+                task.create({
+                  task: {
+                    key,
+                    name: "created remotely",
+                    type: "test",
+                    config: {},
+                    status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                  },
+                }),
+              ],
+            },
+          ]),
+        }),
+      );
+      await expect.poll(() => query.isLive(tasks.getCached(key))).toBe(true);
+      expect(cachedMessage()).toBe("Task not deployed");
+      stream.push(
+        new framer.Frame({
+          [status.SET_CHANNEL_NAME]: new Series([
+            createStatus(key, "Task configured", TimeStamp.now().add(TimeSpan.SECOND)),
+          ]),
+        }),
+      );
+      await expect.poll(cachedMessage).toBe("Task configured");
+    });
+  });
+});

@@ -28,6 +28,43 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      PAGERDUTY_API_KEY:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -88,9 +125,12 @@ jobs:
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
         steps.test-matrix.outputs.TEST_MATRIX }}
+      BOT_MATRIX:
+        ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
+        steps.test-matrix.outputs.BOT_MATRIX }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set outputs
         id: set-outputs
@@ -160,7 +200,22 @@ jobs:
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # A free test bot takes the oldest queued job, so in a merge group the Windows test
   # bot jobs wait here until the groups ahead queued theirs.
@@ -178,7 +233,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
 
@@ -210,7 +265,10 @@ jobs:
       os: windows-test-bot
       hosted_os: windows-2025
       flags: ${{ needs.setup.outputs.FLAGS }}
-    secrets: inherit
+    secrets:
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   test-ubuntu:
     name: Test (ubuntu)
@@ -223,11 +281,14 @@ jobs:
       (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
-      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
+      test_matrix: ${{ needs.setup.outputs.BOT_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: ubuntu-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
-    secrets: inherit
+    secrets:
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   binary-checks:
     name: Binary checks (${{ matrix.display }})
@@ -247,12 +308,12 @@ jobs:
         include: ${{ fromJSON(needs.setup.outputs.BINARY_CHECK_MATRIX) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: integration/scripts
 
       - name: Download Core artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-core-${{ matrix.os-name }}
           path: binaries
@@ -260,7 +321,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Download Driver artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: binaries
@@ -362,8 +423,30 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_service.sh
 
+      # An embedded Driver once wrote no output for its whole start timeout. These show
+      # whether antivirus or the loader acted on the freshly extracted executable.
+      - name: Print launch diagnostics (Windows)
+        if: failure() && runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $since = (Get-Date).AddMinutes(-30)
+          Get-MpComputerStatus |
+            Format-List RealTimeProtectionEnabled, OnAccessProtectionEnabled,
+              BehaviorMonitorEnabled, IoavProtectionEnabled
+          Get-MpPreference | Format-List ExclusionPath, ExclusionProcess
+          $defender = 'Microsoft-Windows-Windows Defender/Operational'
+          foreach ($filter in @(
+              @{ LogName = $defender; StartTime = $since },
+              @{ LogName = 'Application'; Level = 1, 2, 3; StartTime = $since }
+            )) {
+            Write-Host "--- $($filter.LogName) ---"
+            # Get-WinEvent errors when no event matches, which is a valid answer here.
+            Get-WinEvent -FilterHashtable $filter -ErrorAction SilentlyContinue |
+              Format-List TimeCreated, ProviderName, Id, Message
+          }
+
       - name: Upload check logs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: binary-check-logs-${{ matrix.os-name }}

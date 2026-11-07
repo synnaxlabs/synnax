@@ -10,47 +10,60 @@
 import { log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Access, Log } from "@synnaxlabs/pluto";
-import { type bounds } from "@synnaxlabs/x";
+import { Access, Log, Telem } from "@synnaxlabs/pluto";
+import { type bounds, type TimeZone } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
+const TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
 
 export const Properties = (): ReactElement => {
   const key = Log.useKey();
   const dispatch = Log.useSingleDispatch();
   const channelNamesHidden = Log.useIsHidingChannelNames();
-  const receiptTimestampHidden = Log.useIsHidingReceiptTimestamp();
+  const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
+  const timeZone = Log.useTimeZone();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
   const handlePrecisionChange = (timestampPrecision: number) =>
     dispatch(log.setTimestampPrecision({ timestampPrecision }));
 
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setTimeZone({ timeZone }));
+
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
-  const handleShowReceiptTimestampChange = (visible: boolean) =>
-    dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
+  const handleShowTimestampsChange = (visible: boolean) =>
+    dispatch(log.setTimestampsHidden({ timestampsHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show receipt timestamp">
+      <Input.Item label="Show timestamps">
         <Input.Switch
-          value={!receiptTimestampHidden}
-          onChange={handleShowReceiptTimestampChange}
+          value={!timestampsHidden}
+          onChange={handleShowTimestampsChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt timestamp precision">
-        <Input.Numeric
-          value={timestampPrecision}
-          onChange={handlePrecisionChange}
-          resetValue={0}
-          bounds={RECEIPT_TIMESTAMP_PRECISION_BOUNDS}
-          disabled={!hasEditPermission}
+      <Input.Item label="Timestamp precision">
+        <Flex.Box y className={CSS.BE("log", "timestamp-precision")}>
+          <Input.Numeric
+            value={timestampPrecision}
+            onChange={handlePrecisionChange}
+            resetValue={0}
+            bounds={TIMESTAMP_PRECISION_BOUNDS}
+            disabled={!hasEditPermission || timestampsHidden}
+          />
+        </Flex.Box>
+      </Input.Item>
+      <Input.Item label="Time zone">
+        <Telem.SelectTimeZone
+          value={timeZone}
+          onChange={handleTimeZoneChange}
+          disabled={!hasEditPermission || timestampsHidden}
         />
       </Input.Item>
       <Input.Item label="Show channel names">

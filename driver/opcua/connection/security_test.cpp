@@ -11,6 +11,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -108,7 +109,8 @@ protected:
     void start_server(
         const certificate::Identity &id,
         std::vector<certificate::Certificate> trusted_clients = {},
-        const std::uint16_t max_sessions = 0
+        const std::uint16_t max_sessions = 0,
+        std::vector<std::pair<std::string, std::string>> users = {}
     ) {
         if (this->server) this->server->stop();
         auto cfg = testutil::ServerConfig::create_default();
@@ -116,6 +118,7 @@ protected:
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
         cfg.max_sessions = max_sessions;
+        cfg.users = std::move(users);
         this->server = std::make_unique<testutil::Server>(cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
@@ -346,6 +349,22 @@ TEST_F(SecurityTest, PoolSkipsUntrustedConnection) {
     ASSERT_EQ(conn.get(), first);
 }
 
+/// @brief it should not give the connection of one login to another login, even when
+/// their fields join into the same text.
+TEST_F(SecurityTest, PoolSeparatesLogins) {
+    this->start_server(server_id, {}, 0, {{"a|b", "c"}});
+    Pool pool(this->store());
+    auto first = config();
+    first.username = "a|b";
+    first.password = "c";
+    { const auto conn = ASSERT_NIL_P(pool.acquire(first, LOG_PREFIX)); }
+    auto second = config();
+    second.username = "a";
+    second.password = "b|c";
+    ASSERT_OCCURRED_AS_P(pool.acquire(second, LOG_PREFIX), errors::SESSION_REJECTED);
+    ASSERT_EQ(pool.available_count(ENDPOINT), 1);
+}
+
 /// @brief it should stop connecting after repeated certificate rejections, and repeat
 /// the rejection while it waits.
 TEST_F(SecurityTest, PoolBreakerCountsCertificateRejections) {
@@ -407,7 +426,8 @@ TEST_F(SecurityTest, PoolRefreshKeepsCurrentCertificate) {
     cfg.server_certificate = server_id.certificate;
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     auto *const first = conn.get();
-    ASSERT_FALSE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
+    const auto next = ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX));
+    ASSERT_FALSE(next);
     ASSERT_EQ(conn.get(), first);
     ASSERT_EQ(pool.size(), 1);
 }
@@ -424,7 +444,8 @@ TEST_F(SecurityTest, PoolRefreshUsesNewDriverCertificate) {
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     const auto next = ASSERT_NIL_P(store->regenerate());
     this->start_server(server_id, {next.certificate});
-    ASSERT_TRUE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
+    conn = ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX));
+    ASSERT_TRUE(conn);
     ASSERT_NIL_P(testutil::simple_read(conn.shared(), "NS=1;S=TestUInt32"));
 }
 
@@ -438,7 +459,8 @@ TEST_F(SecurityTest, PoolRefreshClosesOldConnection) {
     cfg.server_certificate = server_id.certificate;
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     ASSERT_NIL(store->regenerate().second);
-    ASSERT_TRUE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
+    conn = ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX));
+    ASSERT_TRUE(conn);
     ASSERT_EQ(pool.size(), 1);
     ASSERT_EQ(pool.available_count(ENDPOINT), 0);
 }

@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-from console.schematic.symbol import Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol, option_text
 
 
 class Select(Symbol):
@@ -22,14 +22,14 @@ class Select(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[dict[str, Any]] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a select symbol with configuration.
 
         Args:
             label: Display label for the symbol
             channel_name: Channel name for the select output
-            options: List of option dicts with "name" and "value" keys
+            options: States to add as options
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
@@ -42,19 +42,16 @@ class Select(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[dict[str, Any]] | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        options: list[sy.schematic.StateMapping] | None = None,
+    ) -> None:
         self.click()
         self.notifications.close_all()
-        applied_properties: dict[str, Any] = {}
 
         if channel_name is not None:
             self.set_label(channel_name)
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Control").last.dispatch_event("click")
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
@@ -70,12 +67,9 @@ class Select(Symbol):
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
-            applied_properties["options"] = options
-
-        return applied_properties
+                value_input.fill(option_text(option.value))
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.

@@ -34,7 +34,7 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete(props);
@@ -54,6 +54,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             ids={ids}
             shape={shape}
             rootID={rootID}
+            parentID={parentID}
             onClick={() => group(props)}
           />
         </>

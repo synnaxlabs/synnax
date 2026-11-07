@@ -29,6 +29,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
+import { latestSample } from "@/vis/latestSample/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { scale } from "@/vis/scale/aether";
@@ -48,6 +49,7 @@ export const render = (): void => {
     ...diagram.REGISTRY,
     ...eraser.REGISTRY,
     ...input.REGISTRY,
+    ...latestSample.REGISTRY,
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,

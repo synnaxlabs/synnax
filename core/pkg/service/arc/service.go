@@ -17,10 +17,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -32,10 +35,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -139,25 +144,40 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table    *gorp.Table[Key, Arc]
-	indexes  indexes
-	closer   xio.MultiCloser
-	cfg      ServiceConfig
+	table   *gorp.Table[Key, Arc]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	owner   *ontology.Owner
+	// directories stores the directories below root.
+	directories directories
+	// root is the directory that holds every Arc.
+	root directory.Key
+	// reserved holds the standard module names, which no entry of root may take.
+	reserved set.Set[string]
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
 	taskSync *debounce.Keyed[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules
-// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
+// NewRoot builds the production analysis root: the STL, status, and ranges modules,
+// the Core channel resolver, and the user modules below Arcs. tx is consulted for
+// lookups; nil uses the DB. A root resolves each channel name and module the same
+// way for its lifetime, so build one per analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	syms := slices.Concat(
-		stl.NewSymbols(),
-		arcstatus.NewSymbols(),
-		ranges.NewSymbols(),
-	)
-	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
+	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx))
+	modules := arctext.NewLoader(arctext.LoaderConfig{
+		Source:   s.moduleSource(tx),
+		Channels: channels,
+		Ambient:  standardSymbols,
+		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
+	})
+	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
+}
+
+func standardSymbols() []*symbol.Symbol {
+	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
@@ -195,27 +215,37 @@ func (s *Service) Close() error { return s.closer.Close() }
 // is permitted exactly when channel-name validation is disabled.
 func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
 
-// CompileProgram retrieves an Arc program by key and compiles its Module. The returned
-// Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
+// CompileProgram retrieves the automation with key and compiles its program. A module
+// is a validation error.
+func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
 	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
+	}
+	automation, ok := entry.Variant.(AutomationArc)
+	if !ok {
+		return AutomationArc{}, errors.Wrapf(
+			validate.ErrValidation,
+			"modules cannot be deployed independently. Import %q from an "+
+				"automation instead",
+			entry.Base().Name,
+		)
 	}
 	var prog arc.Program
-	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil),
+	switch src := automation.Source.Variant.(type) {
+	case TextSource:
+		prog, err = arc.CompileText(ctx, src.Text.Materialize(), s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
+	case GraphSource:
+		prog, err = arc.CompileGraph(ctx, src.Graph, s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
 	}
-	entry.Program = &prog
-	return entry, nil
+	automation.Program = &prog
+	return automation, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -235,9 +265,10 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](cfg.DB),
-		indexes: newIndexes(),
+		cfg:      cfg,
+		reserved: reservedNames(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+		indexes:  newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -246,10 +277,27 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	s.owner = cfg.Ontology.Own(ontology.Ownership{
+		Children: []ontology.ResourceType{
+			ontology.ResourceTypeArc,
+			ontology.ResourceTypeArcDirectory,
+		},
+		Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
+	})
+	if s.directories, err = openDirectories(ctx, cfg); !ok(err, s.directories.table) {
+		return nil, err
+	}
+	if s.root, err = s.openRoot(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Ontology: cfg.Ontology,
+			Owner:    s.owner,
+			Root:     directory.OntologyID(s.root),
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -262,8 +310,14 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(s.directories)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
+	}
+	for _, t := range []Type{TypeAutomation, TypeModule} {
+		if err = cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	if cfg.Signals != nil {
 		var sig io.Closer
@@ -299,15 +353,18 @@ func (s *Service) OnAction(
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
-		tasks:      s.cfg.Task,
-		status:     s.cfg.Status,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
-		sweeper:    s.sweeper,
-		taskSync:   s.taskSync,
+		tx:          gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter:   s.owner.NewWriter(tx),
+		otg:         s.cfg.Ontology,
+		root:        s.root,
+		directories: s.directories.table,
+		reserved:    s.reserved,
+		tasks:       s.cfg.Task,
+		status:      s.cfg.Status,
+		table:       s.table,
+		dispatcher:  s.state.Dispatcher(),
+		sweeper:     s.sweeper,
+		taskSync:    s.taskSync,
 	}
 }
 

@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, type http } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -29,37 +29,45 @@ import {
   WRITE_TYPE,
   type WriteEndpoint,
   writeEndpointZ,
-  type WriteMethod,
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <SelectDevice />;
 
-const MethodSelect: FC<{ path: string }> = ({ path }) => (
-  <PForm.Field<WriteMethod> path={path} label="Method">
+const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
+  <PForm.Field path={path} label="Method">
     {renderMethodSelect}
   </PForm.Field>
 );
 
 const renderMethodSelect = Component.renderProp(
-  (p: Select.ButtonsProps<WriteMethod>) => (
-    <Select.Buttons<WriteMethod> {...p}>
-      <Select.Item<WriteMethod> itemKey="POST">POST</Select.Item>
-      <Select.Item<WriteMethod> itemKey="PUT">PUT</Select.Item>
-      <Select.Item<WriteMethod> itemKey="PATCH">PATCH</Select.Item>
+  (p: Select.ButtonsProps<http.Method>) => (
+    <Select.Buttons<http.Method> {...p}>
+      <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
+      <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
+      <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
     </Select.Buttons>
   ),
 );
 
+/** The name deploying gives an endpoint's command channel while it has none. */
+const commandChannelName = (device: string, endpoint: string): string =>
+  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
+
 const EndpointItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.endpoints.${itemKey}`;
-  const channel = PForm.useFieldValue<number>(`${path}.channel.channel`);
+  const path = root.config.endpoints[itemKey];
+  const channelKey = PForm.useFieldValue(path.channel.channel);
+  const endpointPath = PForm.useFieldValue(path.path);
+  const disabled = PForm.useFieldValue(path.disabled);
+  const dev = useFromConfig();
   return (
     <Select.Item
       {...props}
@@ -69,19 +77,23 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
       className={CSS.B("endpoint-item")}
     >
       <Flex.Box x align="center" gap="small" full="x">
-        <EndpointLabel epKey={itemKey} />
+        <EndpointLabel path={path} />
       </Flex.Box>
       <Flex.Box x align="center" justify="between" gap="small" full="x">
         <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.channel.name`}
+          channel={channelKey}
+          namePath={path.channel.name}
+          defaultName={
+            dev == null ? undefined : commandChannelName(dev.name, endpointPath)
+          }
+          skipped={disabled}
           id={Task.getChannelNameID(itemKey)}
           level="small"
           weight={450}
           color={9}
           overflow="fade"
         />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={path.disabled} />
       </Flex.Box>
     </Select.Item>
   );
@@ -92,20 +104,20 @@ const endpointItem = Component.renderProp(EndpointItem);
 const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
-  const path = `config.endpoints.${epKey}`;
+  const path = root.config.endpoints[epKey];
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
         <PForm.Section title="Request">
-          <MethodSelect path={`${path}.method`} />
+          <MethodSelect path={path.method} />
           <PForm.TextField
-            path={`${path}.path`}
+            path={path.path}
             label="Path"
             padHelpText={false}
             inputProps={PATH_INPUT_PROPS}
           />
           <PlatformForm.KeyValueEditor
-            path={`${path}.queryParams`}
+            path={path.queryParams}
             resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
@@ -113,7 +125,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             valuePlaceholder="100"
           />
           <PlatformForm.KeyValueEditor
-            path={`${path}.headers`}
+            path={path.headers}
             resourceName="header"
             label="Headers"
             keyField="name"
@@ -121,11 +133,8 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             valuePlaceholder="application/json"
           />
         </PForm.Section>
-        <Task.Payload.ChannelSections
-          path={`${path}.channel`}
-          pointerPlaceholder="/value"
-        />
-        <Task.Payload.AdditionalFields key={epKey} path={`${path}.fields`} />
+        <Task.Payload.ChannelSections path={path.channel} pointerPlaceholder="/value" />
+        <Task.Payload.AdditionalFields key={epKey} path={path.fields} />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -161,7 +170,7 @@ const Form: FC = () => {
       listTitle="Endpoints"
       list={
         <Task.Views.ChannelList<WriteEndpoint>
-          path="config.endpoints"
+          path={root.config.endpoints}
           header={null}
           emptyContent={EMPTY_ENDPOINTS}
           addLabel="Add endpoint"
@@ -175,8 +184,8 @@ const Form: FC = () => {
           grow
         />
       }
-      detailsPath={current != null ? `config.endpoints.${current}` : null}
-      title={current != null && <EndpointLabel epKey={current} />}
+      detailsPath={current != null ? root.config.endpoints[current] : null}
+      title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
     >
       {current != null ? (
         <EndpointDetails epKey={current} />
@@ -206,7 +215,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
-  const safeDevName = channel.escapeInvalidName(dev.name);
   const saved = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints) {
@@ -219,7 +227,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
           channel: ep.channel.channel,
           name: primitive.isNonZero(ep.channel.name)
             ? ep.channel.name
-            : `${safeDevName}${channel.escapeInvalidName(ep.path)}_cmd`,
+            : commandChannelName(dev.name, ep.path),
           dataType: ep.channel.dataType,
         },
       );
@@ -244,9 +252,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "HTTP write task",
+  label: "Write",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
-});
+};

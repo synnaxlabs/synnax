@@ -7,15 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
 from synnax import imex
-from synnax.exceptions import NotFoundError
-from synnax.project.types_gen import Key, Project
+from synnax.project.types_gen import (
+    Key,
+    Project,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.fs import FilePath
 from x.lists import normalize
 
@@ -44,17 +52,6 @@ class _ExportRequest(BaseModel):
 
 class _ImportResponse(BaseModel):
     project: Project
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    projects: list[Project] = Field(default_factory=list)
 
 
 class Client:
@@ -167,55 +164,88 @@ class Client:
         ).project
 
     @overload
-    def retrieve(self, *, key: Key) -> Project: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Project: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        key: filter.SetInput[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Project: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        one: Literal[False] = ...,
     ) -> list[Project]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
+        one: bool = False,
+        **fields: Any,
     ) -> Project | list[Project]:
-        """Retrieve one or more projects.
+        """Retrieves projects. With no arguments, retrieves every project.
 
-        :param key: The key of a single project to retrieve. When provided, a single
-            project is returned and NotFoundError is raised if it does not exist.
-        :param keys: The keys of the projects to retrieve.
+        Each filter field takes a value, a list of values, or an operator, and a project
+        must match every field. A plain ``key`` returns one project.
+
+        :param key: Keeps projects with this key.
+        :param and_: Keeps projects that match every filter in the list.
+        :param or_: Keeps projects that match any filter in the list.
+        :param not_: Keeps projects that do not match the filter.
+        :param where: A filter tree that the projects must also match.
+        :param keys: Keeps projects with one of these keys.
         :param search_term: A fuzzy search term matched against project names.
-        :param limit: The maximum number of projects to return.
-        :param offset: The number of projects to skip before returning results.
-        :returns: The matching project when ``key`` is provided, otherwise a list of
-            matching projects.
-        :raises NotFoundError: If ``key`` is provided and no project exists for it.
+        :param limit: The maximum number of projects to retrieve.
+        :param offset: The number of projects to skip.
+        :param one: Returns one project for any filter.
+        :returns: One project for a plain ``key`` or when ``one`` is set, otherwise a
+            list of projects. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one project is wanted and none matches.
+        :raises MultipleFoundError: If one project is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one project is wanted
+            beside a limit or an offset.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        res = self._client.send(
-            "/project/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            _RetrieveResponse,
+        single = returns_one(fields, one, limit, offset)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
         )
-        projects = res.projects
-        if is_single:
-            if len(projects) == 0:
-                raise NotFoundError("Project not found")
-            return projects[0]
-        return projects
+        res = self._client.send("/project/retrieve", req, RetrieveResponse)
+        return sole("project", req.where, res.projects) if single else res.projects

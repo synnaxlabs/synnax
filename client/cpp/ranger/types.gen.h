@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -21,15 +22,21 @@
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
 struct Range;
+struct Where;
+struct RetrieveResponse;
+struct RetrieveRequest;
 
 using Key = x::uuid::UUID;
 
@@ -62,6 +69,125 @@ struct Range {
     static std::pair<Range, x::errors::Error>
     from_proto(const ::service::ranger::pb::Range &pb);
     ranger::kv::Client kv;
+};
+
+/// @brief Where is a filter that selects ranges.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief overlaps matches ranges whose time range overlaps the given range.
+    std::optional<::x::telem::TimeRange> overlaps;
+    /// @brief labels matches ranges that have any of the given labels.
+    ::x::filter::List<::synnax::label::Key> labels;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ranger::pb::Where;
+    [[nodiscard]] std::pair<::service::ranger::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::ranger::pb::Where &pb);
+};
+
+/// @brief RetrieveResponse holds the ranges a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief ranges are the ranges the request selects.
+    std::vector<Range> ranges;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching ranges to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_labels includes the labels of each record.
+    bool include_labels = false;
+    /// @brief include_parent includes the parent of each record.
+    bool include_parent = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve ranges.
+struct RetrieveRequest {
+    /// @brief where selects the ranges to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching ranges to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_labels includes the labels of each record.
+    bool include_labels = false;
+    /// @brief include_parent includes the parent of each record.
+    bool include_parent = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_labels = options.include_labels,
+            .include_parent = options.include_parent,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("range", "");

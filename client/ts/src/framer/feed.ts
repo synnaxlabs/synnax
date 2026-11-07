@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type MultiSeries,
-  scheduler,
-  type Size,
-  type TimeRange,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { scheduler, type Size, type TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
@@ -49,12 +43,12 @@ export interface RemoteLatestReader {
 const HISTORY_CHANGE_CHANNEL = "sy_history_change";
 
 interface LatestQuery {
-  key: channel.Key;
+  keys: channel.Key[];
   count: number;
   tr: TimeRange;
 }
 
-type LatestEntry = scheduler.BatcherEntry<LatestQuery, MultiSeries>;
+type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
@@ -65,6 +59,8 @@ export interface FeedProps
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
   findKeyframe: KeyframeFinder;
+  /** Reads the first stored sample of each channel. */
+  readFirst: (keys: channel.Key[]) => Promise<Frame>;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.
@@ -89,6 +85,7 @@ export interface FeedOptions extends Omit<
   | "openStreamer"
   | "readLatest"
   | "findKeyframe"
+  | "readFirst"
   | "onRetry"
   | "node"
 > {}
@@ -107,7 +104,7 @@ export class Feed {
   private readonly store: Store;
   private readonly joins: Joins;
   private readonly joiner: Joiner;
-  private readonly latest: scheduler.Batcher<LatestQuery, MultiSeries>;
+  private readonly latest: scheduler.Batcher<LatestQuery, Frame>;
   private readonly props: FeedProps;
   private readonly handles = new Set<Handle>();
   // listening is true once a subscription asked for the history changes, and signals
@@ -208,16 +205,16 @@ export class Feed {
   private async fetchLatest(entries: LatestEntry[]): Promise<void> {
     const { count, tr } = entries[0].req;
     try {
-      const keys = [...new Set(entries.map(({ req }) => req.key))];
+      const keys = [...new Set(entries.flatMap(({ req }) => req.keys))];
       const frame = await this.props.readLatest(keys, count, tr);
-      entries.forEach(({ req, resolve }) => resolve(frame.get(req.key)));
+      entries.forEach(({ resolve }) => resolve(frame));
     } catch (e) {
-      const byChannel = Map.groupBy(entries, ({ req }) => req.key);
-      // One channel's error fails a read of several, so each channel reads again alone
+      const byKeys = Map.groupBy(entries, ({ req }) => req.keys.join());
+      // One channel's error fails a read of several, so each request reads again alone
       // and gets its own result.
-      if (byChannel.size > 1 && !isConnectionError(e))
+      if (byKeys.size > 1 && !isConnectionError(e))
         await Promise.all(
-          [...byChannel.values()].map(async (group) => await this.fetchLatest(group)),
+          [...byKeys.values()].map(async (group) => await this.fetchLatest(group)),
         );
       else entries.forEach(({ reject }) => reject(e));
     }
@@ -225,6 +222,21 @@ export class Feed {
 
   private get now(): () => TimeStamp {
     return this.props.now ?? (() => TimeStamp.now());
+  }
+
+  /**
+   * @returns the start of the oldest stored domain of the channels, or null when they
+   * store no samples.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel.
+   */
+  async firstTime(keys: channel.Key[]): Promise<TimeStamp | null> {
+    const frame = await this.props.readFirst(keys);
+    const firsts = keys.flatMap((key) => {
+      const series = frame.get(key);
+      return series.series.length === 0 ? [] : [series.timeRange.start];
+    });
+    return firsts.length === 0 ? null : firsts.reduce((a, b) => TimeStamp.min(a, b));
   }
 
   /**
@@ -248,8 +260,8 @@ export class Feed {
         streamer: this.streamer,
         joiner: this.joiner,
         retrieveChannels: this.props.retrieveChannels,
-        readLatest: async (key, count, tr) =>
-          await this.latest.enqueue({ key, count, tr }),
+        readLatest: async (keys, count, tr) =>
+          await this.latest.enqueue({ keys, count, tr }),
         now: this.now,
         breaker: this.props.breaker,
         onClose: () => this.handles.delete(handle),

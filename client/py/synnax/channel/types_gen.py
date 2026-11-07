@@ -11,14 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TypedDict
+from typing import override as _override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
-from x import control, telem
+from x import control, filter, telem
 
 Key: TypeAlias = int
 
@@ -60,6 +61,57 @@ class Operation(BaseModel):
     )
 
 
+class Where(BaseModel):
+    """Is a filter that selects channels.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        leaseholder: Selects by leaseholder.
+        data_type: Selects by data_type.
+        is_index: Selects by is_index.
+        internal: Selects by internal.
+        virtual: Matches virtual channels that are not calculated, or every other
+            channel when false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    leaseholder: filter.Set[node.Key] | None = None
+    data_type: filter.Set[telem.DataType] | None = None
+    is_index: filter.Bool | None = None
+    internal: filter.Bool | None = None
+    virtual: bool | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "leaseholder": filter.SetInput[node.Key],
+        "data_type": filter.SetInput[telem.DataType],
+        "is_index": filter.BoolInput,
+        "internal": filter.BoolInput,
+        "virtual": bool,
+    },
+    total=False,
+)
+
+
 class Payload(BaseModel):
     """Is a logical collection of samples emitted by or representing values from a
     single source. Channels are the fundamental unit of telemetry storage and streaming
@@ -88,10 +140,10 @@ class Payload(BaseModel):
             applied to channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
+        status: Is the current operational status of the channel.
         retention: Is how long the Core keeps the data of an index channel and of every
             channel on it. Zero keeps the data forever. Only an index channel can set
             it.
-        status: Is the current operational status of the channel.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -106,13 +158,47 @@ class Payload(BaseModel):
     expression: str = ""
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
+    status: Status | None = None
     retention: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
     )
-    status: Status | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve channels.
+
+    Attributes:
+        where: Selects the channels to retrieve. An absent where selects all of them.
+        search_term: Keeps the channels that match the term, closest match first.
+        limit: Is the most channels to return.
+        offset: Is the number of matching channels to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the channels a RetrieveRequest selects.
+
+    Attributes:
+        channels: Are the channels the request selects.
+    """
+
+    channels: list[Payload] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="channel")

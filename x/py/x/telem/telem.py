@@ -88,9 +88,48 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
         return _timedelta_nanoseconds(value)
     if isinstance(value, np.timedelta64):
         return _timedelta64_nanoseconds(value)
-    if isinstance(value, (int, float, np.integer, np.floating)):
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, Rate):
+        return int(value.period)
+    if isinstance(value, (float, np.floating)):
         return int(value)
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
+
+
+def _exact_float(value: float | np.floating) -> float | Fraction:
+    """Converts a float to a value that compares with an int as the float does,
+    without truncating it to nanoseconds or rounding a wider NumPy float.
+    """
+    if isinstance(value, float) or not np.isfinite(value):
+        return float(value)
+    return Fraction(*value.as_integer_ratio())
+
+
+def _stamp_operand(
+    value: CrudeTimeStamp | float | np.integer | np.floating | np.timedelta64,
+) -> int | float | Fraction:
+    if isinstance(value, (float, np.floating)):
+        return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _stamp_nanoseconds(value)
+
+
+def _span_operand(
+    value: CrudeTimeSpan | np.integer | np.floating,
+) -> int | float | Fraction:
+    if isinstance(value, (float, np.floating)):
+        return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _span_nanoseconds(value)
 
 
 def _operand_error(op: str, lhs: object, rhs: object) -> TypeError:
@@ -186,25 +225,25 @@ class TimeStamp(int):
         :param ts: The TimeStamp to compare to.
 
         """
-        return super().__gt__(_stamp_nanoseconds(ts))
+        return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
         """:return: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__ge__(_stamp_nanoseconds(ts))
+        return int(self) >= _stamp_operand(ts)
 
     def before(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is strictly before the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__lt__(_stamp_nanoseconds(ts))
+        return int(self) < _stamp_operand(ts)
 
     def before_eq(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__le__(_stamp_nanoseconds(ts))
+        return int(self) <= _stamp_operand(ts)
 
     def span_range(self, span: TimeSpan) -> TimeRange:
         """:returns: A TimeRange that spans the given TimeSpan
@@ -287,10 +326,15 @@ class TimeStamp(int):
     @override
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(
-            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+            rhs,
+            (int, float, np.integer, np.floating, datetime, timedelta, np.datetime64),
         ):
             return False
-        return super().__eq__(_stamp_nanoseconds(rhs))
+        return int(self) == _stamp_operand(rhs)
+
+    @override
+    def __ne__(self, rhs: object) -> bool:
+        return not self == rhs
 
     @override
     def __hash__(self) -> int:
@@ -319,6 +363,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * Rate - The period of the rate, so 2 Hz is 500 milliseconds.
     * str - Parses a decimal string of nanoseconds.
     """
 
@@ -383,14 +428,15 @@ class TimeSpan(int):
 
     @staticmethod
     def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
-        """An alternative constructor for TimeSpan that parses raw numeric values as
-        seconds instead of nanoseconds.
+        """Converts a duration parameter. Every Python API that takes a duration uses
+        this conversion, so a bare number is seconds. The TimeSpan constructor reads a
+        bare number as nanoseconds instead.
         """
-        if isinstance(span, TimeSpan):
-            return span
+        if isinstance(span, (TimeSpan, TimeStamp)):
+            return TimeSpan(span)
         if isinstance(span, Rate):
             return span.period
-        if isinstance(span, (float, int)):
+        if isinstance(span, (int, float, np.integer, np.floating)):
             return TimeSpan.SECOND * span
         return TimeSpan(span)
 
@@ -609,27 +655,32 @@ class TimeSpan(int):
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
     @override
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__gt__(_span_nanoseconds(rhs))
+        return int(self) > _span_operand(rhs)
 
     @override
     def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__ge__(_span_nanoseconds(rhs))
+        return int(self) >= _span_operand(rhs)
 
     @override
     def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__lt__(_span_nanoseconds(rhs))
+        return int(self) < _span_operand(rhs)
 
     @override
     def __le__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__le__(_span_nanoseconds(rhs))
+        return int(self) <= _span_operand(rhs)
 
     @override
     def __eq__(self, rhs: object) -> bool:
-        if isinstance(rhs, (int, float)):
-            return int(self) == rhs
-        if not isinstance(rhs, (timedelta, np.timedelta64)):
+        if not isinstance(
+            rhs, (int, float, np.integer, np.floating, timedelta, np.timedelta64)
+        ):
             return NotImplemented
-        return super().__eq__(_span_nanoseconds(rhs))
+        return int(self) == _span_operand(rhs)
+
+    @override
+    def __ne__(self, rhs: object) -> bool:
+        eq = self.__eq__(rhs)
+        return eq if eq is NotImplemented else not eq
 
     @override
     def __hash__(self) -> int:
@@ -747,15 +798,11 @@ class Rate(float):
     """Rate represents a data rate measured in Hz."""
 
     def __new__(cls, value: CrudeRate) -> Rate:
-        if isinstance(value, float):
-            return super().__new__(cls, value)
         if isinstance(value, TimeSpan):
-            value = 1 / value.seconds
-        elif isinstance(value, int):
-            value = float(value)
-        else:
-            raise TypeError(f"Cannot convert {type(value)} to Rate")
-        return super().__new__(cls, value)
+            return super().__new__(cls, 1 / value.seconds)
+        if isinstance(value, (int, float, np.integer, np.floating)):
+            return super().__new__(cls, float(value))
+        raise TypeError(f"Cannot convert {type(value)} to Rate")
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -1025,8 +1072,8 @@ class Density(int):
     def __new__(cls, value: CrudeDensity) -> Density:
         if isinstance(value, Density):
             return value
-        if isinstance(value, int):
-            return super().__new__(cls, value)
+        if isinstance(value, (int, np.integer)):
+            return super().__new__(cls, int(value))
         raise TypeError(f"Cannot convert {type(value)} to Density")
 
     @classmethod
@@ -1264,16 +1311,25 @@ class DataType(str):
                 return types.pop()
             return DataType._promote(types, value)
 
-        result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-        if result is not None:
-            return result
+        return DataType._from_dtype(np.dtype(value))
 
-        raise TypeError(f"Cannot convert {type(value)} to DataType")
+    @staticmethod
+    def _from_dtype(dtype: np.dtype) -> DataType:
+        if dtype.kind == "M":
+            return DataType.TIMESTAMP
+        if dtype.kind == "U":
+            return DataType.STRING
+        result = DataType._FROM_NUMPY.get(dtype, None)
+        if result is None:
+            raise TypeError(f"Synnax has no data type for the NumPy type {dtype}")
+        return result
 
     @staticmethod
     def _from_sample(value: Any) -> DataType:
         if isinstance(value, str):
             return DataType.STRING
+        if isinstance(value, bytes):
+            return DataType.BYTES
         if isinstance(value, dict):
             return DataType.JSON
         if isinstance(value, TimeStamp):
@@ -1286,14 +1342,10 @@ class DataType(str):
             return DataType.INT64
         if isinstance(value, uuid.UUID):
             return DataType.UUID
-        if isinstance(value, bytes):
-            return DataType.BYTES
         if isinstance(value, VideoFrame):
             return DataType.VIDEO
-        if isinstance(value, np.number):
-            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if result is not None:
-                return result
+        if isinstance(value, (np.number, np.datetime64)):
+            return DataType._from_dtype(value.dtype)
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     @staticmethod
@@ -1441,11 +1493,11 @@ CrudeTimeStamp: TypeAlias = (
     int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
+    int | float | TimeSpan | TimeStamp | Rate | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
-CrudeRate: TypeAlias = int | float | TimeSpan | Rate
-CrudeDensity: TypeAlias = Density | int
+CrudeRate: TypeAlias = int | float | np.integer | np.floating | TimeSpan | Rate
+CrudeDensity: TypeAlias = Density | int | np.integer
 CrudeDataType: TypeAlias = (
     DTypeLike | DataType | str | list[str] | np.number | int | float
 )
@@ -1477,9 +1529,6 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
     np.dtype(np.bool_): DataType.BOOLEAN,
-    np.dtype(np.datetime64): DataType.TIMESTAMP,
-    np.dtype("datetime64[ns]"): DataType.TIMESTAMP,
-    np.dtype(np.str_): DataType.STRING,
 }
 
 DataType._DENSITIES = {

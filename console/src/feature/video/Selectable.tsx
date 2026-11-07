@@ -12,12 +12,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/feature/video/useCreate";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 
-export const Selectable = Selector.createSelectable({
+export const Selectable: Selector.Selectable = {
   type: video.TYPE_ONTOLOGY_ID.type,
   title: "Video",
   icon: <Icon.Video />,
+  description: "Live and past video",
   useOnSelect: useCreate,
   useVisible: () => Access.useCreateGranted(video.TYPE_ONTOLOGY_ID),
-});
+};

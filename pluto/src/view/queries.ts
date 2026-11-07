@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, type optional, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -48,16 +48,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const formSchema = z.discriminatedUnion("type", [
+export type FormValues =
+  optional.Optional<view.RangeView, "key"> | optional.Optional<view.StatusView, "key">;
+
+// TypeScript cannot name the recursive where types inside an inferred schema type, so
+// the schema carries its value type by hand.
+export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
   view.rangeViewZ.partial({ key: true }),
   view.statusViewZ.partial({ key: true }),
 ]);
 
-const ZERO_VALUES: z.infer<typeof formSchema> = {
-  name: "",
-  type: "range",
-  query: { hasLabels: [] },
-};
+export const formPath = deep.path<FormValues>();
+
+const ZERO_VALUES: FormValues = { name: "", type: "range" };
 export type FormQuery = view.RetrieveSingleParams;
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({

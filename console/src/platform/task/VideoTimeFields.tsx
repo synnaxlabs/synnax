@@ -13,7 +13,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const path = deep.path<{
+  config: { timeSource: rtsp.TimeSource; offset: TimeSpan };
+}>();
 
 const renderTimeSource = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<rtsp.TimeSource>, "children" | "resourceName">) => (
@@ -48,19 +53,14 @@ const OFFSET_HELP =
 /** Sets how a video task at `config` times the frames of a channel that saves data. */
 export const VideoTimeFields = (): ReactElement => (
   <Flex.Box x>
-    <PForm.Field<rtsp.TimeSource>
-      path="config.timeSource"
+    <PForm.Field
+      path={path.config.timeSource}
       label="Time source"
       helpText={TIME_SOURCE_HELP}
     >
       {renderTimeSource}
     </PForm.Field>
-    <PForm.Field<TimeSpan>
-      path="config.offset"
-      label="Offset"
-      helpText={OFFSET_HELP}
-      grow
-    >
+    <PForm.Field path={path.config.offset} label="Offset" helpText={OFFSET_HELP} grow>
       {renderOffset}
     </PForm.Field>
   </Flex.Box>

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -28,32 +28,30 @@ import {
   keyZ,
   type New,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Video,
   videoZ,
 } from "@/video/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/video/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_video_set";
 export const DELETE_CHANNEL_NAME = "sy_video_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
 
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ videos: videoZ.array().default(() => []) });
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
   project: project.keyZ,
@@ -63,15 +61,6 @@ const createReqZ = z.object({
 const createResZ = z.object({ videos: videoZ.array() });
 
 const emptyResZ = z.object({});
-
-/**
- * Client-side matching for a request: exact for the requested key set, the
- * only field a request carries.
- */
-const requestFilter = (req: RetrieveRequest): ((v: Video) => boolean) => {
-  const keySet = new Set(req.keys);
-  return (v) => keySet.has(v.key);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -91,8 +80,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     const store = cache.createTable<Key, Video>({
       name: "videos",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Video, Action>({
@@ -111,7 +99,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (video, req) => requestFilter(req)(video),
+        matches: (video, req) => matches(video, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -261,12 +250,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     });
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Video[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Video[]> {
     const res = await this.cfg.unary.send(
       "/video/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.videos;
   }

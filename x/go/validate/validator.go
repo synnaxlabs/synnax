@@ -11,8 +11,8 @@ package validate
 
 import (
 	"reflect"
+	"unicode/utf8"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
@@ -20,31 +20,41 @@ import (
 
 type Validator struct {
 	scope string
-	err   error
+	errs  []error
 }
 
 func New(scope string) *Validator { return &Validator{scope: scope} }
 
 // Error returns the accumulated validation errors.
-func (v *Validator) Error() error { return v.err }
+func (v *Validator) Error() error { return errors.Join(v.errs...) }
 
-// Exec runs a function and joins any error it returns with the accumulated errors.
-func (v *Validator) Exec(fn func() error) { v.err = errors.Join(v.err, fn()) }
+// Exec runs a function and adds any error it returns to the accumulated errors.
+func (v *Validator) Exec(fn func() error) {
+	if err := fn(); err != nil {
+		v.errs = append(v.errs, err)
+	}
+}
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.New(msg), path), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.New(msg), path)
 	})
-	return v.Error() != nil
+	return len(v.errs) > 0
 }
 
 func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, PathedError(errors.Newf(format, args...), field), nil)
+		if !cond {
+			return nil
+		}
+		return PathedError(errors.Newf(format, args...), field)
 	})
-	return v.Error() != nil
+	return len(v.errs) > 0
 }
 
 // NotNil returns true and attaches an error to v if the value is nil.
@@ -141,4 +151,26 @@ func (v *Validator) NotEmptySlice[T any](field string, value []T) bool {
 // NotEmptyString returns true and attaches an error to v if the string is empty.
 func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
+}
+
+// MinLength returns true and attaches an error to v if the string has fewer than min
+// Unicode code points.
+func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
+	return v.Ternaryf(
+		field,
+		utf8.RuneCountInString(string(value)) < min,
+		"must be at least %d characters long",
+		min,
+	)
+}
+
+// MaxLength returns true and attaches an error to v if the string has more than max
+// Unicode code points.
+func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
+	return v.Ternaryf(
+		field,
+		utf8.RuneCountInString(string(value)) > max,
+		"must be at most %d characters long",
+		max,
+	)
 }

@@ -19,8 +19,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const VIDEO_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  dataTypes: [DataType.VIDEO],
+const VIDEO_QUERY: Channel.ListQuery = {
+  where: { dataType: { eq: DataType.VIDEO } },
 };
 
 const LIVE_TRIGGER_PROPS: Select.SingleTriggerProps = { placeholder: "Live" };
@@ -45,7 +45,7 @@ export const Properties = (): ReactElement => {
         <Channel.SelectSingle
           value={value === 0 ? undefined : value}
           onChange={handleChange}
-          initialQuery={VIDEO_QUERY}
+          query={VIDEO_QUERY}
           allowNone
           disabled={!editable}
           className={CSS.BE("video", "channel-select")}

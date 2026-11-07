@@ -75,7 +75,7 @@ type WriterResponse struct {
 	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
-	// to WriterCommit.
+	// to WriterCommit, and it is zero if the commit fails.
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
@@ -413,7 +413,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
 		if err != nil {
-			return maxTS, err
+			return 0, err
 		}
 		if ts > maxTS {
 			maxTS = ts
@@ -755,8 +755,15 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	last := end.Lower
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
+	// A reader resolves a data domain through the index, so the index commits first.
+	if w.writingToIdx {
+		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower)
+	}
 	// Every channel shares the same end, so their errors repeat. Keep the first.
-	for _, chW := range w.internal {
+	for key, chW := range w.internal {
+		if key == w.idx.ch.Key {
+			continue
+		}
 		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
 			err = cErr
 		}
@@ -771,7 +778,10 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
 		w.hasUncommittedData = false
 	}
-	return end.Lower, err
+	if err != nil {
+		return 0, err
+	}
+	return end.Lower, nil
 }
 
 func (w *idxWriter) endDomain(

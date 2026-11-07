@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { HARDWARE } from "@/feature/ethercat/device/hardware";
@@ -21,21 +22,18 @@ import {
 import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
+const root = deep.path<{ config: { channels: Channel[] } }>();
+
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
-  path: string;
-  /** Path to the channels array to get already-selected slaves. */
-  channelsPath?: string;
+  path: deep.Target<device.Key>;
 }
 
 const filterByNetwork = (d: device.Device, network: string) =>
   network === "" || (d.properties as SlaveProperties | undefined)?.network === network;
 
-export const SelectSlave = ({
-  path,
-  channelsPath = "config.channels",
-}: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
+export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
+  const channels = Form.useFieldValue(root.config.channels) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();
@@ -48,6 +46,7 @@ export const SelectSlave = ({
       emptyContent="No EtherCAT slaves discovered"
       make={MAKE}
       model={SLAVE_MODEL}
+      icon={HARDWARE.icon}
       filter={filter}
       connect={{
         title: HARDWARE.title,

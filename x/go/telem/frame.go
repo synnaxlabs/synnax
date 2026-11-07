@@ -440,7 +440,7 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return f.filter(keys, len(keys), notContains)
+	return f.filter(keys, len(f.keys), notContains)
 }
 
 func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K] {
@@ -453,6 +453,7 @@ func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K]
 		}
 		return f
 	}
+	count = min(len(f.keys), count)
 	var (
 		fKeys   = make([]K, 0, count)
 		fSeries = make([]Series, 0, count)

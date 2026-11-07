@@ -11,12 +11,14 @@ import { type channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Channel } from "@synnaxlabs/pluto";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-const VIDEO_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  dataTypes: [DataType.VIDEO],
+const VIDEO_QUERY: Channel.ListQuery = {
+  where: { dataType: { eq: DataType.VIDEO } },
 };
+
+const path = deep.path<{ config: { channel: channel.Key } }>();
 
 interface SelectProps {
   value: channel.Key;
@@ -27,7 +29,7 @@ const renderSelect = Component.renderProp(({ value, onChange }: SelectProps) => 
   <Channel.SelectSingle
     value={value}
     onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
-    initialQuery={VIDEO_QUERY}
+    query={VIDEO_QUERY}
     allowNone
     grow
   />
@@ -35,8 +37,8 @@ const renderSelect = Component.renderProp(({ value, onChange }: SelectProps) => 
 
 /** Selects the video channel at `config.channel` of a task form. */
 export const VideoChannelField = (): ReactElement => (
-  <PForm.Field<channel.Key>
-    path="config.channel"
+  <PForm.Field
+    path={path.config.channel}
     label="Video channel"
     helpText="Leave empty to create a channel named after the task."
     grow

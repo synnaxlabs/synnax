@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,7 +31,8 @@ var _ = Describe("Ontology", func() {
 		}
 		a := create("chamber camera")
 		b := create("chamber")
-		Expect(MustSucceed(svc.Search(ctx, tx, "chamber", 0)).Keys).
+		q := search.Query[ontology.ID]{Term: "chamber"}
+		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 			To(Equal([]ontology.ID{b, a}))
 	})
 

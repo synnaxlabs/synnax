@@ -15,7 +15,8 @@ export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
 export { channel } from "@/channel";
-export { Channel, isCalculated } from "@/channel/client";
+export { Channel } from "@/channel/client";
+export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   default as Synnax,
@@ -33,6 +34,7 @@ export {
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
+  InvalidTokenError,
   isConnectionError,
   LicenseError,
   LicenseFingerprintError,
@@ -55,6 +57,7 @@ export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
 export { imex } from "@/imex";
+export { kafka } from "@/kafka";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
 export { license } from "@/license";

@@ -1,0 +1,617 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+import dataclasses
+import json
+import os
+import subprocess
+import threading
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
+from review.__main__ import claude as launch
+from review.__main__ import main
+
+ROOT = Path(__file__).resolve().parents[3]
+WORK = Path("/work")
+DIFF = """\
+diff --git a/core/a.go b/core/a.go
+index 1111111..2222222 100644
+--- a/core/a.go
++++ b/core/a.go
+@@ -10,3 +10,4 @@ func A() {
+ keep
+-old
++new
++-- not a header
+ tail
+diff --git a/web/b.ts b/web/b.ts
+index 3333333..4444444 100644
+--- a/web/b.ts
++++ b/web/b.ts
+@@ -1 +1 @@
+-x
++y
+"""
+
+
+def config(**kw: Any) -> Config:
+    fields: dict[str, Any] = {
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "tools": ["Read", "Grep", "Glob"],
+        "excluded": [],
+        "diff_chars": 100_000,
+        "caps": {"P0": 2, "P1": 4},
+        "prompt": "Review the pull request.",
+        "docs": [
+            Doc(path="AGENTS.md", description="Rules", text="Every rule."),
+            Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
+            Doc(path="py.md", description="Py", text="Py only.", paths=("**/*.py",)),
+        ],
+        "lenses": [],
+    }
+    return Config(**(fields | kw))
+
+
+NEW_COMMITS = (
+    "commit " + "c" * 40 + "\n\nFix the reader\n\n"
+    "diff --git a/core/a.go b/core/a.go\n@@ -1 +1 @@\n-broken\n+fixed\n"
+)
+
+
+def pull(**kw: Any) -> PullRequest:
+    fields: dict[str, Any] = {
+        "number": 7,
+        "title": "Fix A",
+        "body": "Fixes A.",
+        "head": Path("/head"),
+        "diff": DIFF,
+        "open": set(),
+    }
+    return PullRequest(**(fields | kw))
+
+
+def finding(severity: str) -> dict[str, Any]:
+    return {"severity": severity, "title": "T", "body": "B", "path": "a.go", "line": 1}
+
+
+class FakeClaude:
+    """Records the command and prompt of a review, and answers with a fixed result."""
+
+    def __init__(self, score: int = 5, findings: list[dict[str, Any]] | None = None):
+        self.args: list[str] = []
+        self.stdin = ""
+        self.cwd = Path()
+        self.out: dict[str, Any] = {
+            "is_error": False,
+            "subtype": "success",
+            "total_cost_usd": 0.5,
+            "duration_ms": 60_000,
+            "num_turns": 12,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 2_000,
+                "cache_read_input_tokens": 90_000,
+                "cache_creation_input_tokens": 30_000,
+            },
+            "structured_output": {
+                "score": score,
+                "verdict": "Safe to merge.",
+                "summary": ["Fixes A."],
+                "findings": findings or [],
+            },
+        }
+        self.limits: list[dict[str, Any]] = [
+            limits(0.1, "allowed"),
+            limits(0.81, "allowed_warning"),
+        ]
+
+    def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
+        self.args, self.stdin, self.cwd = args, stdin, cwd
+        events = [
+            {"type": "rate_limit_event", "rate_limit_info": i} for i in self.limits
+        ]
+        stream = [{"type": "system"}, *events, {"type": "result", **self.out}]
+        return "".join(f"{json.dumps(m)}\n" for m in stream)
+
+    def flag(self, name: str) -> str:
+        return self.args[self.args.index(name) + 1]
+
+
+def limits(utilization: float, status: str) -> dict[str, Any]:
+    """Rate limit info the way Claude Code streams it for a subscription."""
+    week = {"utilization": utilization, "resetsAt": 1_794_247_200, "status": status}
+    return {
+        "status": status,
+        "rateLimitType": "seven_day",
+        "unifiedWindows": {"seven_day": week},
+    }
+
+
+class LensClaude:
+    """Answers each focused pass with one finding named after its lens, and the
+    merging pass with a fixed review. Records every prompt, from any thread."""
+
+    def __init__(self, merged: FakeClaude):
+        self.merged = merged
+        self.prompts: list[str] = []
+        self._lock = threading.Lock()
+
+    def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
+        with self._lock:
+            self.prompts.append(stdin)
+        if "# Candidate findings" in stdin:
+            return self.merged(args, stdin, cwd)
+        name = stdin.split("# Your focus: ")[1].split("\n")[0]
+        found = finding("P2") | {"title": f"Found by {name}"}
+        return FakeClaude(5, [found])(args, stdin, cwd)
+
+
+LENSES = [
+    Lens(name="Races", focus="Trace each interleaving."),
+    Lens(name="Edges", focus="Try empty and boundary values."),
+]
+
+
+def review(
+    c: Config | None = None, pr: PullRequest | None = None, workdir: Path = WORK
+) -> FakeClaude:
+    claude = FakeClaude()
+    run(c or config(), pr or pull(), claude=claude, workdir=workdir)
+    return claude
+
+
+class TestLoad:
+    """Tests loading the configuration in `.sedosaur`."""
+
+    def test_should_load_the_committed_configuration(self) -> None:
+        c = load(ROOT)
+        assert c.tools == ["Read", "Grep", "Glob"]
+        paths = [d.path for d in c.docs]
+        assert "AGENTS.md" in paths
+        assert ".sedosaur/rules/generated-code.md" in paths
+        assert all(d.text.strip() for d in c.docs)
+
+    def test_should_read_the_front_matter_of_a_rule(self, tmp_path: Path) -> None:
+        home = tmp_path / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1\ncaps = {}\ncontext = []\n"
+        )
+        (home / "prompt.md").write_text("Review it.\n")
+        (home / "rules" / "go.md").write_text(
+            '+++\ndescription = "Go"\npaths = ["**/*.go"]\n+++\n\nNo panics.\n'
+        )
+        [rule] = load(tmp_path).docs
+        assert rule.path == ".sedosaur/rules/go.md"
+        assert rule.paths == ("**/*.go",)
+        assert rule.text == "\nNo panics.\n"
+
+    def test_should_read_the_lenses(self, tmp_path: Path) -> None:
+        home = tmp_path / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1\ncaps = {}\ncontext = []\n"
+            '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
+        )
+        (home / "prompt.md").write_text("Review it.\n")
+        assert load(tmp_path).lenses == [LENSES[0]]
+
+    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
+        assert load(ROOT).lenses == []
+
+    def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
+        home = tmp_path / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text("context = []\ncolour = 1\n")
+        (home / "prompt.md").write_text("Review it.\n")
+        with pytest.raises(TypeError, match="unexpected keyword argument 'colour'"):
+            load(tmp_path)
+
+
+class TestDocs:
+    """Tests which documents apply to a pull request."""
+
+    @pytest.mark.parametrize(
+        ("glob", "path", "applies"),
+        [
+            ("**/*.go", "a.go", True),
+            ("**/*.go", "core/pkg/a.go", True),
+            ("*.go", "core/a.go", False),
+            ("core/**", "core/pkg/a.go", True),
+            ("**/*.ts", "a.tsx", False),
+        ],
+    )
+    def test_should_match_paths_by_glob(
+        self, glob: str, path: str, applies: bool
+    ) -> None:
+        doc = Doc(path="d.md", description="D", text="T", paths=(glob,))
+        assert doc.applies([path]) is applies
+
+    def test_should_put_only_the_documents_that_apply_in_the_prompt(self) -> None:
+        stdin = review().stdin
+        assert "## `AGENTS.md`: Rules\n\nEvery rule." in stdin
+        assert "Go only." in stdin
+        assert "Py only." not in stdin
+
+
+class TestPrompt:
+    """Tests the prompt that a review sends to Claude Code."""
+
+    def test_should_number_the_lines_the_head_keeps(self) -> None:
+        stdin = review().stdin
+        numbered = "    10  keep\n       -old\n    11 +new\n    12 +-- not a header"
+        assert numbered in stdin
+        assert "    13  tail" in stdin
+
+    def test_should_name_the_pull_request_and_its_checkout(self) -> None:
+        stdin = review().stdin
+        assert stdin.startswith("Review the pull request.\n\n# Pull request #7: Fix A")
+        assert "The repository at the head of the pull request is in `/head`." in stdin
+
+    def test_should_list_the_open_findings(self) -> None:
+        stdin = review(pr=pull(open={("core/a.go", "Old bug")})).stdin
+        assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
+
+    def test_should_hide_every_review_in_the_body(self) -> None:
+        body = (
+            "Fixes A.\n<!-- greptile_comment -->\nConfidence Score: 2/5\n"
+            "<!-- /greptile_comment -->\n<!-- sedosaur_comment -->\nOld summary\n"
+            "<!-- /sedosaur_comment -->\nCloses #1."
+        )
+        stdin = review(pr=pull(body=body)).stdin
+        assert "# Pull request #7: Fix A\n\nFixes A.\n\n\nCloses #1." in stdin
+        assert "Confidence Score" not in stdin
+        assert "Old summary" not in stdin
+
+    def test_should_say_when_only_a_review_is_in_the_body(self) -> None:
+        body = "<!-- greptile_comment -->\nSummary\n<!-- /greptile_comment -->"
+        assert "Fix A\n\nNo description." in review(pr=pull(body=body)).stdin
+
+    def test_should_cut_the_diff_at_a_file(self, tmp_path: Path) -> None:
+        claude = review(config(diff_chars=200), workdir=tmp_path)
+        assert claude.cwd == tmp_path
+        assert "+new" in claude.stdin
+        assert "+y" not in claude.stdin
+        assert "in `rest.diff` in your working directory" in claude.stdin
+        assert "Read all of it:\n- `web/b.ts`" in claude.stdin
+        rest = (tmp_path / "rest.diff").read_text()
+        assert rest.startswith("diff --git a/web/b.ts b/web/b.ts")
+        assert "       -x\n     1 +y" in rest
+
+    def test_should_write_no_file_when_the_diff_fits(self, tmp_path: Path) -> None:
+        review(workdir=tmp_path)
+        assert list(tmp_path.iterdir()) == []
+
+    def test_should_show_the_commits_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS)).stdin
+        assert "# Commits since your last review\n\nReview these" in stdin
+        assert NEW_COMMITS in stdin
+        assert stdin.index("+fixed") < stdin.index("# Rules")
+
+    def test_should_put_new_commits_too_long_to_show_in_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).stdin
+        assert "+fixed" not in stdin
+        assert "Read all of `new.diff` first." in stdin
+        assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
+
+
+class TestCommand:
+    """Tests the command that runs Claude Code."""
+
+    def test_should_confine_claude_to_reading_the_head(self) -> None:
+        claude = review()
+        assert claude.args[:3] == ["claude", "--print", "--restricted"]
+        assert claude.flag("--tools") == "Read,Grep,Glob"
+        assert claude.flag("--permission-mode") == "dontAsk"
+        assert claude.flag("--add-dir") == "/head"
+        assert "--strict-mcp-config" in claude.args
+        assert claude.flag("--model") == "claude-opus-5-5"
+
+    def test_should_ask_for_every_field_of_a_finding(self) -> None:
+        schema = json.loads(review().flag("--json-schema"))
+        props = schema["properties"]["findings"]["items"]["properties"]
+        assert set(props) == {f.name for f in dataclasses.fields(Finding)}
+
+
+class TestScore:
+    """Tests the score a review gives."""
+
+    @pytest.mark.parametrize(
+        ("severities", "score"),
+        [([], 5), (["P2"], 5), (["P2", "P1"], 4), (["P1", "P0"], 2)],
+    )
+    def test_should_cap_it_by_the_most_severe_finding(
+        self, severities: list[str], score: int
+    ) -> None:
+        claude = FakeClaude(5, [finding(s) for s in severities])
+        assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == score
+
+    def test_should_keep_a_score_below_the_cap(self) -> None:
+        claude = FakeClaude(3, [finding("P1")])
+        assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == 3
+
+    def test_should_raise_when_claude_ends_with_an_error(self) -> None:
+        claude = FakeClaude()
+        claude.out = {"is_error": True, "subtype": "error_max_turns", "result": "Out."}
+        with pytest.raises(
+            RuntimeError, match=r"claude ended with error_max_turns: Out\."
+        ):
+            run(config(), pull(), claude=claude, workdir=WORK)
+
+
+class TestLenses:
+    """Tests a review that takes one pass for each lens and merges their findings."""
+
+    def test_should_review_in_one_pass_without_lenses(self) -> None:
+        prompts: list[str] = []
+        fake = FakeClaude()
+
+        def claude(args: list[str], stdin: str, cwd: Path) -> str:
+            prompts.append(stdin)
+            return fake(args, stdin, cwd)
+
+        run(config(), pull(), claude=claude, workdir=WORK)
+        [prompt] = prompts
+        assert "# Your focus" not in prompt
+        assert "# Candidate findings" not in prompt
+
+    def test_should_give_each_pass_the_review_prompt_and_its_focus(self) -> None:
+        claude = LensClaude(FakeClaude())
+        run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        focused = sorted(p for p in claude.prompts if "# Your focus" in p)
+        assert len(focused) == 2
+        assert all(p.startswith("Review the pull request.") for p in focused)
+        assert "# Your focus: Edges\n\nTry empty and boundary values." in focused[0]
+        assert "# Your focus: Races\n\nTrace each interleaving." in focused[1]
+
+    def test_should_merge_the_findings_of_every_pass(self) -> None:
+        claude = LensClaude(FakeClaude(5, [finding("P1")]))
+        got, _ = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        [merging] = [p for p in claude.prompts if "# Candidate findings" in p]
+        assert merging.startswith("Review the pull request.")
+        assert '"title": "Found by Races"' in merging
+        assert '"title": "Found by Edges"' in merging
+        assert "# Your focus" not in merging
+        assert [f.title for f in got.findings] == ["T"]
+        assert got.score == 4
+
+    def test_should_add_up_the_usage_of_every_pass(self) -> None:
+        merged = FakeClaude()
+        merged.limits = [limits(0.5, "allowed")]
+        claude = LensClaude(merged)
+        _, usage = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.5, 36, 120_000)
+        assert usage.output_tokens == 6_000
+        assert usage.limits["seven_day"].utilization == 0.5
+
+
+class TestUsage:
+    """Tests what a review reports it cost."""
+
+    def test_should_report_the_cost_and_the_last_limits(self) -> None:
+        _, usage = run(config(), pull(), claude=FakeClaude(), workdir=WORK)
+        assert (usage.cost_usd, usage.turns, usage.cache_read_tokens) == (
+            0.5,
+            12,
+            90_000,
+        )
+        assert usage.limits == {
+            "seven_day": Window(
+                status="allowed_warning", utilization=0.81, resets_at=1_794_247_200
+            )
+        }
+
+    def test_should_report_no_limits_when_claude_streams_none(self) -> None:
+        claude = FakeClaude()
+        claude.limits = []
+        assert run(config(), pull(), claude=claude, workdir=WORK)[1].limits == {}
+
+
+class TestLaunch:
+    """Tests the process that runs Claude Code."""
+
+    def test_should_pass_claude_only_its_token(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        fake = bindir / "claude"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, sys\n"
+            "print(json.dumps({'args': sys.argv[1:], 'stdin': sys.stdin.read(),"
+            " 'cwd': os.getcwd(), 'env': dict(os.environ)}))\n"
+        )
+        fake.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+        monkeypatch.setenv("GH_TOKEN", "app-token")
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "claude-token")
+        work = tmp_path / "work"
+        work.mkdir()
+        out = json.loads(launch(["claude", "--print"], "Review it.", work))
+        assert out["args"] == ["--print"]
+        assert out["stdin"] == "Review it."
+        assert Path(out["cwd"]).resolve() == work.resolve()
+        env = out["env"]
+        assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
+
+
+def executable(path: Path, body: str) -> None:
+    path.write_text(f"#!/usr/bin/env python3\nimport json, sys\n{body}")
+    path.chmod(0o755)
+
+
+def git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+class TestMain:
+    """Tests the `run` command with fake `gh` and `claude` executables."""
+
+    @pytest.fixture
+    def env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+        """Sets the environment of a review. The fake `gh` logs each call to
+        `gh.log`, and the fake `claude` writes its prompt to `prompt.txt`."""
+        home = tmp_path / "policy" / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1000\ncaps = {}\ncontext = []\n"
+        )
+        (home / "prompt.md").write_text("Use the trusted policy.\n")
+        head = tmp_path / "head"
+        head.mkdir()
+        git(head, "init", "-q")
+        (head / "a.go").write_text("one\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "base")
+        base = git(head, "rev-parse", "HEAD")
+        (head / "a.go").write_text("one\ntwo\n")
+        git(head, "commit", "-qam", "head")
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        executable(
+            bindir / "gh",
+            f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
+        )
+        prompt = tmp_path / "prompt.txt"
+        executable(
+            bindir / "claude",
+            f"open({str(prompt)!r}, 'w').write(sys.stdin.read())\n"
+            "print(json.dumps({'type': 'result', 'is_error': False,"
+            " 'total_cost_usd': 0.5, 'duration_ms': 1, 'num_turns': 2,"
+            " 'usage': {'input_tokens': 3,"
+            " 'output_tokens': 4, 'cache_read_input_tokens': 5,"
+            " 'cache_creation_input_tokens': 6}, 'structured_output': {"
+            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
+        )
+        env = {
+            "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "synnaxlabs/synnax",
+            "PR": "7",
+            "HEAD_SHA": git(head, "rev-parse", "HEAD"),
+            "BASE_SHA": base,
+            "CHECK_RUN": "1",
+            "RUN_URL": "https://example.com/run",
+            "BOT": "sedosaur",
+            "POLICY_DIR": str(tmp_path / "policy"),
+            "POLICY_SHA": "policy",
+            "HEAD_DIR": str(head),
+            "CLAUDE_CODE_OAUTH_TOKEN": "claude-token",
+        }
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        return env
+
+    def test_should_review_the_head_with_the_policy_checkout(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        assert "reviewThreads" in (tmp_path / "gh.log").read_text()
+        text = (tmp_path / "prompt.txt").read_text()
+        assert text.startswith("Use the trusted policy.\n\n# Pull request #7: Fix A")
+        assert "     2 +two" in text
+        record = json.loads(out.read_text())
+        assert record["at"].endswith("+00:00")
+        assert record["pr"] == 7
+        assert record["head"] == env["HEAD_SHA"]
+        assert record["base"] == env["BASE_SHA"]
+        assert record["policy"] == "policy"
+        assert record["review"]["score"] == 5
+        assert record["usage"] == {
+            "cost_usd": 0.5,
+            "duration_ms": 1,
+            "turns": 2,
+            "input_tokens": 3,
+            "output_tokens": 4,
+            "cache_read_tokens": 5,
+            "cache_creation_tokens": 6,
+            "limits": {},
+        }
+
+    def test_should_replay_without_the_open_threads_or_a_check_run(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("REPLAY", "true")
+        monkeypatch.delenv("CHECK_RUN")
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        assert "reviewThreads" not in (tmp_path / "gh.log").read_text()
+        assert json.loads(out.read_text())["review"]["score"] == 5
+
+    @staticmethod
+    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+        """Runs a review whose pull request body says that Sedosaur reviewed the
+        commits, newest first, and returns the section of new commits in the prompt."""
+        edits = "".join(
+            json.dumps(
+                {
+                    "editor": {"__typename": "Bot", "login": "sedosaur"},
+                    "diff": "<!-- sedosaur_comment -->\n[c](https://github.com/o/r/"
+                    f"commit/{c})\n<!-- /sedosaur_comment -->",
+                }
+            )
+            + "\n"
+            for c in commits
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('userContentEdits' in a for a in sys.argv):\n"
+            f"    print({edits!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        _, found, new = text.partition("# Commits since your last review")
+        return new.split("# Rules")[0] if found else ""
+
+    def test_should_show_the_commits_since_the_last_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        assert "+two" in new
+
+    def test_should_show_the_commits_since_the_review_before_one_of_the_head(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
+        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+
+    def test_should_show_no_new_commits_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""

@@ -48,7 +48,7 @@ describe("Video", () => {
     );
     await expect
       .poll(async () => {
-        const [fetched] = await client.videos.retrieve({ keys: [v.key] });
+        const [fetched] = await client.videos.retrieve([v.key]);
         return fetched.channel;
       })
       .toEqual(8);

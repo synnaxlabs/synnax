@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, TimeSpan } from "@synnaxlabs/client";
+import { DataType, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -24,7 +24,9 @@ import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+const path = Channel.formPath;
+
+const INDEX_QUERY: Channel.ListQuery = { where: { isIndex: { eq: true } } };
 
 type Kind = "data" | "index" | "virtual";
 
@@ -39,29 +41,23 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       else close();
     },
   });
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
-    "isIndex",
-    { ctx: form },
-  );
-  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
-    "virtual",
-    { ctx: form },
-  );
+  const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
+  const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
   const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
   const handleKindChange = (next: Kind) => {
-    form.set("isIndex", next === "index");
-    form.set("virtual", next === "virtual");
-    if (next !== "data") form.set("index", 0);
-    if (next !== "index") form.set("retention", TimeSpan.ZERO);
-    if (next === "index") form.set("dataType", DataType.TIMESTAMP.toString());
-    else if (isIndex) form.set("dataType", Channel.ZERO_FORM_VALUES.dataType);
+    form.set(path.isIndex, next === "index");
+    form.set(path.virtual, next === "virtual");
+    if (next !== "data") form.set(path.index, 0);
+    if (next !== "index") form.set(path.retention, TimeSpan.ZERO);
+    if (next === "index") form.set(path.dataType, DataType.TIMESTAMP.toString());
+    else if (isIndex) form.set(path.dataType, Channel.ZERO_FORM_VALUES.dataType);
   };
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+          <Form.Field path={path.name} showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 autoFocus
@@ -90,14 +86,14 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
                 </Select.Item>
               </Select.Buttons>
             </Input.Item>
-            <Form.Field<string> path="dataType" label="Data type" grow>
+            <Form.Field path={path.dataType} label="Data type" grow>
               {(p) => (
                 <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>
           </Flex.Box>
-          <Form.Field<TimeSpan>
-            path="retention"
+          <Form.Field
+            path={path.retention}
             label="Retention"
             helpText="Deletes data older than this. Zero keeps all data."
             visible={kind === "index"}
@@ -110,12 +106,12 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               />
             )}
           </Form.Field>
-          <Form.Field<channel.Key> path="index" label="Index" visible={kind === "data"}>
+          <Form.Field path={path.index} label="Index" visible={kind === "data"}>
             {({ value, onChange }) => (
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
-                initialQuery={INDEX_QUERY}
+                query={INDEX_QUERY}
                 allowNone={false}
                 zIndex={100}
               />

@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/ranger"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/video"
 @ts output "client/ts/src/video"
@@ -67,4 +68,11 @@ Video struct {
     @go migrate
     @ontology type "video"
     @retrieve
+}
+
+Where filter Video {
+    key
+
+    @doc value         "is a filter that selects video views."
+    @go request_output "core/pkg/api/video"
 }

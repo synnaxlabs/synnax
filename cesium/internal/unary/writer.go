@@ -344,44 +344,47 @@ func (w *Writer) write(
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		if *w.cfg.Persist && dw.Len() == 0 {
+			// Move first, so that no delete can reach the domain setStart checks.
+			if err := w.control.MoveStart(w.domainStart); err != nil {
+				return err
+			}
+			if err := dw.setStart(w.domainStart); err != nil {
+				return err
+			}
+		}
+		if w.Channel.IsIndex {
+			w.updateHwm(series)
+		}
+		if derive {
+			// The tracker is only fed when persisting, so in stream-only mode the
+			// published cursor is the sole record of where the next write lands.
+			if *w.cfg.Persist {
+				a = telem.NewAlignment(
+					dw.loadAlignment().DomainIndex(),
+					uint32(dw.tracker.count(dw.Writer)),
+				)
+			} else {
+				a = dw.loadAlignment()
+			}
+		}
+		// Publish where the next write lands before this one is on disk, so a channel
+		// resolving its alignment against this one reserves the slot after this write
+		// instead of colliding with it.
+		dw.storeAlignment(a.AddSamples(uint32(series.Len())))
+		if !*w.cfg.Persist {
+			return nil
+		}
+		baseOffset := uint32(dw.tracker.domainBytes)
+		dw.tracker.record(series.Data, baseOffset)
+		_, err := dw.Write(series.Data)
+		return err
+	})
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
-	if *w.cfg.Persist && dw.Len() == 0 {
-		// Move first, so that no delete can reach the domain setStart checks.
-		if err = w.control.MoveStart(w.domainStart); err != nil {
-			return 0, w.wrapError(err)
-		}
-		if err = dw.setStart(w.domainStart); err != nil {
-			return 0, w.wrapError(err)
-		}
-	}
-	if w.Channel.IsIndex {
-		w.updateHwm(series)
-	}
-	if derive {
-		// The tracker is only fed when persisting, so in stream-only mode the published
-		// cursor is the sole record of where the next write lands.
-		if *w.cfg.Persist {
-			a = telem.NewAlignment(
-				dw.loadAlignment().DomainIndex(),
-				uint32(dw.tracker.count(dw.Writer)),
-			)
-		} else {
-			a = dw.loadAlignment()
-		}
-	}
-	// Publish where the next write lands before this one is on disk, so a channel
-	// resolving its alignment against this one reserves the slot after this write
-	// instead of colliding with it.
-	dw.storeAlignment(a.AddSamples(uint32(series.Len())))
-	if *w.cfg.Persist {
-		baseOffset := uint32(dw.tracker.domainBytes)
-		dw.tracker.record(series.Data, baseOffset)
-		_, err = dw.Write(series.Data)
-	}
-	return a, w.wrapError(err)
+	return a, nil
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
@@ -397,11 +400,9 @@ func (w *Writer) EndDomain(ctx context.Context) error {
 	if w.closed {
 		return w.wrapError(ErrWriterClosed)
 	}
-	dw, err := w.control.Authorize()
-	if err != nil {
-		return w.wrapError(err)
-	}
-	return w.wrapError(dw.endDomain(ctx))
+	return w.wrapError(w.control.Authorize(func(dw *controlledWriter) error {
+		return dw.endDomain(ctx)
+	}))
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
@@ -455,51 +456,50 @@ func (w *Writer) commitWithEnd(
 	ctx context.Context,
 	end telem.TimeStamp,
 ) (telem.TimeStamp, error) {
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		stamped := end.IsZero()
+		last := dw.tracker.count(dw.Writer) - 1
+		if stamped {
+			// A domain start after a rollover is the previous commit end, which is
+			// not a sample in the index, so the stamp starts from a committed sample
+			// instead.
+			approx, err := w.idx.Stamp(
+				ctx,
+				dw.stampFrom,
+				last-dw.stampIndex,
+				index.MustBeContinuous,
+			)
+			if err != nil {
+				return err
+			}
+			if !approx.Exact() {
+				return index.NewDiscontinuousStampError(dw.stampFrom)
+			}
+			// Add 1 to the end timestamp because the end timestamp is exclusive.
+			end = approx.Lower + 1
+		}
+		if *w.cfg.Bounded {
+			if err := w.control.Reach(end); err != nil {
+				return err
+			}
+		}
+		start := dw.Start
+		if err := dw.Commit(ctx, end); err != nil {
+			return err
+		}
+		dw.tracker.publish(end)
+		if stamped {
+			dw.stampFrom, dw.stampIndex = end-1, last
+		}
+		// A file switch frees the finished domain for deletes, except for its last
+		// sample, which the next commit of a writer that stamps its end starts from.
+		if dw.Start != start {
+			return w.control.MoveStart(end - 1)
+		}
+		return nil
+	})
 	if err != nil {
 		return 0, err
-	}
-
-	stamped := end.IsZero()
-	last := dw.tracker.count(dw.Writer) - 1
-	if stamped {
-		// A domain start after a rollover is the previous commit end, which is not a
-		// sample in the index, so the stamp starts from a committed sample instead.
-		approx, err := w.idx.Stamp(
-			ctx,
-			dw.stampFrom,
-			last-dw.stampIndex,
-			index.MustBeContinuous,
-		)
-		if err != nil {
-			return 0, err
-		}
-		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(dw.stampFrom)
-		}
-		// Add 1 to the end timestamp because the end timestamp is exclusive.
-		end = approx.Lower + 1
-	}
-
-	if *w.cfg.Bounded {
-		if err = w.control.Reach(end); err != nil {
-			return 0, err
-		}
-	}
-	start := dw.Start
-	if err := dw.Commit(ctx, end); err != nil {
-		return 0, err
-	}
-	dw.tracker.publish(end)
-	if stamped {
-		dw.stampFrom, dw.stampIndex = end-1, last
-	}
-	// A file switch frees the finished domain for deletes, except for its last
-	// sample, which the next commit of a writer that stamps its end starts from.
-	if dw.Start != start {
-		if err = w.control.MoveStart(end - 1); err != nil {
-			return 0, err
-		}
 	}
 	return end, nil
 }

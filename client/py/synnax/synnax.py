@@ -22,16 +22,22 @@ from synnax import (
     exceptions,
     framer,
     group,
+    label,
+    lineplot,
+    log,
+    panel,
     project,
     rack,
     ranger,
+    schematic,
     status,
+    table,
     task,
     user,
     view,
 )
 from synnax.access import Client as AccessClient
-from synnax.config import try_load_options_if_none_provided
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
 from synnax.exceptions import ValidationError
 from synnax.imex import Client as ImexClient
@@ -40,7 +46,7 @@ from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
 from synnax.ranger.retrieve import Retriever as RangeRetriever
 from synnax.signals import Registry as SignalsRegistry
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.exceptions import Registry
 
@@ -86,9 +92,15 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    labels: label.Client
     views: view.Client
     imex: ImexClient
     projects: project.Client
+    tables: table.Client
+    line_plots: lineplot.Client
+    panels: panel.Client
+    logs: log.Client
+    schematics: schematic.Client
 
     _transport: Transport
 
@@ -100,23 +112,18 @@ class Synnax(framer.Client):
         username: str = "",
         password: str = "",
         secure: bool = False,
-        open_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        read_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        keep_alive: TimeSpan = TimeSpan.SECOND * 30,
+        open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
         ca_cert: str | None = None,
         api_key: str = "",
     ):
-        """Creates a new client. Connection parameters can be provided as arguments, or,
-        if none are provided, the client will attempt to load them from the Synnax
-        configuration file (~/.synnax/config.json) as well as credentials stored in the
-        operating system's keychain.
-
-        If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `sy login` command, which will prompt and securely store your
-        credentials. The client can then be initialized without parameters.
+        """Creates a new client. Without a host, the client connects with the
+        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
+        Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -125,6 +132,10 @@ class Synnax(framer.Client):
         :param secure: Whether to use TLS when connecting to the Core. The client
             verifies the Core's certificate against ca_cert, or the system trust roots
             when ca_cert is None.
+        :param open_timeout: The time to wait for a connection. A bare number is
+            seconds.
+        :param read_timeout: The time to wait for a response. A bare number is seconds.
+        :param keep_alive: The time between keep alive pings. A bare number is seconds.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         :param api_key: API key to authenticate with, in place of a username and
@@ -136,7 +147,7 @@ class Synnax(framer.Client):
             raise ValidationError(
                 "give either an API key or a username and password, not both"
             )
-        opts = try_load_options_if_none_provided(
+        opts, embedded = try_load_options_if_none_provided(
             host=host,
             port=port,
             username=username,
@@ -163,13 +174,21 @@ class Synnax(framer.Client):
                 else auth.PasswordProof(username=opts.username, password=opts.password)
             ),
         )
-        self.auth.authenticate()
+        try:
+            self.auth.authenticate()
+        except Unreachable as e:
+            if embedded:
+                raise Unreachable(
+                    target=e.target, message=DESKTOP_NOT_RUNNING_MSG
+                ) from e
+            raise
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
             client_version=_version("synnax"),
             clock_skew_threshold=clock_skew_threshold,
+            embedded=embedded,
         )
         # Not __del__: interpreter finalization would run it after daemon threads
         # are frozen, deadlocking stop()'s join. finalize runs at atexit, before
@@ -196,9 +215,13 @@ class Synnax(framer.Client):
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
+        self.labels = label.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(
-            frame_client=self, retriever=ch_retriever, creator=ch_creator
+            client=self._transport.unary,
+            frame_client=self,
+            retriever=ch_retriever,
+            creator=ch_creator,
         )
         range_retriever = RangeRetriever(
             client=self._transport.unary, instrumentation=instrumentation
@@ -215,6 +238,11 @@ class Synnax(framer.Client):
             client=self._transport.unary,
             file_transport=self._transport.file_transport,
         )
+        self.tables = table.Client(client=self._transport.unary)
+        self.line_plots = lineplot.Client(client=self._transport.unary)
+        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
+        self.logs = log.Client(self._transport.unary)
+        self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -230,6 +258,7 @@ class Synnax(framer.Client):
             signals=self.signals,
             ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
         self.control = ControlClient(
             framer=self, channels=ch_retriever, client=self._transport.unary
@@ -257,9 +286,9 @@ class Synnax(framer.Client):
 def _configure_transport(
     *,
     opts: Options,
-    open_timeout: TimeSpan,
-    read_timeout: TimeSpan,
-    keep_alive: TimeSpan,
+    open_timeout: CrudeTimeSpan,
+    read_timeout: CrudeTimeSpan,
+    keep_alive: CrudeTimeSpan,
     max_retries: int,
     registry: Registry,
     instrumentation: Instrumentation = NOOP,

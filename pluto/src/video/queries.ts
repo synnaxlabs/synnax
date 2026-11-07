@@ -24,9 +24,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   video.Video
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.videos.retrieve(query),
-  onChange: ({ client, query }, handler) => client.videos.onChange(query, handler),
-  getCached: ({ client, query }) => client.videos.getCached(query),
+  retrieve: async ({ client, query }) => await client.videos.retrieve(query.key),
+  onChange: ({ client, query }, handler) => client.videos.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.videos.getCached(query.key),
   awaitCreation: true,
 });
 

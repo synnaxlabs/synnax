@@ -7,14 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, TypeVar, overload
-from uuid import UUID
+from typing import Any, Generic, Literal, TypeVar, overload
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
+from synnax import label
 from synnax.ontology import ID
-from synnax.status.types_gen import Key, Status, Variant
+from synnax.status.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Status,
+    Variant,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -28,20 +38,6 @@ class _SetRequest(BaseModel, Generic[D]):
 
 class _SetResponse(BaseModel):
     statuses: list[Status[JsonValue]]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[str] | None = None
-    search_term: str | None = None
-    offset: int | None = None
-    limit: int | None = None
-    include_labels: bool | None = None
-    has_labels: list[UUID] | None = None
-    variants: list[Variant] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    statuses: list[Status[JsonValue]] = Field(default_factory=list)
 
 
 class _RenameRequest(BaseModel):
@@ -158,96 +154,118 @@ class Client:
 
     @overload
     def retrieve(
-        self, *, key: str, include_labels: bool = False
+        self,
+        *,
+        key: Key,
+        variant: filter.SetInput[Variant] = ...,
+        labels: label.Key | list[label.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_labels: bool = ...,
+        one: bool = ...,
     ) -> Status[JsonValue]: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[str] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
-        limit: int | None = None,
-        include_labels: bool = False,
-        has_labels: list[UUID] | None = None,
-        variants: list[Variant] | None = None,
+        key: filter.SetInput[Key] = ...,
+        variant: filter.SetInput[Variant] = ...,
+        labels: label.Key | list[label.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        variants: list[Variant] | None = ...,
+        has_labels: list[label.Key] | None = ...,
+        search_term: str = ...,
+        include_labels: bool = ...,
+        one: Literal[True],
+    ) -> Status[JsonValue]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        variant: filter.SetInput[Variant] = ...,
+        labels: label.Key | list[label.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        variants: list[Variant] | None = ...,
+        has_labels: list[label.Key] | None = ...,
+        search_term: str = ...,
+        offset: int = ...,
+        limit: int | None = ...,
+        include_labels: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Status[JsonValue]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
         self,
         *,
-        key: str | None = None,
-        keys: list[str] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
+        where: Where | None = None,
+        keys: list[Key] | None = None,
+        variants: list[Variant] | None = None,
+        has_labels: list[label.Key] | None = None,
+        search_term: str = "",
+        offset: int = 0,
         limit: int | None = None,
         include_labels: bool = False,
-        has_labels: list[UUID] | None = None,
-        variants: list[Variant] | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
-        """Retrieve statuses from the cluster.
+        """Retrieves statuses from the Core. With no arguments, retrieves every status.
 
-        Args:
-            key: Retrieve a single status by key.
-            keys: Retrieve multiple statuses by keys.
-            search_term: Search for statuses by name or message.
-            offset: Pagination offset.
-            limit: Pagination limit.
-            include_labels: Whether to include labels in the response.
-            has_labels: Filter statuses that have all of these labels.
-            variants: Filter statuses by variant (e.g. "success", "error").
+        Each filter field takes a value, a list of values, or an operator, and a status
+        must match every field. A plain ``key`` returns one status.
 
-        Returns:
-            A single status, or a list of statuses.
-
-        Examples:
-            Retrieve by key:
-                >>> status = client.statuses.retrieve(key="my-status")
-
-            Retrieve multiple:
-                >>> statuses = client.statuses.retrieve(
-                ...     keys=["status-1", "status-2"]
-                ... )
-
-            Search with pagination:
-                >>> statuses = client.statuses.retrieve(
-                ...     search_term="error",
-                ...     limit=10,
-                ...     offset=0
-                ... )
-
-            Filter by labels:
-                >>> from uuid import UUID
-                >>> statuses = client.statuses.retrieve(
-                ...     has_labels=[UUID("label-uuid")],
-                ...     include_labels=True
-                ... )
+        :param key: Keeps statuses with this key.
+        :param variant: Keeps statuses with this variant, such as "error".
+        :param labels: Keeps statuses that have this label, or any label in the list.
+        :param and_: Keeps statuses that match every filter in the list.
+        :param or_: Keeps statuses that match any filter in the list.
+        :param not_: Keeps statuses that do not match the filter.
+        :param where: A filter tree that the statuses must also match.
+        :param keys: Keeps statuses with one of these keys.
+        :param variants: Keeps statuses with one of these variants.
+        :param has_labels: Keeps statuses that have one of these labels.
+        :param search_term: A fuzzy search term matched against status names and
+            messages.
+        :param offset: The number of statuses to skip.
+        :param limit: The maximum number of statuses to retrieve.
+        :param include_labels: Attaches the labels of each status.
+        :param one: Returns one status for any filter.
+        :returns: One status for a plain ``key`` or when ``one`` is set, otherwise a
+            list of statuses. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one status is wanted and none matches.
+        :raises MultipleFoundError: If one status is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one status is wanted
+            beside a limit or an offset.
         """
-        single = key is not None
-        if single and key is not None:
-            keys = [key]
-
-        res = self.client.send(
-            _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(
-                keys=keys,
-                search_term=search_term,
-                offset=offset,
-                limit=limit,
-                include_labels=include_labels,
-                has_labels=has_labels,
-                variants=variants,
-            ),
-            _RetrieveResponse,
-        ).statuses
-
-        if single:
-            if len(res) == 0:
-                raise ValueError(f"Status with key '{key}' not found")
-            return res[0]
-        return res
+        single = returns_one(fields, one, limit, offset)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            variant=None if variants is None else filter.Set[Variant](in_=variants),
+            labels=has_labels,
+        )
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            offset=offset,
+            limit=limit,
+            include_labels=include_labels,
+        )
+        res = self.client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse).statuses
+        return sole("status", req.where, res) if single else res
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a status.

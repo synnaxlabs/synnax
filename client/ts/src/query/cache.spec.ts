@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, type record, Series, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, type record, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -27,6 +27,7 @@ class MockStreamer implements framer.Streamer {
   dropped: channel.Key[] = [];
   private readonly frames: framer.Frame[];
   private done = false;
+  private disconnected = false;
 
   constructor(frames: framer.Frame[] = []) {
     this.frames = [...frames];
@@ -38,12 +39,25 @@ class MockStreamer implements framer.Streamer {
     this.done = true;
   }
 
+  /** Delivers the frame after the frames already queued. */
+  push(frame: framer.Frame): void {
+    this.frames.push(frame);
+  }
+
+  /** Fails the read after the queued frames, forcing a reopen. */
+  drop(): void {
+    this.disconnected = true;
+  }
+
   async next(): Promise<IteratorResult<framer.Frame>> {
-    const fr = this.frames.shift();
-    if (fr != null) return { done: false, value: fr };
     // Block until closed so the read loop stays alive like a real stream.
-    while (!this.done) await new Promise((resolve) => setTimeout(resolve, 5));
-    return { done: true, value: undefined };
+    while (true) {
+      const fr = this.frames.shift();
+      if (fr != null) return { done: false, value: fr };
+      if (this.disconnected) throw new Error("conn dropped");
+      if (this.done) return { done: true, value: undefined };
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
   }
 
   async read(): Promise<framer.Frame> {
@@ -222,6 +236,148 @@ describe("Cache", () => {
     });
   });
 
+  describe("close", () => {
+    const setup = (fetch: (keys: string[]) => Promise<Doc[]>) => {
+      const onError = vi.fn();
+      const cache = new query.Cache({ openStreamer: null, onError });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      return { cache, onError, table };
+    };
+
+    it("should reject a table fetch that is running", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      const retrieved = table.retrieve(["k1"]);
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      await expect(retrieved).rejects.toThrow(DisconnectedError);
+    });
+
+    it("should not send a table fetch that is still queued", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, table } = setup(fetch);
+      const retrieved = table.retrieve(["k1"]);
+      await cache.close();
+      await expect(retrieved).rejects.toThrow(DisconnectedError);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should not report a restore fetch that fails after the close", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, onError, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1")();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      held.reject(new Error("no credentials"));
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it("should reject a table fetch that starts after the close", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, table } = setup(fetch);
+      await cache.close();
+      await expect(table.retrieve(["k1"])).rejects.toThrow(DisconnectedError);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should not report a restore fetch that starts after the close", async () => {
+      const fetch = vi.fn(async (): Promise<Doc[]> => []);
+      const { cache, onError, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      const rollback = table.delete("k1");
+      await cache.close();
+      rollback();
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it("should not refetch per caller after a batch fails on a close", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      const retrieves = [table.retrieve(["k1"]), table.retrieve(["k2"])];
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      held.reject(new NotFoundError("gone"));
+      await Promise.allSettled(retrieves);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep the failure of a fetch that ends a reconcile", async () => {
+      const held = Promise.withResolvers<Doc[]>();
+      const fetch = vi.fn(async () => await held.promise);
+      const { cache, table } = setup(fetch);
+      table.set("k1", { key: "k1", name: "a" });
+      const reconciled = table.reconcile();
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      await cache.close();
+      const failure = new Error("no credentials");
+      const rejected = expect(reconciled).rejects.toMatchObject({ cause: failure });
+      held.reject(failure);
+      await rejected;
+    });
+
+    describe("with a reconcile running", () => {
+      const setupReconcile = async () => {
+        const held = Promise.withResolvers<Doc[]>();
+        const fetch = vi.fn(async () => await held.promise);
+        const first = new MockStreamer();
+        let opens = 0;
+        const onError = vi.fn();
+        const cache = new query.Cache({
+          openStreamer: async () => (opens++ === 0 ? first : new MockStreamer()),
+          breaker: { baseInterval: TimeSpan.milliseconds(1) },
+          onError,
+        });
+        const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+        table.set("k1", { key: "k1", name: "a" });
+        table.set("k2", { key: "k2", name: "b" });
+        await cache.ensureStreaming();
+        first.drop();
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        await cache.close();
+        return { fetch, held, onError, table };
+      };
+
+      it("should not report a fetch that fails", async () => {
+        const { held, onError } = await setupReconcile();
+        held.reject(new Error("no credentials"));
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(onError).not.toHaveBeenCalled();
+      });
+
+      it("should not split the keys of a fetch that finds none", async () => {
+        const { fetch, held, onError } = await setupReconcile();
+        held.reject(new NotFoundError("gone"));
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(onError).not.toHaveBeenCalled();
+      });
+
+      it("should not apply a fetch that succeeds", async () => {
+        const { held, table } = await setupReconcile();
+        held.resolve([]);
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+        expect(table.get("k2")).toEqual({ key: "k2", name: "b" });
+      });
+    });
+
+    it("should keep the entries of a closed table", async () => {
+      const { cache, table } = setup(async () => []);
+      table.set("k1", { key: "k1", name: "a" });
+      await cache.close();
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+    });
+  });
+
   describe("lazy streaming and epochs", () => {
     it("does not open the stream until ensureStreaming is called", async () => {
       const opener = vi.fn(async () => new MockStreamer());
@@ -284,6 +440,56 @@ describe("Cache", () => {
       table.set("k1", { key: "k1", name: "a" });
       await cache.ensureStreaming();
       await expect.poll(() => table.get("k1")).toBeUndefined();
+      await cache.close();
+    });
+
+    it("keeps a deleted key deleted when its earlier set streams late", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const streamer = new MockStreamer();
+      const cache = makeEngine(async () => streamer);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      streamer.push(
+        new framer.Frame({ docs_set: new Series([{ key: "k1", name: "a" }]) }),
+      );
+      streamer.push(new framer.Frame({ docs_delete: new Series(["k1"]) }));
+      await expect.poll(() => subscriber.mock.calls.length).toBe(1);
+      expect(subscriber.mock.calls).toEqual([[{ variant: "delete", key: "k1" }]]);
+      expect(table.status("k1")).toBe("tombstoned");
+      await cache.close();
+    });
+
+    it("applies streamed sets to keys deleted before the stream opens", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const cache = makeEngine(
+        async () =>
+          new MockStreamer([
+            new framer.Frame({ docs_set: new Series([{ key: "k1", name: "b" }]) }),
+          ]),
+      );
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
       await cache.close();
     });
 
@@ -508,6 +714,30 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => cache.epoch).toBe(2);
       expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+      await cache.close();
+    });
+
+    it("applies streamed sets to locally deleted keys after a reopen", async () => {
+      const schema = z.object({ key: z.string(), name: z.string() });
+      const first = new MockStreamer();
+      const second = new MockStreamer([
+        new framer.Frame({ docs_set: new Series([{ key: "k1", name: "b" }]) }),
+      ]);
+      let opens = 0;
+      const cache = makeEngine(async () => (opens++ === 0 ? first : second));
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch: async () => [],
+        listen: [
+          query.createSetListener("docs_set", schema),
+          query.createDeleteListener("docs_delete", z.string()),
+        ],
+      });
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      first.drop();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
       await cache.close();
     });
 

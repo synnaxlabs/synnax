@@ -22,7 +22,7 @@ import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
@@ -42,16 +42,18 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<EdgeSchemas>>();
 
 const Properties = () => (
   <>
     <SelectDevice />
-    <SparkplugNodeFields path="config" />
+    <SparkplugNodeFields path={root.config} />
     <Flex.Box x grow>
       <PForm.NumericField
-        path="config.authority"
+        path={root.config.authority}
         label="Authority"
         helpText="The control authority of the writes that commands make"
         inputProps={AUTHORITY_INPUT_PROPS}
@@ -62,35 +64,31 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const TAGS_PATH = "config.tags";
-
-const CHANNEL_QUERY: channel.RetrieveOptions = { internal: false };
-
 const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
-  <PChannel.SelectSingle {...p} initialQuery={CHANNEL_QUERY} location="bottom" />
+  <PChannel.SelectSingle {...p} location="bottom" />
 ));
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `${TAGS_PATH}.${itemKey}`;
-  const commandChannel = PForm.useFieldValue<channel.Key>(`${path}.commandChannel`);
-  const commandChannelName = PForm.useFieldValue<string>(`${path}.commandChannelName`);
+  const path = root.config.tags[itemKey];
+  const tag = PForm.useFieldValue(path);
+  const { commandChannel, commandChannelName } = tag;
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
 
   const handleChannelChange = (key: channel.Key, { get, set }: PForm.ContextValue) => {
-    if (get<string>(`${path}.name`).value !== "") return;
+    if (get(path.name).value !== "") return;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const ch = await client.channels.retrieve(key);
-      set(`${path}.name`, ch.name);
+      set(path.name, ch.name);
     }, "Failed to name the tag");
   };
 
   return (
     <Select.Item {...props} justify="between" align="center" x>
-      <PForm.Field<channel.Key>
-        path={`${path}.channel`}
+      <PForm.Field
+        path={path.channel}
         showLabel={false}
         padHelpText={false}
         onChange={handleChannelChange}
@@ -98,14 +96,14 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
         {renderSelectChannel}
       </PForm.Field>
       <PForm.TextField
-        path={`${path}.name`}
+        path={path.name}
         showLabel={false}
         padHelpText={false}
         inputProps={NAME_INPUT_PROPS}
         grow
       />
       <SparkplugTypeField
-        path={`${path}.tagType`}
+        path={path.tagType}
         showLabel={false}
         showHelpText={false}
         className={CSS.B("field-data-type")}
@@ -118,12 +116,13 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
         ) : (
           <Task.ChannelName
             channel={commandChannel}
-            namePath={`${path}.commandChannelName`}
-            defaultName={commandChannelName ?? undefined}
+            namePath={path.commandChannelName}
+            defaultName={deriveCommandChannelName(tag)}
+            skipped={tag.disabled}
             id={Task.getChannelNameID(itemKey, "cmd")}
           />
         )}
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={path.disabled} />
       </Flex.Box>
     </Select.Item>
   );
@@ -153,7 +152,7 @@ const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>)
         throw new Error("Name the tag before adding a command channel");
       withoutCommands.forEach((tag) =>
         set(
-          `${TAGS_PATH}.${tag.key}.commandChannelName`,
+          root.config.tags[tag.key].commandChannelName,
           deriveCommandChannelName(tag),
         ),
       );
@@ -161,8 +160,9 @@ const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>)
 
   const handleRemove = () =>
     withCommands.forEach(({ key }) => {
-      set(`${TAGS_PATH}.${key}.commandChannel`, 0);
-      set(`${TAGS_PATH}.${key}.commandChannelName`, undefined);
+      const tag = root.config.tags[key];
+      set(tag.commandChannel, 0);
+      set(tag.commandChannelName, undefined);
     });
 
   const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"));
@@ -202,7 +202,7 @@ const EMPTY_CONTENT = <Empty.Action message="No tags in task" />;
 
 const Content = () => (
   <Task.Views.List<EdgeTag>
-    path={TAGS_PATH}
+    path={root.config.tags}
     header={HEADER}
     emptyContent={EMPTY_CONTENT}
     addLabel="Add tag"
@@ -216,6 +216,7 @@ const Content = () => (
 const Form = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConnectModal,
+  useNoneSelected,
   Content,
 });
 
@@ -271,9 +272,9 @@ export const useCreateEdge = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const EdgeSelectable = Selector.createSelectable({
+export const EdgeSelectable: Selector.Selectable = {
   type: EDGE_TYPE,
   title: "Sparkplug edge node",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateEdge,
-});
+};

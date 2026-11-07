@@ -11,55 +11,257 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/program/types.gen.h"
 #include "arc/cpp/text/types.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
 
-struct Arc;
+struct Where;
+struct RetrieveRequest;
+struct Base;
+struct RetrieveResponse;
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
 
+constexpr const char *TYPE_AUTOMATION = "automation";
+constexpr const char *TYPE_MODULE = "module";
+
 using Key = x::uuid::UUID;
 
-/// @brief Arc is an Arc module combining visual graph representation and text-based
-/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
-/// execution.
-struct Arc {
+/// @brief Where is a filter that selects Arcs.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Where;
+    [[nodiscard]] std::pair<::service::arc::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::arc::pb::Where &pb);
+};
+
+/// @brief TextSource is Arc source code written as text.
+struct TextSource {
+    std::string mode = MODE_TEXT;
+    /// @brief text is the text-based Arc source code.
+    ::arc::text::Text text = {};
+
+    static TextSource parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::SourceTextPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::SourceTextPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<TextSource, x::errors::Error>
+    from_proto(const ::service::arc::pb::SourceTextPayload &pb);
+};
+
+/// @brief GraphSource is Arc source code drawn as a visual dataflow graph.
+struct GraphSource {
+    std::string mode = MODE_GRAPH;
+    /// @brief graph is the visual dataflow graph representation of the module.
+    ::arc::graph::Graph graph = {};
+
+    static GraphSource parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::SourceGraphPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::SourceGraphPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<GraphSource, x::errors::Error>
+    from_proto(const ::service::arc::pb::SourceGraphPayload &pb);
+};
+
+/// @brief Source is the source code of an Arc. The mode selects text or a graph.
+using Source = std::variant<TextSource, GraphSource>;
+
+Source parse_source(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Source &value);
+[[nodiscard]] std::pair<::service::arc::pb::Source, x::errors::Error>
+to_proto(const Source &value);
+std::pair<Source, x::errors::Error>
+source_from_proto(const ::service::arc::pb::Source &pb);
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching arcs to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve arcs.
+struct RetrieveRequest {
+    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching arcs to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_program = options.include_program,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
+};
+
+/// @brief Base carries the fields that every Arc shares.
+struct Base {
     /// @brief key is the unique identifier for this module.
     Key key;
     /// @brief name is a human-readable name for the module.
     std::string name;
-    /// @brief mode specifies the representation mode for this module. Either "text" for
-    /// text-based Arc code or "graph" for visual dataflow.
-    std::string mode;
-    /// @brief graph is the visual dataflow graph representation of the module.
-    ::arc::graph::Graph graph = {};
-    /// @brief text is the text-based Arc source code.
-    ::arc::text::Text text = {};
+    /// @brief source is the Arc's source code, written as text or drawn as a graph.
+    Source source = TextSource{};
+
+    static Base parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Base;
+    [[nodiscard]] std::pair<::service::arc::pb::Base, x::errors::Error>
+    to_proto() const;
+    static std::pair<Base, x::errors::Error>
+    from_proto(const ::service::arc::pb::Base &pb);
+};
+
+/// @brief AutomationArc is an Arc that runs on a rack as a task.
+struct AutomationArc : public Base {
+    std::string type = TYPE_AUTOMATION;
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
 
-    static Arc parse(x::json::Parser parser);
+    static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::arc::pb::Arc;
-    [[nodiscard]] std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto() const;
-    static std::pair<Arc, x::errors::Error>
-    from_proto(const ::service::arc::pb::Arc &pb);
+    using proto_type = ::service::arc::pb::ArcAutomationPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::ArcAutomationPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<AutomationArc, x::errors::Error>
+    from_proto(const ::service::arc::pb::ArcAutomationPayload &pb);
+};
+
+/// @brief ModuleArc is an Arc that holds code for other Arcs to import.
+struct ModuleArc : public Base {
+    std::string type = TYPE_MODULE;
+
+    static ModuleArc parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::ArcModulePayload;
+    [[nodiscard]] std::pair<::service::arc::pb::ArcModulePayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<ModuleArc, x::errors::Error>
+    from_proto(const ::service::arc::pb::ArcModulePayload &pb);
+};
+
+/// @brief Arc is an Arc module combining visual graph representation and text-based
+/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
+/// execution.
+using Arc = std::variant<AutomationArc, ModuleArc>;
+
+Arc parse_arc(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Arc &value);
+[[nodiscard]] std::pair<::service::arc::pb::Arc, x::errors::Error>
+to_proto(const Arc &value);
+std::pair<Arc, x::errors::Error> arc_from_proto(const ::service::arc::pb::Arc &pb);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const Base &base(const Arc &value) {
+    return std::visit([](const auto &v) -> const Base & { return v; }, value);
+}
+
+/// @brief RetrieveResponse holds the arcs a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief arcs are the arcs the request selects.
+    std::vector<Arc> arcs;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");

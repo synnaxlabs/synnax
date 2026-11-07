@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -24,8 +24,20 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
+import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
-import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
+import {
+  type Arc,
+  arcZ,
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/arc/types.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -37,34 +49,29 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
+// The table caches Arcs without their compiled program.
+const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
+export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
+const retrieveMultiParamsZ = filter.requestInputZ(
+  cachedRequestZ,
+  retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
+);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: arcZ.array().default(() => []) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
 export const lspMessageZ = z.object({ content: z.string() });
 export type LSPMessage = z.infer<typeof lspMessageZ>;
 
-export type RetrieveRequest = z.input<typeof retrieveReqZ>;
-
 const keyRetrieveRequestZ = z
   .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+  .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
 const nameRetrieveRequestZ = z
   .object({ name: z.string() })
-  .transform(({ name }) => ({ names: [name] }));
+  .transform(({ name }): RetrieveRequest => ({ where: { name: { eq: name } } }));
 
 export const singleRetrieveParamsZ = z.union([
   keyRetrieveRequestZ,
@@ -73,9 +80,9 @@ export const singleRetrieveParamsZ = z.union([
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const singleQueryZ = z.union([
   z.strictObject({ key: keyZ }),
@@ -101,20 +108,6 @@ export interface UpdateTaskParams {
   performance?: Performance;
 }
 
-/**
- * Client-side matching for a request: key and name sets. Server-computed shapes
- * (search, pagination) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  return (a) => {
-    if (keySet != null && !keySet.has(a.key)) return false;
-    if (nameSet != null && !nameSet.has(a.name)) return false;
-    return true;
-  };
-};
-
 const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
   ontology.matchRelationship(rel, {
     from: ontologyID(arcKey),
@@ -139,6 +132,8 @@ export class Client extends query.Retriever<
   SingleRetrieveParams,
   SingleRetrieveParams
 > {
+  /** directories creates, renames, deletes, and moves the directories of Arcs. */
+  readonly directories: directory.Client;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly store: query.Table<Key, Arc>;
@@ -152,8 +147,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Arc>({
       name: "Arcs",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
@@ -180,15 +174,21 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
-        matches: (a, req) => requestFilter(req)(a),
+        matches: (a, req) => matches(a, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      ontology: cfg.ontology,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
@@ -283,8 +283,6 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const tsk = await this.retrieveTask(key);
-    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
     // Restores only the name, so the rollback cannot undo edits made after it.
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
@@ -402,7 +400,7 @@ export class Client extends query.Retriever<
       "/arc/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.arcs;
   }
@@ -411,8 +409,9 @@ export class Client extends query.Retriever<
   // copy is only as fresh as the streamer. Fetches always hit the network; only the
   // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
-    const arcs = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    const { where } = singleRetrieveParamsZ.parse(q);
+    const arcs = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("Arc", where, arcs, true);
     return this.hydrate(arcs[0]);
   }
 

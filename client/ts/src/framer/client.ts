@@ -28,7 +28,7 @@ import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
-import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
+import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadFileOptions, type ReadOptions } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
@@ -123,6 +123,8 @@ export class Client {
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys, count, tr) =>
         await this.readLatestNFrame(keys, count, tr),
+      readFirst: async (keys) =>
+        await this.reader.read(TimeRange.MAX, keys, { earliest: 1 }),
       findKeyframe: async (key, ts) => await this.findKeyframe(key, ts),
     });
   }
@@ -329,17 +331,8 @@ export class Client {
     n: number,
     tr: TimeRange = TimeRange.MAX,
   ): Promise<Frame> {
-    const i = await this.openIterator(tr, channels, { chunkSize: n });
-    const frame = new Frame();
-    if (n > 0)
-      try {
-        await i.seekLast();
-        await i.prev(AUTO_SPAN);
-        frame.push(i.value);
-      } finally {
-        await i.close();
-      }
-    return frame;
+    if (n <= 0) return new Frame();
+    return await this.reader.read(tr, channels, { latest: n });
   }
 
   /**

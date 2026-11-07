@@ -11,7 +11,10 @@ package control_test
 
 import (
 	"fmt"
+	"runtime"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +36,34 @@ var _ control.Resource = (*testResource)(nil)
 
 func (t testResource) ChannelKey() channel.Key { return channel.Key(0) }
 
+// hookedResource calls onChannelKey from ChannelKey, which a region calls while it
+// holds its lock.
+type hookedResource struct {
+	onChannelKey func()
+}
+
+var _ control.Resource = (*hookedResource)(nil)
+
+func (h *hookedResource) ChannelKey() channel.Key {
+	if h.onChannelKey != nil {
+		h.onChannelKey()
+	}
+	return channel.Key(0)
+}
+
+// parkedInOpenGate returns true if a goroutine in Controller.OpenGate waits on a lock.
+func parkedInOpenGate() bool {
+	buf := make([]byte, 1<<20)
+	buf = buf[:runtime.Stack(buf, true)]
+	for g := range strings.SplitSeq(string(buf), "\n\n") {
+		state, _, _ := strings.Cut(g, "\n")
+		if strings.Contains(state, "[sync.") && strings.Contains(g, ").OpenGate") {
+			return true
+		}
+	}
+	return false
+}
+
 func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
 	var count int
 	return func() (t testResource, err error) {
@@ -41,6 +72,14 @@ func createResourceNoErr(value int) (func() (t testResource, err error), func() 
 		}, func() int {
 			return count
 		}
+}
+
+func authorize(g *control.Gate[testResource]) (r testResource, err error) {
+	err = g.Authorize(func(v testResource) error {
+		r = v
+		return nil
+	})
+	return r, err
 }
 
 func baseConfig(value int) (control.GateConfig[testResource], func() int) {
@@ -220,7 +259,7 @@ var _ = Describe("Control", func() {
 						cfg1.ErrIfControlled = new(true)
 						g1, t := MustSucceed2(c.OpenGate(cfg1))
 						Expect(t.Occurred()).To(BeTrue())
-						MustSucceed(g1.Authorize())
+						MustSucceed(authorize(g1))
 
 						By("Creating another gate on that region")
 						cfg2, _ := baseConfig(1)
@@ -228,8 +267,8 @@ var _ = Describe("Control", func() {
 						cfg2.Authority = xcontrol.AuthorityAbsolute
 						g2, t := MustSucceed2(c.OpenGate(cfg2))
 						Expect(t.Occurred()).To(BeFalse())
-						MustSucceed(g1.Authorize())
-						Expect(g2.Authorize()).Error().
+						MustSucceed(authorize(g1))
+						Expect(authorize(g2)).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
 					},
 				)
@@ -242,7 +281,7 @@ var _ = Describe("Control", func() {
 					g, t := MustSucceed2(c.OpenGate(cfg1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(createCount()).To(Equal(1))
-					MustSucceed(g.Authorize())
+					MustSucceed(authorize(g))
 					cfg2, _ := baseConfig(1)
 					cfg2.Subject.Key = "g2"
 					cfg2.Authority = 0
@@ -369,8 +408,8 @@ var _ = Describe("Control", func() {
 				cfg.TimeRange = telem.NewRangeSeconds(5, 6)
 				cfg.Bounded = new(true)
 				backfill, _ := MustSucceed2(c.OpenGate(cfg))
-				MustSucceed(backfill.Authorize())
-				MustSucceed(g.Authorize())
+				MustSucceed(authorize(backfill))
+				MustSucceed(authorize(g))
 			})
 			It("Should not race with a concurrent lookup", func() {
 				g := openAt("live", telem.NewRangeSeconds(1, 2000))
@@ -469,8 +508,8 @@ var _ = Describe("Control", func() {
 				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
 				live := openAt("live", telem.NewRangeSeconds(1, 20))
 				Expect(c.LeadingState().Subject.Key).To(Equal("live"))
-				MustSucceed(g.Authorize())
-				MustSucceed(live.Authorize())
+				MustSucceed(authorize(g))
+				MustSucceed(authorize(live))
 			})
 			It(
 				"Should open an unbounded gate over a bounded region and another region",
@@ -482,12 +521,12 @@ var _ = Describe("Control", func() {
 					cfg.TimeRange = telem.NewRangeSeconds(1, 20)
 					cfg.Authority = 1
 					operator, _ := MustSucceed2(c.OpenGate(cfg))
-					MustSucceed(g.Authorize())
-					MustSucceed(live.Authorize())
-					Expect(operator.Authorize()).Error().
+					MustSucceed(authorize(g))
+					MustSucceed(authorize(live))
+					Expect(authorize(operator)).Error().
 						To(MatchError(xcontrol.ErrUnauthorized))
 					live.Release()
-					MustSucceed(operator.Authorize())
+					MustSucceed(authorize(operator))
 				},
 			)
 			It("Should fail to open a bounded gate over a bounded region", func() {
@@ -574,7 +613,7 @@ var _ = Describe("Control", func() {
 					Expect(createCount()).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
-					v := MustSucceed(g.Authorize())
+					v := MustSucceed(authorize(g))
 					Expect(v.value).To(Equal(10))
 				})
 
@@ -585,7 +624,7 @@ var _ = Describe("Control", func() {
 					Expect(createCount()).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
-					v := MustSucceed(g.Authorize())
+					v := MustSucceed(authorize(g))
 					Expect(v.value).To(Equal(10))
 				})
 
@@ -598,7 +637,7 @@ var _ = Describe("Control", func() {
 						e, t := g.Release()
 						Expect(e.value).To(Equal(1))
 						Expect(t.Occurred()).To(BeTrue())
-						v, err := g.Authorize()
+						v, err := authorize(g)
 						Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
 						Expect(v.value).To(Equal(0))
 					},
@@ -621,13 +660,53 @@ var _ = Describe("Control", func() {
 						Expect(t2.Occurred()).To(BeTrue())
 						Expect(t2.IsAcquire()).To(BeTrue())
 						Expect(createCount2()).To(Equal(1))
-						v = MustSucceed(g2.Authorize())
+						v = MustSucceed(authorize(g2))
 						Expect(v.value).To(Equal(42))
 					},
 				)
 			})
 
 			Context("Two Gates", func() {
+				It(
+					"Should wait for the previous controller to finish using the resource",
+					func() {
+						cfg1, _ := baseConfig(1)
+						cfg1.Subject.Key = "g1"
+						cfg1.Authority = xcontrol.AuthorityAbsolute - 1
+						g1, _ := MustSucceed2(c.OpenGate(cfg1))
+						inG1, releaseG1 := make(chan struct{}), make(chan struct{})
+						release := sync.OnceFunc(func() { close(releaseG1) })
+						DeferCleanup(release)
+						g1Done := make(chan error, 1)
+						go func() {
+							defer GinkgoRecover()
+							g1Done <- g1.Authorize(func(testResource) error {
+								close(inG1)
+								Eventually(releaseG1).Should(BeClosed())
+								return nil
+							})
+						}()
+						Eventually(inG1).Should(BeClosed())
+
+						cfg2, _ := baseConfig(1)
+						cfg2.Subject.Key = "g2"
+						g2, t := MustSucceed2(c.OpenGate(cfg2))
+						Expect(t.From).ToNot(BeNil())
+						Expect(t.To).ToNot(BeNil())
+						g2Done := make(chan error, 1)
+						go func() {
+							g2Done <- g2.Authorize(func(testResource) error {
+								return nil
+							})
+						}()
+						Consistently(g2Done, 50*time.Millisecond).ShouldNot(Receive())
+
+						release()
+						Eventually(g1Done).Should(Receive(BeNil()))
+						Eventually(g2Done).Should(Receive(BeNil()))
+					},
+				)
+
 				Describe("Open", func() {
 					Context("Open gate 2 with lower authority", func() {
 						Specify("The first gate should maintain control", func() {
@@ -644,9 +723,9 @@ var _ = Describe("Control", func() {
 							cfg2.Authority = xcontrol.AuthorityAbsolute - 1
 							g2, t2 := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t2.Occurred()).To(BeFalse())
-							MustSucceed(g1.Authorize())
+							MustSucceed(authorize(g1))
 							Expect(
-								g2.Authorize(),
+								authorize(g2),
 							).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 						})
@@ -667,9 +746,9 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 							Expect(t.Occurred()).To(BeFalse())
 
-							MustSucceed(g1.Authorize())
+							MustSucceed(authorize(g1))
 							Expect(
-								g2.Authorize(),
+								authorize(g2),
 							).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 						})
@@ -693,9 +772,9 @@ var _ = Describe("Control", func() {
 							Expect(t.From.Subject.Key).To(Equal("g1"))
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 
-							Expect(g1.Authorize()).Error().
+							Expect(authorize(g1)).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
-							MustSucceed(g2.Authorize())
+							MustSucceed(authorize(g2))
 						})
 					})
 				})
@@ -717,9 +796,9 @@ var _ = Describe("Control", func() {
 								g2, t := MustSucceed2(c.OpenGate(cfg2))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -728,9 +807,9 @@ var _ = Describe("Control", func() {
 								Expect(t.From.Subject.Key).To(Equal("g1"))
 								Expect(t.To.Subject.Key).To(Equal("g2"))
 
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 							})
@@ -751,18 +830,18 @@ var _ = Describe("Control", func() {
 								cfg2.Authority = xcontrol.AuthorityAbsolute - 1
 								g2, t := MustSucceed2(c.OpenGate(cfg2))
 								Expect(t.Occurred()).To(BeFalse())
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 								t = g1.SetAuthority(xcontrol.AuthorityAbsolute - 1)
 								Expect(t.Occurred()).To(BeTrue())
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 							})
 						},
 					)
@@ -783,16 +862,16 @@ var _ = Describe("Control", func() {
 								g2, t := MustSucceed2(c.OpenGate(cfg2))
 								Expect(t.Occurred()).To(BeTrue())
 
-								Expect(g1.Authorize()).Error().
+								Expect(authorize(g1)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 								t = g2.SetAuthority(xcontrol.AuthorityAbsolute - 1)
 								Expect(t.Occurred()).To(BeTrue())
 								Expect(t.From.Subject.Key).To(Equal("g2"))
 								Expect(t.To.Subject.Key).To(Equal("g1"))
-								Expect(g2.Authorize()).Error().
+								Expect(authorize(g2)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 							})
 						},
 					)
@@ -813,8 +892,8 @@ var _ = Describe("Control", func() {
 								g2, t := MustSucceed2(c.OpenGate(cfg2))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
-								Expect(g2.Authorize()).Error().
+								MustSucceed(authorize(g1))
+								Expect(authorize(g2)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
 								t = g1.SetAuthority(xcontrol.AuthorityAbsolute - 2)
@@ -822,9 +901,9 @@ var _ = Describe("Control", func() {
 								Expect(t.From.Subject.Key).To(Equal("g1"))
 								Expect(t.To.Subject.Key).To(Equal("g2"))
 
-								Expect(g1.Authorize()).Error().
+								Expect(authorize(g1)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 							})
 						},
 					)
@@ -845,9 +924,9 @@ var _ = Describe("Control", func() {
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeFalse())
 
-							MustSucceed(g1.Authorize())
+							MustSucceed(authorize(g1))
 							Expect(
-								g2.Authorize(),
+								authorize(g2),
 							).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -856,7 +935,7 @@ var _ = Describe("Control", func() {
 							Expect(t.From).ToNot(BeNil())
 							Expect(t.To).ToNot(BeNil())
 							Expect(v.value).To(Equal(1))
-							Expect(g1.Authorize()).Error().
+							Expect(authorize(g1)).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 						})
 					})
@@ -875,9 +954,9 @@ var _ = Describe("Control", func() {
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeFalse())
 
-							MustSucceed(g1.Authorize())
+							MustSucceed(authorize(g1))
 							Expect(
-								g2.Authorize(),
+								authorize(g2),
 							).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -906,20 +985,20 @@ var _ = Describe("Control", func() {
 								Expect(t.Occurred()).To(BeTrue())
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 
 								v, t := g1.Release()
 								Expect(t.Occurred()).To(BeFalse())
 								Expect(v.value).To(Equal(0))
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 							})
 						},
 					)
@@ -940,9 +1019,9 @@ var _ = Describe("Control", func() {
 								g2, t := MustSucceed2(c.OpenGate(cfg2))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -956,10 +1035,10 @@ var _ = Describe("Control", func() {
 								Expect(v.value).To(Equal(0))
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 							})
 						},
 					)
@@ -979,10 +1058,10 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeTrue())
 
 							Expect(
-								g1.Authorize(),
+								authorize(g1),
 							).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
-							MustSucceed(g2.Authorize())
+							MustSucceed(authorize(g2))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeFalse())
@@ -1021,10 +1100,10 @@ var _ = Describe("Control", func() {
 						Expect(t.To.Subject.Key).To(Equal("g2"))
 
 						Expect(
-							g1.Authorize(),
+							authorize(g1),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
-						MustSucceed(g2.Authorize())
+						MustSucceed(authorize(g2))
 
 						cfg3, _ := baseConfig(1)
 						cfg3.Subject.Key = "g3"
@@ -1037,14 +1116,14 @@ var _ = Describe("Control", func() {
 						Expect(t.To.Subject.Key).To(Equal("g3"))
 
 						Expect(
-							g1.Authorize(),
+							authorize(g1),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
 						Expect(
-							g2.Authorize(),
+							authorize(g2),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
-						MustSucceed(g3.Authorize())
+						MustSucceed(authorize(g3))
 					})
 				})
 
@@ -1066,9 +1145,9 @@ var _ = Describe("Control", func() {
 						g2, t := MustSucceed2(c.OpenGate(cfg2))
 						Expect(t.Occurred()).To(BeFalse())
 
-						MustSucceed(g1.Authorize())
+						MustSucceed(authorize(g1))
 						Expect(
-							g2.Authorize(),
+							authorize(g2),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -1078,13 +1157,13 @@ var _ = Describe("Control", func() {
 						g3, t := MustSucceed2(c.OpenGate(cfg3))
 						Expect(t.Occurred()).To(BeFalse())
 
-						MustSucceed(g1.Authorize())
+						MustSucceed(authorize(g1))
 						Expect(
-							g2.Authorize(),
+							authorize(g2),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
 						Expect(
-							g3.Authorize(),
+							authorize(g3),
 						).Error().
 							To(MatchError(xcontrol.ErrUnauthorized))
 					})
@@ -1113,13 +1192,13 @@ var _ = Describe("Control", func() {
 								g3, t := MustSucceed2(c.OpenGate(cfg3))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 								Expect(
-									g3.Authorize(),
+									authorize(g3),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -1132,12 +1211,12 @@ var _ = Describe("Control", func() {
 								Expect(v.value).To(Equal(1))
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 								Expect(
-									g3.Authorize(),
+									authorize(g3),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 							})
@@ -1166,13 +1245,13 @@ var _ = Describe("Control", func() {
 								g3, t := MustSucceed2(c.OpenGate(cfg3))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 								Expect(
-									g3.Authorize(),
+									authorize(g3),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -1185,14 +1264,14 @@ var _ = Describe("Control", func() {
 								Expect(v.value).To(Equal(1))
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g3.Authorize())
+								MustSucceed(authorize(g3))
 							})
 						},
 					)
@@ -1219,13 +1298,13 @@ var _ = Describe("Control", func() {
 								g3, t := MustSucceed2(c.OpenGate(cfg3))
 								Expect(t.Occurred()).To(BeFalse())
 
-								MustSucceed(g1.Authorize())
+								MustSucceed(authorize(g1))
 								Expect(
-									g2.Authorize(),
+									authorize(g2),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 								Expect(
-									g3.Authorize(),
+									authorize(g3),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 
@@ -1238,10 +1317,10 @@ var _ = Describe("Control", func() {
 								Expect(v.value).To(Equal(1))
 
 								Expect(
-									g1.Authorize(),
+									authorize(g1),
 								).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								MustSucceed(g2.Authorize())
+								MustSucceed(authorize(g2))
 							})
 						},
 					)
@@ -1284,7 +1363,7 @@ var _ = Describe("Control", func() {
 								sch2, _ := MustSucceed2(innerC.OpenGate(sch2Cfg))
 
 								// Arc should be in control (highest authority)
-								MustSucceed(arc.Authorize())
+								MustSucceed(authorize(arc))
 
 								// Schematic 1 takes then releases absolute
 								sch1.SetAuthority(xcontrol.AuthorityAbsolute)
@@ -1301,10 +1380,10 @@ var _ = Describe("Control", func() {
 									fmt.Sprintf("iteration %d: control went to %s instead of arc", i, t.To.Subject.Key),
 								)
 
-								MustSucceed(arc.Authorize())
-								Expect(sch1.Authorize()).Error().
+								MustSucceed(authorize(arc))
+								Expect(authorize(sch1)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
-								Expect(sch2.Authorize()).Error().
+								Expect(authorize(sch2)).Error().
 									To(MatchError(xcontrol.ErrUnauthorized))
 							}
 						},
@@ -1387,8 +1466,8 @@ var _ = Describe("Control", func() {
 			g2, t := MustSucceed2(c.OpenGate(cfg2))
 			Expect(t.Occurred()).To(BeFalse())
 
-			MustSucceed(g1.Authorize())
-			Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+			MustSucceed(authorize(g1))
+			Expect(authorize(g2)).Error().To(MatchError(xcontrol.ErrUnauthorized))
 		})
 
 		It("Should authorize gates with equal authority", func() {
@@ -1403,9 +1482,9 @@ var _ = Describe("Control", func() {
 			cfg2.Authority = xcontrol.AuthorityAbsolute
 			g2, t := MustSucceed2(c.OpenGate(cfg2))
 			Expect(t.Occurred()).To(BeFalse())
-			MustSucceed(g1.Authorize())
+			MustSucceed(authorize(g1))
 
-			MustSucceed(g2.Authorize())
+			MustSucceed(authorize(g2))
 		})
 	})
 
@@ -1455,6 +1534,290 @@ var _ = Describe("Control", func() {
 					"Deadlock detected: concurrent open/close did not complete within 10 seconds",
 				)
 			}
+		})
+	})
+
+	Describe("Releasing the last gate", func() {
+		It("Should not let a new gate join the region", func() {
+			var (
+				c      = MustSucceed(control.New[*hookedResource](cfg))
+				first  = &hookedResource{}
+				second = &hookedResource{}
+				joined = make(chan *control.Gate[*hookedResource], 1)
+				once   sync.Once
+			)
+			gateCfg := func(
+				key string,
+				r *hookedResource,
+			) control.GateConfig[*hookedResource] {
+				return control.GateConfig[*hookedResource]{
+					Subject:      xcontrol.Subject{Key: key},
+					TimeRange:    telem.TimeRangeMax,
+					Authority:    xcontrol.AuthorityAbsolute,
+					OpenResource: func() (*hookedResource, error) { return r, nil },
+				}
+			}
+			g, _ := MustSucceed2(c.OpenGate(gateCfg("first", first)))
+			// Runs under the region lock, so the new gate is already waiting when the
+			// release lets go of that lock.
+			first.onChannelKey = func() {
+				once.Do(func() {
+					go func() {
+						defer GinkgoRecover()
+						j, _ := MustSucceed2(c.OpenGate(gateCfg("second", second)))
+						joined <- j
+					}()
+					Eventually(parkedInOpenGate).Should(BeTrue())
+				})
+			}
+			res, t := g.Release()
+			Expect(t.IsRelease()).To(BeTrue())
+			Expect(res).To(BeIdenticalTo(first))
+			var j *control.Gate[*hookedResource]
+			Eventually(joined).Should(Receive(&j))
+			Expect(j.PeekResource()).To(BeIdenticalTo(second))
+			res, t = j.Release()
+			Expect(t.IsRelease()).To(BeTrue())
+			Expect(res).To(BeIdenticalTo(second))
+		})
+	})
+
+	Describe("Opening a resource", func() {
+		type opened struct {
+			err error
+			g   *control.Gate[testResource]
+			t   control.Transfer
+		}
+		var (
+			regionA = (0 * telem.SecondTS).Range(10 * telem.SecondTS)
+			regionB = (20 * telem.SecondTS).Range(30 * telem.SecondTS)
+		)
+		gateCfg := func(
+			key string,
+			tr telem.TimeRange,
+			value int,
+		) control.GateConfig[testResource] {
+			cfg, _ := baseConfig(value)
+			cfg.Subject.Key = key
+			cfg.TimeRange = tr
+			return cfg
+		}
+		openAsync := func(cfg control.GateConfig[testResource]) <-chan opened {
+			result := make(chan opened, 1)
+			go func() {
+				defer GinkgoRecover()
+				g, t, err := c.OpenGate(cfg)
+				result <- opened{g: g, t: t, err: err}
+			}()
+			return result
+		}
+		receive := func(result <-chan opened) (
+			*control.Gate[testResource],
+			control.Transfer,
+			error,
+		) {
+			GinkgoHelper()
+			var o opened
+			Eventually(result).Should(Receive(&o))
+			return o.g, o.t, o.err
+		}
+		// openBlocked opens a gate on tr and returns once its OpenResource is running.
+		// OpenResource returns the error sent on finish.
+		openBlocked := func(
+			tr telem.TimeRange,
+			bounded bool,
+		) (result <-chan opened, finish chan<- error) {
+			GinkgoHelper()
+			var (
+				cfg     = gateCfg("blocked", tr, 1)
+				entered = make(chan struct{})
+				errs    = make(chan error, 1)
+			)
+			cfg.Bounded = new(bounded)
+			cfg.OpenResource = func() (testResource, error) {
+				close(entered)
+				var err error
+				Eventually(errs, 10*time.Second).Should(Receive(&err))
+				if err != nil {
+					return testResource{}, err
+				}
+				return testResource{value: 1}, nil
+			}
+			result = openAsync(cfg)
+			Eventually(entered).Should(BeClosed())
+			DeferCleanup(func() {
+				select {
+				case errs <- nil:
+				default:
+				}
+			})
+			return result, errs
+		}
+		expectReturns := func(f func()) {
+			GinkgoHelper()
+			done := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(done)
+				f()
+			}()
+			Eventually(done).Should(BeClosed())
+		}
+
+		It("Should not block the release of a gate on another region", func() {
+			held, _ := MustSucceed2(c.OpenGate(gateCfg("held", regionA, 2)))
+			openBlocked(regionB, false)
+			expectReturns(func() { held.Release() })
+		})
+
+		It("Should hide the region from LeadingState until it opens", func() {
+			opening, finish := openBlocked(regionB, false)
+			expectReturns(func() { Expect(c.LeadingState()).To(BeNil()) })
+			finish <- nil
+			_, t := MustSucceed2(receive(opening))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(c.LeadingState()).ToNot(BeNil())
+		})
+
+		It("Should make ResourceAt wait for the region to open", func() {
+			opening, finish := openBlocked(regionB, false)
+			found := make(chan testResource, 1)
+			go func() {
+				defer GinkgoRecover()
+				found <- MustBeOk(c.ResourceAt(regionB))
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			Eventually(found).Should(Receive(Equal(testResource{value: 1})))
+			MustSucceed2(receive(opening))
+		})
+
+		It("Should not make ResourceAt wait with a ready bounded region", func() {
+			cfg := gateCfg("bounded", regionB, 2)
+			cfg.Bounded = new(true)
+			MustSucceed2(c.OpenGate(cfg))
+			openBlocked((10 * telem.SecondTS).Range(40*telem.SecondTS), false)
+			expectReturns(func() {
+				Expect(
+					MustBeOk(c.ResourceAt(regionB)),
+				).To(Equal(testResource{value: 2}))
+			})
+		})
+
+		It("Should make ResourceAt wait for an opening bounded region", func() {
+			opening, finish := openBlocked(regionB, true)
+			unbounded := (10 * telem.SecondTS).Range(40 * telem.SecondTS)
+			MustSucceed2(c.OpenGate(gateCfg("unbounded", unbounded, 2)))
+			found := make(chan testResource, 1)
+			go func() {
+				defer GinkgoRecover()
+				found <- MustBeOk(c.ResourceAt(regionB))
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			Eventually(found).Should(Receive(Equal(testResource{value: 1})))
+			MustSucceed2(receive(opening))
+		})
+
+		It("Should report no resource at a region that fails to open", func() {
+			opening, finish := openBlocked(regionB, false)
+			found := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				_, ok := c.ResourceAt(regionB)
+				found <- ok
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			openErr := errors.New("open failed")
+			finish <- openErr
+			Eventually(found).Should(Receive(BeFalse()))
+			Expect(receive(opening)).Error().To(MatchError(openErr))
+		})
+
+		It("Should make a gate wait for the region opening on its time range", func() {
+			opening, finish := openBlocked(regionB, false)
+			cfg := gateCfg("waiting", regionB, 2)
+			cfg.Authority = xcontrol.AuthorityAbsolute - 1
+			waiting := openAsync(cfg)
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			finish <- nil
+			first, _ := MustSucceed2(receive(opening))
+			second, t := MustSucceed2(receive(waiting))
+			Expect(t.Occurred()).To(BeFalse())
+			Expect(second.PeekResource()).To(Equal(first.PeekResource()))
+		})
+
+		It("Should open one resource for gates racing for a time range", func() {
+			const gates = 32
+			var (
+				count atomic.Int32
+				wg    sync.WaitGroup
+			)
+			open := make([]*control.Gate[testResource], gates)
+			for i := range gates {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					cfg := gateCfg(fmt.Sprintf("gate-%d", i), regionA, i)
+					cfg.OpenResource = func() (testResource, error) {
+						return testResource{value: int(count.Add(1))}, nil
+					}
+					open[i], _ = MustSucceed2(c.OpenGate(cfg))
+				})
+			}
+			wg.Wait()
+			Expect(count.Load()).To(Equal(int32(1)))
+			for _, g := range open {
+				Expect(g.PeekResource()).To(Equal(testResource{value: 1}))
+			}
+		})
+
+		It("Should let a waiting gate open the resource after a failed open", func() {
+			opening, finish := openBlocked(regionB, false)
+			waiting := openAsync(gateCfg("waiting", regionB, 2))
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			openErr := errors.New("open failed")
+			finish <- openErr
+			Expect(receive(opening)).Error().To(MatchError(openErr))
+			g, t := MustSucceed2(receive(waiting))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+		})
+
+		It("Should let a waiting gate open the resource after a panic", func() {
+			var (
+				cfg       = gateCfg("panics", regionB, 1)
+				entered   = make(chan struct{})
+				proceed   = make(chan struct{})
+				recovered = make(chan any, 1)
+			)
+			cfg.OpenResource = func() (testResource, error) {
+				close(entered)
+				Eventually(proceed).Should(BeClosed())
+				panic("open failed")
+			}
+			go func() {
+				defer func() { recovered <- recover() }()
+				MustSucceed2(c.OpenGate(cfg))
+			}()
+			Eventually(entered).Should(BeClosed())
+			waiting := openAsync(gateCfg("waiting", regionB, 2))
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			close(proceed)
+			Eventually(recovered).Should(Receive(Equal("open failed")))
+			g, t := MustSucceed2(receive(waiting))
+			Expect(t.IsAcquire()).To(BeTrue())
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+		})
+
+		It("Should fail a reach into the region", func() {
+			held, _ := MustSucceed2(c.OpenGate(gateCfg("held", regionA, 2)))
+			openBlocked(regionB, false)
+			expectReturns(func() {
+				Expect(held.Reach(25 * telem.SecondTS)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a writer that is opening")),
+				))
+			})
 		})
 	})
 

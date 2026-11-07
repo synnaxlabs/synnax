@@ -275,6 +275,7 @@ export class SyntheticCore {
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
+      readFirst: async (keys) => this.readFirst(keys),
       findKeyframe: async () => {
         throw new ValidationError("synthetic core serves no video channel");
       },
@@ -325,10 +326,7 @@ export class SyntheticCore {
       const { key } = this.virtual;
       // The Core streams each frame of a free channel with no index at alignment 0.
       this.raw(key, from, to).forEach((s) =>
-        index.push(
-          key,
-          new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO, alignment: 0n }),
-        ),
+        index.push(key, new Series({ ...seriesProps(s), alignment: 0n })),
       );
     }
     this.streamers.forEach((s) => {
@@ -371,6 +369,15 @@ export class SyntheticCore {
         this.reduced(key, tr, first, last, size, reduction?.aggregation ?? "min_max"),
       );
     }
+    return frame;
+  }
+
+  /** Reads the first sample of each channel. */
+  readFirst(keys: channel.Key[]): Frame {
+    this.checkConnected();
+    const frame = new Frame();
+    if (this.samplesBefore(TimeStamp.MAX) > 0)
+      keys.forEach((key) => this.raw(key, 0, 1).forEach((s) => frame.push(key, s)));
     return frame;
   }
 

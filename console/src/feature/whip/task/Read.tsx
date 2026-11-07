@@ -16,6 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Rack } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import {
@@ -25,20 +26,24 @@ import {
   type ReadSchemas,
 } from "@/feature/whip/task/types";
 import { CSS } from "@/platform/css";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 import { Session } from "@/session";
 
+const path = deep.path<Task.Values<ReadSchemas>>();
+
 const renderRack = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={RACK_QUERY} />
   ),
 );
 
-const RACK_QUERY: rack.RetrieveParams = { integration: "whip" };
+const RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["whip"] } },
+};
 
 const Properties: FC = () => (
-  <PForm.Field<rack.Key> path="rack" label="Receive on">
+  <PForm.Field path={path.rack} label="Receive on">
     {renderRack}
   </PForm.Field>
 );
@@ -122,9 +127,10 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({ getInitialValues });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "WHIP read task",
+  label: "Read",
   icon: <Icon.Video />,
   useOnSelect: useCreateRead,
-});
+};

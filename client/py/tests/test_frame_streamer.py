@@ -179,7 +179,7 @@ class TestStreamer:
                 frame = s.read(timeout=READ_TIMEOUT)
                 assert frame is not None
                 dropped.extend(s.dropped)
-                firsts.extend(series[0] for series in frame.series)
+                firsts.extend(series.as_(np.float64)[0] for series in frame.series)
             assert dropped == [virtual_channel.key]
             assert len(firsts) < count
 

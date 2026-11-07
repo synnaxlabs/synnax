@@ -18,6 +18,7 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type Where,
 } from "@/channel/types.gen";
 import { idToString } from "@/ontology/payload";
 import {
@@ -41,13 +42,16 @@ const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/** @returns whether name is a valid channel name. */
+export const isValidName = (name: string): boolean => VALID_NAME_PATTERN.test(name);
+
 /**
  * Rewrites a channel name into a valid identifier, replacing every other character with
  * an underscore and prefixing a leading digit.
  */
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";
-  if (name.match(VALID_NAME_PATTERN)) return name;
+  if (isValidName(name)) return name;
   // if it doesn't match, convert non-alphanumeric characters to underscores and prepend
   // an underscore if the first character is a digit
   let result = "";
@@ -57,6 +61,10 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   if (result[0].match(/^\d/)) result = `_${result}`;
   return result;
 };
+
+/** @returns whether the channel computes its samples from an expression. */
+export const isCalculated = ({ virtual, expression }: Payload): boolean =>
+  virtual && expression !== "";
 
 /** @returns the key of the status that reports on the given channel. */
 export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
@@ -75,4 +83,15 @@ export const analyzeParams = (
     number: "keys",
     string: "names",
   });
+};
+
+/**
+ * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
+ * reads as a number is a key.
+ */
+export const singleWhere = (channel: Key | Name): Where => {
+  const { variant, normalized } = analyzeParams(channel);
+  return variant === "keys"
+    ? { key: { eq: normalized[0] } }
+    : { name: { eq: normalized[0] } };
 };

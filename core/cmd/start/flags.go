@@ -61,12 +61,7 @@ func AddFlags(cmd *cobra.Command) {
 		nil,
 		"Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc)",
 	)
-	cmd.Flags().StringP(
-		FlagData,
-		"d",
-		"synnax-data",
-		"Directory where the Core will store its data",
-	)
+	AddDataFlag(cmd)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
 	cmd.Flags().BoolP(
 		FlagInsecure,
@@ -138,6 +133,16 @@ func AddFlags(cmd *cobra.Command) {
 		FlagLicenseFile,
 		"",
 		"Path to a file containing the license key",
+	)
+}
+
+// AddDataFlag adds the flag that names the Core data directory to the given command.
+func AddDataFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP(
+		FlagData,
+		"d",
+		"synnax-data",
+		"Directory where the Core will store its data",
 	)
 }
 

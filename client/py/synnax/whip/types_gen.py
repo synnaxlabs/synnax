@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from typing import override as _override
 
 from pydantic import Field
 
@@ -44,5 +45,6 @@ class ReadConfig(task.PersistConfig):
     )
     time_source: TimeSource = "arrival"
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

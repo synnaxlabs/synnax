@@ -10,14 +10,30 @@
 package lineplot_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	It("Should reject the request when retrieve is not granted on a match", func(
+		ctx SpecContext,
+	) {
+		r := lineplot.LinePlot{Name: "unretrievable"}
+		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, uuid.Nil(), &r)).To(Succeed())
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
+			Where: &lineplot.Where{Key: &filter.Set[lineplot.Key]{Eq: &r.Key}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Create", func() {
 	It("Should stamp the dispatch key onto the create broadcast", func(

@@ -18,10 +18,14 @@ import (
 )
 
 const (
-	ActionTypeCreate     = "create"
-	ActionTypeRename     = "rename"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetChannel is the Type of an Action that carries SetChannelPayload.
 	ActionTypeSetChannel = "set_channel"
-	ActionTypeSetRange   = "set_range"
+	// ActionTypeSetRange is the Type of an Action that carries SetRangePayload.
+	ActionTypeSetRange = "set_range"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core

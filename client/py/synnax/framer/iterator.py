@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import cast
+from typing import cast, override
 
 from pydantic import BaseModel
 
@@ -65,9 +65,11 @@ class _Response(BaseModel):
 
 
 class _WSIteratorCodec(WSCodec):
+    @override
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)

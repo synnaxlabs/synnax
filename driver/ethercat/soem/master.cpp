@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <format>
+#include <functional>
+#include <iterator>
+#include <string_view>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -21,24 +26,56 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// Timeout for EtherCAT state transitions (INIT->PRE_OP->SAFE_OP->OP) in microseconds.
-const int STATE_CHANGE_TIMEOUT = static_cast<int>(
-    (x::telem::SECOND * 2).microseconds()
-);
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
-/// Time between state reads while slaves move to OP.
-const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
+/// Time between state reads while slaves move to a requested state.
+const auto STATE_POLL_INTERVAL = x::telem::MILLISECOND;
+/// AL status codes of faults that a new start can clear. The start takes every slave
+/// back through INIT with an acknowledgment.
+constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
+    0x0018, // No valid inputs available
+    0x0019, // No valid outputs
+    0x001A, // Synchronization error
+    0x001B, // Sync manager watchdog
+    0x0021, // Slave needs INIT
+    0x0022, // Slave needs PREOP
+    0x0023, // Slave needs SAFEOP
+    0x002A, // Background watchdog
+    0x002B, // No valid inputs and outputs
+    0x002C, // Fatal sync error
+    0x002D, // No sync error
+    0x0032, // PLL error
+    0x0033, // DC sync IO error
+    0x0034, // DC sync timeout error
+    0x0052, // External hardware not ready
+    0x0060, // Slave restarted locally
+};
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+namespace {
+/// @brief converts a span to the microseconds that SOEM timeouts take.
+int micros(const x::telem::TimeSpan span) {
+    return static_cast<int>(span.microseconds());
+}
+}
+
 /// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
 const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
+/// AL status code for "Invalid DC SYNC configuration".
+constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
+constexpr std::string_view
+    DC_SYNC_ADVICE = "A slave that reports \"Invalid DC SYNC "
+                     "configuration\" needs DC sync, which the Driver "
+                     "does not support yet. If the slave has an SM sync "
+                     "mode, set it (in DewesoftX for Dewesoft modules). "
+                     "If not, disable the slave so the rest of the bus "
+                     "can run.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -60,9 +97,27 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
-Master::Master(std::unique_ptr<API> api, std::string interface_name):
+namespace {
+std::string no_slaves_message(API &api, const std::string &iface) {
+    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+    if (!api.dewesoft_filter_bound(iface.c_str()))
+        return found + "Check the cable and the power of the first device.";
+    return found + std::format(
+                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
+                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
+                       "also after DewesoftX closes. Clear it in the properties of "
+                       "\"{0}\" (Settings > Network & internet > Advanced network "
+                       "settings > More network adapter options, then right-click the "
+                       "adapter > Properties).",
+                       api.adapter_name(iface.c_str()).value_or(iface)
+                   );
+}
+}
+
+Master::Master(std::unique_ptr<API> api, std::string interface_name, const Config cfg):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
+    cfg(cfg),
     iomap(DEFAULT_IOMAP_SIZE, 0),
     input_sz(0),
     output_sz(0),
@@ -94,10 +149,14 @@ x::errors::Error Master::initialize() {
         this->api->close();
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            "no EtherCAT slaves found on " + this->iface_name
+            no_slaves_message(*this->api, this->iface_name)
         );
     }
 
+    // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
+    // request to a slave whose last read state is below PRE-OP.
+    this->api->statecheck(0, EC_STATE_PRE_OP, micros(this->cfg.pre_op_timeout));
+    this->api->readstate();
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;
@@ -136,6 +195,11 @@ x::errors::Error Master::activate() {
             );
     }
 
+    if (const auto err = this->clear_dc_activation()) return err;
+
+    // SOEM keeps the SII length of a sync manager whose PDO assignment is empty or that
+    // 0x1C00 does not list, and turns it on. A slave can refuse SAFE-OP for that.
+    this->api->clear_process_data_sms(ENABLED_GROUP);
     const int iomap_size = this->api->config_map_group(
         this->iomap.data(),
         ENABLED_GROUP
@@ -148,6 +212,7 @@ x::errors::Error Master::activate() {
         );
 
     this->api->configdc();
+    this->api->set_group_dc(ENABLED_GROUP);
     this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
 
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
@@ -156,18 +221,24 @@ x::errors::Error Master::activate() {
     this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
                          this->api->group_inputsWKC(ENABLED_GROUP);
 
-    auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+    auto err = this->request_state(
+        EC_STATE_SAFE_OP,
+        micros(this->cfg.state_change_timeout)
+    );
     if (err) return err;
 
     err = this->request_operational();
     if (err) {
         LOG(WARNING) << "OP transition failed: " << err.message()
                      << "; attempting recovery to SAFE_OP";
-        auto recovery_err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        auto recovery_err = this->request_state(
+            EC_STATE_SAFE_OP,
+            micros(this->cfg.state_change_timeout)
+        );
         if (recovery_err) {
             LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
                        << "; forcing INIT state";
-            this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+            this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
         }
         return err;
     }
@@ -179,7 +250,7 @@ x::errors::Error Master::activate() {
 
 void Master::deactivate() {
     if (this->activated) {
-        this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
@@ -270,8 +341,8 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
                 .lost = this->api->slave_lost(i),
             }
         );
-        if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
-            h.al_status = ec_ALstatuscode2string(code);
+        if (this->al_error(i))
+            h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
@@ -320,6 +391,7 @@ void Master::populate_slaves() {
         result.properties.output_bits = this->api->slave_Obits(i);
         result.status.state = slave::from_al_state(this->api->slave_state(i));
         this->discover_slave_pdos(result);
+        result.properties.op_modes = this->read_op_modes(i);
         this->slave_list.push_back(result);
     }
 }
@@ -609,6 +681,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             c++;
         }
     }
+    this->api->eeprom2pdi(props.position);
 
     if (props.input_pdos.empty() && props.output_pdos.empty()) {
         if (this->api->slave_Ibits(props.position) > 0 ||
@@ -635,6 +708,47 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     VLOG(1) << "Slave " << props.position
             << " PDOs discovered via SII: " << props.input_pdos.size() << " inputs, "
             << props.output_pdos.size() << " outputs";
+}
+
+/// SII category that lists the synchronization modes of a slave.
+constexpr uint16_t SII_DC_CATEGORY = 60;
+/// Size in bytes of one mode in the SII DC category.
+constexpr uint32_t SII_OP_MODE_SIZE = 24;
+
+std::vector<dc::OpMode> Master::read_op_modes(const uint16_t position) {
+    const uint16_t start = this->api->siifind(position, SII_DC_CATEGORY);
+    if (start == 0) return {};
+    uint16_t addr = start;
+    const auto read = [&](const int bytes) {
+        uint32_t value = 0;
+        for (int i = 0; i < bytes; ++i)
+            value |= static_cast<uint32_t>(this->api->siigetbyte(position, addr++))
+                  << (8 * i);
+        return value;
+    };
+    const uint32_t length = read(2) * 2;
+    const uint16_t data = addr;
+    std::vector<dc::OpMode> modes;
+    for (uint32_t off = 0; off + SII_OP_MODE_SIZE <= length; off += SII_OP_MODE_SIZE) {
+        addr = static_cast<uint16_t>(data + off);
+        dc::OpMode mode;
+        mode.sync0_cycle = read(4);
+        mode.sync0_shift = static_cast<int32_t>(read(4));
+        mode.sync1_shift = static_cast<int32_t>(read(4));
+        mode.sync1_factor = static_cast<int16_t>(read(2));
+        mode.assign_activate = static_cast<uint16_t>(read(2));
+        mode.sync0_factor = static_cast<int16_t>(read(2));
+        const auto name_index = static_cast<uint16_t>(read(1));
+        if (name_index > 0) {
+            char name[EC_MAXNAME + 1] = {0};
+            this->api->siistring(name, position, name_index);
+            mode.name = name;
+        }
+        modes.push_back(std::move(mode));
+    }
+    this->api->eeprom2pdi(position);
+    VLOG(1) << "Slave " << position << " lists " << modes.size() << " OpModes in SII";
+    return modes;
 }
 
 x::errors::Error Master::read_pdo_assign(
@@ -888,49 +1002,92 @@ bool Master::scan_object_dictionary_for_pdos(
     return found_any;
 }
 
-x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    std::vector<uint16_t> failed;
+x::errors::Error Master::clear_dc_activation() {
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
+            continue;
+        const auto pos = static_cast<uint16_t>(i);
+        // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
+        // writes to 0x0981.
+        for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
+            if (this->api->write_register(pos, address, {0}, EC_TIMEOUTRET) != 1)
+                return x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    std::format(
+                        "slave {} ({}) did not take a write to DC register 0x{:04X}",
+                        pos,
+                        this->api->slave_name(pos),
+                        address
+                    )
+                );
+    }
+    return x::errors::NIL;
+}
+
+x::errors::Error Master::request_state(
+    const uint16_t state,
+    const int timeout,
+    const std::function<void()> &before_read
+) {
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
-        if (this->api->statecheck(i, state, timeout) != state) failed.push_back(i);
     }
-    if (failed.empty()) return x::errors::NIL;
-    return this->state_error(failed, state);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(timeout);
+    while (true) {
+        if (before_read) before_read();
+        this->api->readstate();
+        std::vector<uint16_t> pending;
+        // Like ecx_statecheck, a slave in the state counts even with its error flag
+        // set: a request without the ACK bit leaves the flag as it is.
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            if (this->api->slave_group(i) == ENABLED_GROUP &&
+                (this->api->slave_state(i) & ~EC_STATE_ERROR) != state)
+                pending.push_back(i);
+        if (pending.empty()) return x::errors::NIL;
+        std::vector<uint16_t> refused;
+        std::ranges::copy_if(pending, std::back_inserter(refused), [&](auto pos) {
+            return this->refuses(pos, state);
+        });
+        if (!refused.empty()) return this->state_error(refused, state);
+        if (std::chrono::steady_clock::now() >= deadline)
+            return this->state_error(pending, state);
+        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+    }
+}
+
+bool Master::al_error(const uint16_t pos) const {
+    return (this->api->slave_state(pos) & EC_STATE_ERROR) != 0 &&
+           this->api->slave_ALstatuscode(pos) != 0;
+}
+
+bool Master::refuses(const uint16_t pos, const uint16_t state) const {
+    return this->al_error(pos) &&
+           (this->api->slave_state(pos) & ~EC_STATE_ERROR) < state;
 }
 
 x::errors::Error Master::request_operational() {
-    // Slaves with outputs need one valid process data frame before they enter OP.
-    this->api->send_processdata(ENABLED_GROUP);
-    this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
-        this->api->set_slave_state(i, EC_STATE_OPERATIONAL);
-        this->api->writestate(i);
-    }
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
-    while (true) {
+    const auto exchange = [this] {
         this->api->send_processdata(ENABLED_GROUP);
         this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-        this->api->readstate();
-        std::vector<uint16_t> pending;
-        for (int i = 1; i <= this->api->slave_count(); ++i)
-            if (this->api->slave_group(i) == ENABLED_GROUP &&
-                this->api->slave_state(i) != EC_STATE_OPERATIONAL)
-                pending.push_back(i);
-        if (pending.empty()) return x::errors::NIL;
-        if (std::chrono::steady_clock::now() >= deadline)
-            return this->state_error(pending, EC_STATE_OPERATIONAL);
-        std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
-    }
+    };
+    // Slaves with outputs need one valid process data frame before they enter OP.
+    exchange();
+    return this->request_state(
+        EC_STATE_OPERATIONAL,
+        micros(this->cfg.state_change_timeout),
+        exchange
+    );
 }
 
 x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
+    bool refused = false;
+    bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
@@ -938,11 +1095,16 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                slave::slave_state_to_string(
                    slave::from_al_state(this->api->slave_state(pos))
                );
-        if (const auto code = this->api->slave_ALstatuscode(pos); code != 0)
-            msg += ": " + std::string(ec_ALstatuscode2string(code));
+        if (!this->al_error(pos)) continue;
+        const auto code = this->api->slave_ALstatuscode(pos);
+        refused |= this->refuses(pos, state) &&
+                   std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
+        dc_sync_refused |= code == AL_INVALID_DC_SYNC;
+        msg += ": " + std::string(ec_ALstatuscode2string(code));
     }
+    if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
     return x::errors::Error(
-        errors::STATE_CHANGE_ERROR,
+        refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
         "failed to reach " + target + ": " + msg
     );
 }

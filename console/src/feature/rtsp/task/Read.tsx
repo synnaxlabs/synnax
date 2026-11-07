@@ -14,6 +14,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Rack } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import {
@@ -23,8 +24,10 @@ import {
   type ReadSchemas,
 } from "@/feature/rtsp/task/types";
 import { CSS } from "@/platform/css";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<ReadSchemas>>();
 
 const URL_INPUT_PROPS = { placeholder: "rtsp://user:password@192.168.1.10:554/stream" };
 
@@ -40,24 +43,26 @@ const renderProtocol = Component.renderProp(
 
 const renderRack = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={RACK_QUERY} />
   ),
 );
 
-const RACK_QUERY: rack.RetrieveParams = { integration: "rtsp" };
+const RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["rtsp"] } },
+};
 
 const Properties: FC = () => (
   <Flex.Box x grow>
     <PForm.TextField
-      path="config.url"
+      path={path.config.url}
       label="Camera URL"
       inputProps={URL_INPUT_PROPS}
       grow
     />
-    <PForm.Field<rtsp.Protocol> path="config.protocol" label="Transport">
+    <PForm.Field path={path.config.protocol} label="Transport">
       {renderProtocol}
     </PForm.Field>
-    <PForm.Field<rack.Key> path="rack" label="Connect from">
+    <PForm.Field path={path.rack} label="Connect from">
       {renderRack}
     </PForm.Field>
   </Flex.Box>
@@ -111,9 +116,10 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({ getInitialValues });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "RTSP read task",
+  label: "Read",
   icon: <Icon.Video />,
   useOnSelect: useCreateRead,
-});
+};

@@ -11,3 +11,4 @@ export * from "@/video/actions";
 export * from "@/video/actions.gen";
 export * from "@/video/client";
 export * from "@/video/types.gen";
+export { type WhereInput } from "@/video/where.gen";

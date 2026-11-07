@@ -82,6 +82,8 @@ interface RegisteredTable {
   listeners: Listener[];
   reconcile?: () => Promise<void>;
   reset: () => void;
+  clearPendingDeletes: () => void;
+  close: () => void;
 }
 
 /** The cache-facing lifecycle of an answer space, generics erased. */
@@ -138,6 +140,8 @@ export class Cache {
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
       reset: () => table.reset(),
+      clearPendingDeletes: () => table.clearPendingDeletes(),
+      close: () => table.close(),
     });
     return table;
   }
@@ -158,7 +162,13 @@ export class Cache {
       fetch: async (keys) => (await source.retrieve(keys)).map(compose),
     });
     this.detachers.push(bindDerived(table, { source, compose, watch }));
-    this.tables.push({ name, listeners: [], reset: () => table.reset() });
+    this.tables.push({
+      name,
+      listeners: [],
+      reset: () => table.reset(),
+      clearPendingDeletes: () => table.clearPendingDeletes(),
+      close: () => table.close(),
+    });
     return table;
   }
 
@@ -189,6 +199,7 @@ export class Cache {
     const space = new Space(config, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
     });
@@ -227,14 +238,17 @@ export class Cache {
         onLive: onStreamLive,
         onDrop: onStreamDrop,
         onRetry: onStreamRetry,
+        // Both run before the stream's first frame.
         onOpen: () => {
           if (this.streamer !== streamer) return;
+          this.clearPendingDeletes();
           this.unmaintained = false;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
         },
         onReopen: () => {
           if (this.streamer !== streamer) return;
+          this.clearPendingDeletes();
           this.bumpEpoch();
         },
         onDead: (error) => {
@@ -314,6 +328,10 @@ export class Cache {
     this.epochObserver.notify(0);
   }
 
+  private clearPendingDeletes(): void {
+    this.tables.forEach(({ clearPendingDeletes }) => clearPendingDeletes());
+  }
+
   private bumpEpoch(): void {
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
@@ -325,12 +343,13 @@ export class Cache {
   }
 
   /**
-   * Closes the change stream and every answer space this cache constructed.
-   * A no-op for the stream when streaming never started.
+   * Closes the change stream and every answer space this cache constructed, and rejects
+   * table fetches in progress. A no-op for the stream when streaming never started.
    */
   async close(): Promise<void> {
     this.detachers.forEach((detach) => detach());
     this.spaces.forEach((space) => space.close());
+    this.tables.forEach(({ close }) => close());
     if (this.streamer == null) return;
     await this.streamer.close();
   }

@@ -10,12 +10,9 @@
 package iterator
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -49,14 +46,9 @@ type responseSegment = confluence.Segment[Response, Response]
 var ErrClosed = framer.ErrIteratorClosed
 
 type Iterator struct {
-	requests    confluence.Inlet[Request]
-	responses   confluence.Outlet[Response]
-	shutdown    context.CancelFunc
-	wg          signal.WaitGroup
+	pipeline    framer.IteratorPipeline
 	value       []Response
 	valueFrames []framer.Frame
-	// closed is true once Close has run.
-	closed bool
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
@@ -127,15 +119,7 @@ func (i *Iterator) Error() error {
 // seek or SetBounds has cleared it since. Closing a closed iterator returns nil, every
 // other method returns false, and Error returns ErrClosed. All iterators must be
 // Closed, or the distribution layer will panic.
-func (i *Iterator) Close() error {
-	if i.closed {
-		return nil
-	}
-	i.closed = true
-	defer i.shutdown()
-	i.requests.Close()
-	return i.wg.Wait()
-}
+func (i *Iterator) Close() error { return i.pipeline.Close() }
 
 // SetBounds sets the lower and upper bounds of the Iterator.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
@@ -160,15 +144,5 @@ func (i *Iterator) exec(req Request) bool {
 }
 
 func (i *Iterator) execErr(req Request) (bool, error) {
-	if i.closed {
-		return false, ErrClosed
-	}
-	i.requests.Inlet() <- req
-	for res := range i.responses.Outlet() {
-		if res.Variant == ResponseVariantAck {
-			return res.Ack, res.Error
-		}
-		i.value = append(i.value, res)
-	}
-	return false, nil
+	return i.pipeline.Exec(req, &i.value)
 }

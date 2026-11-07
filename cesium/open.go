@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -64,7 +63,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		key, err := strconv.ParseUint(i.Name(), 10, 32)
+		key, err := dirNameToKey(i.Name())
 		if err != nil {
 			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
@@ -75,7 +74,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
 			return nil, err
 		}
 	}
@@ -104,7 +103,7 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
@@ -123,6 +122,11 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, u.Close())
+		}
+	}()
 	// For non-index channels, resolve the index DB. The index DB is always a
 	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
@@ -142,6 +146,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 			}
 		}
 		u.SetIndex(idxDB.Index())
+		if err = u.TruncateToIndex(ctx); err != nil {
+			return err
+		}
 	}
 	db.mu.dbs.unary[ch.Key] = *u
 	return nil

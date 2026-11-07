@@ -90,6 +90,8 @@ export interface Result<V> {
   status: status.Status;
   /** The aggregation that reduced data, when the source reduces it. */
   aggregation?: Aggregation;
+  /** True when the samples of each series in data ascend. */
+  sorted?: boolean;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**

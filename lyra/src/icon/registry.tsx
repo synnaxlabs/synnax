@@ -32,6 +32,7 @@ import {
 } from "react-icons/bi";
 import {
   BsBorderWidth,
+  BsBox,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShift,
@@ -99,6 +100,7 @@ import {
   MdBorderColor,
   MdCalculate,
   MdCalendarToday,
+  MdCode,
   MdComment,
   MdCommit,
   MdComputer,
@@ -167,6 +169,8 @@ import {
   MdRotateRight,
   MdSaveAlt,
   MdSensors,
+  MdSettingsEthernet,
+  MdSettingsInputSvideo,
   MdShield,
   MdSquare,
   MdSquareFoot,
@@ -179,6 +183,7 @@ import {
 } from "react-icons/md";
 import {
   PiBinary,
+  PiBooks,
   PiCaretDown,
   PiCaretLeft,
   PiCaretRight,
@@ -187,8 +192,10 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiTreeViewBold,
   PiUploadSimple,
   PiVideoCamera,
+  PiWaveformBold,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -203,6 +210,7 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiApachekafka,
   SiCplusplus,
   SiMqtt,
   SiNpm,
@@ -260,6 +268,7 @@ import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
+import { New } from "@/icon/New";
 import { NI } from "@/icon/NI";
 import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
@@ -369,6 +378,7 @@ export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
 export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
+export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
@@ -387,6 +397,7 @@ export const Logo = {
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
+  Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
@@ -428,6 +439,7 @@ export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
+export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
 export const Insert = {
@@ -468,6 +480,8 @@ export const TextAlign = {
 export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
+export const Network = wrapSVGIcon(MdSettingsEthernet, "network");
+export const Serial = wrapSVGIcon(MdSettingsInputSvideo, "serial");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Database = wrapSVGIcon(TbDatabase, "database");
 export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
@@ -483,6 +497,7 @@ export const Variable = wrapSVGIcon(TbVariable, "variable");
 export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
+export const Library = wrapSVGIcon(PiBooks, "library");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -533,6 +548,7 @@ export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Waveform = wrapSVGIcon(PiWaveformBold, "waveform");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
@@ -540,6 +556,7 @@ export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const Module = wrapSVGIcon(BsBox, "module");
 export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
@@ -635,6 +652,7 @@ const icons = {
   PNPM,
   Yarn,
   QuestionMark,
+  Code,
   Menu,
   Sidebar,
   Logo,
@@ -661,6 +679,8 @@ const icons = {
   Connect,
   Disconnect,
   Hardware,
+  Network,
+  Serial,
   Save,
   Database,
   DatabaseOff,
@@ -677,6 +697,7 @@ const icons = {
   Type,
   Array,
   Label,
+  Library,
   Details,
   LinkExternal,
   Access,
@@ -724,11 +745,13 @@ const icons = {
   Map,
   Linear,
   None,
+  New,
   Constant,
   Terminal,
   TerminalOutline,
   Arc,
   ArcFlow,
+  Module,
   ArcFunc,
   Select,
   Notification,

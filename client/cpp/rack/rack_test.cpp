@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
 #include <sstream>
 
 #include "gtest/gtest.h"
@@ -57,6 +58,40 @@ TEST(RackTests, testRetrieveRackByName) {
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(unique_name));
     ASSERT_EQ(r2.name, unique_name);
     ASSERT_EQ(r.key, r2.key);
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one rack.
+TEST(RackTests, testRetrieveRackRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err: {
+                 client.racks.retrieve("rack", options).second,
+                 client.racks.retrieve({.name = "rack"}, x::filter::one, options).second
+             }) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
+}
+
+/// @brief it should page a retrieve of the racks that a filter matches.
+TEST(RackTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_page_" + std::to_string(gen_rand());
+    for (int i = 0; i < 3; ++i) {
+        auto r = Rack{.name = name};
+        ASSERT_NIL(client.racks.create(r));
+    }
+    const auto where = Where{.name = name};
+    const auto first = ASSERT_NIL_P(client.racks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(client.racks.retrieve(where, {.offset = 2}));
+    ASSERT_EQ(rest.size(), 1);
 }
 
 TEST(RackTests, testCreateTaskOnCreatedRack) {
@@ -145,6 +180,63 @@ TEST(RackTests, testCreateRackWithIntegrations) {
     ASSERT_EQ(r2.integrations[0], "ni");
     ASSERT_EQ(r2.integrations[1], "opc");
     ASSERT_EQ(r2.integrations[2], "modbus");
+}
+
+/// @brief it should retrieve the racks that match any branch of an or.
+TEST(RackTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto a = Rack{.name = "test_rack_where_a", .integrations = {"labjack"}};
+    auto b = Rack{.name = "test_rack_where_b" + std::to_string(gen_rand())};
+    auto c = Rack{.name = "test_rack_where_c"};
+    ASSERT_NIL(client.racks.create(a));
+    ASSERT_NIL(client.racks.create(b));
+    ASSERT_NIL(client.racks.create(c));
+    const auto racks = ASSERT_NIL_P(client.racks.retrieve(
+        (Where{.integrations = "labjack"} || Where{.name = b.name}) &&
+        Where{.key = {a.key, b.key, c.key, 4123456789}}
+    ));
+    std::set<Key> keys;
+    for (const auto &r: racks)
+        keys.insert(r.key);
+    ASSERT_EQ(keys, (std::set<Key>{a.key, b.key}));
+}
+
+/// @brief it should retrieve the one rack that a filter matches.
+TEST(RackTests, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack_one_" + std::to_string(gen_rand())};
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(
+        client.racks.retrieve({.name = r.name}, x::filter::one)
+    );
+    ASSERT_EQ(r2.key, r.key);
+}
+
+/// @brief it should name the filter in the error when no rack matches it.
+TEST(RackTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_none_" + std::to_string(gen_rand());
+    const auto [_, err] = client.racks.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(Rack matching {"name":{"case_insensitive":false,"eq":")" + name +
+            R"("}} not found.)"
+    );
+}
+
+/// @brief it should return an error when more than one rack matches a filter.
+TEST(RackTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_twice_" + std::to_string(gen_rand());
+    for (int i = 0; i < 2; ++i) {
+        auto r = Rack{.name = name};
+        ASSERT_NIL(client.racks.create(r));
+    }
+    ASSERT_OCCURRED_AS_P(
+        client.racks.retrieve({.name = name}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
 }
 
 /// @brief it should update integrations on upsert.

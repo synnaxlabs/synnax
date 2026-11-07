@@ -11,7 +11,10 @@
 
 package rack
 
-import "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
 // the low 16 bits contain the local sequential key. A rack is leased to the Core named
@@ -28,3 +31,24 @@ type Status = versions.Status
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.
 type Rack = versions.Rack
+
+// Where is a filter that selects racks.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Embedded selects by embedded.
+	Embedded *filter.Bool `json:"embedded,omitzero" msgpack:"embedded,omitempty"`
+	// Integrations selects by integrations.
+	Integrations *filter.Contains[string] `json:"integrations,omitzero" msgpack:"integrations,omitempty"`
+	// HostIsNode matches racks on the Core that serves the request, or racks on other
+	// Cores when false.
+	HostIsNode *bool `json:"host_is_node,omitzero" msgpack:"host_is_node,omitempty"`
+}

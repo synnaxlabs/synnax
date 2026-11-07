@@ -56,9 +56,29 @@ message Channel {
   // concurrency sets the policy for concurrent writes to the channel's data. Only
   // virtual channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 12;
+  // status is the current operational status of the channel.
+  optional .service.status.pb.Status status = 13;
   // retention is how long the Core keeps the data of an index channel and of every
   // channel on it. Zero keeps the data forever. Only an index channel can set it.
-  int64 retention = 13;
-  // status is the current operational status of the channel.
-  optional .service.status.pb.Status status = 14;
+  int64 retention = 14;
+}
+
+// RetrieveRequest is a request to retrieve channels.
+message RetrieveRequest {
+  // where selects the channels to retrieve. An absent where selects all of them.
+  optional .service.channel.pb.Where where = 1;
+  // search_term keeps the channels that match the term, closest match first.
+  string search_term = 2;
+  // limit is the most channels to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching channels to skip.
+  uint32 offset = 4;
+  // include_status includes the status of each record.
+  bool include_status = 5;
+}
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+message RetrieveResponse {
+  // channels are the channels the request selects.
+  repeated Channel channels = 1;
 }

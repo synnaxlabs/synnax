@@ -24,8 +24,8 @@ export const VIS_SELECTABLES: Selector.Selectable[] = [
   ...Table.SELECTABLES,
 ];
 
-export const SELECTABLES: Selector.Selectable[] = [
-  ...VIS_SELECTABLES,
-  ...Task.SELECTABLES,
-  ...Arc.SELECTABLES,
+export const SECTIONS: Selector.Section[] = [
+  { key: "visualization", title: "Visualization", selectables: VIS_SELECTABLES },
+  { key: "automation", title: "Automation", selectables: Arc.SELECTABLES },
+  { ...Task.SECTION, title: "Tasks" },
 ];

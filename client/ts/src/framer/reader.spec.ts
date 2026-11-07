@@ -107,6 +107,43 @@ describe("Reader", () => {
         ["3000000000", "30", "300"],
       ]);
     });
+    it("should export only the newest and oldest rows", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [TimeStamp.seconds(1), TimeStamp.seconds(2), TimeStamp.seconds(3)],
+        [data.key]: [10, 20, 30],
+      });
+      await writer.commit();
+      await writer.close();
+      const tr = { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) };
+      const keys = [index.key, data.key];
+      expect(
+        await streamToRecords(await client.readCSV(tr, keys, { latest: 2 })),
+      ).toEqual([
+        [index.name, data.name],
+        ["2000000000", "20"],
+        ["3000000000", "30"],
+      ]);
+      expect(
+        await streamToRecords(await client.readCSV(tr, keys, { earliest: 1 })),
+      ).toEqual([
+        [index.name, data.name],
+        ["1000000000", "10"],
+      ]);
+    });
     it("should export multiple channels with different indexes", async () => {
       const index1 = await client.channels.create({
         name: id.create(),

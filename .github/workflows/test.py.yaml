@@ -69,6 +69,11 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -79,52 +84,59 @@ permissions:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python }})
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-    # A service with an empty image does not start, so a package that needs no server
-    # leaves both inputs empty.
-    services:
-      synnax:
-        image: ${{ inputs.core_image }}
-        env:
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090
-      freighter:
-        image: ${{ inputs.freighter_image }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        # oldest is the lower bound of requires-python. Only Ubuntu runs it.
+        python: ${{ fromJSON(inputs.lowest && '["oldest"]' || '["3.14", "oldest"]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-        include:
-          - os: ubuntu-latest
-            format: true
+          - os: macos-latest
+            python: oldest
+          - os: windows-latest
+            python: oldest
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: ${{ inputs.directory }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Start Core
+        if:
+          runner.os == 'Linux' && inputs.core_image != '' && (inputs.lowest ||
+          matrix.python != 'oldest')
+        uses: ./.github/actions/start-service
+        env:
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        with:
+          name: synnax
+          image: ${{ inputs.core_image }}
+          port: 9090
+          token: ${{ github.token }}
+          variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
+
+      - name: Start the Freighter server
+        if: runner.os == 'Linux' && inputs.freighter_image != ''
+        uses: ./.github/actions/start-service
+        with:
+          name: freighter
+          image: ${{ inputs.freighter_image }}
+          port: 8080
+          token: ${{ github.token }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -134,45 +146,65 @@ jobs:
         shell: bash
         env:
           LOWEST: ${{ inputs.lowest }}
+          PYTHON: ${{ matrix.python }}
         run: |
-          if [ "$LOWEST" != true ]; then
+          if [ "$PYTHON" = oldest ]; then
+            PYTHON=$(sed -n 's/^requires-python = ">=\([0-9.]*\).*/\1/p' pyproject.toml)
+            if [ -z "$PYTHON" ]; then
+              echo "::error::pyproject.toml has no requires-python lower bound."
+              exit 1
+            fi
+          fi
+          echo "UV_PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          if [ "$LOWEST" = true ]; then
+            echo "UV_RESOLUTION=lowest-direct" >> "$GITHUB_ENV"
+          else
             echo "UV_LOCKED=1" >> "$GITHUB_ENV"
-            exit 0
           fi
-          python=$(sed -n 's/^requires-python = ">=\([0-9.]*\).*/\1/p' pyproject.toml)
-          if [ -z "$python" ]; then
-            echo "::error::pyproject.toml has no requires-python lower bound."
-            exit 1
-          fi
-          echo "UV_PYTHON=$python" >> "$GITHUB_ENV"
-          echo "UV_RESOLUTION=lowest-direct" >> "$GITHUB_ENV"
 
       # Ruff output depends on the Ruff version, so only the locked one checks it.
       - name: Lint
-        if: matrix.format && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
         run: uv run ruff check .
 
       - name: Check formatting
-        if: matrix.format && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
         run: |
           uv run ruff format --check --diff . ||
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       - name: Check types
-        run: uv run mypy ${{ inputs.type_check_dir }}
+        shell: bash
+        env:
+          TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
+        run: |
+          read -ra directories <<< "$TYPE_CHECK_DIR"
+          uv run mypy "${directories[@]}"
 
+      # Only the newest Python measures coverage.
       - name: Test
-        if: inputs.test && inputs.coverage_module == ''
+        if:
+          inputs.test && (inputs.coverage_module == '' || matrix.python == 'oldest') &&
+          (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
         run: uv run pytest
 
       - name: Test with coverage
-        if: inputs.test && inputs.coverage_module != ''
-        run: uv run pytest --cov=${{ inputs.coverage_module }} --cov-report=xml
+        if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
+        shell: bash
+        env:
+          COVERAGE_MODULE: ${{ inputs.coverage_module }}
+        run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml
 
       - name: Upload coverage
-        if: inputs.test && inputs.coverage_flag != ''
-        uses: codecov/codecov-action@v7
+        if: inputs.test && inputs.coverage_flag != '' && matrix.python != 'oldest'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           fail_ci_if_error: true
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
+
+      - name: Stop the services
+        if: always() && runner.os == 'Linux'
+        run: docker rm --force synnax freighter 2> /dev/null || true
