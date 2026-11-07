@@ -218,7 +218,8 @@ type SetParentRequest struct {
 }
 
 // SetParent moves the groups. It requires update access on the groups, on the parents
-// they leave, and on the parent they join.
+// they leave, and on the parent they join. A move to a new top parent also requires
+// update access on the top parents that the groups leave and join.
 func (s *Service) SetParent(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -241,6 +242,17 @@ func (s *Service) SetParent(
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: objects,
+	}); err != nil {
+		return struct{}{}, err
+	}
+	tops, err := group.SetParentObjects(ctx, tx, groups, req.Parent)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: tops,
 	}); err != nil {
 		return struct{}{}, err
 	}

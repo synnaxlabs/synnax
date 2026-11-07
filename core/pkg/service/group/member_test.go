@@ -246,15 +246,13 @@ var _ = Describe("Member", func() {
 		)
 
 		It(
-			"Should refuse to move a group that holds a rack under a new top parent",
+			"Should keep a group that holds a rack under its stored parent",
 			func(ctx SpecContext) {
 				g := create(ctx, resource.TypeDevice, nil)
 				place(ctx, "r3", g)
 				g.Parent = new(rackID("r1"))
-				Expect(w.Create(ctx, &g)).To(MatchError(
-					"parent: cannot move group " + g.Name + " under a new top " +
-						"parent because it holds rack r3: validation error",
-				))
+				Expect(w.Create(ctx, &g)).To(Succeed())
+				Expect(g.Parent).To(BeNil())
 			},
 		)
 	})

@@ -43,6 +43,7 @@ var OwnersMigration = projectv3.NewOwnersMigration(
 		Name:     "v61_panel_owner",
 		Type:     resource.TypePanel,
 		Owned:    func(e Panel) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e Panel) string { return e.Name },
 		SetOwner: func(e *Panel, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

@@ -93,6 +93,7 @@ var OwnersMigration = projectv3.NewOwnersMigration(
 		Name:     "v61_log_owner",
 		Type:     resource.TypeLog,
 		Owned:    func(e Log) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e Log) string { return e.Name },
 		SetOwner: func(e *Log, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

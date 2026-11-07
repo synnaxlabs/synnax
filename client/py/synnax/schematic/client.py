@@ -227,8 +227,8 @@ class Client:
         :param snapshot: True to make the copy an immutable snapshot.
         :param range: The key of the range that owns the copy.
         :returns: The copy.
-        :raises NotFoundError: If no schematic exists for key, or range is given and
-            no range exists for it.
+        :raises NotFoundError: If no schematic exists for key.
+        :raises ValidationError: If range is given and no range exists for it.
         """
         return self._client.send(
             "/schematic/copy",

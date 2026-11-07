@@ -30,6 +30,7 @@ var _ = Describe("Resources", Ordered, func() {
 	})
 
 	create := func(ctx SpecContext, tx gorp.Tx, name string, internal bool) task.Task {
+		GinkgoHelper()
 		t := task.Task{Type: testType, Rack: s.rack.Key, Name: name, Internal: internal}
 		Expect(s.task.NewWriter(tx).Create(ctx, &t)).To(Succeed())
 		return t

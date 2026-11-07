@@ -1799,8 +1799,8 @@ var _ = Describe("Writer with no transaction", func() {
 					joinErr = s.rack.NewWriter(nil).SetGroup(ctx, &g.Key, r.Key)
 				})
 				wg.Go(func() {
-					g.Parent = new(s.rack.EmbeddedKey.ResourceID())
-					moveErr = s.group.NewWriter(nil).Create(ctx, &g)
+					moveErr = s.group.NewWriter(nil).
+						SetParent(ctx, new(s.rack.EmbeddedKey.ResourceID()), g.Key)
 				})
 				wg.Wait()
 				Expect([]error{joinErr, moveErr}).To(ContainElement(HaveOccurred()))

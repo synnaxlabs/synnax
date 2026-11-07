@@ -69,7 +69,10 @@ func TopParentProject(top *resource.ID, t resource.Type) (*Key, error) {
 		), "group")
 	}
 	k, err := KeyFromResourceID(*top)
-	return &k, err
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
 }
 
 // OwnerID returns the ID of the project or range that owns a visualization, or nil when
@@ -85,26 +88,70 @@ func OwnerID(proj *Key, rng *ranger.Key) *resource.ID {
 	}
 }
 
-// CreateObjects returns the owners that a create of visualizations needs update access
-// on. stored holds the visualizations that exist before the create. A new
+// CreateObjects returns the owners that a create of visualizations of type t needs
+// update access on. stored holds the visualizations that exist before the create. A
+// new visualization in a group joins the group's project, and any other new
 // visualization joins the owner it carries. A create keeps an existing visualization
-// with its stored owner, so it adds nothing.
+// with its stored owner, so it adds nothing. It returns the errors of GroupProject.
 func CreateObjects[K comparable, E interface{ GorpKey() K }](
+	ctx context.Context,
+	tx gorp.Tx,
+	t resource.Type,
 	records []E,
 	stored []E,
+	groupOf func(E) *group.Key,
 	ownerOf func(E) *resource.ID,
-) []resource.ID {
+) ([]resource.ID, error) {
 	exists := make(set.Set[K], len(stored))
 	for _, e := range stored {
 		exists.Add(e.GorpKey())
 	}
 	var joined []*resource.ID
 	for _, e := range records {
-		if !exists.Contains(e.GorpKey()) {
+		if exists.Contains(e.GorpKey()) {
+			continue
+		}
+		g := groupOf(e)
+		if g == nil {
 			joined = append(joined, ownerOf(e))
+			continue
+		}
+		p, err := GroupProject(ctx, tx, g, t)
+		if err != nil {
+			return nil, err
+		}
+		joined = append(joined, new(ResourceID(*p)))
+	}
+	return MoveObjects(nil, nil, joined...), nil
+}
+
+// SetGroupObjects returns the owners that moving visualizations of type t into the
+// group with key needs update access on, as a project move does. owners holds the
+// stored owner of each visualization. For each visualization that the move takes to a
+// new project, the result holds its owner and the group's project. It returns nothing
+// for a nil key, and the errors of GroupProject.
+func SetGroupObjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	key *group.Key,
+	t resource.Type,
+	owners []*resource.ID,
+) ([]resource.ID, error) {
+	p, err := GroupProject(ctx, tx, key, t)
+	if err != nil || p == nil {
+		return nil, err
+	}
+	to := ResourceID(*p)
+	var from []*resource.ID
+	for _, o := range owners {
+		if o == nil || *o != to {
+			from = append(from, o)
 		}
 	}
-	return MoveObjects(nil, nil, joined...)
+	if len(from) == 0 {
+		return nil, nil
+	}
+	return MoveObjects(nil, from, &to), nil
 }
 
 // MoveObjects returns the resources that moving the visualizations with ids to the

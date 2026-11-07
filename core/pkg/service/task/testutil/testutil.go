@@ -59,6 +59,10 @@ type TasksConfig struct {
 	//
 	// [REQUIRED]
 	Stores []config.Store
+	// MatchArcs filters tasks by the Arcs they run.
+	//
+	// [OPTIONAL]
+	MatchArcs func(arcs ...uuid.UUID) task.Filter
 }
 
 // Tasks creates tasks through a task service, and the targets their configs reference.
@@ -115,12 +119,13 @@ func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
 		return err
 	}
 	if t.svc, err = task.OpenService(ctx, task.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Rack:     cfg.Rack,
-		Status:   cfg.Status,
-		ImEx:     imex.NewService(),
-		Configs:  configs,
+		DB:        cfg.DB,
+		Ontology:  cfg.Ontology,
+		Rack:      cfg.Rack,
+		Status:    cfg.Status,
+		ImEx:      imex.NewService(),
+		Configs:   configs,
+		MatchArcs: cfg.MatchArcs,
 	}); err != nil {
 		return err
 	}
@@ -223,6 +228,9 @@ func (t *Tasks) Create(
 	}
 	return tsk.Key, nil
 }
+
+// NewRetrieve opens a query for the tasks.
+func (t *Tasks) NewRetrieve() task.Retrieve { return t.svc.NewRetrieve() }
 
 // Close closes the services that OpenTasks opened.
 func (t *Tasks) Close() error { return t.closer.Close() }

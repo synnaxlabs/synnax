@@ -123,6 +123,20 @@ func (s *Service) Create(
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return res, err
 	}
+	owners, err := project.CreateObjects(
+		ctx,
+		tx,
+		resource.TypePanel,
+		req.Panels,
+		stored,
+		func(p panel.Panel) *group.Key { return p.Group },
+		func(p panel.Panel) *resource.ID {
+			return project.OwnerID(p.Project, p.Range)
+		},
+	)
+	if err != nil {
+		return res, err
+	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -132,13 +146,7 @@ func (s *Service) Create(
 				stored,
 				func(p panel.Panel) *group.Key { return p.Group },
 			),
-			project.CreateObjects(
-				req.Panels,
-				stored,
-				func(p panel.Panel) *resource.ID {
-					return project.OwnerID(p.Project, p.Range)
-				},
-			),
+			owners,
 		),
 	}); err != nil {
 		return res, err
@@ -223,7 +231,8 @@ type SetGroupRequest struct {
 	Keys  []panel.Key `json:"keys"  msgpack:"keys"`
 }
 
-// SetGroup moves the panels with the given keys into a group.
+// SetGroup moves the panels with the given keys into a group. A move into a group under
+// another project also requires update access on the stored owner and on that project.
 func (s *Service) SetGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -244,6 +253,25 @@ func (s *Service) SetGroup(
 			lo.Map(panels, func(e panel.Panel, _ int) *group.Key { return e.Group }),
 			req.Group,
 		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	projects, err := project.SetGroupObjects(
+		ctx,
+		tx,
+		req.Group,
+		resource.TypePanel,
+		lo.Map(panels, func(e panel.Panel, _ int) *resource.ID {
+			return project.OwnerID(e.Project, e.Range)
+		}),
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: projects,
 	}); err != nil {
 		return struct{}{}, err
 	}

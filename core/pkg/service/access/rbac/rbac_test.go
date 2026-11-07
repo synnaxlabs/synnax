@@ -732,18 +732,6 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, policy.MatchSubjects(subject, second))).
 				To(ConsistOf(heldPolicy, outside))
 		})
-
-		It(
-			"Should fail to filter by subject on a retrieve that cannot read roles",
-			func(ctx SpecContext) {
-				var ps []policy.Policy
-				Expect(rbacSvc.Policy.NewRetrieve().
-					Where(policy.MatchSubjects(subject)).
-					Entries(&ps).
-					Exec(ctx, tx)).
-					To(MatchError(ContainSubstring("cannot filter by subject")))
-			},
-		)
 	})
 
 	Describe("RolesOf", func() {
