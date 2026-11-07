@@ -1488,6 +1488,28 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should set a union base's defaults on a defaulted variant",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { weight int32 = 2 }
+			Leaf struct { name string? }
+			Split struct { size int32 }
+			Node union on variant extends Base {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0 := LeafNode{}\n\t\tv0.SetDefaults()\n",
+			)
+		},
+	)
+
+	It(
 		"Should clear a variant's default list that a union literal sets empty",
 		func(ctx SpecContext) {
 			source := `

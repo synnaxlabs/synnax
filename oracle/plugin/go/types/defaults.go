@@ -952,8 +952,14 @@ func variantSetsDefaults(
 	v resolution.UnionVariant,
 	data *templateData,
 ) bool {
+	// A named payload embeds the union's bases beside it.
 	if !v.Inline {
-		return typeSetsDefaults(v.Type, data, set.New[string]())
+		return lo.SomeBy(
+			append(slices.Clone(form.Extends), v.Type),
+			func(ref resolution.TypeRef) bool {
+				return typeSetsDefaults(ref, data, set.New[string]())
+			},
+		)
 	}
 	payload, ok := v.Type.Resolve(data.table)
 	if !ok {
