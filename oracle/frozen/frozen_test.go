@@ -181,8 +181,8 @@ Doc struct {
 				write("schemas/x/color.oracle",
 					"@go output \"x/go/color\"\n\nColor struct {\n\tr uint8\n}\n")
 				before := compute(ctx, v0File, v1File).Sums[0].Schema
-				write("schemas/x/color.oracle",
-					"@go output \"x/go/color\"\n\nColor struct {\n\tr uint8\n\tg uint8\n}\n")
+				write("schemas/x/color.oracle", "@go output \"x/go/color\"\n\n"+
+					"Color struct {\n\tr uint8\n\tg uint8\n}\n")
 				Expect(compute(ctx, v0File, v1File).Sums[0].Schema).
 					ToNot(Equal(before))
 			},
