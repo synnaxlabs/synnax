@@ -411,7 +411,7 @@ export class Client extends query.Retriever<
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
     const { where } = singleRetrieveParamsZ.parse(q);
     const arcs = await this.execRetrieve({ where });
-    checkForMultipleOrNoResults("Arc", where, arcs, true);
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 

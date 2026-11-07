@@ -63,8 +63,6 @@ const auto DC_START_DELAY = x::telem::MILLISECOND * 100;
 const auto DC_SETTLED_DIFF = x::telem::MICROSECOND * 10;
 /// Time between reads of the system time differences while the clocks settle.
 const auto DC_SETTLE_POLL_INTERVAL = x::telem::MILLISECOND * 10;
-/// The AssignActivate bit (0x0980 bit 0) that gives the sync unit to the PDI.
-constexpr uint16_t PDI_SYNC_UNIT = 0x0001;
 namespace {
 /// @brief converts a span to the microseconds that SOEM timeouts take.
 int micros(const x::telem::TimeSpan span) {
@@ -78,14 +76,6 @@ constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
 /// AL status code for "Invalid DC SYNC configuration".
 constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
-constexpr std::string_view
-    DC_SYNC_ADVICE = "A slave that reports \"Invalid DC SYNC configuration\" "
-                     "expects a synchronization mode that the Driver did not "
-                     "set up. The Driver uses SM sync when a slave lists an "
-                     "SM mode, and DC sync when it lists only DC modes. Set "
-                     "the slave to the mode that the Driver uses (in "
-                     "DewesoftX for Dewesoft modules), or disable the slave "
-                     "so the rest of the bus can run.";
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -182,12 +172,14 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
     std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
-        this->disabled_slaves.erase(position);
+    this->disabled_slaves.clear();
+    this->chosen_modes.clear();
+    for (auto &[position, config]: configs) {
+        if (!config.enabled) this->disabled_slaves.insert(position);
+        if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
+    }
 }
 
 x::errors::Error Master::activate(
@@ -198,6 +190,11 @@ x::errors::Error Master::activate(
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
+    {
+        std::lock_guard lock(this->mu);
+        this->start_refusals.clear();
+        this->start_dc_sync_refused = false;
+    }
     auto [dc_setups, dc_err] = this->resolve_dc(period);
     if (dc_err) return dc_err;
     this->dc_setups = std::move(dc_setups);
@@ -207,7 +204,9 @@ x::errors::Error Master::activate(
         for (int i = 1; i <= this->api->slave_count(); ++i)
             this->api->set_slave_group(
                 i,
-                this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
+                this->disabled_slaves.contains(i) || this->left_out.contains(i)
+                    ? DISABLED_GROUP
+                    : ENABLED_GROUP
             );
     }
 
@@ -264,6 +263,21 @@ x::errors::Error Master::activate(
     return x::errors::NIL;
 }
 
+std::map<uint16_t, slave::Refusal> Master::refusals() const {
+    std::lock_guard lock(this->mu);
+    return this->start_refusals;
+}
+
+bool Master::dc_sync_refused() const {
+    std::lock_guard lock(this->mu);
+    return this->start_dc_sync_refused;
+}
+
+void Master::leave_out(std::map<uint16_t, slave::Refusal> slaves) {
+    std::lock_guard lock(this->mu);
+    this->left_out = std::move(slaves);
+}
+
 void Master::deactivate() {
     if (this->activated) {
         this->request_state(EC_STATE_INIT, micros(this->cfg.state_change_timeout));
@@ -283,7 +297,7 @@ void Master::deactivate() {
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
-        this->layout_errors.clear();
+        this->slave_errors.clear();
     }
 
     if (this->initialized) {
@@ -364,7 +378,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 std::vector<dc::Registers> Master::dc_sync() const {
     std::vector<dc::Registers> syncs;
     for (const auto &[pos, regs]: this->dc_setups)
-        if (regs.sync0_cycle > 0 && (regs.assign_activate & PDI_SYNC_UNIT) == 0)
+        if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             syncs.push_back(regs);
     return syncs;
 }
@@ -382,8 +396,8 @@ std::span<uint8_t> Master::output_data() {
 std::pair<pdo::Offset, x::errors::Error>
 Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
-    if (const auto it = this->layout_errors.find(entry.slave_position);
-        it != this->layout_errors.end())
+    if (const auto it = this->slave_errors.find(entry.slave_position);
+        it != this->slave_errors.end())
         return {{}, it->second};
     return pdo::find_offset(this->pdo_offsets, entry);
 }
@@ -419,6 +433,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
     }
+    std::lock_guard lock(this->mu);
+    for (const auto &[pos, refusal]: this->left_out)
+        health.push_back({.position = pos, .refusal = refusal});
     return health;
 }
 
@@ -494,7 +511,7 @@ void Master::populate_slaves() {
 void Master::cache_pdo_offsets() {
     std::lock_guard lock(this->mu);
     this->pdo_offsets.clear();
-    this->layout_errors.clear();
+    this->slave_errors.clear();
 
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
@@ -540,7 +557,7 @@ void Master::cache_pdo_offsets() {
                 )
             );
             LOG(WARNING) << err.message();
-            this->layout_errors.emplace(props.position, std::move(err));
+            this->slave_errors.emplace(props.position, std::move(err));
             continue;
         }
 
@@ -564,6 +581,11 @@ void Master::cache_pdo_offsets() {
             slave_output_offset
         );
     }
+    for (const auto &[pos, refusal]: this->left_out)
+        this->slave_errors.insert_or_assign(
+            pos,
+            master::left_out_error(pos, this->api->slave_name(pos), refusal)
+        );
 }
 
 /// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
@@ -1169,10 +1191,33 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     std::lock_guard lock(this->mu);
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
-        if (this->disabled_slaves.contains(props.position)) continue;
-        const auto mode = dc::select(props.op_modes);
+        if (this->disabled_slaves.contains(props.position) ||
+            this->left_out.contains(props.position))
+            continue;
+        std::optional<dc::Choice> choice;
+        if (const auto it = this->chosen_modes.find(props.position);
+            it != this->chosen_modes.end())
+            choice = it->second;
+        const auto [mode, select_err] = dc::select(props.op_modes, choice);
+        if (select_err)
+            return {
+                {},
+                x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    std::format(
+                        "slave {} ({}) cannot use its chosen mode: {}",
+                        props.position,
+                        props.name,
+                        select_err.data
+                    )
+                )
+            };
         if (!mode) continue;
-        auto [regs, err] = dc::resolve(*mode, period);
+        auto [regs, err] = dc::resolve(
+            *mode,
+            period,
+            choice ? choice->cycles : dc::Cycles{}
+        );
         if (err)
             return {
                 {},
@@ -1188,7 +1233,8 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
                 )
             };
         setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & PDI_SYNC_UNIT) != 0) continue;
+        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
+            continue;
         cycles.emplace_back(regs.sync0_cycle);
         if (!events.empty()) events += ", ";
         events += std::format(
@@ -1291,7 +1337,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
     const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
     if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, cuc)) return err;
     // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
-    if ((regs.assign_activate & PDI_SYNC_UNIT) != 0) return x::errors::NIL;
+    if ((regs.assign_activate & dc::PDI_SYNC_UNIT) != 0) return x::errors::NIL;
     const auto [time, time_err] = this->read_dc_register<int64_t>(
         pos,
         ECT_REG_DCSYSTIME
@@ -1442,7 +1488,7 @@ x::errors::Error
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     const auto target = slave::slave_state_to_string(slave::from_al_state(state));
     std::string msg;
-    bool refused = false;
+    std::map<uint16_t, slave::Refusal> refusing;
     bool dc_sync_refused = false;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
@@ -1453,14 +1499,31 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
                );
         if (!this->al_error(pos)) continue;
         const auto code = this->api->slave_ALstatuscode(pos);
-        refused |= this->refuses(pos, state) &&
-                   std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end();
+        const std::string text = ec_ALstatuscode2string(code);
+        if (this->refuses(pos, state) &&
+            std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
+            refusing[pos] = {
+                .reason = "refused " + target + ": " + text,
+                .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
+            };
         dc_sync_refused |= code == AL_INVALID_DC_SYNC;
-        msg += ": " + std::string(ec_ALstatuscode2string(code));
+        msg += ": " + text;
     }
-    if (dc_sync_refused) msg.append(". ").append(DC_SYNC_ADVICE);
+    // A slave with no process data, such as a coupler, gives a task nothing to run.
+    bool io_left = false;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        io_left |= this->api->slave_group(pos) == ENABLED_GROUP &&
+                   !refusing.contains(pos) &&
+                   (this->api->slave_Ibits(pos) > 0 || this->api->slave_Obits(pos) > 0);
+    }
+    {
+        std::lock_guard lock(this->mu);
+        if (io_left) this->start_refusals = refusing;
+        this->start_dc_sync_refused = dc_sync_refused;
+    }
     return x::errors::Error(
-        refused ? errors::STATE_CHANGE_REFUSED : errors::STATE_CHANGE_ERROR,
+        refusing.empty() ? errors::STATE_CHANGE_ERROR : errors::STATE_CHANGE_REFUSED,
         "failed to reach " + target + ": " + msg
     );
 }
