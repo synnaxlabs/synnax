@@ -445,6 +445,7 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
     std::vector<std::string> keys;
+    keys.reserve(devices.size());
     for (const auto &d: devices)
         keys.push_back(d.key);
     const auto by_key = ASSERT_NIL_P(client.devices.retrieve(keys, {.limit = 2}));
