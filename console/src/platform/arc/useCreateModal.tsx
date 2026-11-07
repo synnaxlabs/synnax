@@ -83,7 +83,7 @@ const Create = ({
                       Automation
                     </Text.Text>
                     <Text.Text color={9} level="small">
-                      Runs on a rack, such as a control sequence or an alarm
+                      Runs as a task, such as a control sequence or an alarm
                     </Text.Text>
                   </Flex.Box>
                 </Select.Item>
