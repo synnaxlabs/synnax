@@ -60,6 +60,16 @@ var _ = Describe("Fill", func() {
 		Expect(got.Maybe).To(Equal(&leaf{Size: 36, Label: "b"}))
 	})
 
+	It("Should default a nested struct of a type without SetDefaults", func() {
+		type outer struct {
+			Name  string
+			Inner leaf
+		}
+		Expect(defaults.Fill(outer{Inner: leaf{Label: "d"}})).
+			To(Equal(outer{Inner: leaf{Size: 36, Label: "d"}}))
+		Expect(defaults.Fill(outer{})).To(Equal(outer{Inner: leaf{Size: 36}}))
+	})
+
 	It("Should default the value a union holds", func() {
 		type union struct{ Variant any }
 		got := defaults.Fill(union{Variant: leaf{Label: "c"}})
