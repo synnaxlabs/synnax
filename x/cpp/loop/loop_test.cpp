@@ -291,4 +291,70 @@ TEST(LoopTest, testShiftMovesTheNextWait) {
     timer.wait();
     EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 35);
 }
+
+namespace {
+/// @brief a clock that moves forward only when a timer sleeps on it.
+struct FakeClock {
+    hs_clock::time_point time = hs_clock::now();
+    std::vector<telem::TimeSpan> sleeps;
+
+    Clock clock() {
+        return {
+            .now = [this] { return this->time; },
+            .sleep =
+                [this](const telem::TimeSpan span) {
+                    this->sleeps.push_back(span);
+                    this->time += span.chrono();
+                },
+        };
+    }
+};
+}
+
+/// @brief it should wait each interval on the given clock, with the shift, and not on
+/// the host clock.
+TEST(LoopTest, testWaitSleepsOnTheGivenClock) {
+    FakeClock fake;
+    Timer timer{telem::SECOND * 10, fake.clock()};
+    const auto start = hs_clock::now();
+    timer.wait();
+    timer.shift(telem::SECOND * 3);
+    timer.wait();
+    timer.shift(telem::SECOND * -4);
+    timer.wait();
+    EXPECT_EQ(
+        fake.sleeps,
+        std::vector<telem::TimeSpan>(
+            {telem::SECOND * 10, telem::SECOND * 13, telem::SECOND * 6}
+        )
+    );
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - start), telem::SECOND);
+}
+
+/// @brief it should wait on the given clock when the wait takes a breaker.
+TEST(LoopTest, testWaitBreakerSleepsOnTheGivenClock) {
+    FakeClock fake;
+    Timer timer{telem::SECOND * 10, fake.clock()};
+    breaker::Breaker brk;
+    brk.start();
+    timer.wait(brk);
+    timer.wait(brk);
+    brk.stop();
+    EXPECT_EQ(
+        fake.sleeps,
+        std::vector<telem::TimeSpan>({telem::SECOND * 10, telem::SECOND * 10})
+    );
+}
+
+/// @brief it should sleep a precise sleep on the given clock while the breaker runs.
+TEST(LoopTest, testPreciseSleepSleepsOnTheGivenClock) {
+    FakeClock fake;
+    Timer timer{telem::SECOND, fake.clock()};
+    breaker::Breaker brk;
+    brk.start();
+    EXPECT_TRUE(timer.precise_sleep(telem::SECOND * 5, brk));
+    brk.stop();
+    EXPECT_FALSE(timer.precise_sleep(telem::SECOND * 5, brk));
+    EXPECT_EQ(fake.sleeps, std::vector<telem::TimeSpan>({telem::SECOND * 5}));
+}
 }

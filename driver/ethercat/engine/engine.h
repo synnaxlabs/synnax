@@ -20,7 +20,9 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/thread/rt/rt.h"
 
 #include "driver/ethercat/master/master.h"
@@ -44,6 +46,11 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief the clock the bus cycle waits on. Defaults to the host's steady clock.
+    std::optional<x::loop::Clock> cycle_clock;
+    /// @brief returns the host time of a frame as the engine sends it. Must follow
+    /// cycle_clock when that is set.
+    x::telem::NowFunc now = x::telem::TimeStamp::now;
 
     Config() = default;
 };

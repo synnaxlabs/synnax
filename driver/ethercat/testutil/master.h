@@ -20,6 +20,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/telem/mono_clock.h"
+
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 
@@ -75,10 +77,37 @@ class Master final : public master::Master {
     std::mutex stall_mu;
     std::condition_variable stall_cv;
     bool stalled{false};
+    x::telem::NowFunc now;
+    /// @brief how many more frames record_dc() asked for.
+    size_t frames_to_record{0};
+    std::vector<x::telem::TimeStamp> recorded;
+    std::condition_variable recorded_cv;
 
 public:
-    explicit Master(std::string interface_name = "mock0"):
-        iface_name(std::move(interface_name)) {}
+    /// @param now returns the host time at which a frame is sent.
+    explicit Master(
+        std::string interface_name = "mock0",
+        x::telem::NowFunc now = x::telem::TimeStamp::now
+    ):
+        iface_name(std::move(interface_name)), now(std::move(now)) {}
+
+    /// @brief records the DC time of each of the next frames that pass the reference
+    /// clock, up to frames of them.
+    void record_dc(const size_t frames) {
+        std::lock_guard lock(this->mu);
+        this->recorded.clear();
+        this->frames_to_record = frames;
+    }
+
+    /// @brief waits up to 10 s for the frames that record_dc() asked for, then returns
+    /// the DC time of each recorded frame.
+    std::vector<x::telem::TimeStamp> recorded_dc() {
+        std::unique_lock lock(this->mu);
+        this->recorded_cv.wait_for(lock, std::chrono::seconds(10), [this] {
+            return this->frames_to_record == 0;
+        });
+        return this->recorded;
+    }
 
     /// @brief adds a simulated slave to the mock master.
     void add_slave(slave::Properties props) {
@@ -353,6 +382,10 @@ public:
             const auto elapsed = this->last_sent - *this->host_dc_start;
             this->dc_now = master::DC_EPOCH + elapsed * *this->host_dc_rate;
         }
+        if (this->frames_to_record > 0 && (this->dc_step || this->host_dc_rate)) {
+            this->recorded.push_back(this->dc_now);
+            if (--this->frames_to_record == 0) this->recorded_cv.notify_all();
+        }
         if (err) return err;
         std::memcpy(
             this->input_iomap.data(),
@@ -400,7 +433,7 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
-        this->last_sent = x::telem::TimeStamp::now();
+        this->last_sent = this->now();
         if (this->host_dc_rate && !this->host_dc_start)
             this->host_dc_start = this->last_sent;
         this->sent_outputs = this->output_iomap;

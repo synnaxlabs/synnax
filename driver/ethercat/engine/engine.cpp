@@ -220,7 +220,7 @@ void Engine::run() {
     };
 
     const auto send = [&] {
-        sent_at = x::telem::TimeStamp::now();
+        sent_at = this->config.now();
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
                 LOG(WARNING) << "[ethercat] send failed on " << iface << ": "
@@ -247,7 +247,7 @@ void Engine::run() {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
                 this->apply_rt(sched->rate.period());
-                timer = x::loop::Timer(sched->rate.period());
+                timer = x::loop::Timer(sched->rate.period(), this->config.cycle_clock);
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->master->dc_sync())
                     if (regs.marks_data())
