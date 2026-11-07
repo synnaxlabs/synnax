@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -99,10 +100,10 @@ var _ = Describe("Reduction", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should default the aggregation of a limit to min_max", func() {
 			r := telem.Reduction{Variant: telem.LimitReduction{PointLimit: 512}}
-			r.ApplyDefaults()
+			r = defaults.Fill(r)
 			Expect(r.Variant).To(Equal(telem.LimitReduction{
 				Aggregation: telem.AggregationMinMax,
 				PointLimit:  512,
@@ -111,7 +112,7 @@ var _ = Describe("Reduction", func() {
 
 		It("Should leave a stride unchanged", func() {
 			r := stride
-			r.ApplyDefaults()
+			r = defaults.Fill(r)
 			Expect(r).To(Equal(stride))
 		})
 	})

@@ -33,21 +33,13 @@ const (
 )
 
 // defaultFillData describes a single field assignment emitted by a generated
-// ApplyDefaults method: when the field equals ZeroLit, Setup runs and the field is set
-// to Expr.
+// SetDefaults method: Setup runs, and the field is set to Expr.
 type defaultFillData struct {
-	GoName  string
-	ZeroLit string
-	Expr    string
+	GoName string
+	Expr   string
 	// Setup holds the statements that build a union literal's variant in local
 	// variables before Expr assigns it. Empty for every other default.
 	Setup []string
-	// SetOnly marks a fill that overrides a default SetDefaults set first.
-	// ApplyDefaults skips it, since it fills only zero fields.
-	SetOnly bool
-	// ApplyOnly marks a fill that only ApplyDefaults assigns, since a SetOnly fill
-	// replaces it in SetDefaults.
-	ApplyOnly bool
 }
 
 // enumCheckData describes a single enum-membership assertion emitted by a generated
@@ -60,9 +52,9 @@ type enumCheckData struct {
 // goDefaultFills returns the fills for a field's static default. A scalar default
 // yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
 // yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key), and
-// a SetOnly fill for a zero leaf that overrides a nested default. It returns nil for
-// fields with no default, nullable/optional fields, defaults that equal the zero value,
-// and non-static defaults such as create/now.
+// a fill for a zero leaf that overrides a nested default. It returns nil for fields
+// with no default, nullable/optional fields, defaults that equal the zero value, and
+// non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -94,9 +86,9 @@ func componentFill(
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
-// component and a SetOnly fill per zero leaf that overrides a nested default. prefix is
-// the Go selector to the struct field (e.g. "X1"), structRef its type, and val the
-// literal. Nested struct components recurse with an extended selector.
+// component and a fill per zero leaf that overrides a nested default. prefix is the Go
+// selector to the struct field (e.g. "X1"), structRef its type, and val the literal.
+// Nested struct components recurse with an extended selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -148,11 +140,7 @@ func structDefaultFills(
 // written out.
 func overrideFills(field resolution.Field, data *templateData) []defaultFillData {
 	if fill, ok := structOverrideFill(field, data); ok {
-		apply := goDefaultFills(field, data)
-		for i := range apply {
-			apply[i].ApplyOnly = true
-		}
-		return append(apply, fill)
+		return []defaultFillData{fill}
 	}
 	if fills := goDefaultFills(field, data); len(fills) > 0 ||
 		field.Default == nil || field.Optional {
@@ -164,10 +152,10 @@ func overrideFills(field resolution.Field, data *templateData) []defaultFillData
 	return nil
 }
 
-// structOverrideFill returns the SetOnly fill of a field that restates an inherited
-// struct default with a struct literal. It builds the whole value, so no leaf of the
-// parent's default survives: the type's own defaults, then every leaf of the literal.
-// It returns ok=false when the default is not a plain struct literal.
+// structOverrideFill returns the fill of a field that restates an inherited struct
+// default with a struct literal. It builds the whole value, so no leaf of the parent's
+// default survives: the type's own defaults, then every leaf of the literal. It returns
+// ok=false when the default is not a plain struct literal.
 func structOverrideFill(
 	field resolution.Field,
 	data *templateData,
@@ -199,10 +187,9 @@ func structOverrideFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  naming.GetFieldName(field),
-		Expr:    "v0",
-		Setup:   append(setup, lines...),
-		SetOnly: true,
+		GoName: naming.GetFieldName(field),
+		Expr:   "v0",
+		Setup:  append(setup, lines...),
 	}, true
 }
 
@@ -228,7 +215,7 @@ func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, boo
 	default:
 		return defaultFillData{}, false
 	}
-	return defaultFillData{GoName: goName, ZeroLit: lit, Expr: lit, SetOnly: true}, true
+	return defaultFillData{GoName: goName, Expr: lit}, true
 }
 
 // unionLiteralFill returns the fill for a union field defaulted by an object literal
@@ -247,10 +234,9 @@ func unionLiteralFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName + ".Variant",
-		ZeroLit: "nil",
-		Expr:    variable,
-		Setup:   setup,
+		GoName: goName + ".Variant",
+		Expr:   variable,
+		Setup:  setup,
 	}, true
 }
 
@@ -527,10 +513,9 @@ func arrayFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName,
-		ZeroLit: "nil",
-		Expr:    expr,
-		Setup:   setup,
+		GoName: goName,
+		Expr:   expr,
+		Setup:  setup,
 	}, true
 }
 
@@ -578,37 +563,30 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    strconv.Quote(d.StringValue),
+			GoName: goName,
+			Expr:   strconv.Quote(d.StringValue),
 		}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    fmt.Sprintf("%d", d.IntValue),
+			GoName: goName,
+			Expr:   fmt.Sprintf("%d", d.IntValue),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
+			GoName: goName,
+			Expr:   strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
 		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			fill := defaultFillData{
-				GoName:  goName + ".Variant",
-				ZeroLit: "nil",
-				Expr:    expr,
-			}
+			fill := defaultFillData{GoName: goName + ".Variant", Expr: expr}
 			if defaulted {
 				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
 				fill.Expr = "v0"
@@ -626,9 +604,8 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    enumConstRef(typeRef, ev, data),
+			GoName: goName,
+			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
 	}
 	return defaultFillData{}, false
@@ -786,9 +763,9 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 // stripPointer removes a leading pointer marker from a resolved Go type.
 func stripPointer(goType string) string { return strings.TrimPrefix(goType, "*") }
 
-// recurseKind describes how a generated ApplyDefaults or Validate method reaches into a
-// field whose type carries its own method: a direct value, a nilable pointer, the
-// elements of a slice/array, or the values of a map.
+// recurseKind describes how a generated Validate method reaches into a field whose type
+// carries its own Validate: a direct value, a nilable pointer, the elements of a
+// slice/array, or the values of a map.
 type recurseKind string
 
 const (
@@ -799,10 +776,9 @@ const (
 )
 
 // recurseStepData describes one nested call a generated method makes into a field (or
-// an embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName
-// is the wire field name used as the Validate error path segment; it is empty for an
-// embedded type, whose fields are promoted to the embedder's level and so take no path
-// segment.
+// an embedded type) whose own type carries the method. JSONName is the wire field name
+// used as the Validate error path segment; it is empty for an embedded type, whose
+// fields are promoted to the embedder's level and so take no path segment.
 type recurseStepData struct {
 	GoName   string
 	JSONName string
@@ -812,11 +788,11 @@ type recurseStepData struct {
 	Groups bool
 }
 
-// fieldHasOwn reports whether a field is itself a reason for its struct to emit a
-// method, independent of any nested type: a fillable static default for ApplyDefaults,
-// an enum membership check for Validate.
+// fieldHasOwn reports whether a field is itself a reason for its struct to emit
+// Validate, independent of any nested type: an enum membership or constraint check.
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
+// defaultsHasOwn reports whether f has a static default that SetDefaults assigns.
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
 	return len(goDefaultFills(f, data.probe())) > 0
 }
@@ -828,9 +804,6 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	}
 	return len(goConstraintChecks(f, probe)) > 0
 }
-
-// neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
-func neverSkip(resolution.Field, *templateData) bool { return false }
 
 // validateSkip reports whether a field carries `@validate skip`, excluding it from
 // generated validation and any recursion into it. Used for reference fields (a parent
@@ -844,8 +817,8 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 }
 
 // resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
-// builtin container (Array/Map), or a type parameter.
+// type that can carry a Validate method — rather than a primitive, a builtin container
+// (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
 		return false
@@ -986,90 +959,6 @@ func goRecurseStep(
 	return step, true
 }
 
-// defaultGroupData describes a set of fields whose defaults apply as a unit. The
-// generated ApplyDefaults fills every member only when all of them hold their zero
-// value, so a deliberate zero on any member survives the fill.
-type defaultGroupData struct {
-	// Members is every field in the group, rendered into the all-zero guard.
-	Members []defaultFillData
-	// Fills is the subset of members carrying a non-zero default, the only ones with
-	// anything to assign.
-	Fills []defaultFillData
-}
-
-// defaultGroupName returns the group a field's default belongs to, or "" when the
-// field fills on its own.
-func defaultGroupName(f resolution.Field) string {
-	return domain.GetStringFromField(f, "default", "group")
-}
-
-// goDefaultGroups returns one entry per `@default group` declared across fields, in
-// first-declaration order. A group whose members all default to their zero value has
-// nothing to assign and is dropped.
-func goDefaultGroups(
-	fields []resolution.Field,
-	data *templateData,
-) []defaultGroupData {
-	var order []string
-	byName := make(map[string]*defaultGroupData)
-	for _, f := range fields {
-		name := defaultGroupName(f)
-		if name == "" || f.Default == nil || f.Optional {
-			continue
-		}
-		member, ok := groupMember(f, data)
-		if !ok {
-			continue
-		}
-		g, seen := byName[name]
-		if !seen {
-			g = &defaultGroupData{}
-			byName[name] = g
-			order = append(order, name)
-		}
-		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
-	}
-	groups := make([]defaultGroupData, 0, len(order))
-	for _, name := range order {
-		if g := byName[name]; len(g.Fills) > 0 {
-			groups = append(groups, *g)
-		}
-	}
-	return groups
-}
-
-// groupMember returns the zero comparison for one group member. It returns ok=false
-// for a default kind with no zero literal, which checkDefaultGroups rejects from a
-// group.
-func groupMember(
-	f resolution.Field,
-	data *templateData,
-) (defaultFillData, bool) {
-	name := naming.GetFieldName(f)
-	switch f.Default.Kind {
-	case resolution.ValueKindString:
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
-	case resolution.ValueKindInt, resolution.ValueKindFloat:
-		return defaultFillData{GoName: name, ZeroLit: "0"}, true
-	case resolution.ValueKindIdent:
-		ev, ok := validation.ResolveEnumVariant(
-			f.Default.IdentValue,
-			f.Type,
-			data.table,
-		)
-		if !ok {
-			return defaultFillData{}, false
-		}
-		form, isEnum := ev.Type.Form.(resolution.EnumForm)
-		if !isEnum || form.IsIntEnum {
-			return defaultFillData{}, false
-		}
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
-	}
-	return defaultFillData{}, false
-}
-
 // variantSetsDefaults reports whether the Go struct of variant v of form emits
 // SetDefaults, by the rule the generated variant follows.
 func variantSetsDefaults(
@@ -1199,13 +1088,89 @@ func typeHasGroups(
 	)
 }
 
-// applyFills returns the fills that ApplyDefaults assigns: every fill but SetOnly ones.
-func applyFills(fills []defaultFillData) []defaultFillData {
-	return lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.SetOnly })
+// groupMemberData is the zero comparison for one member of a default group.
+type groupMemberData struct {
+	GoName  string
+	ZeroLit string
 }
 
-// setFills returns the fills that SetDefaults assigns unconditionally: every fill but
-// ApplyOnly ones. A group's fills run only when all of its members are zero.
-func setFills(fills []defaultFillData) []defaultFillData {
-	return lo.Reject(fills, func(f defaultFillData, _ int) bool { return f.ApplyOnly })
+// defaultGroupData describes a set of fields whose defaults apply as a unit. The
+// generated DefaultGroups sets every member only when all of them hold their zero
+// value, so an input that sets part of the group keeps its zero members.
+type defaultGroupData struct {
+	// Members is every field in the group, rendered into the all-zero guard.
+	Members []groupMemberData
+	// Fills is the subset of members carrying a non-zero default, the only ones with
+	// anything to assign.
+	Fills []defaultFillData
+}
+
+// defaultGroupName returns the group a field's default belongs to, or "" when the
+// field takes its default on its own.
+func defaultGroupName(f resolution.Field) string {
+	return domain.GetStringFromField(f, "default", "group")
+}
+
+// goDefaultGroups returns one entry per `@default group` declared across fields, in
+// first-declaration order. A group whose members all default to their zero value has
+// nothing to assign and is dropped.
+func goDefaultGroups(
+	fields []resolution.Field,
+	data *templateData,
+) []defaultGroupData {
+	var order []string
+	byName := make(map[string]*defaultGroupData)
+	for _, f := range fields {
+		name := defaultGroupName(f)
+		if name == "" || f.Default == nil || f.Optional {
+			continue
+		}
+		member, ok := groupMember(f, data)
+		if !ok {
+			continue
+		}
+		g, seen := byName[name]
+		if !seen {
+			g = &defaultGroupData{}
+			byName[name] = g
+			order = append(order, name)
+		}
+		g.Members = append(g.Members, member)
+		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+	}
+	groups := make([]defaultGroupData, 0, len(order))
+	for _, name := range order {
+		if g := byName[name]; len(g.Fills) > 0 {
+			groups = append(groups, *g)
+		}
+	}
+	return groups
+}
+
+// groupMember returns the zero comparison for one group member. It returns ok=false
+// for a default kind with no zero literal, which checkDefaultGroups rejects from a
+// group.
+func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool) {
+	name := naming.GetFieldName(f)
+	switch f.Default.Kind {
+	case resolution.ValueKindString:
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		return groupMemberData{GoName: name, ZeroLit: "0"}, true
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(
+			f.Default.IdentValue,
+			f.Type,
+			data.table,
+		)
+		if !ok {
+			return groupMemberData{}, false
+		}
+		form, isEnum := ev.Type.Form.(resolution.EnumForm)
+		if !isEnum || form.IsIntEnum {
+			return groupMemberData{}, false
+		}
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	}
+	return groupMemberData{}, false
 }

@@ -36,13 +36,6 @@ type RetrieveResponse struct {
 	Logs []servicelog.Log `json:"logs" msgpack:"logs"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.Logs {
-		r.Logs[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {

@@ -128,19 +128,6 @@ type Line struct {
 	Detail Detail `json:"detail" msgpack:"detail"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-	if l.Detail == "" {
-		l.Detail = DetailMedium
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *Line) SetDefaults() {
 	l.StrokeWidth = 2
@@ -205,19 +192,6 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

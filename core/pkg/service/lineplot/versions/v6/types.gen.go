@@ -260,19 +260,6 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *LinePlot) SetDefaults() {
 	l.Title.SetDefaults()

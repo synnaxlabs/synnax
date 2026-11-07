@@ -187,22 +187,6 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StickyXY) ApplyDefaults() {
-	if s.Root.X == "" {
-		s.Root.X = XLocationLeft
-	}
-	if s.Root.Y == "" {
-		s.Root.Y = YLocationTop
-	}
-	if s.Units.X == "" {
-		s.Units.X = StickyUnitPx
-	}
-	if s.Units.Y == "" {
-		s.Units.Y = StickyUnitPx
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StickyXY) SetDefaults() {
 	s.Root.X = XLocationLeft
@@ -253,13 +237,6 @@ type Viewport struct {
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 	// Position is the (x, y) pan offset of the viewport.
 	Position XY `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (vi *Viewport) ApplyDefaults() {
-	if vi.Zoom == 0 {
-		vi.Zoom = 1
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

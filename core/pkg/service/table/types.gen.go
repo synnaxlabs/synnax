@@ -78,11 +78,6 @@ type Cell struct {
 	Config CellConfig `json:"config" msgpack:"config"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Cell) ApplyDefaults() {
-	c.Config.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c Cell) Validate() error {

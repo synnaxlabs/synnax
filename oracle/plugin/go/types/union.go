@@ -53,9 +53,6 @@ type unionData struct {
 	DiscJSONName string
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantData
-	// NeedsApplyDefaults reports that at least one variant carries an ApplyDefaults
-	// method, so the wrapper emits one that dispatches on the active variant.
-	NeedsApplyDefaults bool
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
@@ -91,28 +88,23 @@ type unionVariantData struct {
 	Fields []fieldData
 	// Receiver is the receiver identifier used by the variant's generated methods.
 	Receiver string
-	// DefaultRecurse and ValidateRecurse are the nested-method calls the variant's
-	// ApplyDefaults/Validate make into its embedded types and inline fields. An embed
-	// step carries an empty JSONName: its fields are promoted to the variant's level,
-	// so they take no Validate path segment.
-	DefaultRecurse  []recurseStepData
+	// ValidateRecurse is the nested Validate calls the variant makes into its embedded
+	// types and inline fields. An embed step carries an empty JSONName: its fields are
+	// promoted to the variant's level, so they take no path segment.
 	ValidateRecurse []recurseStepData
-	// DefaultFills, EnumChecks, and ConstraintChecks are the variant's own inline
-	// fields' fills and assertions, mirroring the struct-level equivalents.
-	DefaultFills     []defaultFillData
+	// EnumChecks and ConstraintChecks are the variant's own inline fields' assertions,
+	// mirroring the struct-level equivalents.
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
-	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
-	// filled as a unit.
-	DefaultGroups []defaultGroupData
 	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
 	// the variant's SetDefaults. The wrapper decodes a variant over them.
 	SetSteps []recurseStepData
 	SetFills []defaultFillData
-	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
-	// respective method.
-	NeedsApplyDefaults bool
-	NeedsValidate      bool
+	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
+	// set only when all of its members are zero.
+	DefaultGroups []defaultGroupData
+	// NeedsValidate reports whether the variant emits Validate.
+	NeedsValidate bool
 }
 
 // SetDefaultsView returns the view of the variant's SetDefaults method.
@@ -226,7 +218,6 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 	methods := set.New(
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
-		"ApplyDefaults",
 		"SetDefaults",
 		"Validate",
 	)
@@ -272,7 +263,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 						if defaultOnly.Contains(f.Name) {
 							fills = overrideFills(f, data)
 						}
-						vd.DefaultFills = append(vd.DefaultFills, fills...)
+						vd.SetFills = append(vd.SetFills, fills...)
 					}
 					if validateSkip(f, data) {
 						continue
@@ -285,7 +276,6 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 						goConstraintChecks(f, data)...,
 					)
 				}
-				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 			}
 		} else {
 			embeds = append(
@@ -299,16 +289,8 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		for _, e := range embeds {
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
-		vd.DefaultRecurse = embedRecurseSteps(
-			embeds,
-			inlineFields,
-			data,
-			defaultsHasOwn,
-			neverSkip,
-		)
 		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
-		vd.SetFills = setFills(vd.DefaultFills)
-		vd.DefaultFills = applyFills(vd.DefaultFills)
+		vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,
@@ -316,13 +298,8 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			validateHasOwn,
 			validateSkip,
 		)
-		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
-			len(vd.DefaultFills) > 0 || len(vd.DefaultGroups) > 0
 		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
 			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
-		if vd.NeedsApplyDefaults {
-			ud.NeedsApplyDefaults = true
-		}
 		if vd.NeedsValidate {
 			ud.NeedsValidate = true
 		}

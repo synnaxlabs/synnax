@@ -824,10 +824,6 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 
 	genMethods := !sd.IsGeneric
 	if genMethods && len(embeds) > 0 {
-		sd.DefaultRecurse = append(
-			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
-		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
 			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
@@ -845,10 +841,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			if defaultOnly.Contains(field.Name) {
 				fills = overrideFills(field, data)
 			}
-			sd.DefaultFills = append(sd.DefaultFills, fills...)
-		}
-		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
-			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
+			sd.SetFills = append(sd.SetFills, fills...)
 		}
 		if validateSkip(field, data) {
 			continue
@@ -865,11 +858,9 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		}
 	}
 	if genMethods {
-		sd.DefaultGroups = goDefaultGroups(fields, data)
 		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
+		sd.DefaultGroups = goDefaultGroups(fields, data)
 	}
-	sd.SetFills = setFills(sd.DefaultFills)
-	sd.DefaultFills = applyFills(sd.DefaultFills)
 	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
 	if sd.DecodeHooks {
@@ -1132,21 +1123,21 @@ type declData struct {
 }
 
 type structData struct {
-	Name           string
-	Doc            string
-	AliasOf        string
-	Receiver       string
-	Fields         []fieldData
-	TypeParams     []typeParamData
-	ExtendsTypes   []string
-	ExtraFields    []string
-	DefaultFills   []defaultFillData
-	DefaultGroups  []defaultGroupData
-	DefaultRecurse []recurseStepData
+	Name         string
+	Doc          string
+	AliasOf      string
+	Receiver     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
+	ExtendsTypes []string
+	ExtraFields  []string
 	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
 	// the generated SetDefaults.
 	SetSteps []recurseStepData
 	SetFills []defaultFillData
+	// DefaultGroups are the struct's own `@default group`s, set only when all of
+	// their members are zero.
+	DefaultGroups []defaultGroupData
 	// DecodeHooks marks a struct whose zero value decodes JSON and msgpack over its
 	// defaults. A type that some struct embeds takes none: its embedder sets them.
 	DecodeHooks      bool
@@ -1464,45 +1455,6 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
-{{- range $s.DefaultFills}}
-	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
-{{- end}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
-	}
-{{- end}}
-{{- range $s.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$s.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
-	}
-{{- end}}
-{{- range $s.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$s.Receiver}}.{{.GoName}} != nil {
-		{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$s.Receiver}}.{{.GoName}}[key] = value
-	}
-{{- end}}
-{{- end}}
-}
-{{- end}}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
 
@@ -1663,45 +1615,6 @@ type {{.TypeName}} struct {
 func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- $vt := .}}
-{{- if .NeedsApplyDefaults}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
-{{- range $vt.DefaultFills}}
-	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
-{{- end}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-	}
-{{- end}}
-{{- range $vt.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$vt.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
-	}
-{{- end}}
-{{- range $vt.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$vt.Receiver}}.{{.GoName}} != nil {
-		{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$vt.Receiver}}.{{.GoName}}[key] = value
-	}
-{{- end}}
-{{- end}}
-}
-{{- end}}
 {{- if .NeedsValidate}}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1843,22 +1756,6 @@ func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
 {{- end}}
 	}
 	return ""
-}
-{{- end}}
-{{- if .NeedsApplyDefaults}}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *{{.Name}}) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-{{- range .Variants}}
-{{- if .NeedsApplyDefaults}}
-	case {{.TypeName}}:
-		variant.ApplyDefaults()
-		u.Variant = variant
-{{- end}}
-{{- end}}
-	}
 }
 {{- end}}
 {{- if .NeedsValidate}}

@@ -173,13 +173,6 @@ func (l *LimitReduction) SetDefaults() {
 	l.Aggregation = AggregationMinMax
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LimitReduction) ApplyDefaults() {
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LimitReduction) Validate() error {
@@ -261,16 +254,6 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Reduction) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LimitReduction:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

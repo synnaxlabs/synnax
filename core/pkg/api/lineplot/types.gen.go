@@ -36,13 +36,6 @@ type RetrieveResponse struct {
 	LinePlots []servicelineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.LinePlots {
-		r.LinePlots[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {

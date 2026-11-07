@@ -59,13 +59,6 @@ type Config struct {
 	Performance Performance `json:"performance" msgpack:"performance"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Config) ApplyDefaults() {
-	if c.Performance == "" {
-		c.Performance = PerformanceAuto
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *Config) SetDefaults() {
 	c.Performance = PerformanceAuto

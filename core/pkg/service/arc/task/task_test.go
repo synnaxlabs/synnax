@@ -44,6 +44,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -201,7 +202,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
