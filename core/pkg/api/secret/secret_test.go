@@ -494,7 +494,7 @@ var _ = Describe("Service", func() {
 				apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
 			)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring(`rack:7 cannot read secret "A"`)),
+				MatchError(ContainSubstring("has ended or does not exist")),
 			))
 		})
 	})

@@ -34,8 +34,8 @@ var _ = Describe("Writer", func() {
 
 	resolve := func(ctx SpecContext, key secret.Key) string {
 		GinkgoHelper()
-		e.uses = []secret.Use{{Secret: key, Racks: []ontology.ID{rk}}}
-		return string(MustSucceed(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), key))[key])
+		g := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
+		return string(MustSucceed(e.svc.Resolve(ctx, nil, rk, g, key))[key])
 	}
 
 	Describe("Create", func() {
