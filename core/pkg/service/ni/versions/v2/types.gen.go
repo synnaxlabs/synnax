@@ -5949,7 +5949,7 @@ func (a *AnalogReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(a))
 }
 
-// DecodeMsgpack decodes the input over a, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain AnalogReadConfig
 	if reflect.ValueOf(*a).IsZero() {
@@ -5999,7 +5999,7 @@ func (c *CounterReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(c))
 }
 
-// DecodeMsgpack decodes the input over c, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain CounterReadConfig
 	if reflect.ValueOf(*c).IsZero() {
@@ -6067,7 +6067,7 @@ func (a *AnalogWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(a))
 }
 
-// DecodeMsgpack decodes the input over a, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain AnalogWriteConfig
 	if reflect.ValueOf(*a).IsZero() {
@@ -6115,7 +6115,7 @@ func (d *DigitalReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(d))
 }
 
-// DecodeMsgpack decodes the input over d, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain DigitalReadConfig
 	if reflect.ValueOf(*d).IsZero() {
@@ -6151,7 +6151,7 @@ func (d *DigitalWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(d))
 }
 
-// DecodeMsgpack decodes the input over d, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain DigitalWriteConfig
 	if reflect.ValueOf(*d).IsZero() {
@@ -6191,7 +6191,7 @@ func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*plain)(s))
 }
 
-// DecodeMsgpack decodes the input over s, as UnmarshalJSONFrom does.
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
 func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type plain ScanConfig
 	if reflect.ValueOf(*s).IsZero() {
