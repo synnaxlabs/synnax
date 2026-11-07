@@ -12,11 +12,13 @@ package statement_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -2929,4 +2931,44 @@ var _ = Describe("Statement", func() {
 			})
 		})
 	})
+})
+
+var _ = Describe("Module constants in declarations", func() {
+	It("Should fold a constant cast to its stored value", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		expr := MustSucceed(parser.ParseExpression("f32(-math.inf)"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		Expect(statement.CastConstValue(ctx, expr, types.F32())).To(Equal("-Infinity"))
+	})
+
+	DescribeTable("Should keep a sequence variable from a constant out of the flow",
+		func(bCtx SpecContext, op string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse(`import math
+sequence main {
+	limit f64 ` + op + ` math.inf
+	stage a {
+		x > limit => b
+	}
+	stage b {
+	}
+}
+x => main`))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			seq := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+			limit := MustSucceed(seq.Resolve(ctx, "limit"))
+			Expect(limit.Type).To(Equal(types.F64()))
+			Expect(limit.DefaultValue).To(Equal("Infinity"))
+		},
+		Entry("a variable", ":="),
+		Entry("a stateful variable", "$="),
+	)
 })
