@@ -11,6 +11,7 @@ package iterator_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"runtime"
 	"strconv"
 	"time"
@@ -2375,19 +2376,25 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			),
 		)
 
-		It("Should reduce to min and max when a limit names no aggregation", func(
-			ctx SpecContext,
-		) {
-			v := read(ctx, iteratorSvc, iterator.Config{
-				Keys:   []channel.Key{sensorCh.Key()},
-				Bounds: bounds,
-				Reduction: telem.Reduction{
-					Variant: telem.LimitReduction{PointLimit: 10},
-				},
-			}).Get(sensorCh.Key())
-			Expect(v.Series).To(HaveLen(1))
-			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
-		})
+		It(
+			"Should reduce to min and max when a decoded limit omits the aggregation",
+			func(ctx SpecContext) {
+				var reduction telem.Reduction
+				Expect(json.Unmarshal(
+					[]byte(`{"variant":"limit","point_limit":10}`),
+					&reduction,
+				)).To(Succeed())
+				v := read(ctx, iteratorSvc, iterator.Config{
+					Keys:      []channel.Key{sensorCh.Key()},
+					Bounds:    bounds,
+					Reduction: reduction,
+				}).Get(sensorCh.Key())
+				Expect(v.Series).To(HaveLen(1))
+				Expect(
+					v.Series[0].Unmarshal[float32](),
+				).To(Equal(groupEnds(ramp(1), 20)))
+			},
+		)
 
 		It("Should reduce concrete channels in storage", func(ctx SpecContext) {
 			fr := read(ctx, iteratorSvc, aggregated(indexCh.Key(), sensorCh.Key()))
