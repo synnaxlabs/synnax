@@ -110,6 +110,12 @@ const commit = (name: string, value: string) => {
   fireEvent.blur(input);
 };
 
+const paste = (name: string, text: string) => {
+  const input = cell(name);
+  fireEvent.focus(input);
+  fireEvent.paste(input, { clipboardData: { getData: () => text } });
+};
+
 const save = async (label = "Save") => {
   await act(async () => {
     fireEvent.click(findButton(label));
@@ -236,6 +242,30 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       commit("Subindex 1", "0x100");
       expect(cell("Index 1").value).toEqual("0x8000");
       expect(cell("Subindex 1").value).toEqual("0x15");
+    });
+
+    it("should read a pasted address as hexadecimal", async () => {
+      const slave = await setup();
+      fireEvent.click(findButton("Add parameter"));
+      paste("Index 1", "8000\t15\tuint16\t3\tFilter");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          FILTER,
+        ]),
+      );
+    });
+
+    it("should keep the data type when the pasted one is unknown", async () => {
+      const slave = await setup();
+      fireEvent.click(findButton("Add parameter"));
+      paste("Index 1", "8000\t15\tUINT\t3");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { index: 0x8000, subIndex: 0x15, dataType: "uint8", value: 3, name: "" },
+        ]),
+      );
     });
 
     it("should not save a value that the data type cannot hold", async () => {

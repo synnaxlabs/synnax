@@ -66,11 +66,15 @@ const MIN_SHARED_WIDTH = 16;
 export type TableColumnProps =
   | (BaseTableColumnProps & {
       type?: "number";
+      /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
+      parse?: (text: string) => number | null;
       /** Renders the cell. Defaults to a numeric input. */
       children?: RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
+      /** Reads pasted text, or returns null to refuse it. Defaults to the text. */
+      parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
       children?: RenderProp<TableCellProps<string>>;
     });
@@ -100,11 +104,12 @@ const emptyCell = (column: TableColumnProps): TableCell =>
   column.type === "string" ? "" : 0;
 
 /**
- * Reads a pasted cell as the type its column holds.
- * @returns null when a number column is given text that is not a number. A text column
- * takes anything.
+ * Reads a pasted cell with its column's parse, or as the type its column holds.
+ * @returns null when the column refuses the text. By default, a number column refuses
+ * text that is not a number, and a text column takes anything.
  */
 const parseCell = (text: string, column: TableColumnProps): TableCell | null => {
+  if (column.parse != null) return column.parse(text);
   if (column.type === "string") return text;
   const value = Number(text);
   return isFinite(value) ? value : null;
@@ -296,7 +301,12 @@ export const Table = ({
   const statusAt = (at: xy.XY): Status.Crude | undefined => {
     const rejection = marks.find((mark) => xy.equals(mark.at, at));
     if (rejection == null) return cellStatus?.(at);
-    return { variant: "error", message: `"${rejection.text}" is not a number` };
+    const { name, parse } = columns[at.x];
+    const message =
+      parse == null
+        ? `"${rejection.text}" is not a number`
+        : `"${rejection.text}" is not a valid value for ${name ?? "this column"}`;
+    return { variant: "error", message };
   };
 
   // A gutter header shifts the data columns over by one.

@@ -87,6 +87,23 @@ const FIELDS: (keyof StartupParameter)[] = [
 const formatHex = (value: number, digits: number): string =>
   `0x${value.toString(16).toUpperCase().padStart(digits, "0")}`;
 
+/** @returns the number that text writes in hex with at most digits, or null. */
+const parseHex = (text: string, digits: number): number | null => {
+  const match = new RegExp(`^(0x)?([0-9a-f]{1,${digits}})$`, "i").exec(text.trim());
+  return match == null ? null : Number.parseInt(match[2], 16);
+};
+
+const INDEX_DIGITS = 4;
+const SUB_INDEX_DIGITS = 2;
+
+const parseIndex = (text: string): number | null => parseHex(text, INDEX_DIGITS);
+
+const parseSubIndex = (text: string): number | null => parseHex(text, SUB_INDEX_DIGITS);
+
+const parseDataType = (text: string): string | null =>
+  DATA_TYPES.find((dt) => dt.toString() === text.trim().toLowerCase())?.toString() ??
+  null;
+
 interface HexCellProps extends Input.TableCellProps<number> {
   digits: number;
 }
@@ -98,8 +115,8 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
     onlyChangeOnBlur
     value={formatHex(value, digits)}
     onChange={(text) => {
-      const match = new RegExp(`^(0x)?([0-9a-f]{1,${digits}})$`, "i").exec(text.trim());
-      if (match != null) onChange(Number.parseInt(match[2], 16));
+      const parsed = parseHex(text, digits);
+      if (parsed != null) onChange(parsed);
     }}
   />
 );
@@ -135,13 +152,18 @@ export const StartupParameters = (): ReactElement => {
         resourceName="parameter"
         cellStatus={cellStatus}
       >
-        <Input.TableColumn name="Index" width={14}>
-          {(p) => <HexCell {...p} digits={4} />}
+        <Input.TableColumn name="Index" width={14} parse={parseIndex}>
+          {(p) => <HexCell {...p} digits={INDEX_DIGITS} />}
         </Input.TableColumn>
-        <Input.TableColumn name="Subindex" width={12}>
-          {(p) => <HexCell {...p} digits={2} />}
+        <Input.TableColumn name="Subindex" width={12} parse={parseSubIndex}>
+          {(p) => <HexCell {...p} digits={SUB_INDEX_DIGITS} />}
         </Input.TableColumn>
-        <Input.TableColumn name="Data type" type="string" width={18}>
+        <Input.TableColumn
+          name="Data type"
+          type="string"
+          width={18}
+          parse={parseDataType}
+        >
           {({ value, onChange, variant, "aria-label": ariaLabel }) => (
             <Telem.SelectDataType
               value={value}

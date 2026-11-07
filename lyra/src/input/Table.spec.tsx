@@ -20,6 +20,15 @@ const COLUMNS = [
   <Input.TableColumn key="scaled" name="Scaled" />,
 ];
 
+// Reads only 0x-prefixed text, so a decimal paste is refused.
+const parseHex = (text: string): number | null =>
+  text.startsWith("0x") ? Number.parseInt(text.slice(2), 16) : null;
+
+const HEX_COLUMNS = [
+  <Input.TableColumn key="hex" name="Hex" parse={parseHex} />,
+  <Input.TableColumn key="raw" name="Raw" />,
+];
+
 interface RenderOptions {
   value?: Input.TableCell[][];
   preview?: boolean;
@@ -470,6 +479,24 @@ describe("Input.Table", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       paste(cell("Raw", "1"), "5\tabc");
       expect(hoverTip(cell("Scaled", "1"))).toBe('"abc" is not a number');
+    });
+
+    it("should read a pasted cell with its column's parse", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[[0, 0]]} onChange={onChange}>
+          {HEX_COLUMNS}
+        </Input.Table>,
+      );
+      paste(cell("Hex", "1"), "0x10\t5");
+      expect(onChange).toHaveBeenCalledWith([[16, 5]]);
+    });
+
+    it("should name the column whose parse refused a pasted cell", () => {
+      render(<Stateful initial={[[0, 0]]}>{HEX_COLUMNS}</Stateful>);
+      paste(cell("Hex", "1"), "16\t5");
+      expect(cell("Hex", "1").value).toBe("0");
+      expect(hoverTip(cell("Hex", "1"))).toBe('"16" is not a valid value for Hex');
     });
 
     it("should keep a first row in which a number parses", () => {
