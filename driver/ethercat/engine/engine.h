@@ -46,9 +46,11 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
-    /// @brief returns the settings of each slave, keyed by position. The engine calls
-    /// it each time the bus starts, and an error fails the start. A slave missing from
-    /// the map runs with the defaults of slave::Config.
+    /// @brief returns the settings of each slave, keyed by position. Each open_reader
+    /// and open_writer calls it outside the engine's lock, so it can run on several
+    /// threads at once. Only an open that starts the bus uses the result, and only that
+    /// open fails on an error. A slave missing from the map runs with the defaults of
+    /// slave::Config.
     std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
         slave_configs = [] {
             return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
@@ -163,7 +165,8 @@ class Engine {
     void supervise();
     void apply_rt(x::telem::TimeSpan period) const;
     /// @param mhz the bus rate in millihertz.
-    [[nodiscard]] x::errors::Error start_locked(uint64_t mhz);
+    [[nodiscard]] x::errors::Error
+    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;

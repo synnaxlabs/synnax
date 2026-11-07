@@ -229,6 +229,28 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
     );
 }
 
+/// @brief it should fail activation on a chosen cycle for an SM mode, as the SOEM
+/// master does.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
+    this->initialize_with_slave();
+    this->master_instance->replace_slave_configs({{
+        0,
+        {.op_mode = dc::Choice{
+             .index = 0,
+             .assign_activate = 0,
+             .cycles = {.sync0 = x::telem::MILLISECOND},
+         }},
+    }});
+    const auto err = this->master_instance->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) cannot use its chosen mode: mode (AssignActivate 0x0000) "
+        "does not run SYNC0, so it cannot use a SYNC0 cycle of 1ms"
+    );
+    EXPECT_EQ(this->mock_api->slave_config_count(), 0u);
+}
+
 /// @brief it should run a slave in a chosen SM mode.
 TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
     this->initialize_with_slave();
