@@ -73,9 +73,9 @@ When a stage starts, the `:=` variables of the stage and its sequence, and the `
 variables of the functions it calls, go back to their first values. See
 [entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
-In a stage or sequence, the first value of a `$=` variable must be a literal. Other
-values fail with `stateful variable initializer must be a literal value`. A channel
-fails with
+In a stage or sequence, the first value of a `$=` variable must be a literal or a float
+constant such as `math.nan` or `-math.inf`. Other values fail with
+`stateful variable initializer must be a literal value`. A channel fails with
 `channels and channel-read expressions cannot be assigned to stateful variables`.
 
 <Divider.Divider x />
