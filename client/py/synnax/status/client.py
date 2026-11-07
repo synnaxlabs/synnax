@@ -265,7 +265,7 @@ class Client:
             include_labels=include_labels,
         )
         res = self.client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse).statuses
-        return sole("status", req.where, res) if single else res
+        return sole("status", req, res) if single else res
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a status.
