@@ -48,11 +48,11 @@ const listItemRenderProp = Component.renderProp(ListItem);
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery: { includeStatus: true, ...initialQuery },
+    query: { includeStatus: true, ...query },
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

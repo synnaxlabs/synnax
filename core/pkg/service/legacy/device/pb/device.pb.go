@@ -42,8 +42,11 @@ type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// rack is the key of the rack this device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
+	// connected is true while the Driver confirms that it can reach the device. A device
+	// whose state is unknown is not connected.
+	Connected bool `protobuf:"varint,2,opt,name=connected,proto3" json:"connected,omitempty"`
 	// data contains device-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,2,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,6 +86,13 @@ func (x *StatusDetails) GetRack() uint32 {
 		return x.Rack
 	}
 	return 0
+}
+
+func (x *StatusDetails) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
 }
 
 func (x *StatusDetails) GetData() *structpb.Struct {
@@ -661,10 +671,11 @@ var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescrip
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"^\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"|\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\x120\n" +
-	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x1c\n" +
+	"\tconnected\x18\x02 \x01(\bR\tconnected\x120\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
 	"\x05_data\"\x8a\x03\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +

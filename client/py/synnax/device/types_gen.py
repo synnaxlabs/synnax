@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from synnax import group as group_
 from synnax import rack as rack_
@@ -22,6 +22,7 @@ from synnax import resource
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = str
 
@@ -32,10 +33,13 @@ class StatusDetails(BaseModel):
 
     Attributes:
         rack: Is the key of the rack this device belongs to.
+        connected: Is true while the Driver confirms that it can reach the device. A
+            device whose state is unknown is not connected.
         data: Contains device-specific status data.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
+    connected: bool = False
     data: dict[str, JsonValue] | None = None
 
 
@@ -70,6 +74,31 @@ class Where(BaseModel):
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "make": filter.StringInput,
+        "model": filter.StringInput,
+        "location": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+    },
+    total=False,
+)
 
 Status: TypeAlias = status_.Status[StatusDetails]
 

@@ -11,16 +11,17 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from typing_extensions import TypeVar
 
 from synnax import label, resource
 from synnax.resource import ID
 from x import filter, telem
+from x.filter import shorthand
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 
@@ -109,6 +110,28 @@ class Where(BaseModel):
     variant: filter.Set[Variant] | None = None
     labels: list[label.Key] | None = None
     owners: list[resource.ID] | None = None
+
+    @field_validator("labels", "owners", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "variant": filter.SetInput[Variant],
+        "labels": label.Key | list[label.Key],
+        "owners": resource.ID | list[resource.ID],
+    },
+    total=False,
+)
 
 
 class RetrieveResponse(BaseModel):

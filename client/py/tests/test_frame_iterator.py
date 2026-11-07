@@ -166,6 +166,7 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, np.arange(1, 11))
         frame = client.read_latest([data_ch.key], n=3)
         assert isinstance(frame, sy.Frame)
+        assert frame.channels == [data_ch.key]
         assert np.array_equal(frame[data_ch.key], np.array([8, 9, 10]))
 
     def test_read_latest_one_name_list(

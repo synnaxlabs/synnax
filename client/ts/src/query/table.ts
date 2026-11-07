@@ -21,7 +21,12 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  isConnectionError,
+  NotFoundError,
+} from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
@@ -151,6 +156,12 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
+const closedError = (cause?: unknown): DisconnectedError => {
+  const err = new DisconnectedError("The client is closed.");
+  err.cause = cause;
+  return err;
+};
+
 // "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
 // client deleted ahead of the change stream.
 type Removal = "evict" | "confirmed" | "local";
@@ -192,6 +203,7 @@ export class Table<
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
   private readonly revivable: boolean;
+  private closed = false;
   private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
@@ -234,7 +246,8 @@ export class Table<
               } catch (exc) {
                 const strict =
                   NotFoundError.matches(exc) || AccessDeniedError.matches(exc);
-                if (!strict || requests.length === 1) throw errors.fromUnknown(exc);
+                if (!strict || requests.length === 1 || this.closed)
+                  throw errors.fromUnknown(exc);
                 // A strict fetch rejects the whole batch when any caller's key has
                 // vanished or is denied. Refetch per caller so each settles exactly as
                 // its own request would have, keeping the batch transparent.
@@ -522,6 +535,7 @@ export class Table<
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
+        if (this.closed) throw closedError();
         const since = this.stamp();
         const fetched = await this.fetchBatcher.enqueue(misses);
         if (opts.refresh === true) {
@@ -649,6 +663,16 @@ export class Table<
     };
   }
 
+  /**
+   * Rejects every fetch in progress and every later fetch with a
+   * {@link DisconnectedError}. A running reconcile fails with it once its fetch
+   * settles. The table keeps its entries.
+   */
+  close(): void {
+    this.closed = true;
+    this.fetchBatcher?.close(closedError());
+  }
+
   private refetch(keys: Key[]): void {
     if (this.fetchBatcher == null || keys.length === 0) return;
     this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
@@ -669,7 +693,16 @@ export class Table<
     const keys = this.keys();
     if (keys.length === 0) return;
     const since = this.stamp();
-    const values = await fetchSurvivors(fetchEntries, keys);
+    const values = await fetchSurvivors(async (keys: Key[]) => {
+      if (this.closed) throw closedError();
+      try {
+        const fetched = await fetchEntries(keys);
+        if (this.closed) throw closedError();
+        return fetched;
+      } catch (exc) {
+        throw this.closed ? closedError(exc) : errors.fromUnknown(exc);
+      }
+    }, keys);
     const present = new Set<Key>(values.map(({ key }) => key));
     const missing = keys.filter((k) => !present.has(k));
     // A missing key deleted here during the fetch gets no delete from the Core.

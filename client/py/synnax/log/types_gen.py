@@ -11,11 +11,11 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import group as group_
@@ -23,6 +23,7 @@ from synnax.resource import ID
 from x import color as color_
 from x import filter, telem
 from x import notation as notation_
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -59,6 +60,27 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+    },
+    total=False,
+)
 
 
 class ChannelEntry(BaseModel):
@@ -113,6 +135,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
+        time_zone: Is the time zone of the line times and day rows of the log.
         group: Is the group the log sits in, if any.
     """
 
@@ -122,6 +145,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
+    time_zone: telem.TimeZone = "local"
     group: group_.Key | None = None
 
     @_override

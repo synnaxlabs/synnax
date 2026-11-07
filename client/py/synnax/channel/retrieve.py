@@ -25,7 +25,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
-from synnax.util import one
+from synnax.util import sole
 from x import filter
 
 
@@ -40,7 +40,7 @@ def params_where(channels: Params) -> Where:
     """
     normal = normalize_params(channels)
     if isinstance(normal, NormalizedNameResult):
-        return Where(name_patterns=normal.channels)
+        return Where(name=filter.String(in_=normal.channels))
     return Where(key=filter.Set[Key](in_=normal.channels))
 
 
@@ -72,7 +72,7 @@ class Retriever:
         :raises NotFoundError: If no channel matches param.
         :raises MultipleFoundError: If more than one channel matches param.
         """
-        return one("Channel", param, self.retrieve(param))
+        return sole("Channel", param, self.retrieve(param))
 
     @trace("debug")
     def filter(

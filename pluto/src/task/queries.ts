@@ -249,7 +249,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ where: { key: { in: keys } }, includeStatus: true });
+    await client.tasks.retrieve({ key: keys, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },
