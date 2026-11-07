@@ -40,6 +40,9 @@ type Rack struct {
 	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
 	Integrations []string `json:"integrations" msgpack:"integrations"`
+	// Version is the version of the Driver that runs the rack, written at each connect.
+	// Absent until a Driver reports it.
+	Version *string `json:"version,omitzero" msgpack:"version,omitempty"`
 	// Group is the group the rack sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }

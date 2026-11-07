@@ -72,7 +72,7 @@ class TestGroupClient:
         """Should return one group for a plain key beside other fields."""
         a = client.groups.create(str(uuid4()), scope="channel")
         assert client.groups.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(sy.NotFoundError, match=r"Group matching .* not found"):
+        with pytest.raises(sy.NotFoundError, match=r"Found no group where .+"):
             client.groups.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:

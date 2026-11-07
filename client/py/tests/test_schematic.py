@@ -303,7 +303,7 @@ class TestClient:
         """Should return one schematic for a plain key beside other fields."""
         a = client.schematics.create(project.key, name="A")
         assert client.schematics.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Schematic matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no schematic where .+"):
             client.schematics.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
@@ -457,7 +457,7 @@ class TestSymbolClient:
         symbols = client.schematics.symbols
         a = symbols.create(_symbol("A", parent_group))
         assert symbols.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Symbol matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no symbol where .+"):
             symbols.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, parent_group: group.Group) -> None:
