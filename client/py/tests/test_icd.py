@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import base64
 from uuid import uuid4
 
 import pytest
@@ -299,6 +300,16 @@ class TestICD:
             0.25,
             "rpm",
         )
+
+    def test_import_base64_symbols(self, client: sy.Synnax) -> None:
+        """Should import a file whose base64 encoding holds a slash."""
+        # Four '?' bytes encode to a '/' in every alignment.
+        data = DBC + b' SG_ flags : 24|8@1+ (1,0) [0|255] "????" Vector__XXX\n'
+        assert "/" in base64.b64encode(data).decode()
+        ic = client.icds.create(name="Vehicle")
+        imported = client.icds.import_file(ic.key, data, "dbc")
+        msg = next(m for m in imported.messages if m.name == "EngineStatus")
+        assert [f.name for f in msg.payload.fields] == ["rpm", "temp", "flags"]
 
     def test_import_keeps_keys(self, client: sy.Synnax) -> None:
         """Should keep message keys when the same file is imported again."""

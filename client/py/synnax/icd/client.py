@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import base64
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, field_serializer
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -77,10 +78,14 @@ ImportFormat = Literal["dbc", "csv", "xlsx"]
 
 
 class _ImportRequest(BaseModel):
-    model_config = ConfigDict(ser_json_bytes="base64")
     key: Key
     format: ImportFormat
     data: bytes
+
+    # Pydantic's base64 is the URL-safe alphabet, which the Core does not decode.
+    @field_serializer("data")
+    def _serialize_data(self, data: bytes) -> str:
+        return base64.b64encode(data).decode()
 
 
 class _ImportResponse(BaseModel):
