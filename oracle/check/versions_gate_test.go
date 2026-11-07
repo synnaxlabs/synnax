@@ -392,6 +392,59 @@ Channel struct {
 		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
 
+	It("Should fail an omitted-field pin lagging its dependency's current version",
+		func() {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle", "TimeStamp = int32\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+			report := run(analyzeLive(liveV0))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			var messages []string
+			for _, f := range report.Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(
+				"schemas/synnax/channel's current surface resolves telem at v0 for " +
+					"omitted fields, but schemas/x/telem's current version is v1",
+			))
+		},
+	)
+
+	It("Should accept an omitted-field pin at its dependency's current version",
+		func() {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/versions/telem/v1.oracle", "TimeStamp = int32\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int32\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v1"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+			for _, f := range run(analyzeLive(liveV0)).Findings {
+				Expect(f.Message).ToNot(ContainSubstring("for omitted fields"))
+			}
+		},
+	)
+
 	It("Should fail a stored pin that only a borrowed enum reaches", func() {
 		write("schemas/x/versions/auth/v0.oracle", `
 Method enum {

@@ -354,9 +354,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			walkValue(sf.Value, into)
 		}
 	}
-	// walkDecl visits one declaration's references. Omit fields are resolved contexts:
-	// their targets never enter the stored set, and local types reached only through
-	// them stay outside the stored closure.
+	// walkDecl visits one declaration's references. Omit fields never reach the stored
+	// bytes: their targets stay out of the stored set, and so do local types reached
+	// only through them.
 	walkDecl := func(t resolution.Type, into set.Set[string], skipOmit bool) []string {
 		var locals []string
 		visit := func(ref resolution.TypeRef) {
@@ -440,8 +440,7 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 		}
 	}
 	// Membership marks a type persisted, so every declaration is a stored root except
-	// the omit-transient ones — a transient type tracks the live schema and resolves
-	// its references there.
+	// the omit-transient ones, which never reach the stored bytes.
 	transient := f.Transient()
 	for _, t := range f.Defined {
 		if t.Synthetic || transient.Contains(t.Name) {
@@ -535,7 +534,7 @@ func checkPinCurrency(
 				if pv != depChain.Current() &&
 					!pinAliasCurrent(
 						ctx, resolver, depLive, pv, depChain.Current(),
-						membersOf(f, ns),
+						membersOf(f, ns, false),
 					) {
 					r.fail(Finding{
 						Path:     chain.FilePath(chain.Current()) + ".oracle",
@@ -553,7 +552,7 @@ func checkPinCurrency(
 						),
 					})
 				}
-				for _, member := range membersOf(f, ns) {
+				for _, member := range membersOf(f, ns, false) {
 					visit(depLive, pv, member)
 				}
 			}
@@ -561,6 +560,53 @@ func checkPinCurrency(
 	}
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		visit(livePath, surf[name].Version, name)
+	}
+	checkOmittedPinCurrency(ctx, r, resolver, chain)
+}
+
+// checkOmittedPinCurrency fails a pin in the current version file that only omitted
+// fields use when it lags its dependency's current version. The current package types
+// those fields at the pin, and the Core assigns the dependency's root type to them.
+// Omitted fields leave the stored bytes alone, so the fix is an in-place pin bump.
+func checkOmittedPinCurrency(
+	ctx context.Context,
+	r *GateReport,
+	resolver *versions.Resolver,
+	chain versions.Chain,
+) {
+	path := chain.FilePath(chain.Current()) + ".oracle"
+	f, err := resolver.File(ctx, chain.LivePath(), chain.Current())
+	if err != nil {
+		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+		return
+	}
+	stored, referenced := classifyDeps(f)
+	for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
+		ns := filepath.Base(depLive)
+		depChain, ok := resolver.Chains()[depLive]
+		if !ok || stored.Contains(ns) || !referenced.Contains(ns) {
+			continue
+		}
+		pv := f.Pins[depLive]
+		if pv == depChain.Current() || pinAliasCurrent(
+			ctx, resolver, depLive, pv, depChain.Current(), membersOf(f, ns, true),
+		) {
+			continue
+		}
+		r.fail(Finding{
+			Path:     path,
+			Severity: SeverityError,
+			Message: fmt.Sprintf(
+				"%s's current surface resolves %s at v%d for omitted fields, but "+
+					"%s's current version is v%d",
+				chain.LivePath(), ns, pv, depLive, depChain.Current(),
+			),
+			FixHint: fmt.Sprintf(
+				"omitted fields leave the stored bytes alone: bump the pin in "+
+					"v%d in place",
+				chain.Current(),
+			),
+		})
 	}
 }
 
@@ -651,7 +697,9 @@ func pinAliasCurrent(
 	return true
 }
 
-func membersOf(f *versions.File, ns string) []string {
+// membersOf returns the names in ns that f's declarations reference. Omitted fields
+// count only when omitted is set.
+func membersOf(f *versions.File, ns string, omitted bool) []string {
 	found := make(set.Set[string])
 	for _, t := range f.Defined {
 		var walkRef func(ref resolution.TypeRef)
@@ -668,7 +716,8 @@ func membersOf(f *versions.File, ns string) []string {
 		switch form := t.Form.(type) {
 		case resolution.StructForm:
 			for _, fd := range form.Fields {
-				if domain.GetStringFromField(fd, "go", "marshal") == "omit" {
+				if !omitted &&
+					domain.GetStringFromField(fd, "go", "marshal") == "omit" {
 					continue
 				}
 				walkRef(fd.Type)
