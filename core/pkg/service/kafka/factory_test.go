@@ -68,11 +68,21 @@ var _ = Describe("Factory", func() {
 				Error().To(MatchError(driver.ErrTaskNotHandled))
 		})
 
-		It("Should reject a scan task with a rate that is not positive",
-			func(ctx SpecContext) {
-				t := newTask(kafka.ScanTaskType, map[string]any{"rate": -1})
+		DescribeTable("Should reject a scan task with a rate that is not positive",
+			func(ctx SpecContext, rate float64) {
+				t := newTask(kafka.ScanTaskType, map[string]any{"rate": rate})
 				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(validate.ErrValidation))
+			},
+			Entry("negative", -1.0),
+			Entry("explicit zero", 0.0),
+		)
+
+		It("Should start a scan task that omits the rate at the default rate",
+			func(ctx SpecContext) {
+				t := newTask(kafka.ScanTaskType, map[string]any{})
+				dt := MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+				Expect(dt.Stop(false)).To(Succeed())
 			},
 		)
 
