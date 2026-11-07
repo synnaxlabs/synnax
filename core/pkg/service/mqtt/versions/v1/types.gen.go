@@ -151,13 +151,6 @@ type ReadField struct {
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
@@ -229,16 +222,6 @@ func (p *PlainReadEntry) SetDefaults() {
 	p.Qos = QoSAtMostOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainReadEntry) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtMostOnce
-	}
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainReadEntry) Validate() error {
@@ -271,13 +254,6 @@ func (SparkplugReadEntry) isReadEntryVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugReadEntry) SetDefaults() {
 	s.DataType = "float64"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugReadEntry) ApplyDefaults() {
-	if s.DataType == "" {
-		s.DataType = "float64"
-	}
 }
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
@@ -367,19 +343,6 @@ func (u ReadEntry) Type() ReadEntryType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadEntry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u ReadEntry) Validate() error {
@@ -423,13 +386,6 @@ type ReadConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Entries contains the topics and tags to read.
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	for i := range r.Entries {
-		r.Entries[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -508,16 +464,6 @@ type ChannelField struct {
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelField) ApplyDefaults() {
-	if c.JSONType == "" {
-		c.JSONType = JSONTypeNumber
-	}
-	if c.DataType == "" {
-		c.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelField) SetDefaults() {
 	c.JSONType = JSONTypeNumber
@@ -591,13 +537,6 @@ func (s *StaticWriteField) SetDefaults() {
 	s.JSONType = JSONTypeNumber
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticWriteField) ApplyDefaults() {
-	if s.JSONType == "" {
-		s.JSONType = JSONTypeNumber
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s StaticWriteField) Validate() error {
@@ -620,13 +559,6 @@ func (GeneratedWriteField) isWriteFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (g *GeneratedWriteField) SetDefaults() {
 	g.Generator = GeneratorTypeUUID
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GeneratedWriteField) ApplyDefaults() {
-	if g.Generator == "" {
-		g.Generator = GeneratorTypeUUID
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -724,19 +656,6 @@ func (u WriteField) Type() WriteFieldType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case StaticWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GeneratedWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u WriteField) Validate() error {
@@ -820,17 +739,6 @@ func (p *PlainWriteTarget) SetDefaults() {
 	p.Qos = QoSAtLeastOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainWriteTarget) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtLeastOnce
-	}
-	p.Channel.ApplyDefaults()
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainWriteTarget) Validate() error {
@@ -867,13 +775,6 @@ func (SparkplugWriteTarget) isWriteTargetVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugWriteTarget) SetDefaults() {
 	s.TagType = SparkplugDataTypeDouble
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugWriteTarget) ApplyDefaults() {
-	if s.TagType == "" {
-		s.TagType = SparkplugDataTypeDouble
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -971,19 +872,6 @@ func (u WriteTarget) Type() WriteTargetType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteTarget) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u WriteTarget) Validate() error {
@@ -1031,13 +919,6 @@ type WriteConfig struct {
 	Targets []WriteTarget `json:"targets" msgpack:"targets"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Targets {
-		w.Targets[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
@@ -1051,11 +932,6 @@ func (w WriteConfig) Validate() error {
 // ScanConfig configures an MQTT scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -1100,13 +976,6 @@ type EdgeTag struct {
 	// CommandChannelName is the name of the command channel that the Console creates at
 	// configure when the tag has none. Absent when the tag rejects writes.
 	CommandChannelName *string `json:"command_channel_name,omitzero" msgpack:"command_channel_name,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeTag) ApplyDefaults() {
-	if e.TagType == "" {
-		e.TagType = SparkplugDataTypeDouble
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -1156,13 +1025,6 @@ type EdgeConfig struct {
 	Authority uint8 `json:"authority" msgpack:"authority"`
 	// Tags contains the tags the edge node publishes.
 	Tags []EdgeTag `json:"tags" msgpack:"tags"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeConfig) ApplyDefaults() {
-	for i := range e.Tags {
-		e.Tags[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

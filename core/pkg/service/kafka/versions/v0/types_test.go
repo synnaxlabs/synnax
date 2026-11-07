@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	"github.com/synnaxlabs/x/defaults"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -45,19 +46,19 @@ var _ = Describe("RecordKey", func() {
 var _ = Describe("ScanConfig", func() {
 	It("Should default the scan rate", func() {
 		cfg := v0.ScanConfig{}
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		Expect(cfg.Rate).To(BeNumerically(">", 0))
 	})
 })
 
 var _ = Describe("ReadConfig", func() {
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should default the start offset and field data types", func() {
 			cfg := v0.ReadConfig{Records: []v0.ReadRecord{{
 				Key:    "r",
 				Fields: []v0.ReadField{{Key: "f"}},
 			}}}
-			cfg.ApplyDefaults()
+			cfg = defaults.Fill(cfg)
 			Expect(cfg.StartOffset).To(Equal(v0.StartOffsetLatest))
 			Expect(cfg.Records[0].Fields[0].DataType).To(Equal(telem.Float64T))
 		})
@@ -70,7 +71,7 @@ var _ = Describe("ReadConfig", func() {
 					Fields: []v0.ReadField{{Key: "f", DataType: telem.Uint8T}},
 				}},
 			}
-			cfg.ApplyDefaults()
+			cfg = defaults.Fill(cfg)
 			Expect(cfg.StartOffset).To(Equal(v0.StartOffsetNone))
 			Expect(cfg.Records[0].Fields[0].DataType).To(Equal(telem.Uint8T))
 		})
@@ -90,7 +91,7 @@ var _ = Describe("ReadConfig", func() {
 })
 
 var _ = Describe("WriteConfig", func() {
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should default the record key, record shape, and channel JSON types",
 			func() {
 				cfg := v0.WriteConfig{
@@ -99,7 +100,7 @@ var _ = Describe("WriteConfig", func() {
 						Fields: []http.WriteField{{Variant: http.StaticWriteField{}}},
 					},
 				}
-				cfg.ApplyDefaults()
+				cfg = defaults.Fill(cfg)
 				Expect(cfg.RecordKey).To(Equal(v0.RecordKeyChannelName))
 				Expect(cfg.Record.ValuePointer).To(Equal("/value"))
 				Expect(cfg.Record.TimeFormat).To(Equal(http.TimeFormatUnixNs))
@@ -116,7 +117,7 @@ var _ = Describe("WriteConfig", func() {
 				},
 				Channels: []v0.WriteChannel{{Key: "c", JSONType: http.JSONTypeString}},
 			}
-			cfg.ApplyDefaults()
+			cfg = defaults.Fill(cfg)
 			Expect(cfg.RecordKey).To(Equal(v0.RecordKeyNone))
 			Expect(cfg.Record.ValuePointer).To(Equal("/v"))
 			Expect(cfg.Record.TimeFormat).To(Equal(http.TimeFormatISO8601))
@@ -127,7 +128,7 @@ var _ = Describe("WriteConfig", func() {
 	Describe("Validate", func() {
 		valid := func() v0.WriteConfig {
 			cfg := v0.WriteConfig{Channels: []v0.WriteChannel{{Key: "c"}}}
-			cfg.ApplyDefaults()
+			cfg = defaults.Fill(cfg)
 			return cfg
 		}
 

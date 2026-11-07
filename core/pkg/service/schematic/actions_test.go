@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
@@ -36,7 +37,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
 	ec := schematic.ElementConfig{Variant: cfg}
-	ec.ApplyDefaults()
+	ec = defaults.Fill(ec)
 	return ec
 }
 
@@ -941,7 +942,7 @@ var _ = Describe("Path actions", func() {
 	var state schematic.Schematic
 	BeforeEach(func() {
 		cfg := tankCfg("T1", "")
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		state = schematic.Schematic{
 			Name:    "Engine",
 			Configs: map[string]schematic.ElementConfig{"n1": cfg},

@@ -95,19 +95,6 @@ func (t *TextCellConfig) SetDefaults() {
 	t.Align = FlexAlignmentCenter
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextCellConfig) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH5
-	}
-	if t.Weight == 0 {
-		t.Weight = 400
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TextCellConfig) Validate() error {
@@ -158,22 +145,6 @@ func (va *ValueCellConfig) SetDefaults() {
 	va.Notation = notation.NotationStandard
 	va.Level = text.LevelH5
 	va.StalenessTimeout = 5
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueCellConfig) ApplyDefaults() {
-	if va.RollingAverage == 0 {
-		va.RollingAverage = 1
-	}
-	if va.Notation == "" {
-		va.Notation = notation.NotationStandard
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH5
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -263,19 +234,6 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *CellConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case TextCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u CellConfig) Validate() error {
@@ -295,13 +253,6 @@ type Row struct {
 	// Cells is the ordered list of cell keys in this row from left to right. Each key
 	// points at an entry in the table's cells map.
 	Cells []string `json:"cells" msgpack:"cells"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Row) ApplyDefaults() {
-	if r.Size == 0 {
-		r.Size = 36
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -332,13 +283,6 @@ func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 type Column struct {
 	// Size is the width of the column in pixels.
 	Size float64 `json:"size" msgpack:"size"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Column) ApplyDefaults() {
-	if c.Size == 0 {
-		c.Size = 72
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -381,20 +325,6 @@ type Table struct {
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

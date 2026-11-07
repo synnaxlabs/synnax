@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
-	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -33,12 +32,10 @@ const (
 )
 
 // defaultFillData describes a single field assignment emitted by a generated
-// ApplyDefaults method: when the field equals ZeroLit, Setup runs and the field is set
-// to Expr.
+// SetDefaults method: Setup runs, and the field is set to Expr.
 type defaultFillData struct {
-	GoName  string
-	ZeroLit string
-	Expr    string
+	GoName string
+	Expr   string
 	// Setup holds the statements that build a union literal's variant in local
 	// variables before Expr assigns it. Empty for every other default.
 	Setup []string
@@ -87,7 +84,8 @@ func componentFill(
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
-// component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
+// component and per zero leaf that overrides the nested type's own default. prefix is
+// the Go selector to the struct field (e.g. "X1"), structRef its
 // type, and val the literal. Nested struct components recurse with an extended
 // selector.
 func structDefaultFills(
@@ -124,6 +122,14 @@ func structDefaultFills(
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
+			continue
+		}
+		// The nested type's SetDefaults runs first, so a zero leaf over a field that
+		// has its own default must be written out.
+		if defaultsHasOwn(f, data) {
+			if lit, ok := goLiteral(f.Type, &comp.Value, data); ok {
+				fills = append(fills, defaultFillData{GoName: selector, Expr: lit})
+			}
 		}
 	}
 	return fills
@@ -145,10 +151,9 @@ func unionLiteralFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName + ".Variant",
-		ZeroLit: "nil",
-		Expr:    variable,
-		Setup:   setup,
+		GoName: goName + ".Variant",
+		Expr:   variable,
+		Setup:  setup,
 	}, true
 }
 
@@ -405,10 +410,9 @@ func arrayFill(
 		return defaultFillData{}, false
 	}
 	return defaultFillData{
-		GoName:  goName,
-		ZeroLit: "nil",
-		Expr:    expr,
-		Setup:   setup,
+		GoName: goName,
+		Expr:   expr,
+		Setup:  setup,
 	}, true
 }
 
@@ -456,37 +460,30 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    strconv.Quote(d.StringValue),
+			GoName: goName,
+			Expr:   strconv.Quote(d.StringValue),
 		}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    fmt.Sprintf("%d", d.IntValue),
+			GoName: goName,
+			Expr:   fmt.Sprintf("%d", d.IntValue),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: "0",
-			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
+			GoName: goName,
+			Expr:   strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
 		if expr, defaulted, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			fill := defaultFillData{
-				GoName:  goName + ".Variant",
-				ZeroLit: "nil",
-				Expr:    expr,
-			}
+			fill := defaultFillData{GoName: goName + ".Variant", Expr: expr}
 			if defaulted {
 				fill.Setup = []string{"v0 := " + expr, "v0.SetDefaults()"}
 				fill.Expr = "v0"
@@ -504,9 +501,8 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
-			GoName:  goName,
-			ZeroLit: `""`,
-			Expr:    enumConstRef(typeRef, ev, data),
+			GoName: goName,
+			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
 	}
 	return defaultFillData{}, false
@@ -664,9 +660,9 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 // stripPointer removes a leading pointer marker from a resolved Go type.
 func stripPointer(goType string) string { return strings.TrimPrefix(goType, "*") }
 
-// recurseKind describes how a generated ApplyDefaults or Validate method reaches into a
-// field whose type carries its own method: a direct value, a nilable pointer, the
-// elements of a slice/array, or the values of a map.
+// recurseKind describes how a generated Validate method reaches into a field whose type
+// carries its own Validate: a direct value, a nilable pointer, the elements of a
+// slice/array, or the values of a map.
 type recurseKind string
 
 const (
@@ -677,21 +673,20 @@ const (
 )
 
 // recurseStepData describes one nested call a generated method makes into a field (or
-// an embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName
-// is the wire field name used as the Validate error path segment; it is empty for an
-// embedded type, whose fields are promoted to the embedder's level and so take no path
-// segment.
+// an embedded type) whose own type carries the method. JSONName is the wire field name
+// used as the Validate error path segment; it is empty for an embedded type, whose
+// fields are promoted to the embedder's level and so take no path segment.
 type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
 }
 
-// fieldHasOwn reports whether a field is itself a reason for its struct to emit a
-// method, independent of any nested type: a fillable static default for ApplyDefaults,
-// an enum membership check for Validate.
+// fieldHasOwn reports whether a field is itself a reason for its struct to emit
+// Validate, independent of any nested type: an enum membership or constraint check.
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
+// defaultsHasOwn reports whether f has a static default that SetDefaults assigns.
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
 	return len(goDefaultFills(f, data.probe())) > 0
 }
@@ -703,9 +698,6 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	}
 	return len(goConstraintChecks(f, probe)) > 0
 }
-
-// neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
-func neverSkip(resolution.Field, *templateData) bool { return false }
 
 // validateSkip reports whether a field carries `@validate skip`, excluding it from
 // generated validation and any recursion into it. Used for reference fields (a parent
@@ -719,7 +711,7 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 }
 
 // resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
+// type that can carry a Validate method — rather than a primitive, a
 // builtin container (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
@@ -861,90 +853,6 @@ func goRecurseStep(
 	return step, true
 }
 
-// defaultGroupData describes a set of fields whose defaults apply as a unit. The
-// generated ApplyDefaults fills every member only when all of them hold their zero
-// value, so a deliberate zero on any member survives the fill.
-type defaultGroupData struct {
-	// Members is every field in the group, rendered into the all-zero guard.
-	Members []defaultFillData
-	// Fills is the subset of members carrying a non-zero default, the only ones with
-	// anything to assign.
-	Fills []defaultFillData
-}
-
-// defaultGroupName returns the group a field's default belongs to, or "" when the
-// field fills on its own.
-func defaultGroupName(f resolution.Field) string {
-	return domain.GetStringFromField(f, "default", "group")
-}
-
-// goDefaultGroups returns one entry per `@default group` declared across fields, in
-// first-declaration order. A group whose members all default to their zero value has
-// nothing to assign and is dropped.
-func goDefaultGroups(
-	fields []resolution.Field,
-	data *templateData,
-) []defaultGroupData {
-	var order []string
-	byName := make(map[string]*defaultGroupData)
-	for _, f := range fields {
-		name := defaultGroupName(f)
-		if name == "" || f.Default == nil || f.Optional {
-			continue
-		}
-		member, ok := groupMember(f, data)
-		if !ok {
-			continue
-		}
-		g, seen := byName[name]
-		if !seen {
-			g = &defaultGroupData{}
-			byName[name] = g
-			order = append(order, name)
-		}
-		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
-	}
-	groups := make([]defaultGroupData, 0, len(order))
-	for _, name := range order {
-		if g := byName[name]; len(g.Fills) > 0 {
-			groups = append(groups, *g)
-		}
-	}
-	return groups
-}
-
-// groupMember returns the zero comparison for one group member. It returns ok=false
-// for a default kind with no zero literal, which checkDefaultGroups rejects from a
-// group.
-func groupMember(
-	f resolution.Field,
-	data *templateData,
-) (defaultFillData, bool) {
-	name := naming.GetFieldName(f)
-	switch f.Default.Kind {
-	case resolution.ValueKindString:
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
-	case resolution.ValueKindInt, resolution.ValueKindFloat:
-		return defaultFillData{GoName: name, ZeroLit: "0"}, true
-	case resolution.ValueKindIdent:
-		ev, ok := validation.ResolveEnumVariant(
-			f.Default.IdentValue,
-			f.Type,
-			data.table,
-		)
-		if !ok {
-			return defaultFillData{}, false
-		}
-		form, isEnum := ev.Type.Form.(resolution.EnumForm)
-		if !isEnum || form.IsIntEnum {
-			return defaultFillData{}, false
-		}
-		return defaultFillData{GoName: name, ZeroLit: `""`}, true
-	}
-	return defaultFillData{}, false
-}
-
 // variantSetsDefaults reports whether the Go struct of variant v of form emits
 // SetDefaults, by the rule the generated variant follows.
 func variantSetsDefaults(
@@ -1034,14 +942,4 @@ func setDefaultsSteps(
 		}
 	}
 	return steps
-}
-
-// allFills returns fills followed by the fills of every group. SetDefaults assigns
-// each one, since a decode overwrites whatever the input supplies.
-func allFills(fills []defaultFillData, groups []defaultGroupData) []defaultFillData {
-	all := slices.Clone(fills)
-	for _, g := range groups {
-		all = append(all, g.Fills...)
-	}
-	return all
 }

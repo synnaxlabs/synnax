@@ -16,15 +16,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 var _ = Describe("ScanConfig", func() {
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill the default scan rate", func() {
 			var cfg v3.ScanConfig
-			cfg.ApplyDefaults()
+			cfg = defaults.Fill(cfg)
 			Expect(cfg.Rate).To(Equal(telem.Rate(0.2)))
 		})
 	})

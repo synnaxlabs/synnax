@@ -39,13 +39,6 @@ type BaseChannel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseChannel) ApplyDefaults() {
-	if b.DataType == "" {
-		b.DataType = "float32"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (b *BaseChannel) SetDefaults() {
 	b.DataType = "float32"
@@ -58,11 +51,6 @@ type ReadChannel struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// IsIndex is true when the channel's Synnax channel is the task's index.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadChannel) ApplyDefaults() {
-	r.BaseChannel.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -94,11 +82,6 @@ type WriteChannel struct {
 	BaseChannel
 	// CmdChannel is the Synnax channel commands are read from.
 	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteChannel) ApplyDefaults() {
-	w.BaseChannel.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -138,23 +121,6 @@ type ReadConfig struct {
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.SampleRate == 0 {
-		r.SampleRate = 50
-	}
-	if r.StreamRate == 0 {
-		r.StreamRate = 25
-	}
-	if r.ArraySize == 0 {
-		r.ArraySize = 1
-	}
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -189,21 +155,9 @@ type WriteConfig struct {
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
-}
-
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.

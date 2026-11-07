@@ -251,13 +251,6 @@ type Properties struct {
 	Sasl SASL `json:"sasl" msgpack:"sasl"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *Properties) ApplyDefaults() {
-	if p.Sasl.Variant == nil {
-		p.Sasl.Variant = NoneSASL{}
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (p *Properties) SetDefaults() {
 	p.Sasl.Variant = NoneSASL{}

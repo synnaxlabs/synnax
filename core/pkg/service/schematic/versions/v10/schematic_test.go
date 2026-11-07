@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 var _ = Describe("Schematic", func() {
@@ -54,7 +55,7 @@ var _ = Describe("Schematic", func() {
 				Variant: v10.TextBoxElementConfig{Align: align},
 			}
 			s := v10.Schematic{Name: "schematic", Configs: configs}
-			s.ApplyDefaults()
+			s = defaults.Fill(s)
 			return s
 		}
 

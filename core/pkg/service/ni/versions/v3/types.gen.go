@@ -899,11 +899,6 @@ type ScanConfig struct {
 	task.ScanConfig
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()

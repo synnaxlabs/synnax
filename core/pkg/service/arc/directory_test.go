@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -237,8 +238,8 @@ var _ = Describe("Directories", func() {
 			// the rules are.
 			first := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
 			second := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
-			first.ApplyDefaults()
-			second.ApplyDefaults()
+			first = defaults.Fill(first)
+			second = defaults.Fill(second)
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 				Entries(&[]arc.Arc{first, second}).
 				Exec(ctx, tx)).To(Succeed())

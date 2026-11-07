@@ -134,13 +134,6 @@ type ReadField struct {
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
@@ -186,16 +179,6 @@ type ReadEndpoint struct {
 	Index string `json:"index" msgpack:"index"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadEndpoint) ApplyDefaults() {
-	if r.Method == "" {
-		r.Method = MethodGet
-	}
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadEndpoint) SetDefaults() {
 	r.Method = MethodGet
@@ -238,16 +221,6 @@ type ReadConfig struct {
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
 	Endpoints []ReadEndpoint `json:"endpoints" msgpack:"endpoints"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.Rate == 0 {
-		r.Rate = 1
-	}
-	for i := range r.Endpoints {
-		r.Endpoints[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -350,16 +323,6 @@ type ChannelField struct {
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelField) ApplyDefaults() {
-	if c.JSONType == "" {
-		c.JSONType = JSONTypeNumber
-	}
-	if c.DataType == "" {
-		c.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelField) SetDefaults() {
 	c.JSONType = JSONTypeNumber
@@ -432,13 +395,6 @@ func (s *StaticWriteField) SetDefaults() {
 	s.JSONType = JSONTypeNumber
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticWriteField) ApplyDefaults() {
-	if s.JSONType == "" {
-		s.JSONType = JSONTypeNumber
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s StaticWriteField) Validate() error {
@@ -461,13 +417,6 @@ func (GeneratedWriteField) isWriteFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (g *GeneratedWriteField) SetDefaults() {
 	g.Generator = GeneratorTypeUUID
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GeneratedWriteField) ApplyDefaults() {
-	if g.Generator == "" {
-		g.Generator = GeneratorTypeUUID
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -565,19 +514,6 @@ func (u WriteField) Type() WriteFieldType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case StaticWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GeneratedWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u WriteField) Validate() error {
@@ -635,17 +571,6 @@ type WriteEndpoint struct {
 	Fields []WriteField `json:"fields" msgpack:"fields"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteEndpoint) ApplyDefaults() {
-	if w.Method == "" {
-		w.Method = MethodPost
-	}
-	w.Channel.ApplyDefaults()
-	for i := range w.Fields {
-		w.Fields[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteEndpoint) SetDefaults() {
 	w.Channel.SetDefaults()
@@ -693,13 +618,6 @@ type WriteConfig struct {
 	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Endpoints {
-		w.Endpoints[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
@@ -713,11 +631,6 @@ func (w WriteConfig) Validate() error {
 // ScanConfig configures an HTTP scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.

@@ -36,13 +36,6 @@ type RetrieveResponse struct {
 	Tables []servicetable.Table `json:"tables" msgpack:"tables"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.Tables {
-		r.Tables[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {

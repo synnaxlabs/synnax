@@ -73,13 +73,6 @@ type Row struct {
 	Cells []string `json:"cells" msgpack:"cells"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Row) ApplyDefaults() {
-	if r.Size == 0 {
-		r.Size = 36
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *Row) SetDefaults() {
 	r.Size = 36
@@ -119,13 +112,6 @@ type Column struct {
 	Key string `json:"key" msgpack:"key"`
 	// Size is the width of the column in pixels.
 	Size float64 `json:"size" msgpack:"size"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Column) ApplyDefaults() {
-	if c.Size == 0 {
-		c.Size = 72
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -177,20 +163,6 @@ type Table struct {
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

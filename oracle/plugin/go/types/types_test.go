@@ -1525,16 +1525,15 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					// The embedded parent already declares Port. Declaring it again
 					// would shadow it with a duplicate json tag, so the override
 					// contributes a default fill alone. The child's fill must run
-					// before the parent recursion, or the parent would win.
+					// after the parent's SetDefaults, or the parent would win.
 					content := MustContentOf(resp, "types.gen.go")
 					Expect(content).To(ContainSubstring(
 						"type Child struct {\n\tParent\n\tRange float64",
 					))
 					Expect(content).To(ContainSubstring(
-						"func (c *Child) ApplyDefaults() {\n" +
-							"\tif c.Port == \"\" {\n\t\tc.Port = \"AIN0\"\n\t}\n" +
-							"\tif c.Range == 0 {\n\t\tc.Range = 10\n\t}\n" +
-							"\tc.Parent.ApplyDefaults()\n}",
+						"func (c *Child) SetDefaults() {\n" +
+							"\tc.Parent.SetDefaults()\n" +
+							"\tc.Port = \"AIN0\"\n\tc.Range = 10\n}",
 					))
 					Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Port`))
 				},
@@ -1560,7 +1559,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						"type Child struct {\n\tParent\n}",
 					))
 					Expect(content).To(ContainSubstring(
-						"\tif c.Rate == 0 {\n\t\tc.Rate = 50\n\t}",
+						"\tc.Parent.SetDefaults()\n\tc.Rate = 50\n}",
 					))
 				},
 			)
@@ -3483,12 +3482,10 @@ func (u View) Type() ViewType {
 				"type AIInputChannel struct {\n\tBaseInputChannel\n}",
 			))
 			Expect(content).To(ContainSubstring(
-				"func (a *AIInputChannel) ApplyDefaults() {\n" +
-					"\tif a.Port == \"\" {\n\t\ta.Port = \"AIN0\"\n\t}\n}",
+				"func (a *AIInputChannel) SetDefaults() {\n\ta.Port = \"AIN0\"\n}",
 			))
 			Expect(content).To(ContainSubstring(
-				"func (d *DIInputChannel) ApplyDefaults() {\n" +
-					"\tif d.Port == \"\" {\n\t\td.Port = \"DIO4\"\n\t}\n}",
+				"func (d *DIInputChannel) SetDefaults() {\n\td.Port = \"DIO4\"\n}",
 			))
 			Expect(content).NotTo(MatchRegexp(`AIInputChannel struct \{[^}]*Port`))
 		},
