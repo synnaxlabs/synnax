@@ -407,6 +407,15 @@ describe("caseconv", () => {
         });
       });
 
+      it("Should leave a marked value the schema rejects for the caller to reject", () => {
+        expect(
+          caseconv.snakeToCamel(
+            { nested: { inner_pair: 7 }, pair_list: [], pairs: {} },
+            { schema: docZ },
+          ),
+        ).toEqual({ nested: { innerPair: 7 }, pairList: [], pairs: {} });
+      });
+
       it("Should decode a marked value inside an object set at a path", () => {
         const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
         expect(convert({ inner_pair: "1:2" })).toEqual({ innerPair: [1, 2] });

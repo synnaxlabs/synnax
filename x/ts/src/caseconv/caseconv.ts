@@ -214,20 +214,26 @@ const snakeToCamelStr = (str: string): string => {
   return String.fromCharCode(first + 32) + c.slice(1);
 };
 
+// decodeMarked parses a value read off the wire, which holds its encoded form, back
+// through its marked schema. A value the schema rejects stays as it is, so the caller's
+// own parse rejects it with its label and path.
+const decodeMarked = (schema: z.ZodType, value: unknown): unknown => {
+  const result = schema.safeParse(value);
+  return result.success ? result.data : value;
+};
+
 const createConverter = (
   f: (v: string) => string,
   encodes: boolean = false,
 ): (<V>(obj: V, opt?: Options) => V) => {
   const encoderOf = (schema: z.ZodType | undefined) =>
     encodes ? getEncoder(schema) : undefined;
-  // A value read off the wire holds its encoded form, which the marked schema parses
-  // back.
   const decoderOf = (
     schema: z.ZodType | undefined,
   ): ((value: unknown) => unknown) | undefined =>
     encodes || schema == null || getEncoder(schema) == null
       ? undefined
-      : (value) => schema.parse(value);
+      : (value) => decodeMarked(schema, value);
   const mapArray = (arr: unknown[], elemOpt: Options): unknown[] => {
     const encode = encoderOf(elemOpt.schema);
     const decode = decoderOf(elemOpt.schema);
@@ -472,10 +478,8 @@ const convertChild = <V>(
   converter: Converter,
   encodes: boolean,
 ): V => {
-  // A value read off the wire holds its encoded form, which the marked schema parses
-  // back.
   if (!encodes && schema != null && getEncoder(schema) != null)
-    return schema.parse(value) as V;
+    return decodeMarked(schema, value) as V;
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });
   if (!Array.isArray(value)) return value;

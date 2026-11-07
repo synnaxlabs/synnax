@@ -11,6 +11,8 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { binary } from "@/binary";
+import { color } from "@/color";
+import { zod } from "@/zod";
 
 describe("Codec", () => {
   const sampleSchema = z.object({
@@ -34,6 +36,25 @@ describe("Codec", () => {
   });
 
   describe("JSON", () => {
+    it("should decode a wire color to a tuple", () => {
+      const schema = z.object({ fillColor: color.colorZ });
+      const decoded = new binary.JSONCodec().decodeString(
+        JSON.stringify({ fill_color: "#ff000080" }),
+        schema,
+      );
+      expect(decoded.fillColor).toEqual([255, 0, 0, 128]);
+    });
+
+    it("should reject a bad wire color with a labeled parse error", () => {
+      const schema = z.object({ fillColor: color.colorZ });
+      expect(() =>
+        new binary.JSONCodec().decodeString(
+          JSON.stringify({ fill_color: [1, 2, 3, 0.5, 9] }),
+          schema,
+        ),
+      ).toThrow(zod.ParseError);
+    });
+
     it("should correctly convert keys to snake case", () => {
       const sample = {
         channelKey: "test",
