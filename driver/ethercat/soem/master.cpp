@@ -71,11 +71,6 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
-/// @brief whether a wait must end because its breaker stopped.
-bool stopped(const x::breaker::Breaker *breaker) {
-    return breaker != nullptr && !breaker->running();
-}
-
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
@@ -257,7 +252,8 @@ x::errors::Error Master::activate(
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
-            this->cfg.clock.now() + std::chrono::microseconds(timeout)
+            this->cfg.clock.now() + std::chrono::microseconds(timeout),
+            [] { return false; }
         ))
         return x::errors::Error(
             errors::STATE_CHANGE_ERROR,
@@ -1221,7 +1217,7 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
 
 x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
-    const x::breaker::Breaker *breaker
+    const std::function<bool()> &stopped
 ) {
     const auto deadline = this->cfg.clock.now() + this->cfg.dc_settle_timeout.chrono();
     const x::errors::Error stop_err(
@@ -1230,8 +1226,8 @@ x::errors::Error Master::wait_for_dc_settle(
     );
     // 0x092C keeps its old value until a frame carries the reference clock to the
     // slave.
-    if (!this->wait_for_frame(deadline, breaker)) {
-        if (stopped(breaker)) return stop_err;
+    if (!this->wait_for_frame(deadline, stopped)) {
+        if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no frame carried the reference clock to the slaves within " +
@@ -1255,7 +1251,7 @@ x::errors::Error Master::wait_for_dc_settle(
             }
         }
         if (worst <= DC_SETTLED_DIFF) return x::errors::NIL;
-        if (stopped(breaker)) return stop_err;
+        if (stopped()) return stop_err;
         if (this->cfg.clock.now() >= deadline)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
@@ -1279,7 +1275,8 @@ x::errors::Error Master::start_dc() {
     positions.reserve(this->dc_setups.size());
     for (const auto &setup: this->dc_setups)
         positions.push_back(setup.position);
-    if (auto err = this->wait_for_dc_settle(positions)) return err;
+    if (auto err = this->wait_for_dc_settle(positions, [] { return false; }))
+        return err;
     for (const auto &setup: this->dc_setups)
         if (auto err = this->start_sync(setup)) return err;
     return x::errors::NIL;
@@ -1378,7 +1375,10 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
         ))
         return err;
     if (auto err = this->align_clock(pos)) return err;
-    if (auto err = this->wait_for_dc_settle({pos}, &breaker)) return err;
+    if (auto err = this->wait_for_dc_settle({pos}, [&breaker] {
+            return !breaker.running();
+        }))
+        return err;
     const auto setup = std::ranges::find(this->dc_setups, pos, &DCSetup::position);
     if (setup == this->dc_setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
@@ -1418,12 +1418,12 @@ bool Master::al_error(const uint16_t pos) const {
 
 bool Master::wait_for_frame(
     const std::chrono::steady_clock::time_point deadline,
-    const x::breaker::Breaker *breaker
+    const std::function<bool()> &stopped
 ) const {
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (this->cfg.clock.now() >= deadline || stopped(breaker)) return false;
+        if (this->cfg.clock.now() >= deadline || stopped()) return false;
         this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
     return true;

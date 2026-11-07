@@ -234,13 +234,13 @@ private:
 
     /// @brief waits until a frame carries the reference clock to the slaves, then until
     /// the clock of each slave at positions is within 10 µs of the reference clock.
-    /// @param breaker ends the wait once it stops, when given.
+    /// @param stopped returns true when the wait must end early.
     /// @returns errors::ACTIVATION_ERROR when no frame comes back, a slave does not
-    /// answer, a clock does not settle within Config::dc_settle_timeout, or breaker
-    /// stops first.
+    /// answer, a clock does not settle within Config::dc_settle_timeout, or stopped
+    /// returns true first.
     x::errors::Error wait_for_dc_settle(
         const std::vector<uint16_t> &positions,
-        const x::breaker::Breaker *breaker = nullptr
+        const std::function<bool()> &stopped
     );
 
     /// @brief starts SYNC0 on a slave, with its first SYNC0 event on a whole SYNC0
@@ -271,10 +271,10 @@ private:
     x::errors::Error request_state(uint16_t state, int timeout);
 
     /// @brief waits until a frame that the cycle sent after the call comes back.
-    /// @returns false when the deadline passes or breaker, when given, stops first.
+    /// @returns false when the deadline passes or stopped returns true first.
     [[nodiscard]] bool wait_for_frame(
         std::chrono::steady_clock::time_point deadline,
-        const x::breaker::Breaker *breaker = nullptr
+        const std::function<bool()> &stopped
     ) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
