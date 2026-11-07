@@ -9,15 +9,94 @@
 
 import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createSlave, renderContextMenu } from "@/feature/ethercat/device/testutil";
+import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import { type Device } from "@/platform/device";
+import { createDeviceResource } from "@/platform/device/testutil";
+import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { getIconButton, resolveFocusedTab } from "@/testutil";
+import {
+  createBaseProps,
+  createSelection,
+  createState,
+} from "@/platform/tree/testutil";
+import { Session } from "@/session";
+import {
+  createConsoleWrapper,
+  getIconButton,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+
+interface SlaveLoaderProps {
+  deviceKey: device.Key;
+}
+
+const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
+  const { data } = EtherCAT.Device.useResultSlave({ key: deviceKey });
+  return data == null ? null : <span>{`loaded:${deviceKey}`}</span>;
+};
+
+/**
+ * Mounts the context menu in two phases: first loads the slaves into the flux device
+ * cache (the tree does this in production before a menu can open), then mounts the
+ * menu items so their enabled/disabled computation sees the cached devices.
+ */
+const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
+  const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+  });
+  store.dispatch(Session.Project.select(proj.key));
+  const keys = devices.map((d) => d.key);
+  const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
+  const result = render(<div>{loaders}</div>, { wrapper });
+  for (const k of keys) await screen.findByText(`loaded:${k}`);
+  const resources = devices.map((d) =>
+    createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
+  );
+  const props: Device.ContextMenuItemsProps = {
+    ...createBaseProps({ client, store }),
+    selection: createSelection({ ids: resources.map((r) => r.id) }),
+    state: createState(resources),
+    onConfigure: vi.fn(),
+  };
+  // The menu suspends on the slaves fetch; a tree that suspends inside a sync
+  // act never commits, so the mount needs an async act (see renderHookSuspended).
+  await act(async () => {
+    result.rerender(
+      <Triggers.Provider>
+        {loaders}
+        <PMenu.Menu>
+          <EtherCAT.Device.ContextMenuItems {...props} />
+        </PMenu.Menu>
+        <Modals.Stack />
+      </Triggers.Provider>,
+    );
+  });
+  return { store };
+};
+
+const createSlave = async (
+  enabled: boolean,
+  properties: Partial<EtherCAT.Device.SlaveProperties> = {},
+) => {
+  const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  return await createSlaveDevice(client, rack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    enabled,
+    ...properties,
+  });
+};
 
 const createMode = (
   name: string,
@@ -84,8 +163,8 @@ const retrieveOpMode = async (key: device.Key) =>
 
 /** Opens the sync mode form from the menu of a slave with the given properties. */
 const openSyncMode = async (properties: Partial<EtherCAT.Device.SlaveProperties>) => {
-  const slave = await createSlave(client, true, properties);
-  await renderContextMenu(client, [slave]);
+  const slave = await createSlave(true, properties);
+  await renderContextMenu([slave]);
   fireEvent.click(await screen.findByText("Set sync mode"));
   await screen.findByText("Sync mode");
   return slave;
@@ -109,30 +188,30 @@ const typeCycle = (label: string, value: string) => {
 
 describe("EtherCAT device ContextMenuItems", () => {
   it("should offer only Disable when every selected slave is enabled", async () => {
-    const slave = await createSlave(client, true);
-    await renderContextMenu(client, [slave]);
+    const slave = await createSlave(true);
+    await renderContextMenu([slave]);
     await waitFor(() => expect(screen.getByText("Disable")).toBeTruthy());
     expect(screen.queryByText("Enable")).toBeNull();
   });
 
   it("should offer only Enable when every selected slave is disabled", async () => {
-    const slave = await createSlave(client, false);
-    await renderContextMenu(client, [slave]);
+    const slave = await createSlave(false);
+    await renderContextMenu([slave]);
     await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
     expect(screen.queryByText("Disable")).toBeNull();
   });
 
   it("should offer both actions for a mixed selection", async () => {
-    const enabled = await createSlave(client, true);
-    const disabled = await createSlave(client, false);
-    await renderContextMenu(client, [enabled, disabled]);
+    const enabled = await createSlave(true);
+    const disabled = await createSlave(false);
+    await renderContextMenu([enabled, disabled]);
     await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
     expect(screen.getByText("Disable")).toBeTruthy();
   });
 
   it("should create the vendor task drafts and open their resource tabs", async () => {
-    const slave = await createSlave(client, true);
-    const { store } = await renderContextMenu(client, [slave]);
+    const slave = await createSlave(true);
+    const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
     if (readTab.variant !== "resource") throw new Error("expected a resource tab");
@@ -151,9 +230,9 @@ describe("EtherCAT device ContextMenuItems", () => {
   });
 
   it("should disable every selected slave on the Core when Disable is clicked", async () => {
-    const slaveA = await createSlave(client, true);
-    const slaveB = await createSlave(client, true);
-    await renderContextMenu(client, [slaveA, slaveB]);
+    const slaveA = await createSlave(true);
+    const slaveB = await createSlave(true);
+    await renderContextMenu([slaveA, slaveB]);
     fireEvent.click(await screen.findByText("Disable"));
     await waitFor(async () => {
       const updatedA = await client.devices.retrieve({
@@ -170,8 +249,8 @@ describe("EtherCAT device ContextMenuItems", () => {
   });
 
   it("should enable a disabled slave on the Core when Enable is clicked", async () => {
-    const slave = await createSlave(client, false);
-    await renderContextMenu(client, [slave]);
+    const slave = await createSlave(false);
+    await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Enable"));
     await waitFor(async () => {
       const updated = await client.devices.retrieve({
@@ -184,9 +263,9 @@ describe("EtherCAT device ContextMenuItems", () => {
 
   describe("sync mode", () => {
     it("should offer Set sync mode for one slave but not for several", async () => {
-      const slaveA = await createSlave(client, true);
-      const slaveB = await createSlave(client, true);
-      await renderContextMenu(client, [slaveA, slaveB]);
+      const slaveA = await createSlave(true);
+      const slaveB = await createSlave(true);
+      await renderContextMenu([slaveA, slaveB]);
       await screen.findByText("Disable");
       expect(screen.queryByText("Set sync mode")).toBeNull();
     });
