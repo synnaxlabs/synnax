@@ -343,25 +343,35 @@ def _focused(text: str, lens: Lens) -> str:
 def _merge(
     reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
 ) -> Review:
-    """Joins the reviews of parallel passes. Findings of two passes in one file that
-    end on the same line or have the same title are one finding: the review keeps the
-    more severe, else the one that continues an open thread. The verdict and summary
-    come from the pass with the lowest capped score."""
+    """Joins the reviews of parallel passes. A finding joins at most one finding of
+    each other pass in the same file: first by title, then by the line it ends on. The
+    review keeps the more severe of joined findings, else the one that continues an
+    open thread. The verdict and summary come from the pass with the lowest capped
+    score."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
 
-    def same(f: Finding, k: Finding) -> bool:
-        return f.path == k.path and (f.line == k.line or f.title == k.title)
+    def join(
+        found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
+    ) -> list[tuple[set[int], Finding]]:
+        kept: list[tuple[set[int], Finding]] = []
+        for passes, f in found:
+            hits = (q for q, k in kept if k.path == f.path and same(k, f))
+            hit = next((q for q in hits if not q & passes), None)
+            if hit is None:
+                kept.append((set(passes), f))
+            else:
+                hit |= passes
+        return kept
 
-    kept: list[tuple[int, Finding]] = []
-    every = [(i, f) for i, r in enumerate(reviews) for f in r.findings]
-    for i, f in sorted(every, key=lambda t: rank(t[1])):
-        if not any(j != i and same(f, k) for j, k in kept):
-            kept.append((i, f))
+    every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
+    found = sorted(every, key=lambda t: rank(t[1]))
+    found = join(found, lambda k, f: k.title == f.title)
+    found = join(found, lambda k, f: k.line == f.line)
     lead = min(reviews, key=lambda r: _cap(r, caps).score)
     return replace(
-        lead, score=min(r.score for r in reviews), findings=[f for _, f in kept]
+        lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
     )
 
 

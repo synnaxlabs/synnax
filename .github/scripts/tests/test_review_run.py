@@ -452,6 +452,21 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [(f.title, f.line) for f in got.findings] == [("P2 at 12", 14)]
 
+    def test_should_join_a_finding_with_one_finding_of_each_pass(self) -> None:
+        races = FakeClaude(
+            5,
+            [
+                at("P2", 40) | {"title": "Lock released"},
+                at("P2", 12) | {"title": "Cache read"},
+            ],
+        )
+        edges = FakeClaude(5, [at("P1", 40) | {"title": "Cache read"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [
+            ("Cache read", 40),
+            ("Lock released", 40),
+        ]
+
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."
