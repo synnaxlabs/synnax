@@ -134,37 +134,57 @@ var _ = Describe("Cache", func() {
 		})
 	})
 
-	// A lookup returns an assertion on all results of one Cache lookup at ts.
-	type lookup func(SpecContext, *index.Cache, telem.TimeStamp) Assertion
+	// A lookup asserts on all results of one Cache lookup: missing expects it to fail
+	// past the data of idx, and found expects a result inside it.
+	type lookup struct {
+		missing, found func(SpecContext, *index.Cache)
+	}
 	var (
-		distance lookup = func(
-			ctx SpecContext,
-			c *index.Cache,
-			ts telem.TimeStamp,
-		) Assertion {
-			GinkgoHelper()
-			return Expect(c.Distance(
-				ctx,
-				idx,
-				ts.Range(ts+telem.SecondTS),
-				index.MustBeContinuous,
-			))
+		missing  = 20 * telem.SecondTS
+		found    = 2 * telem.SecondTS
+		distance = lookup{
+			missing: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.Distance(
+					ctx,
+					idx,
+					missing.Range(missing+telem.SecondTS),
+					index.MustBeContinuous,
+				)).Error().To(MatchError(index.ErrDiscontinuous))
+			},
+			found: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.Distance(
+					ctx,
+					idx,
+					found.Range(found+telem.SecondTS),
+					index.MustBeContinuous,
+				)).ToNot(BeZero())
+			},
 		}
-		stamp lookup = func(
-			ctx SpecContext,
-			c *index.Cache,
-			ts telem.TimeStamp,
-		) Assertion {
-			GinkgoHelper()
-			return Expect(c.Stamp(ctx, idx, ts, 1, index.MustBeContinuous))
+		stamp = lookup{
+			missing: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.Stamp(ctx, idx, missing, 1, index.MustBeContinuous)).
+					Error().To(MatchError(index.ErrDiscontinuous))
+			},
+			found: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.Stamp(ctx, idx, found, 1, index.MustBeContinuous)).
+					ToNot(BeZero())
+			},
 		}
-		segments lookup = func(
-			ctx SpecContext,
-			c *index.Cache,
-			ts telem.TimeStamp,
-		) Assertion {
-			GinkgoHelper()
-			return Expect(c.AppendSegments(ctx, idx, nil, ts, 0, 1))
+		segments = lookup{
+			missing: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.AppendSegments(ctx, idx, nil, missing, 0, 1)).
+					Error().To(MatchError(index.ErrDiscontinuous))
+			},
+			found: func(ctx SpecContext, c *index.Cache) {
+				GinkgoHelper()
+				Expect(c.AppendSegments(ctx, idx, nil, found, 0, 1)).
+					ToNot(BeZero())
+			},
 		}
 	)
 
@@ -172,8 +192,7 @@ var _ = Describe("Cache", func() {
 		"Should not cache an error",
 		func(ctx SpecContext, run lookup) {
 			for range 2 {
-				run(ctx, cache, 20*telem.SecondTS).
-					Error().To(MatchError(index.ErrDiscontinuous))
+				run.missing(ctx, cache)
 			}
 		},
 		Entry("Distance", distance),
@@ -186,7 +205,7 @@ var _ = Describe("Cache", func() {
 		func(ctx SpecContext, run lookup) {
 			var nilCache *index.Cache
 			for range 2 {
-				run(ctx, nilCache, 2*telem.SecondTS).ToNot(BeZero())
+				run.found(ctx, nilCache)
 				Expect(reads()).To(BeNumerically(">", 0))
 			}
 		},
