@@ -886,7 +886,10 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createCommitted(ctx, arcTask)
 				frames := collect()
-				acts := []task.Action{set([]string{"config", "performance"}, "")}
+				acts := []task.Action{task.NewRemoveAction(task.RemovePayload{
+					Path: []string{"config"},
+					Key:  "performance",
+				})}
 				computed := MustSucceed(svc.Dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
