@@ -21,6 +21,7 @@ import {
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
+import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
@@ -793,6 +794,95 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("position", () => {
+    const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+    const positionOf = ({ timestamp }: LogEntry): string =>
+      timestamp.valueOf().toString();
+
+    it("should return a log that mounts paused to its position", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState).toMatchObject({ offset: 121, tail: 0 });
+    });
+
+    it("should stay at the last entry of a time that entries share", () => {
+      const shared = [...entries.slice(0, 121), makeEntry(120), ...entries.slice(121)];
+      const { log, source } = setup(shared, REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      expect(log.scrollState.offset).toBe(122);
+    });
+
+    it("should load older entries until they reach the position", () => {
+      const { log, source } = setup(entries.slice(50), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
+    it("should show the oldest entries when no stored sample reaches back", () => {
+      const { log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.exhausted = true;
+      source.notify();
+      log.render();
+      const bottom = log.state.rowEntries.at(-1) ?? -1;
+      expect(log.state.position).toBe(positionOf(entries[150 + bottom]));
+    });
+
+    it("should leave the view to a wheel that moves while the log waits", () => {
+      const { h, log, source } = setup(entries.slice(150), REGION_500, {
+        scrolling: true,
+        position: positionOf(entries[100]),
+      });
+      source.notify();
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos - log.lineHeight }));
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).not.toBe(101);
+    });
+
+    it("should ignore the position of a log that is not paused", () => {
+      const { log, source } = setup(entries, REGION_500, {
+        position: positionOf(entries[120]),
+      });
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries.at(-1)).toBe(199);
+      expect(log.state.position).toBe("");
+    });
+
+    it("should report the entry at the bottom of a paused view", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos + log.lineHeight * 3 }));
+      log.render();
+      expect(log.state.position).toBe(positionOf(entries[196]));
+    });
+
+    it("should clear the position when the log resumes", () => {
+      const { h, log } = setup(entries);
+      h.setState((s) => ({ ...s, scrolling: true }));
+      log.render();
+      h.setState((s) => ({ ...s, scrolling: false }));
+      log.render();
+      expect(log.state.position).toBe("");
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);
@@ -1463,6 +1553,46 @@ describe("log/aether/Log", () => {
       expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
     });
 
+    describe("time zone", () => {
+      it("should split day rows at midnight in UTC", () => {
+        const entries = [entry("2026-11-03T23:00:00Z"), entry("2026-11-04T01:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        log.render();
+        const texts = shown(recorder);
+        expect(texts).toContain("Tue, Nov 3, 2026");
+        expect(texts).toContain("Wed, Nov 4, 2026");
+      });
+
+      it("should show one day row for entries of one UTC day", () => {
+        const entries = [entry("2026-11-04T01:00:00Z"), entry("2026-11-04T23:00:00Z")];
+        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        log.render();
+        expect(shown(recorder).filter((t) => t.includes("2026"))).toEqual([
+          "Wed, Nov 4, 2026",
+        ]);
+      });
+
+      it("should show line times and copied dates in UTC", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
+          timeZone: "UTC",
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+
+      it("should default to local time", () => {
+        const { log } = setup([entry("2026-01-05T01:02:03")], REGION_500, {
+          selectionStart: 0,
+          selectionEnd: 0,
+        });
+        log.render();
+        expect(log.state.timeZone).toBe("local");
+        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+      });
+    });
+
     it("should show no day rows when timestamps are hidden", () => {
       const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
         timestampsHidden: true,
@@ -1806,13 +1936,27 @@ describe("log/aether/Log", () => {
   });
 
   describe("afterDelete", () => {
-    it("should clean up telem and erase render region", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { h, source, recorder } = setup(entries);
+    it("should clean up telem", () => {
+      const { h, source } = setup([makeEntry(0)]);
       const cleanupSpy = vi.spyOn(source, "cleanup");
       h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
-      expect(recorder.eraseCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should erase the last drawn region, and draw no render left pending", () => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+      const { h, recorder } = setup([makeEntry(0)]);
+      const loop = new render.Loop({ handleError: vi.fn() });
+      recorder.loop.set = (req) => loop.set(req);
+      h.setState((s) => ({ ...s }));
+      vi.advanceTimersToNextFrame();
+      h.setState((s) => ({ ...s, region: box.translate(s.region, "x", 100) }));
+      recorder.clear();
+      h.unmount();
+      vi.advanceTimersToNextFrame();
+      vi.useRealTimers();
+      expect(recorder.eraseCalls.map(({ region }) => region)).toEqual([REGION_500]);
+      expect(recorder.lower2d.calls).toEqual([]);
     });
   });
 });
