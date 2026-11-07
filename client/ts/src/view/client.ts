@@ -24,7 +24,7 @@ import {
   type View,
   viewZ,
 } from "@/view/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/view/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/view/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -36,7 +36,6 @@ const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
@@ -67,6 +66,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     super(cache, {
       name: "view",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

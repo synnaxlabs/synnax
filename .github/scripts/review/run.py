@@ -24,6 +24,9 @@ its stdout."""
 
 REST = "rest.diff"
 """The file in the working directory that holds the diff the prompt leaves out."""
+NEW = "new.diff"
+"""The file in the working directory that holds the new commits when they are too long
+to show."""
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -140,6 +143,8 @@ class PullRequest:
     """The diff from the merge base to the head."""
     open: set[tuple[str, str]]
     """The path and title of each finding of an earlier review still open."""
+    new: str = ""
+    """The patches of the pull request's own commits after the last review, if any."""
 
 
 def load(root: Path) -> Config:
@@ -218,6 +223,16 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
+    if pr.new:
+        parts += [
+            "# Commits since your last review",
+            "Review these changes first, as new code: a fix for an earlier finding can "
+            "add a bug. Anchor findings to the line numbers of the full diff.",
+        ]
+        if _shows_new(config, pr):
+            parts.append(fence(pr.new, "diff"))
+        else:
+            parts.append(f"They are too long to show. Read all of `{NEW}` first.")
     parts.append("# Rules")
     parts += [
         f"## `{d.path}`: {d.description}\n\n{d.text.strip()}"
@@ -236,6 +251,11 @@ def _prompt(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
         )
     parts.append(fence(shown, "diff"))
     return "\n\n".join(parts)
+
+
+def _shows_new(config: Config, pr: PullRequest) -> bool:
+    """Reports whether the new commits fit in the prompt."""
+    return len(pr.new) <= config.diff_chars // 3
 
 
 def _command(config: Config, *, head: Path) -> list[str]:
@@ -285,6 +305,8 @@ def run(
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:
         (workdir / REST).write_text(rest)
+    if not _shows_new(config, pr):
+        (workdir / NEW).write_text(pr.new)
     text = _prompt(config, pr, shown, rest)
     stream = claude(_command(config, head=pr.head), text, workdir)
     messages = [json.loads(line) for line in stream.splitlines() if line]

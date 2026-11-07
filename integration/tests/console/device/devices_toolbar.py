@@ -278,11 +278,9 @@ class DevicesToolbar(ConsoleCase):
         )
 
         props = self.console.devices.copy_properties("LabJack T4")
-        assert props["configured"] is True, (
-            f"Expected configured=True, got {props['configured']}"
-        )
-        assert props["name"] == "LabJack T4", (
-            f"Expected name 'LabJack T4', got '{props['name']}'"
+        assert props.configured, f"Expected configured=True, got {props.configured}"
+        assert props.name == "LabJack T4", (
+            f"Expected name 'LabJack T4', got '{props.name}'"
         )
 
         retrieved = self.client.devices.retrieve(key=dev.key)

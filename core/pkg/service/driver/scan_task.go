@@ -259,6 +259,7 @@ type health struct {
 	variant     status.Variant
 	message     string
 	description string
+	connected   bool
 }
 
 // open subscribes to device changes before the run starts, so the subscription exists
@@ -337,8 +338,9 @@ func (t *ScanTask) scan(ctx context.Context) error {
 				return
 			}
 			results[i] = health{
-				variant: status.VariantSuccess,
-				message: t.cfg.ReachableMessage,
+				variant:   status.VariantSuccess,
+				message:   t.cfg.ReachableMessage,
+				connected: true,
 			}
 		})
 	}
@@ -370,7 +372,11 @@ func (t *ScanTask) scan(ctx context.Context) error {
 				Variant:     results[i].variant,
 				Message:     results[i].message,
 				Description: results[i].description,
-				Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
+				Details: device.StatusDetails{
+					Rack:      dev.Rack,
+					Device:    dev.Key,
+					Connected: results[i].connected,
+				},
 			})
 		}
 		count = len(statuses)
@@ -414,6 +420,7 @@ func (t *ScanTask) storedHealth(
 			variant:     s.Variant,
 			message:     s.Message,
 			description: s.Description,
+			connected:   s.Details.Connected,
 		}
 	}
 	return stored, nil
