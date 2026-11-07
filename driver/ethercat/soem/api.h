@@ -54,6 +54,11 @@ public:
     /// @brief discovers and initializes all slaves on the network.
     virtual int config_init() = 0;
 
+    /// @brief sets the length of each process data sync manager (SM2 and up) of the
+    /// slaves in the group to zero. config_map_group then gives a sync manager a length
+    /// only from its PDOs, and turns off one that has none.
+    virtual void clear_process_data_sms(uint8_t group) = 0;
+
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
@@ -213,6 +218,11 @@ public:
     /// @brief returns true when the group's process data frames carry the reference
     /// clock time.
     [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
+
+    /// @brief makes the process data frames of a group read the reference clock time.
+    /// configdc does this only for the group of the reference slave. Call it after
+    /// configdc.
+    virtual void set_group_dc(uint8_t grp) = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -233,6 +243,15 @@ public:
     void close() override { ecx_close(&this->context); }
 
     int config_init() override { return ecx_config_init(&this->context); }
+
+    void clear_process_data_sms(const uint8_t group) override {
+        for (int i = 1; i <= this->context.slavecount; ++i) {
+            auto &slave = this->context.slavelist[i];
+            if (slave.group != group) continue;
+            for (int sm = 2; sm < EC_MAXSM; ++sm)
+                slave.SM[sm].SMlength = 0;
+        }
+    }
 
     int config_map_group(void *iomap, uint8_t group) override {
         return ecx_config_map_group(&this->context, iomap, group);
@@ -440,6 +459,11 @@ public:
 
     [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
         return this->context.grouplist[grp].hasdc;
+    }
+
+    void set_group_dc(uint8_t grp) override {
+        this->context.grouplist[grp].hasdc = this->context.slavelist[0].hasdc;
+        this->context.grouplist[grp].DCnext = this->context.slavelist[0].DCnext;
     }
 };
 

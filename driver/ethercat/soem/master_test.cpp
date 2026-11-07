@@ -296,11 +296,108 @@ TEST_F(SOEMMasterTest, SIIDiscoveryGivesTheEEPROMBackToTheSlave) {
     EXPECT_TRUE(this->mock->eeprom_held.empty());
 }
 
+/// @brief it should read the synchronization modes a slave lists in its SII DC
+/// category, in SII order.
+TEST_F(SOEMMasterTest, InitializeReadsOpModesFromSII) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // The DC category of a slave on the test bench: SM, DC with a 1 s SYNC0, and DC
+    // with a 1 us SYNC0 and a SYNC1 of 1000 bus cycles.
+    const std::vector<uint8_t> category = {
+        36, 0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0,    1,    0, 3,    0,    0, 0, 0, 0, 0,    0xCA, 0x9A, 0x3B,
+        0,  0, 0,    0,    0, 0,    0,    0, 0, 0, 0, 0x07, 0,    0,    4,
+        0,  0, 0,    0,    0, 0xE8, 0x03, 0, 0, 0, 0, 0,    0,    0,    0,
+        0,  0, 0x18, 0xFC, 0, 0x07, 0,    0, 5, 0, 0, 0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+    this->mock->sii_strings = {{3, "SM-Synchron"}, {4, "DC"}, {5, "DC-bus1"}};
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {
+        {.name = "SM-Synchron", .sync0_factor = 1},
+        {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+        {.name = "DC-bus1",
+         .assign_activate = 0x0700,
+         .sync0_cycle = 1000,
+         .sync1_factor = -1000},
+    };
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should give the EEPROM back to the slave after it reads the OpModes.
+TEST_F(SOEMMasterTest, InitializeGivesTheEEPROMBackAfterReadingOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One SM mode with every field 0.
+    std::vector<uint8_t> category(26, 0);
+    category[0] = 12;
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    ASSERT_EQ(this->master->slaves()[0].properties.op_modes.size(), 1);
+    EXPECT_TRUE(this->mock->eeprom_held.empty());
+}
+
+/// @brief it should read negative shift times and leave the name of a mode empty when
+/// the SII gives none.
+TEST_F(SOEMMasterTest, InitializeReadsSignedShiftsAndUnnamedOpModes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x200;
+    this->mock->sii_categories = {{60, start}};
+    // One DC mode: SYNC0 = bus cycle, SYNC0 shift -100 us, SYNC1 shift 25 us, no name.
+    const std::vector<uint8_t> category = {
+        12, 0,    0,    0,    0,    0,    0x60, 0x79, 0xFE, 0xFF, 0xA8, 0x61, 0,
+        0,  0x01, 0x00, 0x00, 0x03, 0x01, 0x00, 0,    0,    0,    0,    0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    const std::vector<dc::OpMode> expected = {{
+        .assign_activate = 0x0300,
+        .sync0_factor = 1,
+        .sync0_shift = -100000,
+        .sync1_factor = 1,
+        .sync1_shift = 25000,
+    }};
+    EXPECT_EQ(this->master->slaves()[0].properties.op_modes, expected);
+}
+
+/// @brief it should give a slave no synchronization modes when its SII has no DC
+/// category.
+TEST_F(SOEMMasterTest, InitializeGivesNoOpModesWithoutDCCategory) {
+    this->initialize_with_slave();
+    EXPECT_TRUE(this->master->slaves()[0].properties.op_modes.empty());
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->activate_master();
+}
+
+/// @brief it should give each process data sync manager of the enabled slaves a length
+/// only from its PDOs, since a slave can refuse SAFE-OP for a sync manager that is on
+/// with no PDOs.
+TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sms_cleared_at_map);
 }
 
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
@@ -684,9 +781,31 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
+/// @brief it should read the reference clock time in the frames of the enabled slaves
+/// when the reference slave, the first slave with a distributed clock, is disabled.
+TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
+    MockSlaveInfo reference;
+    reference.state = EC_STATE_PRE_OP;
+    reference.hasdc = true;
+    this->add_slave(reference);
+    MockSlaveInfo enabled;
+    enabled.state = EC_STATE_PRE_OP;
+    enabled.hasdc = true;
+    this->add_slave(enabled);
+    ASSERT_NIL(this->master->initialize());
+    this->master->replace_slave_configs({{1, {.enabled = false}}});
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)

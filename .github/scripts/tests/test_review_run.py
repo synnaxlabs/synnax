@@ -11,12 +11,13 @@ import dataclasses
 import json
 import os
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, PullRequest, Window, load, run
+from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
 from review.__main__ import claude as launch
 from review.__main__ import main
 
@@ -57,6 +58,7 @@ def config(**kw: Any) -> Config:
             Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
             Doc(path="py.md", description="Py", text="Py only.", paths=("**/*.py",)),
         ],
+        "lenses": [],
     }
     return Config(**(fields | kw))
 
@@ -136,6 +138,31 @@ def limits(utilization: float, status: str) -> dict[str, Any]:
     }
 
 
+class LensClaude:
+    """Answers each focused pass with one finding named after its lens, and the
+    merging pass with a fixed review. Records every prompt, from any thread."""
+
+    def __init__(self, merged: FakeClaude):
+        self.merged = merged
+        self.prompts: list[str] = []
+        self._lock = threading.Lock()
+
+    def __call__(self, args: list[str], stdin: str, cwd: Path) -> str:
+        with self._lock:
+            self.prompts.append(stdin)
+        if "# Candidate findings" in stdin:
+            return self.merged(args, stdin, cwd)
+        name = stdin.split("# Your focus: ")[1].split("\n")[0]
+        found = finding("P2") | {"title": f"Found by {name}"}
+        return FakeClaude(5, [found])(args, stdin, cwd)
+
+
+LENSES = [
+    Lens(name="Races", focus="Trace each interleaving."),
+    Lens(name="Edges", focus="Try empty and boundary values."),
+]
+
+
 def review(
     c: Config | None = None, pr: PullRequest | None = None, workdir: Path = WORK
 ) -> FakeClaude:
@@ -170,6 +197,20 @@ class TestLoad:
         assert rule.path == ".sedosaur/rules/go.md"
         assert rule.paths == ("**/*.go",)
         assert rule.text == "\nNo panics.\n"
+
+    def test_should_read_the_lenses(self, tmp_path: Path) -> None:
+        home = tmp_path / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1\ncaps = {}\ncontext = []\n"
+            '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
+        )
+        (home / "prompt.md").write_text("Review it.\n")
+        assert load(tmp_path).lenses == [LENSES[0]]
+
+    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
+        assert load(ROOT).lenses == []
 
     def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
         home = tmp_path / ".sedosaur"
@@ -311,6 +352,52 @@ class TestScore:
             RuntimeError, match=r"claude ended with error_max_turns: Out\."
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+
+class TestLenses:
+    """Tests a review that takes one pass for each lens and merges their findings."""
+
+    def test_should_review_in_one_pass_without_lenses(self) -> None:
+        prompts: list[str] = []
+        fake = FakeClaude()
+
+        def claude(args: list[str], stdin: str, cwd: Path) -> str:
+            prompts.append(stdin)
+            return fake(args, stdin, cwd)
+
+        run(config(), pull(), claude=claude, workdir=WORK)
+        [prompt] = prompts
+        assert "# Your focus" not in prompt
+        assert "# Candidate findings" not in prompt
+
+    def test_should_give_each_pass_the_review_prompt_and_its_focus(self) -> None:
+        claude = LensClaude(FakeClaude())
+        run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        focused = sorted(p for p in claude.prompts if "# Your focus" in p)
+        assert len(focused) == 2
+        assert all(p.startswith("Review the pull request.") for p in focused)
+        assert "# Your focus: Edges\n\nTry empty and boundary values." in focused[0]
+        assert "# Your focus: Races\n\nTrace each interleaving." in focused[1]
+
+    def test_should_merge_the_findings_of_every_pass(self) -> None:
+        claude = LensClaude(FakeClaude(5, [finding("P1")]))
+        got, _ = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        [merging] = [p for p in claude.prompts if "# Candidate findings" in p]
+        assert merging.startswith("Review the pull request.")
+        assert '"title": "Found by Races"' in merging
+        assert '"title": "Found by Edges"' in merging
+        assert "# Your focus" not in merging
+        assert [f.title for f in got.findings] == ["T"]
+        assert got.score == 4
+
+    def test_should_add_up_the_usage_of_every_pass(self) -> None:
+        merged = FakeClaude()
+        merged.limits = [limits(0.5, "allowed")]
+        claude = LensClaude(merged)
+        _, usage = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        assert (usage.cost_usd, usage.turns, usage.duration_ms) == (1.5, 36, 120_000)
+        assert usage.output_tokens == 6_000
+        assert usage.limits["seven_day"].utilization == 0.5
 
 
 class TestUsage:
