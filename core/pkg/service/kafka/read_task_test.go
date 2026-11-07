@@ -1401,6 +1401,23 @@ var _ = Describe("Read task", func() {
 			"1e13 is out of range for a unix_sec timestamp"),
 	)
 
+	It("Should reject an explicit empty start offset instead of defaulting it",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := toJSON(kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  "t",
+				Records: single([]kafka.ReadField{
+					{Key: "v", Channel: data.Key(), Pointer: "/v"},
+				}),
+			})
+			cfg["start_offset"] = ""
+			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
+				Error().To(MatchError(ContainSubstring("invalid start_offset")))
+		},
+	)
+
 	DescribeTable("Should reject an invalid config",
 		func(
 			ctx SpecContext,

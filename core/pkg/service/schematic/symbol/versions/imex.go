@@ -45,9 +45,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	if err != nil {
 		return Symbol{}, err
 	}
-	// An older version lifts through Go code that cannot tell an absent field from a
+	// A Console export lifts through Go code that cannot tell an absent field from a
 	// zero one, so its zero fields take their defaults.
-	if env.Version != Latest {
+	if env.Version <= legacy.LastVersion {
 		sym = defaults.Fill(sym)
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
