@@ -626,8 +626,8 @@ func goStringExpr(name, value string) resolution.Expression {
 	}
 }
 
-// withLiveGoExprs replaces t's @go expressions of the named kinds with every live one of
-// those kinds, so a repeated @go fields or @go imports keeps all its lines.
+// withLiveGoExprs replaces t's @go expressions of the named kinds with every live one,
+// so a repeated @go fields or @go imports keeps all its lines.
 func withLiveGoExprs(t *resolution.Type, live resolution.Type, names ...string) {
 	kinds := set.New(names...)
 	var copied resolution.Expressions
