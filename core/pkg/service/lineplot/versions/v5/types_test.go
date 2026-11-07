@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/text"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
