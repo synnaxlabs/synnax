@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -22,6 +22,33 @@ from synnax import status as status_
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
+
+
+class Identity(BaseModel):
+    """Holds the chassis fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the chassis is connected to.
+        serial: Is the serial number of the chassis. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the chassis, a GUID that survives
+            renames.
+        model: Is the product name of the chassis.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    serial: str = ""
+    resource_name: str
+    model: str
+
+
+class Configuration(BaseModel):
+    """Holds the chassis fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the chassis.
+    """
+
+    name: str
 
 
 class StatusDetails(BaseModel):
@@ -35,6 +62,24 @@ class StatusDetails(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     chassis: Key
 
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Writes the fields that the user owns."""
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a chassis.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 Status: TypeAlias = status_.Status[StatusDetails]
 

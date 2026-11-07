@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <variant>
 
 #include "client/cpp/ni/chassis/types.gen.h"
 #include "client/cpp/rack/key.h"
@@ -56,6 +57,77 @@ inline x::json::json StatusDetails::to_json() const {
     j["rack"] = this->rack;
     j["chassis"] = this->chassis.to_json();
     return j;
+}
+
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.field<::synnax::rack::Key>("rack"),
+        .serial = parser.field<std::string>("serial", ""),
+        .resource_name = parser.field<std::string>("resource_name"),
+        .model = parser.field<std::string>("model"),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["serial"] = this->serial;
+    j["resource_name"] = this->resource_name;
+    j["model"] = this->model;
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .name = parser.field<std::string>("name"),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["name"] = this->name;
+    return j;
+}
+
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

@@ -11,6 +11,7 @@ package chassis
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -156,6 +157,18 @@ func (w Writer) Update(
 // ontology resources. It returns an error wrapping validate.ErrValidation when a task
 // references one of the modules. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	return w.DeleteAuthorized(ctx, nil, keys...)
+}
+
+// DeleteAuthorized is Delete that first calls authorize, in the transaction of the
+// delete, with the ontology IDs of the chassis and of every module it removes. It
+// removes nothing and returns the error when authorize fails. A nil authorize allows
+// all.
+func (w Writer) DeleteAuthorized(
+	ctx context.Context,
+	authorize func(context.Context, gorp.Tx, []ontology.ID) error,
+	keys ...Key,
+) error {
 	return w.atomic(ctx, func(w Writer) error {
 		var modules []device.Device
 		if err := w.devices.NewRetrieve().
@@ -163,6 +176,15 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			Entries(&modules).
 			Exec(ctx, w.tx); err != nil {
 			return err
+		}
+		ids := OntologyIDs(keys)
+		if authorize != nil {
+			moduleIDs := lo.Map(modules, func(d device.Device, _ int) ontology.ID {
+				return d.OntologyID()
+			})
+			if err := authorize(ctx, w.tx, slices.Concat(ids, moduleIDs)); err != nil {
+				return err
+			}
 		}
 		if err := w.devices.NewWriter(w.tx).Delete(
 			ctx,
@@ -172,7 +194,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		); err != nil {
 			return err
 		}
-		ids := OntologyIDs(keys)
 		if err := w.status.Delete(ctx, ontology.IDsToKeys(ids)...); err != nil {
 			return err
 		}

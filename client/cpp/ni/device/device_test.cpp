@@ -9,7 +9,6 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/chassis/json.gen.h"
 #include "client/cpp/ni/device/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 

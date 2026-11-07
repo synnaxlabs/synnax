@@ -13,6 +13,7 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
@@ -22,10 +23,37 @@
 
 namespace synnax::ni::chassis {
 
+struct Identity;
+struct Configuration;
 struct StatusDetails;
 struct Chassis;
 
 using Key = x::uuid::UUID;
+
+/// @brief Identity holds the chassis fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the chassis is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the chassis. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the chassis, a GUID that
+    /// survives renames.
+    std::string resource_name;
+    /// @brief model is the product name of the chassis.
+    std::string model;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Configuration holds the chassis fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the chassis.
+    std::string name;
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails identifies the chassis and rack that a status pertains to.
 struct StatusDetails {
@@ -37,6 +65,28 @@ struct StatusDetails {
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate writes the fields that the user owns.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a chassis.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
