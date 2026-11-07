@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
+  type Base,
   fileSecretZ,
   type Key,
   keyZ,
@@ -30,11 +32,11 @@ import { matches, retrieveInputZ, serverComputed } from "@/secret/where.gen";
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
 
-const newStoredZ = storedSecretZ.omit({ updated: true }).extend({
+const newStoredZ = storedSecretZ.omit({ updated: true, uses: true }).extend({
   /** value is the hidden value. No client can read it back. */
   value: z.string(),
 });
-const newFileZ = fileSecretZ.omit({ updated: true });
+const newFileZ = fileSecretZ.omit({ updated: true, uses: true });
 
 /**
  * A secret to create, or to replace when its key exists. A stored secret carries its
@@ -62,18 +64,60 @@ const retrieveMultiParamsZ = z.union([
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 ]);
 
-export type RetrieveSingleParams = { key: Key };
+export type RetrieveSingleParams = {
+  key: Key;
+  /**
+   * Fills `uses` with the resources that use the secret and that the caller can read.
+   */
+  includeUses?: boolean;
+};
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
+
+/** Drops includeUses when unset so equivalent queries hash identically. */
+const normalizeSingle = ({
+  key,
+  includeUses,
+}: RetrieveSingleParams): RetrieveSingleParams =>
+  includeUses === true ? { key, includeUses } : { key };
+
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeUses: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
+  ])
+  .transform(normalizeSingle);
+
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
+
+/** The resources that use a secret, keyed by the secret. */
+type Uses = Pick<Base, "key" | "uses">;
+
+const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
+const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  /**
+   * The channels that announce changes to resources that can use a secret. A change on
+   * one refetches the uses the client holds.
+   */
+  usesChannels: string[];
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Secret> {
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Secret,
+  Secret,
+  RetrieveSingleParams,
+  RetrieveSingleParams
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
+  private readonly usesStore: query.Table<Key, Uses>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -85,18 +129,62 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
+    // The secret table never holds uses, so a retrieve that asks for them reads this one.
+    const usesStore = cache.createTable<Key, Uses>({
+      name: "secret.uses",
+      fetch: async (keys) =>
+        (
+          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
+        ).map(toUses),
+    });
+    // The Core announces no change to uses. The cache handles frames at the same time,
+    // so refetches run one at a time to keep an older reply from overwriting a newer
+    // one. A change that arrives while a refetch waits joins it.
+    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchUses = async () => {
+      if (refetchMu.waiting) return;
+      refetchMu.waiting = true;
+      await refetchMu.runExclusive(async () => {
+        refetchMu.waiting = false;
+        await usesStore.reconcile();
+      });
+    };
+    cfg.usesChannels.forEach((channel) =>
+      cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
+    );
+    const usesWatch = query.watch(
+      usesStore,
+      (event, q: RetrieveRequest | RetrieveSingleParams) =>
+        q.includeUses === true ? [event.key] : null,
+    );
+    const single = cache.queries<RetrieveSingleParams, Secret, Key, Secret>({
+      name: "secret",
+      table: store,
+      fetch: async (q) => [await this.fetchSingle(q)],
+      compose: (records, q) => this.compose(records[0], q.includeUses === true),
+      keyOf: (q) => q.key,
+      covers: (_, q) => q.includeUses !== true,
+      watch: [usesWatch],
+      single: true,
+    });
     super(cache, {
       name: "secret",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
+        fetch: async (req) => await this.fetchThrough(req),
         matches: (secret, req) => matches(secret, req.where),
         serverComputed: (req) => serverComputed(req.where),
+        serverFields: SERVER_FIELDS,
+        watch: [usesWatch],
       },
+      compose: (record, q) =>
+        this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
+    this.usesStore = usesStore;
   }
 
   /**
@@ -188,6 +276,35 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       grantCreateResZ,
     );
     return res.grant;
+  }
+
+  private compose(secret: Secret, includeUses: boolean): Secret {
+    if (!includeUses) return secret;
+    return { ...secret, uses: this.usesStore.get(secret.key)?.uses };
+  }
+
+  private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
+    const secrets = await this.execRetrieve(req);
+    if (req.includeUses !== true) return secrets;
+    this.usesStore.set(secrets.map(toUses));
+    return secrets.map(stripUses);
+  }
+
+  private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
+    if (includeUses === true) {
+      const since = this.store.stamp();
+      const secrets = await this.fetchThrough({
+        where: { key: { eq: key } },
+        includeUses,
+      });
+      if (secrets.length === 0)
+        throw new NotFoundError(`secret with key ${key} not found`);
+      this.store.ingest(secrets, { since });
+      return key;
+    }
+    if ((await this.store.retrieve([key])).length === 0)
+      throw new NotFoundError(`secret with key ${key} not found`);
+    return key;
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Secret[]> {

@@ -151,7 +151,7 @@ export const { use: useRootChildID } = Flux.createRetrieve<
   },
 });
 
-export const { useResult: useResultResources } = Flux.createRetrieve<
+export const { use: useResources, useResult: useResultResources } = Flux.createRetrieve<
   ListQuery,
   ontology.Resource[]
 >({

@@ -20,9 +20,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
-	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -68,16 +66,13 @@ func (p Properties) validate() error {
 	return v.Error()
 }
 
-// connect reads the API key of props as rack and opens a connection to Sift. With a
-// zero grant key, rack must hold a device that uses the API key.
+// connect opens a connection to Sift with the properties of a saved device.
 func connect(
 	ctx context.Context,
 	secrets *secret.Service,
 	props Properties,
-	rack ontology.ID,
-	grantKey grant.Key,
 ) (*grpc.ClientConn, error) {
-	values, err := secrets.Resolve(ctx, nil, rack, grantKey, props.APIKey)
+	values, err := secrets.Reveal(ctx, nil, props.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +126,7 @@ func isLocal(uri string) bool {
 }
 
 // SecretUses returns a secret.Finder that reports each Sift device that uses one of
-// the secrets. A device uses its API key on its own rack.
+// the secrets.
 func SecretUses(devices *device.Service) secret.Finder {
 	return func(ctx context.Context, tx gorp.Tx, keys []secret.Key) ([]secret.Use, error) {
 		var devs []device.Device
@@ -158,7 +153,6 @@ func SecretUses(devices *device.Service) secret.Finder {
 			uses = append(uses, secret.Use{
 				Resource: device.OntologyID(dev.Key),
 				Name:     dev.Name,
-				Racks:    []ontology.ID{dev.Rack.OntologyID()},
 				Secret:   props.APIKey,
 			})
 		}

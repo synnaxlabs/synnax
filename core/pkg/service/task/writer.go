@@ -148,7 +148,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		stored, err := store.Write(ctx, w.tx, t.Key, t.Config)
+		stored, err := store.Write(ctx, w.tx, t.Key, t.Name, t.Config)
 		if err != nil {
 			return err
 		}
@@ -267,7 +267,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
+	stored, err := store.WriteStrict(ctx, w.tx, key, next.Name, next.Config)
 	if err != nil {
 		return nil, err
 	}

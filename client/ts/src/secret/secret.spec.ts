@@ -7,12 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
+import { type query } from "@/query";
 import { rack } from "@/rack";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { type secret } from "@/secret";
+import { task } from "@/task";
+import {
+  CERTIFICATE,
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  holdResponses,
+  waitForStreamLive,
+} from "@/testutil";
+
+const { pem: PEM, privateKey: PRIVATE_KEY } = CERTIFICATE;
 
 describe("Secret", () => {
   describe("create", () => {
@@ -108,6 +120,137 @@ describe("Secret", () => {
       expect(retrieved.map((r) => r.key)).toEqual([s.key]);
     });
 
+    it("should retrieve empty uses for a secret that nothing uses", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused",
+        source: "stored",
+        value: "abc",
+      });
+      const [retrieved] = await client.secrets.retrieve({
+        key: [s.key],
+        includeUses: true,
+      });
+      expect(retrieved.uses).toEqual([]);
+      expect((await client.secrets.retrieve(s.key)).uses).toBeUndefined();
+    });
+
+    it("should retrieve the uses of a secret by key", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused by key",
+        source: "stored",
+        value: "abc",
+      });
+      const retrieved = await client.secrets.retrieve({
+        key: s.key,
+        includeUses: true,
+      });
+      expect(retrieved).toEqual({ ...s, uses: [] });
+      expect((await client.secrets.retrieve({ key: s.key })).uses).toBeUndefined();
+    });
+
+    it("should refetch the uses of a secret for a new subscriber", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const c = await client.certificates.create({
+        name: "Gap",
+        source: "stored",
+        pem: PEM,
+        privateKey: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      const q = { key: privateKey, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      const before = await client.secrets.retrieve(q);
+      expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
+      off();
+      // Past the teardown grace window, so nothing maintains the answer.
+      await sleep.sleep(TimeSpan.seconds(8));
+      await client.certificates.delete(c.key);
+      await vi.waitFor(() => expectDeleted(client.secrets.getCached(privateKey)));
+      await client.secrets.create({
+        key: privateKey,
+        name: "Gap",
+        source: "stored",
+        value: "abc",
+      });
+      const offAgain = client.secrets.onChange(q, () => {});
+      try {
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        offAgain();
+      }
+    });
+
+    it("should update the uses of a secret when a task starts using it", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const r = await client.racks.create({ name: "Uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([
+            task.ontologyID(t.key),
+          ]),
+        );
+        await client.tasks.delete(t.key);
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should apply refetched uses in the order of the changes", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Ordered routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.onChange(q, () => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Ordered uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await client.tasks.delete(t.key);
+        // Long enough for the deletion to reach the client.
+        await sleep.sleep(TimeSpan.seconds(1));
+        expect(held.sent()).toBe(1);
+        held.release();
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
@@ -185,6 +328,32 @@ describe("Secret", () => {
       const res = createTestClient().secrets.retrieve(keys[0]);
       await expect(res).rejects.toThrow(NotFoundError);
       await expect(res).rejects.toThrow(`secret with key ${keys[0]} not found`);
+    });
+
+    it("should deliver the deletion of a secret read with its uses", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({ onInternalError: (e) => internal.push(e) });
+      const s = await client.secrets.create({
+        name: "Deleted with uses",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const results: Array<query.Cached<secret.Secret> | undefined> = [];
+      const off = client.secrets.onChange(q, (res) => results.push(res));
+      try {
+        // The read joins the fetch of the subscription, so that fetch has settled once
+        // the read rejects.
+        const reading = expect(client.secrets.retrieve(q)).rejects.toThrow(
+          NotFoundError,
+        );
+        await client.secrets.delete(s.key);
+        await reading;
+        expect(expectDeleted(results.at(-1)).corpse.key).toEqual(s.key);
+        expect(internal).toEqual([]);
+      } finally {
+        off();
+      }
     });
   });
 

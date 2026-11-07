@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -75,13 +76,10 @@ var _ = Describe("Migrations", func() {
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
 			legacyTask := v1.Task{
-				Key:  legacyKey,
-				Name: "Legacy Task",
-				Type: pagerduty.AlertTaskType,
-				Config: msgpack.EncodedJSON{
-					"routing_key": "rk-legacy",
-					"data_saving": false,
-				},
+				Key:    legacyKey,
+				Name:   "Legacy Task",
+				Type:   pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{"data_saving": false},
 			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entry(&legacyTask).
@@ -110,7 +108,16 @@ var _ = Describe("Migrations", func() {
 				return stat.NewWriter(tx).Set(ctx, &legacyStatus)
 			})).To(Succeed())
 
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB: db,
+				Secret: secrettestutil.OpenService(
+					ctx,
+					db,
+					otg,
+					g,
+					pagerduty.FindSecretUses,
+				),
+			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
@@ -129,7 +136,6 @@ var _ = Describe("Migrations", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
-			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
 			Expect(migrated.Config).ToNot(HaveKey("data_saving"))
 			Expect(migrated.Config).To(HaveKey("key"))
 			Expect(migrated.ConfigHash).ToNot(BeEmpty())
@@ -309,7 +315,17 @@ var _ = Describe("Migrations", func() {
 				Entries(&retiredTasks).
 				Exec(ctx, seedDB)).To(Succeed())
 
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			secrets := secrettestutil.OpenService(
+				ctx,
+				db,
+				otg,
+				g,
+				pagerduty.FindSecretUses,
+			)
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB:     db,
+				Secret: secrets,
+			}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{DB: db}))
@@ -331,9 +347,10 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(migratedPD.Config).To(
-				HaveKeyWithValue("routing_key", "rk-stored"),
-			)
+			Expect(migratedPD.Config["routing_key"]).To(BeAssignableToTypeOf(""))
+			routingKey := uuid.MustParse(migratedPD.Config["routing_key"].(string))
+			Expect(secrets.Reveal(ctx, nil, routingKey)).
+				To(HaveKeyWithValue(routingKey, []byte("rk-stored")))
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
 			Expect(migratedPD.Config).To(HaveKey("key"))
 			Expect(migratedPD.ConfigHash).ToNot(BeEmpty())
