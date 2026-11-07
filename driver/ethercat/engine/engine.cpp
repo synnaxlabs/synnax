@@ -332,6 +332,9 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
+    auto [configs, configs_err] = this->config.slave_configs();
+    if (configs_err) return configs_err;
+    this->master->replace_slave_configs(std::move(configs));
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
@@ -598,13 +601,5 @@ std::vector<slave::Health> Engine::health() const {
 
 std::string Engine::interface_name() const {
     return this->master->interface_name();
-}
-
-void Engine::set_slave_config(const uint16_t position, slave::Config config) {
-    this->master->set_slave_config(position, config);
-}
-
-void Engine::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
-    this->master->replace_slave_configs(std::move(configs));
 }
 }

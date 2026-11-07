@@ -266,23 +266,9 @@ std::string Scanner::generate_slave_key(
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
 
-std::pair<slave::Properties, x::errors::Error>
-Scanner::configure_slave(const synnax::device::Device &dev) const {
-    auto [props, props_err] = parse_properties(dev.properties);
-    if (props_err) return {props, props_err};
-    auto [engine, err] = this->pool->acquire(props.network);
-    if (!err) engine->set_slave_config(props.position, props.config());
-    return {props, err};
-}
-
 void Scanner::on_device_set(const synnax::device::Device &dev) {
     if (dev.model != SLAVE_DEVICE_MODEL) return;
-    const auto [props, err] = this->configure_slave(dev);
-    if (err && !err.matches(x::errors::VALIDATION)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure " << dev.name << ": "
-                     << err;
-        return;
-    }
+    const auto [props, err] = parse_properties(dev.properties);
     const auto health = this->pool->health(props.network);
     const auto live = std::ranges::find(
         health,
@@ -304,28 +290,10 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Invalid device properties";
         status.description = common::config_err_description(err);
-    } else
-        LOG(INFO) << SCAN_LOG_PREFIX << "set slave " << props.position << " on "
-                  << props.network << " enabled=" << (props.enabled ? "true" : "false");
+    }
     if (auto status_err = this->ctx->client->statuses.set(status); status_err)
         LOG(WARNING) << SCAN_LOG_PREFIX
                      << "failed to update device status: " << status_err;
-}
-
-void Scanner::on_device_delete(const synnax::device::Device &dev) {
-    if (dev.model != SLAVE_DEVICE_MODEL) return;
-    // A deleted device's other properties can be invalid. Only its network matters.
-    const auto network = parse_properties(dev.properties).first.network;
-    if (network.empty()) return;
-    if (const auto [eng, err] = acquire_engine(
-            *this->pool,
-            this->ctx->client,
-            this->task.rack,
-            network
-        );
-        err)
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to drop the settings of " << dev.name
-                     << ": " << err;
 }
 
 void Scanner::test_interface(const synnax::task::Command &cmd) const {

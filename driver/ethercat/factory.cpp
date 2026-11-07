@@ -71,14 +71,16 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
-    engine::Pool &pool,
+namespace {
+/// @brief returns the settings saved for each slave on the network, keyed by position.
+/// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
+/// properties, since the bus starts every slave on it, or when two devices at one
+/// position have different settings.
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
     const std::string &network
 ) {
-    auto [eng, err] = pool.acquire(network);
-    if (err) return {nullptr, err};
     auto [devices, dev_err] = client->devices.retrieve({
         .where = synnax::device::Where{
             .make = x::filter::String{.eq = DEVICE_MAKE},
@@ -86,7 +88,7 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
             .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
         },
     });
-    if (dev_err) return {nullptr, dev_err};
+    if (dev_err) return {{}, dev_err};
     std::map<uint16_t, slave::Config> configs;
     std::map<uint16_t, std::string> labels;
     for (const auto &dev: devices) {
@@ -95,7 +97,7 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
         if (props.network != network) continue;
         if (parser.error())
             return {
-                nullptr,
+                {},
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     dev.name + " has invalid properties. Every slave on " + network +
@@ -116,7 +118,7 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
         if (it->second == config) continue;
         const auto [first, second] = std::minmax(labels[props.position], label);
         return {
-            nullptr,
+            {},
             x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
                 std::format(
@@ -131,18 +133,32 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
             )
         };
     }
-    eng->replace_slave_configs(std::move(configs));
-    return {eng, x::errors::NIL};
+    return {configs, x::errors::NIL};
+}
 }
 
-Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
-    pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
+Factory::Factory(
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
+):
+    Factory(default_manager(), std::move(client), rack, std::move(rt_manager)) {}
 
 Factory::Factory(
     std::unique_ptr<master::Manager> manager,
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
     std::shared_ptr<x::thread::rt::Manager> rt_manager
 ):
-    pool(std::make_shared<engine::Pool>(std::move(manager), std::move(rt_manager))) {}
+    pool(
+        std::make_shared<engine::Pool>(
+            std::move(manager),
+            std::move(rt_manager),
+            [client = std::move(client), rack](const std::string &network) {
+                return slave_configs(client, rack, network);
+            }
+        )
+    ) {}
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -151,12 +167,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = acquire_engine(
-        *this->pool,
-        ctx->client,
-        task.rack,
-        cfg.interface_name
-    );
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     // The bus recovers a lost device without a limit, so the task waits for it.
@@ -176,12 +187,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = acquire_engine(
-        *this->pool,
-        ctx->client,
-        task.rack,
-        cfg.interface_name
-    );
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(

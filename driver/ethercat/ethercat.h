@@ -38,19 +38,6 @@ const std::string SCAN_TASK_TYPE = "ethercat_scan";
 /// @brief creates the default manager for the current platform.
 std::unique_ptr<master::Manager> default_manager();
 
-/// @brief acquires the engine for the network and replaces its slave settings with the
-/// ones saved on the rack for that network. A task can start the bus before the scanner
-/// first runs, and a cached engine must not keep the settings of a deleted device.
-/// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings.
-std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
-    engine::Pool &pool,
-    const std::shared_ptr<synnax::Synnax> &client,
-    synnax::rack::Key rack,
-    const std::string &network
-);
-
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
@@ -70,12 +57,20 @@ class Factory final : public task::Factory {
     );
 
 public:
-    /// @brief constructs a Factory with default manager.
-    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
+    /// @brief constructs a Factory with the default manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client.
+    Factory(
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+    );
 
-    /// @brief constructs a Factory with custom manager.
-    explicit Factory(
+    /// @brief constructs a Factory with a custom manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client.
+    Factory(
         std::unique_ptr<master::Manager> manager,
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
         std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     );
 

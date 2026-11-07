@@ -14,9 +14,12 @@ namespace driver::ethercat::engine {
 
 Pool::Pool(
     std::unique_ptr<master::Manager> manager,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    SlaveConfigs slave_configs
 ):
-    manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
+    manager(std::move(manager)),
+    rt_manager(std::move(rt_manager)),
+    slave_configs(std::move(slave_configs)) {}
 
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
@@ -37,6 +40,9 @@ Pool::acquire(const std::string &key) {
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;
+    cfg.slave_configs = [slave_configs = this->slave_configs, key] {
+        return slave_configs(key);
+    };
     if (this->rt_manager != nullptr) {
         x::thread::rt::Config base_rt;
         base_rt.enabled = true;

@@ -127,9 +127,11 @@ struct Config {
     std::filesystem::path state_dir;
 
     /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory>
-    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
+    /// manager. Give it the same client as the task manager.
+    [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {

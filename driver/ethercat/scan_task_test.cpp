@@ -391,7 +391,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
 /// @brief it should fail to configure the scan task and report an error status when the
 /// packet capture library is missing.
 TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
-    Factory factory(std::unique_ptr<master::Manager>{});
+    Factory factory(std::unique_ptr<master::Manager>{}, this->client, this->rack.key);
     const synnax::task::Task task{
         .rack = this->rack.key,
         .name = "EtherCAT Scanner",
@@ -594,15 +594,14 @@ TEST_F(EtherCATScanStatusTest, EditedSlaveStaysConnected) {
 /// @brief a scanner over a mock bus with one slave, for device set specs.
 class EtherCATScanDeviceSetTest : public EtherCATScanTest {
 protected:
-    std::shared_ptr<testutil::Master> master;
     std::unique_ptr<Scanner> scanner;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
-        this->master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
+        auto master = std::make_shared<testutil::Master>("eth0");
+        master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
         auto manager = std::make_unique<testutil::Manager>();
-        manager->configure("eth0", this->master);
+        manager->configure("eth0", master);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             this->scan_task(),
@@ -649,45 +648,20 @@ protected:
     }
 };
 
-/// @brief it should pass the enabled flag of a changed device to the master.
-TEST_F(EtherCATScanDeviceSetTest, PassesTheEnabledFlagToTheMaster) {
+/// @brief it should report a changed device that is disabled as not connected.
+TEST_F(EtherCATScanDeviceSetTest, ReportsADisabledDevice) {
     const auto dev = this->create_slave(false);
     this->scanner->on_device_set(dev);
-    EXPECT_FALSE(this->master->slave_enabled(0));
-    EXPECT_EQ(this->status(dev).message, "Device disabled");
+    const auto status = this->status(dev);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(status.message, "Device disabled");
+    EXPECT_FALSE(status.details.connected);
 }
 
-/// @brief it should drop the settings of a deleted device from the master.
-TEST_F(EtherCATScanDeviceSetTest, DropsTheSettingsOfADeletedDevice) {
-    const auto dev = this->create_slave(false);
-    this->scanner->on_device_set(dev);
-    ASSERT_FALSE(this->master->slave_enabled(0));
-    ASSERT_NIL(this->client->devices.del(dev.key));
-    this->scanner->on_device_delete(dev);
-    EXPECT_TRUE(this->master->slave_enabled(0));
-}
-
-/// @brief it should keep the settings of another device saved at the position of a
-/// deleted device, such as the new device after a module swap.
-TEST_F(EtherCATScanDeviceSetTest, KeepsTheSettingsOfAnotherDeviceAtTheDeletedPosition) {
-    const auto removed = this->create_slave(false);
-    auto kept = removed;
-    kept.key += "_replacement";
-    kept.properties["serial"] = 54321;
-    ASSERT_NIL(this->client->devices.create(kept));
-    this->scanner->on_device_set(removed);
-    ASSERT_NIL(this->client->devices.del(removed.key));
-    this->scanner->on_device_delete(removed);
-    EXPECT_FALSE(this->master->slave_enabled(0));
-}
-
-/// @brief it should leave the master settings unchanged and report an error status
-/// that names the invalid field.
+/// @brief it should report an error status that names the invalid field.
 TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
-    this->master->set_slave_config(0, {.enabled = false});
     const auto dev = this->create_slave(nullptr);
     this->scanner->on_device_set(dev);
-    EXPECT_FALSE(this->master->slave_enabled(0));
     const auto status = this->status(dev);
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Invalid device properties");
