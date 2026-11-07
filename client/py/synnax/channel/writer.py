@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
-
 from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -42,7 +41,7 @@ class _RenameRequest(BaseModel):
 
 class _SetGroupRequest(BaseModel):
     keys: list[Key]
-    group: UUID | None = None
+    group: group_.Key | None = None
 
 
 class Writer:
@@ -83,6 +82,6 @@ class Writer:
         self._client.send("/channel/rename", req, Empty)
 
     @trace("debug")
-    def set_group(self, keys: list[Key], group: UUID | None) -> None:
+    def set_group(self, keys: list[Key], group: group_.Key | None) -> None:
         req = _SetGroupRequest(keys=keys, group=group)
         self._client.send("/channel/set-group", req, Empty)
