@@ -147,6 +147,28 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should keep an explicit zero scan rate", func(ctx SpecContext) {
+			key := uuid.New()
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{"rate": 0}))
+			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			Expect(data["rate"]).To(BeNumerically("==", 0))
+		})
+
+		It("Should reject an explicit empty start offset", func(ctx SpecContext) {
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"start_offset": "",
+			})).Error().To(MatchError(ContainSubstring("invalid start_offset")))
+		})
+
+		It("Should keep an explicit empty value pointer", func(ctx SpecContext) {
+			key := uuid.New()
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"record": map[string]any{"value_pointer": ""},
+			}))
+			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			Expect(data["record"]).To(HaveKeyWithValue("value_pointer", ""))
+		})
+
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
 				Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
