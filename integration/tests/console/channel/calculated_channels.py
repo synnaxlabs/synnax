@@ -72,20 +72,21 @@ class CalculatedChannels(ConsoleCase):
         console.channels.edit_calculated(
             self.calc_editable, new_expression=updated_expr
         )
-        expected_val: int | None = None
-        calc_val: int | None = None
-        for _ in range(10):
+        observed = "no samples arrived"
+
+        def matched() -> bool | None:
+            nonlocal observed
             frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
-            if len(frame[self._ch_uptime]) > 0 and len(frame[self.calc_editable]) > 0:
-                uptime_val = int(to_float(frame[self._ch_uptime][-1]))
-                expected_val = uptime_val * updated_multiplier
-                calc_val = int(to_float(frame[self.calc_editable][-1]))
-                if calc_val == expected_val:
-                    break
-            sy.sleep(0.5)  # noqa: TID251 poll interval
-        assert expected_val is not None and expected_val == calc_val, (
-            f"expected {expected_val}, got {calc_val}"
-        )
+            if len(frame[self._ch_uptime]) == 0 or len(frame[self.calc_editable]) == 0:
+                return None
+            uptime_val = int(to_float(frame[self._ch_uptime][-1]))
+            expected_val = uptime_val * updated_multiplier
+            calc_val = int(to_float(frame[self.calc_editable][-1]))
+            observed = f"expected {expected_val}, got {calc_val}"
+            return True if calc_val == expected_val else None
+
+        if sy.poll(matched, timeout=5, interval=0.5) is None:
+            raise AssertionError(observed)
 
     def test_plot_calculated_channel(self) -> None:
         """Test plotting a nested calculated channel (calc channel referencing another

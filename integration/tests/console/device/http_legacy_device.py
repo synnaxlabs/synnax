@@ -83,14 +83,16 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
         """The Driver health checks the legacy device and reports it connected."""
         self.log("Testing: Driver connects the legacy device")
         status_key = str(sy.ontology.ID(type="device", key=self.legacy.key))
-        timer = sy.Timer()
-        while True:
+        last = "[]"
+
+        def connected() -> bool | None:
+            nonlocal last
             statuses = self.client.statuses.retrieve(keys=[status_key])
-            if statuses and statuses[0].variant == "success":
-                break
-            if timer.elapsed() > STATUS_TIMEOUT:
-                self.fail(f"Legacy device never connected, last status {statuses}")
-            sy.sleep(1)  # noqa: TID251 poll interval
+            last = str(statuses)
+            return True if statuses and statuses[0].variant == "success" else None
+
+        if sy.poll(connected, timeout=STATUS_TIMEOUT, interval=1) is None:
+            self.fail(f"Legacy device never connected, last status {last}")
 
     def test_read_task_reads(self) -> None:
         """A read task on the legacy device delivers data with the default cap."""

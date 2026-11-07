@@ -288,12 +288,10 @@ class RangeLifecycle(ConsoleCase):
 
         # The overview form autosaves on a debounce, so poll until the last
         # edit reaches the server before asserting.
-        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-        for _ in range(9):
-            if sy.TimeStamp(rng.time_range.end).datetime(UTC).day == 2:
-                break
-            sy.sleep(0.5)  # noqa: TID251 poll interval
-            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        rng = self.wait_for_range(
+            self.labeled_range_name,
+            done=lambda r: sy.TimeStamp(r.time_range.end).datetime(UTC).day == 2,
+        )
         start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
         end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
         assert start_utc.year == 2024, (
@@ -328,26 +326,27 @@ class RangeLifecycle(ConsoleCase):
     def retrieve_renamed(self, name: str) -> sy.Range:
         """Retrieve a range by its new name, polling while the debounced
         autosave of the rename lands."""
-        for _ in range(10):
+
+        def retrieve() -> sy.Range | None:
             try:
                 return self.client.ranges.retrieve(name=name)
             except sy.NotFoundError:
-                sy.sleep(0.5)  # noqa: TID251 poll interval
-        return self.client.ranges.retrieve(name=name)
+                return None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def assert_range_spans_now(self, name: str) -> None:
         """Poll until the range's time range spans now.
 
         Stage edits autosave on a debounce, so an immediate read races them.
         """
-        rng = self.client.ranges.retrieve(name=name)
+
+        def spans_now(rng: sy.Range) -> bool:
+            return rng.time_range.start < int(sy.TimeStamp.now()) < rng.time_range.end
+
+        rng = self.wait_for_range(name, done=spans_now)
         now = int(sy.TimeStamp.now())
-        for _ in range(9):
-            if rng.time_range.start < now < rng.time_range.end:
-                break
-            sy.sleep(0.5)  # noqa: TID251 poll interval
-            rng = self.client.ranges.retrieve(name=name)
-            now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
 
@@ -367,13 +366,13 @@ class RangeLifecycle(ConsoleCase):
     ) -> sy.Range:
         """Poll until the range satisfies ``done``, since overview edits
         autosave on a debounce."""
-        rng = self.client.ranges.retrieve(name=name)
-        for _ in range(10):
-            if done(rng):
-                break
-            sy.sleep(0.5)  # noqa: TID251 poll interval
+
+        def retrieve() -> sy.Range | None:
             rng = self.client.ranges.retrieve(name=name)
-        return rng
+            return rng if done(rng) else None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def test_set_planned_end_in_overview(self) -> None:
         """Test setting a planned end on a running range in the overview."""

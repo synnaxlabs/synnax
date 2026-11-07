@@ -171,20 +171,25 @@ class ModbusUnits(SimulatorCase):
     def wait_for_stats(self, unit: int, done: Callable[[Stats], bool]) -> Stats:
         """Wait for the device status of a unit to report counters that satisfy
         ``done``. The Driver reports them each time it scans the device."""
-        stats = None
-        timer = sy.Timer()
-        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+        last: Stats | None = None
+
+        def reported() -> Stats | None:
+            nonlocal last
             dev = self.client.devices.retrieve(
                 key=self.units[unit].key, include_status=True
             )
             details = None if dev.status is None else dev.status.details
             data = None if details is None else details.data
-            if data is not None:
-                stats = Stats.model_validate(data["stats"])
-                if done(stats):
-                    return stats
-            sy.sleep(0.5)  # noqa: TID251 poll interval
-        raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
+            if data is None:
+                return None
+            stats = Stats.model_validate(data["stats"])
+            last = stats
+            return stats if done(stats) else None
+
+        stats = sy.poll(reported, timeout=15, interval=0.5)
+        if stats is None:
+            raise AssertionError(f"Unit {unit} counters did not arrive, got {last}")
+        return stats
 
     @staticmethod
     def wait_for_warning(

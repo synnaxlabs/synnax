@@ -94,11 +94,12 @@ class ChannelCollector:
         timeout: float = 5.0,
     ) -> None:
         """Wait until the collector has at least `count` entries for `channel`."""
-        timer = sy.Timer()
-        while timer.elapsed() < timeout * sy.TimeSpan.SECOND:
-            if len(self.data.get(channel, [])) >= count:
-                return
-            sy.sleep(0.05)  # noqa: TID251 poll interval
+
+        def counted() -> bool | None:
+            return True if len(self.data.get(channel, [])) >= count else None
+
+        if sy.poll(counted, timeout=timeout, interval=0.05) is not None:
+            return
         raise TimeoutError(
             f"Timed out after {timeout}s waiting for {count} entries on '{channel}'; "
             f"got {len(self.data.get(channel, []))}"

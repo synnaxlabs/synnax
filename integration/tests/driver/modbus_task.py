@@ -34,12 +34,16 @@ def _wait_for_sim[T](
 ) -> None:
     """Assert that ``read`` returns ``expected`` within two seconds. The Synnax echo
     of a command can arrive before the Driver writes it to the device."""
-    timer = sy.Timer()
     with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
-        while (got := read(sim)) != expected:
-            if timer.elapsed() > 2 * sy.TimeSpan.SECOND:
-                raise AssertionError(f"{what} should be {expected}, got {got}")
-            sy.sleep(0.05)  # noqa: TID251 poll interval
+        got: list[T] = []
+
+        def written() -> bool | None:
+            nonlocal got
+            got = read(sim)
+            return True if got == expected else None
+
+        if sy.poll(written, timeout=2, interval=0.05) is None:
+            raise AssertionError(f"{what} should be {expected}, got {got}")
 
 
 def assert_sim_registers(address: int, expected: list[int]) -> None:

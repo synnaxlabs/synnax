@@ -61,13 +61,17 @@ class ParkedWait(ArcCase):
         return task.status
 
     def verify_sequence_execution(self) -> None:
-        timer = sy.Timer()
-        while (status := self.status()) is None or status.variant != "warning":
+        def warning() -> sy.task.Status | None:
+            status = self.status()
             if status is not None and status.variant == "error":
                 self.fail(f"the task reports an error: {status.message}")
-            if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
-                self.fail("the task reports no warning for the zero wait duration")
-            sy.sleep(0.05)  # noqa: TID251 poll interval
+            if status is None or status.variant != "warning":
+                return None
+            return status
+
+        status = sy.poll(warning, timeout=5, interval=0.05)
+        if status is None:
+            self.fail("the task reports no warning for the zero wait duration")
         if status.message != "Node failed":
             self.fail(f"the warning message is {status.message!r}, not 'Node failed'")
         if WARNING_MESSAGE not in status.description:
