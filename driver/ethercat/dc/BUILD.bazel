@@ -14,7 +14,12 @@ cc_library(
     name = "dc",
     hdrs = ["dc.h"],
     visibility = ["//visibility:public"],
-    deps = ["//x/cpp/json"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
 )
 
 cc_test(
