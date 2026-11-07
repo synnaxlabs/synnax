@@ -314,11 +314,10 @@ func expectSubset(path string, expected, actual any) {
 
 var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
-		svc        *task.Service
-		imexSvc    *imex.Service
-		configs    config.Registry
-		secretSvc  *secret.Service
-		secretRack *rack.Rack
+		svc       *task.Service
+		imexSvc   *imex.Service
+		configs   config.Registry
+		secretSvc *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -362,8 +361,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			groupSvc,
 			pagerduty.FindSecretUses,
 		)
-		secretRack = &rack.Rack{Name: "Secret Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, secretRack)).To(Succeed())
 		var stores []config.Store
 		stores = append(
 			stores,
@@ -489,8 +486,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	}
 
 	// reveal returns the config of imported with the key of each secret it holds
-	// swapped for the value the import read. It moves imported to a rack that may read
-	// them.
+	// swapped for the value the import read.
 	reveal := func(ctx context.Context, imported task.Task) map[string]any {
 		GinkgoHelper()
 		config := maps.Clone(map[string]any(imported.Config))
@@ -498,17 +494,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		if !ok {
 			return config
 		}
-		imported.Rack = secretRack.Key
-		Expect(svc.NewWriter(nil).Create(ctx, &imported)).To(Succeed())
 		Expect(config[fields.key]).To(BeAssignableToTypeOf(""))
 		key := uuid.MustParse(config[fields.key].(string))
-		values := MustSucceed(secretSvc.Resolve(
-			ctx,
-			nil,
-			secretRack.Key.OntologyID(),
-			uuid.Nil(),
-			key,
-		))
+		values := MustSucceed(secretSvc.Reveal(ctx, nil, key))
 		delete(config, fields.key)
 		config[fields.plain] = string(values[key])
 		return config

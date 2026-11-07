@@ -349,15 +349,7 @@ var _ = Describe("Migrations", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(migratedPD.Config["routing_key"]).To(BeAssignableToTypeOf(""))
 			routingKey := uuid.MustParse(migratedPD.Config["routing_key"].(string))
-			Expect(
-				secrets.Resolve(
-					ctx,
-					nil,
-					testRack.OntologyID(),
-					uuid.Nil(),
-					routingKey,
-				),
-			).
+			Expect(secrets.Reveal(ctx, nil, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-stored")))
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
 			Expect(migratedPD.Config).To(HaveKey("key"))
