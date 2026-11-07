@@ -309,10 +309,10 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
-// withLiveMethods copies the live file's @validate rules and @go to_any markers onto
-// the version k types that the chain's current version aliases, and onto the inline
-// variant payloads of those unions. The current package's alias is the frozen type, so
-// the frozen methods are the ones the live surface calls.
+// withLiveMethods copies the live file's @validate rules, @default groups, and @go
+// to_any markers onto the version k types that the chain's current version aliases,
+// and onto the inline variant payloads of those unions. The current package's alias is
+// the frozen type, so the frozen methods are the ones the live surface calls.
 func withLiveMethods(
 	ctx context.Context,
 	req *plugin.Request,
@@ -364,14 +364,16 @@ func withLiveMethods(
 			lf, _ := lo.Find(liveForm.Fields, func(f resolution.Field) bool {
 				return f.Name == fields[j].Name
 			})
-			d, has := lf.Domains["validate"]
-			if !has {
-				continue
+			for _, name := range []string{"validate", "default"} {
+				d, has := lf.Domains[name]
+				if !has {
+					continue
+				}
+				domains := make(map[string]resolution.Domain, len(fields[j].Domains)+1)
+				maps.Copy(domains, fields[j].Domains)
+				domains[name] = d
+				fields[j].Domains = domains
 			}
-			domains := make(map[string]resolution.Domain, len(fields[j].Domains)+1)
-			maps.Copy(domains, fields[j].Domains)
-			domains["validate"] = d
-			fields[j].Domains = domains
 		}
 		form.Fields = fields
 		t.Form = form

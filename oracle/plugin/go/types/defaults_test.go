@@ -1117,8 +1117,10 @@ var _ = Describe("Default group generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").ToContain(
-			"func (m *MapScale) SetDefaults() {\n" +
-				"\tm.PreScaledMax = 1\n\tm.Units = UnitsVolts\n}",
+			"func (m *MapScale) SetUngroupedDefaults() {\n\tm.Units = UnitsVolts\n}",
+			"func (m *MapScale) DefaultGroups() {\n"+
+				"\tif m.PreScaledMin == 0 && m.PreScaledMax == 0 {\n"+
+				"\t\tm.PreScaledMax = 1\n\t}\n}",
 		)
 	})
 
@@ -1293,22 +1295,104 @@ var _ = Describe("Decode-time default generation", func() {
 		},
 	)
 
-	It(
-		"Should set every member of a default group",
-		func(ctx SpecContext) {
-			source := `
-			@go output "core/pkg/service/x"
+	Describe("Default groups", func() {
+		It(
+			"Should set a group only when every member is zero",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
 
-			Cfg struct {
-				lower float64 = 0 { @default group "range" }
-				upper float64 = 1 { @default group "range" }
-			}
-		`
-			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").
-				ToContain("func (c *Cfg) SetDefaults() {\n\tc.Upper = 1\n}")
-		},
-	)
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+					name  string  = "untitled"
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetDefaults() {\n\tc.SetUngroupedDefaults()\n"+
+						"\tc.DefaultGroups()\n}",
+					"func (c *Cfg) SetUngroupedDefaults() {\n\tc.Name = \"untitled\"\n}",
+					"func (c *Cfg) DefaultGroups() {\n"+
+						"\tif c.Lower == 0 && c.Upper == 0 {\n\t\tc.Upper = 1\n\t}\n}",
+				)
+			},
+		)
+
+		It(
+			"Should decode over the ungrouped defaults, then set the zero groups",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+						"\tif err := json.UnmarshalDecode(dec, (*plain)(c)); err != nil {"+
+						"\n\t\treturn err\n\t}\n\tc.DefaultGroups()\n\treturn nil\n}",
+					"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+						"\tif err := dec.Decode((*plain)(c)); err != nil {"+
+						"\n\t\treturn err\n\t}\n\tc.DefaultGroups()\n\treturn nil\n}",
+				)
+			},
+		)
+
+		It(
+			"Should set a child's restated group before its embedded parent's",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				MinMax struct {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+
+				Cfg struct extends MinMax {
+					min_val = 2 { @default group "range" }
+					max_val = 100 { @default group "range" }
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetUngroupedDefaults() {\n"+
+						"\tc.MinMax.SetUngroupedDefaults()\n}",
+					"func (c *Cfg) DefaultGroups() {\n"+
+						"\tif c.MinVal == 0 && c.MaxVal == 0 {\n"+
+						"\t\tc.MinVal = 2\n\t\tc.MaxVal = 100\n\t}\n"+
+						"\tc.MinMax.DefaultGroups()\n}",
+				)
+			},
+		)
+
+		It(
+			"Should decode a grouped union variant over its ungrouped defaults",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Scale union on type {
+					map {
+						pre_scaled_min float64 = 0 { @default group "pre_scaled" }
+						pre_scaled_max float64 = 1 { @default group "pre_scaled" }
+					}
+					none {}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"\t\tv.MapScale.SetUngroupedDefaults()\n" +
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {\n" +
+						"\t\t\treturn err\n\t\t}\n\t\tv.MapScale.DefaultGroups()\n",
+				)
+			},
+		)
+	})
 
 	It(
 		"Should scope the setup of a union literal default in its own block",

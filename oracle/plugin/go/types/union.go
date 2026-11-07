@@ -100,6 +100,9 @@ type unionVariantData struct {
 	// the variant's SetDefaults. The wrapper decodes a variant over them.
 	SetSteps []recurseStepData
 	SetFills []defaultFillData
+	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
+	// set only when all of its members are zero.
+	DefaultGroups []defaultGroupData
 	// NeedsValidate reports whether the variant emits Validate.
 	NeedsValidate bool
 }
@@ -111,6 +114,7 @@ func (v unionVariantData) SetDefaultsView() setDefaultsView {
 		Name:     v.TypeName,
 		Steps:    v.SetSteps,
 		Fills:    v.SetFills,
+		Groups:   v.DefaultGroups,
 	}
 }
 
@@ -254,11 +258,13 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
-					fills := goDefaultFills(f, data)
-					if defaultOnly.Contains(f.Name) {
-						fills = overrideFills(f, data)
+					if defaultGroupName(f) == "" {
+						fills := goDefaultFills(f, data)
+						if defaultOnly.Contains(f.Name) {
+							fills = overrideFills(f, data)
+						}
+						vd.SetFills = append(vd.SetFills, fills...)
 					}
-					vd.SetFills = append(vd.SetFills, fills...)
 					if validateSkip(f, data) {
 						continue
 					}
@@ -284,6 +290,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
 		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
+		vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,

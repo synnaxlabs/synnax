@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -782,6 +783,9 @@ type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
+	// Groups marks a SetDefaults step into a type that has a `@default group`, which
+	// splits its defaults into SetUngroupedDefaults and DefaultGroups.
+	Groups bool
 }
 
 // fieldHasOwn reports whether a field is itself a reason for its struct to emit
@@ -1036,13 +1040,137 @@ func setDefaultsSteps(
 	var steps []recurseStepData
 	for _, e := range embeds {
 		if typeSetsDefaults(e.ref, data, set.New[string]()) {
-			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered)})
+			steps = append(steps, recurseStepData{
+				GoName: embedFieldName(e.rendered),
+				Groups: typeHasGroups(e.ref, data, set.New[string]()),
+			})
 		}
 	}
 	for _, f := range fields {
 		if !f.Optional && typeSetsDefaults(f.Type, data, set.New[string]()) {
-			steps = append(steps, recurseStepData{GoName: naming.GetFieldName(f)})
+			steps = append(steps, recurseStepData{
+				GoName: naming.GetFieldName(f),
+				Groups: typeHasGroups(f.Type, data, set.New[string]()),
+			})
 		}
 	}
 	return steps
+}
+
+// typeHasGroups reports whether ref names a struct that has a `@default group` with a
+// default to set, in its own fields or in a required struct field or embedded parent.
+// visited guards against cycles in recursive types.
+func typeHasGroups(
+	ref resolution.TypeRef,
+	data *templateData,
+	visited set.Set[string],
+) bool {
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" ||
+		visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	return lo.SomeBy(
+		resolution.UnifiedFields(resolved, data.table),
+		func(f resolution.Field) bool {
+			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
+				(!f.Optional && typeHasGroups(f.Type, data, visited))
+		},
+	)
+}
+
+// groupMemberData is the zero comparison for one member of a default group.
+type groupMemberData struct {
+	GoName  string
+	ZeroLit string
+}
+
+// defaultGroupData describes a set of fields whose defaults apply as a unit. The
+// generated DefaultGroups sets every member only when all of them hold their zero
+// value, so an input that sets part of the group keeps its zero members.
+type defaultGroupData struct {
+	// Members is every field in the group, rendered into the all-zero guard.
+	Members []groupMemberData
+	// Fills is the subset of members carrying a non-zero default, the only ones with
+	// anything to assign.
+	Fills []defaultFillData
+}
+
+// defaultGroupName returns the group a field's default belongs to, or "" when the
+// field takes its default on its own.
+func defaultGroupName(f resolution.Field) string {
+	return domain.GetStringFromField(f, "default", "group")
+}
+
+// goDefaultGroups returns one entry per `@default group` declared across fields, in
+// first-declaration order. A group whose members all default to their zero value has
+// nothing to assign and is dropped.
+func goDefaultGroups(
+	fields []resolution.Field,
+	data *templateData,
+) []defaultGroupData {
+	var order []string
+	byName := make(map[string]*defaultGroupData)
+	for _, f := range fields {
+		name := defaultGroupName(f)
+		if name == "" || f.Default == nil || f.Optional {
+			continue
+		}
+		member, ok := groupMember(f, data)
+		if !ok {
+			continue
+		}
+		g, seen := byName[name]
+		if !seen {
+			g = &defaultGroupData{}
+			byName[name] = g
+			order = append(order, name)
+		}
+		g.Members = append(g.Members, member)
+		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+	}
+	groups := make([]defaultGroupData, 0, len(order))
+	for _, name := range order {
+		if g := byName[name]; len(g.Fills) > 0 {
+			groups = append(groups, *g)
+		}
+	}
+	return groups
+}
+
+// groupMember returns the zero comparison for one group member. It returns ok=false
+// for a default kind with no zero literal, which checkDefaultGroups rejects from a
+// group.
+func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool) {
+	name := naming.GetFieldName(f)
+	switch f.Default.Kind {
+	case resolution.ValueKindString:
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		return groupMemberData{GoName: name, ZeroLit: "0"}, true
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(
+			f.Default.IdentValue,
+			f.Type,
+			data.table,
+		)
+		if !ok {
+			return groupMemberData{}, false
+		}
+		form, isEnum := ev.Type.Form.(resolution.EnumForm)
+		if !isEnum || form.IsIntEnum {
+			return groupMemberData{}, false
+		}
+		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	}
+	return groupMemberData{}, false
 }
