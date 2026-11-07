@@ -1791,4 +1791,68 @@ var _ = Describe("Iterator index lookups", func() {
 		Expect(one).To(BeNumerically(">", 0))
 		Expect(indexReads(keys[1:]...)).To(Equal(one))
 	})
+
+	It("Should see an index rewritten between commands", func(ctx SpecContext) {
+		db := mustOpenDBOnFS(ctx, fs.NewMem())
+		idxKey, dataKey := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idxKey,
+				Name:     "Hopper",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      dataKey,
+				Name:     "Turing",
+				Index:    idxKey,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		// write fills [0s, 9s] with a sample every step, so each write has the same
+		// domain bounds but a different sample count.
+		write := func(step telem.TimeSpan) {
+			GinkgoHelper()
+			var (
+				stamps []telem.TimeStamp
+				values []int64
+			)
+			for ts := telem.TimeStamp(0); ts <= 9*telem.SecondTS; ts += telem.TimeStamp(step) {
+				stamps = append(stamps, ts)
+				values = append(values, int64(ts))
+			}
+			Expect(db.Write(ctx, 0, telem.MultiFrame(
+				[]cesium.ChannelKey{idxKey, dataKey},
+				[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(values)},
+			))).To(Succeed())
+		}
+		write(telem.Second)
+		i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Channels:      []cesium.ChannelKey{dataKey},
+			Bounds:        telem.TimeRangeMax,
+			AutoChunkSize: 2,
+		}))
+		DeferClose(i)
+		read := func() telem.Series {
+			GinkgoHelper()
+			Expect(i.SeekGE(7 * telem.SecondTS)).To(BeTrue())
+			Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+			return i.Value().SeriesAt(0)
+		}
+		Expect(read()).To(telem.MatchSeriesDataV[int64](
+			int64(7*telem.SecondTS),
+			int64(8*telem.SecondTS),
+		))
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{idxKey, dataKey},
+			telem.TimeRangeMax,
+		)).To(Succeed())
+		write(telem.Second / 2)
+		Expect(read()).To(telem.MatchSeriesDataV[int64](
+			int64(7*telem.SecondTS),
+			int64(7*telem.SecondTS+telem.SecondTS/2),
+		))
+	})
 })
