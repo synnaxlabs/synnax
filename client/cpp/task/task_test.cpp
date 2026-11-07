@@ -90,7 +90,9 @@ TEST(TaskTests, testRetrieveTaskByType) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
+    const auto t2 = ASSERT_NIL_P(
+        r.tasks.retrieve({.type = "pagerduty_alert"}, x::filter::one)
+    );
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
 }
@@ -109,8 +111,22 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
         ASSERT_NIL(r.tasks.create(t));
     }
     ASSERT_OCCURRED_AS_P(
-        r.tasks.retrieve_by_type("pagerduty_alert"),
+        r.tasks.retrieve({.type = "pagerduty_alert"}, x::filter::one),
         x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should name the filter in the error when no task matches it.
+TEST(TaskTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(task matching {"type":{"case_insensitive":false,"eq":"missing_type"}} )"
+        "not found."
     );
 }
 
@@ -125,7 +141,7 @@ TEST(TaskTests, testListTasks) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(m));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list());
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(Where{}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(tasks[0].rack, r.key);
@@ -156,16 +172,9 @@ TEST(TaskTests, testRetrieveWhere) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(other.tasks.create(off_rack));
-    const auto retrieved = ASSERT_NIL_P(r.tasks.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ = std::vector<Where>{
-                    Where{.name = x::filter::String{.eq = tasks[0].name}},
-                    Where{.key = x::filter::Set<Key>{.eq = tasks[1].key}},
-                },
-            },
-        }
-    ));
+    const auto retrieved = ASSERT_NIL_P(
+        r.tasks.retrieve(Where{.name = tasks[0].name} || Where{.key = tasks[1].key})
+    );
     std::set<std::string> keys;
     for (const auto &t: retrieved)
         keys.insert(t.key.to_string());
@@ -272,7 +281,9 @@ TEST(TaskTests, testListTasksWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
+    const auto tasks = ASSERT_NIL_P(
+        r.tasks.retrieve(Where{}, {.include_status = true})
+    );
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
     ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
@@ -364,7 +375,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> types = {type1, type2};
-    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve_by_type(types));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve({.type = types}));
     ASSERT_EQ(tasks.size(), 2);
     bool found1 = false, found2 = false;
     for (const auto &t: tasks) {
