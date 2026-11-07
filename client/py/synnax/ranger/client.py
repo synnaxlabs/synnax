@@ -830,7 +830,7 @@ class Client:
             include_parent=include_parent,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
-        return sole("range", req.where, ranges) if single else ranges
+        return sole("range", req, ranges) if single else ranges
 
     def delete(
         self,

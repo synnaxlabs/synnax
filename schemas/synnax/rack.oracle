@@ -67,6 +67,12 @@ Rack struct {
         """
         @filter
     }
+    version      string?  {
+        @doc value """
+            is the version of the Driver that runs the rack, written at each connect.
+            Absent until a Driver reports it.
+        """
+    }
 
     @cpp includes    "client/cpp/task/task.h"
     @cpp methods     "task::Client tasks"

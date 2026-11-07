@@ -10,29 +10,30 @@
 import pytest
 
 import synnax as sy
+from synnax.label.types_gen import RetrieveRequest
 from synnax.util import request_where, returns_one, sole, sole_or_none
 
 
 class TestSole:
     """Tests for the helpers that return the one record of a single retrieve."""
 
-    where = sy.label.Where(name=sy.filter.String(eq="a"))
+    req = RetrieveRequest(where=sy.label.Where(name=sy.filter.String(eq="a")))
 
     def test_sole(self) -> None:
         """Should return the only record."""
-        assert sole("label", self.where, ["x"]) == "x"
+        assert sole("label", self.req, ["x"]) == "x"
 
     def test_sole_not_found(self) -> None:
         """Should describe the filter when no record matched."""
         with pytest.raises(
             sy.NotFoundError, match=r'^Found no label where name = "a"$'
         ):
-            sole("label", self.where, [])
+            sole("label", self.req, [])
 
     def test_sole_not_found_without_filter(self) -> None:
         """Should leave out the filter when there is none."""
         with pytest.raises(sy.NotFoundError, match=r"^Found no label$"):
-            sole("label", None, [])
+            sole("label", RetrieveRequest(), [])
 
     def test_sole_multiple_found(self) -> None:
         """Should describe the filter when more than one record matched."""
@@ -40,17 +41,34 @@ class TestSole:
             sy.MultipleFoundError,
             match=r'^Expected one label where name = "a", but found 2$',
         ):
-            sole("label", self.where, ["x", "y"])
+            sole("label", self.req, ["x", "y"])
+
+    def test_sole_search_term(self) -> None:
+        """Should name the search term before the filter."""
+        req = self.req.model_copy(update={"search_term": "tank"})
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r'^Found no label matching "tank" where name = "a"$',
+        ):
+            sole("label", req, [])
+
+    def test_sole_search_term_without_filter(self) -> None:
+        """Should name the search term when there is no filter."""
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=r'^Expected one label matching "tank", but found 2$',
+        ):
+            sole("label", RetrieveRequest(search_term="tank"), ["x", "y"])
 
     def test_sole_or_none(self) -> None:
         """Should return the only record, or None when no record matched."""
-        assert sole_or_none("label", self.where, ["x"]) == "x"
-        assert sole_or_none("label", self.where, []) is None
+        assert sole_or_none("label", self.req, ["x"]) == "x"
+        assert sole_or_none("label", self.req, []) is None
 
     def test_sole_or_none_multiple_found(self) -> None:
         """Should raise MultipleFoundError when more than one record matched."""
         with pytest.raises(sy.MultipleFoundError):
-            sole_or_none("label", self.where, ["x", "y"])
+            sole_or_none("label", self.req, ["x", "y"])
 
 
 class TestRequestWhere:

@@ -123,11 +123,7 @@ TEST(TaskTests, testRetrieveOneWhereNotFound) {
     ASSERT_NIL(client.racks.create(r));
     const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(task matching {"type":{"case_insensitive":false,"eq":"missing_type"}} )"
-        "not found."
-    );
+    ASSERT_EQ(err.data, R"(Found no task where type = "missing_type")");
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -353,6 +349,26 @@ TEST(TaskTests, testRetrieveTaskRejectsPage) {
             "hide a second match"
         );
     }
+}
+
+/// @brief it should page a retrieve of the tasks on a rack that a filter matches.
+TEST(TaskTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (int i = 0; i < 3; i++) {
+        auto t = Task{
+            .name = std::to_string(gen_rand_task()),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    const auto where = Where{.type = "pagerduty_alert"};
+    const auto first = ASSERT_NIL_P(r.tasks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(r.tasks.retrieve(where, {.offset = 2}));
+    ASSERT_EQ(rest.size(), 1);
 }
 
 /// @brief it should retrieve multiple tasks by their types.

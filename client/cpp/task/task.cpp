@@ -15,12 +15,12 @@
 namespace synnax::task {
 std::pair<Task, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.key = key}, options, "key " + key.to_string());
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<Task, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.name = name}, options, "name " + name);
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
 std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
@@ -51,20 +51,12 @@ std::pair<Task, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve_one(where, options, where.to_json().dump());
-}
-
-std::pair<Task, x::errors::Error> Client::retrieve_one(
-    const Where &where,
-    const RetrieveOptions &options,
-    const std::string &query
-) const {
     if (options.limit.has_value() || options.offset != 0)
         return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};
-    if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
-    if (tasks.size() > 1) return {Task{}, errors::multiple_found_error("tasks", query)};
+    if (const auto one_err = errors::check_one("task", where.to_json(), tasks.size()))
+        return {Task{}, one_err};
     return {std::move(tasks[0]), x::errors::NIL};
 }
 

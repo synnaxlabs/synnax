@@ -265,7 +265,7 @@ export class Client extends query.Retriever<
     if (schemas != null) {
       const request = retrieveParamsZ.parse(query.dropOne(rest));
       const devices = await this.fetchThrough(request, schemas);
-      checkForMultipleOrNoResults("device", request.where, devices, isSingle);
+      checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -429,11 +429,21 @@ export class Client extends query.Retriever<
     // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
       const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("device", { key: { eq: q.key } }, devices, true);
+      checkForMultipleOrNoResults(
+        "device",
+        { where: { key: { eq: q.key } } },
+        devices,
+        true,
+      );
       return devices[0];
     }
     const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("device", { key: { eq: q.key } }, devices, true);
+    checkForMultipleOrNoResults(
+      "device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
     return devices[0];
   }
 }
