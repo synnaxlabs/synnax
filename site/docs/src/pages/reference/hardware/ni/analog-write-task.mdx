@@ -20,7 +20,8 @@ from `ao0` of a USB-6343.
 
 Each output has a command channel and a
 [state channel](/reference/hardware/tasks#write-tasks). Each command writes the last
-value of every output of the task in one call.
+value of every output of the task in one call. A [function generator](#ao_func_gen) is
+different: it has no command or state channel, and it runs while the task runs.
 
 Before you start, you need a
 [configured device](/reference/hardware/ni/configure-device).
@@ -48,7 +49,8 @@ limit only when they share an index channel.
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
 the command channel `dev1_ao_0_cmd` with the index `dev1_ao_0_cmd_time`, and the state
-channel `dev1_ao_0_state` with the index `dev1_ao_state_time`.
+channel `dev1_ao_0_state` with the index `dev1_ao_state_time`. The Console creates no
+channels for a function generator.
 
 <Video id="hardware/ni/analog-write-task" />
 
@@ -192,7 +194,13 @@ Outputs a current.
 >
   <Icon.Function slot="icon" />
 
-Generates a waveform on the output.
+Generates a waveform on the output from the task start to the task stop. To change the
+waveform, stop the task, change the settings, then start it again. This channel has no
+command or state channel, and the task ignores `cmd_channel` and `state_channel`.
+
+Few NI devices support this channel type. On other devices, NI-DAQmx rejects the channel
+when the task starts. NI-DAQmx can also reject a task that has this channel type and
+other channel types. If it does, use a task for each type.
 
 | Setting                              | Default | Notes                                     |
 | ------------------------------------ | ------- | ----------------------------------------- |

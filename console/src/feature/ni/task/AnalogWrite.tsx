@@ -37,6 +37,7 @@ import {
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   deployAnalogWriteConfigZ,
+  isGenerated,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -45,6 +46,12 @@ import { Task } from "@/platform/task";
 const root = deep.path<Task.Values<AnalogWriteSchemas>>();
 
 const portOf = (c: AOChannel): string => c.port.toString();
+
+const contextMenuItems = (props: Task.ContextMenuItemProps<AOChannel>) => {
+  const channel = props.channels.find(({ key }) => key === props.keys[0]);
+  if (channel == null || isGenerated(channel)) return null;
+  return Task.writeChannelContextMenuItems(props);
+};
 
 const Properties = () => (
   <>
@@ -78,6 +85,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       }
       portMaxChars={2}
       canTare={false}
+      channelNamesHidden={isGenerated(item)}
       path={entry}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
@@ -106,6 +114,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.cmdChannel}
+      channelNameHidden={isGenerated(value)}
       namePath={path.cmdChannelName}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
       skipped={skipped}
@@ -121,7 +130,7 @@ const Form: FC = () => {
   const dev = useFromConfig();
   PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
-    if (dev == null) return null;
+    if (dev == null || isGenerated(ch)) return null;
     const pair =
       dev.properties.analogOutput.channels[ch.port.toString()] ??
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
@@ -146,7 +155,7 @@ const Form: FC = () => {
       details={channelDetails}
       detailsTitle={detailsTitle}
       createChannel={(channels, copy) => createNextAOChannel(channels, { copy }, dev)}
-      contextMenuItems={Task.writeChannelContextMenuItems}
+      contextMenuItems={contextMenuItems}
       resolve={resolve}
       ports={ports}
     />
@@ -172,6 +181,13 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
+  const commanded = config.channels.filter((c) => !isGenerated(c));
+  const detach = (c: AOChannel): AOChannel => ({
+    ...c,
+    ...Task.WRITE_CHANNEL_OVERRIDE,
+  });
+  if (commanded.length === 0)
+    return [{ ...config, channels: config.channels.map(detach) }, dev.rack];
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)
@@ -195,7 +211,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     }
     const commandsToCreate: AOChannel[] = [];
     const statesToCreate: AOChannel[] = [];
-    for (const channel of Task.firstPerPort(config.channels, portOf)) {
+    for (const channel of Task.firstPerPort(commanded, portOf)) {
       const key = portOf(channel);
       const exPair = dev.properties.analogOutput.channels[key];
       if (exPair == null) {
@@ -262,6 +278,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
+    if (isGenerated(c)) return detach(c);
     const pair = dev.properties.analogOutput.channels[c.port.toString()];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });

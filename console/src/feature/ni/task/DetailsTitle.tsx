@@ -20,6 +20,8 @@ export interface DetailsTitleProps {
   port: { label: string; state: Task.Port.State; disabled: boolean } | null;
   type: { icon: JSX.Element; name: string };
   channel: channel.Key;
+  /** The channel type has no Synnax channel to name. */
+  channelNameHidden?: boolean;
   namePath: deep.Target<string | undefined>;
   /** The name deploying the task gives a channel with no name. */
   defaultName?: string;
@@ -36,6 +38,7 @@ export const DetailsTitle = ({
   port,
   type,
   channel,
+  channelNameHidden,
   namePath,
   defaultName,
   skipped,
@@ -51,15 +54,17 @@ export const DetailsTitle = ({
         {type.icon}
       </Text.Text>
     </Tooltip.Dialog>
-    <Task.ChannelName
-      channel={channel}
-      namePath={namePath}
-      defaultName={defaultName}
-      skipped={skipped}
-      level="p"
-      weight={500}
-      overflow="fade"
-    />
+    {!channelNameHidden && (
+      <Task.ChannelName
+        channel={channel}
+        namePath={namePath}
+        defaultName={defaultName}
+        skipped={skipped}
+        level="p"
+        weight={500}
+        overflow="fade"
+      />
+    )}
     {model != null && (
       <Text.Text level="small" color={9} wrap={false}>
         {model}

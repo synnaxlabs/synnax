@@ -446,6 +446,53 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->stop_count, 2);
 }
 
+/// @brief it should run a sink with no outputs from start to stop with no streamer or
+/// writer, and release its hardware exactly once.
+TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
+    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        {},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto sink = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto *raw_sink = sink.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        writer_factory,
+        streamer_factory
+    );
+
+    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].message, "Started task");
+    EXPECT_TRUE(ctx->statuses[0].details.running);
+    EXPECT_EQ(raw_sink->start_count, 1);
+
+    ASSERT_FALSE(write_task.start("start_cmd_2"));
+    EXPECT_EQ(raw_sink->start_count, 1);
+
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+    EXPECT_EQ(ctx->statuses.back().message, "Stopped task");
+    EXPECT_EQ(raw_sink->stop_count, 1);
+    ASSERT_FALSE(write_task.stop("stop_cmd_2", true));
+    EXPECT_EQ(raw_sink->stop_count, 1);
+
+    EXPECT_EQ(streamer_factory->streamer_opens.load(), 0);
+    EXPECT_EQ(writer_factory->writer_opens.load(), 0);
+}
+
 /// @brief it should parse a device key from the config.
 TEST(BaseWriteTaskConfigTest, testParse) {
     const x::json::json j{{"device", "abc123"}, {"auto_start", true}};

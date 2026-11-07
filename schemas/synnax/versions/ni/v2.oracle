@@ -1519,7 +1519,9 @@ AOChannel union on type extends BaseAOChannel {
             @doc value "is the waveform DC offset."
         }
 
-        @doc value "drives a function-generator output."
+        @doc value """
+            generates a waveform from task start to task stop, with no commands.
+        """
     }
     ao_voltage extends MinMaxVal, CustomScale {
         @doc value "drives a voltage output."

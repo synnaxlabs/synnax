@@ -1556,7 +1556,8 @@ struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomS
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AOFuncGenChannel drives a function-generator output.
+/// @brief AOFuncGenChannel generates a waveform from task start to task stop, with no
+/// commands.
 struct AOFuncGenChannel : public BaseAOChannel {
     std::string type = "ao_func_gen";
     /// @brief wave_type selects the waveform to generate.
