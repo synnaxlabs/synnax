@@ -453,7 +453,7 @@ def run(
     the shared prompt from the prompt cache. They do not start when that pass fails
     first.
 
-    :param claude: Called from one thread for each pass when the config has lenses.
+    :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
     :raises RuntimeError: If Claude Code ends with an error.
     """
