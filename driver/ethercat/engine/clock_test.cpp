@@ -56,4 +56,29 @@ TEST(Clock, FollowsAHostClockThatRunsFaster) {
     }
     EXPECT_LT(error.abs(), x::telem::MICROSECOND * 125);
 }
+
+/// @brief it should read the host clocks by default.
+TEST(HostClock, ReadsTheHostByDefault) {
+    const HostClock clock;
+    const auto before = x::telem::TimeStamp::now();
+    const auto now = clock.now();
+    EXPECT_GE(now, before);
+    EXPECT_LE(now, x::telem::TimeStamp::now());
+}
+
+/// @brief it should wait on the clock it reads from and move the wall time with it.
+TEST(HostClock, MovesTheWallTimeWithItsSource) {
+    auto steady = hs_clock::now();
+    const HostClock clock(
+        x::loop::Clock{
+            .now = [&steady] { return steady; },
+            .sleep =
+                [&steady](const x::telem::TimeSpan span) { steady += span.chrono(); },
+        }
+    );
+    const auto start = clock.now();
+    auto timer = clock.timer(x::telem::SECOND * 5);
+    timer.wait();
+    EXPECT_EQ(clock.now() - start, x::telem::SECOND * 5);
+}
 }

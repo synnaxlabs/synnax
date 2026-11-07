@@ -13,6 +13,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "testutil",
     hdrs = [
+        "clock.h",
         "master.h",
         "pool.h",
     ],
@@ -22,6 +23,8 @@ cc_library(
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
     ],
 )
 
