@@ -155,7 +155,8 @@ public:
     /// OP to return to it. Reports each left-out slave with its reason. Takes no
     /// further recovery step once breaker stops. Safe to call from one thread while
     /// another runs receive() and send(). Valid between activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step.
+    /// @returns the condition of each enabled slave before any recovery step, then each
+    /// left-out slave with its refusal.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
 
