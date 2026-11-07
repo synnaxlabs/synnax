@@ -30,9 +30,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A Windows runner is slow to start and clone, so the core-windows job takes one only
+  # when it has a build to run.
+  windows-runner:
+    name: Pick the Windows runner
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.pick.outputs.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Pick the runner
+        id: pick
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base=$(git merge-base "$BASE" HEAD)
+          if git diff --quiet "$base" HEAD -- core/cmd .github/scripts/surface.sh; then
+            echo "os=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "os=windows-latest" >> "$GITHUB_OUTPUT"
+          fi
+
   surface:
     name: Compare ${{ matrix.surface }}
-    runs-on: ubuntu-latest
+    needs: windows-runner
+    runs-on:
+      ${{ matrix.surface == 'core-windows' && needs.windows-runner.outputs.os ||
+      'ubuntu-latest' }}
+    defaults:
+      run:
+        shell: bash
     # The proxy drops streams at times, so a failed fetch falls back to the source.
     env:
       GOPROXY: https://proxy.golang.org|direct
@@ -46,14 +78,33 @@ jobs:
           - surface: client-ts
             paths: client/ts x/ts freighter/ts alamos/ts configs pnpm-lock.yaml
             node: true
+          - surface: console-state
+            paths: >-
+              console/src console/scripts console/vite.config.ts console/tsconfig.json
+              console/package.json alamos/ts arc/ts client/ts configs drift freighter/ts
+              lyra pluto x/ts pnpm-lock.yaml
+            node: true
           - surface: client-py
             paths: client/py scripts/surface_py.py scripts/pyproject.toml uv.lock
+            uv: true
+          - surface: client-py-cli
+            paths: client/py scripts/surface_py_cli.py scripts/pyproject.toml uv.lock
+            uv: true
+          - surface: client-py-state
+            paths: client/py scripts/surface_py_state.py scripts/pyproject.toml uv.lock
             uv: true
           - surface: core
             paths: core x/go
             go: core/go.mod
+          # The Core builds its service commands for Windows only.
+          - surface: core-windows
+            paths: core/cmd
+            go: core/go.mod
           - surface: driver
             paths: driver client/cpp scripts/surface_driver.py
+            uv: true
+          - surface: client-cpp
+            paths: client/cpp scripts/surface_cpp.py
             uv: true
     steps:
       - name: Checkout repository
@@ -112,6 +163,13 @@ jobs:
           if [ ! -x .github/scripts/surface.sh ]; then
             mkdir -p "out/surface-$SURFACE"
             echo error > "out/surface-$SURFACE/status"
+            exit 0
+          fi
+          # This workflow comes from the merge ref, so it can name a surface the head
+          # predates. Dropping one from the script fails the trust check.
+          if ! grep -Fq -- "$SURFACE" .github/scripts/surface.sh; then
+            mkdir -p "out/surface-$SURFACE"
+            echo skipped > "out/surface-$SURFACE/status"
             exit 0
           fi
           git worktree add --detach ../base "$BASE"

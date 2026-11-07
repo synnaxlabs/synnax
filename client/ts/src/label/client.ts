@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, zod } from "@synnaxlabs/x";
+import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
@@ -32,7 +32,13 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/label/where.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -55,11 +61,10 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 /** @returns the resources that the for lines of where name. */
 const forIDs = (where: Where): ontology.ID[] => [
@@ -137,6 +142,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     super(cache, {
       name: "label",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => {

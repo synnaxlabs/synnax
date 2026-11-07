@@ -38,6 +38,34 @@ var _ = Describe("Server Diagnostics", func() {
 		server, docURI, client = SetupTestServerWithClient()
 	})
 
+	Describe("Module documents", func() {
+		moduleURI := uri.URI("arc://module/test")
+
+		It("Should analyze a module document as a module", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, moduleURI, "export func f() i64 { return 1 }")
+			Expect(client.Diagnostics()).To(BeEmpty())
+		})
+
+		It("Should apply the module rules to a module document", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, moduleURI, "authority 255")
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			Expect(DiagnosticMessage(client.Diagnostics()[0])).To(
+				ContainSubstring("a module cannot have an authority block"),
+			)
+		})
+
+		It(
+			"Should reject export in a document that is not a module",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, "export func f() i64 { return 1 }")
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(DiagnosticMessage(client.Diagnostics()[0])).To(
+					ContainSubstring("export is only valid in a module"),
+				)
+			},
+		)
+	})
+
 	Describe("Diagnostic Range", func() {
 		It(
 			"Should publish diagnostics with correct end position for undefined symbol",
