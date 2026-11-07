@@ -102,7 +102,7 @@ protected:
             .properties = props,
         };
         const auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
+        EXPECT_NIL(err);
         return dev;
     }
 
@@ -132,7 +132,7 @@ protected:
             .properties = props,
         };
         const auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
+        EXPECT_NIL(err);
         return dev;
     }
 

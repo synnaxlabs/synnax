@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -32,6 +33,16 @@ const auto EMISSION_RATE = x::telem::HERTZ * 1;
 /// of the rack as stopped.
 const auto LATE_GAP = EMISSION_RATE.period() * 3;
 
+/// @brief the variant, message, and description that each heartbeat reports.
+struct Health {
+    /// @brief the status variant, such as success or error.
+    std::string variant = ::synnax::status::VARIANT_SUCCESS;
+    /// @brief what the heartbeat reports, in one short line.
+    std::string message = "Driver is running";
+    /// @brief why, and what to do now. Empty when the Driver is healthy.
+    std::string description;
+};
+
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::rack::Key rack_key;
@@ -39,12 +50,14 @@ class Source final : public driver::pipeline::Base {
     /// @brief the loop used to control the emission rate of the heartbeat.
     x::loop::Timer loop;
     std::shared_ptr<task::Context> ctx;
+    const Health health;
 
 public:
     Source(
         const synnax::rack::Rack &rack,
         synnax::task::Task task,
-        const std::shared_ptr<task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx,
+        Health health
     ):
         Base(
             x::breaker::Config{
@@ -59,7 +72,8 @@ public:
         rack_key(rack.key),
         task(std::move(task)),
         loop(x::loop::Timer(EMISSION_RATE)),
-        ctx(ctx) {}
+        ctx(ctx),
+        health(std::move(health)) {}
 
     void run() override {
         synnax::task::Status stat{
@@ -82,8 +96,9 @@ public:
             synnax::rack::Status status{
                 .key = synnax::rack::ontology_id(this->rack_key).string(),
                 .name = this->ctx->rack_name(),
-                .variant = ::synnax::status::VARIANT_SUCCESS,
-                .message = "Driver is running",
+                .variant = this->health.variant,
+                .message = this->health.message,
+                .description = this->health.description,
                 .time = x::telem::TimeStamp::now(),
                 .details = synnax::rack::StatusDetails{.rack = this->rack_key}
             };
@@ -142,9 +157,10 @@ public:
     Task(
         const synnax::rack::Rack &rack,
         const synnax::task::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx,
+        Health health = {}
     ):
-        pipe(rack, task, ctx) {
+        pipe(rack, task, ctx, std::move(health)) {
         this->pipe.start();
     }
 
@@ -157,7 +173,8 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        Health health = {}
     ) {
         auto rack_key = task.rack;
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
@@ -175,17 +192,23 @@ public:
             ctx->set_status(stat);
             return nullptr;
         }
-        return std::make_unique<Task>(rack, task, ctx);
+        return std::make_unique<Task>(rack, task, ctx, std::move(health));
     }
 };
 
 struct Factory final : task::Factory {
+    /// @brief what the heartbeat of each configured task reports.
+    const Health health;
+
+    explicit Factory(Health health = {}): health(std::move(health)) {}
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
+        if (task.type == TASK_TYPE)
+            return {Task::configure(ctx, task, this->health), true};
         return {nullptr, false};
     }
 

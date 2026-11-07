@@ -215,6 +215,13 @@ describe("roundNumeric", () => {
     expect(roundNumeric(-400)).toBe(0n);
     expect(roundNumeric(-1600)).toBe(-2000n);
   });
+
+  it("should round to the nearest step", () => {
+    expect(roundNumeric(62_500, TimeSpan.NANOSECOND)).toBe(62_500n);
+    expect(roundNumeric(-62_500, TimeSpan.NANOSECOND)).toBe(-62_500n);
+    expect(roundNumeric(15_000, TimeSpan.microseconds(10))).toBe(20_000n);
+    expect(roundNumeric(-14_000, TimeSpan.microseconds(10))).toBe(-10_000n);
+  });
 });
 
 describe("unitAt", () => {

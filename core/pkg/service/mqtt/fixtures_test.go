@@ -294,6 +294,31 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 	return stat
 }
 
+// publishUntilDone publishes payload to topic every 10 ms until the spec ends.
+func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(stopped)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		close(done)
+		Eventually(stopped).Should(BeClosed())
+	})
+}
+
 // testStreamer receives the frames written to a set of channels.
 type testStreamer struct {
 	responses <-chan framer.StreamerResponse

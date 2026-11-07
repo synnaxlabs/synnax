@@ -884,7 +884,7 @@ describe("MQTT Scan Task", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.config, undefined)).toBe(true);
   });
 
-  it("should accept the null status data of a test connection reply", () => {
+  it("should accept the null status data of a reply with no data", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
   });
 
@@ -921,6 +921,29 @@ describe("MQTT Scan Task", () => {
     };
     const data = { nodes: [], tags: [tag] };
     expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
+  });
+
+  it("should accept the status data of a sample reply", () => {
+    const data = {
+      topics: [
+        {
+          topic: "plant/temp",
+          messages: [{ time: 0, format: "json", payload: "21.5", retained: false }],
+        },
+      ],
+      shapes: [],
+      truncated: false,
+    };
+    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, data)).toBe(true);
+  });
+
+  it("should keep the shapes of a sample reply with no topics", () => {
+    const shape = { sources: ["plant/temp"], fields: [], index: -1, count: 1 };
+    const data = { topics: [], shapes: [shape], truncated: false };
+    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual({
+      ...data,
+      shapes: [{ ...shape, index: undefined }],
+    });
   });
 
   it("should reject a browse reply with no truncated flag", () => {

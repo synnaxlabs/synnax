@@ -62,7 +62,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+        auto [arc_data, arc_err] = client->arcs.retrieve(
             cfg.arc_key,
             synnax::arc::RetrieveOptions{.include_program = true}
         );

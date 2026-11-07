@@ -79,7 +79,8 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief handles device updates to sync enabled flag to engine.
+    /// @brief sets the status of a changed slave device, or an error status when its
+    /// properties are invalid.
     void on_device_set(const synnax::device::Device &dev) override;
 
 private:
