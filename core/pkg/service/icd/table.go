@@ -372,7 +372,10 @@ func parseID(s string) (uint32, error) {
 		s, base = s[2:], 16
 	}
 	v, err := strconv.ParseUint(s, base, 32)
-	return uint32(v), err
+	if err != nil {
+		return 0, err
+	}
+	return uint32(v), nil
 }
 
 func parseBool(row int, column, s string) (bool, error) {
