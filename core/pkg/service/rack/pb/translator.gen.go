@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -83,11 +84,15 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 }
 
 // RackFromPB converts Rack to Rack.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RackFromPB(pb *Rack) (rack.Rack, error) {
 	var r rack.Rack
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
 	r.Embedded = pb.Embedded
@@ -99,6 +104,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 		}
 		r.Status = &val
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
