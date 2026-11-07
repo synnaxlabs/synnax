@@ -65,6 +65,7 @@ class Master final : public master::Master {
     size_t output_sz{0};
     std::vector<std::string> calls;
     size_t init_calls{0};
+    std::optional<x::telem::TimeSpan> period;
     size_t send_calls{0};
     std::condition_variable sent_cv;
     size_t start_frames{1};
@@ -268,11 +269,15 @@ public:
 
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
     /// slaves with outputs need. Logs "op" when the slaves reach OP.
-    x::errors::Error activate(const std::function<void()> &start_cycle) override {
+    x::errors::Error activate(
+        const x::telem::TimeSpan period,
+        const std::function<void()> &start_cycle
+    ) override {
         size_t sent = 0;
         {
             std::lock_guard lock(this->mu);
             this->calls.emplace_back("activate");
+            this->period = period;
             if (this->inject_activate_err) return this->inject_activate_err;
             if (!this->initialized)
                 return x::errors::Error(
@@ -491,6 +496,12 @@ public:
     size_t init_call_count() const {
         std::lock_guard lock(this->mu);
         return this->init_calls;
+    }
+
+    /// @brief returns the bus period of the latest activate() call.
+    std::optional<x::telem::TimeSpan> activated_period() const {
+        std::lock_guard lock(this->mu);
+        return this->period;
     }
 
     /// @brief resets the initialize call counter.

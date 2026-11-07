@@ -10,13 +10,17 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstring>
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
+
+#include "x/cpp/binary/binary.h"
 
 #include "driver/ethercat/soem/api.h"
 
@@ -50,7 +54,10 @@ struct MockSlaveInfo {
 struct RegisterWrite {
     uint16_t slave = 0;
     uint16_t address = 0;
-    std::vector<uint8_t> data;
+    /// @brief the value of the written bytes, read as a little-endian integer.
+    int64_t value = 0;
+    /// @brief the number of bytes written.
+    size_t size = 0;
     /// @brief true when the write came after config_map_group.
     bool mapped = false;
 
@@ -139,6 +146,16 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief slaves whose register writes return a working counter of 0.
+    std::set<uint16_t> unwritable_slaves;
+    /// @brief the number of state change requests before each register write, in the
+    /// order of register_writes.
+    std::vector<size_t> requests_before_write;
+    /// @brief the values read_register gives, keyed by slave and address. A register
+    /// missing from the map reads as zero.
+    std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
+    /// @brief the working counter read_register returns.
+    int read_register_return = 1;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
@@ -251,10 +268,32 @@ public:
         std::vector<uint8_t> data,
         int
     ) override {
-        this->register_writes.push_back(
-            {slave, address, std::move(data), this->mapped_group.has_value()}
-        );
+        std::array<uint8_t, sizeof(int64_t)> padded{};
+        std::ranges::copy(data, padded.begin());
+        this->register_writes.push_back({
+            .slave = slave,
+            .address = address,
+            .value = x::binary::from_little_endian<int64_t>(padded),
+            .size = data.size(),
+            .mapped = this->mapped_group.has_value(),
+        });
+        this->requests_before_write.push_back(this->state_change_requests.size());
+        if (this->unwritable_slaves.contains(slave)) return 0;
         return this->write_register_return;
+    }
+
+    int read_register(
+        uint16_t slave,
+        uint16_t address,
+        std::span<uint8_t> data,
+        int
+    ) override {
+        const auto it = this->register_values.find({slave, address});
+        const auto bytes = x::binary::to_little_endian(
+            it == this->register_values.end() ? int64_t{0} : it->second
+        );
+        std::copy_n(bytes.begin(), data.size(), data.begin());
+        return this->read_register_return;
     }
 
     int reconfig_slave(uint16_t slave, int) override {

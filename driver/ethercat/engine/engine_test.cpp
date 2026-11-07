@@ -565,6 +565,27 @@ TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
+/// @brief it should activate the master with the period of the bus rate.
+TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->activated_period(), x::telem::MILLISECOND * 10);
+}
+
+/// @brief it should return at once, without a retry, when the config of a slave cannot
+/// run.
+TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
+    );
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {

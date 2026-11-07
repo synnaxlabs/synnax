@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <thread>
@@ -25,9 +26,28 @@
 
 namespace driver::ethercat::soem {
 namespace {
+/// @brief the bus cycle the specs activate the master with.
+const auto PERIOD = x::telem::MILLISECOND;
+
 /// @brief a bus cycle that sends nothing. The mock API needs no process data to reach
 /// OP.
 void no_cycle() {}
+
+/// @brief the only mode of a module that runs in DC mode alone: SYNC0 of 1 us and SYNC1
+/// of 1000 bus cycles.
+const dc::OpMode DC_ONLY{
+    .name = "DC",
+    .assign_activate = 0x0700,
+    .sync0_cycle = 1000,
+    .sync1_factor = -1000,
+};
+const dc::OpMode SM{.name = "SM-Synchron", .sync0_factor = 1};
+/// @brief a DC mode with a SYNC0 of 1 s and a SYNC1 at each SYNC0 event.
+const dc::OpMode DC_SECOND{
+    .name = "DC",
+    .assign_activate = 0x0700,
+    .sync0_cycle = 1000000000,
+};
 }
 
 class SOEMMasterTest : public ::testing::Test {
@@ -35,6 +55,8 @@ protected:
     MockAPI *mock{};
     std::unique_ptr<Master> master;
     x::breaker::Breaker brk;
+    /// @brief the bus cycle that activate() starts the master with.
+    x::telem::TimeSpan period = PERIOD;
 
     void SetUp() override {
         auto api = std::make_unique<MockAPI>();
@@ -45,6 +67,7 @@ protected:
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
                 .state_change_timeout = x::telem::MILLISECOND * 100,
+                .dc_settle_timeout = x::telem::MILLISECOND * 50,
             }
         );
         this->brk.start();
@@ -74,12 +97,58 @@ protected:
         ASSERT_NIL(this->master->initialize());
     }
 
+    /// @brief writes modes to the SII DC category that every slave reads.
+    void set_op_modes(const std::vector<dc::OpMode> &modes) {
+        constexpr uint16_t start = 0x200;
+        this->mock->sii_categories = {{60, start}};
+        const auto put = [this](const size_t addr, const uint64_t value, const int n) {
+            for (int i = 0; i < n; ++i)
+                this->mock
+                    ->sii_bytes[static_cast<uint16_t>(addr + i)] = static_cast<uint8_t>(
+                    value >> (8 * i)
+                );
+        };
+        put(start, modes.size() * 12, 2);
+        for (size_t i = 0; i < modes.size(); ++i) {
+            const auto &m = modes[i];
+            const size_t a = start + 2 + i * 24;
+            put(a, m.sync0_cycle, 4);
+            put(a + 4, static_cast<uint32_t>(m.sync0_shift), 4);
+            put(a + 8, static_cast<uint32_t>(m.sync1_shift), 4);
+            put(a + 12, static_cast<uint16_t>(m.sync1_factor), 2);
+            put(a + 14, m.assign_activate, 2);
+            put(a + 16, static_cast<uint16_t>(m.sync0_factor), 2);
+            if (m.name.empty()) continue;
+            put(a + 18, i + 1, 1);
+            this->mock->sii_strings[static_cast<uint16_t>(i + 1)] = m.name;
+        }
+    }
+
+    /// @brief initializes the master with one DC slave named 16xAO that lists modes,
+    /// and gives it a DC system time of 5 s.
+    void initialize_with_dc_slave(const std::vector<dc::OpMode> &modes) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.hasdc = true;
+        slave.name = "16xAO";
+        this->add_slave(slave);
+        this->set_op_modes(modes);
+        this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
+        ASSERT_NIL(this->master->initialize());
+        this->mock->obytes = 2;
+        this->mock->ibytes = 4;
+        this->mock->outputs_wkc = 1;
+        this->mock->inputs_wkc = 1;
+        this->mock->receive_return = 3;
+        this->mock->state_change_requests.clear();
+    }
+
     /// @brief activates the master with a bus cycle that exchanges process data on its
     /// own thread until activate returns. Calls on_start as the cycle starts.
     x::errors::Error activate(const std::function<void()> &on_start = nullptr) {
         std::atomic<bool> cycling = true;
         std::thread cycle;
-        auto err = this->master->activate([&] {
+        auto err = this->master->activate(this->period, [&] {
             if (on_start) on_start();
             cycle = std::thread([&] {
                 while (cycling.load()) {
@@ -530,10 +599,11 @@ TEST_F(SOEMMasterTest, ActivateDCSyncRefusalAddsAdvice) {
         err.data,
         "failed to reach SAFE-OP: slave 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
-        "configuration. A slave that reports \"Invalid DC SYNC configuration\" needs "
-        "DC sync, which the Driver does not support yet. If the slave has an SM sync "
-        "mode, set it (in DewesoftX for Dewesoft modules). If not, disable the slave "
-        "so the rest of the bus can run."
+        "configuration. A slave that reports \"Invalid DC SYNC configuration\" "
+        "expects a synchronization mode that the Driver did not set up. The Driver "
+        "uses SM sync when a slave lists an SM mode, and DC sync when it lists only DC "
+        "modes. Set the slave to the mode that the Driver uses (in DewesoftX for "
+        "Dewesoft modules), or disable the slave so the rest of the bus can run."
     );
 }
 
@@ -661,7 +731,7 @@ TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
     this->mock->sync_dc_return = 0;
     x::errors::Error send_err;
     x::errors::Error receive_err;
-    static_cast<void>(this->master->activate([&] {
+    static_cast<void>(this->master->activate(PERIOD, [&] {
         send_err = this->master->send();
         receive_err = this->master->receive();
     }));
@@ -687,7 +757,7 @@ TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->state_change_requests.clear();
-    const auto err = this->master->activate(no_cycle);
+    const auto err = this->master->activate(PERIOD, no_cycle);
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         err.data,
@@ -758,8 +828,8 @@ TEST_F(SOEMMasterTest, ActivateClearsDCActivationBeforeMapping) {
     this->mock->ibytes = 4;
     ASSERT_NIL(this->activate());
     const std::vector<RegisterWrite> expected = {
-        {.slave = 1, .address = 0x0980, .data = {0}},
-        {.slave = 1, .address = 0x0981, .data = {0}},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
 }
@@ -778,6 +848,211 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
+}
+
+/// @brief it should start SYNC0 and SYNC1 on a slave that lists only a DC mode, before
+/// it requests SAFE-OP, with the first SYNC0 event on a whole SYNC0 cycle at least 100
+/// ms after the system time of the slave.
+TEST_F(SOEMMasterTest, ActivateStartsSyncOnASlaveWithOnlyADCMode) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    ASSERT_NIL(this->activate());
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x09A0, .value = 1000, .size = 4, .mapped = true},
+        {.slave = 1,
+         .address = 0x09A4,
+         .value = 999'999'000,
+         .size = 4,
+         .mapped = true},
+        {.slave = 1,
+         .address = 0x0990,
+         .value = 5'100'001'000,
+         .size = 8,
+         .mapped = true},
+        {.slave = 1, .address = 0x0981, .value = 0x07, .size = 1, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+    EXPECT_EQ(this->mock->requests_before_write, std::vector<size_t>(7, 0));
+}
+
+/// @brief it should add the SYNC0 shift of the mode to the start time.
+TEST_F(SOEMMasterTest, ActivateShiftsTheFirstSYNC0Event) {
+    auto mode = DC_SECOND;
+    mode.sync0_shift = 250'000;
+    this->initialize_with_dc_slave({mode});
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[5].value, 6'000'250'000);
+}
+
+/// @brief it should put the first SYNC0 event at least 100 ms after the system time of
+/// the slave when the shift of the mode is negative.
+TEST_F(SOEMMasterTest, ActivateKeepsTheFirstSYNC0EventAheadWithANegativeShift) {
+    this->initialize_with_dc_slave({{
+        .name = "DC",
+        .assign_activate = 0x0300,
+        .sync0_cycle = 1'000'000,
+        .sync0_shift = -200'000'000,
+    }});
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[5].value, 5'101'000'000);
+}
+
+/// @brief it should start the cyclic unit 100 ms after the system time of the slave
+/// when the mode leaves SYNC0 off, since there is no SYNC0 cycle to align to.
+TEST_F(SOEMMasterTest, ActivateStartsTheCyclicUnitOfAModeWithSYNC0Off) {
+    this->initialize_with_dc_slave({{.name = "DC", .assign_activate = 0x0100}});
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].value, 0);
+    EXPECT_EQ(this->mock->register_writes[5].value, 5'100'000'000);
+    EXPECT_EQ(this->mock->register_writes[6].value, 0x01);
+}
+
+/// @brief it should leave DC sync off on a slave that lists an SM mode.
+TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
+    this->initialize_with_dc_slave({SM, DC_SECOND});
+    ASSERT_NIL(this->activate());
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should leave DC sync off on a disabled slave.
+TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnADisabledSlave) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->master->set_slave_enabled(1, false);
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->mock->register_writes.empty());
+}
+
+/// @brief it should fail activation before it maps the slaves when the mode of a slave
+/// gives values its DC registers cannot hold at the bus cycle.
+TEST_F(SOEMMasterTest, ActivateFailsWhenTheDCModeCannotRunAtThePeriod) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->period = x::telem::MILLISECOND * 10;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (16xAO) cannot run its DC mode at a bus cycle of " +
+            this->period.to_string() + ": " +
+            dc::resolve(DC_ONLY, this->period).second.data
+    );
+    EXPECT_EQ(this->mock->mapped_group, std::nullopt);
+}
+
+/// @brief it should write only 0x0980 on a slave whose mode gives the sync unit to the
+/// PDI.
+TEST_F(SOEMMasterTest, ActivateLeavesASyncUnitThePDIOwns) {
+    this->initialize_with_dc_slave(
+        {{.name = "DC", .assign_activate = 0x0301, .sync0_factor = 1}}
+    );
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 3);
+    EXPECT_EQ(
+        this->mock->register_writes[2],
+        (RegisterWrite{
+            .slave = 1,
+            .address = 0x0980,
+            .value = 0x01,
+            .size = 1,
+            .mapped = true
+        })
+    );
+}
+
+/// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
+/// the clock of a slave stays more than 10 us off the reference clock.
+TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->register_values[{1, 0x092C}] = 20'000;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "the clock of slave 1 (16xAO) is " + x::telem::TimeSpan(20'000).to_string() +
+            " off the reference clock after " +
+            (x::telem::MILLISECOND * 50).to_string() + ". It must be within " +
+            (x::telem::MICROSECOND * 10).to_string() + " before SYNC0 starts."
+    );
+    EXPECT_EQ(this->mock->register_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should fail activation, before it starts SYNC0 or requests SAFE-OP, when
+/// no frame carries the reference clock to the slaves, since the clock difference of a
+/// slave keeps its old value until one does.
+TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    const auto err = this->master->activate(PERIOD, no_cycle);
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "no frame carried the reference clock to the slaves within " +
+            (x::telem::MILLISECOND * 50).to_string()
+    );
+    EXPECT_EQ(this->mock->register_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should read bit 31 of the system time difference as its sign.
+TEST_F(SOEMMasterTest, ActivateReadsTheSignOfTheClockDifference) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->register_values[{1, 0x092C}] = 0x80000000 | 5'000;
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->mock->register_writes.size(), 7);
+}
+
+/// @brief it should fail activation when a slave does not answer a read of its clock
+/// difference.
+TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockCannotBeRead) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->read_register_return = 0;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "slave 1 (16xAO) did not answer a read of DC register 0x092C");
+}
+
+/// @brief it should turn DC sync off when it stops the bus.
+TEST_F(SOEMMasterTest, DeactivateClearsDCActivation) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    ASSERT_NIL(this->activate());
+    this->mock->register_writes.clear();
+    this->master->deactivate();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should turn DC sync off on every slave when it stops the bus, also after a
+/// slave fails a write.
+TEST_F(SOEMMasterTest, DeactivateClearsDCActivationPastAFailedSlave) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->activate());
+    this->mock->register_writes.clear();
+    this->mock->unwritable_slaves = {1};
+    this->master->deactivate();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
 }
 
 /// @brief it should send and receive process data for the group of enabled slaves only.
