@@ -21,7 +21,7 @@ import {
   retrieveResponseZ,
 } from "@/group/types.gen";
 import { LINES } from "@/group/where";
-import { matches, retrieveInputZ, serverComputed } from "@/group/where.gen";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/group/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -79,6 +79,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     super(cache, {
       name: "group",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
