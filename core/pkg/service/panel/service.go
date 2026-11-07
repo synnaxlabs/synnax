@@ -82,13 +82,10 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: s.indexes.all(),
-		References: append(
-			s.indexes.references(),
-			tabsReference(),
-		),
+		DB:              cfg.DB,
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -125,6 +122,12 @@ func OpenService(
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
+
+// CompositionMigrations returns the panel migrations that read other services' staged
+// data. Run them once every service table is open.
+func (s *Service) CompositionMigrations() []gorp.Migration {
+	return versions.CompositionMigrations(s.table)
+}
 
 // OnAction subscribes the given handler to the action stream emitted by Dispatch. The
 // handler runs synchronously inside Dispatch after the underlying transaction commits.
