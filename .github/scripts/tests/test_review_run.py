@@ -227,8 +227,10 @@ class TestLoad:
         (home / "prompt.md").write_text("Review it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
-    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
-        assert load(ROOT).lenses == []
+    def test_should_load_the_lenses_of_the_repository(self) -> None:
+        lenses = load(ROOT).lenses
+        assert lenses
+        assert all(lens.focus.strip() for lens in lenses)
 
     def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
         home = tmp_path / ".sedosaur"
@@ -417,6 +419,10 @@ class TestLenses:
         calls = claude.calls.values()
         assert len({c.flag("--append-system-prompt-file") for c in calls}) == 1
         assert all(c.system.startswith("Review the pull request.") for c in calls)
+
+    def test_should_skip_the_lenses_on_a_later_review(self) -> None:
+        claude, _ = self.lenses(pr=pull(reviewed=True))
+        assert list(claude.calls) == ["Rules"]
 
     def test_should_give_the_rules_only_to_the_pass_without_a_lens(self) -> None:
         claude, _ = self.lenses()

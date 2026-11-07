@@ -125,3 +125,36 @@ paths = ["oracle/**", "schemas/**"]
 path = "scripts/AGENTS.md"
 description = "Repository scripts"
 paths = ["scripts/**"]
+
+# Focused passes that run beside the pass with the rules on the first review of a pull
+# request. They see the pull request and its diff, but not the rules.
+[[lens]]
+name = "Interleavings"
+effort = "medium"
+focus = """
+Trace the concurrent and repeated paths through the changed code: two callers at once, a
+read before a lock and a read after it, a retry, a cancel, a timeout, a stop or close
+while work still runs, and events that arrive in another order. For each one, follow the
+state to the end and name what ends up wrong.
+"""
+
+[[lens]]
+name = "Edge values"
+effort = "medium"
+focus = """
+Give each changed function the values at its edges: empty, zero, blank or
+whitespace-only strings, missing fields, the exact boundary of each range or comparison,
+the largest sizes and the caps that cut them, other numeric types and their defaults,
+and duplicate or reordered entries. Check the platform edges too: Windows file rules,
+and what runs only in CI.
+"""
+
+[[lens]]
+name = "Contracts"
+effort = "medium"
+focus = """
+List each contract the change alters: a function, type, schema, default, setting, or
+behavior that the description promises. Find every caller, consumer, sibling path,
+preview, and test that depends on it, in every language, and check that each one still
+holds. Check each guarantee of the description along its whole path.
+"""
