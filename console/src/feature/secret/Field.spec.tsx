@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type secret } from "@synnaxlabs/client";
+import { secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
@@ -29,7 +29,13 @@ import { createSecret } from "@/feature/secret/testutil";
 import { Validity } from "@/feature/secret/validity";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { createConsoleWrapper, findDialogTriggerByText, uniqueName } from "@/testutil";
+import {
+  awaitGranted,
+  createConsoleWrapper,
+  createTestClientWithGrants,
+  findDialogTriggerByText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -69,10 +75,13 @@ interface RenderedField {
   onChange: Mock<(key: string) => void>;
 }
 
-const renderField = async (value: string = ""): Promise<RenderedField> => {
+const renderField = async (
+  value: string = "",
+  as: Client = client,
+): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
-  const { wrapper } = await createConsoleWrapper({ client });
+  const { wrapper } = await createConsoleWrapper({ client: as });
   render(
     <>
       <Fixture value={value} defaultName={defaultName} onChange={onChange} />
@@ -127,6 +136,18 @@ describe("Secret.Field", () => {
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByPlaceholderText("Value")),
     );
+  });
+
+  it("offers no new secret to a user who cannot create secrets", async () => {
+    const s = await createSecret(client, created);
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [secret.TYPE_ONTOLOGY_ID],
+    });
+    await awaitGranted(reader, secret.TYPE_ONTOLOGY_ID, "retrieve");
+    await renderField("", reader);
+    await open("Select a secret");
+    await findOption(s);
+    expect(screen.queryByText("New secret")).toBeNull();
   });
 
   it("creates the secret on save and selects it", async () => {

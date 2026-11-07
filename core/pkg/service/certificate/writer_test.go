@@ -17,6 +17,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"math/big"
@@ -91,12 +92,14 @@ var _ = Describe("Writer", func() {
 				Expect(e.resolveKey(ctx, c)).To(Equal(encode(key)))
 			},
 			Entry("PKCS #8", encodeKey),
-			Entry("SEC 1", func(key *ecdsa.PrivateKey) []byte {
+			Entry("SEC 1", encodeSEC1Key),
+			Entry("SEC 1 after EC PARAMETERS", func(key *ecdsa.PrivateKey) []byte {
 				GinkgoHelper()
-				der := MustSucceed(x509.MarshalECPrivateKey(key))
-				return pem.EncodeToMemory(
-					&pem.Block{Type: "EC PRIVATE KEY", Bytes: der},
-				)
+				params := pem.EncodeToMemory(&pem.Block{
+					Type:  "EC PARAMETERS",
+					Bytes: MustSucceed(asn1.Marshal(oidP256)),
+				})
+				return append(params, encodeSEC1Key(key)...)
 			}),
 		)
 		It("Should accept a PKCS #1 RSA private key", func(ctx SpecContext) {

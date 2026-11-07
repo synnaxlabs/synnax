@@ -10,11 +10,15 @@
 import {
   certificate,
   NotFoundError,
+  pagerduty,
   secret,
   type Synnax as Client,
+  task,
+  user,
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { Access } from "@synnaxlabs/pluto";
 import {
   act,
   cleanup,
@@ -26,13 +30,16 @@ import {
 } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
+import { PagerDuty } from "@/feature/pagerduty";
 import { Secret } from "@/feature/secret";
 import { createSecret } from "@/feature/secret/testutil";
+import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   assertDefined,
+  awaitGranted,
   awaitTextEditing,
   CaptureStatuses,
   clickAndSettle,
@@ -42,6 +49,8 @@ import {
   getIconButton,
   openContextMenu,
   renderHookWithConsole,
+  resolveFocusedTab,
+  selectTestProject,
   uniqueName,
 } from "@/testutil";
 
@@ -51,6 +60,7 @@ const client = createTestClient();
 // what it created.
 const createdSecrets: secret.Key[] = [];
 const createdCertificates: certificate.Key[] = [];
+const createdTasks: task.Key[] = [];
 
 // Deletion tests already removed their secret, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -60,6 +70,7 @@ const ignoreNotFound = (err: unknown) => {
 afterEach(async () => {
   // Unmount first, or the toolbar would watch the deletions below.
   cleanup();
+  for (const key of createdTasks.splice(0)) await client.tasks.delete(key);
   for (const key of createdCertificates.splice(0))
     await client.certificates.delete(key).catch(ignoreNotFound);
   for (const key of createdSecrets.splice(0))
@@ -79,14 +90,17 @@ const createCertificate = async () => {
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
 };
 
-const renderToolbar = async (as: Client = client) => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const renderToolbar = async (
+  as: Client = client,
+  items: Tree.Items = Secret.TREE_ITEMS,
+) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   let statuses: Status.NotificationSpec[] = [];
   // A list the client already holds renders its secrets at once, and each one
   // suspends to read its uses.
   await act(async () => {
     render(
-      <Tree.Provider items={Secret.TREE_ITEMS}>
+      <Tree.Provider items={items}>
         {Secret.TOOLBAR.content}
         <Modals.Stack />
         <CaptureStatuses onStatuses={(s) => (statuses = s)} />
@@ -94,7 +108,7 @@ const renderToolbar = async (as: Client = client) => {
       { wrapper },
     );
   });
-  return { statuses: () => statuses };
+  return { statuses: () => statuses, store };
 };
 
 const retrieveByName = async (name: string): Promise<secret.Secret[]> =>
@@ -252,6 +266,62 @@ describe("secret/Toolbar", () => {
     );
   });
 
+  it("opens the users of a secret from the context menu", async () => {
+    const s = await createSecret(client, createdSecrets);
+    await renderToolbar();
+    await openMenu(s.name);
+    await clickAndSettle("Used by");
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Nothing uses this secret.");
+  });
+
+  it("opens the users on hover and closes them after the pointer leaves", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.pointerEnter(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(c.name);
+    fireEvent.pointerLeave(count);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("opens a task that uses a secret from its users", async () => {
+    const s = await createSecret(client, createdSecrets);
+    const t = await client.tasks.create(
+      {
+        name: uniqueName("alerts"),
+        type: PagerDuty.Task.ALERT_TYPE,
+        config: {
+          ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+          routingKey: s.key,
+          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: "st" }],
+        },
+      },
+      PagerDuty.Task.ALERT_SCHEMAS,
+    );
+    createdTasks.push(t.key);
+    const { store } = await renderToolbar(client, {
+      ...Secret.TREE_ITEMS,
+      ...Task.TREE_ITEMS,
+    });
+    // A task opens in a tab of the selected project.
+    await selectTestProject(store, client);
+    const count = await waitFor(() => within(getOption(s.name)).getByText("Used by 1"));
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByText(t.name));
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource).toEqual(task.ontologyID(t.key));
+  });
+
   it("renames a certificate through the inline editor", async () => {
     const { certificate: c } = await createCertificate();
     await renderToolbar();
@@ -295,5 +365,37 @@ describe("secret/Toolbar", () => {
       }),
     });
     await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("hides the toolbar from a user who can read no credentials", async () => {
+    const { useVisible } = Secret.TOOLBAR;
+    assertDefined(useVisible);
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: useVisible(),
+        resolved: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+      }),
+      { client: await createTestClientWithGrants(client) },
+    );
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
+
+  it("offers to create a secret when there are no credentials", async () => {
+    const creator = await createTestClientWithGrants(client, {
+      create: [secret.TYPE_ONTOLOGY_ID],
+    });
+    await renderToolbar(creator);
+    await screen.findByText("No credentials");
+    fireEvent.click(await screen.findByText("Create secret"));
+    await screen.findByLabelText("Secret name");
+  });
+
+  it("offers no create action to a user who cannot create secrets", async () => {
+    const outsider = await createTestClientWithGrants(client);
+    await awaitGranted(outsider, user.TYPE_ONTOLOGY_ID, "retrieve");
+    await renderToolbar(outsider);
+    await screen.findByText("No credentials");
+    expect(screen.queryByText("Create secret")).toBeNull();
   });
 });
