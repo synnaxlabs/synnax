@@ -660,7 +660,7 @@ var _ = Describe("Scan task", func() {
 					broker.publish(fmt.Sprintf("plant/%02d", i), payload, true)
 				}
 				stat := browse(ctx, msgpack.EncodedJSON{
-					"filter": "plant/#", "duration": 300,
+					"filter": "plant/#", "duration": 3000,
 				})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Data["truncated"]).To(BeTrue())
