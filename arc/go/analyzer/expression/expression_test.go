@@ -12,6 +12,7 @@ package expression_test
 import (
 	stdcontext "context"
 	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1989,8 +1990,8 @@ var _ = Describe("Expressions", func() {
 				Expect(warnings[0].Message).To(ContainSubstring(message))
 				Expect(warnings[0].Message).To(ContainSubstring("math.is_nan"))
 			},
-			Entry("==", "v == math.nan", "always false"),
-			Entry("!=", "v != math.nan", "always true"),
+			Entry("==", "v == math.nan", "== with math.nan is always false"),
+			Entry("!=", "v != math.nan", "!= with math.nan is always true"),
 			Entry("left side", "math.nan == w", "always false"),
 			Entry("parentheses on the left", "(math.nan) == v", "always false"),
 			Entry("parentheses on the right", "v == (math.nan)", "always false"),
@@ -2011,6 +2012,43 @@ var _ = Describe("Expressions", func() {
 			Entry("not on -math.inf", "(v) == -(math.inf)", ""),
 			Entry("not on a channel named nan", "v == nan", ""),
 			Entry("not on v != v", "v != v", ""),
+		)
+
+		DescribeTable("Should name the module the code wrote",
+			func(ctx SpecContext, source, message string) {
+				custom := symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
+				custom.AddChild(&symbol.Symbol{
+					Name:         "missing",
+					Kind:         symbol.KindConstant,
+					Type:         types.F64(),
+					DefaultValue: math.NaN(),
+				})
+				ast := MustSucceed(parser.Parse(source))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(
+					[]symbol.Symbol{custom},
+				))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := lo.Filter(
+					*aCtx.Diagnostics,
+					func(d diagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.NaNComparison
+					},
+				)
+				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].Message).To(Equal(message))
+			},
+			Entry(
+				"an import alias",
+				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
+				"== with m.nan is always false, use m.is_nan instead",
+			),
+			Entry(
+				"a module without is_nan",
+				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
+				"!= with custom.missing is always true, "+
+					"use is_nan from the math module instead",
+			),
 		)
 	})
 

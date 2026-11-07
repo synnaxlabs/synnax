@@ -384,6 +384,56 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 	})
 })
 
+var _ = Describe("Series expressions in flows", func() {
+	DescribeTable(
+		"Should keep the series type of an expression",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(
+				nil,
+				symbol.Symbol{
+					Name: "x",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				},
+				symbol.Symbol{
+					Name: "s",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Series(types.F32())),
+					ID:   2,
+				},
+				symbol.Symbol{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Series(types.F32())),
+					ID:   3,
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var outputs []types.Type
+			for _, sym := range ctx.Scope.Root().Children() {
+				if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+					sym.Kind == symbol.KindFunction {
+					outputs = append(
+						outputs,
+						ctx.Constraints.ApplySubstitutions(out.Type),
+					)
+				}
+			}
+			Expect(outputs).To(ContainElement(types.Series(types.F32())))
+		},
+		Entry("a flow source", "s + 1.0 -> out"),
+		Entry("a mid-flow node", "s -> s + 1.0 -> out"),
+		Entry(
+			"a stage flow",
+			"sequence main {\n stage a {\n s + 1.0 -> out\n }\n}\nx => main",
+		),
+		Entry("a declaration read by a flow", "y := s + 1.0\ny -> out"),
+	)
+})
+
 var _ = Describe("Expression type variables", func() {
 	DescribeTable("Should give the output and the body one type variable",
 		func(bCtx SpecContext, source string, sink types.Type) {
