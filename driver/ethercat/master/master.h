@@ -58,7 +58,7 @@ public:
     /// send() and receive() work, starts the DC sync of each slave in a DC mode for a
     /// bus cycle of period, then moves the enabled slaves to OP while the caller cycles
     /// the bus. After an error, the caller stops the cycle it started before it calls
-    /// deactivate().
+    /// deactivate(). Only the SOEM master starts DC sync.
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period.
     [[nodiscard]] virtual x::errors::Error
