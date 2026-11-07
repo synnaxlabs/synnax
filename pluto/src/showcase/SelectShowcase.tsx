@@ -15,8 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 const SelectMultiple = () => {
   const [value, setValue] = useState<channel.Key[]>([]);

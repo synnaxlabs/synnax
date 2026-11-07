@@ -19,6 +19,7 @@ import path from "path";
 import tseslint from "typescript-eslint";
 
 import { isWorker } from "./compiler";
+import { aliasImports } from "./rules/aliasImports";
 import { barrelImports } from "./rules/barrelImports";
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
@@ -33,6 +34,7 @@ const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
 
 const synnax: ESLint.Plugin = {
   rules: {
+    "alias-imports": aliasImports,
     "barrel-imports": barrelImports,
     "jsx-filename-extension": jsxFilenameExtension,
     "named-hook-callers": skipWorkers(namedHookCallers),
@@ -147,6 +149,7 @@ const config: Linter.Config[] = [
       synnax,
     },
     rules: {
+      "synnax/alias-imports": "error",
       "synnax/barrel-imports": "error",
       "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],

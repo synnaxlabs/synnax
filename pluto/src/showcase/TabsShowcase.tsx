@@ -13,7 +13,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type DragEventHandler, type ReactElement, useState } from "react";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 const TAB_TYPE = "showcase-tab";
 

@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv } from "@synnaxlabs/x";
 
-import { DISPLAY } from "./constants";
+import { DISPLAY } from "@/showcase/constants";
 
 interface DisplaySelectorProps {
   display: (typeof DISPLAY)[number][];

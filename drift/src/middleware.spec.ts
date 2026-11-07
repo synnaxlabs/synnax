@@ -9,11 +9,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { configureMiddleware, type GetDefaultMiddleware } from "@/middleware";
 import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
 import { MockRuntime } from "@/testutil";
 import { INITIAL_WINDOW_STATE, type WindowState } from "@/window";
-
-import { configureMiddleware, type GetDefaultMiddleware } from "./middleware";
 
 const state = {
   drift: ZERO_SLICE_STATE,
