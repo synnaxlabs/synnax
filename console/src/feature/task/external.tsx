@@ -19,6 +19,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
@@ -49,6 +50,7 @@ export const COMMANDS: Command.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
+  ...Sift.Task.COMMANDS,
 ];
 
 export const TABS: Panel.Tabs = {
