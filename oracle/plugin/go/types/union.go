@@ -115,6 +115,16 @@ type unionVariantData struct {
 	NeedsValidate      bool
 }
 
+// HasGroups reports whether a variant of the union has a `@default group`.
+func (u unionData) HasGroups() bool {
+	for _, v := range u.Variants {
+		if v.SetDefaultsView().HasGroups() {
+			return true
+		}
+	}
+	return false
+}
+
 // SetDefaultsView returns the view of the variant's SetDefaults method.
 func (v unionVariantData) SetDefaultsView() setDefaultsView {
 	return setDefaultsView{
