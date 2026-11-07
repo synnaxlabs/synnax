@@ -264,6 +264,30 @@ describe("secret/Toolbar", () => {
     );
   });
 
+  it("opens the users of a secret from the context menu", async () => {
+    const s = await createSecret();
+    await renderToolbar();
+    await openMenu(s.name);
+    await clickAndSettle("Used by");
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Nothing uses this secret.");
+  });
+
+  it("opens the users on hover and closes them after the pointer leaves", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.pointerEnter(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(c.name);
+    fireEvent.pointerLeave(count);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("renames a certificate through the inline editor", async () => {
     const { certificate: c } = await createCertificate();
     await renderToolbar();
