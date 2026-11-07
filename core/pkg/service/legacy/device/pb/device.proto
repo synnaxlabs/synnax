@@ -27,8 +27,11 @@ message StatusDetails {
   uint32 rack = 1;
   // device is the device identifier.
   string device = 2;
+  // connected is true while the Driver confirms that it can reach the device. A device
+  // whose state is unknown is not connected.
+  bool connected = 3;
   // data contains device-specific status data.
-  optional google.protobuf.Struct data = 3;
+  optional google.protobuf.Struct data = 4;
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.

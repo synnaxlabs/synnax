@@ -19,40 +19,33 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
+import { type ComponentType, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Hardware } from "@/platform/device/integration";
-import { type ConfigureParams, identifierZ, nameZ } from "@/platform/device/types";
+import {
+  type ConfigureParams,
+  type ConfigureProps,
+  identifierZ,
+  nameZ,
+} from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const path = deep.path<z.infer<ConfigurablePropertiesZ>>();
 
-interface InternalProps<
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
-> {
-  close: () => void;
+interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
   icon: Icon.ReactElement;
-  device: device.Device<Properties, Make, Model>;
-  initialProperties: z.infer<Properties>;
-  /** Opens a new read task for the device. Adds a "Save and create read task" action. */
-  onCreateTask?: (deviceKey: device.Key) => void;
-  /** Returns to the view that opened the form. Adds a "Back" action. */
-  onBack?: () => void;
+  device: device.Device;
+  initialProperties: record.Unknown;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
-const Internal = <
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
->({
+const Internal = ({
   device,
   device: { name },
   close,
@@ -60,7 +53,7 @@ const Internal = <
   initialProperties,
   onCreateTask,
   onBack,
-}: InternalProps<Properties, Make, Model>) => {
+}: InternalProps) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
@@ -76,8 +69,8 @@ const Internal = <
       configured: true,
       name: methods.get(path.name).value,
       properties: {
-        ...(deep.copy(initialProperties) as record.Unknown),
-        ...(device.properties as record.Unknown),
+        ...deep.copy(initialProperties),
+        ...device.properties,
         identifier: methods.get(path.identifier).value,
       },
     });
@@ -156,41 +149,38 @@ const Internal = <
   );
 };
 
-export interface ConfigureProps<
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
-> extends Pick<
-  InternalProps<Properties, Make, Model>,
-  "close" | "icon" | "initialProperties" | "onCreateTask" | "onBack"
-> {
-  deviceKey: device.Key;
+export interface CreateConfigureArgs {
+  icon: Icon.ReactElement;
+  /** The properties a device starts with when the user configures it. */
+  zeroProperties: record.Unknown;
 }
 
-export const Configure = <
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
->({
-  deviceKey,
-  ...rest
-}: ConfigureProps<Properties, Make, Model>) => {
-  const device = Device.use({ key: deviceKey });
-  return <Internal device={device} {...rest} />;
+/** Creates the form that names a found device and sets its identifier. */
+export const createConfigure = ({
+  icon,
+  zeroProperties,
+}: CreateConfigureArgs): ComponentType<ConfigureProps> => {
+  const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
+    const device = Device.use({ key: deviceKey });
+    return (
+      <Internal
+        device={device}
+        icon={icon}
+        initialProperties={zeroProperties}
+        {...rest}
+      />
+    );
+  };
+  return Configure;
 };
 
 export interface ConfigureModalParams extends ConfigureParams {
   hardware: Hardware;
 }
 
-/** Opens {@link Configure} for a device of the hardware integration. */
+/** Opens the configure form of a device of the hardware integration. */
 export const useConfigureModal = Modals.create<ConfigureModalParams>(
-  ({ deviceKey, hardware, close }) => (
-    <Configure
-      deviceKey={deviceKey}
-      close={close}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
-    />
+  ({ deviceKey, hardware: { Configure }, close }) => (
+    <Configure deviceKey={deviceKey} close={close} />
   ),
 );

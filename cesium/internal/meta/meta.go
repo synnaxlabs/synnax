@@ -20,10 +20,8 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 )
 
-const (
-	metaFile     = "meta.json"
-	metaTempFile = "meta.json.tmp"
-)
+// File is the name of the metadata file in the directory of a channel.
+const File = "meta.json"
 
 // ErrIgnoreChannel lets callers know that this channel is no longer valid and should be
 // ignored when opening a DB.
@@ -40,7 +38,7 @@ func Open(
 	ch channel.Channel,
 	codec encoding.Codec,
 ) (channel.Channel, error) {
-	exists, err := fs.Exists(metaFile)
+	exists, err := fs.Exists(File)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -75,7 +73,7 @@ func Read(
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	metaF, err := fs.Open(metaFile, os.O_RDONLY)
+	metaF, err := fs.Open(File, os.O_RDONLY)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -90,36 +88,21 @@ func Read(
 	return ch, nil
 }
 
-// Create creates the metadata file for a database whose data is kept in fs and is
+// Create creates the metadata file for a database whose data is kept in fsys and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
 func Create(
 	ctx context.Context,
-	fs fs.FS,
+	fsys fs.FS,
 	codec encoding.Encoder,
 	ch channel.Channel,
-) (err error) {
-	if err = ch.Validate(); err != nil {
+) error {
+	if err := ch.Validate(); err != nil {
 		return err
 	}
-	tempMetaF, err := fs.Open(
-		metaTempFile,
-		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-	)
+	data, err := codec.Encode(ctx, ch)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err != nil {
-			err = errors.Combine(err, fs.Remove(metaTempFile))
-		}
-	}()
-	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
-		err = errors.Combine(err, tempMetaF.Close())
-		return err
-	}
-	if err = tempMetaF.Close(); err != nil {
-		return err
-	}
-	return fs.Rename(metaTempFile, metaFile)
+	return fs.WriteFile(fsys, File, data)
 }

@@ -321,6 +321,20 @@ describe("Task", async () => {
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.tasks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - internal takes a boolean.
+        client.tasks.retrieve({ internal: "yes" }),
+      ).rejects.toThrow('✗ "internal": "yes"  × expected boolean');
+    });
+
     it("should retrieve tasks by search term", async () => {
       const prefix = `searchable-task-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
