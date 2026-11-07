@@ -451,8 +451,7 @@ class Range(Payload):
         corrected = {}
         for ch, alias in channel.items():
             if isinstance(ch, str):
-                res = self._channel_retriever.retrieve(ch)
-                corrected[sole("Channel", ch, res).key] = alias
+                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -831,7 +830,7 @@ class Client:
             include_parent=include_parent,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
-        return sole("Range", fields, ranges) if single else ranges
+        return sole("range", req, ranges) if single else ranges
 
     def delete(
         self,

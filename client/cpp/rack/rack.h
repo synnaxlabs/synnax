@@ -142,13 +142,6 @@ public:
     x::errors::Error del(std::uint32_t key) const;
 
 private:
-    [[nodiscard]]
-    std::pair<Rack, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;
     /// @brief Rack retrieval transport.

@@ -276,31 +276,77 @@ TEST(TestChannel, testRetrieveWhere) {
     const auto b = create_virtual_channel(client, x::telem::FLOAT64_T);
     const auto c = create_virtual_channel(client, x::telem::UINT8_T);
     const auto channels = ASSERT_NIL_P(client.channels.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{.key = x::filter::Set<Key>{.eq = a.key}},
-                        Where{.name = x::filter::String{.eq = c.name}},
-                    },
-                .data_type = x::filter::Set<x::telem::DataType>{
-                    .eq = x::telem::FLOAT64_T,
-                },
-            },
-        }
+        (Where{.key = a.key} || Where{.name = c.name}) &&
+        Where{.data_type = x::telem::FLOAT64_T}
     ));
     ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
     const auto limited = ASSERT_NIL_P(client.channels.retrieve(
-        RetrieveRequest{
-            .where =
-                Where{
-                    .key = x::filter::Set<
-                        Key>{.in = std::vector<Key>{a.key, b.key, c.key}},
-                },
-            .limit = 2,
-        }
+        Where{.key = std::vector<Key>{a.key, b.key, c.key}},
+        {.limit = 2}
     ));
     ASSERT_EQ(limited.size(), 2);
+}
+
+/// @brief it should page a retrieve of channels by name.
+TEST(TestChannel, testRetrieveManyByNamePage) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto b = create_virtual_channel(client);
+    const auto channels = ASSERT_NIL_P(client.channels.retrieve(
+        std::vector<std::string>{a.name, b.name},
+        {.offset = 1}
+    ));
+    ASSERT_EQ(channels.size(), 1);
+}
+
+/// @brief it should retrieve the one channel that a filter matches.
+TEST(TestChannel, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto got = ASSERT_NIL_P(
+        client.channels.retrieve({.name = a.name}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, a.key);
+}
+
+/// @brief it should name the filter in the error when no channel matches it.
+TEST(TestChannel, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = make_unique_channel_name("one_none");
+    const auto [_, err] = client.channels.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no channel where name = \"" + name + "\"");
+}
+
+/// @brief it should return an error when more than one channel matches a filter.
+TEST(TestChannel, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto b = create_virtual_channel(client);
+    ASSERT_OCCURRED_AS_P(
+        client.channels.retrieve({.name = {a.name, b.name}}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should reject a limit or an offset on a retrieve of one channel.
+TEST(TestChannel, testRetrieveRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+        for (const auto &err:
+             {client.channels.retrieve(Key(1), options).second,
+              client.channels.retrieve("channel", options).second,
+              client.channels.retrieve({.name = "channel"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or offset, since a page could "
+                "hide a second match"
+            );
+        }
+    }
 }
 
 /// @brief it should convert a channel key to an ontology ID

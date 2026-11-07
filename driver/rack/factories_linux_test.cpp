@@ -83,4 +83,30 @@ TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
     );
     EXPECT_EQ(statuses[0].details.cmd, "start-cmd");
 }
+
+/// @brief it should name the platforms that run LabJack, not the Core version, when a
+/// LabJack task starts on a Driver whose Core runs another minor.
+TEST(RackFactoriesTest, IncompatibleCoreLabJackTaskNamesThePlatforms) {
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto [tsk, handled] = factory->configure_task(
+        ctx,
+        synnax::task::Task{.name = "t", .type = labjack::READ_TASK_TYPE},
+        "start-cmd"
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(
+        statuses[0].description,
+        "LabJack tasks do not run on Linux. Connect the device from a Driver on Windows "
+        "or macOS."
+    );
+}
 }
