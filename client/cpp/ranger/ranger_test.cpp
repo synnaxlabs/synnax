@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <random>
 #include <string>
 
@@ -233,6 +234,46 @@ TEST(RangerTests, testRetrieveRejectsPage) {
             );
         }
     }
+}
+
+/// @brief it should page a retrieve of ranges by keys, by names, or by filter.
+TEST(RangerTests, testRetrieveListPage) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    const auto tr = x::telem::TimeRange(
+        x::telem::TimeStamp(10),
+        x::telem::TimeStamp(20)
+    );
+    std::vector<Key> keys;
+    for (int i = 0; i < 3; ++i)
+        keys.push_back(ASSERT_NIL_P(client.ranges.create(name, tr)).key);
+    const auto by_key = ASSERT_NIL_P(client.ranges.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_name = ASSERT_NIL_P(
+        client.ranges.retrieve(std::vector{name}, {.offset = 1})
+    );
+    ASSERT_EQ(by_name.size(), 2);
+    const auto by_where = ASSERT_NIL_P(
+        client.ranges.retrieve(Where{.name = name}, {.limit = 1, .offset = 2})
+    );
+    ASSERT_EQ(by_where.size(), 1);
+}
+
+/// @brief it should keep the ranges that match a search term.
+TEST(RangerTests, testRetrieveSearchTerm) {
+    const auto client = new_test_client();
+    const auto name = "searchable-range-" + std::to_string(gen_rand());
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        name,
+        x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(20))
+    ));
+    const auto found = [&] {
+        const auto [got, err] = client.ranges.retrieve(Where{}, {.search_term = name});
+        return !err && std::ranges::any_of(got, [&](const Range &r) {
+            return r.key == range.key;
+        });
+    };
+    ASSERT_EVENTUALLY_EQ_F(found, true);
 }
 
 /// @brief it should set a key-value pair on the range.
