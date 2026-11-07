@@ -160,6 +160,87 @@ var _ = Describe("Dispatch", func() {
 	)
 })
 
+var _ = Describe("Exec", func() {
+	var (
+		db  *gorp.DB
+		st  *actions.State[string, testAction]
+		rec *Recorder[string, testAction]
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		st = actions.NewState[string, testAction](db)
+		rec = &Recorder[string, testAction]{}
+		DeferCleanup(st.OnChange(rec.Record))
+		Expect(
+			gorp.NewCreate[string, counter]().
+				Entry(&counter{Key: "c"}).
+				Exec(ctx, db),
+		).To(Succeed())
+	})
+
+	increment := func(ctx SpecContext, tx gorp.Tx) error {
+		return gorp.NewUpdate[string, counter]().
+			Where(gorp.MatchKeys[string, counter]("c")).
+			Change(func(_ gorp.Context, c counter) counter {
+				c.Value++
+				return c
+			}).Exec(ctx, tx)
+	}
+
+	fetch := func(ctx SpecContext) counter {
+		GinkgoHelper()
+		var res counter
+		Expect(
+			gorp.NewRetrieve[string, counter]().
+				Where(gorp.MatchKeys[string, counter]("c")).
+				Entry(&res).
+				Exec(ctx, db),
+		).To(Succeed())
+		return res
+	}
+
+	It(
+		"Should preserve every read-modify-write that runs with a dispatch",
+		func(ctx SpecContext) {
+			const n = 32
+			var wg sync.WaitGroup
+			for range n {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(st.Exec(ctx, "c", func(tx gorp.Tx) error {
+						return increment(ctx, tx)
+					})).To(Succeed())
+				})
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(st.Dispatch(
+						ctx,
+						"c",
+						"dk",
+						[]testAction{{Type: "inc"}},
+						func(tx gorp.Tx) ([]testAction, error) {
+							return nil, increment(ctx, tx)
+						},
+					)).To(Succeed())
+				})
+			}
+			wg.Wait()
+			Expect(fetch(ctx).Value).To(Equal(2 * n))
+			Expect(rec.Snapshot()).To(HaveLen(n))
+		},
+	)
+
+	It("Should keep nothing when fn fails", func(ctx SpecContext) {
+		fnErr := errors.New("fn failed")
+		Expect(st.Exec(ctx, "c", func(tx gorp.Tx) error {
+			Expect(increment(ctx, tx)).To(Succeed())
+			return fnErr
+		})).To(MatchError(fnErr))
+		Expect(fetch(ctx).Value).To(Equal(0))
+	})
+})
+
 var _ = Describe("NotifyOnCommit", func() {
 	var (
 		db  *gorp.DB

@@ -162,6 +162,28 @@ func (s *Service) Dispatch(
 	)
 }
 
+// ImportFile imports data into the ICD with the given key as Writer.Import does, in its
+// own transaction. Imports and dispatches for the same ICD run one at a time.
+// dispatchKey is carried onto the broadcast so the sender recognizes its echo.
+func (s *Service) ImportFile(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	format Format,
+	data []byte,
+) (ICD, error) {
+	var ic ICD
+	if err := s.state.Exec(ctx, key, func(tx gorp.Tx) (err error) {
+		ic, err = s.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Import(ctx, key, format, data)
+		return err
+	}); err != nil {
+		return ICD{}, err
+	}
+	return ic, nil
+}
+
 // NewWriter opens a Writer that executes against tx, or directly against the database
 // when tx is nil.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

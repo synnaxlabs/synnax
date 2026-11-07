@@ -86,7 +86,8 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 // and each of its fields keeps the key of that message's field with its name. Import
 // stores the result as Create does and returns it. It returns a path-scoped validation
 // error when data does not parse or the result breaks a rule of the ICD's schema, and
-// an error wrapping query.ErrNotFound when no ICD has the key.
+// an error wrapping query.ErrNotFound when no ICD has the key. Import does not wait for
+// dispatches to the ICD: Service.ImportFile does.
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,

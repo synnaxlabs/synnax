@@ -199,9 +199,13 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	ic, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Import(ctx, req.Key, req.Format, req.Data)
+	ic, err := s.internal.ImportFile(
+		ctx,
+		req.Key,
+		req.DispatchKey,
+		req.Format,
+		req.Data,
+	)
 	if err != nil {
 		return ImportResponse{}, err
 	}

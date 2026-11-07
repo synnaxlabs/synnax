@@ -10,7 +10,11 @@
 package icd_test
 
 import (
+	"cmp"
 	"context"
+	"fmt"
+	"slices"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -219,6 +223,80 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.DispatchKey).To(Equal("dk-1"))
 		Expect(f.Seq).To(BeNumerically(">", 0))
 		Expect(f.Actions).To(Equal(acts))
+	})
+
+	Describe("ImportFile", func() {
+		dbcFile := func(i int) []byte {
+			return fmt.Appendf(nil, "VERSION \"\"\n\nBU_: Ecu\n\n"+
+				"BO_ 256 Engine%d: 8 Ecu\n"+
+				" SG_ Rpm : 0|16@1+ (1,0) [0|65535] \"rpm\" Ecu\n", i)
+		}
+
+		It("Should store the import and broadcast it with the dispatch key", func(
+			ctx SpecContext,
+		) {
+			rec := record()
+			res := MustSucceed(
+				editSvc.ImportFile(
+					ctx,
+					bus.Key,
+					"dk-import",
+					icd.FormatDBC,
+					dbcFile(0),
+				),
+			)
+			Expect(retrieve(ctx).Messages[0].Name).To(Equal("Engine0"))
+			frames := rec.Snapshot()
+			Expect(frames).To(ConsistOf(frame{
+				Key:         bus.Key,
+				DispatchKey: "dk-import",
+				Seq:         frames[0].Seq,
+				Actions: []icd.Action{
+					icd.NewCreateAction(icd.CreatePayload{ICD: res}),
+				},
+			}))
+		})
+
+		It("Should store what the broadcasts build when dispatches run alongside", func(
+			ctx SpecContext,
+		) {
+			rec := record()
+			const n = 16
+			var wg sync.WaitGroup
+			for i := range n {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(editSvc.ImportFile(
+						ctx, bus.Key, "dk", icd.FormatDBC, dbcFile(i),
+					)).Error().ToNot(HaveOccurred())
+				})
+				wg.Go(func() {
+					defer GinkgoRecover()
+					Expect(dispatch(
+						ctx,
+						set([]string{"name"}, fmt.Sprintf("Bus %d", i)),
+					)).To(Succeed())
+				})
+			}
+			wg.Wait()
+			frames := rec.Snapshot()
+			slices.SortFunc(
+				frames,
+				func(a, b frame) int { return cmp.Compare(a.Seq, b.Seq) },
+			)
+			built := bus
+			// A client applies a create as a whole replace, which Reduce rejects.
+			for _, f := range frames {
+				if c := f.Actions[0].Create; c != nil {
+					built = c.ICD
+				} else {
+					built = MustSucceed(icd.Reduce(built, f.Actions...))
+				}
+			}
+			stored := retrieve(ctx)
+			Expect(built.Name).To(Equal(stored.Name))
+			Expect(messageKeys(built.Messages)).To(Equal(messageKeys(stored.Messages)))
+		})
 	})
 
 	Describe("Writer", func() {

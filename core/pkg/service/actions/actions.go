@@ -130,6 +130,13 @@ func (s *State[K, A]) Dispatch(
 	})
 }
 
+// Exec runs fn in its own transaction, serialized with every Dispatch and Exec on the
+// same key. Exec notifies nothing itself. Actions that fn notifies on commit reach
+// subscribers before the next call on the key starts.
+func (s *State[K, A]) Exec(ctx context.Context, key K, fn func(gorp.Tx) error) error {
+	return s.locks.Do(key, func() error { return s.db.WithTx(ctx, fn) })
+}
+
 // OnChange subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
