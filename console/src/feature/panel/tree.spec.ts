@@ -104,6 +104,43 @@ describe("panel ontology", () => {
     expect(await findTreeRow(plot.name)).toBeDefined();
   });
 
+  it("should list the tab records that the tree's client has not read", async () => {
+    const { key } = await client.projects.create({ name: uniqueName("project") });
+    const other = await client.projects.create({ name: uniqueName("project") });
+    const plot = await client.lineplots.create({
+      name: uniqueName("plot"),
+      project: other.key,
+    });
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      project: key,
+      root: {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: uuid.create(),
+            resource: lineplot.resourceID(plot.key),
+          },
+        ],
+      },
+    });
+    // The client starts after the create, so no change of the plot reaches it.
+    const reader = createTestClient();
+    // The panel row holds a live read of the panel, so the tab read finds it cached.
+    const release = reader.panels.onChange(pan.key, () => {});
+    await reader.panels.retrieve(pan.key);
+    await renderOntologyTree({
+      client: reader,
+      root: project.resourceID(key),
+      items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
+    });
+    await findTreeRow(pan.name);
+    expandTreeRow(pan.name);
+    expect(await findTreeRow(plot.name)).toBeDefined();
+    release();
+  });
+
   it("should keep the listed tabs when a tab list fails", async () => {
     const { key } = await client.projects.create({ name: uniqueName("project") });
     const [shown, added] = await Promise.all(
