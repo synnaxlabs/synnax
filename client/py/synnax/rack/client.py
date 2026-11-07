@@ -7,17 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where
-from synnax.util import sole
+from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
+from synnax.util import request_where, returns_one, sole
 from x import filter
-from x.lists import all_none, override
 
 
 class _CreateRequest(BaseModel):
@@ -100,98 +99,154 @@ class Client:
             self._embedded_rack = None
 
     @overload
-    def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
-
-    @overload
-    def retrieve(self, *, name: str, include_status: bool = False) -> Rack: ...
+    def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
 
     @overload
     def retrieve(
         self,
         *,
-        where: Where | None = None,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str = "",
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        limit: int | None = None,
-        offset: int = 0,
-        include_status: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        host_is_node: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        host_is_node: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        host_is_node: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        integration: str | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: Literal[True],
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        embedded: filter.BoolInput = ...,
+        integrations: filter.ContainsInput[str] = ...,
+        host_is_node: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        integration: str | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_status: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Rack]: ...
 
     def retrieve(
         self,
-        key: int | None = None,
+        key: filter.SetInput[Key] | None = None,
         *,
-        name: str | None = None,
         where: Where | None = None,
-        keys: list[int] | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str = "",
         integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
+        search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
         include_status: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> Rack | list[Rack]:
-        """Retrieves racks matching the given filters. Returns one rack when a key or
-        name is given, and a list otherwise. A filter left as None does not filter.
+        """Retrieves racks from the Core. With no arguments, retrieves every rack.
 
-        :param where: Keeps racks that match this filter tree.
+        Each filter field takes a value, a list of values, or an operator, and a rack
+        must match every field. A plain ``key``, by position or by keyword, or a plain
+        ``name`` returns one rack.
+
+        :param key: Keeps racks with this key.
+        :param name: Keeps racks with this name.
+        :param embedded: Keeps racks that are, or are not, embedded in a Core.
+        :param integrations: Keeps racks that support this integration, or any
+            integration in the list.
+        :param host_is_node: Keeps racks on the Core that serves the request, or racks
+            on other Cores when False.
+        :param and_: Keeps racks that match every filter in the list.
+        :param or_: Keeps racks that match any filter in the list.
+        :param not_: Keeps racks that do not match the filter.
+        :param where: A filter tree that the racks must also match.
         :param keys: Keeps racks with one of these keys.
         :param names: Keeps racks with one of these names.
         :param integration: Keeps racks that support this integration.
-        :param embedded: Keeps racks that are, or are not, embedded in a Core.
-        :param host_is_node: Keeps racks on the Core that serves the request, or racks
-            on other Cores when False.
         :param search_term: A fuzzy search term matched against rack names.
-        :param limit: The maximum number of racks to return.
+        :param limit: The maximum number of racks to retrieve.
         :param offset: The number of racks to skip.
         :param include_status: Whether to populate each rack's status.
-        :raises ValueError: If two singular selectors are given, or one is
-            combined with a list filter.
-        :raises NotFoundError: If a single rack is requested and none matches.
-        :raises MultipleFoundError: If more than one rack matches a single name.
+        :param one: Returns one rack for any filter.
+        :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of racks. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one rack is wanted and none matches.
+        :raises MultipleFoundError: If one rack is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one rack is wanted
+            beside a limit or an offset.
         """
-        is_single = not all_none(key, name)
-        if sum(v is not None for v in (key, name)) > 1:
-            raise ValueError("only one of key and name can be given")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(
-                where, keys, names, integration, embedded, host_is_node, limit
-            )
-        ):
-            raise ValueError(
-                "key and name cannot be combined with list filters; use keys or "
-                "names instead"
-            )
-        keys = override(key, keys)
-        names = override(name, names)
+        if key is not None:
+            fields["key"] = key
+        single = returns_one(fields, one, limit, offset)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
             integrations=(
                 None if integration is None else filter.Contains[str](any=[integration])
             ),
-            embedded=None if embedded is None else filter.Bool(eq=embedded),
-            host_is_node=host_is_node,
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
             offset=offset,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
-        if not is_single:
-            return res.racks
-        return sole("Rack", key if key is not None else name, res.racks)
+        return sole("rack", req, res.racks) if single else res.racks
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -403,6 +404,211 @@ var _ = Describe("Index Persist", Ordered, func() {
 							[]byte{1, 2, 3},
 							(10 * telem.SecondTS).Range(13*telem.SecondTS),
 						)
+					},
+				)
+
+				writeSecond := func(ctx SpecContext, second int) error {
+					start := telem.TimeStamp(second) * telem.SecondTS
+					return testutil.WriteDomain(
+						ctx,
+						db,
+						start.Range(start+1),
+						[]byte{byte(second)},
+					)
+				}
+				secondRanges := func(seconds ...int) []telem.TimeRange {
+					ranges := make([]telem.TimeRange, len(seconds))
+					for i, second := range seconds {
+						start := telem.TimeStamp(second) * telem.SecondTS
+						ranges[i] = start.Range(start + 1)
+					}
+					return ranges
+				}
+
+				It(
+					"Should write only the pointers after the last persist",
+					func(ctx SpecContext) {
+						var written []int
+						hooked.writeAt = func(p []byte) error {
+							written = append(written, len(p))
+							return nil
+						}
+						for second := 1; second <= 4; second++ {
+							Expect(writeSecond(ctx, second)).To(Succeed())
+						}
+						hooked.writeAt = nil
+						Expect(written).To(HaveLen(4))
+						Expect(written).To(HaveEach(written[0]))
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3, 4},
+							secondRanges(1, 2, 3, 4)...,
+						)
+					},
+				)
+
+				It(
+					"Should rewrite the pointers a failed write left out",
+					func(ctx SpecContext) {
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						hooked.writeAt = func([]byte) error { return ErrFault }
+						Expect(writeSecond(ctx, 2)).To(MatchError(ErrFault))
+						hooked.writeAt = nil
+						Expect(writeSecond(ctx, 3)).To(Succeed())
+						expectDomains(ctx, []byte{1, 2, 3}, secondRanges(1, 2, 3)...)
+					},
+				)
+
+				It(
+					"Should fail a queued write after an earlier write fails",
+					func(ctx SpecContext) {
+						prepared := make(chan struct{}, 1)
+						Expect(db.Close()).To(Succeed())
+						// A domain inserted before the last one notifies the history
+						// change after its write prepares and before it runs.
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              hooked,
+							FileSize:        telem.Megabyte,
+							Instrumentation: PanicLogger(),
+							OnHistoryChange: func(context.Context, telem.TimeRange) {
+								prepared <- struct{}{}
+							},
+						}))
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						entered := make(chan struct{}, 1)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						var blocked atomic.Bool
+						hooked.writeAt = func([]byte) error {
+							if blocked.Swap(true) {
+								return nil
+							}
+							defer GinkgoRecover()
+							entered <- struct{}{}
+							Eventually(
+								released.Done(),
+								10*time.Second,
+							).Should(BeClosed())
+							return ErrFault
+						}
+						earlier, queued := make(chan error, 1), make(chan error, 1)
+						go func() { earlier <- writeSecond(ctx, 3) }()
+						Eventually(entered).Should(Receive())
+						go func() { queued <- writeSecond(ctx, 2) }()
+						Eventually(prepared).Should(Receive())
+						release()
+						Eventually(earlier).Should(Receive(MatchError(ErrFault)))
+						Eventually(queued).Should(
+							Receive(MatchError(domain.ErrIndexWriteFailed)),
+						)
+						hooked.writeAt = nil
+
+						Expect(writeSecond(ctx, 4)).To(Succeed())
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3, 4},
+							secondRanges(1, 2, 3, 4)...,
+						)
+					},
+				)
+
+				It(
+					"Should keep a queued write that follows a full rewrite",
+					func(ctx SpecContext) {
+						prepared := make(chan struct{}, 1)
+						Expect(db.Close()).To(Succeed())
+						db = MustSucceed(domain.Open(domain.Config{
+							FS:              hooked,
+							FileSize:        telem.Megabyte,
+							Instrumentation: PanicLogger(),
+							OnHistoryChange: func(context.Context, telem.TimeRange) {
+								prepared <- struct{}{}
+							},
+						}))
+						Expect(writeSecond(ctx, 2)).To(Succeed())
+						entered := make(chan struct{}, 1)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						var blocked atomic.Bool
+						hooked.writeAt = func([]byte) error {
+							if blocked.Swap(true) {
+								return nil
+							}
+							defer GinkgoRecover()
+							entered <- struct{}{}
+							Eventually(
+								released.Done(),
+								10*time.Second,
+							).Should(BeClosed())
+							return ErrFault
+						}
+						failed := make(chan error, 1)
+						go func() { failed <- writeSecond(ctx, 4) }()
+						Eventually(entered).Should(Receive())
+						// The first domain rewrites every pointer, then the third
+						// queues a partial write behind it.
+						rewrite, partial := make(chan error, 1), make(chan error, 1)
+						go func() { rewrite <- writeSecond(ctx, 1) }()
+						Eventually(prepared).Should(Receive())
+						go func() { partial <- writeSecond(ctx, 3) }()
+						Eventually(prepared).Should(Receive())
+						release()
+						Eventually(failed).Should(Receive(MatchError(ErrFault)))
+						Eventually(rewrite).Should(Receive(BeNil()))
+						Eventually(partial).Should(Receive(BeNil()))
+						hooked.writeAt = nil
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3, 4},
+							secondRanges(1, 2, 3, 4)...,
+						)
+					},
+				)
+
+				It(
+					"Should persist an earlier unpersisted commit on a delete",
+					func(ctx SpecContext) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
+							[]byte{10, 11, 12},
+						)).To(Succeed())
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(30 * telem.SecondTS).Range(35*telem.SecondTS+1),
+							[]byte{30, 31, 32, 33, 34, 35},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:                    20 * telem.SecondTS,
+							EnableAutoCommit:         new(true),
+							AutoIndexPersistInterval: telem.Hour,
+						}))
+						MustSucceed(w.Write([]byte{20, 21}))
+						Expect(w.Commit(ctx, 21*telem.SecondTS+1)).To(Succeed())
+						// The writer persisted its first commit, so it keeps the
+						// second.
+						MustSucceed(w.Write([]byte{22, 23}))
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						Expect(db.Delete(
+							ctx,
+							telem.TimeRange{
+								Start: 32*telem.SecondTS + 1,
+								End:   34*telem.SecondTS + 1,
+							},
+							fixedOffset(3),
+							fixedOffset(5),
+						)).To(Succeed())
+						// Failing the persist of the writer's close leaves the index
+						// that the delete wrote.
+						hooked.writeAt = func([]byte) error { return ErrFault }
+						Expect(w.Close()).To(MatchError(ErrFault))
+						hooked.writeAt = nil
+						reopen(fs)
+						Expect(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						).To(Equal([]byte{10, 11, 12, 20, 21, 22, 23, 30, 31, 32, 35}))
 					},
 				)
 

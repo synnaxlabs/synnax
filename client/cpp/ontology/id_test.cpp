@@ -43,16 +43,12 @@ TEST(OntologyID, testParseValidIDWithUUID) {
 
 /// @brief it should fail to parse an ID without a colon separator.
 TEST(OntologyID, testParseMalformed) {
-    auto [id, err] = ID::parse("malformed");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(ID::parse("malformed"), x::errors::VALIDATION);
 }
 
 /// @brief it should fail to parse an ID with only a colon.
 TEST(OntologyID, testParseOnlyColon) {
-    auto [id, err] = ID::parse(":");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(ID::parse(":"), x::errors::VALIDATION);
 }
 
 /// @brief it should fail to parse an ID with empty type.
@@ -212,9 +208,10 @@ TEST(OntologyID, testProtoRoundTripTypedDevices) {
 /// @brief it should return an error for an unrecognized type in to_proto.
 TEST(OntologyID, testToProtoUnrecognizedType) {
     const ID id{.type = "nonexistent", .key = "42"};
-    const auto [pb, err] = id.to_proto();
-    ASSERT_TRUE(err);
-    ASSERT_NE(err.type.find("unrecognized"), std::string::npos);
+    ASSERT_OCCURRED_AS_P(
+        id.to_proto(),
+        x::errors::Error("unrecognized ResourceType value: nonexistent")
+    );
 }
 
 /// @brief it should convert a zero ID to protobuf and back.

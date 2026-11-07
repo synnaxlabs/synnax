@@ -218,4 +218,4 @@ class Client:
             offset=offset,
         )
         res = self._client.send("/panel/retrieve", req, RetrieveResponse)
-        return sole("Panel", fields, res.panels) if single else res.panels
+        return sole("panel", req, res.panels) if single else res.panels

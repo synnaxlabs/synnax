@@ -227,6 +227,18 @@ describe("Rack", () => {
         ),
       );
     });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.racks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - embedded takes a boolean.
+        client.racks.retrieve({ embedded: "yes" }),
+      ).rejects.toThrow('✗ "embedded": "yes"  × expected boolean');
+    });
     it("should retrieve racks that match any branch of an or", async () => {
       const [a, b, c] = await client.racks.create([
         { name: `rack-or-${id.create()}` },
@@ -314,6 +326,20 @@ describe("Rack", () => {
       });
       const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
+    });
+  });
+  describe("version", () => {
+    it("should keep the Driver version of a rack", async () => {
+      const r = await client.racks.create({
+        name: "rack-with-version",
+        version: "0.61.3",
+      });
+      expect(r.version).toBe("0.61.3");
+      const retrieved = await client.racks.retrieve({
+        key: r.key,
+        includeStatus: true,
+      });
+      expect(retrieved.version).toBe("0.61.3");
     });
   });
   describe("tasks", () => {

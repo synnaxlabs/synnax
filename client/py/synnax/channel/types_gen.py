@@ -11,16 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
 from x import control, filter, telem
-from x.filter import shorthand
 
 Key: TypeAlias = int
 
@@ -77,9 +76,6 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
-        name_patterns: Matches channels whose name matches any of the given patterns. A
-            valid channel name matches exactly, and any other pattern is a regular
-            expression, anchored when unanchored.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -94,12 +90,6 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
-    name_patterns: list[str] | None = None
-
-    @field_validator("name_patterns", mode="before")
-    @classmethod
-    def _read_lists(cls, value: Any) -> Any:
-        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -117,7 +107,6 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
-        "name_patterns": str | list[str],
     },
     total=False,
 )

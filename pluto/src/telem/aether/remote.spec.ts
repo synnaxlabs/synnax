@@ -613,6 +613,21 @@ describe("remote", () => {
       });
     });
 
+    it("should report only the samples of an index channel as sorted", async () => {
+      const core = createCore({ channels: 2 });
+      const client = connect(core);
+      const [a, b] = core.data.map((c) => c.key);
+      const index = create(client, { channel: a, useIndexOfChannel: true });
+      const data = create(client, { channel: a });
+      const xy = create(client, { channel: b, xChannel: a });
+      await Promise.all([settle(index), settle(data), settle(xy)]);
+      expect([index, data, xy].map((s) => s.value().sorted)).toEqual([
+        true,
+        false,
+        false,
+      ]);
+    });
+
     it("should draw an xy line's home view with decimate at every zoom", async () => {
       const core = createCore({ channels: 2 });
       const [x, y] = core.data.map((c) => c.key);

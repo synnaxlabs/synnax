@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, filter } from "@synnaxlabs/x";
 import z from "zod";
 
 import { AccessDeniedError, isConnectionError } from "@/errors";
@@ -53,19 +53,16 @@ export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
 const filterParamsZ = retrieveInputZ(callerRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(callerRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  callerRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 const singleRetrieveParamsZ = z
   .strictObject({ key: keyZ })
   .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
 const retrieveParamsZ = z
-  .union([singleRetrieveParamsZ, callerRequestZ, filterParamsZ])
+  .union([singleRetrieveParamsZ, requestParamsZ])
   .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
@@ -205,7 +202,12 @@ export class Client extends query.Retriever<
     if (detailsSchema != null) {
       const request = query.dropOne(rest);
       const statuses = await this.execRetrieve(request, detailsSchema);
-      checkForMultipleOrNoResults("Status", request, statuses, isSingle);
+      checkForMultipleOrNoResults(
+        "status",
+        retrieveParamsZ.parse(request),
+        statuses,
+        isSingle,
+      );
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
@@ -385,7 +387,12 @@ export class Client extends query.Retriever<
 
   private async fetchSingle(key: Key): Promise<Status> {
     const statuses = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Status", key, statuses, true);
+    checkForMultipleOrNoResults(
+      "status",
+      { where: { key: { eq: key } } },
+      statuses,
+      true,
+    );
     return statuses[0];
   }
 
