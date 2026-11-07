@@ -343,18 +343,21 @@ def _focused(text: str, lens: Lens) -> str:
 def _merge(
     reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
 ) -> Review:
-    """Joins the reviews of parallel passes. Findings of two passes that end on the
-    same line of a file are one finding: the review keeps the one that continues an
-    open thread, else the more severe. The verdict and summary come from the pass with
-    the lowest capped score."""
+    """Joins the reviews of parallel passes. Findings of two passes in one file that
+    end on the same line or have the same title are one finding: the review keeps the
+    more severe, else the one that continues an open thread. The verdict and summary
+    come from the pass with the lowest capped score."""
 
-    def rank(f: Finding) -> tuple[bool, int]:
-        return (f.path, f.title) not in open, SEVERITIES.index(f.severity)
+    def rank(f: Finding) -> tuple[int, bool]:
+        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
+
+    def same(f: Finding, k: Finding) -> bool:
+        return f.path == k.path and (f.line == k.line or f.title == k.title)
 
     kept: list[tuple[int, Finding]] = []
     every = [(i, f) for i, r in enumerate(reviews) for f in r.findings]
     for i, f in sorted(every, key=lambda t: rank(t[1])):
-        if not any(j != i and k.path == f.path and k.line == f.line for j, k in kept):
+        if not any(j != i and same(f, k) for j, k in kept):
             kept.append((i, f))
     lead = min(reviews, key=lambda r: _cap(r, caps).score)
     return replace(

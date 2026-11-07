@@ -432,11 +432,25 @@ class TestLenses:
         assert [f.title for f in got.findings] == ["P1 at 12", "P2 at 10"]
 
     def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
-        races = FakeClaude(5, [at("P2", 12)])
-        edges = FakeClaude(5, [at("P1", 12)])
+        races = FakeClaude(5, [at("P2", 12) | {"title": "New"}])
+        edges = FakeClaude(5, [at("P2", 12)])
         pr = pull(open={("a.go", "P2 at 12")})
         _, (got, _) = self.lenses(races, edges, pr)
         assert [f.title for f in got.findings] == ["P2 at 12"]
+
+    def test_should_keep_a_more_severe_finding_over_an_open_thread(self) -> None:
+        races = FakeClaude(4, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P0", 12)])
+        pr = pull(open={("a.go", "P2 at 12")})
+        _, (got, _) = self.lenses(races, edges, pr)
+        assert [f.title for f in got.findings] == ["P0 at 12"]
+        assert got.score == 2
+
+    def test_should_join_findings_of_two_passes_with_one_title(self) -> None:
+        races = FakeClaude(5, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P1", 14) | {"title": "P2 at 12"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.title, f.line) for f in got.findings] == [("P2 at 12", 14)]
 
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
