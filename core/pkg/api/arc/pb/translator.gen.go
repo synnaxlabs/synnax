@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
@@ -37,11 +38,15 @@ func RetrieveRequestToPB(r arc.RetrieveRequest) (*RetrieveRequest, error) {
 }
 
 // RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 	var r arc.RetrieveRequest
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
 	r.IncludeProgram = pb.IncludeProgram
@@ -55,6 +60,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

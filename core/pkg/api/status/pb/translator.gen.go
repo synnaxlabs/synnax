@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	xpb "github.com/synnaxlabs/x/pb"
 )
 
@@ -38,11 +39,15 @@ func RetrieveRequestToPB(r status.RetrieveRequest) (*RetrieveRequest, error) {
 }
 
 // RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RetrieveRequestFromPB(pb *RetrieveRequest) (status.RetrieveRequest, error) {
 	var r status.RetrieveRequest
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
 	r.IncludeLabels = pb.IncludeLabels
@@ -56,6 +61,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (status.RetrieveRequest, error) 
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

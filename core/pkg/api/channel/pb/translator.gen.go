@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/defaults"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -59,11 +60,15 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 }
 
 // ChannelFromPB converts Channel to Channel.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	var r channel.Channel
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Operations, err = channelpb.OperationsFromPB(pb.Operations)
 	if err != nil {
@@ -92,6 +97,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 		}
 		r.Status = &val
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -142,11 +148,15 @@ func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 }
 
 // RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error) {
 	var r channel.RetrieveRequest
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
@@ -160,6 +170,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
