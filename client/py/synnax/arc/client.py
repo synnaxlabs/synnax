@@ -254,19 +254,16 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        res = self._client.send(
-            "/arc/retrieve",
-            RetrieveRequest(
-                where=request_where(Where, filter.merge(where, flat), fields),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-                include_program=include_program,
-            ),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_program=include_program,
         )
+        res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
-        return sole("Arc", fields, arcs) if single else arcs
+        return sole("Arc", req, arcs) if single else arcs
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

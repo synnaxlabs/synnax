@@ -318,3 +318,25 @@ describe("permission to write the rack", () => {
     expect(await screen.findByText("Toggle NI device scanner")).toBeTruthy();
   });
 });
+
+describe("rack tree item", () => {
+  it("should show the version that the Driver of the rack reports", async () => {
+    const grp = await client.groups.create({
+      scope: "device",
+      name: uniqueName("rackgrp"),
+    });
+    const r = await client.racks.create({
+      name: uniqueName("rack"),
+      version: "0.61.3",
+      group: grp.key,
+    });
+    await renderOntologyTree({
+      client,
+      root: device.TYPE_RESOURCE_ID,
+      items: Rack.TREE_ITEMS,
+      listRoot: (c) => [Rack.GROUP_MEMBER.children(c, grp.key)],
+    });
+    const row = await findTreeRow(r.name);
+    expect(row.contains(await screen.findByText("v0.61.3"))).toBe(true);
+  });
+});

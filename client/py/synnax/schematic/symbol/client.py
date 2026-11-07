@@ -156,7 +156,7 @@ class Client:
             search_term=search_term,
         )
         res = self._client.send("/schematic/symbol/retrieve", req, RetrieveResponse)
-        return sole("Symbol", fields, res.symbols) if single else res.symbols
+        return sole("symbol", req, res.symbols) if single else res.symbols
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.

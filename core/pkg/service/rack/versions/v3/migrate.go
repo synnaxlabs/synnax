@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-var Migration = migrate.NewEntry("v61_add_group", autoMigrateRack)
+// Migration lifts stored racks from v2 to v3, which adds an optional Driver version, an
+// optional group, and roles.
+var Migration = migrate.NewEntry("v61_add_driver_version", autoMigrateRack)
 
 // MembersMigration sets the group of each stored rack from the ontology edge that
 // placed it in a group.
