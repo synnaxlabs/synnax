@@ -58,6 +58,7 @@ const startupParameterZ = z.object({
   value: z.number(),
   name: z.string().default(""),
 });
+export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
 const ZERO_PDOS: PDOs = {
   inputs: [],

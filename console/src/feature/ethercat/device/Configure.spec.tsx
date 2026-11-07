@@ -42,16 +42,26 @@ const IDENTIFIER_FORMAT_ERROR =
 
 const OP_MODE = { index: 0, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 };
 
+const FILTER: EtherCAT.Device.StartupParameter = {
+  index: 0x8000,
+  subIndex: 0x15,
+  dataType: "uint16",
+  value: 3,
+  name: "Filter",
+};
+
 interface SetupArgs {
   configured?: boolean;
   useOpen?: typeof Device.useConfigureModal;
   analytics?: Analytics.Sink;
+  startupParameters?: EtherCAT.Device.StartupParameter[];
 }
 
 const setup = async ({
   configured = true,
   useOpen = Device.useConfigureModal,
   analytics,
+  startupParameters = [],
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -72,6 +82,7 @@ const setup = async ({
         },
       ],
       opMode: OP_MODE,
+      startupParameters,
     },
     configured,
   );
@@ -88,6 +99,16 @@ const nameInput = (): HTMLInputElement =>
   screen.getByRole<HTMLInputElement>("textbox", { name: "Name" });
 const identifierInput = (): HTMLInputElement =>
   screen.getByRole<HTMLInputElement>("textbox", { name: /^Identifier/ });
+
+const cell = (name: string): HTMLInputElement =>
+  screen.getByRole<HTMLInputElement>("textbox", { name });
+
+const commit = (name: string, value: string) => {
+  const input = cell(name);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
 
 const save = async (label = "Save") => {
   await act(async () => {
@@ -185,6 +206,59 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       "device_configured",
       expect.anything(),
     );
+  });
+
+  describe("startup parameters", () => {
+    it("should show the address of a saved parameter in hexadecimal", async () => {
+      await setup({ startupParameters: [FILTER] });
+      expect(cell("Index 1").value).toEqual("0x8000");
+      expect(cell("Subindex 1").value).toEqual("0x15");
+      expect(cell("Name 1").value).toEqual("Filter");
+    });
+
+    it("should save a parameter added in the table", async () => {
+      const slave = await setup();
+      fireEvent.click(findButton("Add parameter"));
+      commit("Index 1", "8000");
+      commit("Subindex 1", "0x15");
+      commit("Value 1", "3");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { index: 0x8000, subIndex: 0x15, dataType: "uint8", value: 3, name: "" },
+        ]),
+      );
+    });
+
+    it("should keep the last address when the text is not hexadecimal", async () => {
+      await setup({ startupParameters: [FILTER] });
+      commit("Index 1", "0x8g00");
+      commit("Subindex 1", "0x100");
+      expect(cell("Index 1").value).toEqual("0x8000");
+      expect(cell("Subindex 1").value).toEqual("0x15");
+    });
+
+    it("should not save a value that the data type cannot hold", async () => {
+      const slave = await setup({ startupParameters: [FILTER] });
+      commit("Value 1", "70000");
+      await save();
+      await waitFor(() =>
+        expect(cell("Value 1").getAttribute("aria-invalid")).toEqual("true"),
+      );
+      expect(screen.getByText("Startup parameters")).toBeTruthy();
+      expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+        FILTER,
+      ]);
+    });
+
+    it("should remove a parameter", async () => {
+      const slave = await setup({ startupParameters: [FILTER] });
+      fireEvent.click(screen.getByRole("button", { name: "Remove parameter 1" }));
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([]),
+      );
+    });
   });
 
   describe("actions", () => {

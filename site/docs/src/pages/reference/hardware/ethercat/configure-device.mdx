@@ -281,7 +281,17 @@ Driver also writes them again when a module returns after a power loss.
   **Invalid device properties** and says which field is wrong. The network starts every
   module on it, so no task on that network starts until you correct the parameter.
 
-<Client.Tabs exclude={["console"]}>
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Configure**.
+2. Under **Startup parameters**, click **Add parameter**.
+3. Enter the **Index** and **Subindex** in hexadecimal, such as `8000` and `15`. Select
+   the **Data type**, and enter the **Value** and an optional **Name**.
+4. Click **Save**. If the data type cannot hold the value, the Console marks the value
+   and does not save.
+
+  </Fragment>
   <Fragment slot="python">
 
 ```python
