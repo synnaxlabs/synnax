@@ -183,9 +183,13 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 func (d *DynamicDeltaMultiplier[V]) sendOrDrop(v V) {
 	for _, inlet := range d.Source.Out {
 		addr := inlet.InletAddress()
+		// A drop episode ends only once the consumer drains its whole buffer, so a
+		// consumer that keeps up part of the time logs once.
+		if len(inlet.Inlet()) == 0 {
+			d.dropping.Remove(addr)
+		}
 		select {
 		case inlet.Inlet() <- v:
-			d.dropping.Remove(addr)
 		default:
 			if !d.dropping.Contains(addr) {
 				d.dropping.Add(addr)

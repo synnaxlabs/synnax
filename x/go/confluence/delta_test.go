@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap/zapcore"
 )
 
 var _ = Describe("Delta", func() {
@@ -155,6 +156,49 @@ var _ = Describe("Delta", func() {
 				Eventually(stalled.Outlet()).Should(Receive(Equal(0)))
 				Consistently(stalled.Outlet()).ShouldNot(Receive())
 			})
+
+			It(
+				"Should warn once while a consumer keeps up only part of the time",
+				func() {
+					ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
+					delta := NewLossyDynamicDeltaMultiplier[int](ins)
+					stalled := NewStream[int](2)
+					stalled.SetInletAddress("stalled")
+					live := NewStream[int](10)
+					live.SetInletAddress("live")
+					input := NewStream[int](0)
+					delta.InFrom(input)
+					ctx, cancel := signal.Isolated()
+					defer cancel()
+					delta.Flow(ctx, CloseOutputInletsOnExit())
+					delta.Connect(stalled, live)
+					// The delta sends to live after stalled, so a value on live means
+					// the
+					// delta is done with stalled.
+					send := func(v int) {
+						GinkgoHelper()
+						Eventually(input.Inlet()).Should(BeSent(v))
+						Eventually(live.Outlet()).Should(Receive(Equal(v)))
+					}
+					warnings := func() int {
+						return logs.FilterMessageSnippet("dropping").Len()
+					}
+					for v := range 3 {
+						send(v)
+					}
+					Expect(warnings()).To(Equal(1))
+					Eventually(stalled.Outlet()).Should(Receive(Equal(0)))
+					send(3)
+					send(4)
+					Expect(warnings()).To(Equal(1))
+					Eventually(stalled.Outlet()).Should(Receive(Equal(1)))
+					Eventually(stalled.Outlet()).Should(Receive(Equal(3)))
+					for v := 5; v < 8; v++ {
+						send(v)
+					}
+					Expect(warnings()).To(Equal(2))
+				},
+			)
 		})
 
 		Describe("Timeout", func() {

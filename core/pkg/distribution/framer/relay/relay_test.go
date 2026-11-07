@@ -202,36 +202,33 @@ var _ = Describe("Relay", func() {
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			// stream writes enough frames to fill a stalled streamer's buffer three
-			// times over. The live streamer reads each batch before the next, so it
-			// drops none.
-			stream := func() time.Duration {
-				GinkgoHelper()
-				const batchSize = 50
-				batches := 3 * relay.DefaultConfig.StreamerBufferSize / batchSize
-				start := time.Now()
-				for range batches {
-					for range batchSize {
-						Expect(w.Write(frame.NewMulti(
-							keys,
-							[]telem.Series{
-								telem.NewSeriesV[int64](1),
-								telem.NewSeriesV[int64](2),
-								telem.NewSeriesV[int64](3),
-							},
-						))).To(BeTrue())
-					}
-					for range batchSize {
-						Eventually(live.Outlet()).
-							WithPolling(time.Millisecond).
-							Should(Receive())
-					}
-				}
-				return time.Since(start)
-			}
-			alone := stream()
 			openStreamer()
-			Expect(stream()).To(BeNumerically("<", 2*alone))
+			// The frames fill the stalled streamer's buffer three times over. Waiting
+			// on
+			// it for 20 ms a frame would take a batch about 1 s.
+			const batchSize = 50
+			batches := 3 * relay.DefaultConfig.StreamerBufferSize / batchSize
+			for range batches {
+				for range batchSize {
+					Expect(w.Write(frame.NewMulti(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesV[int64](1),
+							telem.NewSeriesV[int64](2),
+							telem.NewSeriesV[int64](3),
+						},
+					))).To(BeTrue())
+				}
+				received := 0
+				Eventually(func(g Gomega) {
+					for ; received < batchSize; received++ {
+						g.Expect(live.Outlet()).To(Receive())
+					}
+				}).
+					WithTimeout(500 * time.Millisecond).
+					WithPolling(time.Millisecond).
+					Should(Succeed())
+			}
 		})
 	})
 	Describe("ExcludeGroups", Ordered, func() {
