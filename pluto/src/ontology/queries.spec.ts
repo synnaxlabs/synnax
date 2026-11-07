@@ -404,6 +404,29 @@ describe("Ontology Queries", () => {
     });
   });
 
+  describe("useResources", () => {
+    it("should suspend until it returns the resources with the IDs", async () => {
+      const first = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const second = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: id.create(),
+      });
+      const ids = [group.ontologyID(first.key), group.ontologyID(second.key)];
+      const { result } = await renderHookSuspended(
+        () => Ontology.useResources({ ids }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.map((r) => r.name).sort()).toEqual(
+          [first.name, second.name].sort(),
+        ),
+      );
+    });
+  });
+
   describe("useResultResources", () => {
     it("should search only under the root", async () => {
       const name = `rr${Math.random().toString(36).slice(2)}`;

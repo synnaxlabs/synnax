@@ -82,7 +82,7 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
           </Text.Text>
           <Text.Text
             el="span"
-            level="small"
+            level="tiny"
             color={9}
             className={CSS.BE("secret-field", "date")}
           >

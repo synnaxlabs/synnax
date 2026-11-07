@@ -110,7 +110,7 @@ export const UsedBy = ({
       </Text.Text>
     );
   return (
-    <Flex.Box y empty>
+    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
       <Resources ids={uses} onSelectCertificate={onSelectCertificate} />
     </Flex.Box>
   );

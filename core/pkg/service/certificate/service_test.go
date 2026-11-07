@@ -15,6 +15,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"sync/atomic"
@@ -133,6 +134,15 @@ func encodeKey(key *ecdsa.PrivateKey) []byte {
 	der := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
 	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 }
+
+func encodeSEC1Key(key *ecdsa.PrivateKey) []byte {
+	GinkgoHelper()
+	der := MustSucceed(x509.MarshalECPrivateKey(key))
+	return pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: der})
+}
+
+// oidP256 names the P-256 curve, as openssl writes it in an EC PARAMETERS block.
+var oidP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
 
 func stored(name, pemText string) certificate.Certificate {
 	return certificate.Certificate{Variant: certificate.StoredCertificate{
@@ -313,8 +323,7 @@ var _ = Describe("Service", func() {
 				start.Add(-time.Hour),
 				time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
 			)), nil)
-			details, ok := c.Details()
-			Expect(ok).To(BeTrue())
+			details := MustBeOk(c.Details())
 			Expect(details.NotAfter).To(Equal(telem.TimeStampMax))
 			s := e.expiry(ctx, c.Base().Key)
 			Expect(s.Variant).To(Equal(status.VariantSuccess))
