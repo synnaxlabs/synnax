@@ -30,6 +30,9 @@ _ROUND_TRIPS = 500
 # The first round trips are slow while the Core opens its relay to the cRIO.
 _WARMUP = 20
 _REPLY_TIMEOUT_S = 5
+# About three times what the station measures. The maximum varies too much for a limit.
+_MAX_MEDIAN_MS = 2
+_MAX_P99_MS = 15
 
 
 class CRIORoundTrip(_ArcOnCRIO):
@@ -63,10 +66,17 @@ class CRIORoundTrip(_ArcOnCRIO):
                         break
                 round_trips_ms.append((time.perf_counter() - start) * 1000)
         measured = np.array(round_trips_ms[_WARMUP:])
-        self.metrics["round_trip_median_ms"] = float(np.median(measured))
-        self.metrics["round_trip_p99_ms"] = float(np.percentile(measured, 99))
+        median = float(np.median(measured))
+        p99 = float(np.percentile(measured, 99))
+        self.metrics["round_trip_median_ms"] = median
+        self.metrics["round_trip_p99_ms"] = p99
         self.metrics["round_trip_max_ms"] = float(measured.max())
         self.log(f"round trip in ms: {self.metrics}")
+        if median > _MAX_MEDIAN_MS or p99 > _MAX_P99_MS:
+            self.fail(
+                f"The round trip took {median:.2f} ms at the median and {p99:.2f} ms "
+                f"at p99. The limits are {_MAX_MEDIAN_MS} ms and {_MAX_P99_MS} ms."
+            )
 
 
 class CRIOWaitSamples(_ArcOnCRIO, _WaitSamples):
