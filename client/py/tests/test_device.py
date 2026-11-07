@@ -282,7 +282,7 @@ class TestDevice:
             client.devices.create(dev)
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Device matching .*{make}.*, but found 2",
+            match=rf"Expected one device where .*{make}.*, but found 2",
         ):
             client.devices.retrieve(make=make, one=True, ignore_not_found=True)
 

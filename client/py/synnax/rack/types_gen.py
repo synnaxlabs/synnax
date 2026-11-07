@@ -96,6 +96,8 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
         group: Is the group the rack sits in, if any.
     """
 
@@ -104,6 +106,7 @@ class Base(BaseModel):
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
     group: group_.Key | None = None
 
     @_override

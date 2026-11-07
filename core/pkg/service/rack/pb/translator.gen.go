@@ -38,6 +38,9 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 			return nil, err
 		}
 	}
+	if r.Version != nil {
+		pb.Version = r.Version
+	}
 	if r.Group != nil {
 		v := r.Group.String()
 		pb.Group = &v
@@ -61,6 +64,9 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 			return rack.Rack{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Version != nil {
+		r.Version = pb.Version
 	}
 	if pb.Group != nil {
 		v, err := uuid.Parse(*pb.Group)

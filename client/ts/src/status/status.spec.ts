@@ -861,9 +861,7 @@ describe("Status", () => {
       });
       expect(retrieved.key).toEqual(key);
       await expect(client.statuses.retrieve({ key, variant: "info" })).rejects.toThrow(
-        new NotFoundError(
-          `status not found matching {"where":{"key":{"eq":"${key}"},"variant":{"eq":"info"}}}`,
-        ),
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
       );
     });
 
@@ -887,9 +885,7 @@ describe("Status", () => {
       await expect(
         client.statuses.retrieve({ key, variant: "info", detailsSchema }),
       ).rejects.toThrow(
-        new NotFoundError(
-          `Status not found matching {"key":"${key}","variant":"info"}`,
-        ),
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
       );
     });
 

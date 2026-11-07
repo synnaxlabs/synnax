@@ -95,6 +95,7 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
     }
     for (const auto &item: this->integrations)
         pb.add_integrations(item);
+    if (this->version.has_value()) pb.set_version(*this->version);
     return {pb, x::errors::NIL};
 }
 
@@ -111,6 +112,7 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     }
     for (const auto &item: pb.integrations())
         cpp.integrations.push_back(item);
+    if (pb.has_version()) cpp.version = pb.version();
     return {cpp, x::errors::NIL};
 }
 

@@ -187,7 +187,7 @@ class TestClient:
         """Should return one panel for a plain key beside other fields."""
         a = client.panels.create(name="A", parent=parent)
         assert client.panels.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
             client.panels.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
@@ -201,7 +201,7 @@ class TestClient:
         self, client: sy.Synnax, parent: sy.resource.ID
     ) -> None:
         """Should raise NotFoundError for one panel of a parent with no panels."""
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
             client.panels.retrieve(parent=parent, one=True)
 
     def test_retrieve_none_field_by_parent_without_children(

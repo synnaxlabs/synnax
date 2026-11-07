@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <random>
 #include <string>
 
@@ -194,11 +195,7 @@ TEST(RangerTests, testRetrieveOneWhereNotFound) {
     const auto name = std::to_string(gen_rand());
     const auto [_, err] = client.ranges.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(range matching {"name":{"case_insensitive":false,"eq":")" + name +
-            R"("}} not found.)"
-    );
+    ASSERT_EQ(err.data, "Found no range where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one range matches a filter.
@@ -233,6 +230,53 @@ TEST(RangerTests, testRetrieveRejectsPage) {
             );
         }
     }
+}
+
+/// @brief it should page a retrieve of ranges by keys, by names, or by filter.
+TEST(RangerTests, testRetrieveListPage) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    const auto tr = x::telem::TimeRange(
+        x::telem::TimeStamp(10),
+        x::telem::TimeStamp(20)
+    );
+    std::vector<Key> keys;
+    keys.reserve(3);
+    for (int i = 0; i < 3; ++i)
+        keys.push_back(ASSERT_NIL_P(client.ranges.create(name, tr)).key);
+    const auto by_key = ASSERT_NIL_P(client.ranges.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_name = ASSERT_NIL_P(
+        client.ranges.retrieve(std::vector{name}, {.offset = 1})
+    );
+    ASSERT_EQ(by_name.size(), 2);
+    const auto where = Where{.name = name};
+    const auto first = ASSERT_NIL_P(client.ranges.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(client.ranges.retrieve(where, {.offset = 1}));
+    ASSERT_EQ(rest.size(), 2);
+}
+
+/// @brief it should keep only the ranges that match a search term.
+TEST(RangerTests, testRetrieveSearchTerm) {
+    const auto client = new_test_client();
+    const auto name = "searchable-range-" + std::to_string(gen_rand());
+    const auto tr = x::telem::TimeRange(
+        x::telem::TimeStamp(10),
+        x::telem::TimeStamp(20)
+    );
+    const auto range = ASSERT_NIL_P(client.ranges.create(name, tr));
+    const auto other = ASSERT_NIL_P(client.ranges.create("zqxv", tr));
+    const auto only_match = [&] {
+        const auto [got, err] = client.ranges.retrieve(Where{}, {.search_term = name});
+        const auto has = [&](const Key &key) {
+            return std::ranges::any_of(got, [&](const Range &r) {
+                return r.key == key;
+            });
+        };
+        return !err && has(range.key) && !has(other.key);
+    };
+    ASSERT_EVENTUALLY_EQ_F(only_match, true);
 }
 
 /// @brief it should set a key-value pair on the range.
