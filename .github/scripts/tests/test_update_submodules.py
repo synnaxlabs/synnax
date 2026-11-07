@@ -88,16 +88,17 @@ def kill_fetch(work: Path, path: str) -> None:
 
 
 def kill_checkout(work: Path, path: str, *, locked: bool) -> None:
-    """Leaves the submodule as a clone killed during its checkout: HEAD on the fetched
-    branch, no index, and part of the files, plus a stale index.lock when locked."""
+    """Leaves the submodule as a checkout killed partway: HEAD on the fetched branch,
+    part of the files, and a stale index.lock when locked, else no index."""
     git(work / path, "fetch", "-q", "origin", "+main:refs/heads/main")
     git(work / path, "symbolic-ref", "HEAD", "refs/heads/main")
     directory = gitdir(work, path)
-    (directory / "index").unlink()
     empty_worktree(work, path)
     (work / path / "plain.txt").write_text("partial")
     if locked:
         (directory / "index.lock").touch()
+    else:
+        (directory / "index").unlink()
 
 
 @pytest.fixture
@@ -154,6 +155,7 @@ class TestUpdateSubmodules:
         assert error in update(work).stderr
         result = run(work)
         assert result.returncode == 0, result.stderr
+        assert "::warning::Deleting unfinished submodule" in result.stdout
         assert git(work / "vendor/plain", "rev-parse", "HEAD") == recorded
         assert (work / "vendor/plain/plain.txt").read_text() == "plain.txt"
 
