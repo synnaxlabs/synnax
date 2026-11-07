@@ -13,6 +13,8 @@ import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
+_STATUS_CLASS_PREFIX = "lyra--status-"
+
 _CHANNEL_LIST_SELECTOR = ".console-channel-list"
 
 
@@ -133,27 +135,27 @@ class TaskPage(ConsolePage):
         msg.wait_for(state="visible", timeout=timeout)
         return msg.inner_text().strip()
 
-    def wait_for_status_level(
+    def wait_for_status_variant(
         self,
-        levels: tuple[str, ...],
+        variants: tuple[sy.status.Variant, ...],
         *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
-    ) -> dict[str, str]:
-        """Poll the status box until its level is one of ``levels``.
+    ) -> sy.Status:
+        """Poll the status box until its variant is one of ``variants``.
 
-        :param levels: Accepted status levels, e.g. ``("error", "warning")``.
+        :param variants: Accepted status variants, e.g. ``("error", "warning")``.
         :param timeout: Maximum time to wait.
         :returns: The matching status, as returned by ``status()``.
         """
         timer = sy.Timer()
         while True:
             status = self.status()
-            if status["level"] in levels:
+            if status.variant in variants:
                 return status
             if timer.elapsed() > timeout:
                 raise AssertionError(
-                    f"Task status level stayed '{status['level']}' "
-                    f"('{status['msg']}'), expected one of {levels}"
+                    f"Task status variant stayed '{status.variant}' "
+                    f"('{status.message}'), expected one of {variants}"
                 )
             sy.sleep(0.25)
 
@@ -177,32 +179,23 @@ class TaskPage(ConsolePage):
         help_text.wait_for(state="visible", timeout=5000)
         return help_text.inner_text().strip()
 
-    def status(self) -> dict[str, str]:
-        """Get the current status information from the task status box.
-
-        Returns:
-            Dictionary containing:
-                - msg: The status message (e.g., "Task has not been configured")
-                - level: The alert level (e.g., "disabled", "info", "success", "error")
-        """
+    def status(self) -> sy.Status:
+        """Return the variant and message in the task status box."""
         status_element = (
             self._controls().locator(".console-task-status__message-text").first
         )
-
-        # Parse status level from CSS class
-        class_attr = status_element.get_attribute("class") or ""
-        level = "unknown"
-        for cls in class_attr.split():
-            if cls.startswith("lyra--status-"):
-                level = cls.replace("lyra--status-", "")
-                break
-
-        msg = status_element.inner_text()
-
-        return {
-            "msg": msg,
-            "level": level,
-        }
+        classes = (status_element.get_attribute("class") or "").split()
+        variant = next(
+            (
+                cls.removeprefix(_STATUS_CLASS_PREFIX)
+                for cls in classes
+                if cls.startswith(_STATUS_CLASS_PREFIX)
+            ),
+            None,
+        )
+        return sy.Status.model_validate(
+            {"variant": variant, "message": status_element.inner_text()}
+        )
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""

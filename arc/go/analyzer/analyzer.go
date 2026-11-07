@@ -31,9 +31,11 @@ import (
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	checkImportOrder(ctx)
+	checkModuleRules(ctx)
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
+	markExports(ctx)
 	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)

@@ -129,6 +129,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
         .details = synnax::device::StatusDetails{
             .rack = dev.rack,
             .device = dev.key,
+            .connected = true,
         }
     };
 
