@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package fake runs an in-process Sift server for tests. It keeps what Sift keeps:
-// ingestion configs, assets, and the last value at each timestamp of each channel.
+// ingestion configs, assets, runs, and the last value at each timestamp of each
+// channel.
 package fake
 
 import (
@@ -26,6 +27,7 @@ import (
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -66,6 +68,7 @@ type Server struct {
 	ingestionconfigsv2.UnimplementedIngestionConfigServiceServer
 	pingv1.UnimplementedPingServiceServer
 	assetsv1.UnimplementedAssetServiceServer
+	runsv2.UnimplementedRunServiceServer
 	cfg      Config
 	grpc     *grpc.Server
 	listener net.Listener
@@ -80,6 +83,8 @@ type Server struct {
 	streams   int
 	failures  []error
 	paused    chan struct{}
+	runs      []*runsv2.Run
+	runFails  []error
 }
 
 var (
@@ -87,6 +92,7 @@ var (
 	_ ingestionconfigsv2.IngestionConfigServiceServer = (*Server)(nil)
 	_ pingv1.PingServiceServer                        = (*Server)(nil)
 	_ assetsv1.AssetServiceServer                     = (*Server)(nil)
+	_ runsv2.RunServiceServer                         = (*Server)(nil)
 )
 
 // Open starts a Server on a free local port. The caller must Close it.
@@ -108,6 +114,7 @@ func Open(cfg Config) (*Server, error) {
 	ingestionconfigsv2.RegisterIngestionConfigServiceServer(s.grpc, s)
 	pingv1.RegisterPingServiceServer(s.grpc, s)
 	assetsv1.RegisterAssetServiceServer(s.grpc, s)
+	runsv2.RegisterRunServiceServer(s.grpc, s)
 	s.served = make(chan error, 1)
 	go func() { s.served <- s.grpc.Serve(lis) }()
 	return s, nil
@@ -188,6 +195,21 @@ func (s *Server) Fail(errs ...error) {
 	s.failures = append(s.failures, errs...)
 }
 
+// Runs returns every run created on the Server.
+func (s *Server) Runs() []*runsv2.Run {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.runs)
+}
+
+// FailRuns makes each of the next calls to CreateAdhocRun return one of errs, in
+// order.
+func (s *Server) FailRuns(errs ...error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.runFails = append(s.runFails, errs...)
+}
+
 // Pause stops ingest streams from reading requests until Resume, so clients back up.
 func (s *Server) Pause() {
 	s.mu.Lock()
@@ -251,7 +273,24 @@ func (s *Server) CreateIngestionConfig(
 	}, nil
 }
 
-var clientKeyFilter = regexp.MustCompile(`^client_key\s*==\s*"([^"]*)"$`)
+var equalsFilter = regexp.MustCompile(`^(\w+)\s*==\s*("(?:[^"\\]|\\.)*")$`)
+
+// parseFilter returns the value that filter requires field to equal, or nil for an
+// empty filter. It understands one filter of the form `<field> == "<value>"`.
+func parseFilter(filter, field string) (*string, error) {
+	if filter == "" {
+		return nil, nil
+	}
+	m := equalsFilter.FindStringSubmatch(filter)
+	if m == nil || m[1] != field {
+		return nil, status.Errorf(codes.InvalidArgument, "bad filter %q", filter)
+	}
+	value, err := strconv.Unquote(m[2])
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "bad filter %q", filter)
+	}
+	return &value, nil
+}
 
 // ListIngestionConfigs implements ingestionconfigsv2.IngestionConfigServiceServer. It
 // understands an empty filter and the filter `client_key == "<key>"`.
@@ -261,17 +300,9 @@ func (s *Server) ListIngestionConfigs(
 ) (*ingestionconfigsv2.ListIngestionConfigsResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var key *string
-	if req.Filter != "" {
-		m := clientKeyFilter.FindStringSubmatch(req.Filter)
-		if m == nil {
-			return nil, status.Errorf(
-				codes.InvalidArgument,
-				"bad filter %q",
-				req.Filter,
-			)
-		}
-		key = &m[1]
+	key, err := parseFilter(req.Filter, "client_key")
+	if err != nil {
+		return nil, err
 	}
 	res := &ingestionconfigsv2.ListIngestionConfigsResponse{}
 	for _, c := range s.configs {
@@ -290,6 +321,16 @@ func (s *Server) Ping(
 	return &pingv1.PingResponse{Response: "pong"}, nil
 }
 
+// assetNames returns the sorted names of every asset. s.mu must be held.
+func (s *Server) assetNames() []string {
+	names := slices.Clone(s.cfg.Assets)
+	for _, c := range s.configs {
+		names = append(names, c.asset)
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
+}
+
 // ListAssets implements assetsv1.AssetServiceServer. It lists the assets in
 // Config.Assets and the assets of each ingestion config by name, in pages of
 // PageSize.
@@ -298,13 +339,8 @@ func (s *Server) ListAssets(
 	req *assetsv1.ListAssetsRequest,
 ) (*assetsv1.ListAssetsResponse, error) {
 	s.mu.Lock()
-	names := slices.Clone(s.cfg.Assets)
-	for _, c := range s.configs {
-		names = append(names, c.asset)
-	}
+	names := s.assetNames()
 	s.mu.Unlock()
-	slices.Sort(names)
-	names = slices.Compact(names)
 	start := 0
 	if req.PageToken != "" {
 		var err error
@@ -492,4 +528,79 @@ func (s *Server) authorizeStream(
 		return err
 	}
 	return handler(srv, ss)
+}
+
+// CreateAdhocRun implements runsv2.RunServiceServer.
+func (s *Server) CreateAdhocRun(
+	_ context.Context,
+	req *runsv2.CreateAdhocRunRequest,
+) (*runsv2.CreateAdhocRunResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.runFails) > 0 {
+		err := s.runFails[0]
+		s.runFails = s.runFails[1:]
+		return nil, err
+	}
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+	if req.StartTime == nil || req.StopTime == nil ||
+		!req.StartTime.AsTime().Before(req.StopTime.AsTime()) {
+		return nil, status.Error(
+			codes.InvalidArgument,
+			"start_time must be before stop_time",
+		)
+	}
+	assets := s.assetNames()
+	for _, id := range req.AssetIds {
+		if !slices.ContainsFunc(assets, func(name string) bool {
+			return "asset-"+name == id
+		}) {
+			return nil, status.Errorf(codes.NotFound, "asset %q not found", id)
+		}
+	}
+	if req.ClientKey != nil {
+		for _, r := range s.runs {
+			if r.ClientKey != nil && *r.ClientKey == *req.ClientKey {
+				return nil, status.Errorf(
+					codes.AlreadyExists,
+					"client key %q already exists",
+					*req.ClientKey,
+				)
+			}
+		}
+	}
+	run := &runsv2.Run{
+		RunId:     "run-" + strconv.Itoa(len(s.runs)+1),
+		Name:      req.Name,
+		StartTime: req.StartTime,
+		StopTime:  req.StopTime,
+		AssetIds:  req.AssetIds,
+		Tags:      req.Tags,
+		ClientKey: req.ClientKey,
+	}
+	s.runs = append(s.runs, run)
+	return &runsv2.CreateAdhocRunResponse{Run: run}, nil
+}
+
+// ListRuns implements runsv2.RunServiceServer. It understands an empty filter and the
+// filter `client_key == "<key>"`, and returns every match in one page.
+func (s *Server) ListRuns(
+	_ context.Context,
+	req *runsv2.ListRunsRequest,
+) (*runsv2.ListRunsResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key, err := parseFilter(req.Filter, "client_key")
+	if err != nil {
+		return nil, err
+	}
+	res := &runsv2.ListRunsResponse{}
+	for _, r := range s.runs {
+		if key == nil || (r.ClientKey != nil && *r.ClientKey == *key) {
+			res.Runs = append(res.Runs, r)
+		}
+	}
+	return res, nil
 }

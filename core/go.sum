@@ -280,6 +280,8 @@ github.com/shirou/gopsutil/v4 v4.26.9 h1:CaBo/hBFqvlJoLvAQEKdHdf5GD97/MN2ACfyv63
 github.com/shirou/gopsutil/v4 v4.26.9/go.mod h1:nKH+8wX2zxr/mDbsR+AAy6Qd2z4ZOQ7wfQaEp+yrYmg=
 github.com/sift-stack/sift/go v0.4.0 h1:GPjTGF91R8pCl2Cx0c5Yi9FcBi7NCQNELhUrWS+IkIY=
 github.com/sift-stack/sift/go v0.4.0/go.mod h1:PbsHJGSjhWY+6IJX7m2OXzdcIVdiIGZI5821eQNLKfI=
+github.com/sift-stack/sift/go v0.4.1-0.20261019204012-83100e90939b h1:Z7p0KYkhRQcD+AZwU8D2k9RQzP8R5zXgiLW9n2bH2JY=
+github.com/sift-stack/sift/go v0.4.1-0.20261019204012-83100e90939b/go.mod h1:PbsHJGSjhWY+6IJX7m2OXzdcIVdiIGZI5821eQNLKfI=
 github.com/spf13/afero v1.15.0 h1:b/YBCLWAJdFWJTN9cLhiXXcD7mzKn9Dm86dNnfyQw1I=
 github.com/spf13/afero v1.15.0/go.mod h1:NC2ByUVxtQs4b3sIUphxK0NioZnmxgyCrfzeuq8lxMg=
 github.com/spf13/cast v1.10.0 h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=

@@ -532,6 +532,62 @@ var _ = Describe("Engine", func() {
 			})
 	})
 
+	Describe("CreateRun", func() {
+		var (
+			ch  channel.Channel
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch = createData(ctx, createIndex(ctx), telem.Float64T)
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+				Tags:      []string{"hot"},
+			}
+		})
+
+		It("Should create an ad hoc run of the asset", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.CreateRun(ctx, run))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "hotfire 1"),
+				HaveField("AssetIds", ConsistOf("asset-stand")),
+				HaveField("Tags", ConsistOf("hot")),
+				HaveField("StartTime.AsTime()", time.Unix(1, 0).UTC()),
+				HaveField("StopTime.AsTime()", time.Unix(5, 0).UTC()),
+			)))
+		})
+
+		It("Should return the run that already has the key", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.CreateRun(ctx, run))
+			run.Name = "renamed"
+			Expect(e.CreateRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			MustSucceed(e.CreateRun(ctx, run))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+		It("Should stop at a permanent failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.PermissionDenied, "no runs for you"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			Expect(e.CreateRun(ctx, run)).Error().
+				To(MatchError(ContainSubstring("no permission")))
+			Expect(rec.retryErrors()).To(BeEmpty())
+		})
+	})
+
 	Describe("Stream", func() {
 		stream := func(
 			ctx context.Context,

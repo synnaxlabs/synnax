@@ -20,6 +20,7 @@ import (
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ var _ = Describe("Server", func() {
 		configs ingestionconfigsv2.IngestionConfigServiceClient
 		pinger  pingv1.PingServiceClient
 		assets  assetsv1.AssetServiceClient
+		runs    runsv2.RunServiceClient
 	)
 
 	open := func(cfg fake.Config) {
@@ -51,6 +53,7 @@ var _ = Describe("Server", func() {
 		configs = ingestionconfigsv2.NewIngestionConfigServiceClient(conn)
 		pinger = pingv1.NewPingServiceClient(conn)
 		assets = assetsv1.NewAssetServiceClient(conn)
+		runs = runsv2.NewRunServiceClient(conn)
 	}
 
 	createConfig := func(ctx context.Context, clientKey string) string {
@@ -342,6 +345,86 @@ var _ = Describe("Server", func() {
 			Entry("a token past the last asset",
 				&assetsv1.ListAssetsRequest{PageToken: "2"}, "bad page token"),
 		)
+	})
+
+	Describe("Runs", func() {
+		var (
+			start = timestamppb.New(at)
+			stop  = timestamppb.New(at.Add(time.Minute))
+			key   = "range-1"
+		)
+
+		BeforeEach(func() { open(fake.Config{Assets: []string{"stand"}}) })
+
+		createRun := func(
+			ctx context.Context,
+			req *runsv2.CreateAdhocRunRequest,
+		) (*runsv2.CreateAdhocRunResponse, error) {
+			if req.Name == "" {
+				req.Name = "test 1"
+			}
+			if req.StartTime == nil {
+				req.StartTime, req.StopTime = start, stop
+			}
+			return runs.CreateAdhocRun(ctx, req)
+		}
+
+		It("Should create a run and find it by client key", func(ctx SpecContext) {
+			created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				AssetIds:  []string{"asset-stand"},
+				Tags:      []string{"hot"},
+				ClientKey: &key,
+			})).Run
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", created.RunId),
+				HaveField("AssetIds", ConsistOf("asset-stand")),
+			)))
+			res := MustSucceed(runs.ListRuns(
+				ctx,
+				&runsv2.ListRunsRequest{Filter: `client_key == "range-1"`},
+			))
+			Expect(res.Runs).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", created.RunId),
+				HaveField("Name", "test 1"),
+				HaveField("Tags", ConsistOf("hot")),
+			)))
+			Expect(runs.ListRuns(
+				ctx,
+				&runsv2.ListRunsRequest{Filter: `client_key == "other"`},
+			)).To(HaveField("Runs", BeEmpty()))
+		})
+
+		It("Should reject a second run with the same client key",
+			func(ctx SpecContext) {
+				MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
+					ClientKey: &key,
+				}))
+				_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{
+					ClientKey: &key,
+				})
+				Expect(status.Code(err)).To(Equal(codes.AlreadyExists))
+			})
+
+		It("Should reject an asset that does not exist", func(ctx SpecContext) {
+			_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				AssetIds: []string{"asset-pad"},
+			})
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
+		})
+
+		It("Should reject a run that stops before it starts", func(ctx SpecContext) {
+			Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				StartTime: stop,
+				StopTime:  start,
+			})).Error().To(MatchError(ContainSubstring("start_time must be before")))
+		})
+
+		It("Should return the errors FailRuns sets, in order", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.Unavailable, "down"))
+			_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{})
+			Expect(status.Code(err)).To(Equal(codes.Unavailable))
+			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+		})
 	})
 
 	Describe("APIKey", func() {
