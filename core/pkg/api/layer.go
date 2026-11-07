@@ -309,6 +309,7 @@ func (l *Layer) BindTo(t Transport) {
 		restrict = restrictMiddleware(
 			l.config.Service.Resource,
 			l.config.Service.Task,
+			l.config.Service.RBAC,
 		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)

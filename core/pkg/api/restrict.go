@@ -12,8 +12,12 @@ package api
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -21,10 +25,12 @@ import (
 )
 
 // restrictMiddleware rewrites the error of a delete that a restrict reference refuses,
-// so it names the records involved instead of their tables and keys.
+// so it names the records involved instead of their tables and keys. It names only the
+// records that the caller can retrieve.
 func restrictMiddleware(
 	res *resource.Service,
 	tasks *task.Service,
+	rbacSvc *rbac.Service,
 ) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -34,7 +40,13 @@ func restrictMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		if described := describeRestrict(ctx, res, tasks, err); described != nil {
+		if described := describeRestrict(
+			ctx,
+			res,
+			tasks,
+			rbacSvc,
+			err,
+		); described != nil {
 			return oCtx, described
 		}
 		return oCtx, err
@@ -48,11 +60,12 @@ func describeRestrict(
 	ctx context.Context,
 	res *resource.Service,
 	tasks *task.Service,
+	rbacSvc *rbac.Service,
 	err error,
 ) error {
 	var pathErr validate.PathError
 	if errors.As(err, &pathErr) {
-		described := describeRestrict(ctx, res, tasks, pathErr.Err)
+		described := describeRestrict(ctx, res, tasks, rbacSvc, pathErr.Err)
 		if described == nil {
 			return nil
 		}
@@ -74,7 +87,18 @@ func describeRestrict(
 			Key:  restrict.Holder.Key,
 		}
 	}
-	found, rErr := res.Retrieve(ctx, nil, target, holder)
+	allowed, aErr := rbacSvc.NewEnforcer(nil).Allowed(
+		ctx,
+		auth.GetSubject(ctx),
+		access.ActionRetrieve,
+	)
+	if aErr != nil {
+		return aErr
+	}
+	found, rErr := res.Retrieve(ctx, nil, lo.Filter(
+		[]resource.ID{target, holder},
+		func(id resource.ID, _ int) bool { return allowed(id) },
+	)...)
 	if rErr != nil {
 		return rErr
 	}
@@ -82,7 +106,8 @@ func describeRestrict(
 	for _, r := range found {
 		names[r.ID] = r.Name
 	}
-	// A concurrent delete can remove a record between the refusal and the lookup.
+	// A record shows its key when the caller cannot retrieve it, or when a concurrent
+	// delete removes it between the refusal and the lookup.
 	name := func(id resource.ID) string {
 		if n, ok := names[id]; ok {
 			return n
