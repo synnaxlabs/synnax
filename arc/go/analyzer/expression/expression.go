@@ -340,43 +340,44 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		types.InferRelational,
 		anyOperand,
 	)
-	// The compiler runs only the first two operands of a chain, with this operator.
-	if len(relExpressions) < 2 {
-		return
-	}
-	for _, rel := range relExpressions[:2] {
-		if value, ok := ctx.FloatConstant(rel); ok && math.IsNaN(value) {
-			warnNaNComparison(ctx, rel)
-			return
-		}
-	}
+	warnNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
 }
 
-// warnNaNComparison warns that an equality with the NaN constant in rel always has the
-// same result. It names the constant as the code wrote it, and the module's is_nan when
-// the module has one.
-func warnNaNComparison(
-	ctx context.Context[parser.IEqualityExpressionContext],
-	rel parser.IRelationalExpressionContext,
+// warnNaNComparison warns when a comparison with operator op has the NaN constant as
+// one of the operands the compiler runs, the first two of a chain. Such a comparison
+// always has the same result. The warning names the constant as the code wrote it, and
+// the module's is_nan when the module has one.
+func warnNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+	ctx context.Context[T],
+	operands []O,
+	op string,
 ) {
-	primary, _ := parser.SoleOperand(rel)
-	qid := primary.QualifiedIdentifier()
-	head, _ := parser.QualifiedNameParts(qid)
-	check := "is_nan from the math module"
-	if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
-		if _, err := module.Resolve(ctx, "is_nan"); err == nil {
-			check = head + ".is_nan"
-		}
+	if len(operands) < 2 {
+		return
 	}
-	op := getEqualityOperator(ctx.AST)
-	ctx.Diagnostics.Add(diagnostics.Warningf(
-		ctx.AST,
-		"%s with %s is always %t, use %s instead",
-		op,
-		qid.GetText(),
-		op == "!=",
-		check,
-	).WithCode(codes.NaNComparison))
+	for _, operand := range operands[:2] {
+		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
+			continue
+		}
+		primary, _ := parser.SoleOperand(operand)
+		qid := primary.QualifiedIdentifier()
+		head, _ := parser.QualifiedNameParts(qid)
+		check := "is_nan from the math module"
+		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
+			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
+				check = head + ".is_nan"
+			}
+		}
+		ctx.Diagnostics.Add(diagnostics.Warningf(
+			ctx.AST,
+			"%s with %s is always %t, use %s instead",
+			op,
+			qid.GetText(),
+			op == "!=",
+			check,
+		).WithCode(codes.NaNComparison))
+		return
+	}
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
@@ -391,6 +392,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 		types.InferAdditive,
 		numericOperand,
 	)
+	warnNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
 }
 
 func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
