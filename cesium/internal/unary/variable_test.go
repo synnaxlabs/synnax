@@ -35,7 +35,7 @@ var _ = Describe("Variable-length channel", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -45,7 +45,7 @@ var _ = Describe("Variable-length channel", func() {
 						IsIndex:  true,
 					},
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -56,10 +56,6 @@ var _ = Describe("Variable-length channel", func() {
 					},
 				}))
 				dataDB.SetIndex(indexDB.Index())
-			})
-			AfterAll(func() {
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
 			})
 
 			Describe("Write + Read", func() {

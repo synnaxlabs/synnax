@@ -53,7 +53,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -64,9 +64,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -725,7 +722,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -740,7 +737,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -755,10 +752,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(dataDB.Close()).To(Succeed())
-					Expect(indexDB.Close()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					Expect(
@@ -1397,7 +1390,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -1408,9 +1401,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				Describe("Index", func() {
 					Specify("Control Handoff", func(ctx SpecContext) {
@@ -1668,7 +1658,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -1679,9 +1669,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				It(
 					"Should not allow operations on a closed writer",

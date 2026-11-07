@@ -49,11 +49,8 @@ var _ = Describe("Label", Ordered, func() {
 		}))
 	})
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
 		It("Should create a new label", func(ctx SpecContext) {
@@ -299,7 +296,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 			var got []label.Label
 			Expect(svc.NewRetrieve().

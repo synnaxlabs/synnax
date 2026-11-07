@@ -995,14 +995,14 @@ var _ = Describe("Control", func() {
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
 						controlUpdates, disconnectControl = observeControl(db)
-					})
-					AfterEach(func() {
-						disconnectControl()
-						Expect(w1.Close()).To(Succeed())
-						Expect(w2.Close()).To(Succeed())
-						dataStreamerIn.Close()
-						Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-						Expect(shutdown.Close()).To(Succeed())
+						DeferCleanup(func() {
+							disconnectControl()
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
+							dataStreamerIn.Close()
+							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
+							Expect(shutdown.Close()).To(Succeed())
+						})
 					})
 
 					// Set up:

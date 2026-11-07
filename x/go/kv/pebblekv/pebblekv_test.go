@@ -36,15 +36,11 @@ var _ = Describe("PebbleKV", func() {
 		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
+			DeferCleanup(func() { Expect(os.RemoveAll(dbPath)).To(Succeed()) })
 			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
-			db = pebblekv.Wrap(pdb)
-		})
-
-		AfterAll(func() {
-			Expect(db.Close()).To(Succeed())
-			Expect(os.RemoveAll(dbPath)).To(Succeed())
+			db = DeferClose(pebblekv.Wrap(pdb))
 		})
 
 		It("Should handle basic CRUD operations", func(ctx SpecContext) {

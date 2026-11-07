@@ -28,10 +28,9 @@ var _ = Describe("Writer", func() {
 		w  role.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should reject a role with an empty name", func(ctx SpecContext) {
@@ -303,7 +302,7 @@ var _ = Describe("Retrieve", func() {
 		roles []role.Role
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
 			{Name: "admin", Description: "Administrator"},
@@ -314,7 +313,6 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.Create(ctx, &roles[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single role by key", func(ctx SpecContext) {
@@ -462,8 +460,7 @@ var _ = Describe("Search", func() {
 
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {

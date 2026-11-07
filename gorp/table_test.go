@@ -39,10 +39,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func() {
 		kvs = memkv.New()
-		db = gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
-	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
+		db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
 	})
 
 	Describe("OpenTable", func() {

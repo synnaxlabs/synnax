@@ -75,11 +75,8 @@ var _ = Describe("Device", func() {
 			Status:   stat,
 			Rack:     rackSvc,
 		}))
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
 		It("Should correctly create a device", func(ctx SpecContext) {

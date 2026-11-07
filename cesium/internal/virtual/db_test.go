@@ -37,7 +37,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			BeforeEach(func(ctx SpecContext) {
 				fs = openFS()
 				dbKey = GenerateChannelKey()
-				db = MustSucceed(virtual.Open(ctx, virtual.Config{
+				db = MustOpen(virtual.Open(ctx, virtual.Config{
 					FS:        fs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -47,10 +47,6 @@ var _ = Describe("DB Metadata Operations", func() {
 						Virtual:  true,
 					},
 				}))
-			})
-
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("RenameChannel", func() {
@@ -105,7 +101,7 @@ var _ = Describe("DB Metadata Operations", func() {
 	Describe("Close", func() {
 		var db *virtual.DB
 		BeforeEach(func(ctx SpecContext) {
-			db = MustSucceed(virtual.Open(ctx, virtual.Config{
+			db = MustOpen(virtual.Open(ctx, virtual.Config{
 				FS:        fs.NewMem(),
 				MetaCodec: json.Codec,
 				Channel: channel.Channel{

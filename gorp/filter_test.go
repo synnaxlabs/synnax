@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
@@ -101,7 +102,7 @@ var _ = Describe("Filter Combinators", func() {
 		tx      gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		entries = make([]entry, 10)
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
@@ -110,7 +111,6 @@ var _ = Describe("Filter Combinators", func() {
 			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 		).To(Succeed())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("MatchBound", func() {
 		It("Should thread the bind value into the closure", func(ctx SpecContext) {
@@ -565,8 +565,8 @@ var _ = Describe("Filter Combinators", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				codec = &decodeCountingCodec{Codec: msgpack.Codec}
-				countingDB = gorp.Wrap(memkv.New(), gorp.WithCodec(codec))
-				countingTx = countingDB.OpenTx()
+				countingDB = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(codec)))
+				countingTx = DeferClose(countingDB.OpenTx())
 				es := make([]entry, 10)
 				for i := range 10 {
 					es[i] = entry{ID: int32(i), Data: "data"}
@@ -574,10 +574,6 @@ var _ = Describe("Filter Combinators", func() {
 				Expect(gorp.NewCreate[int32, entry]().
 					Entries(&es).Exec(ctx, countingTx)).To(Succeed())
 				codec.decodeCount = 0
-			})
-			AfterEach(func() {
-				Expect(countingTx.Close()).To(Succeed())
-				Expect(countingDB.Close()).To(Succeed())
 			})
 
 			DescribeTable(

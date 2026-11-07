@@ -862,7 +862,7 @@ var _ = Describe("Retrieve", func() {
 			tx      gorp.Tx
 		)
 		BeforeEach(func(ctx SpecContext) {
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			entries = make([]entry, 5)
 			for i := range entries {
 				entries[i] = entry{ID: int32(i), Data: "data"}
@@ -871,7 +871,6 @@ var _ = Describe("Retrieve", func() {
 				gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 			).To(Succeed())
 		})
-		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 		It(
 			"Should receive the final bound result set via execFilter",

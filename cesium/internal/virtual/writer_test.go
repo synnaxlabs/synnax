@@ -29,7 +29,7 @@ import (
 var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+		db = MustOpen(virtual.Open(ctx, virtual.Config{
 			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
@@ -39,9 +39,6 @@ var _ = Describe("Write", func() {
 			},
 			FS: fs.NewMem(),
 		}))
-	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {

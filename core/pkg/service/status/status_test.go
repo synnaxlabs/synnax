@@ -70,11 +70,8 @@ var _ = Describe("Status", Ordered, func() {
 		}))
 	})
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {
@@ -361,7 +358,7 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 		})
 

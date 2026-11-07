@@ -82,14 +82,11 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 	Describe("Channel Creation", func() {
-		var (
-			svc   *metrics.Service
-			names []string
-		)
-		// context.Background() is used because svc is stored in a shared var
-		// used by It blocks, so the context must outlive JustBeforeEach.
+		var names []string
+		// context.Background() is used because the service must outlive
+		// JustBeforeEach.
 		JustBeforeEach(func() {
-			svc = MustSucceed(
+			MustOpen(
 				metrics.OpenService(context.Background(), metrics.ServiceConfig{
 					Channel:            channelSvc,
 					Group:              groupSvc,
@@ -102,9 +99,6 @@ var _ = Describe("Metrics", func() {
 				}),
 			)
 			names = getNames(dist.Cluster.HostKey())
-		})
-		JustAfterEach(func(ctx SpecContext) {
-			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should create index channel with correct naming", func(ctx SpecContext) {
 			expectedName := names[0]
@@ -384,13 +378,12 @@ var _ = Describe("Metrics", func() {
 	})
 	Describe("Metric Collection", func() {
 		var (
-			svc       *metrics.Service
 			streamer  framer.Streamer
 			requests  confluence.Inlet[framer.StreamerRequest]
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
-		// context.Background() is used because svc, streamer, etc. are stored in
-		// shared vars used by It blocks, so the context must outlive BeforeEach.
+		// context.Background() is used because the service and streamer are used by It
+		// blocks, so the context must outlive BeforeEach.
 		BeforeEach(func() {
 			ctx := context.Background()
 			// Write some data to time-series database so disk size metrics are non-zero
@@ -420,7 +413,7 @@ var _ = Describe("Metrics", func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Ontology:           otg,
@@ -448,7 +441,6 @@ var _ = Describe("Metrics", func() {
 		AfterEach(func(ctx SpecContext) {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should write metrics at configured interval", func(ctx SpecContext) {
 			names := getNames(dist.Cluster.HostKey())

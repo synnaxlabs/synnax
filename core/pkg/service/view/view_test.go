@@ -62,11 +62,8 @@ var _ = Describe("View", func() {
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {
@@ -234,7 +231,7 @@ var _ = Describe("View", func() {
 				rangeView("View B"),
 				statusView("View C"),
 			}
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})

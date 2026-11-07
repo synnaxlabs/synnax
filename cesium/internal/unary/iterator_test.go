@@ -45,7 +45,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -57,7 +57,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -69,10 +69,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					db.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
-					Expect(indexDB.Close()).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -2222,7 +2218,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							var (
 								iKey     = GenerateChannelKey()
 								dbKey    = GenerateChannelKey()
-								indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+								indexDB2 = MustOpen(unary.Open(ctx, unary.Config{
 									FS:        MustSucceed(fs.Sub("index")),
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
@@ -2330,7 +2326,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						)
 						BeforeEach(func(ctx SpecContext) {
 							iKey = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustOpen(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -2375,7 +2371,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							MustSucceed(w.Commit(ctx))
 							MustSucceed(w.Close())
 						})
-						AfterEach(func() { Expect(indexDB2.Close()).To(Succeed()) })
 						// The following regression test is used to assert that upon
 						// reading the second auto-span in a domain that begins with an
 						// inexact start (cut off), the iterator behaves properly. The
@@ -2490,7 +2485,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
 					key = GenerateChannelKey()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2501,9 +2496,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				It(
 					"Should not allow operations on a closed iterator",

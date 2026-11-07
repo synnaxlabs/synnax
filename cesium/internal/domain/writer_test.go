@@ -71,13 +71,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
@@ -340,7 +337,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
@@ -757,7 +754,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
 						}))
@@ -945,7 +942,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),

@@ -34,13 +34,10 @@ var _ = Describe("Domain", func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
 				idx = &index.Domain{DB: db}
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			// openRolledOver opens a domain DB whose file size holds 3 timestamps, so a
 			// commit past it rolls over into an effectively contiguous domain. It holds

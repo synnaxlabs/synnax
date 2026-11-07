@@ -64,12 +64,9 @@ var _ = Describe("Delete", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Context("Single Pointer", func() {

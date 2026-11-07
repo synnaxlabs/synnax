@@ -2556,17 +2556,15 @@ var _ = Describe("Writer Behavior", func() {
 					BeforeEach(func() {
 						index = GenerateChannelKey()
 						basic = GenerateChannelKey()
-					})
-
-					AfterEach(func() {
-						Expect(db2.Close()).To(Succeed())
-						Expect(fs.Remove("size-capped-db")).To(Succeed())
+						DeferCleanup(func() {
+							Expect(fs.Remove("size-capped-db")).To(Succeed())
+						})
 					})
 
 					Specify(
 						"Alignment holds across a rollover and a control handoff",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -2659,7 +2657,7 @@ var _ = Describe("Writer Behavior", func() {
 					)
 
 					Specify("With AutoCommit", func(ctx SpecContext) {
-						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+						db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -2794,7 +2792,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify(
 						"With AutoCommit: should not commit a tiny domain",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(80*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -2935,7 +2933,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Closing an reopening the db")
 							Expect(db2.Close()).To(Succeed())
 
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(64*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -3034,7 +3032,7 @@ var _ = Describe("Writer Behavior", func() {
 					)
 
 					Specify("Without AutoCommit", func(ctx SpecContext) {
-						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+						db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -3157,7 +3155,7 @@ var _ = Describe("Writer Behavior", func() {
 					It(
 						"Should not break when auto committing to not all channels",
 						func(ctx SpecContext) {
-							db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
+							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
@@ -4631,7 +4629,6 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Error On ErrUnauthorized Open", func() {
 				var (
 					key cesium.ChannelKey
-					w1  *cesium.Writer
 					w2  *cesium.Writer
 				)
 				BeforeEach(func(ctx SpecContext) {
@@ -4647,7 +4644,7 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						),
 					).To(Succeed())
-					w1 = MustSucceed(
+					MustOpen(
 						db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -4656,9 +4653,6 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						),
 					)
-				})
-				AfterEach(func() {
-					Expect(w1.Close()).To(Succeed())
 				})
 				Context("False", func() {
 					It(

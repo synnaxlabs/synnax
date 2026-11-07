@@ -37,7 +37,7 @@ var _ = Describe("Delete", func() {
 			BeforeEach(func(ctx SpecContext) {
 				By("Creating channels")
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -49,7 +49,7 @@ var _ = Describe("Delete", func() {
 					},
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -61,10 +61,6 @@ var _ = Describe("Delete", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				dataDB.SetIndex(indexDB.Index())
-			})
-			AfterEach(func() {
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
 			})
 
 			Describe("Single-domain deletion", func() {

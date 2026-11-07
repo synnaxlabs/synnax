@@ -32,13 +32,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It(
@@ -98,13 +95,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It("Should return zero for an empty database", func() {

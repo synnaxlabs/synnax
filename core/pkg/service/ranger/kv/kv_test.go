@@ -55,10 +55,7 @@ var _ = Describe("KV", Ordered, func() {
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	It("Should be able to store key-value pairs in a range", func(ctx SpecContext) {

@@ -104,11 +104,8 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
 	})
 	type frame = actions.Scoped[task.Key, task.Action]
 	collect := func() *[]frame {

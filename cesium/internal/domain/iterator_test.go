@@ -34,13 +34,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {

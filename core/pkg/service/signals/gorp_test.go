@@ -57,23 +57,16 @@ var _ = Describe("GorpPublisherConfig", func() {
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		uuidTable = MustSucceed(
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		uuidTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, testUUIDEntry]{DB: db}),
 		)
-		numTable = MustSucceed(
+		numTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[uint32, testNumericEntry]{DB: db}),
 		)
-		stringTable = MustSucceed(
+		stringTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[string, testStringEntry]{DB: db}),
 		)
-	})
-
-	AfterEach(func() {
-		Expect(uuidTable.Close()).To(Succeed())
-		Expect(numTable.Close()).To(Succeed())
-		Expect(stringTable.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("MarshalJSON", func() {
