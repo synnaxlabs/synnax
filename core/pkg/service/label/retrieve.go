@@ -30,7 +30,7 @@ type Retrieve struct {
 func MatchFor(id ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Label] {
 		return gorp.MatchKeysFunc[Key, Label](func(ctx gorp.Context) ([]Key, error) {
-			start := r.ontology.NewRetrieve().WhereIDs(id).SkipMissingIDs()
+			start := r.ontology.NewRetrieve().WhereIDs(id)
 			return resolveFor(ctx, ctx.Tx, start)
 		})
 	}

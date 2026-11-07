@@ -68,9 +68,7 @@ describe("Label", () => {
     it("should throw a NotFoundError for a name that no label has", async () => {
       const name = `missing-label-${id.create()}`;
       await expect(client.labels.retrieve(name)).rejects.toThrow(
-        new NotFoundError(
-          `label not found matching {"where":{"name":{"eq":"${name}"}}}`,
-        ),
+        new NotFoundError(`Found no label where name = "${name}"`),
       );
     });
     it("should retrieve labels by search term", async () => {
@@ -180,7 +178,7 @@ describe("Label", () => {
       const name = `other-${id.create()}`;
       await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
         new NotFoundError(
-          `label not found matching {"where":{"key":{"eq":"${lbl.key}"},"name":{"eq":"${name}"}}}`,
+          `Found no label where key = "${lbl.key}" and name = "${name}"`,
         ),
       );
     });
