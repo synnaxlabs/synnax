@@ -76,8 +76,9 @@ public:
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
-    /// clock is not aligned to the host clock. Valid after a receive() that returns NIL
-    /// or errors::WORKING_COUNTER_ERROR.
+    /// clock is not aligned to the host clock. Valid after a receive() that returns
+    /// NIL, or errors::WORKING_COUNTER_ERROR while the slaves move to OP. After that, a
+    /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
     /// @brief returns the DC registers of each enabled slave whose SYNC0 events the

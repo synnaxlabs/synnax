@@ -215,7 +215,8 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
         delete_legacy_task_by_type(rack, SYNTHETIC_TASK_TYPE, "test_integration")
     );
     ASSERT_OCCURRED_AS_P(
-        rack.tasks.retrieve_by_type(SYNTHETIC_TASK_TYPE),
+        rack.tasks
+            .retrieve(synnax::task::Where{.type = SYNTHETIC_TASK_TYPE}, x::filter::one),
         x::errors::NOT_FOUND
     );
 }
@@ -236,7 +237,7 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Several) {
         delete_legacy_task_by_type(rack, SYNTHETIC_TASK_TYPE, "test_integration")
     );
     const auto remaining = ASSERT_NIL_P(
-        rack.tasks.retrieve_by_type(std::vector<std::string>{SYNTHETIC_TASK_TYPE})
+        rack.tasks.retrieve(synnax::task::Where{.type = SYNTHETIC_TASK_TYPE})
     );
     ASSERT_TRUE(remaining.empty());
 }

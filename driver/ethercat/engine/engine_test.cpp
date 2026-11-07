@@ -940,6 +940,24 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
 }
 
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
+/// while a slave runs DC sync.
+TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
+    EXPECT_EQ(
+        res.second.data,
+        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "cannot change until every task on the port stops. Use a sample rate that 100 "
+        "Hz is a multiple of, or an execution rate of at most 100 Hz."
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should keep the bus rate when a faster task closes and when a slower task
 /// opens while a slave runs DC sync.
 TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {

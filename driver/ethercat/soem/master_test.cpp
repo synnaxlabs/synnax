@@ -696,7 +696,7 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
     ASSERT_NIL(this->activate());
     EXPECT_GT(this->mock->sync_dc_count, 0);
@@ -723,20 +723,24 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
     EXPECT_EQ(receives, 0);
 }
 
-/// @brief it should fail a send before SAFE-OP when the reference clock frame does not
-/// come back.
-TEST_F(SOEMMasterTest, SendFailsWhenTheReferenceClockFrameIsLost) {
+/// @brief it should fail a send before SAFE-OP and the receive after it when the
+/// reference clock frame does not come back, so no caller reads a stale DC time.
+TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->mock->sync_dc_return = 0;
-    x::errors::Error err;
+    x::errors::Error send_err;
+    x::errors::Error receive_err;
     static_cast<void>(this->master->activate(PERIOD, [&] {
-        err = this->master->send();
+        send_err = this->master->send();
+        receive_err = this->master->receive();
     }));
-    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(send_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(send_err.data, "reference clock frame failed");
+    ASSERT_OCCURRED_AS(receive_err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(receive_err.data, "reference clock frame failed");
 }
 
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
@@ -1227,9 +1231,31 @@ TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
 /// 2000, to a Unix timestamp.
 TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
     this->initialize_with_slave();
-    this->mock->hasdc = true;
+    this->mock->slave_infos[0].hasdc = true;
     this->activate_master();
     this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
+/// @brief it should read the reference clock time in the frames of the enabled slaves
+/// when the reference slave, the first slave with a distributed clock, is disabled.
+TEST_F(SOEMMasterTest, DCTimeIsPresentWhenTheReferenceSlaveIsDisabled) {
+    MockSlaveInfo reference;
+    reference.state = EC_STATE_PRE_OP;
+    reference.hasdc = true;
+    this->add_slave(reference);
+    MockSlaveInfo enabled;
+    enabled.state = EC_STATE_PRE_OP;
+    enabled.hasdc = true;
+    this->add_slave(enabled);
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_enabled(1, false);
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(this->mock->dc_groups, (std::map<uint8_t, uint16_t>{{1, 1}, {2, 1}}));
     EXPECT_EQ(
         this->master->dc_time(),
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)

@@ -85,8 +85,9 @@ class Master final : public master::Master {
     /// @brief whether the cycle holds process data back. A frame then carries only the
     /// reference clock time.
     std::atomic<bool> process_data_held{false};
-    /// @brief whether the last send held process data back. Only the cycle uses it.
-    bool last_send_held = false;
+    /// @brief what receive returns after a send that held process data back, or NIL
+    /// after a send that did not. Only the cycle uses it.
+    x::errors::Error held_err;
 
     /// @brief the DC registers of one slave that runs in a DC mode.
     struct DCSetup {
