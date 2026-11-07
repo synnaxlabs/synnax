@@ -112,6 +112,6 @@ const conjuncts = (node: Node): Conjunct[] => {
 
 /**
  * @returns a short, readable description of the records that tree selects, such as
- * `name starts with "press" and active = true`. An empty tree returns an empty string.
+ * `active = true and name starts with "press"`. An empty tree returns an empty string.
  */
 export const describe = (tree: object): string => join(conjuncts(tree as Node));
