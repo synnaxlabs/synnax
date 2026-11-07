@@ -63,13 +63,13 @@ or generator logic and schemas disagree.
   into an ended chain; `oracle migrate` refuses it; declare members in a new version
   file to revive it. Example: arc `Program` ended at v1 — arc v0 records embed its v0
   bytes, and arc v1+ resolve the live shape at read time.
-- **Imports split on the persistence boundary.** A stored reference (part of the
-  record's persisted bytes, e.g. a range's color) imports a pinned version file
-  (`import "schemas/x/versions/color/v0"`). A resolved reference (read-time materialized
-  `@go marshal omit` fields, e.g. a task's status) imports the dependency's live schema
-  and always resolves its current surface. A live schema may import only its own
-  resource's versions directory. The `versions` gate enforces placement, and fails the
-  current surface on any stored pin lagging its dependency chain's current version.
+- **Version files pin every versioned dependency.** A stored reference (a range's color)
+  and a `@go marshal omit` field (a task's status) both import a pinned version file
+  (`import "schemas/x/versions/color/v0"`), and the version package resolves them there.
+  Only a chainless or ended dependency (arc's Program) imports its live schema. A live
+  schema may import only its own resource's versions directory. The `versions` gate
+  enforces placement, and fails the current surface on any stored pin lagging its
+  dependency chain's current version.
 - **Change workflow**: mint a new version only when the change makes the stored bytes on
   disk different from what a shipped release wrote. Every other change, including one to
   a shipped version, edits the current vN file in place: an unshipped version, an
@@ -91,9 +91,11 @@ or generator logic and schemas disagree.
   package's alias is the frozen type. A mint leaves the demoted package's generated
   files byte-identical: current and frozen packages keep the version file's declaration
   order, declare every member it records even when the live file marks it `@go omit`,
-  and use root references for `@go marshal omit` fields. The one exception is a type the
-  new version redeclares: it stops being the live one, so the demoted package loses the
-  type's live `@validate` and `@default` rules, `@go fields`, `@go imports`, and
+  and resolve every dependency reference at the version it pins, never at the root. A
+  version package therefore reaches only declarations its version files fix, so it
+  compiles and stands still until a version file changes. The one exception is a type
+  the new version redeclares: it stops being the live one, so the demoted package loses
+  the type's live `@validate` and `@default` rules, `@go fields`, `@go imports`, and
   `@go to_any`. To keep them, restate them in the version file that defines the type.
   Hand-written frozen definer files are marked `@go hand` in their version file;
   hand-ness is version-local — an aliased member whose definer is an older version still
@@ -103,8 +105,8 @@ or generator logic and schemas disagree.
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
-  resolve their references at read time. A transient shape change never requires a mint,
-  because it does not change the stored bytes.
+  resolve their references at the pinned version. A transient shape change never
+  requires a mint, because it does not change the stored bytes.
 - `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
   files across the versions tree: a `Version imex.Version` constant in every
   `versions/vK` package the Core has exported (from the earliest version file carrying

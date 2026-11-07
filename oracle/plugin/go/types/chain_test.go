@@ -1918,59 +1918,6 @@ Doc struct {
 }
 `,
 			}, "schemas/x/color", "schemas/synnax/doc"),
-		Entry("when an omitted field's dependency has a live rule",
-			docV0, "schemas/synnax/versions/doc/v1.oracle", `
-import "schemas/x/versions/color/v0"
-
-Doc struct {
-	key uuid @key
-	tint color.Color {
-		@go marshal omit
-	}
-	name string
-
-	@go marshal
-}
-`, map[string]string{
-				"schemas/x/versions/color/v0.oracle": color,
-				"schemas/x/color.oracle": `
-@go output "x/go/color"
-
-Color struct {
-	r uint8 {
-		@validate required
-	}
-
-	@go marshal
-}
-`,
-				"schemas/synnax/versions/doc/v0.oracle": `
-import "schemas/x/versions/color/v0"
-
-Doc struct {
-	key uuid @key
-	tint color.Color {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-import "schemas/x/color"
-
-@go output "core/pkg/service/doc"
-
-Doc struct {
-	key uuid @key
-	tint color.Color {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`,
-			}, "schemas/x/color", "schemas/synnax/doc"),
 		Entry("when only another resource stores a declaration",
 			docV0, "schemas/synnax/versions/doc/v1.oracle", `
 Config = v0.Config

@@ -185,7 +185,6 @@ func chainFrozenFiles(
 	ctx context.Context,
 	req *plugin.Request,
 	fileName string,
-	closure set.Set[string],
 ) ([]plugin.File, error) {
 	entries, err := chainEntries(ctx, req)
 	if err != nil {
@@ -205,7 +204,6 @@ func chainFrozenFiles(
 				e.livePath,
 				k,
 				fileName,
-				closure,
 			)
 			if err != nil {
 				return nil, err
@@ -262,97 +260,15 @@ func ChainFrozenTable(
 	origPath, livePath string,
 	k int,
 ) (*resolution.Table, string, error) {
-	return chainFrozenTable(ctx, req, origPath, livePath, k, true)
-}
-
-// chainFrozenTable builds a frozen package's table. With pinned false, dependency types
-// resolve to their root packages instead of their versions/vN directories.
-func chainFrozenTable(
-	ctx context.Context,
-	req *plugin.Request,
-	origPath, livePath string,
-	k int,
-	pinned bool,
-) (*resolution.Table, string, error) {
 	ns := versions.DepNS(livePath, k)
 	table := resolution.NewTable()
 	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
 		return nil, "", err
 	}
-	err := annotateOutputs(ctx, req, table, origPath, livePath, pinned)
-	if err != nil {
+	if err := annotateOutputs(ctx, req, table, origPath, livePath); err != nil {
 		return nil, "", err
 	}
-	if !pinned {
-		if err := withLiveDependencies(req, table, livePath); err != nil {
-			return nil, "", err
-		}
-	}
 	return table, ns, nil
-}
-
-// withLiveDependencies gives every dependency type in an unpinned frozen table its live
-// declaration, as a current package resolves it, and adds the live types those
-// declarations reach. A frozen omitted field then takes its type, defaults, and checks
-// from the root shape it names.
-func withLiveDependencies(
-	req *plugin.Request, table *resolution.Table, ownLive string,
-) error {
-	var queue []resolution.TypeRef
-	for i := range table.Types {
-		t := &table.Types[i]
-		lp, _, ok := versions.ParseDepNS(t.Namespace)
-		if !ok || lp == ownLive {
-			continue
-		}
-		live, has := liveType(req, lp, t.Name)
-		if !has || omit.IsType(live, "go") {
-			continue
-		}
-		t.Form, t.Domains = live.Form, live.Domains
-		queue = append(queue, formRefs(live.Form)...)
-	}
-	for len(queue) > 0 {
-		ref := queue[len(queue)-1]
-		queue = append(queue[:len(queue)-1], ref.TypeArgs...)
-		if _, has := table.Get(ref.Name); has {
-			continue
-		}
-		live, ok := req.Resolutions.Get(ref.Name)
-		if !ok {
-			continue
-		}
-		if err := table.Add(live); err != nil {
-			return err
-		}
-		queue = append(queue, formRefs(live.Form)...)
-	}
-	return nil
-}
-
-// formRefs returns the type references a declaration's form names directly.
-func formRefs(form resolution.TypeForm) []resolution.TypeRef {
-	var refs []resolution.TypeRef
-	switch f := form.(type) {
-	case resolution.StructForm:
-		refs = append(refs, f.Extends...)
-		for _, field := range f.Fields {
-			refs = append(refs, field.Type)
-		}
-	case resolution.UnionForm:
-		refs = append(refs, f.Extends...)
-		if f.BorrowsEnum() {
-			refs = append(refs, f.Enum)
-		}
-		for _, v := range f.Variants {
-			refs = append(refs, v.Type)
-		}
-	case resolution.AliasForm:
-		refs = append(refs, f.Target)
-	case resolution.DistinctForm:
-		refs = append(refs, f.Base)
-	}
-	return refs
 }
 
 // frozenFile emits one frozen version package's type file.
@@ -362,7 +278,6 @@ func frozenFile(
 	origPath, livePath string,
 	k int,
 	fileName string,
-	liveClosure set.Set[string],
 ) (plugin.File, error) {
 	f, err := req.Versions.File(ctx, livePath, k)
 	if err != nil {
@@ -414,24 +329,9 @@ func frozenFile(
 	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
 		return plugin.File{}, nil
 	}
-	latest, _, err := chainFrozenTable(ctx, req, origPath, livePath, k, false)
-	if err != nil {
-		return plugin.File{}, err
-	}
-	if err = withLiveMethods(ctx, req, latest, ns, livePath, f.Chain, k); err != nil {
-		return plugin.File{}, err
-	}
-	// Another resource's codec can reach a declaration its own chain does not, so a
-	// frozen package splits its pinned references on the closure a current one uses.
-	closure := PersistedClosure(table)
-	for _, name := range f.Order {
-		if liveClosure.Contains(f.Chain.Resource + "." + name) {
-			closure.Add(ns + "." + name)
-		}
-	}
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, latest, closure, false, order, nil,
+		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
 	)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
@@ -545,7 +445,6 @@ func annotateOutputs(
 	req *plugin.Request,
 	table *resolution.Table,
 	origPath, ownLive string,
-	pinned bool,
 ) error {
 	for i := range table.Types {
 		t := &table.Types[i]
@@ -568,20 +467,13 @@ func annotateOutputs(
 			// task/config); a member with its own live output resolves there,
 			// not at the chain's first output. That package is generated from
 			// the live declaration, so its @go name comes along.
-			lt, has := liveType(req, lp, t.Name)
-			if has {
+			if lt, has := liveType(req, lp, t.Name); has {
 				if p := output.GetPath(lt, "go"); p != "" {
 					goRoot = p
 				}
 				if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
 					withGoName(t, n)
 				}
-			}
-			// A type the live schema no longer declares, or omits from Go, has no root
-			// declaration to point at, so it stays on the pinned version.
-			if !pinned && has && !omit.IsType(lt, "go") {
-				withGoOutput(t, goRoot)
-				continue
 			}
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))

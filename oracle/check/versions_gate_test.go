@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -291,33 +292,43 @@ Channel struct {
 		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
-	It("Should fail a stored reference that imports a live schema", func() {
-		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
-		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
-		write("schemas/synnax/versions/channel/v0.oracle", `
+	placementFindings := func(report check.GateReport) []string {
+		GinkgoHelper()
+		var found []string
+		for _, f := range report.Findings {
+			if strings.Contains(f.Message, "but imports its live schema") {
+				found = append(found, f.Message)
+			}
+		}
+		return found
+	}
+
+	DescribeTable("Should fail a reference that imports a live schema",
+		func(field string) {
+			write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+			write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
 import "schemas/x/telem"
 
 Channel struct {
 	key uuid @key
-	created telem.TimeStamp
+	`+field+`
 
 	@go marshal
 }
 `)
-		p := analyzeLive(liveV0)
-		report := run(p)
-		Expect(report.Status).To(Equal(check.StatusFail))
-		var placement bool
-		for _, f := range report.Findings {
-			if f.Message == "schemas/synnax/channel v0 stores telem "+
-				"but imports its live schema" {
-				placement = true
-			}
-		}
-		Expect(placement).To(BeTrue(), "expected a placement finding")
-	})
+			report := run(analyzeLive(liveV0))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(placementFindings(report)).To(ConsistOf(
+				"schemas/synnax/channel v0 references telem but imports its live schema",
+			))
+		},
+		Entry("when the reference is stored", "created telem.TimeStamp"),
+		Entry("when the reference is an omitted field",
+			"seen telem.TimeStamp {\n\t\t@go marshal omit\n\t}"),
+	)
 
-	It("Should fail a resolved-only reference that pins", func() {
+	It("Should accept an omitted field that pins its dependency", func() {
 		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
 		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
 		write("schemas/synnax/versions/channel/v0.oracle", `
@@ -332,17 +343,26 @@ Channel struct {
 	@go marshal
 }
 `)
-		p := analyzeLive(liveV0)
-		report := run(p)
-		Expect(report.Status).To(Equal(check.StatusFail))
-		var placement bool
-		for _, f := range report.Findings {
-			if f.Message == "schemas/synnax/channel v0 only resolves telem "+
-				"at read time but pins it" {
-				placement = true
-			}
-		}
-		Expect(placement).To(BeTrue(), "expected a placement finding")
+		Expect(placementFindings(run(analyzeLive(liveV0)))).To(BeEmpty())
+	})
+
+	It("Should accept a live import of an ended chain", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle", "// Ended.\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/telem"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		Expect(placementFindings(run(analyzeLive(liveV0)))).To(BeEmpty())
 	})
 
 	It("Should fail a stored pin lagging its dependency's current version", func() {
