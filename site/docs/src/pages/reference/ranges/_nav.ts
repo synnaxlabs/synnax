@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Nav } from "@/components/nav";
+import { enabled } from "@/flags";
 
 export const RANGES_NAV: Nav.PageNavNode = {
   key: "ranges",
@@ -53,6 +54,9 @@ export const RANGES_NAV: Nav.PageNavNode = {
       href: "/reference/ranges/export",
       name: "Export data",
     },
+    ...(enabled("sift")
+      ? [{ href: "/reference/ranges/sift", name: "Send data to Sift" }]
+      : []),
     {
       href: "/reference/ranges/reference",
       name: "Reference",
