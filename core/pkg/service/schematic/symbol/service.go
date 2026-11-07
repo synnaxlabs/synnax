@@ -42,8 +42,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create and manage the permanent group for symbols, and to delete
-	// the groups that hold them.
+	// Group creates and deletes the groups that hold symbols.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -85,7 +84,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	closer  xio.MultiCloser
-	group   group.Group
 	table   *gorp.Table[Key, Symbol]
 	indexes indexes
 }
@@ -103,17 +101,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Schematic Symbols",
-		ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -138,9 +131,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
+		svc:       s,
 		tx:        tx,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
 		table:     s.table,
 	}
 }
@@ -148,14 +141,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }
-
-// Group returns the permanent group for schematic symbols.
-func (s *Service) Group() group.Group { return s.group }
 
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error { return s.closer.Close() }

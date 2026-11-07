@@ -18,14 +18,21 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Group is a named collection container for organizing related resources. Groups
- * provide hierarchical organization through the ontology system.
+ * Group is a named folder that holds records of the types its scope allows. A group
+ * sits in its parent, or at the top of its tree when it has none.
  */
 export const groupZ = z.object({
   /** key is the unique identifier for this group. */
   key: keyZ,
   /** name is a human-readable name for the group. */
   name: z.string().min(1, "name is required"),
+  /**
+   * scope is the type of resource the group's tree holds. It stays the same down a
+   * chain of groups.
+   */
+  scope: resource.typeZ,
+  /** parent is the group, project, or rack the group sits in, if any. */
+  parent: resource.idZ.optional(),
 });
 export interface Group extends z.infer<typeof groupZ> {}
 
@@ -35,6 +42,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  name?: filter.String;
+  scope?: filter.Set<typeof resource.typeZ>;
+  parents?: resource.ID[];
+  nested?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -51,6 +62,14 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** name selects by name. */
+  name: filter.stringZ.optional(),
+  /** scope selects by scope. */
+  scope: filter.setZ(resource.typeZ).optional(),
+  /** parents matches the groups that sit in any of the given resources. */
+  parents: zod.nullToUndefined(resource.idZ.array()),
+  /** nested matches the groups that sit in a parent, or the top groups when false. */
+  nested: z.boolean().optional(),
 });
 
 /** RetrieveResponse holds the groups a RetrieveRequest selects. */

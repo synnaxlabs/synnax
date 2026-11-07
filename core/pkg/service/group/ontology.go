@@ -39,6 +39,11 @@ func ResourceIDsFromGroups(groups []Group) []resource.ID {
 	return lo.Map(groups, func(g Group, _ int) resource.ID { return g.ResourceID() })
 }
 
+// KeysFromGroups returns the key of each group.
+func KeysFromGroups(groups []Group) []Key {
+	return lo.Map(groups, func(g Group, _ int) Key { return g.Key })
+}
+
 // KeyFromResourceID converts id to the Key of the group it identifies. It returns an
 // error wrapping validate.ErrValidation if id is not a group or its key is not a valid
 // UUID. Callers that resolve a caller-supplied field scope the returned error to that

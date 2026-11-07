@@ -617,3 +617,21 @@ describe("reduceAll", () => {
     });
   });
 });
+
+describe("setGroup", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  it("should move the document into the group", () => {
+    const doc = state(leaf());
+    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).next.group).toEqual(
+      G1,
+    );
+  });
+  it("should move the document out of its group", () => {
+    const doc = { ...state(leaf()), group: G1 };
+    expect(panel.reduceAll(doc, [panel.setGroup({})]).next.group).toBeUndefined();
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = state(leaf());
+    expect(panel.reduceAll(doc, [panel.setGroup({ group: G1 })]).targets).toEqual([]);
+  });
+});

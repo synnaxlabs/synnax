@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -48,10 +47,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create task related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Rack is used to manage rack-related operations for tasks.
 	//
 	// [REQUIRED]
@@ -96,7 +91,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -112,7 +106,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("status", c.Status)
 	v.NotNil("imex", c.ImEx)
@@ -123,7 +116,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg               ServiceConfig
 	closer            xio.MultiCloser
-	group             group.Group
 	table             *gorp.Table[Key, Task]
 	indexes           indexes
 	state             *actions.State[Key, Action]
@@ -162,16 +154,6 @@ func OpenService(
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Tasks",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -306,7 +288,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
-		group:      s.group,
 		status:     s.cfg.Status.NewWriter(tx),
 		statuses:   s.cfg.Status,
 		table:      s.table,

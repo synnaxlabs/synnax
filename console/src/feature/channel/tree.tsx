@@ -16,6 +16,7 @@ import {
   ranger,
   resource,
   status,
+  type Synnax,
 } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -251,10 +252,33 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   );
 };
 
+const toResource = (ch: channel.Channel): ontology.Resource =>
+  Tree.toResource("channel")(ch.payload);
+
+/** Lists the channels that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "channel",
+  children: (client, key) =>
+    Tree.createSource(client.channels, { where: { groups: [key] } }, toResource),
+};
+
+/** Lists the top level of the channel tree: its groups and the channels in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "channel", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(
+    client.channels,
+    { where: { grouped: false, internal: { eq: false } } },
+    toResource,
+  ),
+];
+
 const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
-  hasChildren: false,
   useOnSelect: useOpen,
   haulItems,
   Content,

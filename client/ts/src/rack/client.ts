@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
@@ -110,6 +111,8 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  /** Builds requests that move racks between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -168,6 +171,9 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -231,8 +237,17 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded, version }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded, version),
+        ({ key, name, status, integrations, embedded, version, group: g }) =>
+          new Rack(
+            key,
+            name,
+            this.cfg.tasks,
+            status,
+            integrations,
+            embedded,
+            version,
+            g,
+          ),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -297,6 +312,7 @@ export class Rack {
   integrations: string[];
   embedded: boolean;
   version?: string;
+  group?: group.Key;
   private readonly tasks: task.Client;
 
   constructor(
@@ -307,6 +323,7 @@ export class Rack {
     integrations: string[] = [],
     embedded: boolean = false,
     version?: string,
+    groupKey?: group.Key,
   ) {
     this.key = key;
     this.name = name;
@@ -315,6 +332,7 @@ export class Rack {
     this.integrations = integrations;
     this.embedded = embedded;
     this.version = version;
+    this.group = groupKey;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -347,6 +365,7 @@ export class Rack {
       integrations: this.integrations,
       embedded: this.embedded,
       version: this.version,
+      group: this.group,
     };
   }
 }

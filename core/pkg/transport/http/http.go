@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -131,10 +132,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/rename",
 		),
-		ChannelRetrieveGroup: unary[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
-			router,
-			"/api/v1/channel/retrieve-group",
-		),
 
 		// CONNECTIVITY
 		ConnectivityCheck: unary[struct{}, connectivity.CheckResponse](
@@ -217,19 +214,71 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// GROUP
 		GroupCreate: unary[group.CreateRequest, group.CreateResponse](
 			router,
-			"/api/v1/ontology/create-group",
+			"/api/v1"+api.PathGroupCreate,
 		),
 		GroupDelete: unary[group.DeleteRequest, struct{}](
 			router,
-			"/api/v1/ontology/delete-group",
+			"/api/v1"+api.PathGroupDelete,
 		),
 		GroupRename: unary[group.RenameRequest, struct{}](
 			router,
-			"/api/v1/ontology/rename-group",
+			"/api/v1"+api.PathGroupRename,
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
-			"/api/v1/ontology/retrieve-group",
+			"/api/v1/group/retrieve",
+		),
+		GroupRetrieveAncestors: unary[
+			group.RetrieveAncestorsRequest,
+			group.RetrieveAncestorsResponse,
+		](router, "/api/v1/group/retrieve-ancestors"),
+		GroupSetParent: unary[group.SetParentRequest, struct{}](
+			router,
+			"/api/v1"+api.PathGroupSetParent,
+		),
+		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathChannelSetGroup,
+		),
+		DeviceSetGroup: unary[device.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathDeviceSetGroup,
+		),
+		RackSetGroup: unary[rack.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathRackSetGroup,
+		),
+		ProjectSetGroup: unary[project.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathProjectSetGroup,
+		),
+		SchematicSetGroup: unary[schematic.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathSchematicSetGroup,
+		),
+		SchematicSymbolSetGroup: unary[symbol.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathSchematicSymbolSetGroup,
+		),
+		LinePlotSetGroup: unary[lineplot.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathLinePlotSetGroup,
+		),
+		LogSetGroup: unary[log.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathLogSetGroup,
+		),
+		TableSetGroup: unary[table.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathTableSetGroup,
+		),
+		PanelSetGroup: unary[panel.SetGroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathPanelSetGroup,
+		),
+		Batch: unary[batch.ExecRequest, batch.ExecResponse](
+			router,
+			"/api/v1/batch",
 		),
 
 		// RANGE
@@ -352,10 +401,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/rename",
 		),
-		SchematicSymbolRetrieveGroup: unary[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
-			router,
-			"/api/v1/schematic/symbol/retrieve-group",
-		),
 		SchematicSymbolExportGroup: unary[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/group/export",
@@ -453,10 +498,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/label/delete",
 		),
-		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1/label/set"),
+		LabelAdd: unary[label.AddRequest, struct{}](router, "/api/v1"+api.PathLabelSet),
 		LabelRemove: unary[label.RemoveRequest, struct{}](
 			router,
-			"/api/v1/label/remove",
+			"/api/v1"+api.PathLabelRemove,
 		),
 		LabelDispatch: unary[label.DispatchRequest, struct{}](
 			router,
@@ -598,7 +643,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// STATUS
 		StatusSet: unary[status.SetRequest, status.SetResponse](
 			router,
-			"/api/v1/status/set",
+			"/api/v1"+api.PathStatusSet,
 		),
 		StatusRetrieve: unary[status.RetrieveRequest, status.RetrieveResponse](
 			router,

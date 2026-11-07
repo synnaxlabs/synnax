@@ -15,9 +15,12 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -25,6 +28,7 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -39,9 +43,32 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates the given schematic within the project provided. If the
-// schematic does not have a key, a new key will be generated.
+// schematic does not have a key, a new key will be generated. An existing schematic
+// keeps its group.
 func (w Writer) Create(
+	ctx context.Context,
+	projectKey project.Key,
+	s *Schematic,
+) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, s) })
+}
+
+func (w Writer) create(
 	ctx context.Context,
 	projectKey project.Key,
 	s *Schematic,
@@ -50,10 +77,26 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		var stored Schematic
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			s.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			s.Group,
+			resource.TypeSchematic,
+			nil,
+		); err != nil {
 			return err
 		}
 	}
@@ -86,6 +129,25 @@ func (w Writer) Create(
 		s.Key,
 		NewCreateAction(CreatePayload{Schematic: *s}),
 	)
+	return nil
+}
+
+// SetGroup moves the schematics with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeSchematic, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 
@@ -126,8 +188,8 @@ func (w Writer) findParentProject(
 
 // Copy creates a copy of the schematic with the given key and name. If the
 // snapshot flag is set to true, the copy will be a snapshot and will no
-// longer be editable. The copied schematic will be bound into the result
-// parameter.
+// longer be editable. The copy sits in no group. The copied schematic will be bound
+// into the result parameter.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -142,6 +204,7 @@ func (w Writer) Copy(
 			s.Key = newKey
 			s.Name = name
 			s.Snapshot = snapshot
+			s.Group = nil
 			*result = s
 			return s
 		}).Exec(ctx, w.tx); err != nil {

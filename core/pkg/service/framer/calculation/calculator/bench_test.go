@@ -67,7 +67,6 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	return &benchEnv{

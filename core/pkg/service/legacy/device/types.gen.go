@@ -12,6 +12,7 @@
 package device
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/filter"
@@ -53,4 +54,8 @@ type Where struct {
 	Location *filter.String `json:"location,omitzero" msgpack:"location,omitempty"`
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	// Groups matches the devices in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the devices in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

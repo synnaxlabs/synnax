@@ -209,28 +209,6 @@ var _ = Describe("Writer", func() {
 				ch.Leaseholder = 1
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			})
-			It(
-				"Should create the channel without a group relationship",
-				func(ctx SpecContext) {
-					ch.Name = UniqueChannelName()
-					Expect(
-						channelWriter.Create(
-							ctx,
-							&ch,
-							channel.CreateWithoutGroupRelationship(),
-						),
-					).To(Succeed())
-					entries := []ontology.Resource{}
-					Expect(otg.
-						NewRetrieve().
-						WhereIDs(ch.ResourceID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entries(&entries).
-						Exec(ctx, nil),
-					).To(Succeed())
-					Expect(entries).To(BeEmpty())
-				},
-			)
 			Context("error cases", func() {
 				It(
 					"Should return an error if the name is invalid",

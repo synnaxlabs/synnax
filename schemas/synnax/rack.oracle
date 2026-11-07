@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/status"
 import "schemas/x/filter"
 
@@ -32,12 +33,12 @@ Status = status.Status<nil> {
 }
 
 Rack struct {
-    key          Key      {
+    key          Key        {
         @doc value         "is the composite identifier for this rack."
         @key
         @validate required
     }
-    name         string   {
+    name         string     {
         @doc value         "is a human-readable name for the rack."
         @filter
         @search
@@ -47,7 +48,7 @@ Rack struct {
         @doc value "is true if this rack is embedded within the Synnax server process."
         @filter
     }
-    status       Status?  {
+    status       Status?    {
         @doc value  "is the current operational status of the rack."
         @go marshal omit
         @include
@@ -59,11 +60,16 @@ Rack struct {
         """
         @filter
     }
-    version      string?  {
+    version      string?    {
         @doc value """
             is the version of the Driver that runs the rack, written at each connect.
             Absent until a Driver reports it.
         """
+    }
+    group        group.Key? {
+        @cpp omit
+        @doc value     "is the group the rack sits in, if any."
+        @ref on_delete detach
     }
 
     @cpp includes    "client/cpp/task/task.h"
@@ -86,11 +92,19 @@ Where filter Rack {
     name
     embedded
     integrations
-    host_is_node bool {
+    host_is_node bool        {
         @doc value """
             matches racks on the Core that serves the request, or racks on other Cores
             when false.
         """
+    }
+    groups       group.Key[] {
+        @cpp omit
+        @doc value "matches the racks in any of the given groups."
+    }
+    grouped      bool        {
+        @cpp omit
+        @doc value "matches the racks in a group, or in no group when false."
     }
 
     @doc value         "is a filter that selects racks."

@@ -215,8 +215,9 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.schematics.create(KEYS.project, createSchematic(ch));
   await client.lineplots.create(KEYS.project, createLinePlot(ch));
   // Overwriting an existing schematic or line plot does not link it to the project, and
-  // the user can have moved either one. Both go back under the project alone. The link
-  // comes first, so a failed reset cannot leave a view with no parent.
+  // the user can have moved either one. Both go back under the project alone, out of
+  // any group. The link comes first, so a failed reset cannot leave a view with no
+  // parent.
   const projectID = project.resourceID(KEYS.project);
   const ids = [
     schematic.resourceID(KEYS.schematic),
@@ -229,6 +230,10 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
       if (!resource.idsEqual(parent, projectID))
         await client.ontology.removeChildren(parent, id);
   }
+  await client.batch.send([
+    client.schematics.setGroupRequest(KEYS.schematic),
+    client.lineplots.setGroupRequest(KEYS.linePlot),
+  ]);
   await client.arcs.create([
     {
       key: KEYS.simulator,

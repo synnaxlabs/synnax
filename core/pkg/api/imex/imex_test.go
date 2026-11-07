@@ -59,12 +59,15 @@ func testEnvelope(name string) apiimex.ImportRequest {
 
 var _ = Describe("Import", func() {
 	It(
-		"Should hand the file_name and parent params to the importer",
+		"Should hand the file_name, parent, and group params to the importer",
 		func(ctx SpecContext) {
 			key := uuid.New()
+			groupKey := uuid.New()
 			fctx := rootCtx(ctx)
 			fctx.Set("params", fmt.Sprintf(
-				`{"file_name":"Metrics Log.json","parent":"project:%s"}`, key,
+				`{"file_name":"Metrics Log.json","parent":"project:%s","group":%q}`,
+				key,
+				groupKey,
 			))
 			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
 			Expect(id.Key).To(Equal("with-options"))
@@ -72,6 +75,18 @@ var _ = Describe("Import", func() {
 			Expect(importer.opts.Parent).To(Equal(resource.ID{
 				Type: resource.TypeProject, Key: key.String(),
 			}))
+			Expect(importer.opts.Group).To(Equal(&groupKey))
+		},
+	)
+
+	It(
+		"Should hand no parent and no group to the importer when params omit them",
+		func(ctx SpecContext) {
+			fctx := rootCtx(ctx)
+			fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
+			MustSucceed(apiSvc.Import(fctx, db, testEnvelope("no-parent")))
+			Expect(importer.opts.Parent.IsZero()).To(BeTrue())
+			Expect(importer.opts.Group).To(BeNil())
 		},
 	)
 
@@ -129,16 +144,6 @@ var _ = Describe("Import", func() {
 		Expect(apiSvc.Import(fctx, db, testEnvelope("no-file-name"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("file_name")),
-				MatchError(ContainSubstring("required")),
-			))
-	})
-
-	It("Should reject params without a parent", func(ctx SpecContext) {
-		fctx := rootCtx(ctx)
-		fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
-		Expect(apiSvc.Import(fctx, db, testEnvelope("no-parent"))).Error().
-			To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
 				MatchError(ContainSubstring("required")),
 			))
 	})

@@ -11,6 +11,7 @@ package group
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -74,9 +75,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Parent resource.ID `json:"parent" msgpack:"parent"`
-		Name   string      `json:"name"   msgpack:"name"`
-		Key    group.Key   `json:"key"    msgpack:"key"`
+		Parent *resource.ID  `json:"parent" msgpack:"parent"`
+		Name   string        `json:"name"   msgpack:"name"`
+		Scope  resource.Type `json:"scope"  msgpack:"scope"`
+		Key    group.Key     `json:"key"    msgpack:"key"`
 	}
 	CreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
@@ -88,15 +90,25 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeGroup}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	g, err := s.internal.NewWriter(tx).CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-	if err != nil {
+	if req.Parent != nil {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []resource.ID{*req.Parent},
+		}); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	g := group.Group{Key: req.Key, Name: req.Name, Scope: req.Scope, Parent: req.Parent}
+	if err := s.internal.NewWriter(tx).Create(ctx, &g); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Group: g}, nil
@@ -120,6 +132,42 @@ func (s *Service) Retrieve(
 		Objects: group.ResourceIDsFromGroups(res.Groups),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+	return res, nil
+}
+
+type (
+	RetrieveAncestorsRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys"`
+	}
+	RetrieveAncestorsResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+// RetrieveAncestors returns every group above the groups with the requested keys.
+func (s *Service) RetrieveAncestors(
+	ctx context.Context,
+	req RetrieveAncestorsRequest,
+) (RetrieveAncestorsResponse, error) {
+	var (
+		res RetrieveAncestorsResponse
+		err error
+	)
+	if len(req.Keys) > 0 {
+		if res.Groups, err = s.internal.Ancestors(ctx, nil, req.Keys...); err != nil {
+			return RetrieveAncestorsResponse{}, err
+		}
+	}
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: append(
+			group.ResourceIDs(req.Keys),
+			group.ResourceIDsFromGroups(res.Groups)...,
+		),
+	}); err != nil {
+		return RetrieveAncestorsResponse{}, err
 	}
 	return res, nil
 }
@@ -161,4 +209,40 @@ func (s *Service) Rename(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+// SetParentRequest moves groups under Parent, or to the top level when Parent is nil.
+type SetParentRequest struct {
+	Parent *resource.ID `json:"parent" msgpack:"parent"`
+	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
+}
+
+// SetParent moves the groups. It requires update access on the groups, on the parents
+// they leave, and on the parent they join.
+func (s *Service) SetParent(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetParentRequest,
+) (struct{}, error) {
+	var groups []group.Group
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		Entries(&groups).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	objects := group.ResourceIDs(req.Keys)
+	for _, g := range append(groups, group.Group{Parent: req.Parent}) {
+		if g.Parent != nil && !slices.Contains(objects, *g.Parent) {
+			objects = append(objects, *g.Parent)
+		}
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: objects,
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetParent(ctx, req.Parent, req.Keys...)
 }

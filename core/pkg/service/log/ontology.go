@@ -42,7 +42,11 @@ func ResourceIDsFromLogs(logs []Log) []resource.ID {
 	return lo.Map(logs, func(l Log, _ int) resource.ID { return l.ResourceID() })
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":   zyn.UUID(),
+	"name":  zyn.String(),
+	"group": zyn.UUID().Optional(),
+})
 
 func newResource(l Log) ontology.Resource {
 	return ontology.NewResource(schema, l.ResourceID(), l.Name, l)

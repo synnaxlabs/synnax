@@ -13,6 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { keyZ, type Panel, panelZ, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
 import { resource } from "@/resource";
 
@@ -32,6 +33,16 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
+/**
+ * SetGroup moves the panel into a group, or out of its group when group is empty.
+ * Emitted by the Core when it moves the panel; clients never dispatch it.
+ */
+export const setGroupPayloadZ = z.object({
+  group: group.keyZ.optional(),
+});
+
+export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
 
 /** SetIcon sets the panel's icon. Null resets it to the default panel icon. */
 export const setIconPayloadZ = z.object({
@@ -154,6 +165,7 @@ export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
+  | { type: "set_group"; setGroup: SetGroupPayload }
   | { type: "set_icon"; setIcon: SetIconPayload }
   | { type: "set_color"; setColor: SetColorPayload }
   | { type: "insert_tabs"; insertTabs: InsertTabsPayload }
@@ -167,6 +179,7 @@ export type Action =
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
+  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
   z.object({ type: z.literal("set_icon"), setIcon: setIconPayloadZ }),
   z.object({ type: z.literal("set_color"), setColor: setColorPayloadZ }),
   z.object({ type: z.literal("insert_tabs"), insertTabs: insertTabsPayloadZ }),
@@ -192,6 +205,13 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
     label: "panel rename action payload",
+  }),
+});
+
+export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
+  type: "set_group",
+  setGroup: zod.parse(setGroupPayloadZ, payload, {
+    label: "panel set_group action payload",
   }),
 });
 
@@ -267,6 +287,7 @@ export type ReduceAllResult = actions.ReduceAllResult<Panel, Action>;
 export interface Handlers {
   create: (state: Draft<Panel>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Panel>, payload: RenamePayload) => HandlerResult;
+  setGroup: (state: Draft<Panel>, payload: SetGroupPayload) => HandlerResult;
   setIcon: (state: Draft<Panel>, payload: SetIconPayload) => HandlerResult;
   setColor: (state: Draft<Panel>, payload: SetColorPayload) => HandlerResult;
   insertTabs: (state: Draft<Panel>, payload: InsertTabsPayload) => HandlerResult;
@@ -288,6 +309,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
+      case "set_group":
+        return handlers.setGroup(state, action.setGroup);
       case "set_icon":
         return handlers.setIcon(state, action.setIcon);
       case "set_color":

@@ -13,13 +13,13 @@ import {
   group,
   ni,
   NotFoundError,
-  ontology,
   rack,
   type resource,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -101,6 +101,34 @@ const createRackWriter = async (creatable: resource.ID) =>
   });
 
 describe("rack ontology service", () => {
+  describe("drop", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const destination = createResource(rack.resourceID(1), "rack");
+    const canDrop = (id: resource.ID, ancestors: resource.ID[]): boolean =>
+      Item.canDrop({
+        source: { key: "tree", type: PTree.HAUL_TYPE },
+        items: [PTree.createHaulItem(`${id.type}:${id.key}`)],
+        root,
+        destination,
+        ancestors: [root],
+        moved: [{ id, ancestors }],
+      });
+
+    it("should accept a device or group of its own rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(1), root])).toBe(true);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(1), root])).toBe(true);
+    });
+
+    it("should refuse a device or group from another rack", () => {
+      expect(canDrop(device.resourceID("d"), [rack.resourceID(2), root])).toBe(false);
+      expect(canDrop(group.resourceID("g"), [rack.resourceID(2), root])).toBe(false);
+    });
+
+    it("should refuse a rack", () => {
+      expect(canDrop(rack.resourceID(2), [root])).toBe(false);
+    });
+  });
+
   it("should expose rename, arc creation, and delete for a single rack", async () => {
     const r = await createRack();
     await renderMenu([r]);
@@ -247,17 +275,21 @@ describe("permission to write the rack", () => {
 
 describe("rack tree item", () => {
   it("should show the version that the Driver of the rack reports", async () => {
+    const grp = await client.groups.create({
+      scope: "device",
+      name: uniqueName("rackgrp"),
+    });
     const r = await client.racks.create({
       name: uniqueName("rack"),
       version: "0.61.3",
+      group: grp.key,
     });
-    const grp = await client.groups.create({
-      parent: ontology.ROOT_ID,
-      name: uniqueName("rackgrp"),
+    await renderOntologyTree({
+      client,
+      root: device.TYPE_RESOURCE_ID,
+      items: Rack.TREE_ITEMS,
+      listRoot: (c) => [Rack.GROUP_MEMBER.children(c, grp.key)],
     });
-    const root = group.resourceID(grp.key);
-    await client.ontology.addChildren(root, rack.resourceID(r.key));
-    await renderOntologyTree({ client, root, items: Rack.TREE_ITEMS });
     const row = await findTreeRow(r.name);
     expect(row.contains(await screen.findByText("v0.61.3"))).toBe(true);
   });

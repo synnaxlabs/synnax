@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/notation"
@@ -91,6 +92,10 @@ Log struct {
     time_zone            telem.TimeZone = "local" {
         @doc value "is the time zone of the line times and day rows of the log."
     }
+    group                group.Key?     {
+        @doc value     "is the group the log sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         log Log
@@ -105,6 +110,15 @@ Log struct {
         name string
 
         @doc value "renames the log."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the log into a group, or out of its group when group is empty. Emitted
+            by the Core when it moves the log; clients never dispatch it.
+        """
     }
 
     action AddChannel {
@@ -257,6 +271,12 @@ Log struct {
 
 Where filter Log {
     key
+    groups  group.Key[] {
+        @doc value "matches the logs in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the logs in a group, or in no group when false."
+    }
 
     @doc value         "is a filter that selects logs."
     @go request_output "core/pkg/api/log"

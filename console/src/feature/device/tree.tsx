@@ -9,7 +9,13 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, status } from "@synnaxlabs/client";
+import {
+  device,
+  type ontology,
+  type rack,
+  status,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -135,9 +141,38 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   );
 };
 
+/** Lists the devices that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "device",
+  children: (client, key) =>
+    Tree.createSource(
+      client.devices,
+      { where: { groups: [key] } },
+      Tree.toResource("device"),
+    ),
+};
+
+/** Lists the top level of the device tree: its groups and the racks in no group. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { scope: "device", nested: false },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.racks, { where: { grouped: false } }, (r: rack.Rack) =>
+    Tree.toResource("rack")(r.payload),
+  ),
+];
+
+// A device lists its chassis modules through the ontology.
+const children: Tree.Children = ({ client, id }) => [
+  Tree.createOntologySource(client, id),
+];
+
 const TreeItem = Tree.createItem({
   type: "device",
   icon,
+  children,
   ContextMenu: TreeContextMenu,
   Content,
 });

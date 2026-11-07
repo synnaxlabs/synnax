@@ -12,6 +12,7 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/lineplot/actions";
 import {
   type Action,
@@ -75,6 +76,8 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, LinePlot>;
+  /** Builds requests that move line plots between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -103,12 +106,15 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (plot, req) => matches(plot, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (plot, req) => matches(group.MEMBER_LINES, plot, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/lineplot/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 

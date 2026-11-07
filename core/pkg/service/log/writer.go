@@ -17,8 +17,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,6 +51,7 @@ func validateWrite(l Log) error {
 // all operations within the transaction provided to the Service.NewWriter method. If no
 // transaction is provided, the writer will execute operations directly on the database.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -61,11 +66,29 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
+// dispatch key of w when w has no transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
+	}
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		bound := w.svc.NewWriter(tx)
+		bound.dispatcher = w.dispatcher
+		return f(bound)
+	})
+}
+
 // Create creates the given log within the project provided. If the log does not have a
 // key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
 // without a project ParentOf relationship; this is used by imports that supply no
-// parent project.
+// parent project. An existing log keeps its group.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, projectKey, l) })
+}
+
+func (w Writer) create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool
 		err    error
@@ -73,10 +96,26 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
 	} else {
-		if exists, err = w.
-			table.
-			NewRetrieve().
-			Where(gorp.MatchKeys[Key, Log](l.Key)).Exists(ctx, w.tx); err != nil {
+		var stored Log
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Log](l.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if exists = err == nil; exists {
+			l.Group = stored.Group
+		}
+	}
+	if !exists {
+		if err = group.CheckMember(
+			ctx,
+			w.tx,
+			l.Group,
+			resource.TypeLog,
+			nil,
+		); err != nil {
 			return err
 		}
 	}
@@ -109,6 +148,25 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		l.Key,
 		NewCreateAction(CreatePayload{Log: *l}),
 	)
+	return nil
+}
+
+// SetGroup moves the logs with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeLog, nil); err != nil {
+		return err
+	}
+	if err := setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

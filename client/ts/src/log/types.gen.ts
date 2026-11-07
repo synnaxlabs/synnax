@@ -13,6 +13,7 @@ import { color, filter, notation, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
@@ -53,6 +54,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -69,6 +72,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the logs in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the logs in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 /**
@@ -90,6 +97,8 @@ export const logZ = z.object({
   timestampsHidden: z.boolean().default(false),
   /** timeZone is the time zone of the line times and day rows of the log. */
   timeZone: telem.timeZoneZ.default("local"),
+  /** group is the group the log sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 

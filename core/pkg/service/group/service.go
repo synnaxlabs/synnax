@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -67,7 +68,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	s := &Service{cfg: cfg, indexes: newIndexes()}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
@@ -77,31 +80,30 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
+// CreateOrRetrieve returns the top-level group of scope named name, creating it when no
+// such group exists.
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
-	groupName string,
-	parent resource.ID,
+	name string,
+	scope resource.Type,
 ) (Group, error) {
-	var res Group
+	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			g   Group
-			err = s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, tx)
-		)
-		if errors.Skip(err, query.ErrNotFound) != nil {
+		err := s.NewRetrieve().
+			Where(MatchNames(name)).
+			Where(MatchScopes(scope)).
+			Where(MatchHasParent(false)).
+			Entry(&g).
+			Exec(ctx, tx)
+		if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		w := s.NewWriter(tx)
-		if errors.Is(err, query.ErrNotFound) {
-			res, err = w.Create(ctx, groupName, parent)
-		} else {
-			res, err = w.CreateWithKey(ctx, g.Key, groupName, parent)
-		}
-		return err
+		g = Group{Name: name, Scope: scope}
+		return s.NewWriter(tx).Create(ctx, &g)
 	}); err != nil {
 		return Group{}, err
 	}
-	return res, nil
+	return g, nil
 }
 
 // Observe returns an observable that notifies callers of changes to group entries.
@@ -111,9 +113,9 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:       s,
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
 		table:     s.table,
 	}
 }
@@ -126,6 +128,89 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
+// Ancestors returns every group above the groups with keys on their parent chains, each
+// once. The walk stops at a parent that is not a group.
+func (s *Service) Ancestors(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys ...Key,
+) ([]Group, error) {
+	var (
+		out     []Group
+		level   []Group
+		visited = set.New(keys...)
+	)
+	if err := s.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&level).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	for {
+		var parents []Key
+		for _, g := range level {
+			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
+				continue
+			}
+			key, err := KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return nil, err
+			}
+			if !visited.Contains(key) {
+				visited.Add(key)
+				parents = append(parents, key)
+			}
+		}
+		if len(parents) == 0 {
+			return out, nil
+		}
+		level = nil
+		if err := s.NewRetrieve().
+			Where(MatchKeys(parents...)).
+			Entries(&level).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		out = append(out, level...)
+	}
+}
+
+// Children returns the ID of every record and group that sits in the group with key, as
+// seen by tx.
+func (s *Service) Children(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) ([]resource.ID, error) {
+	deps, err := s.table.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), key)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]resource.ID, len(deps))
+	for i, d := range deps {
+		ids[i] = resource.ID{Type: resource.Type(d.Table), Key: d.Key}
+	}
+	return ids, nil
+}
+
+// TopParent returns the parent of the group at the top of the chain that holds the
+// group with key, or nil when that group has no parent. It returns query.ErrNotFound
+// when no group has key.
+func (s *Service) TopParent(
+	ctx context.Context,
+	tx gorp.Tx,
+	key Key,
+) (*resource.ID, error) {
+	var g Group
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&g).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return topParent(ctx, gorp.OverrideTx(s.cfg.DB, tx), g)
+}
+
 func (s *Service) Close() error {
 	if s.signals != nil {
 		return errors.Combine(s.signals.Close(), s.table.Close())
@@ -134,102 +219,169 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
+	svc       *Service
 	tx        gorp.Tx
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
 	table     *gorp.Table[Key, Group]
 }
 
-// Create creates a new Group with the given name and parent.
-func (w Writer) Create(
-	ctx context.Context,
-	name string,
-	parent resource.ID,
-) (Group, error) {
-	g := Group{Key: uuid.New(), Name: name}
-	if err := g.Validate(); err != nil {
-		return Group{}, err
+// inTx calls f with w, or with a Writer on a transaction of its own when w has no
+// transaction.
+func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
+	db, ok := w.tx.(*gorp.DB)
+	if !ok {
+		return f(w)
 	}
-	id := g.ResourceID()
-	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return Group{}, err
-	}
-	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
-		return Group{}, err
-	}
-	if err := w.otgWriter.DefineRelationships(
-		ctx,
-		parent,
-		ontology.RelationshipTypeParentOf,
-		id,
-	); err != nil {
-		return Group{}, err
-	}
-	return g, nil
+	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
-func (w Writer) CreateWithKey(
-	ctx context.Context,
-	key Key,
-	name string,
-	parent resource.ID,
-) (Group, error) {
-	g := Group{Key: key, Name: name}
+// Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
+// the parent's scope, and a scope that differs from the parent's is a validation error.
+// An existing group with g.Key keeps its stored parent and scope; only SetParent moves
+// a group.
+func (w Writer) Create(ctx context.Context, g *Group) error {
+	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, g) })
+}
+
+func (w Writer) create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
-	if err := g.Validate(); err != nil {
-		return Group{}, err
+	var existing Group
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Group](g.Key)).
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if errors.Skip(err, query.ErrNotFound) != nil {
+		return err
 	}
-	id := g.ResourceID()
-	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return Group{}, err
+	if err == nil {
+		g.Parent, g.Scope = existing.Parent, existing.Scope
+	} else if g.Parent != nil {
+		scope, err := w.parentScope(ctx, *g.Parent)
+		if err != nil {
+			return err
+		}
+		if g.Scope == "" {
+			g.Scope = scope
+		}
+		if err = checkScope(*g, scope); err != nil {
+			return err
+		}
 	}
-	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
-		return Group{}, err
+	if err = g.Validate(); err != nil {
+		return err
 	}
-	if err := w.otgWriter.DefineRelationships(
-		ctx,
-		parent,
-		ontology.RelationshipTypeParentOf,
-		id,
-	); err != nil {
-		return Group{}, err
+	if err = w.table.NewCreate().Entry(g).Exec(ctx, w.tx); err != nil {
+		return err
 	}
-	return g, nil
+	return w.otgWriter.DefineResources(ctx, g.ResourceID())
 }
 
-// Delete deletes the Groups with the given keys.
-func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	keyStrings := lo.Map(keys, func(item Key, _ int) string {
-		return item.String()
-	})
-	for _, key := range keys {
-		var children []ontology.Resource
-		if err := w.otg.NewRetrieve().
-			WhereIDs(ResourceID(key)).
-			TraverseTo(ontology.ChildrenTraverser).
-			ExcludeFieldData(true).
-			Entries(&children).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		children = lo.Filter(children, func(item ontology.Resource, index int) bool {
-			return !lo.Contains(keyStrings, item.ID.Key)
-		})
-		if len(children) > 0 {
-			return errors.Wrap(
-				validate.ErrValidation,
-				"cannot delete a group with children",
-			)
-		}
-		if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
+// SetParent moves the groups with keys under parent, or to the top level when parent is
+// nil. Each group's scope must match the scope of parent. A group that holds a rack,
+// device, or project cannot move under a new top parent.
+func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
+	var scope resource.Type
+	if parent != nil {
+		var err error
+		if scope, err = w.parentScope(ctx, *parent); err != nil {
 			return err
 		}
 	}
-	return w.table.NewDelete().
+	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
+		ChangeErr(func(ctx gorp.Context, g Group) (Group, error) {
+			if err := w.checkMove(ctx, g, parent); err != nil {
+				return g, err
+			}
+			g.Parent = parent
+			if parent == nil {
+				return g, nil
+			}
+			return g, checkScope(g, scope)
+		}).
 		Exec(ctx, w.tx)
+}
+
+// parentScope returns the scope a group takes under parent: the scope of a parent
+// group, project for a project, and device for a rack.
+func (w Writer) parentScope(
+	ctx context.Context,
+	parent resource.ID,
+) (resource.Type, error) {
+	switch parent.Type {
+	case resource.TypeProject:
+		return resource.TypeProject, nil
+	case resource.TypeRack:
+		return resource.TypeDevice, nil
+	case resource.TypeGroup:
+		key, err := KeyFromResourceID(parent)
+		if err != nil {
+			return "", validate.PathedError(err, "parent")
+		}
+		var p Group
+		if err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Group](key)).
+			Entry(&p).
+			Exec(ctx, w.tx); err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				return "", validate.PathedError(errors.Wrapf(
+					validate.ErrValidation, "group %s does not exist", key,
+				), "parent")
+			}
+			return "", err
+		}
+		return p.Scope, nil
+	}
+	return "", validate.PathedError(errors.Wrapf(
+		validate.ErrValidation,
+		"must be a group, project, or rack, got %q",
+		parent.Type,
+	), "parent")
+}
+
+func checkScope(g Group, parentScope resource.Type) error {
+	if g.Scope == parentScope {
+		return nil
+	}
+	return validate.PathedError(errors.Wrapf(
+		validate.ErrValidation,
+		"a %s group cannot sit under a %s parent",
+		g.Scope,
+		parentScope,
+	), "parent")
+}
+
+// Delete deletes the groups with keys. It returns a validation error when a group holds
+// a member or a group that keys does not name.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	named := set.New(
+		lo.Map(keys, func(k Key, _ int) string { return gorp.FormatKey(k) })...,
+	)
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Group](keys...)).
+		Guard(func(ctx gorp.Context, g Group) error {
+			deps, err := w.table.Dependents(ctx, ctx.Tx, g.Key)
+			if err != nil {
+				return err
+			}
+			for _, d := range deps {
+				if d.Table == string(resource.TypeGroup) && named.Contains(d.Key) {
+					continue
+				}
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"cannot delete group %s because it is not empty",
+					g.Name,
+				)
+			}
+			return nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }
 
 // Rename renames the Group with the given key.

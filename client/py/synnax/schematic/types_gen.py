@@ -11,18 +11,20 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_
+from synnax import group as group_
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, filter, spatial, text
 from x import color as color_
 from x import notation as notation_
+from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -229,6 +231,8 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the schematics in any of the given groups.
+        grouped: Matches the schematics in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -237,6 +241,13 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -248,6 +259,8 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
@@ -1957,6 +1970,7 @@ class Schematic(BaseModel):
         edges: Contains all connections between nodes.
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
+        group: Is the group the schematic sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1965,6 +1979,7 @@ class Schematic(BaseModel):
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

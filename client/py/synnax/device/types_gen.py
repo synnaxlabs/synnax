@@ -11,16 +11,18 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
+from synnax import group as group_
 from synnax import rack as rack_
 from synnax import resource
 from synnax import status as status_
 from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = str
 
@@ -54,6 +56,8 @@ class Where(BaseModel):
         model: Selects by model.
         location: Selects by location.
         rack: Selects by rack.
+        groups: Matches the devices in any of the given groups.
+        grouped: Matches the devices in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -67,6 +71,13 @@ class Where(BaseModel):
     model: filter.String | None = None
     location: filter.String | None = None
     rack: filter.Set[rack_.Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -83,6 +94,8 @@ WhereInput = TypedDict(
         "model": filter.StringInput,
         "location": filter.StringInput,
         "rack": filter.SetInput[rack_.Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
@@ -130,6 +143,7 @@ class Device(BaseModel):
         properties: Contains device-specific configuration properties stored as JSON.
             Structure varies by device make and model.
         status: Is the current operational status of the device.
+        group: Is the group the device sits in, if any.
         parent: Is an optional parent resource ID for hierarchical device organization
             (e.g., NI chassis containing modules).
     """
@@ -143,6 +157,7 @@ class Device(BaseModel):
     configured: bool = False
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
+    group: group_.Key | None = None
     parent: resource.ID | None = None
 
     @_override

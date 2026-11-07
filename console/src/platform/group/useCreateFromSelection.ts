@@ -14,10 +14,12 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
+import { moveRequests } from "@/platform/group/move";
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
-  group: group.Group;
+  group: Pick<group.Group, "key" | "name">;
 }
 
 const base = Flux.createUpdate<CreateParams>({
@@ -25,13 +27,15 @@ const base = Flux.createUpdate<CreateParams>({
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const {
-      selection: { parentID, top },
+      selection: { parentID, rootID, top },
       group: { name, key },
     } = data;
     if (parentID == null)
       throw new Error("Cannot group items that sit under more than one parent");
-    await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(parentID, group.resourceID(key), ...top);
+    await client.batch.send([
+      client.groups.createRequest({ key, name, ...placement(parentID, rootID) }),
+      ...moveRequests(client, top, group.resourceID(key)),
+    ]);
     return data;
   },
 });

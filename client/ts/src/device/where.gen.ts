@@ -12,16 +12,29 @@ import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Device, keyZ, type Where } from "@/device/types.gen";
+import { group } from "@/group";
 import { rack } from "@/rack";
 
 /**
- * @returns whether the record matches where. An absent where matches every record.
+ * Lines checks the typed lines of a Where against a record. A null entry marks a line
+ * that only the Core can check.
  */
-export const matches = (record: Device, where?: Where): boolean => {
+export interface Lines {
+  groups: ((record: Device, value: NonNullable<Where["groups"]>) => boolean) | null;
+  grouped: ((record: Device, value: NonNullable<Where["grouped"]>) => boolean) | null;
+}
+
+/**
+ * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
+ */
+export const matches = (lines: Lines, record: Device, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
-  if (where.not != null && matches(record, where.not)) return false;
+  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
+    return false;
+  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
+    return false;
+  if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
@@ -32,22 +45,32 @@ export const matches = (record: Device, where?: Where): boolean => {
   if (where.location != null && !filter.matchesString(where.location, record.location))
     return false;
   if (where.rack != null && !filter.matchesSet(where.rack, record.rack)) return false;
+  if (where.groups != null) {
+    if (lines.groups == null) throw new Error("only the Core can check groups");
+    if (!lines.groups(record, where.groups)) return false;
+  }
+  if (where.grouped != null) {
+    if (lines.grouped == null) throw new Error("only the Core can check grouped");
+    if (!lines.grouped(record, where.grouped)) return false;
+  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex. An absent
- * where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (where?: Where): boolean =>
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(w)) === true ||
-    where.or?.some((w) => serverComputed(w)) === true ||
-    (where.not != null && serverComputed(where.not)) ||
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
     where.make?.regex != null ||
     where.model?.regex != null ||
-    where.location?.regex != null);
+    where.location?.regex != null ||
+    (where.groups != null && lines.groups == null) ||
+    (where.grouped != null && lines.grouped == null));
 
 const inputs = {
   /** key selects by key. */
@@ -62,6 +85,10 @@ const inputs = {
   location: filter.stringInputZ.exactOptional(),
   /** rack selects by rack. */
   rack: filter.setInputZ(rack.keyZ).exactOptional(),
+  /** groups matches the devices in any of the given groups. */
+  groups: filter.listInputZ(group.keyZ).exactOptional(),
+  /** grouped matches the devices in a group, or in no group when false. */
+  grouped: z.boolean().exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -109,5 +136,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "model",
         "location",
         "rack",
+        "groups",
+        "grouped",
       ]),
     );

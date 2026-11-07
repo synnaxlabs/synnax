@@ -54,6 +54,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"name":  zyn.String(),
 	"icon":  zyn.String().Optional(),
 	"color": color.Schema.Optional(),
+	"group": zyn.UUID().Optional(),
 })
 
 func newResource(p Panel) ontology.Resource {

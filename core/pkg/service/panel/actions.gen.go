@@ -12,6 +12,7 @@
 package panel
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -23,6 +24,8 @@ const (
 	ActionTypeCreate = "create"
 	// ActionTypeRename is the Type of an Action that carries RenamePayload.
 	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
 	// ActionTypeSetIcon is the Type of an Action that carries SetIconPayload.
 	ActionTypeSetIcon = "set_icon"
 	// ActionTypeSetColor is the Type of an Action that carries SetColorPayload.
@@ -53,6 +56,12 @@ type CreatePayload struct {
 // RenamePayload renames the panel.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the panel into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the panel; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
@@ -149,6 +158,7 @@ type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
 	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename         *RenamePayload         `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup       *SetGroupPayload       `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
 	SetIcon        *SetIconPayload        `json:"set_icon,omitzero" msgpack:"set_icon,omitempty"`
 	SetColor       *SetColorPayload       `json:"set_color,omitzero" msgpack:"set_color,omitempty"`
 	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
@@ -178,6 +188,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
 		case ActionTypeSetIcon:
 			if a.SetIcon == nil {
 				return state, union.MissingPayload(a.Type)
@@ -241,6 +256,11 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
 }
 
 // NewSetIconAction wraps a SetIconPayload in an Action envelope.

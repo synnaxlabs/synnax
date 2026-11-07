@@ -22,6 +22,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
@@ -102,9 +103,10 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.WrapWriter[v0.Key, v0.Panel](db).Set(ctx, old)).To(Succeed())
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
-			want := MustSucceed(v2.MigratePanel(
-				ctx, MustSucceed(v1.MigratePanel(ctx, old)),
-			))
+			p1 := MustSucceed(v1.MigratePanel(ctx, old))
+			want := MustSucceed(
+				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
+			)
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
 
@@ -134,7 +136,8 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.WrapWriter[v2.Key, v2.Panel](db).Set(ctx, stored)).
 				To(Succeed())
 			openTable()
-			Expect(retrieve(stored.Key)).To(Equal(stored))
+			Expect(retrieve(stored.Key)).
+				To(Equal(MustSucceed(v3.MigratePanel(ctx, stored))))
 		})
 	})
 

@@ -285,7 +285,8 @@ One startup migration per table derives its reference fields from the old edges 
   role fields come from `parent` edges. Labels come from `labeled_by` edges.
 - Each `group` field comes from a group edge, unless the group is a built-in root.
   `group.parent` comes from the edge into the group, and a built-in root maps to nil.
-  `group.scope` comes from the built-in root at the top of the chain.
+  `group.scope` comes from the built-in root at the top of the chain. A membership in a
+  group whose scope does not hold the record's type is dropped and logged.
 - The status key becomes a UUIDv5 of the old key, and `owner` is parsed from the old
   key. Each node derives the same key, as RFC 0033 §4.2.5 requires.
 

@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -31,7 +30,6 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
-	Group    *group.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -42,7 +40,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
@@ -50,7 +47,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	v.NotNil("db", c.DB)
-	v.NotNil("group", c.Group)
 	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
@@ -58,7 +54,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	closer  xio.MultiCloser
-	group   group.Group
 	table   *gorp.Table[Key, Role]
 	indexes indexes
 }
@@ -87,16 +82,6 @@ func OpenService(
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Users",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
-		return nil, err
-	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishFromGorp(
@@ -109,13 +94,10 @@ func OpenService(
 	return s, nil
 }
 
-func (s *Service) UsersGroup() group.Group { return s.group }
-
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
 		tx:            gorp.OverrideTx(s.cfg.DB, tx),
 		otg:           s.cfg.Ontology.NewWriter(tx),
-		group:         s.group,
 		allowInternal: allowInternal,
 		table:         s.table,
 	}

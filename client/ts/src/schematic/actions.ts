@@ -21,6 +21,7 @@ import {
   removeNode,
   rename,
   setConfig,
+  setGroup,
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
@@ -49,6 +50,13 @@ const handlers: Handlers = {
       targets: [state.key],
     };
   },
+
+  setGroup: (state, payload) => {
+    const oldGroup = state.group;
+    state.group = payload.group;
+    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
+  },
+
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node == null) return actions.NO_OP_RESULT;

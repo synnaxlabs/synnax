@@ -46,7 +46,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
 	}))
 })
 

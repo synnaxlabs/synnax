@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { access, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Ontology } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Role } from "@/feature/access/role";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -44,10 +45,13 @@ const Content = (): ReactElement => {
   );
 };
 
-const Body = (): ReactElement => {
-  const groupID = Ontology.useRootChildID({ name: "Users" });
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
-};
+const Body = (): ReactElement => (
+  <Tree.Tree
+    root={access.role.TYPE_RESOURCE_ID}
+    listRoot={Role.listTreeRoot}
+    emptyContent={<EmptyContent />}
+  />
+);
 
 const EmptyContent = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();

@@ -13,11 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -33,23 +31,21 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Import decodes env into a Symbol created under opts.Parent, which must be a group.
-// The key on the wire is discarded so every import mints a new resource. An unknown
-// envelope version is a path-scoped validation error.
+// Import decodes env into a Symbol created in opts.Group. opts.Parent is ignored: a
+// symbol has no parent. The key on the wire is discarded so every import mints a new
+// resource. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (resource.ID, error) {
-	if _, err := group.KeyFromResourceID(opts.Parent); err != nil {
-		return resource.ID{}, validate.PathedError(err, "parent")
-	}
 	sym, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return resource.ID{}, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, &sym, opts.Parent); err != nil {
+	sym.Group = opts.Group
+	if err = s.NewWriter(tx).Create(ctx, &sym); err != nil {
 		return resource.ID{}, err
 	}
 	return sym.ResourceID(), nil

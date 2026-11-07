@@ -10,12 +10,10 @@
 import {
   channel as channelClient,
   DataType,
-  group,
   lineplot,
   NotFoundError,
   ontology,
   project,
-  type resource,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
@@ -32,6 +30,7 @@ import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import {
+  createHostItems,
   createResource,
   findTreeRow,
   openTreeRowContextMenu,
@@ -60,30 +59,18 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
-const createChannelGroup = async (
-  ...channels: { key: channelClient.Key }[]
-): Promise<resource.ID> => {
-  const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("chgrp"),
-  });
-  const channelsGroup = await client.channels.retrieveGroup();
-  await client.ontology.moveChildren(
-    group.resourceID(channelsGroup.key),
-    group.resourceID(grp.key),
-    ...channels.map((c) => channelClient.resourceID(c.key)),
-  );
-  return group.resourceID(grp.key);
-};
+// Hosts the channels under the ontology root, outside any group.
+const hostChannels = (...channels: { key: channelClient.Key }[]) =>
+  createHostItems(channels.map((c) => channelClient.resourceID(c.key)));
 
 const renderChannelTree = async (
-  root: resource.ID,
+  host: ReturnType<typeof hostChannels>,
   onCaughtError?: RenderOptions["onCaughtError"],
 ) =>
   await renderOntologyTree({
     client,
-    root,
-    items: Channel.TREE_ITEMS,
+    root: ontology.ROOT_ID,
+    items: { ...Channel.TREE_ITEMS, ...host },
     onCaughtError,
   });
 
@@ -119,8 +106,8 @@ describe("channel/ontology", () => {
       const proj = await client.projects.create({
         name: uniqueName("proj"),
       });
-      const root = await createChannelGroup(ch);
-      const { store } = await renderChannelTree(root);
+      const host = hostChannels(ch);
+      const { store } = await renderChannelTree(host);
       store.dispatch(Session.Project.select(proj.key));
       fireEvent.doubleClick(await findTreeRow(ch.name));
       const tab = await resolveFocusedTab(store, client);
@@ -139,8 +126,8 @@ describe("channel/ontology", () => {
       const plot = await client.lineplots.create(proj.key, {
         name: uniqueName("plot"),
       });
-      const root = await createChannelGroup(ch);
-      const { store } = await renderChannelTree(root);
+      const host = hostChannels(ch);
+      const { store } = await renderChannelTree(host);
       const tabKey = uuid.create();
       const pan = await client.panels.create({
         name: uniqueName("panel"),
@@ -177,8 +164,8 @@ describe("channel/ontology", () => {
       const proj = await client.projects.create({
         name: uniqueName("proj"),
       });
-      const root = await createChannelGroup(virtualCh);
-      const { store } = await renderChannelTree(root);
+      const host = hostChannels(virtualCh);
+      const { store } = await renderChannelTree(host);
       store.dispatch(Session.Project.select(proj.key));
       fireEvent.doubleClick(await findTreeRow(virtualCh.name));
       const tab = await resolveFocusedTab(store, client);
@@ -193,15 +180,15 @@ describe("channel/ontology", () => {
   describe("tree", () => {
     it("renders channels through the custom item", async () => {
       const ch = await createChannel();
-      const root = await createChannelGroup(ch);
-      await renderChannelTree(root);
+      const host = hostChannels(ch);
+      await renderChannelTree(host);
       expect(await screen.findByText(ch.name)).toBeTruthy();
     });
 
     it("renames a channel from the context menu", async () => {
       const ch = await createChannel();
-      const root = await createChannelGroup(ch);
-      await renderChannelTree(root);
+      const host = hostChannels(ch);
+      await renderChannelTree(host);
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Rename"));
       const editor = await awaitTextEditingElement();
@@ -214,8 +201,8 @@ describe("channel/ontology", () => {
 
     it("deletes a channel after confirmation", async () => {
       const ch = await createChannel();
-      const root = await createChannelGroup(ch);
-      await renderChannelTree(root);
+      const host = hostChannels(ch);
+      await renderChannelTree(host);
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${ch.name}?`);
@@ -229,9 +216,9 @@ describe("channel/ontology", () => {
 
     it("renames the real channel name while an alias is shown", async () => {
       const ch = await createChannel();
-      const root = await createChannelGroup(ch);
+      const host = hostChannels(ch);
       const rng = await createTestRange(client);
-      const { store } = await renderChannelTree(root);
+      const { store } = await renderChannelTree(host);
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       const alias = uniqueName("alias");
       await client.ranges.setAlias(rng.key, ch.key, alias);
@@ -252,9 +239,9 @@ describe("channel/ontology", () => {
 
     it("sets and removes an alias under the active range", async () => {
       const ch = await createChannel();
-      const root = await createChannelGroup(ch);
+      const host = hostChannels(ch);
       const rng = await createTestRange(client);
-      const { store } = await renderChannelTree(root);
+      const { store } = await renderChannelTree(host);
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText(`Set alias under ${rng.name}`));
@@ -278,9 +265,9 @@ describe("channel/ontology", () => {
         virtual: true,
         expression: "return 1",
       });
-      const root = await createChannelGroup(calc);
+      const host = hostChannels(calc);
       // Monaco cannot run in jsdom, so the expression editor's boundary catches.
-      await renderChannelTree(root, () => {});
+      await renderChannelTree(host, () => {});
       await openTreeRowContextMenu(calc.name);
       const edit = await screen.findByText("Edit calculation");
       await act(async () => fireEvent.click(edit));

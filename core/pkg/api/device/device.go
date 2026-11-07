@@ -12,10 +12,12 @@ package device
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -106,10 +108,32 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeDevice}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(lo.Map(
+			req.Devices,
+			func(d device.Device, _ int) device.Key { return d.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.Devices,
+			stored,
+			func(d device.Device) *group.Key { return d.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -263,4 +287,37 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
+}
+
+// SetGroupRequest moves devices into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []device.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the devices with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var devices []device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(req.Keys...)).
+		Entries(&devices).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			device.ResourceIDs(req.Keys),
+			lo.Map(devices, func(e device.Device, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

@@ -12,7 +12,10 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
@@ -38,6 +41,10 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	if r.Version != nil {
 		pb.Version = r.Version
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	return pb, nil
 }
 
@@ -60,6 +67,13 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	}
 	if pb.Version != nil {
 		r.Version = pb.Version
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return rack.Rack{}, err
+		}
+		r.Group = &v
 	}
 	return r, nil
 }
@@ -247,6 +261,12 @@ func WhereToPB(r rack.Where) (*Where, error) {
 	if r.HostIsNode != nil {
 		pb.HostIsNode = r.HostIsNode
 	}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
+	}
 	return pb, nil
 }
 
@@ -307,6 +327,26 @@ func WhereFromPB(pb *Where) (rack.Where, error) {
 	}
 	if pb.HostIsNode != nil {
 		r.HostIsNode = pb.HostIsNode
+	}
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
 	}
 	return r, nil
 }

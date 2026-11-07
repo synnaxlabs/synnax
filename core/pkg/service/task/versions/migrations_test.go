@@ -57,7 +57,6 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
-				Group:        g,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -86,7 +85,6 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
 				ImEx:     imex.NewService(),

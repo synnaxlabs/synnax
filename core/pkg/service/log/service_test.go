@@ -131,7 +131,6 @@ var _ = Describe("OpenService", func() {
 			DB:           node.DB,
 			HostProvider: node.Cluster,
 			Ontology:     otg,
-			Group:        groupSvc,
 			Status:       statusSvc,
 		}))
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

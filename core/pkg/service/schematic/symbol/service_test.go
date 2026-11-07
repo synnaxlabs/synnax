@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should create a service and its permanent group", func(ctx SpecContext) {
+		It("Should create a service", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -40,8 +40,6 @@ var _ = Describe("Service", func() {
 				ImEx:     imex.NewService(),
 			}))
 			Expect(testSvc).ToNot(BeNil())
-			Expect(testSvc.Group()).ToNot(BeNil())
-			Expect(testSvc.Group().Name).To(Equal("Schematic Symbols"))
 		})
 
 		DescribeTable("Should fail with invalid configuration",
@@ -129,7 +127,7 @@ var _ = Describe("Service", func() {
 						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 					}
 					Expect(
-						svc.NewWriter(nil).Create(ctx, &sym, proj.ResourceID()),
+						svc.NewWriter(nil).Create(ctx, &sym),
 					).To(Succeed())
 					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 				}

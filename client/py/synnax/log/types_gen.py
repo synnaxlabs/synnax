@@ -11,17 +11,19 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
+from typing import Any, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_
+from synnax import group as group_
 from synnax.resource import ID
 from x import color as color_
 from x import filter, telem
 from x import notation as notation_
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
@@ -46,6 +48,8 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the logs in any of the given groups.
+        grouped: Matches the logs in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -54,6 +58,13 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -65,6 +76,8 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
@@ -123,6 +136,7 @@ class Log(BaseModel):
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
         time_zone: Is the time zone of the line times and day rows of the log.
+        group: Is the group the log sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -132,6 +146,7 @@ class Log(BaseModel):
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
     time_zone: telem.TimeZone = "local"
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

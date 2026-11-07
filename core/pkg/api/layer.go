@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -81,11 +82,10 @@ type Transport struct {
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// CHANNEL
-	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve      freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
-	ChannelDelete        freighter.UnaryServer[channel.DeleteRequest, struct{}]
-	ChannelRename        freighter.UnaryServer[channel.RenameRequest, struct{}]
-	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
+	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
+	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
+	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -124,10 +124,11 @@ type Transport struct {
 	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, struct{}]
 	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, struct{}]
 	// GROUP
-	GroupCreate   freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
-	GroupDelete   freighter.UnaryServer[group.DeleteRequest, struct{}]
-	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
-	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
+	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
+	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
+	GroupRename            freighter.UnaryServer[group.RenameRequest, struct{}]
+	GroupRetrieve          freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
+	GroupRetrieveAncestors freighter.UnaryServer[group.RetrieveAncestorsRequest, group.RetrieveAncestorsResponse]
 	// PROJECT
 	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
@@ -142,14 +143,13 @@ type Transport struct {
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, struct{}]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicSymbolCreate        freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
-	SchematicSymbolRetrieve      freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
-	SchematicSymbolDelete        freighter.UnaryServer[symbol.DeleteRequest, struct{}]
-	SchematicSymbolRename        freighter.UnaryServer[symbol.RenameRequest, struct{}]
-	SchematicSymbolRetrieveGroup freighter.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]
-	SchematicSymbolExportGroup   freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
-	SchematicSymbolImportGroup   freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
-	SchematicSymbolDeleteGroup   freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
+	SchematicSymbolCreate      freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
+	SchematicSymbolRetrieve    freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
+	SchematicSymbolDelete      freighter.UnaryServer[symbol.DeleteRequest, struct{}]
+	SchematicSymbolRename      freighter.UnaryServer[symbol.RenameRequest, struct{}]
+	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
+	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
+	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -235,6 +235,20 @@ type Transport struct {
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
+	// GROUP MEMBERSHIP
+	GroupSetParent          freighter.UnaryServer[group.SetParentRequest, struct{}]
+	ChannelSetGroup         freighter.UnaryServer[channel.SetGroupRequest, struct{}]
+	DeviceSetGroup          freighter.UnaryServer[device.SetGroupRequest, struct{}]
+	RackSetGroup            freighter.UnaryServer[rack.SetGroupRequest, struct{}]
+	ProjectSetGroup         freighter.UnaryServer[project.SetGroupRequest, struct{}]
+	SchematicSetGroup       freighter.UnaryServer[schematic.SetGroupRequest, struct{}]
+	SchematicSymbolSetGroup freighter.UnaryServer[symbol.SetGroupRequest, struct{}]
+	LinePlotSetGroup        freighter.UnaryServer[lineplot.SetGroupRequest, struct{}]
+	LogSetGroup             freighter.UnaryServer[log.SetGroupRequest, struct{}]
+	TableSetGroup           freighter.UnaryServer[table.SetGroupRequest, struct{}]
+	PanelSetGroup           freighter.UnaryServer[panel.SetGroupRequest, struct{}]
+	// BATCH
+	Batch freighter.UnaryServer[batch.ExecRequest, batch.ExecResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific
@@ -269,6 +283,7 @@ type Layer struct {
 	Arc          *arc.Service
 	Status       *status.Service
 	ImEx         *imex.Service
+	Batch        *batch.Service
 	config       config.LayerConfig
 }
 
@@ -332,7 +347,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
-		t.ChannelRetrieveGroup,
 
 		// FRAME
 		t.FrameWriter,
@@ -355,6 +369,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.GroupDelete,
 		t.GroupRename,
 		t.GroupRetrieve,
+		t.GroupRetrieveAncestors,
 
 		// RANGE
 		t.RangeCreate,
@@ -396,7 +411,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRetrieve,
 		t.SchematicSymbolDelete,
 		t.SchematicSymbolRename,
-		t.SchematicSymbolRetrieveGroup,
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
@@ -491,6 +505,22 @@ func (l *Layer) BindTo(t Transport) {
 		// IMPORT/EXPORT
 		t.ImExImport,
 		t.ImExExport,
+
+		// GROUP MEMBERSHIP
+		t.GroupSetParent,
+		t.ChannelSetGroup,
+		t.DeviceSetGroup,
+		t.RackSetGroup,
+		t.ProjectSetGroup,
+		t.SchematicSetGroup,
+		t.SchematicSymbolSetGroup,
+		t.LinePlotSetGroup,
+		t.LogSetGroup,
+		t.TableSetGroup,
+		t.PanelSetGroup,
+
+		// BATCH
+		t.Batch,
 	)
 
 	db := l.config.Distribution.DB
@@ -529,7 +559,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
 	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
-	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -558,6 +587,29 @@ func (l *Layer) BindTo(t Transport) {
 	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
 	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
 	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
+	t.GroupRetrieveAncestors.BindHandler(l.Group.RetrieveAncestors)
+
+	// GROUP MEMBERSHIP
+	t.GroupSetParent.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.SetParent))
+	t.ChannelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.SetGroup))
+	t.DeviceSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.SetGroup))
+	t.RackSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.SetGroup))
+	t.ProjectSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.SetGroup))
+	t.SchematicSetGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetGroup),
+	)
+	t.SchematicSymbolSetGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.SetGroup),
+	)
+	t.LinePlotSetGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetGroup),
+	)
+	t.LogSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.SetGroup))
+	t.TableSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.SetGroup))
+	t.PanelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.SetGroup))
+
+	// BATCH
+	t.Batch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Batch.Exec))
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
@@ -605,7 +657,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolRename.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
 	)
-	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
 	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
 	t.SchematicSymbolImportGroup.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
@@ -932,5 +983,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	l.Batch = batch.NewService(l.batchRoutes())
 	return l, nil
 }

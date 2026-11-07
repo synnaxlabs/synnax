@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  device as deviceClient,
-  group,
-  NotFoundError,
-  ontology,
-  rack,
-  type resource,
-} from "@synnaxlabs/client";
+import { device as deviceClient, NotFoundError, ontology } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -25,6 +18,7 @@ import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import {
+  createHostItems,
   createResource,
   openTreeRowContextMenu,
   renderOntologyTree,
@@ -40,42 +34,30 @@ import {
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const createDeviceGroup = async (
-  ...devices: { key: string; rack: number }[]
-): Promise<resource.ID> => {
-  const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("devgrp"),
-  });
-  for (const dev of devices)
-    await client.ontology.moveChildren(
-      rack.resourceID(dev.rack),
-      group.resourceID(grp.key),
-      deviceClient.resourceID(dev.key),
-    );
-  return group.resourceID(grp.key);
-};
+// Hosts the devices under the ontology root, outside any rack or group.
+const hostDevices = (...devices: { key: string }[]) =>
+  createHostItems(devices.map((d) => deviceClient.resourceID(d.key)));
 
-const renderDeviceTree = async (root: resource.ID) =>
+const renderDeviceTree = async (host: ReturnType<typeof hostDevices>) =>
   await renderOntologyTree({
     client,
-    root,
-    items: Device.TREE_ITEMS,
+    root: ontology.ROOT_ID,
+    items: { ...Device.TREE_ITEMS, ...host },
   });
 
 describe("device/ontology", () => {
   it("renders the device with its location", async () => {
     const dev = await createTestDevice(client);
-    const root = await createDeviceGroup(dev);
-    await renderDeviceTree(root);
+    const host = hostDevices(dev);
+    await renderDeviceTree(host);
     expect(await screen.findByText(dev.name)).toBeTruthy();
     expect(await screen.findByText("dev1")).toBeTruthy();
   });
 
   it("renames a device from the context menu", async () => {
     const dev = await createTestDevice(client);
-    const root = await createDeviceGroup(dev);
-    await renderDeviceTree(root);
+    const host = hostDevices(dev);
+    await renderDeviceTree(host);
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Rename"));
     const editor = await awaitTextEditingElement();
@@ -88,8 +70,8 @@ describe("device/ontology", () => {
 
   it("deletes a device after confirmation", async () => {
     const dev = await createTestDevice(client);
-    const root = await createDeviceGroup(dev);
-    await renderDeviceTree(root);
+    const host = hostDevices(dev);
+    await renderDeviceTree(host);
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${dev.name}?`);
@@ -106,8 +88,8 @@ describe("device/ontology", () => {
       make: NI.Device.MAKE,
       configured: false,
     });
-    const root = await createDeviceGroup(dev);
-    await renderDeviceTree(root);
+    const host = hostDevices(dev);
+    await renderDeviceTree(host);
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Configure"));
     expect(await screen.findByText("Save and create read task")).toBeTruthy();
@@ -115,8 +97,8 @@ describe("device/ontology", () => {
 
   it("should open the connect form from Edit connection", async () => {
     const dev = await createModbusDevice(client);
-    const root = await createDeviceGroup(dev);
-    await renderDeviceTree(root);
+    const host = hostDevices(dev);
+    await renderDeviceTree(host);
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Edit connection"));
     expect(await screen.findByText("Modbus server")).toBeTruthy();

@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -89,6 +90,8 @@ type Log struct {
 	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 	// TimeZone is the time zone of the line times and day rows of the log.
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+	// Group is the group the log sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -20,9 +20,8 @@ import { uniqueName } from "@/testutil";
 const createSymbolGroup = async (
   symbolNames: string[],
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.resourceID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("delete_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -30,7 +29,7 @@ const createSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.resourceID(grp.key),
+        group: grp.key,
       }),
     );
   return { grp, symbols };

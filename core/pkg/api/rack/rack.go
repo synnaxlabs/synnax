@@ -13,11 +13,13 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -224,6 +226,17 @@ func (s *Service) enforceCreate(
 			return err
 		}
 	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			racks,
+			existing,
+			func(r rack.Rack) *group.Key { return r.Group },
+		),
+	}); err != nil {
+		return err
+	}
 	found := make(set.Set[rack.Key], len(existing))
 	for _, r := range existing {
 		found.Add(r.Key)
@@ -352,4 +365,37 @@ func (s *Service) Delete(
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
 		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
+}
+
+// SetGroupRequest moves racks into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key `json:"group" msgpack:"group"`
+	Keys  []rack.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the racks with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var racks []rack.Rack
+	if err := s.rack.NewRetrieve().
+		Where(rack.MatchKeys(req.Keys...)).
+		Entries(&racks).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			rack.ResourceIDs(req.Keys),
+			lo.Map(racks, func(e rack.Rack, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

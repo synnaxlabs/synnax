@@ -12,16 +12,20 @@ package table
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -92,10 +96,32 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []resource.ID{{Type: resource.TypeTable}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	var stored []table.Table
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(lo.Map(
+			req.Tables,
+			func(e table.Table, _ int) table.Key { return e.Key },
+		)...)).
+		Entries(&stored).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return CreateResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.CreateObjects(
+			req.Tables,
+			stored,
+			func(e table.Table) *group.Key { return e.Group },
+		),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -169,4 +195,37 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetGroupRequest moves tables into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key  `json:"group" msgpack:"group"`
+	Keys  []table.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the tables with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	var tables []table.Table
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).
+		Entries(&tables).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.MoveObjects(
+			table.ResourceIDs(req.Keys),
+			lo.Map(tables, func(e table.Table, _ int) *group.Key { return e.Group }),
+			req.Group,
+		),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

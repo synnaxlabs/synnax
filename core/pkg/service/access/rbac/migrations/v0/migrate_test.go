@@ -132,7 +132,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    groupSvc,
 			}))
 			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -260,7 +259,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 		}))
 		run := func() error {
 			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
@@ -317,7 +315,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 		}))
 		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 		// Cores up to v0.53 converted permissions to roles and set this flag.

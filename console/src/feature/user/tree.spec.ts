@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, user } from "@synnaxlabs/client";
+import { access, NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Access } from "@/feature/access";
 import { User } from "@/feature/user";
 import {
   createResource,
@@ -122,18 +123,12 @@ describe("rename", () => {
       name: uniqueName("name"),
       password: "pwd12345",
     });
-    const grp = await client.groups.create({
-      parent: ontology.ROOT_ID,
-      name: uniqueName("usergrp"),
-    });
-    await client.ontology.addChildren(
-      group.resourceID(grp.key),
-      user.resourceID(u.key),
-    );
+    const role = await client.access.roles.create({ name: uniqueName("role") });
+    await client.access.roles.assign({ user: u.key, role: role.key });
     await renderOntologyTree({
       client,
-      root: group.resourceID(grp.key),
-      items: User.TREE_ITEMS,
+      root: access.role.resourceID(role.key),
+      items: { ...Access.TREE_ITEMS, ...User.TREE_ITEMS },
     });
     await openTreeRowContextMenu(u.name);
     fireEvent.click(await screen.findByText("Rename"));

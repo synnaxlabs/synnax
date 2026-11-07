@@ -12,6 +12,7 @@
 import { color, filter, spatial, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /**
@@ -47,6 +48,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -63,6 +66,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the panels in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the panels in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
 
 /** ResourceTab is a tab displaying a backing Core document. */
@@ -190,6 +197,8 @@ export const panelZ = z.object({
   icon: z.string().optional(),
   /** color is the color of the panel's icon. When null, the theme picks it. */
   color: color.colorZ.optional(),
+  /** group is the group the panel sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

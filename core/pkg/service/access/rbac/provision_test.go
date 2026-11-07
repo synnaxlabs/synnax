@@ -224,7 +224,6 @@ var _ = Describe("Provision", func() {
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
-					Group:    groupSvc,
 					User:     userSvc,
 				}))
 
@@ -270,7 +269,6 @@ var _ = Describe("Provision", func() {
 			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    groupSvc,
 				User:     userSvc,
 			}))
 			Expect(svc2.Builtin.DriverKey).To(Equal(driver.Key))
@@ -304,7 +302,6 @@ var _ = Describe("Provision", func() {
 			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    groupSvc,
 				User:     userSvc,
 			}))
 			Expect(svc2.Builtin.DriverKey).ToNot(Equal(custom.Key))
@@ -344,7 +341,6 @@ var _ = Describe("Provision", func() {
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
-					Group:    groupSvc,
 					User:     userSvc,
 				}))
 

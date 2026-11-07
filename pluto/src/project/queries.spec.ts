@@ -400,11 +400,7 @@ describe("queries", () => {
         parent: project.resourceID(proj.key),
         name: "My Group",
       });
-      await client.ontology.moveChildren(
-        project.resourceID(proj.key),
-        group.resourceID(g.key),
-        schematic.resourceID(s2.key),
-      );
+      await client.batch.send([client.schematics.setGroupRequest(s2.key, g.key)]);
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -431,11 +427,9 @@ describe("queries", () => {
         parent: group.resourceID(outerGroup.key),
         name: "Inner Group",
       });
-      await client.ontology.moveChildren(
-        project.resourceID(proj.key),
-        group.resourceID(innerGroup.key),
-        schematic.resourceID(s2.key),
-      );
+      await client.batch.send([
+        client.schematics.setGroupRequest(s2.key, innerGroup.key),
+      ]);
 
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -521,36 +515,20 @@ describe("queries", () => {
           parent: project.resourceID(proj.key),
           name: "Group 1",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(proj.key),
-          group.resourceID(g1.key),
-          schematic.resourceID(sB.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sB.key, g1.key)]);
 
         const g2 = await client.groups.create({
           parent: group.resourceID(g1.key),
           name: "Group 2",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(proj.key),
-          group.resourceID(g2.key),
-          schematic.resourceID(sC.key),
-        );
-        await client.ontology.moveChildren(
-          project.resourceID(proj.key),
-          group.resourceID(g2.key),
-          schematic.resourceID(sD.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sC.key, g2.key)]);
+        await client.batch.send([client.schematics.setGroupRequest(sD.key, g2.key)]);
 
         const gE = await client.groups.create({
           parent: group.resourceID(g2.key),
           name: "Group E",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(proj.key),
-          group.resourceID(gE.key),
-          schematic.resourceID(sE.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sE.key, gE.key)]);
 
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
@@ -575,36 +553,20 @@ describe("queries", () => {
           parent: project.resourceID(mproj.key),
           name: "Group 1 Mirrored",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(mproj.key),
-          group.resourceID(mg1.key),
-          schematic.resourceID(sBm.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sBm.key, mg1.key)]);
 
         const mg2 = await client.groups.create({
           parent: group.resourceID(mg1.key),
           name: "Group 2 Mirrored",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(mproj.key),
-          group.resourceID(mg2.key),
-          schematic.resourceID(sCm.key),
-        );
-        await client.ontology.moveChildren(
-          project.resourceID(mproj.key),
-          group.resourceID(mg2.key),
-          schematic.resourceID(sDm.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sCm.key, mg2.key)]);
+        await client.batch.send([client.schematics.setGroupRequest(sDm.key, mg2.key)]);
 
         const mgE = await client.groups.create({
           parent: group.resourceID(mg2.key),
           name: "Group E Mirrored",
         });
-        await client.ontology.moveChildren(
-          project.resourceID(mproj.key),
-          group.resourceID(mgE.key),
-          schematic.resourceID(sEm.key),
-        );
+        await client.batch.send([client.schematics.setGroupRequest(sEm.key, mgE.key)]);
       });
 
       const expectSiblingsFromSource = async (

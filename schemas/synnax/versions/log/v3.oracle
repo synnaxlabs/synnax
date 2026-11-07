@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/group/v1"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/telem/v0"
@@ -65,6 +66,9 @@ Log struct {
     }
     time_zone            telem.TimeZone = "local" {
         @doc value "is the time zone of the line times and day rows of the log."
+    }
+    group                group.Key?     {
+        @doc value "is the group the log sits in, if any."
     }
 
     @doc value  """

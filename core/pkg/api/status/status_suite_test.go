@@ -71,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: g,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, User: userSvc,
+		DB: db, Ontology: otg, User: userSvc,
 	}))
 	// A status owner must exist, so the owner tables must be open.
 	racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{

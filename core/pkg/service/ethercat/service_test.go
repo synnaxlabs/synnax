@@ -55,7 +55,6 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
-		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -63,7 +62,6 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Status:   statusSvc,
 		Rack:     rackSvc,
 	}))

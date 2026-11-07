@@ -8,15 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -40,6 +43,11 @@ class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
 
 
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: UUID | None = None
+
+
 class Client:
     _client: UnaryClient
     _embedded_rack: Rack | None = None
@@ -55,7 +63,9 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
+    def create(
+        self, *, key: int = 0, name: str = "", group: group.Key | None = None
+    ) -> Rack: ...
 
     @overload
     def create(self, racks: Rack) -> Rack: ...
@@ -69,10 +79,11 @@ class Client:
         *,
         key: int = 0,
         name: str = "",
+        group: group.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
-            racks = [Rack(key=key, name=name)]
+            racks = [Rack(key=key, name=name, group=group)]
         elif isinstance(racks, Rack):
             racks = [racks]
         else:
@@ -98,6 +109,15 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
+    def set_group(self, keys: Key | list[Key], group: group.Key | None = None) -> None:
+        """Moves racks into a group, or out of their group when group is None.
+
+        :param keys: The key of the rack to move, or a list of keys.
+        :param group: The key of the group to move the racks into.
+        """
+        req = _SetGroupRequest(keys=normalize(keys), group=group)
+        self._client.send("/rack/set-group", req, Empty)
+
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
 
@@ -110,6 +130,8 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -128,6 +150,8 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -146,6 +170,8 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -167,6 +193,8 @@ class Client:
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
         host_is_node: bool = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -209,6 +237,9 @@ class Client:
             integration in the list.
         :param host_is_node: Keeps racks on the Core that serves the request, or racks
             on other Cores when False.
+        :param groups: Keeps racks in any of these groups.
+        :param grouped: Keeps only racks in a group when True, and only racks in no
+            group when False.
         :param and_: Keeps racks that match every filter in the list.
         :param or_: Keeps racks that match any filter in the list.
         :param not_: Keeps racks that do not match the filter.
