@@ -18,20 +18,20 @@
 namespace driver::transform {
 class MockTransform final : public Transform {
 public:
-    explicit MockTransform(bool should_fail = false): should_fail_(should_fail) {}
+    explicit MockTransform(bool should_fail = false): should_fail(should_fail) {}
 
     x::errors::Error transform(x::telem::Frame &frame) override {
-        was_called_ = true;
-        if (should_fail_)
+        this->called = true;
+        if (this->should_fail)
             return x::errors::Error(x::errors::INTERNAL, "Mock transform failed");
         return x::errors::NIL;
     }
 
-    [[nodiscard]] bool was_called() const { return was_called_; }
+    [[nodiscard]] bool was_called() const { return this->called; }
 
 private:
-    bool was_called_ = false;
-    bool should_fail_;
+    bool called = false;
+    bool should_fail;
 };
 
 /// @brief it should correctly execute a chain transform.

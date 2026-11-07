@@ -41,7 +41,7 @@ class StatusCache {
     std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> entries;
     /// @brief the tasks that left this Driver and were not claimed again.
     std::unordered_set<synnax::task::Key> released;
-    std::atomic<bool> stale_ = false;
+    std::atomic<bool> is_stale = false;
 
     /// @brief returns the entry of the task of status, creating it with status if
     /// absent. Returns null for a released task.
@@ -67,7 +67,7 @@ public:
 
     /// @brief returns true when a write failed, a re-send included, and no re-send has
     /// started since.
-    [[nodiscard]] bool stale() const { return this->stale_; }
+    [[nodiscard]] bool stale() const { return this->is_stale; }
 
     /// @brief returns the latest status of the task, with no command key, or nullopt
     /// when the task has none or left this Driver. Waits for a write of the task's own

@@ -205,45 +205,49 @@ public:
             std::string key,
             std::shared_ptr<const Server> server = nullptr
         ):
-            client_(std::move(client)),
-            pool_(pool),
-            key_(std::move(key)),
-            server_(std::move(server)) {}
+            client(std::move(client)),
+            pool(pool),
+            key(std::move(key)),
+            server_info(std::move(server)) {}
 
         ~Connection() {
-            if (pool_ && client_) { pool_->release(key_, client_); }
+            if (this->pool && this->client) {
+                this->pool->release(this->key, this->client);
+            }
         }
 
         Connection(const Connection &) = delete;
         Connection &operator=(const Connection &) = delete;
 
         Connection(Connection &&other) noexcept:
-            client_(std::move(other.client_)),
-            pool_(other.pool_),
-            key_(std::move(other.key_)),
-            server_(std::move(other.server_)) {
-            other.pool_ = nullptr;
+            client(std::move(other.client)),
+            pool(other.pool),
+            key(std::move(other.key)),
+            server_info(std::move(other.server_info)) {
+            other.pool = nullptr;
         }
 
         Connection &operator=(Connection &&other) noexcept {
             if (this != &other) {
-                if (pool_ && client_) { pool_->release(key_, client_); }
-                client_ = std::move(other.client_);
-                pool_ = other.pool_;
-                key_ = std::move(other.key_);
-                server_ = std::move(other.server_);
-                other.pool_ = nullptr;
+                if (this->pool && this->client) {
+                    this->pool->release(this->key, this->client);
+                }
+                this->client = std::move(other.client);
+                this->pool = other.pool;
+                this->key = std::move(other.key);
+                server_info = std::move(other.server_info);
+                other.pool = nullptr;
             }
             return *this;
         }
 
-        [[nodiscard]] UA_Client *get() const { return client_.get(); }
-        [[nodiscard]] std::shared_ptr<UA_Client> shared() const { return client_; }
-        explicit operator bool() const { return client_ != nullptr; }
+        [[nodiscard]] UA_Client *get() const { return this->client.get(); }
+        [[nodiscard]] std::shared_ptr<UA_Client> shared() const { return this->client; }
+        explicit operator bool() const { return this->client != nullptr; }
 
         /// @returns what the Driver read from the server when the client last
         /// connected. Requires a connection from Pool::acquire, as do read and write.
-        [[nodiscard]] const Server &server() const { return *server_; }
+        [[nodiscard]] const Server &server() const { return *server_info; }
 
         /// @brief reads the attributes that req names, in as many requests as the
         /// server's limit needs.
@@ -303,10 +307,10 @@ public:
         /// once instead of probing first. Any other result records a reply.
         [[nodiscard]] x::errors::Error check(UA_StatusCode result) const;
 
-        std::shared_ptr<UA_Client> client_;
-        Pool *pool_;
-        std::string key_;
-        std::shared_ptr<const Server> server_;
+        std::shared_ptr<UA_Client> client;
+        Pool *pool;
+        std::string key;
+        std::shared_ptr<const Server> server_info;
 
         friend class Pool;
     };
@@ -405,13 +409,13 @@ private:
 
     std::shared_ptr<certificate::Store> store;
     Timing timing;
-    mutable std::mutex mutex_;
+    mutable std::mutex mu;
     /// @brief notified when a connecting thread finishes.
     std::condition_variable connect_cv;
     /// @brief notified when a connection goes idle or the Pool closes.
     std::condition_variable idle_cv;
     bool closing = false;
-    std::unordered_map<std::string, std::vector<Entry>> connections_;
+    std::unordered_map<std::string, std::vector<Entry>> connections;
     std::unordered_map<std::string, BreakerState> breakers;
     /// @brief the key of the client certificate that each group of settings uses now.
     std::unordered_map<std::string, std::string> current_keys;
@@ -420,27 +424,27 @@ private:
 
     void release(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
-    /// @brief records a reply from the server of key. Requires mutex_ not held.
+    /// @brief records a reply from the server of key. Requires mu not held.
     void replied(const std::string &key);
 
     /// @brief marks an idle entry of key that trusts cfg as in use, preferring one with
-    /// an active Session. Requires mutex_.
+    /// an active Session. Requires mu.
     std::shared_ptr<UA_Client> take(const std::string &key, const Config &cfg);
 
-    /// @brief marks the entry of client as idle again. Requires mutex_.
+    /// @brief marks the entry of client as idle again. Requires mu.
     void put_back(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
-    /// @returns the entry of client. Requires mutex_ and an entry in use.
+    /// @returns the entry of client. Requires mu and an entry in use.
     Entry &entry(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
     /// @brief records key as the client certificate that settings uses now. Removes
     /// the idle connections of the certificate it replaces and retires the ones in use.
-    /// The caller holds mutex_ and closes the returned connections outside it.
+    /// The caller holds mu and closes the returned connections outside it.
     std::vector<std::shared_ptr<UA_Client>>
     retire(const std::string &settings, const std::string &key);
 
     /// @brief closes each connection that no one used for the idle timeout, outside
-    /// mutex_, until the Pool closes.
+    /// mu, until the Pool closes.
     void evict();
 
     /// @brief runs evict. It starts last, after the members it uses.

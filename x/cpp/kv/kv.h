@@ -40,7 +40,7 @@ struct JSONFileConfig {
 /// @brief a KV implementation backed by a JSOn file on-disk.
 class JSONFile final : public KV {
     std::filesystem::path path;
-    nlohmann::json data_;
+    nlohmann::json data;
 
 public:
     /// @brief opens the key-value store using the provided configuration. If the

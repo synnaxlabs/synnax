@@ -646,24 +646,24 @@ TimeRange::from_proto(const pb::TimeRange &pb) {
 /// This class provides a simple interface for timing code execution and returns
 /// results as telem::TimeSpan for consistency with other time-related utilities.
 class Stopwatch {
-    std::chrono::steady_clock::time_point start_;
+    std::chrono::steady_clock::time_point start;
 
 public:
     /// @brief Constructs a Stopwatch and starts timing immediately.
-    Stopwatch(): start_(std::chrono::steady_clock::now()) {}
+    Stopwatch(): start(std::chrono::steady_clock::now()) {}
 
     /// @brief Returns the elapsed time since construction or last reset.
     [[nodiscard]] TimeSpan elapsed() const {
         const auto now = std::chrono::steady_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                            now - this->start_
+                            now - this->start
         )
                             .count();
         return TimeSpan(ns);
     }
 
     /// @brief Resets the stopwatch to start timing from now.
-    void reset() { this->start_ = std::chrono::steady_clock::now(); }
+    void reset() { this->start = std::chrono::steady_clock::now(); }
 };
 
 class Rate {
@@ -954,7 +954,7 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
-    size_t density_ = 0;
+    size_t bytes_per_sample = 0;
 
 public:
     DataType() = default;
@@ -963,7 +963,7 @@ public:
     explicit DataType(std::string data_type): value(std::move(data_type)) {
         const auto cached_density_iter = DENSITIES.find(value);
         if (cached_density_iter != DENSITIES.end())
-            this->density_ = cached_density_iter->second;
+            this->bytes_per_sample = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -1035,7 +1035,7 @@ public:
     }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return this->density_; }
+    [[nodiscard]] size_t density() const { return this->bytes_per_sample; }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(details::VARIABLE_TYPES);

@@ -58,7 +58,7 @@ public:
 /// easily update their state.
 class Context {
     std::mutex rack_name_mu;
-    std::string rack_name_;
+    std::string current_rack_name;
 
 public:
     /// @brief the client used to communicate with the Synnax server.
@@ -84,13 +84,13 @@ public:
     /// @brief returns the current name of the driver's rack. Safe for concurrent use.
     std::string rack_name() {
         std::lock_guard lock{this->rack_name_mu};
-        return this->rack_name_;
+        return this->current_rack_name;
     }
 
     /// @brief records a new name for the driver's rack. Safe for concurrent use.
     void set_rack_name(std::string name) {
         std::lock_guard lock{this->rack_name_mu};
-        this->rack_name_ = std::move(name);
+        this->current_rack_name = std::move(name);
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
@@ -134,9 +134,9 @@ public:
 };
 
 class SynnaxContext final : public Context {
-    std::shared_ptr<bypass::Bus> bus_;
-    std::shared_ptr<control::States> control_states_;
-    synnax::rack::Key rack_key_;
+    std::shared_ptr<bypass::Bus> bypass_bus;
+    std::shared_ptr<control::States> states;
+    synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
 
 public:
@@ -148,22 +148,20 @@ public:
         const synnax::rack::Key rack_key = 0
     ):
         Context(client),
-        bus_(bus),
-        control_states_(control_states),
-        rack_key_(rack_key),
+        bypass_bus(bus),
+        states(control_states),
+        rack(rack_key),
         statuses(std::move(statuses)) {}
 
-    std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
+    std::shared_ptr<bypass::Bus> bus() override { return this->bypass_bus; }
 
-    std::shared_ptr<control::States> control_states() override {
-        return this->control_states_;
-    }
+    std::shared_ptr<control::States> control_states() override { return this->states; }
 
-    synnax::rack::Key rack_key() override { return this->rack_key_; }
+    synnax::rack::Key rack_key() override { return this->rack; }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
-        status.details.rack = this->rack_key_;
+        status.details.rack = this->rack;
         if (const auto err = this->statuses->set(status); err)
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
@@ -303,13 +301,13 @@ public:
         const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
-        control_states_(std::make_shared<control::States>()),
+        control_states(std::make_shared<control::States>()),
         statuses(std::make_shared<StatusCache>(client->statuses)),
         ctx(std::make_shared<SynnaxContext>(
             client,
             this->statuses,
             std::make_shared<bypass::Bus>(),
-            this->control_states_,
+            this->control_states,
             this->rack.key
         )),
         factory(std::move(factory)),
@@ -331,7 +329,7 @@ private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
-    std::shared_ptr<control::States> control_states_;
+    std::shared_ptr<control::States> control_states;
     /// @brief the latest status of each task on this Driver.
     std::shared_ptr<StatusCache> statuses;
     /// @brief shared context passed to all tasks.

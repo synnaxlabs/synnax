@@ -56,8 +56,8 @@ namespace x::args {
 /// @endcode
 class Parser {
     struct ArgVariants {
-        std::string single;
-        std::string double_;
+        std::string single_dash;
+        std::string double_dash;
     };
 
     static ArgVariants normalize_arg_name(const std::string &name) {
@@ -75,10 +75,18 @@ class Parser {
         const ArgVariants &norm,
         const bool check_equals = true
     ) {
-        if (arg == norm.single || arg == norm.double_) return true;
+        if (arg == norm.single_dash || arg == norm.double_dash) return true;
         if (check_equals) {
-            return arg.compare(0, norm.double_.length() + 1, norm.double_ + "=") == 0 ||
-                   arg.compare(0, norm.single.length() + 1, norm.single + "=") == 0;
+            return arg.compare(
+                       0,
+                       norm.double_dash.length() + 1,
+                       norm.double_dash + "="
+                   ) == 0 ||
+                   arg.compare(
+                       0,
+                       norm.single_dash.length() + 1,
+                       norm.single_dash + "="
+                   ) == 0;
         }
         return false;
     }
@@ -90,7 +98,7 @@ class Parser {
             const std::string &arg = this->argv[i];
             for (const auto &name: {names...}) {
                 auto norm = normalize_arg_name(name);
-                std::string prefix = norm.double_ + "=";
+                std::string prefix = norm.double_dash + "=";
                 if (arg.starts_with(prefix)) {
                     last_found = {arg.substr(arg.find('=') + 1), true};
                     continue;

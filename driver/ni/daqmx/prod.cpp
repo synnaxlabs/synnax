@@ -32,1836 +32,1836 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
 }
 
 ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
-    memset(&function_pointers_, 0, sizeof(function_pointers_));
-    function_pointers_
+    memset(&function_pointers, 0, sizeof(function_pointers));
+    function_pointers
         .AddCDAQSyncConnection = reinterpret_cast<AddCDAQSyncConnectionPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxAddCDAQSyncConnection"))
     );
-    function_pointers_.AddGlobalChansToTask = reinterpret_cast<AddGlobalChansToTaskPtr>(
+    function_pointers.AddGlobalChansToTask = reinterpret_cast<AddGlobalChansToTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxAddGlobalChansToTask"))
     );
-    function_pointers_.AddNetworkDevice = reinterpret_cast<AddNetworkDevicePtr>(
+    function_pointers.AddNetworkDevice = reinterpret_cast<AddNetworkDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxAddNetworkDevice"))
     );
-    function_pointers_.AreConfiguredCDAQSyncPortsDisconnected = reinterpret_cast<
+    function_pointers.AreConfiguredCDAQSyncPortsDisconnected = reinterpret_cast<
         AreConfiguredCDAQSyncPortsDisconnectedPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxAreConfiguredCDAQSyncPortsDisconnected")
     ));
-    function_pointers_.AutoConfigureCDAQSyncConnections = reinterpret_cast<
+    function_pointers.AutoConfigureCDAQSyncConnections = reinterpret_cast<
         AutoConfigureCDAQSyncConnectionsPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxAutoConfigureCDAQSyncConnections"))
     );
-    function_pointers_
+    function_pointers
         .CalculateReversePolyCoeff = reinterpret_cast<CalculateReversePolyCoeffPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCalculateReversePolyCoeff"))
     );
-    function_pointers_.CfgAnlgEdgeRefTrig = reinterpret_cast<CfgAnlgEdgeRefTrigPtr>(
+    function_pointers.CfgAnlgEdgeRefTrig = reinterpret_cast<CfgAnlgEdgeRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgEdgeRefTrig"))
     );
-    function_pointers_.CfgAnlgEdgeStartTrig = reinterpret_cast<CfgAnlgEdgeStartTrigPtr>(
+    function_pointers.CfgAnlgEdgeStartTrig = reinterpret_cast<CfgAnlgEdgeStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgEdgeStartTrig"))
     );
-    function_pointers_
+    function_pointers
         .CfgAnlgMultiEdgeRefTrig = reinterpret_cast<CfgAnlgMultiEdgeRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgMultiEdgeRefTrig"))
     );
-    function_pointers_
+    function_pointers
         .CfgAnlgMultiEdgeStartTrig = reinterpret_cast<CfgAnlgMultiEdgeStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgMultiEdgeStartTrig"))
     );
-    function_pointers_.CfgAnlgWindowRefTrig = reinterpret_cast<CfgAnlgWindowRefTrigPtr>(
+    function_pointers.CfgAnlgWindowRefTrig = reinterpret_cast<CfgAnlgWindowRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgWindowRefTrig"))
     );
-    function_pointers_
+    function_pointers
         .CfgAnlgWindowStartTrig = reinterpret_cast<CfgAnlgWindowStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgAnlgWindowStartTrig"))
     );
-    function_pointers_.CfgBurstHandshakingTimingExportClock = reinterpret_cast<
+    function_pointers.CfgBurstHandshakingTimingExportClock = reinterpret_cast<
         CfgBurstHandshakingTimingExportClockPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxCfgBurstHandshakingTimingExportClock")
     ));
-    function_pointers_.CfgBurstHandshakingTimingImportClock = reinterpret_cast<
+    function_pointers.CfgBurstHandshakingTimingImportClock = reinterpret_cast<
         CfgBurstHandshakingTimingImportClockPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxCfgBurstHandshakingTimingImportClock")
     ));
-    function_pointers_
+    function_pointers
         .CfgChangeDetectionTiming = reinterpret_cast<CfgChangeDetectionTimingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgChangeDetectionTiming"))
     );
-    function_pointers_.CfgDigEdgeRefTrig = reinterpret_cast<CfgDigEdgeRefTrigPtr>(
+    function_pointers.CfgDigEdgeRefTrig = reinterpret_cast<CfgDigEdgeRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgDigEdgeRefTrig"))
     );
-    function_pointers_.CfgDigEdgeStartTrig = reinterpret_cast<CfgDigEdgeStartTrigPtr>(
+    function_pointers.CfgDigEdgeStartTrig = reinterpret_cast<CfgDigEdgeStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgDigEdgeStartTrig"))
     );
-    function_pointers_.CfgDigPatternRefTrig = reinterpret_cast<CfgDigPatternRefTrigPtr>(
+    function_pointers.CfgDigPatternRefTrig = reinterpret_cast<CfgDigPatternRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgDigPatternRefTrig"))
     );
-    function_pointers_
+    function_pointers
         .CfgDigPatternStartTrig = reinterpret_cast<CfgDigPatternStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgDigPatternStartTrig"))
     );
-    function_pointers_.CfgHandshakingTiming = reinterpret_cast<CfgHandshakingTimingPtr>(
+    function_pointers.CfgHandshakingTiming = reinterpret_cast<CfgHandshakingTimingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgHandshakingTiming"))
     );
-    function_pointers_.CfgImplicitTiming = reinterpret_cast<CfgImplicitTimingPtr>(
+    function_pointers.CfgImplicitTiming = reinterpret_cast<CfgImplicitTimingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgImplicitTiming"))
     );
-    function_pointers_.CfgInputBuffer = reinterpret_cast<CfgInputBufferPtr>(
+    function_pointers.CfgInputBuffer = reinterpret_cast<CfgInputBufferPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgInputBuffer"))
     );
-    function_pointers_.CfgOutputBuffer = reinterpret_cast<CfgOutputBufferPtr>(
+    function_pointers.CfgOutputBuffer = reinterpret_cast<CfgOutputBufferPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgOutputBuffer"))
     );
-    function_pointers_
+    function_pointers
         .CfgPipelinedSampClkTiming = reinterpret_cast<CfgPipelinedSampClkTimingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgPipelinedSampClkTiming"))
     );
-    function_pointers_.CfgSampClkTiming = reinterpret_cast<CfgSampClkTimingPtr>(
+    function_pointers.CfgSampClkTiming = reinterpret_cast<CfgSampClkTimingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgSampClkTiming"))
     );
-    function_pointers_.CfgTimeStartTrig = reinterpret_cast<CfgTimeStartTrigPtr>(
+    function_pointers.CfgTimeStartTrig = reinterpret_cast<CfgTimeStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgTimeStartTrig"))
     );
-    function_pointers_
+    function_pointers
         .CfgWatchdogAOExpirStates = reinterpret_cast<CfgWatchdogAOExpirStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgWatchdogAOExpirStates"))
     );
-    function_pointers_
+    function_pointers
         .CfgWatchdogCOExpirStates = reinterpret_cast<CfgWatchdogCOExpirStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgWatchdogCOExpirStates"))
     );
-    function_pointers_
+    function_pointers
         .CfgWatchdogDOExpirStates = reinterpret_cast<CfgWatchdogDOExpirStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCfgWatchdogDOExpirStates"))
     );
-    function_pointers_.ClearTEDS = reinterpret_cast<ClearTEDSPtr>(
+    function_pointers.ClearTEDS = reinterpret_cast<ClearTEDSPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxClearTEDS"))
     );
-    function_pointers_.ClearTask = reinterpret_cast<ClearTaskPtr>(
+    function_pointers.ClearTask = reinterpret_cast<ClearTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxClearTask"))
     );
-    function_pointers_.ConfigureLogging = reinterpret_cast<ConfigureLoggingPtr>(
+    function_pointers.ConfigureLogging = reinterpret_cast<ConfigureLoggingPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxConfigureLogging"))
     );
-    function_pointers_.ConfigureTEDS = reinterpret_cast<ConfigureTEDSPtr>(
+    function_pointers.ConfigureTEDS = reinterpret_cast<ConfigureTEDSPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxConfigureTEDS"))
     );
-    function_pointers_.ConnectTerms = reinterpret_cast<ConnectTermsPtr>(
+    function_pointers.ConnectTerms = reinterpret_cast<ConnectTermsPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxConnectTerms"))
     );
-    function_pointers_.ControlWatchdogTask = reinterpret_cast<ControlWatchdogTaskPtr>(
+    function_pointers.ControlWatchdogTask = reinterpret_cast<ControlWatchdogTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxControlWatchdogTask"))
     );
-    function_pointers_.CreateAIAccel4WireDCVoltageChan = reinterpret_cast<
+    function_pointers.CreateAIAccel4WireDCVoltageChan = reinterpret_cast<
         CreateAIAccel4WireDCVoltageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIAccel4WireDCVoltageChan"))
     );
-    function_pointers_.CreateAIAccelChan = reinterpret_cast<CreateAIAccelChanPtr>(
+    function_pointers.CreateAIAccelChan = reinterpret_cast<CreateAIAccelChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIAccelChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIAccelChargeChan = reinterpret_cast<CreateAIAccelChargeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIAccelChargeChan"))
     );
-    function_pointers_.CreateAIBridgeChan = reinterpret_cast<CreateAIBridgeChanPtr>(
+    function_pointers.CreateAIBridgeChan = reinterpret_cast<CreateAIBridgeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIBridgeChan"))
     );
-    function_pointers_.CreateAIChargeChan = reinterpret_cast<CreateAIChargeChanPtr>(
+    function_pointers.CreateAIChargeChan = reinterpret_cast<CreateAIChargeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIChargeChan"))
     );
-    function_pointers_.CreateAICurrentChan = reinterpret_cast<CreateAICurrentChanPtr>(
+    function_pointers.CreateAICurrentChan = reinterpret_cast<CreateAICurrentChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAICurrentChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAICurrentRMSChan = reinterpret_cast<CreateAICurrentRMSChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAICurrentRMSChan"))
     );
-    function_pointers_.CreateAIForceBridgePolynomialChan = reinterpret_cast<
+    function_pointers.CreateAIForceBridgePolynomialChan = reinterpret_cast<
         CreateAIForceBridgePolynomialChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIForceBridgePolynomialChan"))
     );
-    function_pointers_.CreateAIForceBridgeTableChan = reinterpret_cast<
+    function_pointers.CreateAIForceBridgeTableChan = reinterpret_cast<
         CreateAIForceBridgeTableChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIForceBridgeTableChan"))
     );
-    function_pointers_.CreateAIForceBridgeTwoPointLinChan = reinterpret_cast<
+    function_pointers.CreateAIForceBridgeTwoPointLinChan = reinterpret_cast<
         CreateAIForceBridgeTwoPointLinChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIForceBridgeTwoPointLinChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIForceIEPEChan = reinterpret_cast<CreateAIForceIEPEChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIForceIEPEChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIFreqVoltageChan = reinterpret_cast<CreateAIFreqVoltageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIFreqVoltageChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIMicrophoneChan = reinterpret_cast<CreateAIMicrophoneChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIMicrophoneChan"))
     );
-    function_pointers_.CreateAIPosEddyCurrProxProbeChan = reinterpret_cast<
+    function_pointers.CreateAIPosEddyCurrProxProbeChan = reinterpret_cast<
         CreateAIPosEddyCurrProxProbeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIPosEddyCurrProxProbeChan"))
     );
-    function_pointers_.CreateAIPosLVDTChan = reinterpret_cast<CreateAIPosLVDTChanPtr>(
+    function_pointers.CreateAIPosLVDTChan = reinterpret_cast<CreateAIPosLVDTChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIPosLVDTChan"))
     );
-    function_pointers_.CreateAIPosRVDTChan = reinterpret_cast<CreateAIPosRVDTChanPtr>(
+    function_pointers.CreateAIPosRVDTChan = reinterpret_cast<CreateAIPosRVDTChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIPosRVDTChan"))
     );
-    function_pointers_.CreateAIPressureBridgePolynomialChan = reinterpret_cast<
+    function_pointers.CreateAIPressureBridgePolynomialChan = reinterpret_cast<
         CreateAIPressureBridgePolynomialChanPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxCreateAIPressureBridgePolynomialChan")
     ));
-    function_pointers_.CreateAIPressureBridgeTableChan = reinterpret_cast<
+    function_pointers.CreateAIPressureBridgeTableChan = reinterpret_cast<
         CreateAIPressureBridgeTableChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIPressureBridgeTableChan"))
     );
-    function_pointers_.CreateAIPressureBridgeTwoPointLinChan = reinterpret_cast<
+    function_pointers.CreateAIPressureBridgeTwoPointLinChan = reinterpret_cast<
         CreateAIPressureBridgeTwoPointLinChanPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxCreateAIPressureBridgeTwoPointLinChan")
     ));
-    function_pointers_.CreateAIRTDChan = reinterpret_cast<CreateAIRTDChanPtr>(
+    function_pointers.CreateAIRTDChan = reinterpret_cast<CreateAIRTDChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIRTDChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIResistanceChan = reinterpret_cast<CreateAIResistanceChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIResistanceChan"))
     );
-    function_pointers_.CreateAIRosetteStrainGageChan = reinterpret_cast<
+    function_pointers.CreateAIRosetteStrainGageChan = reinterpret_cast<
         CreateAIRosetteStrainGageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIRosetteStrainGageChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIStrainGageChan = reinterpret_cast<CreateAIStrainGageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIStrainGageChan"))
     );
-    function_pointers_.CreateAITempBuiltInSensorChan = reinterpret_cast<
+    function_pointers.CreateAITempBuiltInSensorChan = reinterpret_cast<
         CreateAITempBuiltInSensorChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAITempBuiltInSensorChan"))
     );
-    function_pointers_.CreateAIThrmcplChan = reinterpret_cast<CreateAIThrmcplChanPtr>(
+    function_pointers.CreateAIThrmcplChan = reinterpret_cast<CreateAIThrmcplChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIThrmcplChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIThrmstrChanIex = reinterpret_cast<CreateAIThrmstrChanIexPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIThrmstrChanIex"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIThrmstrChanVex = reinterpret_cast<CreateAIThrmstrChanVexPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIThrmstrChanVex"))
     );
-    function_pointers_.CreateAITorqueBridgePolynomialChan = reinterpret_cast<
+    function_pointers.CreateAITorqueBridgePolynomialChan = reinterpret_cast<
         CreateAITorqueBridgePolynomialChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAITorqueBridgePolynomialChan"))
     );
-    function_pointers_.CreateAITorqueBridgeTableChan = reinterpret_cast<
+    function_pointers.CreateAITorqueBridgeTableChan = reinterpret_cast<
         CreateAITorqueBridgeTableChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAITorqueBridgeTableChan"))
     );
-    function_pointers_.CreateAITorqueBridgeTwoPointLinChan = reinterpret_cast<
+    function_pointers.CreateAITorqueBridgeTwoPointLinChan = reinterpret_cast<
         CreateAITorqueBridgeTwoPointLinChanPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxCreateAITorqueBridgeTwoPointLinChan")
     ));
-    function_pointers_
+    function_pointers
         .CreateAIVelocityIEPEChan = reinterpret_cast<CreateAIVelocityIEPEChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIVelocityIEPEChan"))
     );
-    function_pointers_.CreateAIVoltageChan = reinterpret_cast<CreateAIVoltageChanPtr>(
+    function_pointers.CreateAIVoltageChan = reinterpret_cast<CreateAIVoltageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIVoltageChan"))
     );
-    function_pointers_.CreateAIVoltageChanWithExcit = reinterpret_cast<
+    function_pointers.CreateAIVoltageChanWithExcit = reinterpret_cast<
         CreateAIVoltageChanWithExcitPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIVoltageChanWithExcit"))
     );
-    function_pointers_
+    function_pointers
         .CreateAIVoltageRMSChan = reinterpret_cast<CreateAIVoltageRMSChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAIVoltageRMSChan"))
     );
-    function_pointers_.CreateAOCurrentChan = reinterpret_cast<CreateAOCurrentChanPtr>(
+    function_pointers.CreateAOCurrentChan = reinterpret_cast<CreateAOCurrentChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAOCurrentChan"))
     );
-    function_pointers_.CreateAOFuncGenChan = reinterpret_cast<CreateAOFuncGenChanPtr>(
+    function_pointers.CreateAOFuncGenChan = reinterpret_cast<CreateAOFuncGenChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAOFuncGenChan"))
     );
-    function_pointers_.CreateAOVoltageChan = reinterpret_cast<CreateAOVoltageChanPtr>(
+    function_pointers.CreateAOVoltageChan = reinterpret_cast<CreateAOVoltageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateAOVoltageChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIAngEncoderChan = reinterpret_cast<CreateCIAngEncoderChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIAngEncoderChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIAngVelocityChan = reinterpret_cast<CreateCIAngVelocityChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIAngVelocityChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCICountEdgesChan = reinterpret_cast<CreateCICountEdgesChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCICountEdgesChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIDutyCycleChan = reinterpret_cast<CreateCIDutyCycleChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIDutyCycleChan"))
     );
-    function_pointers_.CreateCIFreqChan = reinterpret_cast<CreateCIFreqChanPtr>(
+    function_pointers.CreateCIFreqChan = reinterpret_cast<CreateCIFreqChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIFreqChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIGPSTimestampChan = reinterpret_cast<CreateCIGPSTimestampChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIGPSTimestampChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCILinEncoderChan = reinterpret_cast<CreateCILinEncoderChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCILinEncoderChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCILinVelocityChan = reinterpret_cast<CreateCILinVelocityChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCILinVelocityChan"))
     );
-    function_pointers_.CreateCIPeriodChan = reinterpret_cast<CreateCIPeriodChanPtr>(
+    function_pointers.CreateCIPeriodChan = reinterpret_cast<CreateCIPeriodChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIPeriodChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIPulseChanFreq = reinterpret_cast<CreateCIPulseChanFreqPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIPulseChanFreq"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIPulseChanTicks = reinterpret_cast<CreateCIPulseChanTicksPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIPulseChanTicks"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIPulseChanTime = reinterpret_cast<CreateCIPulseChanTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIPulseChanTime"))
     );
-    function_pointers_
+    function_pointers
         .CreateCIPulseWidthChan = reinterpret_cast<CreateCIPulseWidthChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCIPulseWidthChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCISemiPeriodChan = reinterpret_cast<CreateCISemiPeriodChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCISemiPeriodChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCITwoEdgeSepChan = reinterpret_cast<CreateCITwoEdgeSepChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCITwoEdgeSepChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateCOPulseChanFreq = reinterpret_cast<CreateCOPulseChanFreqPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCOPulseChanFreq"))
     );
-    function_pointers_
+    function_pointers
         .CreateCOPulseChanTicks = reinterpret_cast<CreateCOPulseChanTicksPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCOPulseChanTicks"))
     );
-    function_pointers_
+    function_pointers
         .CreateCOPulseChanTime = reinterpret_cast<CreateCOPulseChanTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateCOPulseChanTime"))
     );
-    function_pointers_.CreateDIChan = reinterpret_cast<CreateDIChanPtr>(
+    function_pointers.CreateDIChan = reinterpret_cast<CreateDIChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateDIChan"))
     );
-    function_pointers_.CreateDOChan = reinterpret_cast<CreateDOChanPtr>(
+    function_pointers.CreateDOChan = reinterpret_cast<CreateDOChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateDOChan"))
     );
-    function_pointers_.CreateLinScale = reinterpret_cast<CreateLinScalePtr>(
+    function_pointers.CreateLinScale = reinterpret_cast<CreateLinScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateLinScale"))
     );
-    function_pointers_.CreateMapScale = reinterpret_cast<CreateMapScalePtr>(
+    function_pointers.CreateMapScale = reinterpret_cast<CreateMapScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateMapScale"))
     );
-    function_pointers_
+    function_pointers
         .CreatePolynomialScale = reinterpret_cast<CreatePolynomialScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreatePolynomialScale"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIAccelChan = reinterpret_cast<CreateTEDSAIAccelChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIAccelChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIBridgeChan = reinterpret_cast<CreateTEDSAIBridgeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIBridgeChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAICurrentChan = reinterpret_cast<CreateTEDSAICurrentChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAICurrentChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIForceBridgeChan = reinterpret_cast<CreateTEDSAIForceBridgeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIForceBridgeChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIForceIEPEChan = reinterpret_cast<CreateTEDSAIForceIEPEChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIForceIEPEChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIMicrophoneChan = reinterpret_cast<CreateTEDSAIMicrophoneChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIMicrophoneChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIPosLVDTChan = reinterpret_cast<CreateTEDSAIPosLVDTChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIPosLVDTChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIPosRVDTChan = reinterpret_cast<CreateTEDSAIPosRVDTChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIPosRVDTChan"))
     );
-    function_pointers_.CreateTEDSAIPressureBridgeChan = reinterpret_cast<
+    function_pointers.CreateTEDSAIPressureBridgeChan = reinterpret_cast<
         CreateTEDSAIPressureBridgeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIPressureBridgeChan"))
     );
-    function_pointers_.CreateTEDSAIRTDChan = reinterpret_cast<CreateTEDSAIRTDChanPtr>(
+    function_pointers.CreateTEDSAIRTDChan = reinterpret_cast<CreateTEDSAIRTDChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIRTDChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIResistanceChan = reinterpret_cast<CreateTEDSAIResistanceChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIResistanceChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIStrainGageChan = reinterpret_cast<CreateTEDSAIStrainGageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIStrainGageChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIThrmcplChan = reinterpret_cast<CreateTEDSAIThrmcplChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIThrmcplChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIThrmstrChanIex = reinterpret_cast<CreateTEDSAIThrmstrChanIexPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIThrmstrChanIex"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIThrmstrChanVex = reinterpret_cast<CreateTEDSAIThrmstrChanVexPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIThrmstrChanVex"))
     );
-    function_pointers_.CreateTEDSAITorqueBridgeChan = reinterpret_cast<
+    function_pointers.CreateTEDSAITorqueBridgeChan = reinterpret_cast<
         CreateTEDSAITorqueBridgeChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAITorqueBridgeChan"))
     );
-    function_pointers_
+    function_pointers
         .CreateTEDSAIVoltageChan = reinterpret_cast<CreateTEDSAIVoltageChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIVoltageChan"))
     );
-    function_pointers_.CreateTEDSAIVoltageChanWithExcit = reinterpret_cast<
+    function_pointers.CreateTEDSAIVoltageChanWithExcit = reinterpret_cast<
         CreateTEDSAIVoltageChanWithExcitPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTEDSAIVoltageChanWithExcit"))
     );
-    function_pointers_.CreateTableScale = reinterpret_cast<CreateTableScalePtr>(
+    function_pointers.CreateTableScale = reinterpret_cast<CreateTableScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTableScale"))
     );
-    function_pointers_.CreateTask = reinterpret_cast<CreateTaskPtr>(
+    function_pointers.CreateTask = reinterpret_cast<CreateTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateTask"))
     );
-    function_pointers_
+    function_pointers
         .CreateWatchdogTimerTask = reinterpret_cast<CreateWatchdogTimerTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateWatchdogTimerTask"))
     );
-    function_pointers_
+    function_pointers
         .CreateWatchdogTimerTaskEx = reinterpret_cast<CreateWatchdogTimerTaskExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxCreateWatchdogTimerTaskEx"))
     );
-    function_pointers_.DeleteNetworkDevice = reinterpret_cast<DeleteNetworkDevicePtr>(
+    function_pointers.DeleteNetworkDevice = reinterpret_cast<DeleteNetworkDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDeleteNetworkDevice"))
     );
-    function_pointers_
+    function_pointers
         .DeleteSavedGlobalChan = reinterpret_cast<DeleteSavedGlobalChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDeleteSavedGlobalChan"))
     );
-    function_pointers_.DeleteSavedScale = reinterpret_cast<DeleteSavedScalePtr>(
+    function_pointers.DeleteSavedScale = reinterpret_cast<DeleteSavedScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDeleteSavedScale"))
     );
-    function_pointers_.DeleteSavedTask = reinterpret_cast<DeleteSavedTaskPtr>(
+    function_pointers.DeleteSavedTask = reinterpret_cast<DeleteSavedTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDeleteSavedTask"))
     );
-    function_pointers_.DeviceSupportsCal = reinterpret_cast<DeviceSupportsCalPtr>(
+    function_pointers.DeviceSupportsCal = reinterpret_cast<DeviceSupportsCalPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDeviceSupportsCal"))
     );
-    function_pointers_.DisableRefTrig = reinterpret_cast<DisableRefTrigPtr>(
+    function_pointers.DisableRefTrig = reinterpret_cast<DisableRefTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDisableRefTrig"))
     );
-    function_pointers_.DisableStartTrig = reinterpret_cast<DisableStartTrigPtr>(
+    function_pointers.DisableStartTrig = reinterpret_cast<DisableStartTrigPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDisableStartTrig"))
     );
-    function_pointers_.DisconnectTerms = reinterpret_cast<DisconnectTermsPtr>(
+    function_pointers.DisconnectTerms = reinterpret_cast<DisconnectTermsPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxDisconnectTerms"))
     );
-    function_pointers_.ExportSignal = reinterpret_cast<ExportSignalPtr>(
+    function_pointers.ExportSignal = reinterpret_cast<ExportSignalPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxExportSignal"))
     );
-    function_pointers_.GetAIChanCalCalDate = reinterpret_cast<GetAIChanCalCalDatePtr>(
+    function_pointers.GetAIChanCalCalDate = reinterpret_cast<GetAIChanCalCalDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetAIChanCalCalDate"))
     );
-    function_pointers_.GetAIChanCalExpDate = reinterpret_cast<GetAIChanCalExpDatePtr>(
+    function_pointers.GetAIChanCalExpDate = reinterpret_cast<GetAIChanCalExpDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetAIChanCalExpDate"))
     );
-    function_pointers_
+    function_pointers
         .GetAnalogPowerUpStates = reinterpret_cast<GetAnalogPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetAnalogPowerUpStates"))
     );
-    function_pointers_.GetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
+    function_pointers.GetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
         GetAnalogPowerUpStatesWithOutputTypePtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxGetAnalogPowerUpStatesWithOutputType")
     ));
-    function_pointers_
+    function_pointers
         .GetArmStartTrigTimestampVal = reinterpret_cast<GetArmStartTrigTimestampValPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetArmStartTrigTimestampVal"))
     );
-    function_pointers_
+    function_pointers
         .GetArmStartTrigTrigWhen = reinterpret_cast<GetArmStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetArmStartTrigTrigWhen"))
     );
-    function_pointers_.GetAutoConfiguredCDAQSyncConnections = reinterpret_cast<
+    function_pointers.GetAutoConfiguredCDAQSyncConnections = reinterpret_cast<
         GetAutoConfiguredCDAQSyncConnectionsPtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxGetAutoConfiguredCDAQSyncConnections")
     ));
-    function_pointers_
+    function_pointers
         .GetBufferAttributeUInt32 = reinterpret_cast<GetBufferAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetBufferAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetCalInfoAttributeBool = reinterpret_cast<GetCalInfoAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetCalInfoAttributeDouble = reinterpret_cast<GetCalInfoAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetCalInfoAttributeString = reinterpret_cast<GetCalInfoAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetCalInfoAttributeUInt32 = reinterpret_cast<GetCalInfoAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetCalInfoAttribute"))
     );
-    function_pointers_.GetChanAttributeBool = reinterpret_cast<GetChanAttributeBoolPtr>(
+    function_pointers.GetChanAttributeBool = reinterpret_cast<GetChanAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetChanAttributeDouble = reinterpret_cast<GetChanAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetChanAttributeDoubleArray = reinterpret_cast<GetChanAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetChanAttributeInt32 = reinterpret_cast<GetChanAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetChanAttributeString = reinterpret_cast<GetChanAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetChanAttributeUInt32 = reinterpret_cast<GetChanAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetDeviceAttributeBool = reinterpret_cast<GetDeviceAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetDeviceAttributeDouble = reinterpret_cast<GetDeviceAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_.GetDeviceAttributeDoubleArray = reinterpret_cast<
+    function_pointers.GetDeviceAttributeDoubleArray = reinterpret_cast<
         GetDeviceAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetDeviceAttributeInt32 = reinterpret_cast<GetDeviceAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_.GetDeviceAttributeInt32Array = reinterpret_cast<
+    function_pointers.GetDeviceAttributeInt32Array = reinterpret_cast<
         GetDeviceAttributeInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetDeviceAttributeString = reinterpret_cast<GetDeviceAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetDeviceAttributeUInt32 = reinterpret_cast<GetDeviceAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_.GetDeviceAttributeUInt32Array = reinterpret_cast<
+    function_pointers.GetDeviceAttributeUInt32Array = reinterpret_cast<
         GetDeviceAttributeUInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDeviceAttribute"))
     );
-    function_pointers_.GetDigitalLogicFamilyPowerUpState = reinterpret_cast<
+    function_pointers.GetDigitalLogicFamilyPowerUpState = reinterpret_cast<
         GetDigitalLogicFamilyPowerUpStatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDigitalLogicFamilyPowerUpState"))
     );
-    function_pointers_
+    function_pointers
         .GetDigitalPowerUpStates = reinterpret_cast<GetDigitalPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDigitalPowerUpStates"))
     );
-    function_pointers_.GetDigitalPullUpPullDownStates = reinterpret_cast<
+    function_pointers.GetDigitalPullUpPullDownStates = reinterpret_cast<
         GetDigitalPullUpPullDownStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDigitalPullUpPullDownStates"))
     );
-    function_pointers_.GetDisconnectedCDAQSyncPorts = reinterpret_cast<
+    function_pointers.GetDisconnectedCDAQSyncPorts = reinterpret_cast<
         GetDisconnectedCDAQSyncPortsPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetDisconnectedCDAQSyncPorts"))
     );
-    function_pointers_.GetErrorString = reinterpret_cast<GetErrorStringPtr>(
+    function_pointers.GetErrorString = reinterpret_cast<GetErrorStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetErrorString"))
     );
-    function_pointers_.GetExportedSignalAttributeBool = reinterpret_cast<
+    function_pointers.GetExportedSignalAttributeBool = reinterpret_cast<
         GetExportedSignalAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExportedSignalAttribute"))
     );
-    function_pointers_.GetExportedSignalAttributeDouble = reinterpret_cast<
+    function_pointers.GetExportedSignalAttributeDouble = reinterpret_cast<
         GetExportedSignalAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExportedSignalAttribute"))
     );
-    function_pointers_.GetExportedSignalAttributeInt32 = reinterpret_cast<
+    function_pointers.GetExportedSignalAttributeInt32 = reinterpret_cast<
         GetExportedSignalAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExportedSignalAttribute"))
     );
-    function_pointers_.GetExportedSignalAttributeString = reinterpret_cast<
+    function_pointers.GetExportedSignalAttributeString = reinterpret_cast<
         GetExportedSignalAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExportedSignalAttribute"))
     );
-    function_pointers_.GetExportedSignalAttributeUInt32 = reinterpret_cast<
+    function_pointers.GetExportedSignalAttributeUInt32 = reinterpret_cast<
         GetExportedSignalAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExportedSignalAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetExtCalLastDateAndTime = reinterpret_cast<GetExtCalLastDateAndTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExtCalLastDateAndTime"))
     );
-    function_pointers_.GetExtendedErrorInfo = reinterpret_cast<GetExtendedErrorInfoPtr>(
+    function_pointers.GetExtendedErrorInfo = reinterpret_cast<GetExtendedErrorInfoPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetExtendedErrorInfo"))
     );
-    function_pointers_.GetFirstSampClkWhen = reinterpret_cast<GetFirstSampClkWhenPtr>(
+    function_pointers.GetFirstSampClkWhen = reinterpret_cast<GetFirstSampClkWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetFirstSampClkWhen"))
     );
-    function_pointers_
+    function_pointers
         .GetFirstSampTimestampVal = reinterpret_cast<GetFirstSampTimestampValPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetFirstSampTimestampVal"))
     );
-    function_pointers_.GetNthTaskChannel = reinterpret_cast<GetNthTaskChannelPtr>(
+    function_pointers.GetNthTaskChannel = reinterpret_cast<GetNthTaskChannelPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetNthTaskChannel"))
     );
-    function_pointers_.GetNthTaskDevice = reinterpret_cast<GetNthTaskDevicePtr>(
+    function_pointers.GetNthTaskDevice = reinterpret_cast<GetNthTaskDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetNthTaskDevice"))
     );
-    function_pointers_
+    function_pointers
         .GetNthTaskReadChannel = reinterpret_cast<GetNthTaskReadChannelPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetNthTaskReadChannel"))
     );
-    function_pointers_.GetPersistedChanAttributeBool = reinterpret_cast<
+    function_pointers.GetPersistedChanAttributeBool = reinterpret_cast<
         GetPersistedChanAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedChanAttribute"))
     );
-    function_pointers_.GetPersistedChanAttributeString = reinterpret_cast<
+    function_pointers.GetPersistedChanAttributeString = reinterpret_cast<
         GetPersistedChanAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedChanAttribute"))
     );
-    function_pointers_.GetPersistedScaleAttributeBool = reinterpret_cast<
+    function_pointers.GetPersistedScaleAttributeBool = reinterpret_cast<
         GetPersistedScaleAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedScaleAttribute"))
     );
-    function_pointers_.GetPersistedScaleAttributeString = reinterpret_cast<
+    function_pointers.GetPersistedScaleAttributeString = reinterpret_cast<
         GetPersistedScaleAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedScaleAttribute"))
     );
-    function_pointers_.GetPersistedTaskAttributeBool = reinterpret_cast<
+    function_pointers.GetPersistedTaskAttributeBool = reinterpret_cast<
         GetPersistedTaskAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedTaskAttribute"))
     );
-    function_pointers_.GetPersistedTaskAttributeString = reinterpret_cast<
+    function_pointers.GetPersistedTaskAttributeString = reinterpret_cast<
         GetPersistedTaskAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPersistedTaskAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeBool = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeBool = reinterpret_cast<
         GetPhysicalChanAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeBytes = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeBytes = reinterpret_cast<
         GetPhysicalChanAttributeBytesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeDouble = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeDouble = reinterpret_cast<
         GetPhysicalChanAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeDoubleArray = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeDoubleArray = reinterpret_cast<
         GetPhysicalChanAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeInt32 = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeInt32 = reinterpret_cast<
         GetPhysicalChanAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeInt32Array = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeInt32Array = reinterpret_cast<
         GetPhysicalChanAttributeInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeString = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeString = reinterpret_cast<
         GetPhysicalChanAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeUInt32 = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeUInt32 = reinterpret_cast<
         GetPhysicalChanAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetPhysicalChanAttributeUInt32Array = reinterpret_cast<
+    function_pointers.GetPhysicalChanAttributeUInt32Array = reinterpret_cast<
         GetPhysicalChanAttributeUInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetPhysicalChanAttribute"))
     );
-    function_pointers_.GetReadAttributeBool = reinterpret_cast<GetReadAttributeBoolPtr>(
+    function_pointers.GetReadAttributeBool = reinterpret_cast<GetReadAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetReadAttributeDouble = reinterpret_cast<GetReadAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetReadAttributeInt32 = reinterpret_cast<GetReadAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetReadAttributeString = reinterpret_cast<GetReadAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetReadAttributeUInt32 = reinterpret_cast<GetReadAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetReadAttributeUInt64 = reinterpret_cast<GetReadAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetRealTimeAttributeBool = reinterpret_cast<GetRealTimeAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetRealTimeAttributeInt32 = reinterpret_cast<GetRealTimeAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetRealTimeAttributeUInt32 = reinterpret_cast<GetRealTimeAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetRefTrigTimestampVal = reinterpret_cast<GetRefTrigTimestampValPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetRefTrigTimestampVal"))
     );
-    function_pointers_
+    function_pointers
         .GetScaleAttributeDouble = reinterpret_cast<GetScaleAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetScaleAttribute"))
     );
-    function_pointers_.GetScaleAttributeDoubleArray = reinterpret_cast<
+    function_pointers.GetScaleAttributeDoubleArray = reinterpret_cast<
         GetScaleAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetScaleAttributeInt32 = reinterpret_cast<GetScaleAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetScaleAttributeString = reinterpret_cast<GetScaleAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetSelfCalLastDateAndTime = reinterpret_cast<GetSelfCalLastDateAndTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetSelfCalLastDateAndTime"))
     );
-    function_pointers_
+    function_pointers
         .GetStartTrigTimestampVal = reinterpret_cast<GetStartTrigTimestampValPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetStartTrigTimestampVal"))
     );
-    function_pointers_.GetStartTrigTrigWhen = reinterpret_cast<GetStartTrigTrigWhenPtr>(
+    function_pointers.GetStartTrigTrigWhen = reinterpret_cast<GetStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetStartTrigTrigWhen"))
     );
-    function_pointers_.GetSyncPulseTimeWhen = reinterpret_cast<GetSyncPulseTimeWhenPtr>(
+    function_pointers.GetSyncPulseTimeWhen = reinterpret_cast<GetSyncPulseTimeWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetSyncPulseTimeWhen"))
     );
-    function_pointers_.GetSystemInfoAttributeString = reinterpret_cast<
+    function_pointers.GetSystemInfoAttributeString = reinterpret_cast<
         GetSystemInfoAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetSystemInfoAttribute"))
     );
-    function_pointers_.GetSystemInfoAttributeUInt32 = reinterpret_cast<
+    function_pointers.GetSystemInfoAttributeUInt32 = reinterpret_cast<
         GetSystemInfoAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetSystemInfoAttribute"))
     );
-    function_pointers_.GetTaskAttributeBool = reinterpret_cast<GetTaskAttributeBoolPtr>(
+    function_pointers.GetTaskAttributeBool = reinterpret_cast<GetTaskAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTaskAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTaskAttributeString = reinterpret_cast<GetTaskAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTaskAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTaskAttributeUInt32 = reinterpret_cast<GetTaskAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTaskAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeBool = reinterpret_cast<GetTimingAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeDouble = reinterpret_cast<GetTimingAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExBool = reinterpret_cast<GetTimingAttributeExBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExDouble = reinterpret_cast<GetTimingAttributeExDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExInt32 = reinterpret_cast<GetTimingAttributeExInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExString = reinterpret_cast<GetTimingAttributeExStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_.GetTimingAttributeExTimestamp = reinterpret_cast<
+    function_pointers.GetTimingAttributeExTimestamp = reinterpret_cast<
         GetTimingAttributeExTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExUInt32 = reinterpret_cast<GetTimingAttributeExUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeExUInt64 = reinterpret_cast<GetTimingAttributeExUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeInt32 = reinterpret_cast<GetTimingAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeString = reinterpret_cast<GetTimingAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeTimestamp = reinterpret_cast<GetTimingAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeUInt32 = reinterpret_cast<GetTimingAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTimingAttributeUInt64 = reinterpret_cast<GetTimingAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTimingAttribute"))
     );
-    function_pointers_.GetTrigAttributeBool = reinterpret_cast<GetTrigAttributeBoolPtr>(
+    function_pointers.GetTrigAttributeBool = reinterpret_cast<GetTrigAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeDouble = reinterpret_cast<GetTrigAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeDoubleArray = reinterpret_cast<GetTrigAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeInt32 = reinterpret_cast<GetTrigAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeInt32Array = reinterpret_cast<GetTrigAttributeInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeString = reinterpret_cast<GetTrigAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeTimestamp = reinterpret_cast<GetTrigAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetTrigAttributeUInt32 = reinterpret_cast<GetTrigAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWatchdogAttributeBool = reinterpret_cast<GetWatchdogAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWatchdogAttributeDouble = reinterpret_cast<GetWatchdogAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWatchdogAttributeInt32 = reinterpret_cast<GetWatchdogAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWatchdogAttributeString = reinterpret_cast<GetWatchdogAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeBool = reinterpret_cast<GetWriteAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeDouble = reinterpret_cast<GetWriteAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeInt32 = reinterpret_cast<GetWriteAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeString = reinterpret_cast<GetWriteAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeUInt32 = reinterpret_cast<GetWriteAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .GetWriteAttributeUInt64 = reinterpret_cast<GetWriteAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetWriteAttribute"))
     );
-    function_pointers_.IsTaskDone = reinterpret_cast<IsTaskDonePtr>(
+    function_pointers.IsTaskDone = reinterpret_cast<IsTaskDonePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxIsTaskDone"))
     );
-    function_pointers_.LoadTask = reinterpret_cast<LoadTaskPtr>(
+    function_pointers.LoadTask = reinterpret_cast<LoadTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxLoadTask"))
     );
-    function_pointers_.PerformBridgeOffsetNullingCalEx = reinterpret_cast<
+    function_pointers.PerformBridgeOffsetNullingCalEx = reinterpret_cast<
         PerformBridgeOffsetNullingCalExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxPerformBridgeOffsetNullingCalEx"))
     );
-    function_pointers_
+    function_pointers
         .PerformBridgeShuntCalEx = reinterpret_cast<PerformBridgeShuntCalExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxPerformBridgeShuntCalEx"))
     );
-    function_pointers_
+    function_pointers
         .PerformStrainShuntCalEx = reinterpret_cast<PerformStrainShuntCalExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxPerformStrainShuntCalEx"))
     );
-    function_pointers_.PerformThrmcplLeadOffsetNullingCal = reinterpret_cast<
+    function_pointers.PerformThrmcplLeadOffsetNullingCal = reinterpret_cast<
         PerformThrmcplLeadOffsetNullingCalPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxPerformThrmcplLeadOffsetNullingCal"))
     );
-    function_pointers_.ReadAnalogF64 = reinterpret_cast<ReadAnalogF64Ptr>(
+    function_pointers.ReadAnalogF64 = reinterpret_cast<ReadAnalogF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadAnalogF64"))
     );
-    function_pointers_.ReadAnalogScalarF64 = reinterpret_cast<ReadAnalogScalarF64Ptr>(
+    function_pointers.ReadAnalogScalarF64 = reinterpret_cast<ReadAnalogScalarF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadAnalogScalarF64"))
     );
-    function_pointers_.ReadBinaryI16 = reinterpret_cast<ReadBinaryI16Ptr>(
+    function_pointers.ReadBinaryI16 = reinterpret_cast<ReadBinaryI16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadBinaryI16"))
     );
-    function_pointers_.ReadBinaryI32 = reinterpret_cast<ReadBinaryI32Ptr>(
+    function_pointers.ReadBinaryI32 = reinterpret_cast<ReadBinaryI32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadBinaryI32"))
     );
-    function_pointers_.ReadBinaryU16 = reinterpret_cast<ReadBinaryU16Ptr>(
+    function_pointers.ReadBinaryU16 = reinterpret_cast<ReadBinaryU16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadBinaryU16"))
     );
-    function_pointers_.ReadBinaryU32 = reinterpret_cast<ReadBinaryU32Ptr>(
+    function_pointers.ReadBinaryU32 = reinterpret_cast<ReadBinaryU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadBinaryU32"))
     );
-    function_pointers_.ReadCounterF64 = reinterpret_cast<ReadCounterF64Ptr>(
+    function_pointers.ReadCounterF64 = reinterpret_cast<ReadCounterF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterF64"))
     );
-    function_pointers_.ReadCounterF64Ex = reinterpret_cast<ReadCounterF64ExPtr>(
+    function_pointers.ReadCounterF64Ex = reinterpret_cast<ReadCounterF64ExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterF64Ex"))
     );
-    function_pointers_.ReadCounterScalarF64 = reinterpret_cast<ReadCounterScalarF64Ptr>(
+    function_pointers.ReadCounterScalarF64 = reinterpret_cast<ReadCounterScalarF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterScalarF64"))
     );
-    function_pointers_.ReadCounterScalarU32 = reinterpret_cast<ReadCounterScalarU32Ptr>(
+    function_pointers.ReadCounterScalarU32 = reinterpret_cast<ReadCounterScalarU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterScalarU32"))
     );
-    function_pointers_.ReadCounterU32 = reinterpret_cast<ReadCounterU32Ptr>(
+    function_pointers.ReadCounterU32 = reinterpret_cast<ReadCounterU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterU32"))
     );
-    function_pointers_.ReadCounterU32Ex = reinterpret_cast<ReadCounterU32ExPtr>(
+    function_pointers.ReadCounterU32Ex = reinterpret_cast<ReadCounterU32ExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCounterU32Ex"))
     );
-    function_pointers_.ReadCtrFreq = reinterpret_cast<ReadCtrFreqPtr>(
+    function_pointers.ReadCtrFreq = reinterpret_cast<ReadCtrFreqPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrFreq"))
     );
-    function_pointers_.ReadCtrFreqScalar = reinterpret_cast<ReadCtrFreqScalarPtr>(
+    function_pointers.ReadCtrFreqScalar = reinterpret_cast<ReadCtrFreqScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrFreqScalar"))
     );
-    function_pointers_.ReadCtrTicks = reinterpret_cast<ReadCtrTicksPtr>(
+    function_pointers.ReadCtrTicks = reinterpret_cast<ReadCtrTicksPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrTicks"))
     );
-    function_pointers_.ReadCtrTicksScalar = reinterpret_cast<ReadCtrTicksScalarPtr>(
+    function_pointers.ReadCtrTicksScalar = reinterpret_cast<ReadCtrTicksScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrTicksScalar"))
     );
-    function_pointers_.ReadCtrTime = reinterpret_cast<ReadCtrTimePtr>(
+    function_pointers.ReadCtrTime = reinterpret_cast<ReadCtrTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrTime"))
     );
-    function_pointers_.ReadCtrTimeScalar = reinterpret_cast<ReadCtrTimeScalarPtr>(
+    function_pointers.ReadCtrTimeScalar = reinterpret_cast<ReadCtrTimeScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadCtrTimeScalar"))
     );
-    function_pointers_.ReadDigitalLines = reinterpret_cast<ReadDigitalLinesPtr>(
+    function_pointers.ReadDigitalLines = reinterpret_cast<ReadDigitalLinesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadDigitalLines"))
     );
-    function_pointers_.ReadDigitalScalarU32 = reinterpret_cast<ReadDigitalScalarU32Ptr>(
+    function_pointers.ReadDigitalScalarU32 = reinterpret_cast<ReadDigitalScalarU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadDigitalScalarU32"))
     );
-    function_pointers_.ReadDigitalU16 = reinterpret_cast<ReadDigitalU16Ptr>(
+    function_pointers.ReadDigitalU16 = reinterpret_cast<ReadDigitalU16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadDigitalU16"))
     );
-    function_pointers_.ReadDigitalU32 = reinterpret_cast<ReadDigitalU32Ptr>(
+    function_pointers.ReadDigitalU32 = reinterpret_cast<ReadDigitalU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadDigitalU32"))
     );
-    function_pointers_.ReadDigitalU8 = reinterpret_cast<ReadDigitalU8Ptr>(
+    function_pointers.ReadDigitalU8 = reinterpret_cast<ReadDigitalU8Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadDigitalU8"))
     );
-    function_pointers_.ReadRaw = reinterpret_cast<ReadRawPtr>(
+    function_pointers.ReadRaw = reinterpret_cast<ReadRawPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReadRaw"))
     );
-    function_pointers_.RegisterDoneEvent = reinterpret_cast<RegisterDoneEventPtr>(
+    function_pointers.RegisterDoneEvent = reinterpret_cast<RegisterDoneEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterDoneEvent"))
     );
-    function_pointers_
+    function_pointers
         .RegisterEveryNSamplesEvent = reinterpret_cast<RegisterEveryNSamplesEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterEveryNSamplesEvent"))
     );
-    function_pointers_.RegisterSignalEvent = reinterpret_cast<RegisterSignalEventPtr>(
+    function_pointers.RegisterSignalEvent = reinterpret_cast<RegisterSignalEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterSignalEvent"))
     );
-    function_pointers_
+    function_pointers
         .RemoveCDAQSyncConnection = reinterpret_cast<RemoveCDAQSyncConnectionPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRemoveCDAQSyncConnection"))
     );
-    function_pointers_.ReserveNetworkDevice = reinterpret_cast<ReserveNetworkDevicePtr>(
+    function_pointers.ReserveNetworkDevice = reinterpret_cast<ReserveNetworkDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReserveNetworkDevice"))
     );
-    function_pointers_.ResetBufferAttribute = reinterpret_cast<ResetBufferAttributePtr>(
+    function_pointers.ResetBufferAttribute = reinterpret_cast<ResetBufferAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetBufferAttribute"))
     );
-    function_pointers_.ResetChanAttribute = reinterpret_cast<ResetChanAttributePtr>(
+    function_pointers.ResetChanAttribute = reinterpret_cast<ResetChanAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetChanAttribute"))
     );
-    function_pointers_.ResetDevice = reinterpret_cast<ResetDevicePtr>(
+    function_pointers.ResetDevice = reinterpret_cast<ResetDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetDevice"))
     );
-    function_pointers_.ResetExportedSignalAttribute = reinterpret_cast<
+    function_pointers.ResetExportedSignalAttribute = reinterpret_cast<
         ResetExportedSignalAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetExportedSignalAttribute"))
     );
-    function_pointers_.ResetReadAttribute = reinterpret_cast<ResetReadAttributePtr>(
+    function_pointers.ResetReadAttribute = reinterpret_cast<ResetReadAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetRealTimeAttribute = reinterpret_cast<ResetRealTimeAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetRealTimeAttribute"))
     );
-    function_pointers_.ResetTimingAttribute = reinterpret_cast<ResetTimingAttributePtr>(
+    function_pointers.ResetTimingAttribute = reinterpret_cast<ResetTimingAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetTimingAttributeEx = reinterpret_cast<ResetTimingAttributeExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTimingAttributeEx"))
     );
-    function_pointers_.ResetTrigAttribute = reinterpret_cast<ResetTrigAttributePtr>(
+    function_pointers.ResetTrigAttribute = reinterpret_cast<ResetTrigAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetWatchdogAttribute = reinterpret_cast<ResetWatchdogAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetWatchdogAttribute"))
     );
-    function_pointers_.ResetWriteAttribute = reinterpret_cast<ResetWriteAttributePtr>(
+    function_pointers.ResetWriteAttribute = reinterpret_cast<ResetWriteAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .RestoreLastExtCalConst = reinterpret_cast<RestoreLastExtCalConstPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRestoreLastExtCalConst"))
     );
-    function_pointers_.SaveGlobalChan = reinterpret_cast<SaveGlobalChanPtr>(
+    function_pointers.SaveGlobalChan = reinterpret_cast<SaveGlobalChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveGlobalChan"))
     );
-    function_pointers_.SaveScale = reinterpret_cast<SaveScalePtr>(
+    function_pointers.SaveScale = reinterpret_cast<SaveScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveScale"))
     );
-    function_pointers_.SaveTask = reinterpret_cast<SaveTaskPtr>(
+    function_pointers.SaveTask = reinterpret_cast<SaveTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveTask"))
     );
-    function_pointers_.SelfCal = reinterpret_cast<SelfCalPtr>(
+    function_pointers.SelfCal = reinterpret_cast<SelfCalPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSelfCal"))
     );
-    function_pointers_.SelfTestDevice = reinterpret_cast<SelfTestDevicePtr>(
+    function_pointers.SelfTestDevice = reinterpret_cast<SelfTestDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSelfTestDevice"))
     );
-    function_pointers_.SetAIChanCalCalDate = reinterpret_cast<SetAIChanCalCalDatePtr>(
+    function_pointers.SetAIChanCalCalDate = reinterpret_cast<SetAIChanCalCalDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAIChanCalCalDate"))
     );
-    function_pointers_.SetAIChanCalExpDate = reinterpret_cast<SetAIChanCalExpDatePtr>(
+    function_pointers.SetAIChanCalExpDate = reinterpret_cast<SetAIChanCalExpDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAIChanCalExpDate"))
     );
-    function_pointers_
+    function_pointers
         .SetAnalogPowerUpStates = reinterpret_cast<SetAnalogPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAnalogPowerUpStates"))
     );
-    function_pointers_.SetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
+    function_pointers.SetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
         SetAnalogPowerUpStatesWithOutputTypePtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxSetAnalogPowerUpStatesWithOutputType")
     ));
-    function_pointers_
+    function_pointers
         .SetArmStartTrigTrigWhen = reinterpret_cast<SetArmStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetArmStartTrigTrigWhen"))
     );
-    function_pointers_
+    function_pointers
         .SetBufferAttributeUInt32 = reinterpret_cast<SetBufferAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetBufferAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeBool = reinterpret_cast<SetCalInfoAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeDouble = reinterpret_cast<SetCalInfoAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeString = reinterpret_cast<SetCalInfoAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeUInt32 = reinterpret_cast<SetCalInfoAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_.SetChanAttributeBool = reinterpret_cast<SetChanAttributeBoolPtr>(
+    function_pointers.SetChanAttributeBool = reinterpret_cast<SetChanAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeDouble = reinterpret_cast<SetChanAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeDoubleArray = reinterpret_cast<SetChanAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeInt32 = reinterpret_cast<SetChanAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeString = reinterpret_cast<SetChanAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeUInt32 = reinterpret_cast<SetChanAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_.SetDigitalLogicFamilyPowerUpState = reinterpret_cast<
+    function_pointers.SetDigitalLogicFamilyPowerUpState = reinterpret_cast<
         SetDigitalLogicFamilyPowerUpStatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalLogicFamilyPowerUpState"))
     );
-    function_pointers_
+    function_pointers
         .SetDigitalPowerUpStates = reinterpret_cast<SetDigitalPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalPowerUpStates"))
     );
-    function_pointers_.SetDigitalPullUpPullDownStates = reinterpret_cast<
+    function_pointers.SetDigitalPullUpPullDownStates = reinterpret_cast<
         SetDigitalPullUpPullDownStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalPullUpPullDownStates"))
     );
-    function_pointers_.SetExportedSignalAttributeBool = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeBool = reinterpret_cast<
         SetExportedSignalAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeDouble = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeDouble = reinterpret_cast<
         SetExportedSignalAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeInt32 = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeInt32 = reinterpret_cast<
         SetExportedSignalAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeString = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeString = reinterpret_cast<
         SetExportedSignalAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeUInt32 = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeUInt32 = reinterpret_cast<
         SetExportedSignalAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetFirstSampClkWhen = reinterpret_cast<SetFirstSampClkWhenPtr>(
+    function_pointers.SetFirstSampClkWhen = reinterpret_cast<SetFirstSampClkWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetFirstSampClkWhen"))
     );
-    function_pointers_.SetReadAttributeBool = reinterpret_cast<SetReadAttributeBoolPtr>(
+    function_pointers.SetReadAttributeBool = reinterpret_cast<SetReadAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeDouble = reinterpret_cast<SetReadAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeInt32 = reinterpret_cast<SetReadAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeString = reinterpret_cast<SetReadAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeUInt32 = reinterpret_cast<SetReadAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeUInt64 = reinterpret_cast<SetReadAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeBool = reinterpret_cast<SetRealTimeAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeInt32 = reinterpret_cast<SetRealTimeAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeUInt32 = reinterpret_cast<SetRealTimeAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRuntimeEnvironment = reinterpret_cast<SetRuntimeEnvironmentPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRuntimeEnvironment"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeDouble = reinterpret_cast<SetScaleAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_.SetScaleAttributeDoubleArray = reinterpret_cast<
+    function_pointers.SetScaleAttributeDoubleArray = reinterpret_cast<
         SetScaleAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeInt32 = reinterpret_cast<SetScaleAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeString = reinterpret_cast<SetScaleAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_.SetStartTrigTrigWhen = reinterpret_cast<SetStartTrigTrigWhenPtr>(
+    function_pointers.SetStartTrigTrigWhen = reinterpret_cast<SetStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetStartTrigTrigWhen"))
     );
-    function_pointers_.SetSyncPulseTimeWhen = reinterpret_cast<SetSyncPulseTimeWhenPtr>(
+    function_pointers.SetSyncPulseTimeWhen = reinterpret_cast<SetSyncPulseTimeWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetSyncPulseTimeWhen"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeBool = reinterpret_cast<SetTimingAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeDouble = reinterpret_cast<SetTimingAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExBool = reinterpret_cast<SetTimingAttributeExBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExDouble = reinterpret_cast<SetTimingAttributeExDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExInt32 = reinterpret_cast<SetTimingAttributeExInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExString = reinterpret_cast<SetTimingAttributeExStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_.SetTimingAttributeExTimestamp = reinterpret_cast<
+    function_pointers.SetTimingAttributeExTimestamp = reinterpret_cast<
         SetTimingAttributeExTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExUInt32 = reinterpret_cast<SetTimingAttributeExUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExUInt64 = reinterpret_cast<SetTimingAttributeExUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeInt32 = reinterpret_cast<SetTimingAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeString = reinterpret_cast<SetTimingAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeTimestamp = reinterpret_cast<SetTimingAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeUInt32 = reinterpret_cast<SetTimingAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeUInt64 = reinterpret_cast<SetTimingAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_.SetTrigAttributeBool = reinterpret_cast<SetTrigAttributeBoolPtr>(
+    function_pointers.SetTrigAttributeBool = reinterpret_cast<SetTrigAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeDouble = reinterpret_cast<SetTrigAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeDoubleArray = reinterpret_cast<SetTrigAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeInt32 = reinterpret_cast<SetTrigAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeInt32Array = reinterpret_cast<SetTrigAttributeInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeString = reinterpret_cast<SetTrigAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeTimestamp = reinterpret_cast<SetTrigAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeUInt32 = reinterpret_cast<SetTrigAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeBool = reinterpret_cast<SetWatchdogAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeDouble = reinterpret_cast<SetWatchdogAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeInt32 = reinterpret_cast<SetWatchdogAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeString = reinterpret_cast<SetWatchdogAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeBool = reinterpret_cast<SetWriteAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeDouble = reinterpret_cast<SetWriteAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeInt32 = reinterpret_cast<SetWriteAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeString = reinterpret_cast<SetWriteAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeUInt32 = reinterpret_cast<SetWriteAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeUInt64 = reinterpret_cast<SetWriteAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_.StartNewFile = reinterpret_cast<StartNewFilePtr>(
+    function_pointers.StartNewFile = reinterpret_cast<StartNewFilePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStartNewFile"))
     );
-    function_pointers_.StartTask = reinterpret_cast<StartTaskPtr>(
+    function_pointers.StartTask = reinterpret_cast<StartTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStartTask"))
     );
-    function_pointers_.StopTask = reinterpret_cast<StopTaskPtr>(
+    function_pointers.StopTask = reinterpret_cast<StopTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStopTask"))
     );
-    function_pointers_.TaskControl = reinterpret_cast<TaskControlPtr>(
+    function_pointers.TaskControl = reinterpret_cast<TaskControlPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxTaskControl"))
     );
-    function_pointers_.TristateOutputTerm = reinterpret_cast<TristateOutputTermPtr>(
+    function_pointers.TristateOutputTerm = reinterpret_cast<TristateOutputTermPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxTristateOutputTerm"))
     );
-    function_pointers_.UnregisterDoneEvent = reinterpret_cast<UnregisterDoneEventPtr>(
+    function_pointers.UnregisterDoneEvent = reinterpret_cast<UnregisterDoneEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterDoneEvent"))
     );
-    function_pointers_.UnregisterEveryNSamplesEvent = reinterpret_cast<
+    function_pointers.UnregisterEveryNSamplesEvent = reinterpret_cast<
         UnregisterEveryNSamplesEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterEveryNSamplesEvent"))
     );
-    function_pointers_.UnregisterSignalEvent = reinterpret_cast<RegisterSignalEventPtr>(
+    function_pointers.UnregisterSignalEvent = reinterpret_cast<RegisterSignalEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterSignalEvent"))
     );
-    function_pointers_
+    function_pointers
         .RemoveCDAQSyncConnection = reinterpret_cast<RemoveCDAQSyncConnectionPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRemoveCDAQSyncConnection"))
     );
-    function_pointers_.ReserveNetworkDevice = reinterpret_cast<ReserveNetworkDevicePtr>(
+    function_pointers.ReserveNetworkDevice = reinterpret_cast<ReserveNetworkDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxReserveNetworkDevice"))
     );
-    function_pointers_.ResetBufferAttribute = reinterpret_cast<ResetBufferAttributePtr>(
+    function_pointers.ResetBufferAttribute = reinterpret_cast<ResetBufferAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetBufferAttribute"))
     );
-    function_pointers_.ResetChanAttribute = reinterpret_cast<ResetChanAttributePtr>(
+    function_pointers.ResetChanAttribute = reinterpret_cast<ResetChanAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetChanAttribute"))
     );
-    function_pointers_.ResetDevice = reinterpret_cast<ResetDevicePtr>(
+    function_pointers.ResetDevice = reinterpret_cast<ResetDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetDevice"))
     );
-    function_pointers_.ResetExportedSignalAttribute = reinterpret_cast<
+    function_pointers.ResetExportedSignalAttribute = reinterpret_cast<
         ResetExportedSignalAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetExportedSignalAttribute"))
     );
-    function_pointers_.ResetReadAttribute = reinterpret_cast<ResetReadAttributePtr>(
+    function_pointers.ResetReadAttribute = reinterpret_cast<ResetReadAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetRealTimeAttribute = reinterpret_cast<ResetRealTimeAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetRealTimeAttribute"))
     );
-    function_pointers_.ResetTimingAttribute = reinterpret_cast<ResetTimingAttributePtr>(
+    function_pointers.ResetTimingAttribute = reinterpret_cast<ResetTimingAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetTimingAttributeEx = reinterpret_cast<ResetTimingAttributeExPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTimingAttributeEx"))
     );
-    function_pointers_.ResetTrigAttribute = reinterpret_cast<ResetTrigAttributePtr>(
+    function_pointers.ResetTrigAttribute = reinterpret_cast<ResetTrigAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .ResetWatchdogAttribute = reinterpret_cast<ResetWatchdogAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetWatchdogAttribute"))
     );
-    function_pointers_.ResetWriteAttribute = reinterpret_cast<ResetWriteAttributePtr>(
+    function_pointers.ResetWriteAttribute = reinterpret_cast<ResetWriteAttributePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxResetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .RestoreLastExtCalConst = reinterpret_cast<RestoreLastExtCalConstPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRestoreLastExtCalConst"))
     );
-    function_pointers_.SaveGlobalChan = reinterpret_cast<SaveGlobalChanPtr>(
+    function_pointers.SaveGlobalChan = reinterpret_cast<SaveGlobalChanPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveGlobalChan"))
     );
-    function_pointers_.SaveScale = reinterpret_cast<SaveScalePtr>(
+    function_pointers.SaveScale = reinterpret_cast<SaveScalePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveScale"))
     );
-    function_pointers_.SaveTask = reinterpret_cast<SaveTaskPtr>(
+    function_pointers.SaveTask = reinterpret_cast<SaveTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSaveTask"))
     );
-    function_pointers_.SelfCal = reinterpret_cast<SelfCalPtr>(
+    function_pointers.SelfCal = reinterpret_cast<SelfCalPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSelfCal"))
     );
-    function_pointers_.SelfTestDevice = reinterpret_cast<SelfTestDevicePtr>(
+    function_pointers.SelfTestDevice = reinterpret_cast<SelfTestDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSelfTestDevice"))
     );
-    function_pointers_.SetAIChanCalCalDate = reinterpret_cast<SetAIChanCalCalDatePtr>(
+    function_pointers.SetAIChanCalCalDate = reinterpret_cast<SetAIChanCalCalDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAIChanCalCalDate"))
     );
-    function_pointers_.SetAIChanCalExpDate = reinterpret_cast<SetAIChanCalExpDatePtr>(
+    function_pointers.SetAIChanCalExpDate = reinterpret_cast<SetAIChanCalExpDatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAIChanCalExpDate"))
     );
-    function_pointers_
+    function_pointers
         .SetAnalogPowerUpStates = reinterpret_cast<SetAnalogPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetAnalogPowerUpStates"))
     );
-    function_pointers_.SetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
+    function_pointers.SetAnalogPowerUpStatesWithOutputType = reinterpret_cast<
         SetAnalogPowerUpStatesWithOutputTypePtr>(const_cast<void *>(
         lib->get_func_ptr("DAQmxSetAnalogPowerUpStatesWithOutputType")
     ));
-    function_pointers_
+    function_pointers
         .SetArmStartTrigTrigWhen = reinterpret_cast<SetArmStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetArmStartTrigTrigWhen"))
     );
-    function_pointers_
+    function_pointers
         .SetBufferAttributeUInt32 = reinterpret_cast<SetBufferAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetBufferAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeBool = reinterpret_cast<SetCalInfoAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeDouble = reinterpret_cast<SetCalInfoAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeString = reinterpret_cast<SetCalInfoAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetCalInfoAttributeUInt32 = reinterpret_cast<SetCalInfoAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetCalInfoAttribute"))
     );
-    function_pointers_.SetChanAttributeBool = reinterpret_cast<SetChanAttributeBoolPtr>(
+    function_pointers.SetChanAttributeBool = reinterpret_cast<SetChanAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeDouble = reinterpret_cast<SetChanAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeDoubleArray = reinterpret_cast<SetChanAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeInt32 = reinterpret_cast<SetChanAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeString = reinterpret_cast<SetChanAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetChanAttributeUInt32 = reinterpret_cast<SetChanAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetChanAttribute"))
     );
-    function_pointers_.SetDigitalLogicFamilyPowerUpState = reinterpret_cast<
+    function_pointers.SetDigitalLogicFamilyPowerUpState = reinterpret_cast<
         SetDigitalLogicFamilyPowerUpStatePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalLogicFamilyPowerUpState"))
     );
-    function_pointers_
+    function_pointers
         .SetDigitalPowerUpStates = reinterpret_cast<SetDigitalPowerUpStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalPowerUpStates"))
     );
-    function_pointers_.SetDigitalPullUpPullDownStates = reinterpret_cast<
+    function_pointers.SetDigitalPullUpPullDownStates = reinterpret_cast<
         SetDigitalPullUpPullDownStatesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetDigitalPullUpPullDownStates"))
     );
-    function_pointers_.SetExportedSignalAttributeBool = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeBool = reinterpret_cast<
         SetExportedSignalAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeDouble = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeDouble = reinterpret_cast<
         SetExportedSignalAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeInt32 = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeInt32 = reinterpret_cast<
         SetExportedSignalAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeString = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeString = reinterpret_cast<
         SetExportedSignalAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetExportedSignalAttributeUInt32 = reinterpret_cast<
+    function_pointers.SetExportedSignalAttributeUInt32 = reinterpret_cast<
         SetExportedSignalAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetExportedSignalAttribute"))
     );
-    function_pointers_.SetFirstSampClkWhen = reinterpret_cast<SetFirstSampClkWhenPtr>(
+    function_pointers.SetFirstSampClkWhen = reinterpret_cast<SetFirstSampClkWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetFirstSampClkWhen"))
     );
-    function_pointers_.SetReadAttributeBool = reinterpret_cast<SetReadAttributeBoolPtr>(
+    function_pointers.SetReadAttributeBool = reinterpret_cast<SetReadAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeDouble = reinterpret_cast<SetReadAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeInt32 = reinterpret_cast<SetReadAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeString = reinterpret_cast<SetReadAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeUInt32 = reinterpret_cast<SetReadAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetReadAttributeUInt64 = reinterpret_cast<SetReadAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeBool = reinterpret_cast<SetRealTimeAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeInt32 = reinterpret_cast<SetRealTimeAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRealTimeAttributeUInt32 = reinterpret_cast<SetRealTimeAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRealTimeAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetRuntimeEnvironment = reinterpret_cast<SetRuntimeEnvironmentPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetRuntimeEnvironment"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeDouble = reinterpret_cast<SetScaleAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_.SetScaleAttributeDoubleArray = reinterpret_cast<
+    function_pointers.SetScaleAttributeDoubleArray = reinterpret_cast<
         SetScaleAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeInt32 = reinterpret_cast<SetScaleAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetScaleAttributeString = reinterpret_cast<SetScaleAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetScaleAttribute"))
     );
-    function_pointers_.SetStartTrigTrigWhen = reinterpret_cast<SetStartTrigTrigWhenPtr>(
+    function_pointers.SetStartTrigTrigWhen = reinterpret_cast<SetStartTrigTrigWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetStartTrigTrigWhen"))
     );
-    function_pointers_.SetSyncPulseTimeWhen = reinterpret_cast<SetSyncPulseTimeWhenPtr>(
+    function_pointers.SetSyncPulseTimeWhen = reinterpret_cast<SetSyncPulseTimeWhenPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetSyncPulseTimeWhen"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeBool = reinterpret_cast<SetTimingAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeDouble = reinterpret_cast<SetTimingAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExBool = reinterpret_cast<SetTimingAttributeExBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExDouble = reinterpret_cast<SetTimingAttributeExDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExInt32 = reinterpret_cast<SetTimingAttributeExInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExString = reinterpret_cast<SetTimingAttributeExStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_.SetTimingAttributeExTimestamp = reinterpret_cast<
+    function_pointers.SetTimingAttributeExTimestamp = reinterpret_cast<
         SetTimingAttributeExTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExUInt32 = reinterpret_cast<SetTimingAttributeExUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeExUInt64 = reinterpret_cast<SetTimingAttributeExUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttributeEx"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeInt32 = reinterpret_cast<SetTimingAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeString = reinterpret_cast<SetTimingAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeTimestamp = reinterpret_cast<SetTimingAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeUInt32 = reinterpret_cast<SetTimingAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTimingAttributeUInt64 = reinterpret_cast<SetTimingAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTimingAttribute"))
     );
-    function_pointers_.SetTrigAttributeBool = reinterpret_cast<SetTrigAttributeBoolPtr>(
+    function_pointers.SetTrigAttributeBool = reinterpret_cast<SetTrigAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeDouble = reinterpret_cast<SetTrigAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeDoubleArray = reinterpret_cast<SetTrigAttributeDoubleArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeInt32 = reinterpret_cast<SetTrigAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeInt32Array = reinterpret_cast<SetTrigAttributeInt32ArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeString = reinterpret_cast<SetTrigAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeTimestamp = reinterpret_cast<SetTrigAttributeTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetTrigAttributeUInt32 = reinterpret_cast<SetTrigAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetTrigAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeBool = reinterpret_cast<SetWatchdogAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeDouble = reinterpret_cast<SetWatchdogAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeInt32 = reinterpret_cast<SetWatchdogAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWatchdogAttributeString = reinterpret_cast<SetWatchdogAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWatchdogAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeBool = reinterpret_cast<SetWriteAttributeBoolPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeDouble = reinterpret_cast<SetWriteAttributeDoublePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeInt32 = reinterpret_cast<SetWriteAttributeInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeString = reinterpret_cast<SetWriteAttributeStringPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeUInt32 = reinterpret_cast<SetWriteAttributeUInt32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_
+    function_pointers
         .SetWriteAttributeUInt64 = reinterpret_cast<SetWriteAttributeUInt64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetWriteAttribute"))
     );
-    function_pointers_.StartNewFile = reinterpret_cast<StartNewFilePtr>(
+    function_pointers.StartNewFile = reinterpret_cast<StartNewFilePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStartNewFile"))
     );
-    function_pointers_.StartTask = reinterpret_cast<StartTaskPtr>(
+    function_pointers.StartTask = reinterpret_cast<StartTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStartTask"))
     );
-    function_pointers_.StopTask = reinterpret_cast<StopTaskPtr>(
+    function_pointers.StopTask = reinterpret_cast<StopTaskPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxStopTask"))
     );
-    function_pointers_.TaskControl = reinterpret_cast<TaskControlPtr>(
+    function_pointers.TaskControl = reinterpret_cast<TaskControlPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxTaskControl"))
     );
-    function_pointers_.TristateOutputTerm = reinterpret_cast<TristateOutputTermPtr>(
+    function_pointers.TristateOutputTerm = reinterpret_cast<TristateOutputTermPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxTristateOutputTerm"))
     );
-    function_pointers_.UnregisterDoneEvent = reinterpret_cast<UnregisterDoneEventPtr>(
+    function_pointers.UnregisterDoneEvent = reinterpret_cast<UnregisterDoneEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterDoneEvent"))
     );
-    function_pointers_.UnregisterEveryNSamplesEvent = reinterpret_cast<
+    function_pointers.UnregisterEveryNSamplesEvent = reinterpret_cast<
         UnregisterEveryNSamplesEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterEveryNSamplesEvent"))
     );
-    function_pointers_
+    function_pointers
         .UnregisterSignalEvent = reinterpret_cast<UnregisterSignalEventPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxRegisterSignalEvent"))
     );
-    function_pointers_
+    function_pointers
         .UnreserveNetworkDevice = reinterpret_cast<UnreserveNetworkDevicePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxUnreserveNetworkDevice"))
     );
-    function_pointers_
+    function_pointers
         .WaitForNextSampleClock = reinterpret_cast<WaitForNextSampleClockPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWaitForNextSampleClock"))
     );
-    function_pointers_
+    function_pointers
         .WaitForValidTimestamp = reinterpret_cast<WaitForValidTimestampPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWaitForValidTimestamp"))
     );
-    function_pointers_.WaitUntilTaskDone = reinterpret_cast<WaitUntilTaskDonePtr>(
+    function_pointers.WaitUntilTaskDone = reinterpret_cast<WaitUntilTaskDonePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWaitUntilTaskDone"))
     );
-    function_pointers_.WriteAnalogF64 = reinterpret_cast<WriteAnalogF64Ptr>(
+    function_pointers.WriteAnalogF64 = reinterpret_cast<WriteAnalogF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteAnalogF64"))
     );
-    function_pointers_.WriteAnalogScalarF64 = reinterpret_cast<WriteAnalogScalarF64Ptr>(
+    function_pointers.WriteAnalogScalarF64 = reinterpret_cast<WriteAnalogScalarF64Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteAnalogScalarF64"))
     );
-    function_pointers_.WriteBinaryI16 = reinterpret_cast<WriteBinaryI16Ptr>(
+    function_pointers.WriteBinaryI16 = reinterpret_cast<WriteBinaryI16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteBinaryI16"))
     );
-    function_pointers_.WriteBinaryI32 = reinterpret_cast<WriteBinaryI32Ptr>(
+    function_pointers.WriteBinaryI32 = reinterpret_cast<WriteBinaryI32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteBinaryI32"))
     );
-    function_pointers_.WriteBinaryU16 = reinterpret_cast<WriteBinaryU16Ptr>(
+    function_pointers.WriteBinaryU16 = reinterpret_cast<WriteBinaryU16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteBinaryU16"))
     );
-    function_pointers_.WriteBinaryU32 = reinterpret_cast<WriteBinaryU32Ptr>(
+    function_pointers.WriteBinaryU32 = reinterpret_cast<WriteBinaryU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteBinaryU32"))
     );
-    function_pointers_.WriteCtrFreq = reinterpret_cast<WriteCtrFreqPtr>(
+    function_pointers.WriteCtrFreq = reinterpret_cast<WriteCtrFreqPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrFreq"))
     );
-    function_pointers_.WriteCtrFreqScalar = reinterpret_cast<WriteCtrFreqScalarPtr>(
+    function_pointers.WriteCtrFreqScalar = reinterpret_cast<WriteCtrFreqScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrFreqScalar"))
     );
-    function_pointers_.WriteCtrTicks = reinterpret_cast<WriteCtrTicksPtr>(
+    function_pointers.WriteCtrTicks = reinterpret_cast<WriteCtrTicksPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrTicks"))
     );
-    function_pointers_.WriteCtrTicksScalar = reinterpret_cast<WriteCtrTicksScalarPtr>(
+    function_pointers.WriteCtrTicksScalar = reinterpret_cast<WriteCtrTicksScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrTicksScalar"))
     );
-    function_pointers_.WriteCtrTime = reinterpret_cast<WriteCtrTimePtr>(
+    function_pointers.WriteCtrTime = reinterpret_cast<WriteCtrTimePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrTime"))
     );
-    function_pointers_.WriteCtrTimeScalar = reinterpret_cast<WriteCtrTimeScalarPtr>(
+    function_pointers.WriteCtrTimeScalar = reinterpret_cast<WriteCtrTimeScalarPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteCtrTimeScalar"))
     );
-    function_pointers_.WriteDigitalLines = reinterpret_cast<WriteDigitalLinesPtr>(
+    function_pointers.WriteDigitalLines = reinterpret_cast<WriteDigitalLinesPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteDigitalLines"))
     );
-    function_pointers_
+    function_pointers
         .WriteDigitalScalarU32 = reinterpret_cast<WriteDigitalScalarU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteDigitalScalarU32"))
     );
-    function_pointers_.WriteDigitalU16 = reinterpret_cast<WriteDigitalU16Ptr>(
+    function_pointers.WriteDigitalU16 = reinterpret_cast<WriteDigitalU16Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteDigitalU16"))
     );
-    function_pointers_.WriteDigitalU32 = reinterpret_cast<WriteDigitalU32Ptr>(
+    function_pointers.WriteDigitalU32 = reinterpret_cast<WriteDigitalU32Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteDigitalU32"))
     );
-    function_pointers_.WriteDigitalU8 = reinterpret_cast<WriteDigitalU8Ptr>(
+    function_pointers.WriteDigitalU8 = reinterpret_cast<WriteDigitalU8Ptr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteDigitalU8"))
     );
-    function_pointers_.WriteRaw = reinterpret_cast<WriteRawPtr>(
+    function_pointers.WriteRaw = reinterpret_cast<WriteRawPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteRaw"))
     );
-    function_pointers_.WriteToTEDSFromArray = reinterpret_cast<WriteToTEDSFromArrayPtr>(
+    function_pointers.WriteToTEDSFromArray = reinterpret_cast<WriteToTEDSFromArrayPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteToTEDSFromArray"))
     );
-    function_pointers_.WriteToTEDSFromFile = reinterpret_cast<WriteToTEDSFromFilePtr>(
+    function_pointers.WriteToTEDSFromFile = reinterpret_cast<WriteToTEDSFromFilePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxWriteToTEDSFromFile"))
     );
-    function_pointers_.SetReadRelativeTo = reinterpret_cast<SetReadRelativeToPtr>(
+    function_pointers.SetReadRelativeTo = reinterpret_cast<SetReadRelativeToPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadRelativeTo"))
     );
-    function_pointers_.SetReadOffset = reinterpret_cast<SetReadOffsetPtr>(
+    function_pointers.SetReadOffset = reinterpret_cast<SetReadOffsetPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadOffset"))
     );
-    function_pointers_.SetReadOverWrite = reinterpret_cast<SetReadOverWritePtr>(
+    function_pointers.SetReadOverWrite = reinterpret_cast<SetReadOverWritePtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxSetReadOverWrite"))
     );
-    function_pointers_.GetReadTotalSampPerChanAcquired = reinterpret_cast<
+    function_pointers.GetReadTotalSampPerChanAcquired = reinterpret_cast<
         GetReadTotalSampPerChanAcquiredPtr>(
         const_cast<void *>(lib->get_func_ptr("DAQmxGetReadTotalSampPerChanAcquired"))
     );
@@ -1870,11 +1870,11 @@ ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
 ProdAPI::~ProdAPI() = default;
 
 int32 ProdAPI::AddCDAQSyncConnection(const char portList[]) {
-    return function_pointers_.AddCDAQSyncConnection(portList);
+    return function_pointers.AddCDAQSyncConnection(portList);
 }
 
 int32 ProdAPI::AddGlobalChansToTask(TaskHandle task, const char channelNames[]) {
-    return function_pointers_.AddGlobalChansToTask(task, channelNames);
+    return function_pointers.AddGlobalChansToTask(task, channelNames);
 }
 
 int32 ProdAPI::AddNetworkDevice(
@@ -1885,7 +1885,7 @@ int32 ProdAPI::AddNetworkDevice(
     char deviceNameOut[],
     uInt32 deviceNameOutBufferSize
 ) {
-    return function_pointers_.AddNetworkDevice(
+    return function_pointers.AddNetworkDevice(
         ipAddress,
         deviceName,
         attemptReservation,
@@ -1900,7 +1900,7 @@ int32 ProdAPI::AreConfiguredCDAQSyncPortsDisconnected(
     float64 timeout,
     bool32 *disconnectedPortsExist
 ) {
-    return function_pointers_.AreConfiguredCDAQSyncPortsDisconnected(
+    return function_pointers.AreConfiguredCDAQSyncPortsDisconnected(
         chassisDevicesPorts,
         timeout,
         disconnectedPortsExist
@@ -1911,7 +1911,7 @@ int32 ProdAPI::AutoConfigureCDAQSyncConnections(
     const char chassisDevicesPorts[],
     float64 timeout
 ) {
-    return function_pointers_.AutoConfigureCDAQSyncConnections(
+    return function_pointers.AutoConfigureCDAQSyncConnections(
         chassisDevicesPorts,
         timeout
     );
@@ -1926,7 +1926,7 @@ int32 ProdAPI::CalculateReversePolyCoeff(
     int32 reversePolyOrder,
     float64 reverseCoeffs[]
 ) {
-    return function_pointers_.CalculateReversePolyCoeff(
+    return function_pointers.CalculateReversePolyCoeff(
         forwardCoeffs,
         numForwardCoeffsIn,
         minValX,
@@ -1944,7 +1944,7 @@ int32 ProdAPI::CfgAnlgEdgeRefTrig(
     float64 triggerLevel,
     uInt32 pretriggerSamples
 ) {
-    return function_pointers_.CfgAnlgEdgeRefTrig(
+    return function_pointers.CfgAnlgEdgeRefTrig(
         task,
         triggerSource,
         triggerSlope,
@@ -1959,7 +1959,7 @@ int32 ProdAPI::CfgAnlgEdgeStartTrig(
     int32 triggerSlope,
     float64 triggerLevel
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgAnlgEdgeStartTrig(task, triggerSource, triggerSlope, triggerLevel);
 }
 
@@ -1974,7 +1974,7 @@ int32 ProdAPI::CfgAnlgMultiEdgeRefTrig(
     auto *slopeArray = const_cast<int32 *>(triggerSlopeArray);
     auto *levelArray = const_cast<float64 *>(triggerLevelArray);
 
-    return function_pointers_.CfgAnlgMultiEdgeRefTrig(
+    return function_pointers.CfgAnlgMultiEdgeRefTrig(
         task,
         triggerSources,
         slopeArray,
@@ -1994,7 +1994,7 @@ int32 ProdAPI::CfgAnlgMultiEdgeStartTrig(
     auto *slopeArray = const_cast<int32 *>(triggerSlopeArray);
     auto *levelArray = const_cast<float64 *>(triggerLevelArray);
 
-    return function_pointers_.CfgAnlgMultiEdgeStartTrig(
+    return function_pointers.CfgAnlgMultiEdgeStartTrig(
         task,
         triggerSources,
         slopeArray,
@@ -2011,7 +2011,7 @@ int32 ProdAPI::CfgAnlgWindowRefTrig(
     float64 windowBottom,
     uInt32 pretriggerSamples
 ) {
-    return function_pointers_.CfgAnlgWindowRefTrig(
+    return function_pointers.CfgAnlgWindowRefTrig(
         task,
         triggerSource,
         triggerWhen,
@@ -2028,7 +2028,7 @@ int32 ProdAPI::CfgAnlgWindowStartTrig(
     float64 windowTop,
     float64 windowBottom
 ) {
-    return function_pointers_.CfgAnlgWindowStartTrig(
+    return function_pointers.CfgAnlgWindowStartTrig(
         task,
         triggerSource,
         triggerWhen,
@@ -2047,7 +2047,7 @@ int32 ProdAPI::CfgBurstHandshakingTimingExportClock(
     int32 pauseWhen,
     int32 readyEventActiveLevel
 ) {
-    return function_pointers_.CfgBurstHandshakingTimingExportClock(
+    return function_pointers.CfgBurstHandshakingTimingExportClock(
         task,
         sampleMode,
         sampsPerChan,
@@ -2069,7 +2069,7 @@ int32 ProdAPI::CfgBurstHandshakingTimingImportClock(
     int32 pauseWhen,
     int32 readyEventActiveLevel
 ) {
-    return function_pointers_.CfgBurstHandshakingTimingImportClock(
+    return function_pointers.CfgBurstHandshakingTimingImportClock(
         task,
         sampleMode,
         sampsPerChan,
@@ -2088,7 +2088,7 @@ int32 ProdAPI::CfgChangeDetectionTiming(
     int32 sampleMode,
     uInt64 sampsPerChan
 ) {
-    return function_pointers_.CfgChangeDetectionTiming(
+    return function_pointers.CfgChangeDetectionTiming(
         task,
         risingEdgeChan,
         fallingEdgeChan,
@@ -2103,7 +2103,7 @@ int32 ProdAPI::CfgDigEdgeRefTrig(
     int32 triggerEdge,
     uInt32 pretriggerSamples
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgDigEdgeRefTrig(task, triggerSource, triggerEdge, pretriggerSamples);
 }
 
@@ -2112,7 +2112,7 @@ int32 ProdAPI::CfgDigEdgeStartTrig(
     const char triggerSource[],
     int32 triggerEdge
 ) {
-    return function_pointers_.CfgDigEdgeStartTrig(task, triggerSource, triggerEdge);
+    return function_pointers.CfgDigEdgeStartTrig(task, triggerSource, triggerEdge);
 }
 
 int32 ProdAPI::CfgDigPatternRefTrig(
@@ -2122,7 +2122,7 @@ int32 ProdAPI::CfgDigPatternRefTrig(
     int32 triggerWhen,
     uInt32 pretriggerSamples
 ) {
-    return function_pointers_.CfgDigPatternRefTrig(
+    return function_pointers.CfgDigPatternRefTrig(
         task,
         triggerSource,
         triggerPattern,
@@ -2137,7 +2137,7 @@ int32 ProdAPI::CfgDigPatternStartTrig(
     const char triggerPattern[],
     int32 triggerWhen
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgDigPatternStartTrig(task, triggerSource, triggerPattern, triggerWhen);
 }
 
@@ -2146,7 +2146,7 @@ int32 ProdAPI::CfgHandshakingTiming(
     int32 sampleMode,
     uInt64 sampsPerChan
 ) {
-    return function_pointers_.CfgHandshakingTiming(task, sampleMode, sampsPerChan);
+    return function_pointers.CfgHandshakingTiming(task, sampleMode, sampsPerChan);
 }
 
 int32 ProdAPI::CfgImplicitTiming(
@@ -2154,15 +2154,15 @@ int32 ProdAPI::CfgImplicitTiming(
     int32 sampleMode,
     uInt64 sampsPerChan
 ) {
-    return function_pointers_.CfgImplicitTiming(task, sampleMode, sampsPerChan);
+    return function_pointers.CfgImplicitTiming(task, sampleMode, sampsPerChan);
 }
 
 int32 ProdAPI::CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
-    return function_pointers_.CfgInputBuffer(task, numSampsPerChan);
+    return function_pointers.CfgInputBuffer(task, numSampsPerChan);
 }
 
 int32 ProdAPI::CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
-    return function_pointers_.CfgOutputBuffer(task, numSampsPerChan);
+    return function_pointers.CfgOutputBuffer(task, numSampsPerChan);
 }
 
 int32 ProdAPI::CfgPipelinedSampClkTiming(
@@ -2173,7 +2173,7 @@ int32 ProdAPI::CfgPipelinedSampClkTiming(
     int32 sampleMode,
     uInt64 sampsPerChan
 ) {
-    return function_pointers_.CfgPipelinedSampClkTiming(
+    return function_pointers.CfgPipelinedSampClkTiming(
         task,
         source,
         rate,
@@ -2191,7 +2191,7 @@ int32 ProdAPI::CfgSampClkTiming(
     int32 sampleMode,
     uInt64 sampsPerChan
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgSampClkTiming(task, source, rate, activeEdge, sampleMode, sampsPerChan);
 }
 
@@ -2200,7 +2200,7 @@ int32 ProdAPI::CfgTimeStartTrig(
     CVIAbsoluteTime when,
     int32 timescale
 ) {
-    return function_pointers_.CfgTimeStartTrig(task, when, timescale);
+    return function_pointers.CfgTimeStartTrig(task, when, timescale);
 }
 
 int32 ProdAPI::CfgWatchdogAOExpirStates(
@@ -2210,7 +2210,7 @@ int32 ProdAPI::CfgWatchdogAOExpirStates(
     const int32 outputTypeArray[],
     uInt32 arraySize
 ) {
-    return function_pointers_.CfgWatchdogAOExpirStates(
+    return function_pointers.CfgWatchdogAOExpirStates(
         task,
         channelNames,
         expirStateArray,
@@ -2225,7 +2225,7 @@ int32 ProdAPI::CfgWatchdogCOExpirStates(
     const int32 expirStateArray[],
     uInt32 arraySize
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgWatchdogCOExpirStates(task, channelNames, expirStateArray, arraySize);
 }
 
@@ -2235,16 +2235,16 @@ int32 ProdAPI::CfgWatchdogDOExpirStates(
     const int32 expirStateArray[],
     uInt32 arraySize
 ) {
-    return function_pointers_
+    return function_pointers
         .CfgWatchdogDOExpirStates(task, channelNames, expirStateArray, arraySize);
 }
 
 int32 ProdAPI::ClearTEDS(const char physicalChannel[]) {
-    return function_pointers_.ClearTEDS(physicalChannel);
+    return function_pointers.ClearTEDS(physicalChannel);
 }
 
 int32 ProdAPI::ClearTask(TaskHandle task) {
-    return function_pointers_.ClearTask(task);
+    return function_pointers.ClearTask(task);
 }
 
 int32 ProdAPI::ConfigureLogging(
@@ -2254,12 +2254,12 @@ int32 ProdAPI::ConfigureLogging(
     const char groupName[],
     int32 operation
 ) {
-    return function_pointers_
+    return function_pointers
         .ConfigureLogging(task, filePath, loggingMode, groupName, operation);
 }
 
 int32 ProdAPI::ConfigureTEDS(const char physicalChannel[], const char filePath[]) {
-    return function_pointers_.ConfigureTEDS(physicalChannel, filePath);
+    return function_pointers.ConfigureTEDS(physicalChannel, filePath);
 }
 
 int32 ProdAPI::ConnectTerms(
@@ -2267,12 +2267,12 @@ int32 ProdAPI::ConnectTerms(
     const char destinationTerminal[],
     int32 signalModifiers
 ) {
-    return function_pointers_
+    return function_pointers
         .ConnectTerms(sourceTerminal, destinationTerminal, signalModifiers);
 }
 
 int32 ProdAPI::ControlWatchdogTask(TaskHandle task, int32 action) {
-    return function_pointers_.ControlWatchdogTask(task, action);
+    return function_pointers.ControlWatchdogTask(task, action);
 }
 
 int32 ProdAPI::CreateAIAccel4WireDCVoltageChan(
@@ -2290,7 +2290,7 @@ int32 ProdAPI::CreateAIAccel4WireDCVoltageChan(
     bool32 useExcitForScaling,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIAccel4WireDCVoltageChan(
+    return function_pointers.CreateAIAccel4WireDCVoltageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2321,7 +2321,7 @@ int32 ProdAPI::CreateAIAccelChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIAccelChan(
+    return function_pointers.CreateAIAccelChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2349,7 +2349,7 @@ int32 ProdAPI::CreateAIAccelChargeChan(
     int32 sensitivityUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIAccelChargeChan(
+    return function_pointers.CreateAIAccelChargeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2376,7 +2376,7 @@ int32 ProdAPI::CreateAIBridgeChan(
     float64 nominalBridgeResistance,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIBridgeChan(
+    return function_pointers.CreateAIBridgeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2401,7 +2401,7 @@ int32 ProdAPI::CreateAIChargeChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIChargeChan(
+    return function_pointers.CreateAIChargeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2425,7 +2425,7 @@ int32 ProdAPI::CreateAICurrentChan(
     float64 extShuntResistorVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAICurrentChan(
+    return function_pointers.CreateAICurrentChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2451,7 +2451,7 @@ int32 ProdAPI::CreateAICurrentRMSChan(
     float64 extShuntResistorVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAICurrentRMSChan(
+    return function_pointers.CreateAICurrentRMSChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2484,7 +2484,7 @@ int32 ProdAPI::CreateAIForceBridgePolynomialChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIForceBridgePolynomialChan(
+    return function_pointers.CreateAIForceBridgePolynomialChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2524,7 +2524,7 @@ int32 ProdAPI::CreateAIForceBridgeTableChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIForceBridgeTableChan(
+    return function_pointers.CreateAIForceBridgeTableChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2564,7 +2564,7 @@ int32 ProdAPI::CreateAIForceBridgeTwoPointLinChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIForceBridgeTwoPointLinChan(
+    return function_pointers.CreateAIForceBridgeTwoPointLinChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2599,7 +2599,7 @@ int32 ProdAPI::CreateAIForceIEPEChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIForceIEPEChan(
+    return function_pointers.CreateAIForceIEPEChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2626,7 +2626,7 @@ int32 ProdAPI::CreateAIFreqVoltageChan(
     float64 hysteresis,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIFreqVoltageChan(
+    return function_pointers.CreateAIFreqVoltageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2651,7 +2651,7 @@ int32 ProdAPI::CreateAIMicrophoneChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIMicrophoneChan(
+    return function_pointers.CreateAIMicrophoneChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2676,7 +2676,7 @@ int32 ProdAPI::CreateAIPosEddyCurrProxProbeChan(
     int32 sensitivityUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPosEddyCurrProxProbeChan(
+    return function_pointers.CreateAIPosEddyCurrProxProbeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2704,7 +2704,7 @@ int32 ProdAPI::CreateAIPosLVDTChan(
     int32 acExcitWireMode,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPosLVDTChan(
+    return function_pointers.CreateAIPosLVDTChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2736,7 +2736,7 @@ int32 ProdAPI::CreateAIPosRVDTChan(
     int32 acExcitWireMode,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPosRVDTChan(
+    return function_pointers.CreateAIPosRVDTChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2783,7 +2783,7 @@ int32 ProdAPI::CreateAIPressureBridgePolynomialChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPressureBridgePolynomialChan(
+    return function_pointers.CreateAIPressureBridgePolynomialChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2823,7 +2823,7 @@ int32 ProdAPI::CreateAIPressureBridgeTableChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPressureBridgeTableChan(
+    return function_pointers.CreateAIPressureBridgeTableChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2863,7 +2863,7 @@ int32 ProdAPI::CreateAIPressureBridgeTwoPointLinChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIPressureBridgeTwoPointLinChan(
+    return function_pointers.CreateAIPressureBridgeTwoPointLinChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2897,7 +2897,7 @@ int32 ProdAPI::CreateAIRTDChan(
     float64 currentExcitVal,
     float64 r0
 ) {
-    return function_pointers_.CreateAIRTDChan(
+    return function_pointers.CreateAIRTDChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2924,7 +2924,7 @@ int32 ProdAPI::CreateAIResistanceChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIResistanceChan(
+    return function_pointers.CreateAIResistanceChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2956,7 +2956,7 @@ int32 ProdAPI::CreateAIRosetteStrainGageChan(
     float64 poissonRatio,
     float64 leadWireResistance
 ) {
-    return function_pointers_.CreateAIRosetteStrainGageChan(
+    return function_pointers.CreateAIRosetteStrainGageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -2993,7 +2993,7 @@ int32 ProdAPI::CreateAIStrainGageChan(
     float64 leadWireResistance,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIStrainGageChan(
+    return function_pointers.CreateAIStrainGageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3018,7 +3018,7 @@ int32 ProdAPI::CreateAITempBuiltInSensorChan(
     const char nameToAssignToChannel[],
     int32 units
 ) {
-    return function_pointers_.CreateAITempBuiltInSensorChan(
+    return function_pointers.CreateAITempBuiltInSensorChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3038,7 +3038,7 @@ int32 ProdAPI::CreateAIThrmcplChan(
     float64 cjcVal,
     const char cjcChannel[]
 ) {
-    return function_pointers_.CreateAIThrmcplChan(
+    return function_pointers.CreateAIThrmcplChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3066,7 +3066,7 @@ int32 ProdAPI::CreateAIThrmstrChanIex(
     float64 b,
     float64 c
 ) {
-    return function_pointers_.CreateAIThrmstrChanIex(
+    return function_pointers.CreateAIThrmstrChanIex(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3097,7 +3097,7 @@ int32 ProdAPI::CreateAIThrmstrChanVex(
     float64 c,
     float64 r1
 ) {
-    return function_pointers_.CreateAIThrmstrChanVex(
+    return function_pointers.CreateAIThrmstrChanVex(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3133,7 +3133,7 @@ int32 ProdAPI::CreateAITorqueBridgePolynomialChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAITorqueBridgePolynomialChan(
+    return function_pointers.CreateAITorqueBridgePolynomialChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3173,7 +3173,7 @@ int32 ProdAPI::CreateAITorqueBridgeTableChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAITorqueBridgeTableChan(
+    return function_pointers.CreateAITorqueBridgeTableChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3213,7 +3213,7 @@ int32 ProdAPI::CreateAITorqueBridgeTwoPointLinChan(
     int32 physicalUnits,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAITorqueBridgeTwoPointLinChan(
+    return function_pointers.CreateAITorqueBridgeTwoPointLinChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3248,7 +3248,7 @@ int32 ProdAPI::CreateAIVelocityIEPEChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIVelocityIEPEChan(
+    return function_pointers.CreateAIVelocityIEPEChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3274,7 +3274,7 @@ int32 ProdAPI::CreateAIVoltageChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIVoltageChan(
+    return function_pointers.CreateAIVoltageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3300,7 +3300,7 @@ int32 ProdAPI::CreateAIVoltageChanWithExcit(
     bool32 useExcitForScaling,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIVoltageChanWithExcit(
+    return function_pointers.CreateAIVoltageChanWithExcit(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3326,7 +3326,7 @@ int32 ProdAPI::CreateAIVoltageRMSChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAIVoltageRMSChan(
+    return function_pointers.CreateAIVoltageRMSChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3347,7 +3347,7 @@ int32 ProdAPI::CreateAOCurrentChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAOCurrentChan(
+    return function_pointers.CreateAOCurrentChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3367,7 +3367,7 @@ int32 ProdAPI::CreateAOFuncGenChan(
     float64 amplitude,
     float64 offset
 ) {
-    return function_pointers_.CreateAOFuncGenChan(
+    return function_pointers.CreateAOFuncGenChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3387,7 +3387,7 @@ int32 ProdAPI::CreateAOVoltageChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateAOVoltageChan(
+    return function_pointers.CreateAOVoltageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3411,7 +3411,7 @@ int32 ProdAPI::CreateCIAngEncoderChan(
     float64 initialAngle,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIAngEncoderChan(
+    return function_pointers.CreateCIAngEncoderChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3437,7 +3437,7 @@ int32 ProdAPI::CreateCIAngVelocityChan(
     uInt32 pulsesPerRev,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIAngVelocityChan(
+    return function_pointers.CreateCIAngVelocityChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3458,7 +3458,7 @@ int32 ProdAPI::CreateCICountEdgesChan(
     uInt32 initialCount,
     int32 countDirection
 ) {
-    return function_pointers_.CreateCICountEdgesChan(
+    return function_pointers.CreateCICountEdgesChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3477,7 +3477,7 @@ int32 ProdAPI::CreateCIDutyCycleChan(
     int32 edge,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIDutyCycleChan(
+    return function_pointers.CreateCIDutyCycleChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3501,7 +3501,7 @@ int32 ProdAPI::CreateCIFreqChan(
     uInt32 divisor,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIFreqChan(
+    return function_pointers.CreateCIFreqChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3524,7 +3524,7 @@ int32 ProdAPI::CreateCIGPSTimestampChan(
     int32 syncMethod,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIGPSTimestampChan(
+    return function_pointers.CreateCIGPSTimestampChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3547,7 +3547,7 @@ int32 ProdAPI::CreateCILinEncoderChan(
     float64 initialPos,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCILinEncoderChan(
+    return function_pointers.CreateCILinEncoderChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3573,7 +3573,7 @@ int32 ProdAPI::CreateCILinVelocityChan(
     float64 distPerPulse,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCILinVelocityChan(
+    return function_pointers.CreateCILinVelocityChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3599,7 +3599,7 @@ int32 ProdAPI::CreateCIPeriodChan(
     uInt32 divisor,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIPeriodChan(
+    return function_pointers.CreateCIPeriodChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3622,7 +3622,7 @@ int32 ProdAPI::CreateCIPulseChanFreq(
     float64 maxVal,
     int32 units
 ) {
-    return function_pointers_.CreateCIPulseChanFreq(
+    return function_pointers.CreateCIPulseChanFreq(
         task,
         counter,
         nameToAssignToChannel,
@@ -3640,7 +3640,7 @@ int32 ProdAPI::CreateCIPulseChanTicks(
     float64 minVal,
     float64 maxVal
 ) {
-    return function_pointers_.CreateCIPulseChanTicks(
+    return function_pointers.CreateCIPulseChanTicks(
         task,
         counter,
         nameToAssignToChannel,
@@ -3658,7 +3658,7 @@ int32 ProdAPI::CreateCIPulseChanTime(
     float64 maxVal,
     int32 units
 ) {
-    return function_pointers_.CreateCIPulseChanTime(
+    return function_pointers.CreateCIPulseChanTime(
         task,
         counter,
         nameToAssignToChannel,
@@ -3678,7 +3678,7 @@ int32 ProdAPI::CreateCIPulseWidthChan(
     int32 startingEdge,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCIPulseWidthChan(
+    return function_pointers.CreateCIPulseWidthChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3699,7 +3699,7 @@ int32 ProdAPI::CreateCISemiPeriodChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCISemiPeriodChan(
+    return function_pointers.CreateCISemiPeriodChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3721,7 +3721,7 @@ int32 ProdAPI::CreateCITwoEdgeSepChan(
     int32 secondEdge,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateCITwoEdgeSepChan(
+    return function_pointers.CreateCITwoEdgeSepChan(
         task,
         counter,
         nameToAssignToChannel,
@@ -3744,7 +3744,7 @@ int32 ProdAPI::CreateCOPulseChanFreq(
     float64 freq,
     float64 dutyCycle
 ) {
-    return function_pointers_.CreateCOPulseChanFreq(
+    return function_pointers.CreateCOPulseChanFreq(
         task,
         counter,
         nameToAssignToChannel,
@@ -3766,7 +3766,7 @@ int32 ProdAPI::CreateCOPulseChanTicks(
     int32 lowTicks,
     int32 highTicks
 ) {
-    return function_pointers_.CreateCOPulseChanTicks(
+    return function_pointers.CreateCOPulseChanTicks(
         task,
         counter,
         nameToAssignToChannel,
@@ -3788,7 +3788,7 @@ int32 ProdAPI::CreateCOPulseChanTime(
     float64 lowTime,
     float64 highTime
 ) {
-    return function_pointers_.CreateCOPulseChanTime(
+    return function_pointers.CreateCOPulseChanTime(
         task,
         counter,
         nameToAssignToChannel,
@@ -3806,7 +3806,7 @@ int32 ProdAPI::CreateDIChan(
     const char nameToAssignToLines[],
     int32 lineGrouping
 ) {
-    return function_pointers_
+    return function_pointers
         .CreateDIChan(task, lines, nameToAssignToLines, lineGrouping);
 }
 
@@ -3816,7 +3816,7 @@ int32 ProdAPI::CreateDOChan(
     const char nameToAssignToLines[],
     int32 lineGrouping
 ) {
-    return function_pointers_
+    return function_pointers
         .CreateDOChan(task, lines, nameToAssignToLines, lineGrouping);
 }
 
@@ -3827,7 +3827,7 @@ int32 ProdAPI::CreateLinScale(
     int32 preScaledUnits,
     const char scaledUnits[]
 ) {
-    return function_pointers_
+    return function_pointers
         .CreateLinScale(name, slope, yIntercept, preScaledUnits, scaledUnits);
 }
 
@@ -3840,7 +3840,7 @@ int32 ProdAPI::CreateMapScale(
     int32 preScaledUnits,
     const char scaledUnits[]
 ) {
-    return function_pointers_.CreateMapScale(
+    return function_pointers.CreateMapScale(
         name,
         prescaledMin,
         prescaledMax,
@@ -3860,7 +3860,7 @@ int32 ProdAPI::CreatePolynomialScale(
     int32 preScaledUnits,
     const char scaledUnits[]
 ) {
-    return function_pointers_.CreatePolynomialScale(
+    return function_pointers.CreatePolynomialScale(
         name,
         forwardCoeffs,
         numForwardCoeffsIn,
@@ -3883,7 +3883,7 @@ int32 ProdAPI::CreateTEDSAIAccelChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIAccelChan(
+    return function_pointers.CreateTEDSAIAccelChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3908,7 +3908,7 @@ int32 ProdAPI::CreateTEDSAIBridgeChan(
     float64 voltageExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIBridgeChan(
+    return function_pointers.CreateTEDSAIBridgeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3933,7 +3933,7 @@ int32 ProdAPI::CreateTEDSAICurrentChan(
     float64 extShuntResistorVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAICurrentChan(
+    return function_pointers.CreateTEDSAICurrentChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3958,7 +3958,7 @@ int32 ProdAPI::CreateTEDSAIForceBridgeChan(
     float64 voltageExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIForceBridgeChan(
+    return function_pointers.CreateTEDSAIForceBridgeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -3983,7 +3983,7 @@ int32 ProdAPI::CreateTEDSAIForceIEPEChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIForceIEPEChan(
+    return function_pointers.CreateTEDSAIForceIEPEChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4008,7 +4008,7 @@ int32 ProdAPI::CreateTEDSAIMicrophoneChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIMicrophoneChan(
+    return function_pointers.CreateTEDSAIMicrophoneChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4034,7 +4034,7 @@ int32 ProdAPI::CreateTEDSAIPosLVDTChan(
     int32 acExcitWireMode,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIPosLVDTChan(
+    return function_pointers.CreateTEDSAIPosLVDTChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4062,7 +4062,7 @@ int32 ProdAPI::CreateTEDSAIPosRVDTChan(
     int32 acExcitWireMode,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIPosRVDTChan(
+    return function_pointers.CreateTEDSAIPosRVDTChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4088,7 +4088,7 @@ int32 ProdAPI::CreateTEDSAIPressureBridgeChan(
     float64 voltageExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIPressureBridgeChan(
+    return function_pointers.CreateTEDSAIPressureBridgeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4112,7 +4112,7 @@ int32 ProdAPI::CreateTEDSAIRTDChan(
     int32 currentExcitSource,
     float64 currentExcitVal
 ) {
-    return function_pointers_.CreateTEDSAIRTDChan(
+    return function_pointers.CreateTEDSAIRTDChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4137,7 +4137,7 @@ int32 ProdAPI::CreateTEDSAIResistanceChan(
     float64 currentExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIResistanceChan(
+    return function_pointers.CreateTEDSAIResistanceChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4164,7 +4164,7 @@ int32 ProdAPI::CreateTEDSAIStrainGageChan(
     float64 leadWireResistance,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIStrainGageChan(
+    return function_pointers.CreateTEDSAIStrainGageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4190,7 +4190,7 @@ int32 ProdAPI::CreateTEDSAIThrmcplChan(
     float64 cjcVal,
     const char cjcChannel[]
 ) {
-    return function_pointers_.CreateTEDSAIThrmcplChan(
+    return function_pointers.CreateTEDSAIThrmcplChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4214,7 +4214,7 @@ int32 ProdAPI::CreateTEDSAIThrmstrChanIex(
     int32 currentExcitSource,
     float64 currentExcitVal
 ) {
-    return function_pointers_.CreateTEDSAIThrmstrChanIex(
+    return function_pointers.CreateTEDSAIThrmstrChanIex(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4239,7 +4239,7 @@ int32 ProdAPI::CreateTEDSAIThrmstrChanVex(
     float64 voltageExcitVal,
     float64 r1
 ) {
-    return function_pointers_.CreateTEDSAIThrmstrChanVex(
+    return function_pointers.CreateTEDSAIThrmstrChanVex(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4264,7 +4264,7 @@ int32 ProdAPI::CreateTEDSAITorqueBridgeChan(
     float64 voltageExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAITorqueBridgeChan(
+    return function_pointers.CreateTEDSAITorqueBridgeChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4287,7 +4287,7 @@ int32 ProdAPI::CreateTEDSAIVoltageChan(
     int32 units,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIVoltageChan(
+    return function_pointers.CreateTEDSAIVoltageChan(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4311,7 +4311,7 @@ int32 ProdAPI::CreateTEDSAIVoltageChanWithExcit(
     float64 voltageExcitVal,
     const char customScaleName[]
 ) {
-    return function_pointers_.CreateTEDSAIVoltageChanWithExcit(
+    return function_pointers.CreateTEDSAIVoltageChanWithExcit(
         task,
         physicalChannel,
         nameToAssignToChannel,
@@ -4334,7 +4334,7 @@ int32 ProdAPI::CreateTableScale(
     int32 preScaledUnits,
     const char scaledUnits[]
 ) {
-    return function_pointers_.CreateTableScale(
+    return function_pointers.CreateTableScale(
         name,
         prescaledVals,
         numPrescaledValsIn,
@@ -4346,7 +4346,7 @@ int32 ProdAPI::CreateTableScale(
 }
 
 int32 ProdAPI::CreateTask(const char sessionName[], TaskHandle *task) {
-    return function_pointers_.CreateTask(sessionName, task);
+    return function_pointers.CreateTask(sessionName, task);
 }
 
 int32 ProdAPI::CreateWatchdogTimerTask(
@@ -4549,7 +4549,7 @@ int32 ProdAPI::CreateWatchdogTimerTask(
     const char lines95[],
     int32 expState95
 ) const {
-    return function_pointers_.CreateWatchdogTimerTask(
+    return function_pointers.CreateWatchdogTimerTask(
         deviceName,
         sessionName,
         task,
@@ -4757,43 +4757,43 @@ int32 ProdAPI::CreateWatchdogTimerTaskEx(
     TaskHandle *task,
     float64 timeout
 ) {
-    return function_pointers_
+    return function_pointers
         .CreateWatchdogTimerTaskEx(deviceName, sessionName, task, timeout);
 }
 
 int32 ProdAPI::DeleteNetworkDevice(const char deviceName[]) {
-    return function_pointers_.DeleteNetworkDevice(deviceName);
+    return function_pointers.DeleteNetworkDevice(deviceName);
 }
 
 int32 ProdAPI::DeleteSavedGlobalChan(const char channelName[]) {
-    return function_pointers_.DeleteSavedGlobalChan(channelName);
+    return function_pointers.DeleteSavedGlobalChan(channelName);
 }
 
 int32 ProdAPI::DeleteSavedScale(const char scaleName[]) {
-    return function_pointers_.DeleteSavedScale(scaleName);
+    return function_pointers.DeleteSavedScale(scaleName);
 }
 
 int32 ProdAPI::DeleteSavedTask(const char taskName[]) {
-    return function_pointers_.DeleteSavedTask(taskName);
+    return function_pointers.DeleteSavedTask(taskName);
 }
 
 int32 ProdAPI::DeviceSupportsCal(const char deviceName[], bool32 *calSupported) {
-    return function_pointers_.DeviceSupportsCal(deviceName, calSupported);
+    return function_pointers.DeviceSupportsCal(deviceName, calSupported);
 }
 
 int32 ProdAPI::DisableRefTrig(TaskHandle task) {
-    return function_pointers_.DisableRefTrig(task);
+    return function_pointers.DisableRefTrig(task);
 }
 
 int32 ProdAPI::DisableStartTrig(TaskHandle task) {
-    return function_pointers_.DisableStartTrig(task);
+    return function_pointers.DisableStartTrig(task);
 }
 
 int32 ProdAPI::DisconnectTerms(
     const char sourceTerminal[],
     const char destinationTerminal[]
 ) {
-    return function_pointers_.DisconnectTerms(sourceTerminal, destinationTerminal);
+    return function_pointers.DisconnectTerms(sourceTerminal, destinationTerminal);
 }
 
 int32 ProdAPI::ExportSignal(
@@ -4801,7 +4801,7 @@ int32 ProdAPI::ExportSignal(
     int32 signalID,
     const char outputTerminal[]
 ) {
-    return function_pointers_.ExportSignal(task, signalID, outputTerminal);
+    return function_pointers.ExportSignal(task, signalID, outputTerminal);
 }
 
 int32 ProdAPI::GetAIChanCalCalDate(
@@ -4813,7 +4813,7 @@ int32 ProdAPI::GetAIChanCalCalDate(
     uInt32 *hour,
     uInt32 *minute
 ) {
-    return function_pointers_
+    return function_pointers
         .GetAIChanCalCalDate(task, channelName, year, month, day, hour, minute);
 }
 
@@ -4826,7 +4826,7 @@ int32 ProdAPI::GetAIChanCalExpDate(
     uInt32 *hour,
     uInt32 *minute
 ) {
-    return function_pointers_
+    return function_pointers
         .GetAIChanCalExpDate(task, channelName, year, month, day, hour, minute);
 }
 
@@ -5124,7 +5124,7 @@ int32 ProdAPI::GetAnalogPowerUpStates(
     float64 *state95,
     int32 channelType95
 ) const {
-    return function_pointers_.GetAnalogPowerUpStates(
+    return function_pointers.GetAnalogPowerUpStates(
         deviceName,
         channelName,
         state,
@@ -5426,7 +5426,7 @@ int32 ProdAPI::GetAnalogPowerUpStatesWithOutputType(
     int32 channelTypeArray[],
     uInt32 *arraySize
 ) {
-    return function_pointers_.GetAnalogPowerUpStatesWithOutputType(
+    return function_pointers.GetAnalogPowerUpStatesWithOutputType(
         channelNames,
         stateArray,
         channelTypeArray,
@@ -5435,18 +5435,18 @@ int32 ProdAPI::GetAnalogPowerUpStatesWithOutputType(
 }
 
 int32 ProdAPI::GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetArmStartTrigTimestampVal(task, data);
+    return function_pointers.GetArmStartTrigTimestampVal(task, data);
 }
 
 int32 ProdAPI::GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetArmStartTrigTrigWhen(task, data);
+    return function_pointers.GetArmStartTrigTrigWhen(task, data);
 }
 
 int32 ProdAPI::GetAutoConfiguredCDAQSyncConnections(
     char portList[],
     uInt32 portListSize
 ) {
-    return function_pointers_.GetAutoConfiguredCDAQSyncConnections(
+    return function_pointers.GetAutoConfiguredCDAQSyncConnections(
         portList,
         portListSize
     );
@@ -5457,7 +5457,7 @@ int32 ProdAPI::GetBufferAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetBufferAttributeUInt32(task, attribute, value);
+    return function_pointers.GetBufferAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetCalInfoAttributeBool(
@@ -5465,7 +5465,7 @@ int32 ProdAPI::GetCalInfoAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetCalInfoAttributeBool(deviceName, attribute, value);
+    return function_pointers.GetCalInfoAttributeBool(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetCalInfoAttributeDouble(
@@ -5473,7 +5473,7 @@ int32 ProdAPI::GetCalInfoAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetCalInfoAttributeDouble(deviceName, attribute, value);
+    return function_pointers.GetCalInfoAttributeDouble(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetCalInfoAttributeString(
@@ -5482,7 +5482,7 @@ int32 ProdAPI::GetCalInfoAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetCalInfoAttributeString(deviceName, attribute, value, size);
 }
 
@@ -5491,7 +5491,7 @@ int32 ProdAPI::GetCalInfoAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetCalInfoAttributeUInt32(deviceName, attribute, value);
+    return function_pointers.GetCalInfoAttributeUInt32(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetChanAttributeBool(
@@ -5500,7 +5500,7 @@ int32 ProdAPI::GetChanAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetChanAttributeBool(task, channel, attribute, value);
+    return function_pointers.GetChanAttributeBool(task, channel, attribute, value);
 }
 
 int32 ProdAPI::GetChanAttributeDouble(
@@ -5509,7 +5509,7 @@ int32 ProdAPI::GetChanAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetChanAttributeDouble(task, channel, attribute, value);
+    return function_pointers.GetChanAttributeDouble(task, channel, attribute, value);
 }
 
 int32 ProdAPI::GetChanAttributeDoubleArray(
@@ -5519,7 +5519,7 @@ int32 ProdAPI::GetChanAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetChanAttributeDoubleArray(task, channel, attribute, value, size);
 }
 
@@ -5529,7 +5529,7 @@ int32 ProdAPI::GetChanAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetChanAttributeInt32(task, channel, attribute, value);
+    return function_pointers.GetChanAttributeInt32(task, channel, attribute, value);
 }
 
 int32 ProdAPI::GetChanAttributeString(
@@ -5539,7 +5539,7 @@ int32 ProdAPI::GetChanAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetChanAttributeString(task, channel, attribute, value, size);
 }
 
@@ -5549,7 +5549,7 @@ int32 ProdAPI::GetChanAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetChanAttributeUInt32(task, channel, attribute, value);
+    return function_pointers.GetChanAttributeUInt32(task, channel, attribute, value);
 }
 
 int32 ProdAPI::GetDeviceAttributeBool(
@@ -5557,7 +5557,7 @@ int32 ProdAPI::GetDeviceAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetDeviceAttributeBool(deviceName, attribute, value);
+    return function_pointers.GetDeviceAttributeBool(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetDeviceAttributeDouble(
@@ -5565,7 +5565,7 @@ int32 ProdAPI::GetDeviceAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetDeviceAttributeDouble(deviceName, attribute, value);
+    return function_pointers.GetDeviceAttributeDouble(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetDeviceAttributeDoubleArray(
@@ -5574,7 +5574,7 @@ int32 ProdAPI::GetDeviceAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetDeviceAttributeDoubleArray(deviceName, attribute, value, size);
 }
 
@@ -5583,7 +5583,7 @@ int32 ProdAPI::GetDeviceAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetDeviceAttributeInt32(deviceName, attribute, value);
+    return function_pointers.GetDeviceAttributeInt32(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetDeviceAttributeInt32Array(
@@ -5592,7 +5592,7 @@ int32 ProdAPI::GetDeviceAttributeInt32Array(
     int32 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetDeviceAttributeInt32Array(deviceName, attribute, value, size);
 }
 
@@ -5602,7 +5602,7 @@ int32 ProdAPI::GetDeviceAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetDeviceAttributeString(deviceName, attribute, value, size);
 }
 
@@ -5611,7 +5611,7 @@ int32 ProdAPI::GetDeviceAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetDeviceAttributeUInt32(deviceName, attribute, value);
+    return function_pointers.GetDeviceAttributeUInt32(deviceName, attribute, value);
 }
 
 int32 ProdAPI::GetDeviceAttributeUInt32Array(
@@ -5620,7 +5620,7 @@ int32 ProdAPI::GetDeviceAttributeUInt32Array(
     uInt32 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetDeviceAttributeUInt32Array(deviceName, attribute, value, size);
 }
 
@@ -5628,10 +5628,7 @@ int32 ProdAPI::GetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 *logicFamily
 ) {
-    return function_pointers_.GetDigitalLogicFamilyPowerUpState(
-        deviceName,
-        logicFamily
-    );
+    return function_pointers.GetDigitalLogicFamilyPowerUpState(deviceName, logicFamily);
 }
 
 int32 ProdAPI::GetDigitalPowerUpStates(
@@ -5831,7 +5828,7 @@ int32 ProdAPI::GetDigitalPowerUpStates(
     const char channelName95[],
     int32 *state95
 ) const {
-    return function_pointers_.GetDigitalPowerUpStates(
+    return function_pointers.GetDigitalPowerUpStates(
         deviceName,
         channelName,
         state,
@@ -6227,7 +6224,7 @@ int32 ProdAPI::GetDigitalPullUpPullDownStates(
     const char channelName95[],
     int32 *state95
 ) const {
-    return function_pointers_.GetDigitalPullUpPullDownStates(
+    return function_pointers.GetDigitalPullUpPullDownStates(
         deviceName,
         channelName,
         state,
@@ -6427,11 +6424,11 @@ int32 ProdAPI::GetDigitalPullUpPullDownStates(
 }
 
 int32 ProdAPI::GetDisconnectedCDAQSyncPorts(char portList[], uInt32 portListSize) {
-    return function_pointers_.GetDisconnectedCDAQSyncPorts(portList, portListSize);
+    return function_pointers.GetDisconnectedCDAQSyncPorts(portList, portListSize);
 }
 
 int32 ProdAPI::GetErrorString(int32 errorCode, char errorString[], uInt32 bufferSize) {
-    return function_pointers_.GetErrorString(errorCode, errorString, bufferSize);
+    return function_pointers.GetErrorString(errorCode, errorString, bufferSize);
 }
 
 int32 ProdAPI::GetExportedSignalAttributeBool(
@@ -6439,7 +6436,7 @@ int32 ProdAPI::GetExportedSignalAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetExportedSignalAttributeBool(task, attribute, value);
+    return function_pointers.GetExportedSignalAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetExportedSignalAttributeDouble(
@@ -6447,7 +6444,7 @@ int32 ProdAPI::GetExportedSignalAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetExportedSignalAttributeDouble(task, attribute, value);
+    return function_pointers.GetExportedSignalAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::GetExportedSignalAttributeInt32(
@@ -6455,7 +6452,7 @@ int32 ProdAPI::GetExportedSignalAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetExportedSignalAttributeInt32(task, attribute, value);
+    return function_pointers.GetExportedSignalAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetExportedSignalAttributeString(
@@ -6464,7 +6461,7 @@ int32 ProdAPI::GetExportedSignalAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetExportedSignalAttributeString(task, attribute, value, size);
 }
 
@@ -6473,7 +6470,7 @@ int32 ProdAPI::GetExportedSignalAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetExportedSignalAttributeUInt32(task, attribute, value);
+    return function_pointers.GetExportedSignalAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetExtCalLastDateAndTime(
@@ -6484,20 +6481,20 @@ int32 ProdAPI::GetExtCalLastDateAndTime(
     uInt32 *hour,
     uInt32 *minute
 ) {
-    return function_pointers_
+    return function_pointers
         .GetExtCalLastDateAndTime(deviceName, year, month, day, hour, minute);
 }
 
 int32 ProdAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
-    return function_pointers_.GetExtendedErrorInfo(errorString, bufferSize);
+    return function_pointers.GetExtendedErrorInfo(errorString, bufferSize);
 }
 
 int32 ProdAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetFirstSampClkWhen(task, data);
+    return function_pointers.GetFirstSampClkWhen(task, data);
 }
 
 int32 ProdAPI::GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetFirstSampTimestampVal(task, data);
+    return function_pointers.GetFirstSampTimestampVal(task, data);
 }
 
 int32 ProdAPI::GetNthTaskChannel(
@@ -6506,7 +6503,7 @@ int32 ProdAPI::GetNthTaskChannel(
     char buffer[],
     int32 bufferSize
 ) {
-    return function_pointers_.GetNthTaskChannel(task, index, buffer, bufferSize);
+    return function_pointers.GetNthTaskChannel(task, index, buffer, bufferSize);
 }
 
 int32 ProdAPI::GetNthTaskDevice(
@@ -6515,7 +6512,7 @@ int32 ProdAPI::GetNthTaskDevice(
     char buffer[],
     int32 bufferSize
 ) {
-    return function_pointers_.GetNthTaskDevice(task, index, buffer, bufferSize);
+    return function_pointers.GetNthTaskDevice(task, index, buffer, bufferSize);
 }
 
 int32 ProdAPI::GetNthTaskReadChannel(
@@ -6524,7 +6521,7 @@ int32 ProdAPI::GetNthTaskReadChannel(
     char buffer[],
     int32 bufferSize
 ) {
-    return function_pointers_.GetNthTaskReadChannel(task, index, buffer, bufferSize);
+    return function_pointers.GetNthTaskReadChannel(task, index, buffer, bufferSize);
 }
 
 int32 ProdAPI::GetPersistedChanAttributeBool(
@@ -6532,7 +6529,7 @@ int32 ProdAPI::GetPersistedChanAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetPersistedChanAttributeBool(channel, attribute, value);
+    return function_pointers.GetPersistedChanAttributeBool(channel, attribute, value);
 }
 
 int32 ProdAPI::GetPersistedChanAttributeString(
@@ -6541,7 +6538,7 @@ int32 ProdAPI::GetPersistedChanAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPersistedChanAttributeString(channel, attribute, value, size);
 }
 
@@ -6550,7 +6547,7 @@ int32 ProdAPI::GetPersistedScaleAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPersistedScaleAttributeBool(scaleName, attribute, value);
 }
 
@@ -6560,7 +6557,7 @@ int32 ProdAPI::GetPersistedScaleAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPersistedScaleAttributeString(scaleName, attribute, value, size);
 }
 
@@ -6569,7 +6566,7 @@ int32 ProdAPI::GetPersistedTaskAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetPersistedTaskAttributeBool(taskName, attribute, value);
+    return function_pointers.GetPersistedTaskAttributeBool(taskName, attribute, value);
 }
 
 int32 ProdAPI::GetPersistedTaskAttributeString(
@@ -6578,7 +6575,7 @@ int32 ProdAPI::GetPersistedTaskAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPersistedTaskAttributeString(taskName, attribute, value, size);
 }
 
@@ -6587,7 +6584,7 @@ int32 ProdAPI::GetPhysicalChanAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeBool(physicalChannel, attribute, value);
 }
 
@@ -6597,7 +6594,7 @@ int32 ProdAPI::GetPhysicalChanAttributeBytes(
     uInt8 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeBytes(physicalChannel, attribute, value, size);
 }
 
@@ -6606,7 +6603,7 @@ int32 ProdAPI::GetPhysicalChanAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeDouble(physicalChannel, attribute, value);
 }
 
@@ -6616,7 +6613,7 @@ int32 ProdAPI::GetPhysicalChanAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeDoubleArray(physicalChannel, attribute, value, size);
 }
 
@@ -6625,7 +6622,7 @@ int32 ProdAPI::GetPhysicalChanAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeInt32(physicalChannel, attribute, value);
 }
 
@@ -6635,7 +6632,7 @@ int32 ProdAPI::GetPhysicalChanAttributeInt32Array(
     int32 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeInt32Array(physicalChannel, attribute, value, size);
 }
 
@@ -6645,7 +6642,7 @@ int32 ProdAPI::GetPhysicalChanAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeString(physicalChannel, attribute, value, size);
 }
 
@@ -6654,7 +6651,7 @@ int32 ProdAPI::GetPhysicalChanAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeUInt32(physicalChannel, attribute, value);
 }
 
@@ -6664,12 +6661,12 @@ int32 ProdAPI::GetPhysicalChanAttributeUInt32Array(
     uInt32 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetPhysicalChanAttributeUInt32Array(physicalChannel, attribute, value, size);
 }
 
 int32 ProdAPI::GetReadAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
-    return function_pointers_.GetReadAttributeBool(task, attribute, value);
+    return function_pointers.GetReadAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetReadAttributeDouble(
@@ -6677,11 +6674,11 @@ int32 ProdAPI::GetReadAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetReadAttributeDouble(task, attribute, value);
+    return function_pointers.GetReadAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::GetReadAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
-    return function_pointers_.GetReadAttributeInt32(task, attribute, value);
+    return function_pointers.GetReadAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetReadAttributeString(
@@ -6690,15 +6687,15 @@ int32 ProdAPI::GetReadAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetReadAttributeString(task, attribute, value, size);
+    return function_pointers.GetReadAttributeString(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
-    return function_pointers_.GetReadAttributeUInt32(task, attribute, value);
+    return function_pointers.GetReadAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value) {
-    return function_pointers_.GetReadAttributeUInt64(task, attribute, value);
+    return function_pointers.GetReadAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::GetRealTimeAttributeBool(
@@ -6706,7 +6703,7 @@ int32 ProdAPI::GetRealTimeAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetRealTimeAttributeBool(task, attribute, value);
+    return function_pointers.GetRealTimeAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetRealTimeAttributeInt32(
@@ -6714,7 +6711,7 @@ int32 ProdAPI::GetRealTimeAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetRealTimeAttributeInt32(task, attribute, value);
+    return function_pointers.GetRealTimeAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetRealTimeAttributeUInt32(
@@ -6722,11 +6719,11 @@ int32 ProdAPI::GetRealTimeAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetRealTimeAttributeUInt32(task, attribute, value);
+    return function_pointers.GetRealTimeAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetRefTrigTimestampVal(task, data);
+    return function_pointers.GetRefTrigTimestampVal(task, data);
 }
 
 int32 ProdAPI::GetScaleAttributeDouble(
@@ -6734,7 +6731,7 @@ int32 ProdAPI::GetScaleAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetScaleAttributeDouble(scaleName, attribute, value);
+    return function_pointers.GetScaleAttributeDouble(scaleName, attribute, value);
 }
 
 int32 ProdAPI::GetScaleAttributeDoubleArray(
@@ -6743,7 +6740,7 @@ int32 ProdAPI::GetScaleAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetScaleAttributeDoubleArray(scaleName, attribute, value, size);
 }
 
@@ -6752,7 +6749,7 @@ int32 ProdAPI::GetScaleAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetScaleAttributeInt32(scaleName, attribute, value);
+    return function_pointers.GetScaleAttributeInt32(scaleName, attribute, value);
 }
 
 int32 ProdAPI::GetScaleAttributeString(
@@ -6761,8 +6758,7 @@ int32 ProdAPI::GetScaleAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
-        .GetScaleAttributeString(scaleName, attribute, value, size);
+    return function_pointers.GetScaleAttributeString(scaleName, attribute, value, size);
 }
 
 int32 ProdAPI::GetSelfCalLastDateAndTime(
@@ -6773,20 +6769,20 @@ int32 ProdAPI::GetSelfCalLastDateAndTime(
     uInt32 *hour,
     uInt32 *minute
 ) {
-    return function_pointers_
+    return function_pointers
         .GetSelfCalLastDateAndTime(deviceName, year, month, day, hour, minute);
 }
 
 int32 ProdAPI::GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetStartTrigTimestampVal(task, data);
+    return function_pointers.GetStartTrigTimestampVal(task, data);
 }
 
 int32 ProdAPI::GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetStartTrigTrigWhen(task, data);
+    return function_pointers.GetStartTrigTrigWhen(task, data);
 }
 
 int32 ProdAPI::GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data) {
-    return function_pointers_.GetSyncPulseTimeWhen(task, data);
+    return function_pointers.GetSyncPulseTimeWhen(task, data);
 }
 
 int32 ProdAPI::GetSystemInfoAttributeString(
@@ -6794,15 +6790,15 @@ int32 ProdAPI::GetSystemInfoAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetSystemInfoAttributeString(attribute, value, size);
+    return function_pointers.GetSystemInfoAttributeString(attribute, value, size);
 }
 
 int32 ProdAPI::GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value) {
-    return function_pointers_.GetSystemInfoAttributeUInt32(attribute, value);
+    return function_pointers.GetSystemInfoAttributeUInt32(attribute, value);
 }
 
 int32 ProdAPI::GetTaskAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
-    return function_pointers_.GetTaskAttributeBool(task, attribute, value);
+    return function_pointers.GetTaskAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetTaskAttributeString(
@@ -6811,15 +6807,15 @@ int32 ProdAPI::GetTaskAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetTaskAttributeString(task, attribute, value, size);
+    return function_pointers.GetTaskAttributeString(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetTaskAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
-    return function_pointers_.GetTaskAttributeUInt32(task, attribute, value);
+    return function_pointers.GetTaskAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
-    return function_pointers_.GetTimingAttributeBool(task, attribute, value);
+    return function_pointers.GetTimingAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeDouble(
@@ -6827,7 +6823,7 @@ int32 ProdAPI::GetTimingAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetTimingAttributeDouble(task, attribute, value);
+    return function_pointers.GetTimingAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeExBool(
@@ -6836,7 +6832,7 @@ int32 ProdAPI::GetTimingAttributeExBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExBool(task, deviceNames, attribute, value);
 }
 
@@ -6846,7 +6842,7 @@ int32 ProdAPI::GetTimingAttributeExDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExDouble(task, deviceNames, attribute, value);
 }
 
@@ -6856,7 +6852,7 @@ int32 ProdAPI::GetTimingAttributeExInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExInt32(task, deviceNames, attribute, value);
 }
 
@@ -6867,7 +6863,7 @@ int32 ProdAPI::GetTimingAttributeExString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExString(task, deviceNames, attribute, value, size);
 }
 
@@ -6877,7 +6873,7 @@ int32 ProdAPI::GetTimingAttributeExTimestamp(
     int32 attribute,
     CVIAbsoluteTime *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExTimestamp(task, deviceNames, attribute, value);
 }
 
@@ -6887,7 +6883,7 @@ int32 ProdAPI::GetTimingAttributeExUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExUInt32(task, deviceNames, attribute, value);
 }
 
@@ -6897,12 +6893,12 @@ int32 ProdAPI::GetTimingAttributeExUInt64(
     int32 attribute,
     uInt64 *value
 ) {
-    return function_pointers_
+    return function_pointers
         .GetTimingAttributeExUInt64(task, deviceNames, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
-    return function_pointers_.GetTimingAttributeInt32(task, attribute, value);
+    return function_pointers.GetTimingAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeString(
@@ -6911,7 +6907,7 @@ int32 ProdAPI::GetTimingAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetTimingAttributeString(task, attribute, value, size);
+    return function_pointers.GetTimingAttributeString(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetTimingAttributeTimestamp(
@@ -6919,7 +6915,7 @@ int32 ProdAPI::GetTimingAttributeTimestamp(
     int32 attribute,
     CVIAbsoluteTime *value
 ) {
-    return function_pointers_.GetTimingAttributeTimestamp(task, attribute, value);
+    return function_pointers.GetTimingAttributeTimestamp(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeUInt32(
@@ -6927,7 +6923,7 @@ int32 ProdAPI::GetTimingAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetTimingAttributeUInt32(task, attribute, value);
+    return function_pointers.GetTimingAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetTimingAttributeUInt64(
@@ -6935,11 +6931,11 @@ int32 ProdAPI::GetTimingAttributeUInt64(
     int32 attribute,
     uInt64 *value
 ) {
-    return function_pointers_.GetTimingAttributeUInt64(task, attribute, value);
+    return function_pointers.GetTimingAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::GetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
-    return function_pointers_.GetTrigAttributeBool(task, attribute, value);
+    return function_pointers.GetTrigAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetTrigAttributeDouble(
@@ -6947,7 +6943,7 @@ int32 ProdAPI::GetTrigAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetTrigAttributeDouble(task, attribute, value);
+    return function_pointers.GetTrigAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::GetTrigAttributeDoubleArray(
@@ -6956,11 +6952,11 @@ int32 ProdAPI::GetTrigAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return function_pointers_.GetTrigAttributeDoubleArray(task, attribute, value, size);
+    return function_pointers.GetTrigAttributeDoubleArray(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
-    return function_pointers_.GetTrigAttributeInt32(task, attribute, value);
+    return function_pointers.GetTrigAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetTrigAttributeInt32Array(
@@ -6969,7 +6965,7 @@ int32 ProdAPI::GetTrigAttributeInt32Array(
     int32 value[],
     uInt32 size
 ) {
-    return function_pointers_.GetTrigAttributeInt32Array(task, attribute, value, size);
+    return function_pointers.GetTrigAttributeInt32Array(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetTrigAttributeString(
@@ -6978,7 +6974,7 @@ int32 ProdAPI::GetTrigAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetTrigAttributeString(task, attribute, value, size);
+    return function_pointers.GetTrigAttributeString(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetTrigAttributeTimestamp(
@@ -6986,11 +6982,11 @@ int32 ProdAPI::GetTrigAttributeTimestamp(
     int32 attribute,
     CVIAbsoluteTime *value
 ) {
-    return function_pointers_.GetTrigAttributeTimestamp(task, attribute, value);
+    return function_pointers.GetTrigAttributeTimestamp(task, attribute, value);
 }
 
 int32 ProdAPI::GetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
-    return function_pointers_.GetTrigAttributeUInt32(task, attribute, value);
+    return function_pointers.GetTrigAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetWatchdogAttributeBool(
@@ -6999,7 +6995,7 @@ int32 ProdAPI::GetWatchdogAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return function_pointers_.GetWatchdogAttributeBool(task, lines, attribute, value);
+    return function_pointers.GetWatchdogAttributeBool(task, lines, attribute, value);
 }
 
 int32 ProdAPI::GetWatchdogAttributeDouble(
@@ -7008,7 +7004,7 @@ int32 ProdAPI::GetWatchdogAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetWatchdogAttributeDouble(task, lines, attribute, value);
+    return function_pointers.GetWatchdogAttributeDouble(task, lines, attribute, value);
 }
 
 int32 ProdAPI::GetWatchdogAttributeInt32(
@@ -7017,7 +7013,7 @@ int32 ProdAPI::GetWatchdogAttributeInt32(
     int32 attribute,
     int32 *value
 ) {
-    return function_pointers_.GetWatchdogAttributeInt32(task, lines, attribute, value);
+    return function_pointers.GetWatchdogAttributeInt32(task, lines, attribute, value);
 }
 
 int32 ProdAPI::GetWatchdogAttributeString(
@@ -7027,12 +7023,12 @@ int32 ProdAPI::GetWatchdogAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .GetWatchdogAttributeString(task, lines, attribute, value, size);
 }
 
 int32 ProdAPI::GetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
-    return function_pointers_.GetWriteAttributeBool(task, attribute, value);
+    return function_pointers.GetWriteAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::GetWriteAttributeDouble(
@@ -7040,11 +7036,11 @@ int32 ProdAPI::GetWriteAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return function_pointers_.GetWriteAttributeDouble(task, attribute, value);
+    return function_pointers.GetWriteAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::GetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
-    return function_pointers_.GetWriteAttributeInt32(task, attribute, value);
+    return function_pointers.GetWriteAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetWriteAttributeString(
@@ -7053,7 +7049,7 @@ int32 ProdAPI::GetWriteAttributeString(
     char value[],
     uInt32 size
 ) {
-    return function_pointers_.GetWriteAttributeString(task, attribute, value, size);
+    return function_pointers.GetWriteAttributeString(task, attribute, value, size);
 }
 
 int32 ProdAPI::GetWriteAttributeUInt32(
@@ -7061,7 +7057,7 @@ int32 ProdAPI::GetWriteAttributeUInt32(
     int32 attribute,
     uInt32 *value
 ) {
-    return function_pointers_.GetWriteAttributeUInt32(task, attribute, value);
+    return function_pointers.GetWriteAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::GetWriteAttributeUInt64(
@@ -7069,15 +7065,15 @@ int32 ProdAPI::GetWriteAttributeUInt64(
     int32 attribute,
     uInt64 *value
 ) {
-    return function_pointers_.GetWriteAttributeUInt64(task, attribute, value);
+    return function_pointers.GetWriteAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::IsTaskDone(TaskHandle task, bool32 *isTaskDone) {
-    return function_pointers_.IsTaskDone(task, isTaskDone);
+    return function_pointers.IsTaskDone(task, isTaskDone);
 }
 
 int32 ProdAPI::LoadTask(const char sessionName[], TaskHandle *task) {
-    return function_pointers_.LoadTask(sessionName, task);
+    return function_pointers.LoadTask(sessionName, task);
 }
 
 int32 ProdAPI::PerformBridgeOffsetNullingCalEx(
@@ -7085,7 +7081,7 @@ int32 ProdAPI::PerformBridgeOffsetNullingCalEx(
     const char channel[],
     bool32 skipUnsupportedChannels
 ) {
-    return function_pointers_
+    return function_pointers
         .PerformBridgeOffsetNullingCalEx(task, channel, skipUnsupportedChannels);
 }
 
@@ -7099,7 +7095,7 @@ int32 ProdAPI::PerformBridgeShuntCalEx(
     float64 bridgeResistance,
     bool32 skipUnsupportedChannels
 ) {
-    return function_pointers_.PerformBridgeShuntCalEx(
+    return function_pointers.PerformBridgeShuntCalEx(
         task,
         channel,
         shuntResistorValue,
@@ -7120,7 +7116,7 @@ int32 ProdAPI::PerformStrainShuntCalEx(
     int32 shuntResistorSource,
     bool32 skipUnsupportedChannels
 ) {
-    return function_pointers_.PerformStrainShuntCalEx(
+    return function_pointers.PerformStrainShuntCalEx(
         task,
         channel,
         shuntResistorValue,
@@ -7136,7 +7132,7 @@ int32 ProdAPI::PerformThrmcplLeadOffsetNullingCal(
     const char channel[],
     bool32 skipUnsupportedChannels
 ) {
-    return function_pointers_
+    return function_pointers
         .PerformThrmcplLeadOffsetNullingCal(task, channel, skipUnsupportedChannels);
 }
 
@@ -7150,7 +7146,7 @@ int32 ProdAPI::ReadAnalogF64(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadAnalogF64(
+    return function_pointers.ReadAnalogF64(
         task,
         numSampsPerChan,
         timeout,
@@ -7168,7 +7164,7 @@ int32 ProdAPI::ReadAnalogScalarF64(
     float64 *value,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadAnalogScalarF64(task, timeout, value, reserved);
+    return function_pointers.ReadAnalogScalarF64(task, timeout, value, reserved);
 }
 
 int32 ProdAPI::ReadBinaryI16(
@@ -7181,7 +7177,7 @@ int32 ProdAPI::ReadBinaryI16(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadBinaryI16(
+    return function_pointers.ReadBinaryI16(
         task,
         numSampsPerChan,
         timeout,
@@ -7203,7 +7199,7 @@ int32 ProdAPI::ReadBinaryI32(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadBinaryI32(
+    return function_pointers.ReadBinaryI32(
         task,
         numSampsPerChan,
         timeout,
@@ -7225,7 +7221,7 @@ int32 ProdAPI::ReadBinaryU16(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadBinaryU16(
+    return function_pointers.ReadBinaryU16(
         task,
         numSampsPerChan,
         timeout,
@@ -7247,7 +7243,7 @@ int32 ProdAPI::ReadBinaryU32(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadBinaryU32(
+    return function_pointers.ReadBinaryU32(
         task,
         numSampsPerChan,
         timeout,
@@ -7268,7 +7264,7 @@ int32 ProdAPI::ReadCounterF64(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterF64(
+    return function_pointers.ReadCounterF64(
         task,
         numSampsPerChan,
         timeout,
@@ -7289,7 +7285,7 @@ int32 ProdAPI::ReadCounterF64Ex(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterF64Ex(
+    return function_pointers.ReadCounterF64Ex(
         task,
         numSampsPerChan,
         timeout,
@@ -7307,7 +7303,7 @@ int32 ProdAPI::ReadCounterScalarF64(
     float64 *value,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterScalarF64(task, timeout, value, reserved);
+    return function_pointers.ReadCounterScalarF64(task, timeout, value, reserved);
 }
 
 int32 ProdAPI::ReadCounterScalarU32(
@@ -7316,7 +7312,7 @@ int32 ProdAPI::ReadCounterScalarU32(
     uInt32 *value,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterScalarU32(task, timeout, value, reserved);
+    return function_pointers.ReadCounterScalarU32(task, timeout, value, reserved);
 }
 
 int32 ProdAPI::ReadCounterU32(
@@ -7328,7 +7324,7 @@ int32 ProdAPI::ReadCounterU32(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterU32(
+    return function_pointers.ReadCounterU32(
         task,
         numSampsPerChan,
         timeout,
@@ -7349,7 +7345,7 @@ int32 ProdAPI::ReadCounterU32Ex(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCounterU32Ex(
+    return function_pointers.ReadCounterU32Ex(
         task,
         numSampsPerChan,
         timeout,
@@ -7372,7 +7368,7 @@ int32 ProdAPI::ReadCtrFreq(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCtrFreq(
+    return function_pointers.ReadCtrFreq(
         task,
         numSampsPerChan,
         timeout,
@@ -7392,7 +7388,7 @@ int32 ProdAPI::ReadCtrFreqScalar(
     float64 *dutyCycle,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .ReadCtrFreqScalar(task, timeout, frequency, dutyCycle, reserved);
 }
 
@@ -7407,7 +7403,7 @@ int32 ProdAPI::ReadCtrTicks(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCtrTicks(
+    return function_pointers.ReadCtrTicks(
         task,
         numSampsPerChan,
         timeout,
@@ -7427,7 +7423,7 @@ int32 ProdAPI::ReadCtrTicksScalar(
     uInt32 *lowTicks,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .ReadCtrTicksScalar(task, timeout, highTicks, lowTicks, reserved);
 }
 
@@ -7442,7 +7438,7 @@ int32 ProdAPI::ReadCtrTime(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadCtrTime(
+    return function_pointers.ReadCtrTime(
         task,
         numSampsPerChan,
         timeout,
@@ -7462,7 +7458,7 @@ int32 ProdAPI::ReadCtrTimeScalar(
     float64 *lowTime,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .ReadCtrTimeScalar(task, timeout, highTime, lowTime, reserved);
 }
 
@@ -7477,7 +7473,7 @@ int32 ProdAPI::ReadDigitalLines(
     int32 *numBytesPerSamp,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadDigitalLines(
+    return function_pointers.ReadDigitalLines(
         task,
         numSampsPerChan,
         timeout,
@@ -7496,7 +7492,7 @@ int32 ProdAPI::ReadDigitalScalarU32(
     uInt32 *value,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadDigitalScalarU32(task, timeout, value, reserved);
+    return function_pointers.ReadDigitalScalarU32(task, timeout, value, reserved);
 }
 
 int32 ProdAPI::ReadDigitalU16(
@@ -7509,7 +7505,7 @@ int32 ProdAPI::ReadDigitalU16(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadDigitalU16(
+    return function_pointers.ReadDigitalU16(
         task,
         numSampsPerChan,
         timeout,
@@ -7531,7 +7527,7 @@ int32 ProdAPI::ReadDigitalU32(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadDigitalU32(
+    return function_pointers.ReadDigitalU32(
         task,
         numSampsPerChan,
         timeout,
@@ -7553,7 +7549,7 @@ int32 ProdAPI::ReadDigitalU8(
     int32 *sampsPerChanRead,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadDigitalU8(
+    return function_pointers.ReadDigitalU8(
         task,
         numSampsPerChan,
         timeout,
@@ -7613,7 +7609,7 @@ int32 ProdAPI::ReadRaw(
     int32 *numBytesPerSamp,
     bool32 *reserved
 ) {
-    return function_pointers_.ReadRaw(
+    return function_pointers.ReadRaw(
         task,
         numSampsPerChan,
         timeout,
@@ -7631,7 +7627,7 @@ int32 ProdAPI::RegisterDoneEvent(
     DAQmxDoneEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_
+    return function_pointers
         .RegisterDoneEvent(task, options, callbackFunction, callbackData);
 }
 
@@ -7643,7 +7639,7 @@ int32 ProdAPI::RegisterEveryNSamplesEvent(
     DAQmxEveryNSamplesEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_.RegisterEveryNSamplesEvent(
+    return function_pointers.RegisterEveryNSamplesEvent(
         task,
         everyNSamplesEventType,
         nSamples,
@@ -7660,23 +7656,23 @@ int32 ProdAPI::RegisterSignalEvent(
     DAQmxSignalEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_
+    return function_pointers
         .RegisterSignalEvent(task, signalID, options, callbackFunction, callbackData);
 }
 
 int32 ProdAPI::RemoveCDAQSyncConnection(const char portList[]) {
-    return function_pointers_.RemoveCDAQSyncConnection(portList);
+    return function_pointers.RemoveCDAQSyncConnection(portList);
 }
 
 int32 ProdAPI::ReserveNetworkDevice(
     const char deviceName[],
     bool32 overrideReservation
 ) {
-    return function_pointers_.ReserveNetworkDevice(deviceName, overrideReservation);
+    return function_pointers.ReserveNetworkDevice(deviceName, overrideReservation);
 }
 
 int32 ProdAPI::ResetBufferAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetBufferAttribute(task, attribute);
+    return function_pointers.ResetBufferAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetChanAttribute(
@@ -7684,27 +7680,27 @@ int32 ProdAPI::ResetChanAttribute(
     const char channel[],
     int32 attribute
 ) {
-    return function_pointers_.ResetChanAttribute(task, channel, attribute);
+    return function_pointers.ResetChanAttribute(task, channel, attribute);
 }
 
 int32 ProdAPI::ResetDevice(const char deviceName[]) {
-    return function_pointers_.ResetDevice(deviceName);
+    return function_pointers.ResetDevice(deviceName);
 }
 
 int32 ProdAPI::ResetExportedSignalAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetExportedSignalAttribute(task, attribute);
+    return function_pointers.ResetExportedSignalAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetReadAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetReadAttribute(task, attribute);
+    return function_pointers.ResetReadAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetRealTimeAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetRealTimeAttribute(task, attribute);
+    return function_pointers.ResetRealTimeAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetTimingAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetTimingAttribute(task, attribute);
+    return function_pointers.ResetTimingAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetTimingAttributeEx(
@@ -7712,11 +7708,11 @@ int32 ProdAPI::ResetTimingAttributeEx(
     const char deviceNames[],
     int32 attribute
 ) {
-    return function_pointers_.ResetTimingAttributeEx(task, deviceNames, attribute);
+    return function_pointers.ResetTimingAttributeEx(task, deviceNames, attribute);
 }
 
 int32 ProdAPI::ResetTrigAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetTrigAttribute(task, attribute);
+    return function_pointers.ResetTrigAttribute(task, attribute);
 }
 
 int32 ProdAPI::ResetWatchdogAttribute(
@@ -7724,15 +7720,15 @@ int32 ProdAPI::ResetWatchdogAttribute(
     const char lines[],
     int32 attribute
 ) {
-    return function_pointers_.ResetWatchdogAttribute(task, lines, attribute);
+    return function_pointers.ResetWatchdogAttribute(task, lines, attribute);
 }
 
 int32 ProdAPI::ResetWriteAttribute(TaskHandle task, int32 attribute) {
-    return function_pointers_.ResetWriteAttribute(task, attribute);
+    return function_pointers.ResetWriteAttribute(task, attribute);
 }
 
 int32 ProdAPI::RestoreLastExtCalConst(const char deviceName[]) {
-    return function_pointers_.RestoreLastExtCalConst(deviceName);
+    return function_pointers.RestoreLastExtCalConst(deviceName);
 }
 
 int32 ProdAPI::SaveGlobalChan(
@@ -7742,8 +7738,7 @@ int32 ProdAPI::SaveGlobalChan(
     const char author[],
     uInt32 options
 ) {
-    return function_pointers_
-        .SaveGlobalChan(task, channelName, saveAs, author, options);
+    return function_pointers.SaveGlobalChan(task, channelName, saveAs, author, options);
 }
 
 int32 ProdAPI::SaveScale(
@@ -7752,7 +7747,7 @@ int32 ProdAPI::SaveScale(
     const char author[],
     uInt32 options
 ) {
-    return function_pointers_.SaveScale(scaleName, saveAs, author, options);
+    return function_pointers.SaveScale(scaleName, saveAs, author, options);
 }
 
 int32 ProdAPI::SaveTask(
@@ -7761,15 +7756,15 @@ int32 ProdAPI::SaveTask(
     const char author[],
     uInt32 options
 ) {
-    return function_pointers_.SaveTask(task, saveAs, author, options);
+    return function_pointers.SaveTask(task, saveAs, author, options);
 }
 
 int32 ProdAPI::SelfCal(const char deviceName[]) {
-    return function_pointers_.SelfCal(deviceName);
+    return function_pointers.SelfCal(deviceName);
 }
 
 int32 ProdAPI::SelfTestDevice(const char deviceName[]) {
-    return function_pointers_.SelfTestDevice(deviceName);
+    return function_pointers.SelfTestDevice(deviceName);
 }
 
 int32 ProdAPI::SetAIChanCalCalDate(
@@ -7781,7 +7776,7 @@ int32 ProdAPI::SetAIChanCalCalDate(
     uInt32 hour,
     uInt32 minute
 ) {
-    return function_pointers_
+    return function_pointers
         .SetAIChanCalCalDate(task, channelName, year, month, day, hour, minute);
 }
 
@@ -7794,7 +7789,7 @@ int32 ProdAPI::SetAIChanCalExpDate(
     uInt32 hour,
     uInt32 minute
 ) {
-    return function_pointers_
+    return function_pointers
         .SetAIChanCalExpDate(task, channelName, year, month, day, hour, minute);
 }
 
@@ -8092,7 +8087,7 @@ int32 ProdAPI::SetAnalogPowerUpStates(
     float64 state95,
     int32 channelType95
 ) const {
-    return function_pointers_.SetAnalogPowerUpStates(
+    return function_pointers.SetAnalogPowerUpStates(
         deviceName,
         channelNames,
         state,
@@ -8394,7 +8389,7 @@ int32 ProdAPI::SetAnalogPowerUpStatesWithOutputType(
     const int32 channelTypeArray[],
     uInt32 arraySize
 ) {
-    return function_pointers_.SetAnalogPowerUpStatesWithOutputType(
+    return function_pointers.SetAnalogPowerUpStatesWithOutputType(
         channelNames,
         stateArray,
         channelTypeArray,
@@ -8403,7 +8398,7 @@ int32 ProdAPI::SetAnalogPowerUpStatesWithOutputType(
 }
 
 int32 ProdAPI::SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
-    return function_pointers_.SetArmStartTrigTrigWhen(task, data);
+    return function_pointers.SetArmStartTrigTrigWhen(task, data);
 }
 
 int32 ProdAPI::SetBufferAttributeUInt32(
@@ -8411,7 +8406,7 @@ int32 ProdAPI::SetBufferAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetBufferAttributeUInt32(task, attribute, value);
+    return function_pointers.SetBufferAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetCalInfoAttributeBool(
@@ -8419,7 +8414,7 @@ int32 ProdAPI::SetCalInfoAttributeBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_.SetCalInfoAttributeBool(deviceName, attribute, value);
+    return function_pointers.SetCalInfoAttributeBool(deviceName, attribute, value);
 }
 
 int32 ProdAPI::SetCalInfoAttributeDouble(
@@ -8427,7 +8422,7 @@ int32 ProdAPI::SetCalInfoAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetCalInfoAttributeDouble(deviceName, attribute, value);
+    return function_pointers.SetCalInfoAttributeDouble(deviceName, attribute, value);
 }
 
 int32 ProdAPI::SetCalInfoAttributeString(
@@ -8435,7 +8430,7 @@ int32 ProdAPI::SetCalInfoAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetCalInfoAttributeString(deviceName, attribute, value);
+    return function_pointers.SetCalInfoAttributeString(deviceName, attribute, value);
 }
 
 int32 ProdAPI::SetCalInfoAttributeUInt32(
@@ -8443,7 +8438,7 @@ int32 ProdAPI::SetCalInfoAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetCalInfoAttributeUInt32(deviceName, attribute, value);
+    return function_pointers.SetCalInfoAttributeUInt32(deviceName, attribute, value);
 }
 
 int32 ProdAPI::SetChanAttributeBool(
@@ -8452,7 +8447,7 @@ int32 ProdAPI::SetChanAttributeBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_.SetChanAttributeBool(task, channel, attribute, value);
+    return function_pointers.SetChanAttributeBool(task, channel, attribute, value);
 }
 
 int32 ProdAPI::SetChanAttributeDouble(
@@ -8461,7 +8456,7 @@ int32 ProdAPI::SetChanAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetChanAttributeDouble(task, channel, attribute, value);
+    return function_pointers.SetChanAttributeDouble(task, channel, attribute, value);
 }
 
 int32 ProdAPI::SetChanAttributeDoubleArray(
@@ -8471,7 +8466,7 @@ int32 ProdAPI::SetChanAttributeDoubleArray(
     const float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .SetChanAttributeDoubleArray(task, channel, attribute, value, size);
 }
 
@@ -8481,7 +8476,7 @@ int32 ProdAPI::SetChanAttributeInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_.SetChanAttributeInt32(task, channel, attribute, value);
+    return function_pointers.SetChanAttributeInt32(task, channel, attribute, value);
 }
 
 int32 ProdAPI::SetChanAttributeString(
@@ -8490,7 +8485,7 @@ int32 ProdAPI::SetChanAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetChanAttributeString(task, channel, attribute, value);
+    return function_pointers.SetChanAttributeString(task, channel, attribute, value);
 }
 
 int32 ProdAPI::SetChanAttributeUInt32(
@@ -8499,17 +8494,14 @@ int32 ProdAPI::SetChanAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetChanAttributeUInt32(task, channel, attribute, value);
+    return function_pointers.SetChanAttributeUInt32(task, channel, attribute, value);
 }
 
 int32 ProdAPI::SetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 logicFamily
 ) {
-    return function_pointers_.SetDigitalLogicFamilyPowerUpState(
-        deviceName,
-        logicFamily
-    );
+    return function_pointers.SetDigitalLogicFamilyPowerUpState(deviceName, logicFamily);
 }
 
 int32 ProdAPI::SetDigitalPowerUpStates(
@@ -8709,7 +8701,7 @@ int32 ProdAPI::SetDigitalPowerUpStates(
     const char channelNames95[],
     int32 state95
 ) const {
-    return function_pointers_.SetDigitalPowerUpStates(
+    return function_pointers.SetDigitalPowerUpStates(
         deviceName,
         channelNames,
         state,
@@ -9105,7 +9097,7 @@ int32 ProdAPI::SetDigitalPullUpPullDownStates(
     const char channelNames95[],
     int32 state95
 ) const {
-    return function_pointers_.SetDigitalPullUpPullDownStates(
+    return function_pointers.SetDigitalPullUpPullDownStates(
         deviceName,
         channelNames,
         state,
@@ -9309,7 +9301,7 @@ int32 ProdAPI::SetExportedSignalAttributeBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_.SetExportedSignalAttributeBool(task, attribute, value);
+    return function_pointers.SetExportedSignalAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetExportedSignalAttributeDouble(
@@ -9317,7 +9309,7 @@ int32 ProdAPI::SetExportedSignalAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetExportedSignalAttributeDouble(task, attribute, value);
+    return function_pointers.SetExportedSignalAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::SetExportedSignalAttributeInt32(
@@ -9325,7 +9317,7 @@ int32 ProdAPI::SetExportedSignalAttributeInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_.SetExportedSignalAttributeInt32(task, attribute, value);
+    return function_pointers.SetExportedSignalAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetExportedSignalAttributeString(
@@ -9333,7 +9325,7 @@ int32 ProdAPI::SetExportedSignalAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetExportedSignalAttributeString(task, attribute, value);
+    return function_pointers.SetExportedSignalAttributeString(task, attribute, value);
 }
 
 int32 ProdAPI::SetExportedSignalAttributeUInt32(
@@ -9341,23 +9333,23 @@ int32 ProdAPI::SetExportedSignalAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetExportedSignalAttributeUInt32(task, attribute, value);
+    return function_pointers.SetExportedSignalAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
-    return function_pointers_.SetFirstSampClkWhen(task, data);
+    return function_pointers.SetFirstSampClkWhen(task, data);
 }
 
 int32 ProdAPI::SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
-    return function_pointers_.SetReadAttributeBool(task, attribute, value);
+    return function_pointers.SetReadAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetReadAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
-    return function_pointers_.SetReadAttributeDouble(task, attribute, value);
+    return function_pointers.SetReadAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
-    return function_pointers_.SetReadAttributeInt32(task, attribute, value);
+    return function_pointers.SetReadAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetReadAttributeString(
@@ -9365,15 +9357,15 @@ int32 ProdAPI::SetReadAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetReadAttributeString(task, attribute, value);
+    return function_pointers.SetReadAttributeString(task, attribute, value);
 }
 
 int32 ProdAPI::SetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
-    return function_pointers_.SetReadAttributeUInt32(task, attribute, value);
+    return function_pointers.SetReadAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value) {
-    return function_pointers_.SetReadAttributeUInt64(task, attribute, value);
+    return function_pointers.SetReadAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::SetRealTimeAttributeBool(
@@ -9381,7 +9373,7 @@ int32 ProdAPI::SetRealTimeAttributeBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_.SetRealTimeAttributeBool(task, attribute, value);
+    return function_pointers.SetRealTimeAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetRealTimeAttributeInt32(
@@ -9389,7 +9381,7 @@ int32 ProdAPI::SetRealTimeAttributeInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_.SetRealTimeAttributeInt32(task, attribute, value);
+    return function_pointers.SetRealTimeAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetRealTimeAttributeUInt32(
@@ -9397,7 +9389,7 @@ int32 ProdAPI::SetRealTimeAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetRealTimeAttributeUInt32(task, attribute, value);
+    return function_pointers.SetRealTimeAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetRuntimeEnvironment(
@@ -9406,7 +9398,7 @@ int32 ProdAPI::SetRuntimeEnvironment(
     const char reserved1[],
     const char reserved2[]
 ) {
-    return function_pointers_
+    return function_pointers
         .SetRuntimeEnvironment(environment, environmentVersion, reserved1, reserved2);
 }
 
@@ -9415,7 +9407,7 @@ int32 ProdAPI::SetScaleAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetScaleAttributeDouble(scaleName, attribute, value);
+    return function_pointers.SetScaleAttributeDouble(scaleName, attribute, value);
 }
 
 int32 ProdAPI::SetScaleAttributeDoubleArray(
@@ -9424,7 +9416,7 @@ int32 ProdAPI::SetScaleAttributeDoubleArray(
     const float64 value[],
     uInt32 size
 ) {
-    return function_pointers_
+    return function_pointers
         .SetScaleAttributeDoubleArray(scaleName, attribute, value, size);
 }
 
@@ -9433,7 +9425,7 @@ int32 ProdAPI::SetScaleAttributeInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_.SetScaleAttributeInt32(scaleName, attribute, value);
+    return function_pointers.SetScaleAttributeInt32(scaleName, attribute, value);
 }
 
 int32 ProdAPI::SetScaleAttributeString(
@@ -9441,19 +9433,19 @@ int32 ProdAPI::SetScaleAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetScaleAttributeString(scaleName, attribute, value);
+    return function_pointers.SetScaleAttributeString(scaleName, attribute, value);
 }
 
 int32 ProdAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
-    return function_pointers_.SetStartTrigTrigWhen(task, data);
+    return function_pointers.SetStartTrigTrigWhen(task, data);
 }
 
 int32 ProdAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
-    return function_pointers_.SetSyncPulseTimeWhen(task, data);
+    return function_pointers.SetSyncPulseTimeWhen(task, data);
 }
 
 int32 ProdAPI::SetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
-    return function_pointers_.SetTimingAttributeBool(task, attribute, value);
+    return function_pointers.SetTimingAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeDouble(
@@ -9461,7 +9453,7 @@ int32 ProdAPI::SetTimingAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetTimingAttributeDouble(task, attribute, value);
+    return function_pointers.SetTimingAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeExBool(
@@ -9470,7 +9462,7 @@ int32 ProdAPI::SetTimingAttributeExBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExBool(task, deviceNames, attribute, value);
 }
 
@@ -9480,7 +9472,7 @@ int32 ProdAPI::SetTimingAttributeExDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExDouble(task, deviceNames, attribute, value);
 }
 
@@ -9490,7 +9482,7 @@ int32 ProdAPI::SetTimingAttributeExInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExInt32(task, deviceNames, attribute, value);
 }
 
@@ -9500,7 +9492,7 @@ int32 ProdAPI::SetTimingAttributeExString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExString(task, deviceNames, attribute, value);
 }
 
@@ -9510,7 +9502,7 @@ int32 ProdAPI::SetTimingAttributeExTimestamp(
     int32 attribute,
     CVIAbsoluteTime value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExTimestamp(task, deviceNames, attribute, value);
 }
 
@@ -9520,7 +9512,7 @@ int32 ProdAPI::SetTimingAttributeExUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExUInt32(task, deviceNames, attribute, value);
 }
 
@@ -9530,12 +9522,12 @@ int32 ProdAPI::SetTimingAttributeExUInt64(
     int32 attribute,
     uInt64 value
 ) {
-    return function_pointers_
+    return function_pointers
         .SetTimingAttributeExUInt64(task, deviceNames, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
-    return function_pointers_.SetTimingAttributeInt32(task, attribute, value);
+    return function_pointers.SetTimingAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeString(
@@ -9543,7 +9535,7 @@ int32 ProdAPI::SetTimingAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetTimingAttributeString(task, attribute, value);
+    return function_pointers.SetTimingAttributeString(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeTimestamp(
@@ -9551,7 +9543,7 @@ int32 ProdAPI::SetTimingAttributeTimestamp(
     int32 attribute,
     CVIAbsoluteTime value
 ) {
-    return function_pointers_.SetTimingAttributeTimestamp(task, attribute, value);
+    return function_pointers.SetTimingAttributeTimestamp(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeUInt32(
@@ -9559,7 +9551,7 @@ int32 ProdAPI::SetTimingAttributeUInt32(
     int32 attribute,
     uInt32 value
 ) {
-    return function_pointers_.SetTimingAttributeUInt32(task, attribute, value);
+    return function_pointers.SetTimingAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetTimingAttributeUInt64(
@@ -9567,15 +9559,15 @@ int32 ProdAPI::SetTimingAttributeUInt64(
     int32 attribute,
     uInt64 value
 ) {
-    return function_pointers_.SetTimingAttributeUInt64(task, attribute, value);
+    return function_pointers.SetTimingAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
-    return function_pointers_.SetTrigAttributeBool(task, attribute, value);
+    return function_pointers.SetTrigAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
-    return function_pointers_.SetTrigAttributeDouble(task, attribute, value);
+    return function_pointers.SetTrigAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeDoubleArray(
@@ -9584,11 +9576,11 @@ int32 ProdAPI::SetTrigAttributeDoubleArray(
     const float64 value[],
     uInt32 size
 ) {
-    return function_pointers_.SetTrigAttributeDoubleArray(task, attribute, value, size);
+    return function_pointers.SetTrigAttributeDoubleArray(task, attribute, value, size);
 }
 
 int32 ProdAPI::SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
-    return function_pointers_.SetTrigAttributeInt32(task, attribute, value);
+    return function_pointers.SetTrigAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeInt32Array(
@@ -9597,7 +9589,7 @@ int32 ProdAPI::SetTrigAttributeInt32Array(
     const int32 value[],
     uInt32 size
 ) {
-    return function_pointers_.SetTrigAttributeInt32Array(task, attribute, value, size);
+    return function_pointers.SetTrigAttributeInt32Array(task, attribute, value, size);
 }
 
 int32 ProdAPI::SetTrigAttributeString(
@@ -9605,7 +9597,7 @@ int32 ProdAPI::SetTrigAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetTrigAttributeString(task, attribute, value);
+    return function_pointers.SetTrigAttributeString(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeTimestamp(
@@ -9613,11 +9605,11 @@ int32 ProdAPI::SetTrigAttributeTimestamp(
     int32 attribute,
     CVIAbsoluteTime value
 ) {
-    return function_pointers_.SetTrigAttributeTimestamp(task, attribute, value);
+    return function_pointers.SetTrigAttributeTimestamp(task, attribute, value);
 }
 
 int32 ProdAPI::SetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
-    return function_pointers_.SetTrigAttributeUInt32(task, attribute, value);
+    return function_pointers.SetTrigAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetWatchdogAttributeBool(
@@ -9626,7 +9618,7 @@ int32 ProdAPI::SetWatchdogAttributeBool(
     int32 attribute,
     bool32 value
 ) {
-    return function_pointers_.SetWatchdogAttributeBool(task, lines, attribute, value);
+    return function_pointers.SetWatchdogAttributeBool(task, lines, attribute, value);
 }
 
 int32 ProdAPI::SetWatchdogAttributeDouble(
@@ -9635,7 +9627,7 @@ int32 ProdAPI::SetWatchdogAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetWatchdogAttributeDouble(task, lines, attribute, value);
+    return function_pointers.SetWatchdogAttributeDouble(task, lines, attribute, value);
 }
 
 int32 ProdAPI::SetWatchdogAttributeInt32(
@@ -9644,7 +9636,7 @@ int32 ProdAPI::SetWatchdogAttributeInt32(
     int32 attribute,
     int32 value
 ) {
-    return function_pointers_.SetWatchdogAttributeInt32(task, lines, attribute, value);
+    return function_pointers.SetWatchdogAttributeInt32(task, lines, attribute, value);
 }
 
 int32 ProdAPI::SetWatchdogAttributeString(
@@ -9653,11 +9645,11 @@ int32 ProdAPI::SetWatchdogAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetWatchdogAttributeString(task, lines, attribute, value);
+    return function_pointers.SetWatchdogAttributeString(task, lines, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
-    return function_pointers_.SetWriteAttributeBool(task, attribute, value);
+    return function_pointers.SetWriteAttributeBool(task, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeDouble(
@@ -9665,11 +9657,11 @@ int32 ProdAPI::SetWriteAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return function_pointers_.SetWriteAttributeDouble(task, attribute, value);
+    return function_pointers.SetWriteAttributeDouble(task, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
-    return function_pointers_.SetWriteAttributeInt32(task, attribute, value);
+    return function_pointers.SetWriteAttributeInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeString(
@@ -9677,35 +9669,35 @@ int32 ProdAPI::SetWriteAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return function_pointers_.SetWriteAttributeString(task, attribute, value);
+    return function_pointers.SetWriteAttributeString(task, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
-    return function_pointers_.SetWriteAttributeUInt32(task, attribute, value);
+    return function_pointers.SetWriteAttributeUInt32(task, attribute, value);
 }
 
 int32 ProdAPI::SetWriteAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value) {
-    return function_pointers_.SetWriteAttributeUInt64(task, attribute, value);
+    return function_pointers.SetWriteAttributeUInt64(task, attribute, value);
 }
 
 int32 ProdAPI::StartNewFile(TaskHandle task, const char filePath[]) {
-    return function_pointers_.StartNewFile(task, filePath);
+    return function_pointers.StartNewFile(task, filePath);
 }
 
 int32 ProdAPI::StartTask(TaskHandle task) {
-    return function_pointers_.StartTask(task);
+    return function_pointers.StartTask(task);
 }
 
 int32 ProdAPI::StopTask(TaskHandle task) {
-    return function_pointers_.StopTask(task);
+    return function_pointers.StopTask(task);
 }
 
 int32 ProdAPI::TaskControl(TaskHandle task, int32 action) {
-    return function_pointers_.TaskControl(task, action);
+    return function_pointers.TaskControl(task, action);
 }
 
 int32 ProdAPI::TristateOutputTerm(const char outputTerminal[]) {
-    return function_pointers_.TristateOutputTerm(outputTerminal);
+    return function_pointers.TristateOutputTerm(outputTerminal);
 }
 
 int32 ProdAPI::UnregisterDoneEvent(
@@ -9714,7 +9706,7 @@ int32 ProdAPI::UnregisterDoneEvent(
     DAQmxDoneEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_
+    return function_pointers
         .UnregisterDoneEvent(task, options, callbackFunction, callbackData);
 }
 
@@ -9726,7 +9718,7 @@ int32 ProdAPI::UnregisterEveryNSamplesEvent(
     DAQmxEveryNSamplesEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_.UnregisterEveryNSamplesEvent(
+    return function_pointers.UnregisterEveryNSamplesEvent(
         task,
         everyNSamplesEventType,
         nSamples,
@@ -9743,12 +9735,12 @@ int32 ProdAPI::UnregisterSignalEvent(
     DAQmxSignalEventCallbackPtr callbackFunction,
     void *callbackData
 ) {
-    return function_pointers_
+    return function_pointers
         .UnregisterSignalEvent(task, signalID, options, callbackFunction, callbackData);
 }
 
 int32 ProdAPI::UnreserveNetworkDevice(const char deviceName[]) {
-    return function_pointers_.UnreserveNetworkDevice(deviceName);
+    return function_pointers.UnreserveNetworkDevice(deviceName);
 }
 
 int32 ProdAPI::WaitForNextSampleClock(
@@ -9756,7 +9748,7 @@ int32 ProdAPI::WaitForNextSampleClock(
     float64 timeout,
     bool32 *isLate
 ) {
-    return function_pointers_.WaitForNextSampleClock(task, timeout, isLate);
+    return function_pointers.WaitForNextSampleClock(task, timeout, isLate);
 }
 
 int32 ProdAPI::WaitForValidTimestamp(
@@ -9765,12 +9757,12 @@ int32 ProdAPI::WaitForValidTimestamp(
     float64 timeout,
     CVIAbsoluteTime *timestamp
 ) {
-    return function_pointers_
+    return function_pointers
         .WaitForValidTimestamp(task, timestampEvent, timeout, timestamp);
 }
 
 int32 ProdAPI::WaitUntilTaskDone(TaskHandle task, float64 timeToWait) {
-    return function_pointers_.WaitUntilTaskDone(task, timeToWait);
+    return function_pointers.WaitUntilTaskDone(task, timeToWait);
 }
 
 int32 ProdAPI::WriteAnalogF64(
@@ -9783,7 +9775,7 @@ int32 ProdAPI::WriteAnalogF64(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteAnalogF64(
+    return function_pointers.WriteAnalogF64(
         task,
         numSampsPerChan,
         autoStart,
@@ -9802,7 +9794,7 @@ int32 ProdAPI::WriteAnalogScalarF64(
     float64 value,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteAnalogScalarF64(task, autoStart, timeout, value, reserved);
 }
 
@@ -9816,7 +9808,7 @@ int32 ProdAPI::WriteBinaryI16(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteBinaryI16(
+    return function_pointers.WriteBinaryI16(
         task,
         numSampsPerChan,
         autoStart,
@@ -9838,7 +9830,7 @@ int32 ProdAPI::WriteBinaryI32(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteBinaryI32(
+    return function_pointers.WriteBinaryI32(
         task,
         numSampsPerChan,
         autoStart,
@@ -9860,7 +9852,7 @@ int32 ProdAPI::WriteBinaryU16(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteBinaryU16(
+    return function_pointers.WriteBinaryU16(
         task,
         numSampsPerChan,
         autoStart,
@@ -9882,7 +9874,7 @@ int32 ProdAPI::WriteBinaryU32(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteBinaryU32(
+    return function_pointers.WriteBinaryU32(
         task,
         numSampsPerChan,
         autoStart,
@@ -9905,7 +9897,7 @@ int32 ProdAPI::WriteCtrFreq(
     int32 *numSampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteCtrFreq(
+    return function_pointers.WriteCtrFreq(
         task,
         numSampsPerChan,
         autoStart,
@@ -9926,7 +9918,7 @@ int32 ProdAPI::WriteCtrFreqScalar(
     float64 dutyCycle,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteCtrFreqScalar(task, autoStart, timeout, frequency, dutyCycle, reserved);
 }
 
@@ -9941,7 +9933,7 @@ int32 ProdAPI::WriteCtrTicks(
     int32 *numSampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteCtrTicks(
+    return function_pointers.WriteCtrTicks(
         task,
         numSampsPerChan,
         autoStart,
@@ -9962,7 +9954,7 @@ int32 ProdAPI::WriteCtrTicksScalar(
     uInt32 lowTicks,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteCtrTicksScalar(task, autoStart, timeout, highTicks, lowTicks, reserved);
 }
 
@@ -9977,7 +9969,7 @@ int32 ProdAPI::WriteCtrTime(
     int32 *numSampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteCtrTime(
+    return function_pointers.WriteCtrTime(
         task,
         numSampsPerChan,
         autoStart,
@@ -9998,7 +9990,7 @@ int32 ProdAPI::WriteCtrTimeScalar(
     float64 lowTime,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteCtrTimeScalar(task, autoStart, timeout, highTime, lowTime, reserved);
 }
 
@@ -10012,7 +10004,7 @@ int32 ProdAPI::WriteDigitalLines(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteDigitalLines(
+    return function_pointers.WriteDigitalLines(
         task,
         numSampsPerChan,
         autoStart,
@@ -10031,7 +10023,7 @@ int32 ProdAPI::WriteDigitalScalarU32(
     uInt32 value,
     bool32 *reserved
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteDigitalScalarU32(task, autoStart, timeout, value, reserved);
 }
 
@@ -10045,7 +10037,7 @@ int32 ProdAPI::WriteDigitalU16(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteDigitalU16(
+    return function_pointers.WriteDigitalU16(
         task,
         numSampsPerChan,
         autoStart,
@@ -10067,7 +10059,7 @@ int32 ProdAPI::WriteDigitalU32(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteDigitalU32(
+    return function_pointers.WriteDigitalU32(
         task,
         numSampsPerChan,
         autoStart,
@@ -10089,7 +10081,7 @@ int32 ProdAPI::WriteDigitalU8(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteDigitalU8(
+    return function_pointers.WriteDigitalU8(
         task,
         numSampsPerChan,
         autoStart,
@@ -10110,7 +10102,7 @@ int32 ProdAPI::WriteRaw(
     int32 *sampsPerChanWritten,
     bool32 *reserved
 ) {
-    return function_pointers_.WriteRaw(
+    return function_pointers.WriteRaw(
         task,
         numSamps,
         autoStart,
@@ -10127,7 +10119,7 @@ int32 ProdAPI::WriteToTEDSFromArray(
     uInt32 arraySize,
     int32 basicTEDSOptions
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteToTEDSFromArray(physicalChannel, bitStream, arraySize, basicTEDSOptions);
 }
 
@@ -10136,21 +10128,21 @@ int32 ProdAPI::WriteToTEDSFromFile(
     const char filePath[],
     int32 basicTEDSOptions
 ) {
-    return function_pointers_
+    return function_pointers
         .WriteToTEDSFromFile(physicalChannel, filePath, basicTEDSOptions);
 }
 
 int32 ProdAPI::SetReadRelativeTo(TaskHandle taskHandle, int32 data) {
-    return function_pointers_.SetReadRelativeTo(taskHandle, data);
+    return function_pointers.SetReadRelativeTo(taskHandle, data);
 };
 int32 ProdAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
-    return function_pointers_.SetReadOffset(taskHandle, data);
+    return function_pointers.SetReadOffset(taskHandle, data);
 };
 int32 ProdAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
-    return function_pointers_.SetReadOverWrite(taskHandle, data);
+    return function_pointers.SetReadOverWrite(taskHandle, data);
 };
 
 int32 ProdAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) {
-    return function_pointers_.GetReadTotalSampPerChanAcquired(taskHandle, data);
+    return function_pointers.GetReadTotalSampPerChanAcquired(taskHandle, data);
 }
 }

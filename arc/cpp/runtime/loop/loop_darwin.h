@@ -47,8 +47,8 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
         Arm arm = Arm{}
     ):
-        config_(config), rt_handle_(std::move(rt_handle)), arm_(arm) {
-        if (this->config_.memory_locked)
+        config(config), rt_handle(std::move(rt_handle)), arm(arm) {
+        if (this->config.memory_locked)
             LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
 
@@ -59,9 +59,9 @@ public:
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
         x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
-        if (this->kqueue_fd_ == -1) return WakeReason::Shutdown;
+        if (this->kqueue_fd == -1) return WakeReason::Shutdown;
 
-        switch (this->config_.mode) {
+        switch (this->config.mode) {
             case ExecutionMode::AUTO:
                 if (span < timing::HYBRID_THRESHOLD)
                     return this->hybrid_wait(breaker, max_timeout);
@@ -80,11 +80,11 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->kqueue_fd_ != -1) return x::errors::NIL;
+        if (this->kqueue_fd != -1) return x::errors::NIL;
 
         // Create kqueue for event multiplexing
-        this->kqueue_fd_ = kqueue();
-        if (this->kqueue_fd_ == -1)
+        this->kqueue_fd = kqueue();
+        if (this->kqueue_fd == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -95,7 +95,7 @@ public:
         // Register user event filter for data notifications
         struct kevent kev{};
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
+        if (kevent(this->kqueue_fd, &kev, 1, nullptr, 0, nullptr) == -1)
             return this->fail_start(
                 x::errors::Error(
                     x::errors::INTERNAL,
@@ -103,30 +103,30 @@ public:
                 )
             );
 
-        if (!this->rt_handle_) {
-            x::thread::rt::apply_config(this->config_.rt());
+        if (!this->rt_handle) {
+            x::thread::rt::apply_config(this->config.rt());
         } else {
-            this->rt_handle_->apply();
+            this->rt_handle->apply();
         }
 
         return x::errors::NIL;
     }
 
     void wake() override {
-        if (this->kqueue_fd_ == -1) return;
+        if (this->kqueue_fd == -1) return;
         struct kevent kev{};
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
-        kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr);
+        kevent(this->kqueue_fd, &kev, 1, nullptr, 0, nullptr);
     }
 
     bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
-        if (fd == -1 || this->kqueue_fd_ == -1) return false;
+        if (fd == -1 || this->kqueue_fd == -1) return false;
 
         struct kevent kev{};
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
 
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+        if (kevent(this->kqueue_fd, &kev, 1, nullptr, 0, nullptr) == -1) {
             LOG(ERROR) << "[arc.loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;
@@ -144,9 +144,9 @@ private:
     }
 
     void close_fds() {
-        if (this->kqueue_fd_ != -1) {
-            close(this->kqueue_fd_);
-            this->kqueue_fd_ = -1;
+        if (this->kqueue_fd != -1) {
+            close(this->kqueue_fd);
+            this->kqueue_fd = -1;
         }
     }
 
@@ -160,7 +160,7 @@ private:
         struct kevent events[8];
 
         while (breaker.running()) {
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+            const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
             if (n == -1 && errno != EINTR && errno != EBADF) {
                 LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
@@ -179,11 +179,11 @@ private:
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
-        const auto span = high_rate_span(this->config_, max_timeout);
-        if (!this->sleeper_.precise_sleep(span, breaker)) return WakeReason::Shutdown;
+        const auto span = high_rate_span(this->config, max_timeout);
+        if (!this->sleeper.precise_sleep(span, breaker)) return WakeReason::Shutdown;
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
-        kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+        kevent(this->kqueue_fd, nullptr, 0, events, 8, &timeout);
         return WakeReason::Timer;
     }
 
@@ -198,17 +198,17 @@ private:
         const auto sw = x::telem::Stopwatch();
         struct timespec timeout = {0, 0};
         struct kevent events[8];
-        auto spin = this->config_.spin_duration;
+        auto spin = this->config.spin_duration;
         if (max_timeout.nanoseconds() > 0) spin = std::min(spin, max_timeout);
         while (sw.elapsed() < spin) {
             if (!breaker.running()) return WakeReason::Shutdown;
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+            const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
         }
         if (max_timeout.nanoseconds() > 0)
             return this->deadline_wait(breaker, sw, max_timeout);
         timeout = ns_to_timespec(timing::HYBRID_BLOCK_TIMEOUT.nanoseconds());
-        const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+        const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, &timeout);
         if (n > 0) return this->classify_events(events, n);
         return WakeReason::Timeout;
     }
@@ -224,7 +224,7 @@ private:
         const auto timeout = ns_to_timespec(timing::EVENT_DRIVEN_TIMEOUT.nanoseconds());
         struct kevent events[8];
         const int n = kevent(
-            this->kqueue_fd_,
+            this->kqueue_fd,
             nullptr,
             0,
             events,
@@ -241,7 +241,7 @@ private:
     /// and returns false. A re-arm drops a fire that was not read.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) {
         const bool deadline = max_timeout.nanoseconds() > 0;
-        if (!deadline && !this->deadline_armed_) return false;
+        if (!deadline && !this->deadline_armed) return false;
         struct kevent kev{};
         EV_SET(
             &kev,
@@ -252,12 +252,12 @@ private:
             deadline ? max_timeout.nanoseconds() : 0,
             nullptr
         );
-        if (this->arm_.set(this->kqueue_fd_, kev) == -1) {
-            report_arm_failure(this->arm_failed_, strerror(errno));
-            this->deadline_armed_ = false;
+        if (this->arm.set(this->kqueue_fd, kev) == -1) {
+            report_arm_failure(this->arm_failed, strerror(errno));
+            this->deadline_armed = false;
             return false;
         }
-        this->deadline_armed_ = deadline;
+        this->deadline_armed = deadline;
         return deadline;
     }
 
@@ -274,20 +274,20 @@ private:
         // A kevent timeout gets timer slack that can pass the deadline. The
         // NOTE_CRITICAL timer of arm_deadline gets none.
         if (block.nanoseconds() > 0 && this->arm_deadline(block)) {
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, nullptr);
+            const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, nullptr);
             if (n < 0) return this->wake_reason(events, n);
             for (int i = 0; i < n; i++)
                 if (events[i].filter != EVFILT_TIMER ||
                     events[i].ident != DEADLINE_EVENT_IDENT)
                     return this->classify_events(events, n);
-            this->deadline_armed_ = false;
+            this->deadline_armed = false;
         }
         // A zero-timeout kevent sleeps about 12 us, so this spin uses about 11% CPU and
         // ends within 12 us of the deadline.
         constexpr timespec poll = {0, 0};
         while (sw.elapsed() < deadline) {
             if (!breaker.running()) return WakeReason::Shutdown;
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &poll);
+            const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, &poll);
             if (n != 0) return this->wake_reason(events, n);
         }
         return WakeReason::Timer;
@@ -310,7 +310,7 @@ private:
             if (events[i].filter == EVFILT_TIMER) {
                 timer_fired = true;
                 if (events[i].ident == DEADLINE_EVENT_IDENT)
-                    this->deadline_armed_ = false;
+                    this->deadline_armed = false;
             } else if (events[i].filter == EVFILT_READ)
                 input_fired = true;
             // EVFILT_USER fires when wake() is called - falls through to Shutdown
@@ -324,13 +324,13 @@ private:
         return {ns / 1'000'000'000, ns % 1'000'000'000};
     }
 
-    Config config_;
-    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
+    Config config;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief sets the deadline timer.
-    Arm arm_;
-    int kqueue_fd_ = -1;
-    bool deadline_armed_ = false;
-    bool arm_failed_ = false;
-    x::loop::Timer sleeper_;
+    Arm arm;
+    int kqueue_fd = -1;
+    bool deadline_armed = false;
+    bool arm_failed = false;
+    x::loop::Timer sleeper;
 };
 }

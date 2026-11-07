@@ -30,7 +30,7 @@ StatusCache::entry_for(const synnax::task::Status &status) {
 
 x::errors::Error StatusCache::write(synnax::task::Status &status) {
     const auto err = this->client.set<synnax::task::StatusDetails>(status);
-    if (err) this->stale_ = true;
+    if (err) this->is_stale = true;
     return err;
 }
 
@@ -47,7 +47,7 @@ x::errors::Error StatusCache::set(synnax::task::Status &status) {
 
 x::errors::Error StatusCache::resend() {
     // Cleared first, so a write that fails during the re-send marks the cache again.
-    this->stale_ = false;
+    this->is_stale = false;
     std::vector<std::shared_ptr<Entry>> entries;
     {
         std::lock_guard lock{this->mu};

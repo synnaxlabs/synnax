@@ -190,7 +190,7 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
             else if (key == this->channels.task_cmd.key)
                 this->process_task_cmd(series);
             else if (key == this->channels.control_state.key)
-                this->control_states_->apply(series);
+                this->control_states->apply(series);
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
         }
@@ -212,7 +212,7 @@ void Manager::retrieve_initial_control_states() {
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
         return;
     }
-    this->control_states_->set(states);
+    this->control_states->set(states);
 }
 
 void Manager::retrieve_rack_name() {

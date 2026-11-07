@@ -56,7 +56,7 @@ class Checker {
     x::telem::ClockSkewCalculator skew_calc;
 
     mutable std::mutex mu;
-    State _state;
+    State current_state;
     std::vector<std::function<void(const State &)>> on_change_handlers;
     bool version_warned = false;
 
