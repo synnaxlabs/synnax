@@ -22,6 +22,7 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import ranger
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
@@ -65,7 +66,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
-    range: UUID | None = None
+    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -470,7 +471,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
-        ranges: UUID | list[UUID] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -491,7 +492,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
-        ranges: UUID | list[UUID] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -512,7 +513,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
-        ranges: UUID | list[UUID] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -536,7 +537,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
-        ranges: UUID | list[UUID] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
