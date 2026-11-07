@@ -167,18 +167,24 @@ var _ = Describe("NaN and infinity", func() {
 		func(ctx SpecContext, dt types.Type, dataType telem.DataType) {
 			h := newRuntimeHarness(ctx, `
 			import math
+			func keep() {v `+dt.String()+`} `+dt.String()+` {
+				return v
+			}
 			x -> math.nan -> bad
 			x -> math.inf -> high
-			math.inf -> first`, channelSymbols(map[string]channelDef{
+			math.inf -> first
+			math.inf -> keep() -> kept`, channelSymbols(map[string]channelDef{
 				"x":     {dt, 100},
 				"bad":   {dt, 200},
 				"high":  {dt, 201},
 				"first": {dt, 202},
+				"kept":  {dt, 203},
 			}),
 				channels.Digest{Key: 100, DataType: dataType},
 				channels.Digest{Key: 200, DataType: dataType},
 				channels.Digest{Key: 201, DataType: dataType},
 				channels.Digest{Key: 202, DataType: dataType},
+				channels.Digest{Key: 203, DataType: dataType},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesFromAny(1.0, dataType))
@@ -194,6 +200,7 @@ var _ = Describe("NaN and infinity", func() {
 			Expect(math.IsNaN(value(200))).To(BeTrue())
 			Expect(math.IsInf(value(201), 1)).To(BeTrue())
 			Expect(math.IsInf(value(202), 1)).To(BeTrue())
+			Expect(math.IsInf(value(203), 1)).To(BeTrue())
 		},
 		Entry("f32", types.F32(), telem.Float32T),
 		Entry("f64", types.F64(), telem.Float64T),
@@ -209,12 +216,11 @@ var _ = Describe("NaN and infinity", func() {
 				Type: types.Chan(types.F64()),
 				ID:   1,
 			}))
-			_, err := arc.CompileText(
+			Expect(arc.CompileText(
 				ctx,
 				arc.Text{Raw: "import math\n" + source},
 				root,
-			)
-			Expect(err).To(MatchError(ContainSubstring(message)))
+			)).Error().To(MatchError(ContainSubstring(message)))
 		},
 		Entry("constant as a sink", "x -> math.nan", "math.nan is not a channel"),
 		Entry("unknown member", "x -> math.foo -> y", "undefined symbol: foo"),
@@ -291,6 +297,47 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("float, inf, integer, f64", types.F64(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("float, inf, integer, f32", types.F32(), "[1.5, math.inf, 3]", 1, inf),
 		Entry("negated inf first, f64", types.F64(), "[-math.inf, 1]", 0, -inf),
+	)
+
+	DescribeTable("Should send a routed constant at the input's width",
+		func(ctx SpecContext, dt types.Type, dataType telem.DataType) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			func split() {value f64} (high f64, low f64) {
+				if value > 0.0 {
+					high = value
+				} else {
+					low = value
+				}
+			}
+			func amplify() {signal `+dt.String()+`} `+dt.String()+` {
+				return signal * 2.0
+			}
+			x -> split() -> {
+				high: math.inf -> amplify() -> out
+			}`, channelSymbols(map[string]channelDef{
+				"x":   {types.F64(), 100},
+				"out": {dt, 200},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			s := out.Get(200).Series
+			Expect(s).ToNot(BeEmpty())
+			value := float64(0)
+			if dataType == telem.Float32T {
+				value = float64(s[0].Unmarshal[float32]()[0])
+			} else {
+				value = s[0].Unmarshal[float64]()[0]
+			}
+			Expect(math.IsInf(value, 1)).To(BeTrue())
+		},
+		Entry("f32", types.F32(), telem.Float32T),
+		Entry("f64", types.F64(), telem.Float64T),
 	)
 
 	DescribeTable("Should keep a compared constant at the other operand's width",
