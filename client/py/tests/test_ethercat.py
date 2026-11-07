@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.ethercat
@@ -180,7 +181,9 @@ class TestEtherCATReadTask:
             with pytest.raises(ValidationError):
                 build()
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.ethercat.ReadTask(
             name="test-ethercat-read-task",
@@ -207,6 +210,7 @@ class TestEtherCATReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-ethercat-read-task",
             type="ethercat_read",
@@ -337,7 +341,9 @@ class TestEtherCATWriteTask:
         )
         assert channel.state_channel == 0
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.ethercat.WriteTask(
             name="test-ethercat-write-task",
@@ -357,6 +363,7 @@ class TestEtherCATWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-ethercat-write-task",
             type="ethercat_write",
@@ -364,7 +371,9 @@ class TestEtherCATWriteTask:
         )
         sy.ethercat.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.ethercat.WriteTask(
             name="test-round-trip",
@@ -395,6 +404,7 @@ class TestEtherCATWriteTask:
                 ),
             ],
         )
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="ethercat_write",

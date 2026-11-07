@@ -31,8 +31,10 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Table.create({ key, editable: true }));
-      openTab({ variant: "resource", resource: table.resourceID(key), key: tabKey });
     },
+    // The Core refuses a panel tab for a table it does not hold yet.
+    afterSuccess: ({ data: { key } }) =>
+      openTab({ variant: "resource", resource: table.resourceID(key), key: tabKey }),
   });
   return (params = {}) =>
     update({ name: "Table", ...params, project: project ?? getActiveProject() });

@@ -43,6 +43,15 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
+  // The Core refuses an alert config that names a status it does not hold.
+  await client.statuses.set(
+    ["st1", "st-a", "st-b"].map((key) => ({
+      key,
+      name: key,
+      variant: "info" as const,
+      message: key,
+    })),
+  );
   describe("create", () => {
     it("should create a task on a rack", async () => {
       const m = await testRack.createTask({
@@ -759,6 +768,33 @@ describe("Task", async () => {
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
+    });
+  });
+
+  describe("references", () => {
+    it("should clear a deleted status from the cached task's alerts", async () => {
+      await waitForStreamLive(client.connection);
+      const st = await client.statuses.set({
+        key: uuid.create(),
+        name: "detached",
+        variant: "info",
+        message: "detached",
+      });
+      const t = await testRack.createTask({
+        name: `detach-${id.create()}`,
+        config: { routingKey: "dog", alerts: [{ key: "a", status: st.key }] },
+        type: "pagerduty_alert",
+      });
+      await client.statuses.delete(st.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config.alerts).toEqual([
+        expect.objectContaining({ key: "a", status: "" }),
+      ]);
+      expect(stored.configHash).not.toBe(t.configHash);
+      await expect
+        .poll(() => expectLive(client.tasks.getCached(t.key)).configHash)
+        .toBe(stored.configHash);
+      expect(expectLive(client.tasks.getCached(t.key)).config).toEqual(stored.config);
     });
   });
 

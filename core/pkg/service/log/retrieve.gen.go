@@ -13,8 +13,10 @@ package log
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -37,10 +39,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	group    *gorp.KeyReference[Key, Log, group.Key]
-	project  *gorp.KeyReference[Key, Log, project.Key]
-	rangeVal *gorp.KeyReference[Key, Log, ranger.Key]
-	search   *gorp.SearchIndex[Key, Log]
+	group           *gorp.KeyReference[Key, Log, group.Key]
+	project         *gorp.KeyReference[Key, Log, project.Key]
+	rangeVal        *gorp.KeyReference[Key, Log, ranger.Key]
+	channelsChannel *gorp.KeyReference[Key, Log, channel.Key]
+	search          *gorp.SearchIndex[Key, Log]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -82,6 +85,26 @@ func newIndexes() indexes {
 				return []ranger.Key{*e.Range}
 			},
 		}),
+		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
+			Name:     "channels.channel",
+			Table:    "channel",
+			OnDelete: gorp.Detach,
+			Targets: func(e *Log) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Channels {
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Detach: func(e *Log, t channel.Key) {
+				e.Channels = slices.DeleteFunc(e.Channels, func(v2 ChannelEntry) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Log](
 			"search",
 			func(e *Log) []string {
@@ -106,6 +129,7 @@ func (i indexes) references() []gorp.Reference[Key, Log] {
 		i.group,
 		i.project,
 		i.rangeVal,
+		i.channelsChannel,
 	}
 }
 

@@ -139,7 +139,9 @@ the "did you forget" check impossible to write.
 
 One exception exists for `@ref`: a scalar with a zero default (`= 0`, `= ""`) holds no
 target while it is zero, because stored task configs use zero for "none". Give a new
-reference `X?` instead. A `detach` reference needs `X?`, an array, or a zero default.
+reference `X?` instead. A `detach` reference needs `X?`, an array, or a zero default. A
+required field in an array element also detaches: the detach drops the element. The same
+rules hold for top-level and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 

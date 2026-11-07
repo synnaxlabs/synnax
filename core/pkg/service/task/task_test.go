@@ -130,6 +130,14 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		for _, k := range []status.Key{"st-1", "st-2", "st-a", "st-b"} {
+			Expect(stat.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key:     k,
+				Name:    string(k),
+				Variant: status.VariantInfo,
+				Time:    telem.Now(),
+			})).To(Succeed())
+		}
 	})
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())
@@ -160,6 +168,18 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
+	})
+	Describe("ConfigTask", func() {
+		It("Should return the task whose config record a target names", func() {
+			key := uuid.New()
+			id := MustBeOk(svc.ConfigTask(gorp.NewTarget("labjack_read_config", key)))
+			Expect(id).To(Equal(task.ResourceID(key)))
+		})
+
+		It("Should return false for a table that holds no config records", func() {
+			_, ok := svc.ConfigTask(gorp.NewTarget("task", uuid.New()))
+			Expect(ok).To(BeFalse())
+		})
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
 		It("Should round-trip the details", func(ctx SpecContext) {
@@ -977,6 +997,52 @@ var _ = Describe("Task", Ordered, func() {
 				set([]string{"type"}, "arc"),
 			})).Error().To(MatchError(validate.ErrValidation))
 			Expect(*frames).To(BeEmpty())
+		})
+
+		It("Should hash and broadcast a config that a status delete detaches", func(
+			ctx SpecContext,
+		) {
+			sw := stat.NewWriter(nil)
+			Expect(sw.Set(ctx, &status.Status[any]{
+				Key:     "st-detach",
+				Name:    "st-detach",
+				Variant: status.VariantInfo,
+				Time:    telem.Now(),
+			})).To(Succeed())
+			detached := &task.Task{
+				Type: testType,
+				Rack: testRack.Key,
+				Name: "Detached",
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-1",
+					"alerts": []any{
+						map[string]any{"key": "a", "status": "st-detach"},
+					},
+				},
+			}
+			createCommitted(ctx, detached)
+			frames := collect()
+			Expect(sw.Delete(ctx, "st-detach")).To(Succeed())
+			stored := retrieve(ctx, detached.Key)
+			Expect(stored.Config["alerts"]).To(HaveExactElements(
+				HaveKeyWithValue("status", ""),
+			))
+			twin := &task.Task{
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Twin",
+				Config: stored.Config,
+			}
+			Expect(svc.NewWriter(DeferClose(db.OpenTx())).Create(ctx, twin)).
+				To(Succeed())
+			Expect(stored.ConfigHash).To(Equal(twin.ConfigHash))
+			Expect(stored.ConfigHash).ToNot(Equal(detached.ConfigHash))
+			Expect(*frames).To(HaveLen(1))
+			Expect((*frames)[0].Key).To(Equal(detached.Key))
+			Expect((*frames)[0].Actions).To(Equal([]task.Action{
+				set([]string{"config"}, stored.Config),
+				set([]string{"config_hash"}, stored.ConfigHash),
+			}))
 		})
 	})
 

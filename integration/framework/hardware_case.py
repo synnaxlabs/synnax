@@ -69,18 +69,16 @@ class HardwareCase(TestCase):
             super().teardown()
         finally:
             with self._try_to("delete test tasks"):
-                if self._test_task_keys:
-                    self.client.tasks.delete(self._test_task_keys)
+                # The Core refuses to delete a device or rack that a task uses, and the
+                # Console persists a created task onto its rack at once.
+                keys = list(self._test_task_keys)
+                for rack_key in self._test_rack_keys:
+                    keys.extend(t.key for t in self.client.tasks.list(rack=rack_key))
+                if keys:
+                    self.client.tasks.delete(list(dict.fromkeys(keys)))
             with self._try_to("delete test devices"):
                 if self._test_device_keys:
                     self.client.devices.delete(self._test_device_keys)
             with self._try_to("delete test racks"):
                 if self._test_rack_keys:
-                    # The Core refuses to delete a rack while user tasks are
-                    # attached, and the Console persists a created task onto its
-                    # rack immediately, so delete those tasks first.
-                    for rack_key in self._test_rack_keys:
-                        tasks = self.client.tasks.list(rack=rack_key)
-                        if tasks:
-                            self.client.tasks.delete([t.key for t in tasks])
                     self.client.racks.delete(self._test_rack_keys)

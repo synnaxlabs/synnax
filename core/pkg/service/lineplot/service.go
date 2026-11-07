@@ -105,15 +105,26 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      migrations,
+		DB:      cfg.DB,
+		Name:    tableName,
+		Indexes: s.indexes.all(),
+		References: append(
+			s.indexes.references(),
+			channelsReference(),
+		),
+		Migrations:      newMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	// A delete that detaches a target rewrites the line plot outside the writer. The
+	// service publishes it as a create, which replaces the cached document.
+	ok(nil, io.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
+		func(ctx context.Context, p LinePlot) {
+			create := NewCreateAction(CreatePayload{LinePlot: p})
+			s.state.Dispatcher().Notify(ctx, p.Key, create)
+		},
+	)))
 	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err

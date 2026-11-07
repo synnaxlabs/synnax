@@ -130,7 +130,7 @@ func OpenTable[K Key, E Entry[K]](
 	if err := Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),
-		Migrations:      cfg.Migrations,
+		Migrations:      t.bindDangling(cfg.Migrations),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		t.unregister()

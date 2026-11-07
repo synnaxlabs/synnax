@@ -27,6 +27,7 @@ import (
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
@@ -193,10 +194,19 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			lpKey := uuid.New().String()
+			plot := lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"}
+			lpKey := plot.Key.String()
 			lpID := resource.ID{Type: resource.TypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
 				Set(ctx, ontology.Resource{ID: lpID})).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "LinePlot",
+				Migrations: lineplotversions.Migrations,
+			})).To(Succeed())
+			Expect(gorp.NewCreate[lineplot.Key, lineplot.LinePlot]().
+				Entry(&plot).
+				Exec(ctx, db)).To(Succeed())
 			ws := projectv0.Workspace{
 				Key:  uuid.New(),
 				Name: "TPC",

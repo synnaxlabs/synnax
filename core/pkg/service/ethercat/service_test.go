@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -126,21 +128,30 @@ func openDevices(
 		Ontology: otg,
 		Status:   statusSvc,
 		Rack:     rackSvc,
+		Device:   devices,
 	}
 }
 
 var _ = Describe("Service", func() {
 	var (
-		svc     *ethercat.Service
-		devices *device.Service
-		tasks   *tasktestutil.Tasks
+		svc        *ethercat.Service
+		devices    *device.Service
+		channelSvc *channel.Service
+		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		node := testutil.NewNode(ctx)
 		var tasksCfg tasktestutil.TasksConfig
-		devices, tasksCfg = openDevices(ctx, db)
+		devices, tasksCfg = openDevices(ctx, node.DB)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     tasksCfg.Ontology,
+			Status:       tasksCfg.Status,
+		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-			DB:     db,
+			DB:     node.DB,
 			Device: devices,
 		}))
 		tasksCfg.Stores = svc.Stores()
@@ -319,13 +330,14 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
 					"key":       "chan-1",
 					"device":    "slave",
-					"channel":   42,
+					"channel":   ch,
 					"index":     0x6000,
 					"sub_index": 1,
 					"data_type": "int16",
@@ -350,20 +362,31 @@ var _ = Describe("Service", func() {
 			Expect(channels[0]).To(HaveKeyWithValue("data_type", "int16"))
 		})
 
-		DescribeTable("Should leave a read channel unresolved",
-			func(ctx SpecContext, device, pdo string) {
-				channels := readChannels(ctx, map[string]any{
+		It("Should leave a read channel unresolved on a name the slave repeats", func(
+			ctx SpecContext,
+		) {
+			channels := readChannels(ctx, map[string]any{
+				"type":   "unresolved",
+				"key":    "a",
+				"device": "el1008",
+				"pdo":    "Input",
+			})
+			Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
+			Expect(channels[0]).To(HaveKeyWithValue("pdo", "Input"))
+		})
+
+		It("Should refuse a read channel on a missing device", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
-					"device": device,
-					"pdo":    pdo,
-				})
-				Expect(channels[0]).To(HaveKeyWithValue("type", "unresolved"))
-				Expect(channels[0]).To(HaveKeyWithValue("pdo", pdo))
-			},
-			Entry("on a name the slave repeats", "el1008", "Input"),
-			Entry("on a missing device", "gone", "Value"),
-		)
+					"device": "gone",
+					"pdo":    "Value",
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("channels.device: device gone does not exist"),
+			))
+		})
 
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,

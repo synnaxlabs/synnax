@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package testutil creates tasks for the specs of packages that store task configs.
+// Package testutil creates tasks, and the devices and statuses their configs reference,
+// for the specs of packages that store task configs.
 package testutil
 
 import (
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -27,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // TasksConfig is the configuration for opening Tasks.
@@ -35,11 +38,11 @@ type TasksConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds the task resources. OpenTasks opens one on DB when Rack is nil.
+	// Ontology holds the task resources. OpenTasks opens one on DB when it is nil.
 	//
 	// [OPTIONAL]
 	Ontology *ontology.Ontology
-	// Status stores the task statuses. OpenTasks opens one on DB when Rack is nil.
+	// Status stores the task statuses. OpenTasks opens one on DB when it is nil.
 	//
 	// [OPTIONAL]
 	Status *status.Service
@@ -47,6 +50,11 @@ type TasksConfig struct {
 	//
 	// [OPTIONAL]
 	Rack *rack.Service
+	// Device stores the devices that configs reference. OpenTasks opens one on DB when
+	// it is nil.
+	//
+	// [OPTIONAL]
+	Device *device.Service
 	// Stores keep the configs of the tasks.
 	//
 	// [REQUIRED]
@@ -57,8 +65,9 @@ type TasksConfig struct {
 	MatchArcs func(arcs ...uuid.UUID) task.Filter
 }
 
-// Tasks creates tasks through a task service.
+// Tasks creates tasks through a task service, and the targets their configs reference.
 type Tasks struct {
+	*Targets
 	svc    *task.Service
 	closer xio.MultiCloser
 }
@@ -73,12 +82,38 @@ func OpenTasks(ctx context.Context, cfg TasksConfig) (*Tasks, error) {
 	return t, nil
 }
 
-func (t *Tasks) open(ctx context.Context, cfg TasksConfig) error {
+func (t *Tasks) open(ctx context.Context, cfg TasksConfig) (err error) {
+	if cfg.Ontology == nil {
+		cfg.Ontology, err = ontology.Open(ctx, ontology.Config{DB: cfg.DB})
+		if err != nil {
+			return err
+		}
+		t.closer = append(t.closer, cfg.Ontology)
+	}
+	if cfg.Status == nil {
+		if cfg.Status, err = status.OpenService(ctx, status.ServiceConfig{
+			DB:       cfg.DB,
+			Ontology: cfg.Ontology,
+		}); err != nil {
+			return err
+		}
+		t.closer = append(t.closer, cfg.Status)
+	}
 	if cfg.Rack == nil {
 		if err := t.openRack(ctx, &cfg); err != nil {
 			return err
 		}
 	}
+	if cfg.Device == nil {
+		if err := t.openDevice(ctx, &cfg); err != nil {
+			return err
+		}
+	}
+	t.Targets = NewTargets(TargetsConfig{
+		Device: cfg.Device,
+		Status: cfg.Status,
+		Rack:   cfg.Rack.EmbeddedKey,
+	})
 	configs, err := config.NewRegistry(cfg.Stores...)
 	if err != nil {
 		return err
@@ -99,17 +134,6 @@ func (t *Tasks) open(ctx context.Context, cfg TasksConfig) error {
 }
 
 func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
-	if cfg.Ontology, err = ontology.Open(ctx, ontology.Config{DB: cfg.DB}); err != nil {
-		return err
-	}
-	t.closer = append(t.closer, cfg.Ontology)
-	if cfg.Status, err = status.OpenService(ctx, status.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-	}); err != nil {
-		return err
-	}
-	t.closer = append(t.closer, cfg.Status)
 	roles, err := role.OpenService(ctx, role.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
@@ -133,6 +157,62 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 	}
 	t.closer = append(t.closer, cfg.Rack)
 	return nil
+}
+
+func (t *Tasks) openDevice(ctx context.Context, cfg *TasksConfig) (err error) {
+	if cfg.Device, err = device.OpenService(ctx, device.ServiceConfig{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+		Status:   cfg.Status,
+		Rack:     cfg.Rack,
+	}); err != nil {
+		return err
+	}
+	t.closer = append(t.closer, cfg.Device)
+	return nil
+}
+
+// TargetsConfig is the configuration for Targets.
+type TargetsConfig struct {
+	// Device and Status store the devices and statuses that Targets creates.
+	//
+	// [REQUIRED]
+	Device *device.Service
+	Status *status.Service
+	// Rack is the rack that Targets creates devices on.
+	//
+	// [REQUIRED]
+	Rack rack.Key
+}
+
+// Targets creates the devices and statuses that task configs reference.
+type Targets struct{ cfg TargetsConfig }
+
+// NewTargets returns Targets that create devices and statuses through the services in
+// cfg.
+func NewTargets(cfg TargetsConfig) *Targets { return &Targets{cfg: cfg} }
+
+// CreateDevice creates a device with key on the configured rack for configs to
+// reference.
+func (t *Targets) CreateDevice(ctx context.Context, key device.Key) error {
+	return t.cfg.Device.NewWriter(nil).Create(ctx, &device.Device{
+		Key:      key,
+		Rack:     t.cfg.Rack,
+		Name:     string(key),
+		Make:     "test",
+		Model:    "test",
+		Location: "test",
+	})
+}
+
+// CreateStatus creates a status with key for configs to reference.
+func (t *Targets) CreateStatus(ctx context.Context, key status.Key) error {
+	return t.cfg.Status.NewWriter(nil).Set(ctx, &status.Status[any]{
+		Key:     key,
+		Name:    string(key),
+		Variant: status.VariantInfo,
+		Time:    telem.Now(),
+	})
 }
 
 // Create creates a task with the config data in store. It returns the key of the task,

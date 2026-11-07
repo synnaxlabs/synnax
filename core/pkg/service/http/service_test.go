@@ -61,7 +61,8 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should import both read shapes released Cores stamped at version 2",
 			func(ctx SpecContext, data msgpack.EncodedJSON, nanFill bool) {
-				out := MustSucceed(svc.Read.Normalize(ctx, 2, data))
+				Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+				out := MustSucceed(svc.Read.Normalize(ctx, nil, 2, data))
 				Expect(out).To(HaveKeyWithValue("nan_fill_enabled", nanFill))
 				Expect(out).To(HaveKeyWithValue("device", "dev-1"))
 			},
@@ -85,6 +86,7 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"rate":   25,

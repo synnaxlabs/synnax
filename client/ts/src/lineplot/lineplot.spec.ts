@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { DataType, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
 import { project } from "@/project";
 import { query } from "@/query";
-import { createTestClient, expectDeleted } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -166,6 +166,27 @@ describe("store", () => {
     } finally {
       await remote.close();
     }
+  });
+
+  it("drops a deleted channel from the cached document", async () => {
+    await client.connect();
+    const ch = await client.channels.create({
+      name: `lineplot_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const proj = await client.projects.create({ name: `lp-${id.create()}` });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: `plot-${id.create()}`,
+      channels: { y1: [ch.key] },
+    });
+    expect(plot.lines).toHaveLength(1);
+    await client.channels.delete(ch.key);
+    await expect
+      .poll(() => expectLive(client.lineplots.getCached(plot.key)).channels.y1)
+      .toEqual([]);
+    expect(expectLive(client.lineplots.getCached(plot.key)).lines).toEqual([]);
   });
 
   it("reduces broadcast dispatch frames into the cached document", async () => {

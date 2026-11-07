@@ -31,8 +31,10 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     afterOptimistic: ({ data: { key } }) => {
       maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Log.create({ key }));
-      openTab({ variant: "resource", resource: log.resourceID(key), key: tabKey });
     },
+    // The Core refuses a panel tab for a log it does not hold yet.
+    afterSuccess: ({ data: { key } }) =>
+      openTab({ variant: "resource", resource: log.resourceID(key), key: tabKey }),
   });
   return (params = {}) =>
     update({ name: "Log", ...params, project: project ?? getActiveProject() });

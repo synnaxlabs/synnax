@@ -16,8 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -42,16 +47,31 @@ func channel(cfg msgpack.EncodedJSON) map[string]any {
 
 var _ = Describe("Service", func() {
 	var (
-		svc   *modbus.Service
-		tasks *tasktestutil.Tasks
+		svc        *modbus.Service
+		channelSvc *svcchannel.Service
+		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           db,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Status:       statusSvc,
+		}))
 		svc = MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
 			DB: db,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
-			DB:     db,
-			Stores: svc.Stores(),
+			DB:       db,
+			Ontology: otg,
+			Status:   statusSvc,
+			Stores:   svc.Stores(),
 		}))
 	})
 
@@ -80,6 +100,8 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
@@ -87,7 +109,7 @@ var _ = Describe("Service", func() {
 					"type":    "coil",
 					"key":     "chan-1",
 					"address": 3,
-					"channel": 42,
+					"channel": ch,
 				}},
 			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
@@ -202,8 +224,7 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should make a v1 false follow the device and keep a v1 true",
 			func(ctx SpecContext, store func() config.Store) {
-				ch := channel(MustSucceed(store().Normalize(
-					ctx,
+				ch := channel(MustSucceed(store().Normalize(ctx, nil,
 					v1.Version,
 					msgpack.EncodedJSON{"channels": []any{register(map[string]any{
 						"bytes_swapped": false,
@@ -220,14 +241,16 @@ var _ = Describe("Service", func() {
 		It("Should make a released Console's swap_bytes false follow the device", func(
 			ctx SpecContext,
 		) {
-			ch := channel(MustSucceed(svc.Read.Normalize(ctx, 0, msgpack.EncodedJSON{
-				"channels": []any{map[string]any{
-					"type":       "holding_register_input",
-					"key":        "chan-1",
-					"swap_bytes": false,
-					"swap_words": true,
-				}},
-			})))
+			ch := channel(
+				MustSucceed(svc.Read.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":       "holding_register_input",
+						"key":        "chan-1",
+						"swap_bytes": false,
+						"swap_words": true,
+					}},
+				})),
+			)
 			Expect(ch).To(HaveKeyWithValue("type", "holding_register"))
 			Expect(ch).ToNot(HaveKey("bytes_swapped"))
 			Expect(ch).To(HaveKeyWithValue("words_swapped", true))
@@ -267,5 +290,125 @@ var _ = Describe("Service", func() {
 			Expect(chs[1]).To(HaveKeyWithValue("bytes_swapped", true))
 			Expect(chs[1]).ToNot(HaveKey("words_swapped"))
 		})
+	})
+	Describe("References", func() {
+		It("Should refuse a config that names a channel that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "coil",
+					"key":     "chan-1",
+					"channel": 4242,
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("channels.channel: channel 4242 does not exist"),
+			))
+		})
+
+		It("Should refuse a config that names a device that does not exist", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"device": "missing",
+			})).Error().To(MatchError(
+				ContainSubstring("device: device missing does not exist"),
+			))
+		})
+
+		It("Should drop the channels and devices that do not exist on normalize", func(
+			ctx SpecContext,
+		) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			out := MustSucceed(svc.Read.Normalize(ctx, nil, svc.Read.Version(),
+				msgpack.EncodedJSON{
+					"device": "missing",
+					"channels": []any{
+						map[string]any{"type": "coil", "key": "a", "channel": ch},
+						map[string]any{"type": "coil", "key": "b", "channel": 4244},
+					},
+				},
+			))
+			Expect(out).To(HaveKeyWithValue("device", ""))
+			Expect(out["channels"]).To(HaveExactElements(
+				SatisfyAll(
+					HaveKeyWithValue("key", "a"),
+					HaveKeyWithValue("channel", BeEquivalentTo(ch)),
+				),
+				SatisfyAll(
+					HaveKeyWithValue("key", "b"),
+					HaveKeyWithValue("channel", BeEquivalentTo(0)),
+				),
+			))
+		})
+
+		It(
+			"Should reset the stored channels and devices that do not exist on open",
+			func(
+				ctx SpecContext,
+			) {
+				stored := testutil.NewNode(ctx)
+				otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: stored.DB}))
+				statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+					DB:       stored.DB,
+					Ontology: otg,
+				}))
+				channelSvc := MustOpen(svcchannel.OpenService(
+					ctx,
+					svcchannel.ServiceConfig{
+						Channel:      stored.Channel,
+						DB:           stored.DB,
+						HostProvider: stored.Cluster,
+						Ontology:     otg,
+						Status:       statusSvc,
+					},
+				))
+				targets := MustOpen(
+					tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+						DB:       stored.DB,
+						Ontology: otg,
+						Status:   statusSvc,
+					}),
+				)
+				ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+				Expect(targets.CreateDevice(ctx, "kept")).To(Succeed())
+				key := uuid.New()
+				read := modbus.ReadConfig{
+					Device: "gone",
+					Channels: []modbus.ReadChannel{
+						{Variant: modbus.CoilReadChannel{
+							BaseReadChannel: modbus.BaseReadChannel{
+								Key:     "a",
+								Channel: 9,
+							},
+						}},
+						{Variant: modbus.CoilReadChannel{
+							BaseReadChannel: modbus.BaseReadChannel{
+								Key:     "b",
+								Channel: ch,
+							},
+						}},
+					},
+				}
+				read.SetKey(key)
+				write := modbus.WriteConfig{Device: "kept"}
+				write.SetKey(key)
+				Expect(gorp.NewCreate[uuid.UUID, modbus.ReadConfig]().
+					Entry(&read).Exec(ctx, stored.DB)).To(Succeed())
+				Expect(gorp.NewCreate[uuid.UUID, modbus.WriteConfig]().
+					Entry(&write).Exec(ctx, stored.DB)).To(Succeed())
+				opened := MustOpen(
+					modbus.OpenService(ctx, modbus.ServiceConfig{DB: stored.DB}),
+				)
+				data := MustSucceed(opened.Read.Read(ctx, nil, key))
+				Expect(data).To(HaveKeyWithValue("device", ""))
+				Expect(data["channels"]).To(HaveExactElements(
+					HaveKeyWithValue("channel", BeEquivalentTo(0)),
+					HaveKeyWithValue("channel", BeEquivalentTo(ch)),
+				))
+				Expect(MustSucceed(opened.Write.Read(ctx, nil, key))).
+					To(HaveKeyWithValue("device", "kept"))
+			},
+		)
 	})
 })

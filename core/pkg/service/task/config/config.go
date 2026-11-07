@@ -12,6 +12,7 @@ package config
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -22,6 +23,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -54,22 +56,28 @@ type Store interface {
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
-	// Copy duplicates the record stored under from into a new record stored under
-	// to, which must be the key of a task. It returns an error wrapping
-	// query.ErrNotFound when from does not exist.
+	// Copy duplicates the record stored under from into a new record stored under to,
+	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
+	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape with defaults applied. A version that predates the type's ladder runs the
-	// type's legacy rewrite first. It returns a validation error when data does not
-	// decode at version or version is newer than the store's.
+	// shape with defaults applied, and drops each target of the blob's references that
+	// does not exist in tx and that its reference can drop. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
+		tx gorp.Tx,
 		version imex.Version,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
+	// ObserveDetaches returns an observable that notifies the key of each record that a
+	// delete of one of its targets detached. Handlers run synchronously after the
+	// delete's transaction commits.
+	ObserveDetaches() observe.Observable[uuid.UUID]
 }
 
 // Record is a validated configuration record that is not written yet. Only a Store
@@ -98,10 +106,11 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// SetEntryKey stamps key onto an entry before it is stored.
 	// [REQUIRED]
 	SetEntryKey func(e *E, key uuid.UUID)
-	// Migrations is the stored-shape migration chain for the record type. Empty for
-	// a type whose stored shape has never changed.
+	// Migrations is the stored-shape migration chain for the record type. Empty for a
+	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
 	// References are the references the records hold, besides the one to their task.
+	// Opening the service drops each target that does not exist from stored entries.
 	// [OPTIONAL]
 	References []gorp.Reference[uuid.UUID, E]
 	// Ladder decodes typed config blobs at every version the type has exported and
@@ -173,9 +182,12 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		return nil, err
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
-		DB:         cfg.DB,
-		Name:       cfg.Type + "_config",
-		Migrations: cfg.Migrations,
+		DB:   cfg.DB,
+		Name: TableName(cfg.Type),
+		Migrations: append(
+			slices.Clone(cfg.Migrations),
+			gorp.DanglingMigration("v61_dangling_references"),
+		),
 		References: append(
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,
@@ -187,6 +199,9 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 	}
 	return &Service[E]{cfg: cfg, table: table}, nil
 }
+
+// TableName returns the name of the table that stores the config records of taskType.
+func TableName(taskType string) string { return taskType + "_config" }
 
 // newTaskReference returns the reference from a record to the task that shares its key.
 func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {
@@ -319,6 +334,7 @@ func (s *Service[E]) Delete(
 // Normalize implements Store.
 func (s *Service[E]) Normalize(
 	ctx context.Context,
+	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
@@ -341,11 +357,28 @@ func (s *Service[E]) Normalize(
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
 	}
+	if _, err := s.table.DropDangling(
+		ctx,
+		gorp.OverrideTx(s.cfg.DB, tx),
+		&e,
+	); err != nil {
+		return nil, err
+	}
 	return encode(e)
 }
 
 // Version implements Store.
 func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
+
+// ObserveDetaches implements Store.
+func (s *Service[E]) ObserveDetaches() observe.Observable[uuid.UUID] {
+	return observe.Translator[E, uuid.UUID]{
+		Observable: s.table.ObserveDetaches(),
+		Translate: func(_ context.Context, e E) (uuid.UUID, bool) {
+			return e.GorpKey(), true
+		},
+	}
+}
 
 // Copy implements Store.
 func (s *Service[E]) Copy(

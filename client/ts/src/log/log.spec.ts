@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { DataType, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
-import { createTestClient, expectDeleted } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -91,5 +91,30 @@ describe("store", () => {
       .toBe(true);
     const cached = expectDeleted(client.logs.getCached(log.key));
     expect(cached.corpse.name).toEqual(log.name);
+  });
+
+  it("drops a deleted channel from the cached document", async () => {
+    await client.connect();
+    const [kept, deleted] = await client.channels.create([
+      { name: `log_${id.create()}`, dataType: DataType.FLOAT32, virtual: true },
+      { name: `log_${id.create()}`, dataType: DataType.FLOAT32, virtual: true },
+    ]);
+    const project = await client.projects.create({ name: `log-${id.create()}` });
+    const log = await client.logs.create({
+      project: project.key,
+      name: `log-${id.create()}`,
+      channels: [
+        { channel: kept.key, color: "#000000" },
+        { channel: deleted.key, color: "#000000" },
+      ],
+    });
+    await client.channels.delete(deleted.key);
+    await expect
+      .poll(() =>
+        expectLive(client.logs.getCached(log.key)).channels.map(
+          ({ channel }) => channel,
+        ),
+      )
+      .toEqual([kept.key]);
   });
 });
