@@ -53,6 +53,7 @@ class Hold(TestCase):
         self._error_message = None
         self._error_traceback = None
         self.skip_reason = None
+        self.metrics = {}
         self.log_client = LogClient(name=name)
 
     def run(self) -> None:
@@ -69,6 +70,7 @@ class Hold(TestCase):
         }
         with open(self.params["record"], "a") as f:
             f.write(json.dumps(span) + "\\n")
+        self.metrics["hold_s"] = self.params["hold"]
         self._status = STATUS.PASSED
 """
 
@@ -192,6 +194,12 @@ def run(
 
 
 class TestExecutionClient:
+    def test_metrics(self, cases_dir: Path) -> None:
+        """Should keep the numbers that each test measured in its result."""
+        execution, loaded, results = client(cases_dir, sequence("a", "plain", hold=0.1))
+        execution.run(loaded)
+        assert [t.metrics for t in results] == [{"hold_s": 0.1}]
+
     def test_free_resources(self, cases_dir: Path) -> None:
         """Should run tests that hold nothing at the same time."""
         spans = run(cases_dir, sequence("a", "plain", "plain", order="asynchronous"))

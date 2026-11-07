@@ -101,6 +101,8 @@ class _WaitSamples(ArcCase):
             median = float(np.median(held))
             error = (median - wait_ms) / wait_ms * 100
             spread = float(held.max() - held.min())
+            self.metrics[f"wait_{wait_ms}ms_error_percent"] = error
+            self.metrics[f"wait_{wait_ms}ms_spread_ms"] = spread
             flags: list[str] = []
             if abs(error) > self.limits.max_error_percent:
                 flags.append(

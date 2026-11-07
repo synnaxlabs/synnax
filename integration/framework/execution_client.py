@@ -450,6 +450,7 @@ class ExecutionClient:
             if test_instance._error_traceback is not None:
                 test.error_traceback = test_instance._error_traceback
             test.skip_reason = test_instance.skip_reason
+            test.metrics = test_instance.metrics
 
         except Timeout:
             test.status = STATUS.TIMEOUT
