@@ -616,6 +616,40 @@ TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief a command written before the state loop waits should wake the next state
+/// read instead of waiting out the full state period.
+TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    const auto state_ch = create_command_channel("state", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16", state_ch.key)
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    const auto period = task_cfg.state_rate.period().chrono();
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    pipeline::Authorities authorities;
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    EXPECT_EQ(fr.at<int16_t>(state_ch.key, 0), static_cast<int16_t>(0x5678));
+    EXPECT_LT(elapsed, period / 2);
+
+    ASSERT_NIL(sink.stop());
+}
+
 /// @brief when a frame contains multiple samples for a channel, only the last
 /// sample should be written to hardware.
 TEST_F(EtherCATWriteTest, SinkLastWriteWins) {

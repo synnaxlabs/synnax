@@ -66,6 +66,8 @@ public:
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
+    /// @brief whether a command has changed the state since the last read.
+    bool chan_state_changed = false;
 
     explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
@@ -111,6 +113,7 @@ public:
 
     void set_state(const x::telem::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
+        this->chan_state_changed = true;
         this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
             const auto it = this->state_channels.find(cmd_key);
@@ -126,7 +129,10 @@ public:
         pipeline::Authorities &authorities
     ) override {
         std::unique_lock lock(chan_state_lock);
-        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
+        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono(), [this] {
+            return this->chan_state_changed;
+        });
+        this->chan_state_changed = false;
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
