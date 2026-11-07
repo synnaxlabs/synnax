@@ -407,7 +407,7 @@ class TestLenses:
                 "Edges": edges or FakeClaude(),
             }
         )
-        got, usage = run(
+        got, usage, _ = run(
             config(lenses=LENSES), pr or pull(), claude=claude, workdir=WORK
         )
         return claude, (got, usage)
@@ -476,7 +476,7 @@ class TestLenses:
             lines = FakeClaude()(args, stdin, cwd)
             return [line for line in lines if "stream_event" not in line]
 
-        got, _ = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        got, _, _ = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
         assert [f.title for f in got.findings] == ["P2 at 3"]
 
     def test_should_keep_the_findings_of_every_pass(self) -> None:
@@ -564,6 +564,19 @@ class TestLenses:
         _, (got, _) = self.lenses(races, FakeClaude(4))
         assert (got.score, got.verdict) == (4, "From races.")
 
+    def test_should_return_each_pass_before_the_join(self) -> None:
+        races = FakeClaude(5, [at("P2", 12)])
+        edges = FakeClaude(5, [at("P1", 12)])
+        claude = LensClaude({"Races": races, "Edges": edges})
+        _, _, passes = run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
+        assert [p.lens for p in passes] == [None, "Races", "Edges"]
+        assert [[f.title for f in p.review.findings] for p in passes] == [
+            [],
+            ["P2 at 12"],
+            ["P1 at 12"],
+        ]
+        assert [p.usage.turns for p in passes] == [12, 12, 12]
+
     def test_should_add_up_the_usage_of_every_pass(self) -> None:
         edges = FakeClaude()
         edges.out["duration_ms"] = 90_000
@@ -596,7 +609,7 @@ class TestUsage:
     """Tests what a review reports it cost."""
 
     def test_should_report_the_cost_and_the_last_limits(self) -> None:
-        _, usage = run(config(), pull(), claude=FakeClaude(), workdir=WORK)
+        _, usage, _ = run(config(), pull(), claude=FakeClaude(), workdir=WORK)
         assert (usage.cost_usd, usage.turns, usage.cache_read_tokens) == (
             0.5,
             12,
@@ -607,6 +620,13 @@ class TestUsage:
                 status="allowed_warning", utilization=0.81, resets_at=1_794_247_200
             )
         }
+
+    def test_should_return_one_pass_without_lenses(self) -> None:
+        claude = FakeClaude(3, [finding("P1")])
+        got, usage, [only] = run(config(), pull(), claude=claude, workdir=WORK)
+        assert only.lens is None
+        assert (only.review.score, got.score) == (3, 3)
+        assert only.usage == usage
 
     def test_should_report_no_limits_when_claude_streams_none(self) -> None:
         claude = FakeClaude()
@@ -752,6 +772,10 @@ class TestMain:
         assert record["base"] == env["BASE_SHA"]
         assert record["policy"] == "policy"
         assert record["review"]["score"] == 5
+        [only] = record["passes"]
+        assert only["lens"] is None
+        assert only["review"]["score"] == 5
+        assert only["usage"]["turns"] == 2
         assert record["usage"] == {
             "cost_usd": 0.5,
             "duration_ms": 1,

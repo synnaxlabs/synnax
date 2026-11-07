@@ -21,10 +21,10 @@ review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that r
 Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
-policy commit, the usage, and the review. `post` posts the review in a record. `compare`
-takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and prints
-a Markdown comparison of the records of the last days with Greptile's reviews of the
-same commits.
+policy commit, the usage, the review, and each pass before the join. `post` posts the
+review in a record. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
+with full history, and prints a Markdown comparison of the records of the last days
+with Greptile's reviews of the same commits.
 """
 
 import contextlib
@@ -132,7 +132,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         new=new,
     )
     with tempfile.TemporaryDirectory() as workdir:
-        result, usage = run(config, pr, claude=claude, workdir=Path(workdir))
+        result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))
     record = {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "pr": target.pr,
@@ -141,6 +141,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         "policy": os.environ["POLICY_SHA"],
         "usage": dataclasses.asdict(usage),
         "review": dataclasses.asdict(result),
+        "passes": [dataclasses.asdict(p) for p in passes],
     }
     path.write_text(json.dumps(record))
 
