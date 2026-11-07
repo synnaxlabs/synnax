@@ -15,11 +15,13 @@ Status = v1.Status
 
 Rack struct {
     key          Key      {
-        @doc value "is the composite identifier for this rack."
+        @doc value         "is the composite identifier for this rack."
         @key
+        @validate required
     }
     name         string   {
-        @doc value "is a human-readable name for the rack."
+        @doc value         "is a human-readable name for the rack."
+        @validate required
     }
     embedded     bool = false {
         @doc value "is true if this rack is embedded within the Synnax server process."
