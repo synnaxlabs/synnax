@@ -14,7 +14,7 @@ and bytes channels. OPC UA and Modbus have flat fields too.
 
 Each field becomes a union on a shared `Kind` in a new X package, `payload`.
 
-**Releases hold until every phase from 1 to 15 has landed.** http v4, Kafka v0, MQTT v1,
+**Releases hold until every phase from 1 to 15 has landed.** HTTP v4, Kafka v0, MQTT v1,
 and OPC UA v2 are not in `core/v0.60.1`, so they change in place, with no v5. A release
 before then owes a migration for each. `CONTRIBUTING.md` says `main` "is always
 releasable" and that "unfinished work ships dark behind a flag", but a stored shape
@@ -203,8 +203,9 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 it and the HTTP default is `float64`. Between numeric kinds it converts entries and
 fills by the same rules, so a non-finite fill becomes no fill, and it drops them on
 other kinds. It logs each change, naming a foreign key that matched an unrelated local
-channel. Migration and `Reconcile` keep the first entry of a set that collides after
-narrowing, drop the rest, and log each drop.
+channel. Migration and `Reconcile` keep the first entry of a set whose labels repeat or
+whose values collide under §2, on the stored value or after narrowing, drop the rest,
+and log each drop. So a stored `{ON: 1, HIGH: 1}` keeps `ON` and is not quarantined.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
