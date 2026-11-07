@@ -1465,13 +1465,18 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	if !atypes.AssignmentCompatible(varType, exprType) {
+	if target := ctx.Constraints.ApplySubstitutions(
+		varType,
+	); !atypes.AssignmentCompatible(
+		target,
+		exprType,
+	) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to '%s' (type %s)",
 			exprType,
 			name,
-			varType,
+			target,
 		))
 		return
 	}

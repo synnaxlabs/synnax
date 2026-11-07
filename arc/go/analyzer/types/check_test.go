@@ -37,7 +37,7 @@ var _ = Describe("Check", func() {
 					return
 				}
 				Expect(atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")).
-					To(MatchError(ContainSubstring("expected integer, got float")))
+					To(MatchError(ContainSubstring("got float")))
 			},
 			Entry(
 				"float into integer",
@@ -58,6 +58,17 @@ var _ = Describe("Check", func() {
 				true,
 			),
 		)
+	})
+
+	It("Should check an untyped value against the type its target is bound to", func() {
+		integer := types.IntegerConstraint()
+		target := types.Variable("target", &integer)
+		Expect(cs.AddEquality(target, types.F32(), nil, "test")).To(Succeed())
+		float := types.FloatConstraint()
+		value := types.Variable("value", &float)
+		Expect(atypes.Check(cs, target, value, testutil.NewMockAST(1), "test")).
+			To(Succeed())
+		Expect(cs.ApplySubstitutions(value)).To(Equal(types.F32()))
 	})
 
 	Describe("Invalid Types", func() {

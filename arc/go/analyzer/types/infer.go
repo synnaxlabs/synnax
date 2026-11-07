@@ -232,7 +232,7 @@ func LiteralAssignmentCompatible(
 		return false
 	}
 	series := literalType.Kind == types.KindSeries
-	variableType = variableType.Unwrap()
+	variableType = cs.ApplySubstitutions(variableType).Unwrap()
 	literalType = literalType.Unwrap()
 	if literalType.Kind == types.KindVariable {
 		return untypedFits(variableType, literalType) && cs.AddEquality(

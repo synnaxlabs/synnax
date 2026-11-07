@@ -71,10 +71,15 @@ func Check(
 		)
 	}
 
-	// Unification would widen an untyped integer to take an untyped float.
 	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
-		!untypedFits(t1, t2) {
-		return newTypeMismatchError(t1, t2, reason)
+		t2.Constraint != nil {
+		// A write binds an untyped target as a read does, so an untyped value takes
+		// the target's type and never changes it.
+		target := bindOnRead(cs, t1, source)
+		if !untypedFits(target, t2) {
+			return newTypeMismatchError(target, t2, reason)
+		}
+		return cs.AddEquality(target, t2, source, reason)
 	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		return cs.AddEquality(t1, t2, source, reason)

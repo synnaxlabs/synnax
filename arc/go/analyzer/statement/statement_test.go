@@ -525,7 +525,7 @@ var _ = Describe("Statement", func() {
 			Entry(
 				"a scalar read before an assignment",
 				"x := 1.5\nw := x\nx = v",
-				"f32 is not compatible with f64",
+				"cannot assign",
 			),
 			Entry(
 				"a series read after an assignment",
@@ -535,16 +535,25 @@ var _ = Describe("Statement", func() {
 			Entry(
 				"a series read before an assignment",
 				"y := [1.5]\nw := y\ny = [v]",
-				"f32 is not compatible with f64",
+				"cannot assign",
 			),
 			Entry(
 				"an element read before an assignment",
 				"y := [1.5]\nw := y[0]\ny = [v]",
-				"f32 is not compatible with f64",
+				"cannot assign",
 			),
 			Entry(
 				"an empty series read before a use",
 				"y := []\nn := len(y)\ny = [v]",
+				"",
+			),
+			Entry("an integer into a float", "x := 0.0\nx = 1\nw f64 := x", ""),
+			Entry("an integer added to a float", "x := 0.0\nx += 1\nw f64 := x", ""),
+			Entry("a float after a typed write", "x := 0\nx = v\nx = 1.5", ""),
+			Entry("a float added after a typed write", "x := 0\nx = v\nx += 1.5", ""),
+			Entry(
+				"an integer into a float element",
+				"y := [1.5]\ny[0] = 1\nw series f64 := y",
 				"",
 			),
 		)
@@ -563,22 +572,22 @@ var _ = Describe("Statement", func() {
 			Entry(
 				"compound assignment",
 				"x := 0\nx += 1.5",
-				"expected integer, got float",
+				"expected i64, got float",
 			),
 			Entry(
 				"indexed assignment",
 				"y := [1, 3]\ny[0] = 1.5",
-				"expected integer, got float",
+				"expected i64, got float",
 			),
 			Entry(
 				"indexed compound assignment",
 				"y := [1, 3]\ny[0] += 1.5",
-				"expected integer, got float",
+				"expected i64, got float",
 			),
 			Entry(
 				"series compound assignment",
 				"y := [1, 3]\ny += 1.5",
-				"expected integer, got float",
+				"expected i64, got float",
 			),
 			Entry(
 				"a series element",
