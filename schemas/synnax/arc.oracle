@@ -12,6 +12,7 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/x/crdt"
+import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/spatial"
 
@@ -26,42 +27,71 @@ Key = uuid {
 }
 
 Mode enum {
-    text  = "text"
-    graph = "graph"
+    text  = "text" {
+        @doc value "stores the module as Arc source text."
+    }
+    graph = "graph" {
+        @doc value "stores the module as a visual dataflow graph."
+    }
 
     @doc value """
         specifies whether an Arc module uses text-based or graph-based representation.
     """
 }
 
-Arc struct {
-    key     Key = create {
+Source union on mode Mode {
+    text {
+        text text.Text = {} {
+            @doc value "is the text-based Arc source code."
+        }
+
+        @doc value "is Arc source code written as text."
+    }
+    graph {
+        graph graph.Graph = {} {
+            @doc value "is the visual dataflow graph representation of the module."
+        }
+
+        @doc value "is Arc source code drawn as a visual dataflow graph."
+    }
+
+    @doc value  "is the source code of an Arc. The mode selects text or a graph."
+    @go marshal
+}
+
+Base struct {
+    key    Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name    string           {
+    name   string {
         @doc value         "is a human-readable name for the module."
         @filter
         @search
         @validate required
     }
-    mode    Mode             {
-        @doc value """
-            specifies the representation mode for this module. Either "text" for
-            text-based Arc code or "graph" for visual dataflow.
-        """
+    source Source = text {
+        @doc value "is the Arc's source code, written as text or drawn as a graph."
     }
-    graph   graph.Graph = {} {
-        @doc value "is the visual dataflow graph representation of the module."
+
+    @doc value  "carries the fields that every Arc shares."
+    @go marshal
+}
+
+Arc union on type Type extends Base {
+    automation {
+        program program.Program? {
+            @doc value  """
+                is the compiled module output including IR and WebAssembly bytecode.
+            """
+            @go marshal omit
+            @include
+        }
+
+        @doc value "is an Arc that runs on a rack as a task."
     }
-    text    text.Text = {} {
-        @doc value "is the text-based Arc source code."
-    }
-    program program.Program? {
-        @doc value  """
-            is the compiled module output including IR and WebAssembly bytecode.
-        """
-        @go marshal omit
+    module {
+        @doc value "is an Arc that holds code for other Arcs to import."
     }
 
     action Create {
@@ -208,4 +238,22 @@ Arc struct {
     @py name       "Payload"
     @resource type "arc"
     @retrieve
+}
+
+Type enum {
+    automation = "automation"
+    module     = "module"
+
+    @doc value """
+        specifies whether an Arc runs on a rack as an automation or holds code for other
+        Arcs to import as a module.
+    """
+}
+
+Where filter Arc {
+    key
+    name
+
+    @doc value         "is a filter that selects Arcs."
+    @go request_output "core/pkg/api/arc"
 }

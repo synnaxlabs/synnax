@@ -229,78 +229,27 @@ func (s *Service) Rename(
 		ChangeName(ctx, req.Key, req.Name)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys      []user.Key `json:"keys"      msgpack:"keys"`
-		Usernames []string   `json:"usernames" msgpack:"usernames"`
-		// Roles keeps only the users that hold any of these roles.
-		Roles []role.Key `json:"roles" msgpack:"roles"`
-	}
-	RetrieveResponse struct {
-		Users []user.User `json:"users" msgpack:"users"`
-	}
-)
-
-// Retrieve returns the users with the provided keys, the provided usernames of their
-// passwords, or the provided roles.
+// Retrieve returns the users that the request selects.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(user.MatchKeys(req.Keys...))
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Users))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if len(req.Usernames) > 0 {
-		keys, err := s.keysByUsername(ctx, req.Usernames)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		if len(keys) == 0 {
-			return RetrieveResponse{Users: []user.User{}}, nil
-		}
-		q = q.Where(user.MatchKeys(keys...))
-	}
-	if len(req.Roles) > 0 {
-		q = q.Where(user.MatchRoles(req.Roles...))
-	}
-	var users []user.User
-	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: user.ResourceIDsFromUsers(users),
+		Objects: user.ResourceIDsFromUsers(res.Users),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Users: users}, nil
-}
-
-func (s *Service) keysByUsername(
-	ctx context.Context,
-	usernames []string,
-) ([]user.Key, error) {
-	var passwords []password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchUsernames(usernames...)).
-		Entries(&passwords).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	keys := make([]user.Key, 0, len(passwords))
-	for _, p := range passwords {
-		if p.Subject.Type != resource.TypeUser {
-			continue
-		}
-		key, err := user.KeyFromResourceID(p.Subject)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
-	}
-	return keys, nil
+	return res, nil
 }
 
 type DeleteRequest struct {

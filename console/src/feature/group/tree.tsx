@@ -25,6 +25,12 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID => {
+  if (parentID == null)
+    throw new Error("Cannot ungroup groups that sit under more than one parent");
+  return parentID;
+};
+
 interface UngroupParams extends Tree.ContextMenuProps {
   prevNodes?: PTree.Node<string>[];
 }
@@ -34,6 +40,10 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     selection,
     state: { shape, nodes, setNodes },
   } = data;
+  const parentKey = resource.idToString(parentOf(selection));
+  // Flat search results do not show the real parent, so the children move to the top.
+  const destination =
+    PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   const byDepth = PTree.compareDepth(shape);
   selection.ids.sort((a, b) => byDepth(resource.idToString(a), resource.idToString(b)));
@@ -45,9 +55,7 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
         const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
         acc = PTree.moveNode({
           tree: acc,
-          destination: resource.idsEqual(selection.parentID, selection.rootID)
-            ? null
-            : resource.idToString(selection.parentID),
+          destination,
           keys: children.map((c) => c.key),
         });
         acc = PTree.removeNode({ tree: acc, keys: key });
@@ -104,9 +112,9 @@ export const createTreeItems = (
       participle: "ungrouping",
     },
     update: async ({ client, data }) => {
-      const {
-        selection: { ids, parentID, rootID },
-      } = data;
+      const { selection } = data;
+      const { ids, rootID } = selection;
+      const parentID = parentOf(selection);
       const selected = new Set(resource.idToString(ids));
       const childIDs = (
         await Promise.all(
@@ -132,7 +140,7 @@ export const createTreeItems = (
 
   const TreeContextMenu: Tree.ContextMenu = (props) => {
     const {
-      selection: { ids, rootID },
+      selection: { ids, rootID, parentID },
       state,
     } = props;
     const { getResource, nodes, shape } = state;
@@ -169,6 +177,7 @@ export const createTreeItems = (
             ids={ids}
             shape={shape}
             rootID={rootID}
+            parentID={parentID}
             onClick={() => createFromSelection(props)}
           />
         )}
@@ -184,7 +193,7 @@ export const createTreeItems = (
           </>
         )}
         <Menu.Divider />
-        {hasDeletePermission && (
+        {hasDeletePermission && parentID != null && (
           <Menu.Item itemKey="ungroup" onClick={() => handleUngroup(props)}>
             {ungroupIcon}
             {isDelete ? "Delete" : "Ungroup"}

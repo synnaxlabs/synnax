@@ -13,8 +13,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -33,7 +32,6 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -81,6 +79,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	ImExExcluded []string
+	// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+	// keys.
+	//
+	// [OPTIONAL] - A retrieve that filters by Arc fails without it.
+	MatchArcs func(arcs ...uuid.UUID) Filter
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -101,6 +104,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
 	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
+	c.MatchArcs = override.Nil(c.MatchArcs, other.MatchArcs)
 	return c
 }
 
@@ -120,7 +124,6 @@ type Service struct {
 	cfg               ServiceConfig
 	closer            xio.MultiCloser
 	table             *gorp.Table[Key, Task]
-	search            *gorp.SearchIndex[Key, Task]
 	indexes           indexes
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
@@ -142,7 +145,6 @@ func OpenService(
 	}
 	s = &Service{
 		cfg:     cfg,
-		search:  newSearchIndex(),
 		indexes: newIndexes(),
 		state:   actions.NewState[Key, Action](cfg.DB),
 	}
@@ -151,7 +153,7 @@ func OpenService(
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB:         cfg.DB,
 		Name:       tableName,
-		Indexes:    []gorp.Index[Key, Task]{s.search},
+		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
@@ -307,11 +309,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:  s.search,
-		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
-		gorp:    s.table.NewRetrieve(),
-		configs: s.cfg.Configs,
+		indexes:   s.indexes,
+		baseTX:    s.cfg.DB,
+		gorp:      s.table.NewRetrieve(),
+		configs:   s.cfg.Configs,
+		matchArcs: s.cfg.MatchArcs,
 	}
 }
 
@@ -340,27 +342,21 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	if len(tasks) == 0 {
-		return nil
-	}
-	byOwner := make(map[resource.ID]Task, len(tasks))
-	for _, tsk := range tasks {
-		byOwner[tsk.ResourceID()] = tsk
-	}
-	// A task without a status has never reported running, so it gets no copy.
-	var reported []Status
-	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchOwners[StatusDetails](slices.Collect(maps.Keys(byOwner))...)).
-		Entries(&reported).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	reported, err := s.cfg.Status.Join[StatusDetails](
+		ctx,
+		nil,
+		ResourceIDsFromTasks(tasks),
+	)
+	if err != nil {
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
-	statuses := make([]Status, 0, len(reported))
-	for _, prev := range reported {
-		if !prev.Details.Running {
+	statuses := make([]Status, 0, len(tasks))
+	for i, tsk := range tasks {
+		// A task without a status has never reported running, so it gets no copy.
+		prev := reported[i]
+		if prev == nil || !prev.Details.Running {
 			continue
 		}
-		tsk := byOwner[*prev.Owner]
 		// A silent rack does not undo the deploy the Driver reported, so the config
 		// hash is carried across.
 		statuses = append(statuses, Status{

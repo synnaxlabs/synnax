@@ -15,6 +15,8 @@ import pytest
 from pydantic import JsonValue
 
 import synnax as sy
+from synnax import device
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -122,19 +124,33 @@ class TestDevice:
         assert renamed.name == "After Rename"
         assert renamed.properties == {"foo": "bar"}
 
-    def test_retrieve_ignore_not_found(self, client: sy.Synnax) -> None:
-        # Test multiple device retrieval
-        devices = client.devices.retrieve(
-            keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=True
-        )
-        assert len(devices) == 0
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(keys=[dev.key, str(uuid4())])
+        assert [d.key for d in res] == [dev.key]
 
     def test_retrieve_not_found_error(self, client: sy.Synnax) -> None:
-        # Test multiple device retrieval
+        """Should raise when a single device is requested and none matches."""
         with pytest.raises(sy.NotFoundError):
-            client.devices.retrieve(
-                keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
-            )
+            client.devices.retrieve(key=str(uuid4()))
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep devices that match a filter tree and the other filters."""
+        rack = client.racks.create(name=str(uuid4()))
+        devs = [client.devices.create(basic_device(rack.key, i)) for i in range(3)]
+        where = device.Where(
+            or_=[
+                device.Where(name=filter.String(eq=devs[0].name)),
+                device.Where(
+                    key=filter.Set[str](eq=devs[1].key),
+                    model=filter.String(regex="^test"),
+                ),
+            ]
+        )
+        res = client.devices.retrieve(where=where, racks=[rack.key])
+        assert {d.key for d in res} == {devs[0].key, devs[1].key}
 
     def test_create_converts_properties_to_json(self, client: sy.Synnax) -> None:
         """Should store a UUID in the properties as a string."""
@@ -235,14 +251,16 @@ class TestDevice:
         """Should return a list when names are combined with a limit."""
         rack = client.racks.create(name=str(uuid4()))
         dev = client.devices.create(basic_device(rack.key, 1))
-        res = client.devices.retrieve(names=[dev.name], limit=1, ignore_not_found=True)
+        res = client.devices.retrieve(names=[dev.name], limit=1)
         assert_type(res, list[sy.Device])
         assert [d.key for d in res] == [dev.key]
 
     def test_retrieve_single_by_each_filter(self, client: sy.Synnax) -> None:
         """Should return one device for each singular filter."""
         rack = client.racks.create(name=str(uuid4()))
-        dev = client.devices.create(basic_device(rack.key, 1))
+        dev = basic_device(rack.key, 1)
+        dev.model = str(uuid4())
+        dev = client.devices.create(dev)
         by_name = client.devices.retrieve(name=dev.name, include_status=True)
         assert_type(by_name, sy.Device)
         assert by_name.key == dev.key
@@ -252,6 +270,21 @@ class TestDevice:
         missing = client.devices.retrieve(location=str(uuid4()), ignore_not_found=True)
         assert_type(missing, sy.Device | None)
         assert missing is None
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one device matches, even with
+        ignore_not_found."""
+        rack = client.racks.create(name=str(uuid4()))
+        make = str(uuid4())
+        for n in range(2):
+            dev = basic_device(rack.key, n)
+            dev.make = make
+            client.devices.create(dev)
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Device matching {make}, but found 2",
+        ):
+            client.devices.retrieve(make=make, ignore_not_found=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every device when no filter is given."""

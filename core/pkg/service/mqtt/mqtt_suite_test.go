@@ -158,6 +158,8 @@ type testBroker struct {
 	clientIDs []string
 	// keepAlives holds the keep-alive interval in seconds of each connection, in order.
 	keepAlives []uint16
+	// refusing makes the broker refuse each new connection.
+	refusing atomic.Bool
 }
 
 // connectHook records the client ID and the keep-alive interval of each connection to a
@@ -174,6 +176,9 @@ func (h *connectHook) ID() string { return "connect" }
 func (h *connectHook) Provides(b byte) bool { return b == mochi.OnConnect }
 
 func (h *connectHook) OnConnect(cl *mochi.Client, pk packets.Packet) error {
+	if h.broker.refusing.Load() {
+		return packets.ErrServerUnavailable
+	}
 	if old, ok := h.broker.server.Clients.Get(cl.ID); ok && !old.Net.Inline {
 		old.Stop(packets.ErrSessionTakenOver)
 		h.broker.listener.awaitServed(old.Net.Conn)
@@ -203,6 +208,30 @@ func (h *openHook) OnConnectAuthenticate(*mochi.Client, packets.Packet) bool {
 
 func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
+}
+
+// unackedHook leaves the publishes on topic unanswered, so that each stays in flight,
+// until released is set.
+type unackedHook struct {
+	mochi.HookBase
+	topic    string
+	held     atomic.Int64
+	released atomic.Bool
+}
+
+func (h *unackedHook) ID() string { return "unacked" }
+
+func (h *unackedHook) Provides(b byte) bool { return b == mochi.OnPublish }
+
+func (h *unackedHook) OnPublish(
+	_ *mochi.Client,
+	pk packets.Packet,
+) (packets.Packet, error) {
+	if pk.TopicName != h.topic || h.released.Load() {
+		return pk, nil
+	}
+	h.held.Add(1)
+	return pk, packets.ErrRejectPacket
 }
 
 // tcpListener returns from Close only after every connection it accepted is done. Mochi

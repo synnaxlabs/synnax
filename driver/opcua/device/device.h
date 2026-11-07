@@ -97,9 +97,10 @@ public:
         return this->pool->acquire(this->cfg, this->log_prefix);
     }
 
-    /// @brief replaces conn when the device's settings now resolve to another client
-    /// certificate. See connection::Pool::refresh.
-    std::pair<bool, x::errors::Error> refresh(connection::Pool::Connection &conn) {
+    /// @brief connects again when the device's settings now resolve to another client
+    /// certificate than conn uses. See connection::Pool::refresh.
+    std::pair<connection::Pool::Connection, x::errors::Error>
+    refresh(const connection::Pool::Connection &conn) {
         return this->pool->refresh(conn, this->cfg, this->log_prefix);
     }
 };

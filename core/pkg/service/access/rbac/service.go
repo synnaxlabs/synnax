@@ -284,6 +284,12 @@ func (s *Service) rolesOf(
 	}
 }
 
+// NewPolicyRetrieve opens a policy retrieve whose [policy.MatchSubjects] filters read
+// the roles of each subject through [Service.RolesOf].
+func (s *Service) NewPolicyRetrieve() policy.Retrieve {
+	return s.Policy.NewRetrieve().ResolveRolesWith(s.RolesOf)
+}
+
 func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
 	subject resource.ID,

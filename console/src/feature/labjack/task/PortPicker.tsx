@@ -10,11 +10,10 @@
 import "@/feature/labjack/task/PortPicker.css";
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type deep } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement } from "react";
 
 import {
   type Model,
@@ -53,7 +52,7 @@ const Grid = <C extends Channel>({
       claims={claims(channels, model)}
       selected={[channel]}
       describe={Task.Port.describer(channels, name)}
-      onClick={(cell) => {
+      onMove={(cell) => {
         onChange(cell.key);
         close();
       }}
@@ -73,9 +72,6 @@ export interface PortPickerProps<C extends Channel> {
   channel: string;
   /** The name a channel shows by. */
   name: (channel: C) => string;
-  /** Packed after the trigger, such as the channel's type buttons. */
-  children?: ReactNode;
-  className?: string;
 }
 
 /**
@@ -91,20 +87,15 @@ export const PortPicker = <C extends Channel>({
   type,
   channel,
   name,
-  children,
-  className,
 }: PortPickerProps<C>): ReactElement => {
   const ports = PORTS[model][type];
   const port = ports.find(({ key }) => key === value);
   const itemStatus = Input.useItemStatus({});
   return (
-    <Dialog.Frame className={className}>
-      <Flex.Box pack x>
-        <Dialog.Trigger preview={preview} {...itemStatus}>
-          {port == null ? value : terminal(port)}
-        </Dialog.Trigger>
-        {children}
-      </Flex.Box>
+    <Dialog.Frame>
+      <Dialog.Trigger variant="shadow" preview={preview} {...itemStatus}>
+        {port == null ? value : terminal(port)}
+      </Dialog.Trigger>
       <Dialog.Dialog className={CSS.BE("labjack-port-picker", "dialog")}>
         <Grid<C>
           channelsPath={channelsPath}

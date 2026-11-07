@@ -14,6 +14,8 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax import rack
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -74,6 +76,16 @@ class TestRackClient:
         finally:
             client.racks.rename(rack.key, rack.name)
 
+    def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one rack has the name"""
+        name = str(uuid4())
+        client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Rack matching {name}, but found 2",
+        ):
+            client.racks.retrieve(name=name)
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a rack"""
         rack = client.racks.create(name="test")
@@ -128,6 +140,30 @@ class TestRackClient:
         result_keys = {r.key for r in results}
         assert r1.key in result_keys
         assert r2.key not in result_keys
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep racks that match a filter tree and the other filters"""
+        racks = client.racks.create(
+            racks=[
+                sy.Rack(name=f"py-where-{uuid4()}", integrations=["labjack"]),
+                sy.Rack(name=f"py-where-{uuid4()}"),
+                sy.Rack(name=f"py-where-{uuid4()}"),
+            ]
+        )
+        where = rack.Where(
+            or_=[
+                rack.Where(integrations=filter.Contains[str](any=["labjack"])),
+                rack.Where(name=filter.String(eq=racks[1].name)),
+            ]
+        )
+        res = client.racks.retrieve(where=where, keys=[r.key for r in racks])
+        assert {r.key for r in res} == {racks[0].key, racks[1].key}
+
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve"""
+        r = client.racks.create(name="py-missing-key")
+        res = client.racks.retrieve(keys=[r.key, 4123456789])
+        assert [x.key for x in res] == [r.key]
 
     def test_update_integrations(self, client: sy.Synnax) -> None:
         """Should update integrations on upsert"""

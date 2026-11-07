@@ -13,9 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
-from synnax.group.types_gen import Group
+from synnax.group.types_gen import Group, RetrieveRequest, RetrieveResponse, Where
 from synnax.resource import ID, CrudeID, Type
+from synnax.util import one
+from x import filter
 
 
 class _CreateReq(BaseModel):
@@ -23,14 +24,6 @@ class _CreateReq(BaseModel):
     name: str
     scope: Type | None = None
     parent: ID | None = None
-
-
-class _RetrieveReq(BaseModel):
-    keys: list[UUID] | None = None
-
-
-class _RetrieveRes(BaseModel):
-    groups: list[Group] = []
 
 
 class _CreateRes(BaseModel):
@@ -90,25 +83,49 @@ class Client:
     def retrieve(self, key: UUID) -> Group: ...
 
     @overload
-    def retrieve(self, *, keys: list[UUID]) -> list[Group]: ...
+    def retrieve(
+        self,
+        *,
+        where: Where | None = None,
+        keys: list[UUID] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Group]: ...
 
     def retrieve(
         self,
         key: UUID | None = None,
         *,
+        where: Where | None = None,
         keys: list[UUID] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
     ) -> Group | list[Group]:
+        """Retrieves groups. Returns one group when a key is given, and a list
+        otherwise.
+
+        :param where: Keeps groups that match this filter tree.
+        :raises NotFoundError: If a single group is requested and none matches.
+        """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
         res = self._client.send(
-            "/group/retrieve", _RetrieveReq(keys=keys), _RetrieveRes
+            "/group/retrieve",
+            RetrieveRequest(
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
+            ),
+            RetrieveResponse,
         )
         if not is_single:
             return res.groups
-        if len(res.groups) == 0:
-            raise NotFoundError(f"Group matching {key} not found")
-        return res.groups[0]
+        return one("Group", key, res.groups)
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send("/group/rename", _RenameReq(key=key, name=name), Empty)

@@ -7,38 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, primitive, type record } from "@synnaxlabs/x";
+import { array, type destructor, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type batch } from "@/batch";
 import { type Key, keyZ } from "@/group/types.gen";
 import { query } from "@/query";
 
-/** Retrieve request fields that filter records by the group they sit in. */
-export const memberFilterZ = z.object({
-  /** Keeps records that sit in any of these groups. */
-  groups: keyZ.array().optional(),
-  /** Keeps records that sit in a group when true, and records in none when false. */
-  grouped: z.boolean().optional(),
-});
-export interface MemberFilter extends z.infer<typeof memberFilterZ> {}
-
 /** A record that can sit in a group. */
 export interface Member {
   group?: Key;
 }
 
-/** Returns a predicate that tells whether a record passes the filter. */
-export const createMemberMatcher = (
-  filter: MemberFilter,
-): ((member: Member) => boolean) => {
-  const groups = primitive.isNonZero(filter.groups) ? new Set(filter.groups) : null;
-  const { grouped } = filter;
-  return ({ group }) => {
-    if (groups != null && (group == null || !groups.has(group))) return false;
-    if (grouped != null && (group != null) !== grouped) return false;
-    return true;
-  };
+/** Checks the groups and grouped lines of a Where against a record in the cache. */
+export const MEMBER_LINES = {
+  groups: ({ group }: Member, keys: Key[]): boolean =>
+    group != null && keys.includes(group),
+  grouped: ({ group }: Member, grouped: boolean): boolean =>
+    (group != null) === grouped,
 };
 
 /** Schema of a set-group request for records keyed by the given schema. */

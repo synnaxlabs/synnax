@@ -24,20 +24,28 @@ import (
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v3.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v3.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v3.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v3.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v3.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = v3.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = v3.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = v3.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v3.FlexAlignmentStretch
 )
 
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
 type CellConfig = v3.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant = v3.CellConfigVariant
+
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType = v3.CellConfigType
 
 const (

@@ -11,6 +11,7 @@ import {
   type group,
   project,
   query,
+  type ranger,
   type resource,
   type Synnax,
   UnexpectedError,
@@ -34,10 +35,7 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
-export type ListParams = Pick<
-  project.RetrieveRequest,
-  "keys" | "offset" | "limit" | "searchTerm"
->;
+export type ListParams = project.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
@@ -108,11 +106,13 @@ export type VisualizationType = "schematic" | "lineplot" | "log" | "table" | "pa
 /** A visualization of any type. */
 export interface Visualization extends record.KeyedNamed<string>, project.Movable {}
 
-/** The retrieve request fields that every visualization client takes. */
-export interface VisualizationQuery extends project.OwnerFilter {
-  keys?: string[];
+/** The flat where fields that every visualization client takes. */
+export interface VisualizationQuery {
+  key?: string[];
   groups?: group.Key[];
   grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 }
 
 /** The calls that every visualization client answers. */
@@ -171,7 +171,7 @@ export const retrieveSiblings = async (
   if (!isVisualizationType(resourceID.type))
     throw new UnexpectedError(`a ${resourceID.type} does not belong to a project`);
   const [source] = await VISUALIZATIONS[resourceID.type](client).retrieve({
-    keys: [resourceID.key],
+    key: [resourceID.key],
   });
   if (source?.project == null) return [];
   const projects = [source.project];

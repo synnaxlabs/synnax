@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax import label
 from x.strings import random_name
 
 
@@ -77,6 +78,14 @@ class TestLabelClient:
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
         res = client.labels.retrieve(keys=[a.key, b.key])
         assert {lbl.key for lbl in res} == {a.key, b.key}
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep the labels that match the where and the other filters."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        where = label.Where(not_=label.Where(key=sy.filter.Set[label.Key](eq=a.key)))
+        res = client.labels.retrieve(where=where, names=[a.name, b.name])
+        assert [r.key for r in res] == [b.key]
 
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve a label by its name."""

@@ -46,17 +46,27 @@ func (r *RegisterValue) ApplyDefaults() {
 // BaseReadChannel carries the fields every Modbus read channel shares.
 type BaseReadChannel = v1.BaseReadChannel
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	CoilReadChannelType               ReadChannelType = "coil"
-	DiscreteInputReadChannelType      ReadChannelType = "discrete_input"
-	HoldingRegisterReadChannelType    ReadChannelType = "holding_register"
-	InputRegisterReadChannelType      ReadChannelType = "input_register"
+	// CoilReadChannelType reads a single bit from a coil.
+	CoilReadChannelType ReadChannelType = "coil"
+	// DiscreteInputReadChannelType reads a single bit from a discrete input.
+	DiscreteInputReadChannelType ReadChannelType = "discrete_input"
+	// HoldingRegisterReadChannelType reads a typed value from one or more holding
+	// registers.
+	HoldingRegisterReadChannelType ReadChannelType = "holding_register"
+	// InputRegisterReadChannelType reads a typed value from one or more input
+	// registers.
+	InputRegisterReadChannelType ReadChannelType = "input_register"
+	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
 	HoldingRegisterBitReadChannelType ReadChannelType = "holding_register_bit"
-	InputRegisterBitReadChannelType   ReadChannelType = "input_register_bit"
+	// InputRegisterBitReadChannelType reads one bit of an input register.
+	InputRegisterBitReadChannelType ReadChannelType = "input_register_bit"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -258,9 +268,32 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.InputRegisterBitReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case CoilReadChannel:
+		return CoilReadChannelType
+	case DiscreteInputReadChannel:
+		return DiscreteInputReadChannelType
+	case HoldingRegisterReadChannel:
+		return HoldingRegisterReadChannelType
+	case InputRegisterReadChannel:
+		return InputRegisterReadChannelType
+	case HoldingRegisterBitReadChannel:
+		return HoldingRegisterBitReadChannelType
+	case InputRegisterBitReadChannel:
+		return InputRegisterBitReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -288,17 +321,68 @@ func (u ReadChannel) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		return variant.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DiscreteInputReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
+}
+
 // BaseWriteChannel carries the fields every Modbus write channel shares.
 type BaseWriteChannel = v1.BaseWriteChannel
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	CoilWriteChannelType               WriteChannelType = "coil"
-	HoldingRegisterWriteChannelType    WriteChannelType = "holding_register"
+	// CoilWriteChannelType writes a single bit to a coil.
+	CoilWriteChannelType WriteChannelType = "coil"
+	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
+	// registers.
+	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
+	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
 	HoldingRegisterBitWriteChannelType WriteChannelType = "holding_register_bit"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -418,9 +502,26 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.HoldingRegisterBitWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case CoilWriteChannel:
+		return CoilWriteChannelType
+	case HoldingRegisterWriteChannel:
+		return HoldingRegisterWriteChannelType
+	case HoldingRegisterBitWriteChannel:
+		return HoldingRegisterBitWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -441,6 +542,36 @@ func (u WriteChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterBitWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures a Modbus read task.

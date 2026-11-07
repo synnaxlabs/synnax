@@ -226,9 +226,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}
@@ -417,7 +417,7 @@ func {{.Name}}FromPB(v {{.PBType}}) ({{.GoType}}, error) {
 {{- range .GenericTranslators}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}} using provided type
-// converters.{{if .TypeParams}} A nil converter leaves its field empty.{{end}}
+// converters.
 func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	r {{.GoType}},
 {{- range .TypeParams}}
@@ -425,12 +425,9 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 {{- end}}
 ) (*{{.PBType}}, error) {
 {{- range .TypeParamFields}}
-	var {{lcFirst .GoName}}Any *anypb.Any
-	if {{.Converter}} != nil {
-		var err error
-		if {{lcFirst .GoName}}Any, err = {{.ForwardExpr}}; err != nil {
-			return nil, err
-		}
+	{{lcFirst .GoName}}Any, err := {{.ForwardExpr}}
+	if err != nil {
+		return nil, err
 	}
 {{- end}}
 {{- range .ErrorFields}}
@@ -522,7 +519,7 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 }
 
 // {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}} using provided type
-// converters.{{if .TypeParams}} A nil converter leaves its field empty.{{end}}
+// converters.
 func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	pb *{{.PBType}},
 {{- range .TypeParams}}
@@ -541,10 +538,9 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	var err error
 {{- end}}
 {{- range .TypeParamFields}}
-	if {{.Converter}} != nil {
-		if r.{{.GoName}}, err = {{.BackwardExpr}}; err != nil {
-			return {{$goType}}{}, err
-		}
+	r.{{.GoName}}, err = {{.BackwardExpr}}
+	if err != nil {
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- range .ErrorFields}}
@@ -607,9 +603,9 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}

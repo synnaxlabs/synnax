@@ -195,7 +195,7 @@ describe("task ontology", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+        const tasks = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
         expect(tasks.some((s) => s.snapshot)).toBe(true);
       });
       await waitFor(() =>

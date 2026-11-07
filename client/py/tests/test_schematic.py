@@ -303,6 +303,16 @@ class TestClient:
         retrieved = client.schematics.retrieve(ranges=[rng.key])
         assert [r.key for r in retrieved] == [c.key]
 
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep the schematics that match the where and the other filters."""
+        a = client.schematics.create(name="A", project=project.key)
+        b = client.schematics.create(name="B", project=project.key)
+        where = schematic.Where(
+            not_=schematic.Where(key=sy.filter.Set[schematic.Key](eq=a.key))
+        )
+        res = client.schematics.retrieve(where=where, keys=[a.key, b.key, uuid4()])
+        assert [r.key for r in res] == [b.key]
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the key does not exist."""
         with pytest.raises(NotFoundError):
@@ -353,8 +363,7 @@ class TestClient:
         s1 = client.schematics.create(name="Delete 1", project=project.key)
         s2 = client.schematics.create(name="Delete 2", project=project.key)
         client.schematics.delete([s1.key, s2.key])
-        with pytest.raises(NotFoundError):
-            client.schematics.retrieve(keys=[s1.key, s2.key])
+        assert client.schematics.retrieve(keys=[s1.key, s2.key]) == []
 
 
 def _symbol(name: str, g: group.Group | None = None) -> symbol.Symbol:
@@ -405,6 +414,29 @@ class TestSymbolClient:
         )
         retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
+
+    def test_retrieve_where(self, client: sy.Synnax, parent_group: group.Group) -> None:
+        """Should keep the symbols that match the where and the other filters."""
+        a, b = client.schematics.symbols.create(
+            [_symbol("A", parent_group), _symbol("B", parent_group)]
+        )
+        where = symbol.Where(not_=symbol.Where(key=sy.filter.Set[symbol.Key](eq=a.key)))
+        res = client.schematics.symbols.retrieve(
+            where=where, keys=[a.key, b.key, uuid4()]
+        )
+        assert [r.key for r in res] == [b.key]
+
+    def test_retrieve_by_group(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
+        """Should keep the symbols in the given groups."""
+        a, _ = client.schematics.symbols.create(
+            [_symbol("In group", parent_group), _symbol("No group")]
+        )
+        res = client.schematics.symbols.retrieve(
+            where=symbol.Where(groups=[parent_group.key])
+        )
+        assert [r.key for r in res] == [a.key]
 
     def test_retrieve_with_search_term(
         self, client: sy.Synnax, parent_group: group.Group

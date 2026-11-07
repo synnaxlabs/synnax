@@ -323,7 +323,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(niRack.key);
@@ -335,7 +335,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).not.toContain(emptyRack.key);
@@ -368,7 +368,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -428,7 +428,7 @@ describe("queries", () => {
       });
       await client.racks.create({ name: "other" });
       const { result } = await renderHookSuspended(
-        () => Rack.useMultiple({ integration }),
+        () => Rack.useMultiple({ where: { integrations: { any: [integration] } } }),
         { wrapper },
       );
       await waitFor(() =>
@@ -443,7 +443,7 @@ describe("queries", () => {
         integrations: [integration],
       });
       const { result } = await renderHookSuspended(
-        () => Rack.useMultiple({ integration }),
+        () => Rack.useMultiple({ where: { integrations: { any: [integration] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toHaveLength(1));

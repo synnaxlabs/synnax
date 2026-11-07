@@ -11,18 +11,21 @@ package status
 
 import (
 	"context"
+	"encoding/json/v2"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -91,6 +94,35 @@ func labelAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
 	return ids
 }
 
+func decodeDetails[D any](details any) error {
+	b, err := json.Marshal(details)
+	if err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	var decoded D
+	if err = json.Unmarshal(b, &decoded); err != nil {
+		return errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return nil
+}
+
+func validateDetails(s status.Status[any]) error {
+	// A status whose details its owner cannot decode fails every read of that status.
+	if s.Owner == nil {
+		return nil
+	}
+	switch s.Owner.Type {
+	case resource.TypeDevice:
+		return decodeDetails[device.StatusDetails](s.Details)
+	case resource.TypeTask:
+		return decodeDetails[task.StatusDetails](s.Details)
+	case resource.TypeRack, resource.TypeChannel:
+		return decodeDetails[struct{}](s.Details)
+	default:
+		return nil
+	}
+}
+
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
 	// Statuses are the statuses to set. A status with an owner goes to the status its
@@ -104,7 +136,9 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates statuses in the cluster.
+// Set creates or updates statuses in the cluster. It returns a validation error and
+// writes nothing if a status keyed by a rack, device, task, or channel carries details
+// that resource cannot decode.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -119,6 +153,13 @@ func (s *Service) Set(
 		),
 	}); err != nil {
 		return SetResponse{}, err
+	}
+	for i, st := range req.Statuses {
+		if err := validateDetails(st); err != nil {
+			return SetResponse{}, validate.PathedError(
+				err, "statuses", strconv.Itoa(i), "details",
+			)
+		}
 	}
 	if err := s.internal.NewWriter(tx).SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
@@ -181,76 +222,27 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
-type RetrieveRequest struct {
-	// SearchTerm is used for fuzzy searching statuses.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Keys are the keys of the statuses to retrieve.
-	Keys []status.Key `json:"keys" msgpack:"keys"`
-	// Owners retrieves the statuses that the resources with the given IDs own.
-	Owners []resource.ID `json:"owners" msgpack:"owners"`
-	// HasLabels retrieves statuses that are labeled by one or more labels with the
-	// given keys.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-	// Variants filters for statuses with the given variants.
-	Variants []status.Variant `json:"variants" msgpack:"variants"`
-	// Limit is the maximum number of statuses to retrieve.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset is the number of statuses to skip.
-	Offset int `json:"offset" msgpack:"offset"`
-	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
-	// one or more of Keys names a status that does not.
-	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-}
-
-type RetrieveResponse struct {
-	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve[any]()
-	resStatuses := make([]status.Status[any], 0, len(req.Keys))
-
-	if req.SearchTerm != "" {
-		q = q.Where(status.MatchSearch(req.SearchTerm))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.HasLabels) > 0 {
-		q = q.Where(status.MatchLabels[any](req.HasLabels...))
-	}
-	if len(req.Variants) > 0 {
-		q = q.Where(status.MatchVariants[any](req.Variants...))
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(status.MatchKeys[any](req.Keys...))
-	}
-	if len(req.Owners) != 0 {
-		q = q.Where(status.MatchOwners[any](req.Owners...))
-	}
-	err := q.Entries(&resStatuses).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	res := RetrieveResponse{Statuses: []status.Status[any]{}}
+	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	// A status holds only the keys of its labels, so a read needs no label access.
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: statusAccessResourceIDs(resStatuses),
+		Objects: statusAccessResourceIDs(res.Statuses),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Statuses: resStatuses}, nil
+	return res, nil
 }
 
 // RenameRequest names the status to rename and the name to give it.

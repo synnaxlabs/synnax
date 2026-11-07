@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/log/log.h"
 #include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
@@ -128,8 +129,11 @@ public:
             if (lower.uint64() < this->high_water_mark.uint64()) continue;
 
             const bool generate_synthetic = index_data.empty();
-            if (!generate_synthetic && i >= index_data.series.size())
+            if (!generate_synthetic && i >= index_data.series.size()) {
+                LOG_FIRST_N(WARNING, 10) << "[arc.channels] channel " << this->curr_key
+                                         << ": no index series for data series " << i;
                 return x::errors::NIL;
+            }
 
             ::x::telem::Series time_series = generate_synthetic
                                                ? ::x::telem::Series(
@@ -147,8 +151,13 @@ public:
                         )
                     );
                 time_series.alignment = ser.alignment;
-            } else if (time_series.alignment != ser.alignment)
+            } else if (time_series.alignment != ser.alignment) {
+                LOG_FIRST_N(WARNING, 10)
+                    << "[arc.channels] channel " << this->curr_key
+                    << ": index alignment " << time_series.alignment.uint64()
+                    << " does not match data alignment " << lower.uint64();
                 return x::errors::NIL;
+            }
 
             const size_t first = generate_synthetic
                                    ? 0

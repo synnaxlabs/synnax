@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <set>
 
 #include "gtest/gtest.h"
 
@@ -307,7 +308,7 @@ TEST(DeviceTests, testDeleteDevices) {
     const std::vector keys = {d1.key, d2.key};
     ASSERT_NIL(client.devices.del(keys));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), x::errors::NOT_FOUND);
+    ASSERT_TRUE(ASSERT_NIL_P(client.devices.retrieve(keys)).empty());
 }
 
 /// @brief it should retrieve devices using a device::RetrieveRequest with keys and
@@ -347,17 +348,85 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     ASSERT_NIL(client.devices.create(d3));
-    device::RetrieveRequest req_keys{};
-    req_keys.keys = {d1.key, d3.key};
-    const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
+    const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .key = x::filter::Set<Key>{.in = std::vector<Key>{d1.key, d3.key}},
+            },
+        }
+    ));
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
     ASSERT_TRUE(dm.contains(d1.key));
     ASSERT_TRUE(dm.contains(d3.key));
-    device::RetrieveRequest req_names{};
-    req_names.names = {d1.name, d2.name};
-    const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));
+    const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .name = x::filter::String{
+                    .in = std::vector<std::string>{d1.name, d2.name},
+                },
+            },
+        }
+    ));
     ASSERT_EQ(devices_names.size(), 2);
+}
+
+/// @brief it should retrieve the devices that match any branch of an or.
+TEST(DeviceTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    std::vector<Device> devs;
+    for (int i = 0; i < 3; ++i) {
+        auto d = Device{
+            .key = "where_d" + std::to_string(i) + "_" + rand,
+            .rack = r.key,
+            .location = "loc",
+            .make = "where_make_" + std::to_string(i),
+            .model = "model",
+            .name = "where_device_" + std::to_string(i),
+        };
+        ASSERT_NIL(client.devices.create(d));
+        devs.push_back(d);
+    }
+    const auto devices = ASSERT_NIL_P(client.devices.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ =
+                    std::vector<Where>{
+                        Where{.make = x::filter::String{.eq = devs[0].make}},
+                        Where{.key = x::filter::Set<Key>{.eq = devs[1].key}},
+                    },
+                .rack = x::filter::Set<rack::Key>{.eq = r.key},
+            },
+        }
+    ));
+    std::set<Key> keys;
+    for (const auto &d: devices)
+        keys.insert(d.key);
+    ASSERT_EQ(keys, (std::set<Key>{devs[0].key, devs[1].key}));
+}
+
+/// @brief it should treat a missing key as a non-match in a list retrieve.
+TEST(DeviceTests, testRetrieveMissingKey) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto d = Device{
+        .key = "missing_d_" + std::to_string(gen_rand_device()),
+        .rack = r.key,
+        .location = "loc",
+        .make = "make",
+        .model = "model",
+        .name = "missing_device",
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const auto devices = ASSERT_NIL_P(
+        client.devices.retrieve(std::vector<std::string>{d.key, "missing_d_none"})
+    );
+    ASSERT_EQ(devices.size(), 1);
+    ASSERT_EQ(devices[0].key, d.key);
 }
 /// @brief it should retrieve devices with limit and offset pagination.
 TEST(DeviceTests, testRetrieveWithLimitOffset) {
@@ -380,16 +449,14 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         ASSERT_NIL(client.devices.create(d));
         devices.push_back(d);
     }
-    device::RetrieveRequest req_limit;
-    req_limit.makes = {make};
-    req_limit.limit = 2;
-    const auto devices_limited = ASSERT_NIL_P(client.devices.retrieve(req_limit));
+    const auto where = Where{.make = x::filter::String{.eq = make}};
+    const auto devices_limited = ASSERT_NIL_P(
+        client.devices.retrieve(RetrieveRequest{.where = where, .limit = 2})
+    );
     ASSERT_EQ(devices_limited.size(), 2);
-    device::RetrieveRequest req_offset;
-    req_offset.makes = {make};
-    req_offset.limit = 2;
-    req_offset.offset = 2;
-    const auto devices_offset = ASSERT_NIL_P(client.devices.retrieve(req_offset));
+    const auto devices_offset = ASSERT_NIL_P(client.devices.retrieve(
+        RetrieveRequest{.where = where, .limit = 2, .offset = 2}
+    ));
     ASSERT_EQ(devices_offset.size(), 2);
     bool different = true;
     for (const auto &da: devices_limited)

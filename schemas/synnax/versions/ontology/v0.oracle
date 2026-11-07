@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/resource/v0"
 
 RelationshipType string {
+    @doc value "is the kind of link between two resources."
     @go hand
 }
 
