@@ -210,6 +210,11 @@ void Engine::run() {
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
     Clock clock;
+    // The working counter falls short until the slaves reach OP.
+    const auto shortfall = [this](const x::errors::Error &err) {
+        return this->starting.load(std::memory_order_acquire) &&
+               err.matches(errors::WORKING_COUNTER_ERROR);
+    };
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -259,9 +264,6 @@ void Engine::run() {
         // The slaves latched these inputs when the previous cycle's frame passed.
         auto latched_at = sent_at;
         const auto err = this->master->receive();
-        // The working counter falls short until the slaves reach OP.
-        const bool shortfall = this->starting.load(std::memory_order_acquire) &&
-                               err.matches(errors::WORKING_COUNTER_ERROR);
         if (!err) {
             if (const auto dc = this->master->dc_time())
                 latched_at = clock.map(*dc, sent_at);
@@ -270,7 +272,7 @@ void Engine::run() {
                           << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (!shortfall && receive_failures++ == 0) {
+        } else if (!shortfall(err) && receive_failures++ == 0) {
             LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
                          << err.message();
             std::lock_guard lock(this->cycle_err_mu);
@@ -295,7 +297,7 @@ void Engine::run() {
     // Sends the zeroed outputs of the last writer to close before the slaves leave OP.
     this->write_outputs();
     send();
-    if (const auto err = this->master->receive())
+    if (const auto err = this->master->receive(); err && !shortfall(err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
                      << err.message();
     LOG(INFO) << "[ethercat] bus stopped on " << iface;
