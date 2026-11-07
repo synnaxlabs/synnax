@@ -3215,6 +3215,40 @@ var _ = Describe("Statement", func() {
 })
 
 var _ = Describe("Module constants in declarations", func() {
+	DescribeTable("Should check a sequence stateful initializer",
+		func(bCtx SpecContext, value, message string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\nsequence main {\n" +
+				"limit f32 $= " + value + "\nstage a {\nx > 1.0 => next\n}\n" +
+				"stage b {\n}\n}\nx => main\nunused := math.inf * x"))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			if message == "" {
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				return
+			}
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+		},
+		Entry("a literal", "1.5", ""),
+		Entry("a constant", "math.inf", ""),
+		Entry("a cast constant", "f32(-math.nan)", ""),
+		Entry(
+			"a cast literal",
+			"f32(1.5)",
+			"stateful variable initializer must be a literal value",
+		),
+		Entry(
+			"an expression on a constant",
+			"math.inf * 2.0",
+			"stateful variable initializer must be a literal value",
+		),
+	)
+
 	It("Should fold a constant cast to its stored value", func(bCtx SpecContext) {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
 		symbol.AutoImportModules(root)
