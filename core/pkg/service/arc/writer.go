@@ -51,6 +51,7 @@ type Writer struct {
 	dispatcher  actions.Dispatcher[Key, Action]
 	sweeper     textSweeper
 	taskSync    *debounce.Keyed[Key]
+	resyncTask  func(context.Context, Key)
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
@@ -138,8 +139,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		); err != nil {
 			return err
 		}
-	} else if err = w.syncTask(ctx, b); err != nil {
-		return err
+	} else {
+		gorp.OnCommit(w.tx, func() { w.resyncTask(ctx, b.Key) })
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -190,7 +191,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 // TaskKeys returns the keys of the child tasks of the Arcs with the given keys. A
-// missing Arc has no tasks. A task with no ontology link to an Arc is not included.
+// missing Arc has no tasks.
 func (w Writer) TaskKeys(ctx context.Context, keys ...Key) ([]task.Key, error) {
 	var taskKeys []task.Key
 	for _, key := range keys {
@@ -286,18 +287,18 @@ func (w Writer) UpdateTask(
 	if cfg.Hash, err = Hash(a.Base()); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
+	return w.writeTask(ctx, a.Base(), tsk.Key, tsk.Rack, cfg)
 }
 
-// writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
-// arc's key into it. cfg.Hash is the arc's semantic hash, so the task's config hash
-// tracks the arc's content and the task drift mechanism reports arc content drift with
-// no extra machinery.
+// writeTask creates or overwrites the arc's task with the given key on rackKey with
+// cfg, stamping the arc's key into it. A nil key creates a task. cfg.Hash is the arc's
+// semantic hash, so the task's config hash tracks the arc's content and the task drift
+// mechanism reports arc content drift with no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Base,
+	key task.Key,
 	rackKey rack.Key,
-	existing []task.Key,
 	cfg taskversions.Config,
 ) (*task.Task, error) {
 	cfg.ArcKey = a.Key
@@ -309,22 +310,15 @@ func (w Writer) writeTask(
 	if err = json.Unmarshal(b, &encoded); err != nil {
 		return nil, err
 	}
-	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
-	if len(existing) > 0 {
-		tsk.Key = existing[0]
+	tsk := task.Task{
+		Key:    key,
+		Rack:   rackKey,
+		Name:   a.Name,
+		Type:   TaskType,
+		Config: encoded,
 	}
 	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
-	}
-	if len(existing) == 0 {
-		if err := w.otgWriter.DefineRelationships(
-			ctx,
-			OntologyID(a.Key),
-			ontology.RelationshipTypeParentOf,
-			tsk.OntologyID(),
-		); err != nil {
-			return nil, err
-		}
 	}
 	return &tsk, nil
 }
@@ -347,24 +341,24 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's name or
-// semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
-// bound and for edits, like graph layout moves, that change neither.
-func (w Writer) syncTask(ctx context.Context, a Base) error {
-	existing, err := w.childTaskKeys(ctx, a.Key)
-	if err != nil || len(existing) == 0 {
-		return err
-	}
-	tsk, cfg, err := w.retrieveTask(ctx, existing[0])
+// syncTask rewrites the task with the given key in place when an edit changed the arc's
+// name or semantic hash, keeping the task in step with the arc. A no-op for a task that
+// moved to another arc and for edits, like graph layout moves, that change neither. The
+// caller must hold the task's lock through the commit.
+func (w Writer) syncTask(ctx context.Context, a Base, key task.Key) error {
+	tsk, cfg, err := w.retrieveTask(ctx, key)
 	if err != nil {
 		return err
+	}
+	if cfg.ArcKey != uuid.Nil() && cfg.ArcKey != a.Key {
+		return nil
 	}
 	hash, err := Hash(a)
 	if err != nil || (cfg.Hash == hash && tsk.Name == a.Name) {
 		return err
 	}
 	cfg.Hash = hash
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
+	_, err = w.writeTask(ctx, a, key, tsk.Rack, cfg)
 	return err
 }
 

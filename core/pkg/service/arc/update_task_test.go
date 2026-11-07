@@ -260,9 +260,12 @@ var _ = Describe("UpdateTask", func() {
 		})
 
 		It("Should keep the performance on a content edit", func(ctx SpecContext) {
-			createArc(ctx, "a -> b")
-			w := svc.NewWriter(tx)
-			tsk := MustSucceed(w.UpdateTask(ctx, a.Base().Key, arc.TaskUpdate{
+			a = newAutomation(arc.Base{
+				Name:   "synced-" + uuid.New().String(),
+				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> b")}},
+			})
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			tsk := MustSucceed(writer.UpdateTask(ctx, a.Base().Key, arc.TaskUpdate{
 				Rack:        new(testRack.Key),
 				Performance: new(arctask.PerformanceHigh),
 			}))
@@ -272,7 +275,7 @@ var _ = Describe("UpdateTask", func() {
 				Name:   a.Base().Name,
 				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> c")}},
 			})
-			Expect(w.Create(ctx, &edited)).To(Succeed())
+			Expect(writer.Create(ctx, &edited)).To(Succeed())
 			after := retrieveTask(ctx, tsk.Key)
 			Expect(after.Config["hash"]).ToNot(Equal(before.Config["hash"]))
 			Expect(after.Config["performance"]).To(Equal("high"))
@@ -533,9 +536,8 @@ var _ = Describe("Task sync", func() {
 		"Should rewrite the task config when an overwrite changes the content",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			w := svc.NewWriter(tx)
 			tsk := MustSucceed(
-				w.UpdateTask(
+				writer.UpdateTask(
 					ctx,
 					a.Base().Key,
 					arc.TaskUpdate{Rack: new(testRack.Key)},
@@ -547,7 +549,7 @@ var _ = Describe("Task sync", func() {
 				Name:   a.Base().Name,
 				Source: arc.Source{Variant: arc.TextSource{Text: newText("a -> c")}},
 			})
-			Expect(w.Create(ctx, &edited)).To(Succeed())
+			Expect(writer.Create(ctx, &edited)).To(Succeed())
 			Expect(retrieveTask(ctx, tsk.Key).ConfigHash).
 				ToNot(Equal(before.ConfigHash))
 		},

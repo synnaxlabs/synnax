@@ -293,11 +293,14 @@ func OpenService(
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB:      cfg.DB,
 		Indexes: s.indexes.all(),
-		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			Ontology: cfg.Ontology,
-			Owner:    s.owner,
-			Root:     directory.OntologyID(s.root),
-		}),
+		Migrations: slices.Concat(
+			versions.NewMigrations(versions.MigrationsConfig{
+				Ontology: cfg.Ontology,
+				Owner:    s.owner,
+				Root:     directory.OntologyID(s.root),
+			}),
+			[]gorp.Migration{NewTaskLinkMigration(cfg.Ontology, cfg.Task)},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -365,6 +368,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		dispatcher:  s.state.Dispatcher(),
 		sweeper:     s.sweeper,
 		taskSync:    s.taskSync,
+		resyncTask:  s.resyncTask,
 	}
 }
 

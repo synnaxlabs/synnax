@@ -12,6 +12,7 @@ package actions_test
 import (
 	"context"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -158,6 +159,65 @@ var _ = Describe("Dispatch", func() {
 			Expect(rec.Snapshot()).To(BeEmpty())
 		},
 	)
+})
+
+var _ = Describe("Transact", func() {
+	var (
+		db *gorp.DB
+		st *actions.State[string, testAction]
+	)
+
+	BeforeEach(func() {
+		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		st = actions.NewState[string, testAction](db)
+	})
+
+	It("Should commit fn and notify nothing", func(ctx SpecContext) {
+		rec := &Recorder[string, testAction]{}
+		DeferCleanup(st.OnChange(rec.Record))
+		Expect(st.Transact(ctx, "c", func(tx gorp.Tx) error {
+			return gorp.NewCreate[string, counter]().
+				Entry(&counter{Key: "c", Value: 1}).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		Expect(gorp.NewRetrieve[string, counter]().
+			Where(gorp.MatchKeys[string, counter]("c")).
+			Exec(ctx, db)).To(Succeed())
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+
+	It("Should hold the key until fn returns", func(ctx SpecContext) {
+		entered, release := make(chan struct{}), make(chan struct{})
+		unblock := sync.OnceFunc(func() { close(release) })
+		DeferCleanup(unblock)
+		done := make(chan error, 1)
+		go func() {
+			done <- st.Transact(ctx, "c", func(gorp.Tx) error {
+				close(entered)
+				select {
+				case <-release:
+					return nil
+				case <-time.After(10 * time.Second):
+					return errors.New("timed out waiting for release")
+				}
+			})
+		}()
+		Eventually(entered).Should(BeClosed())
+		dispatched := make(chan error, 1)
+		go func() {
+			dispatched <- st.Dispatch(
+				ctx,
+				"c",
+				"",
+				nil,
+				func(gorp.Tx) ([]testAction, error) { return nil, nil },
+			)
+		}()
+		Consistently(dispatched, 50*time.Millisecond).ShouldNot(Receive())
+		unblock()
+		Eventually(done).Should(Receive(BeNil()))
+		Eventually(dispatched).Should(Receive(BeNil()))
+	})
 })
 
 var _ = Describe("NotifyOnCommit", func() {

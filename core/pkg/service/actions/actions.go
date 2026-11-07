@@ -130,6 +130,16 @@ func (s *State[K, A]) Dispatch(
 	})
 }
 
+// Transact runs fn in its own transaction, serialized per key with Dispatch through the
+// commit. It notifies nothing.
+func (s *State[K, A]) Transact(
+	ctx context.Context,
+	key K,
+	fn func(gorp.Tx) error,
+) error {
+	return s.locks.Do(key, func() error { return s.db.WithTx(ctx, fn) })
+}
+
 // OnChange subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
