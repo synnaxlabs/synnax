@@ -487,6 +487,26 @@ var _ = Describe("Statement", func() {
 			Entry("negation", "y := []\nz := -y"),
 		)
 
+		DescribeTable("Should bind untyped empty series to what an operator needs",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("arithmetic", "a := []\nb := []\nz := a * b\na = [true]", "bool"),
+			Entry("subtraction", "a := []\nb := []\nz := a - b\nb = [true]", "bool"),
+			Entry("addition", "a := []\nb := []\nz := a + b\na = [\"x\"]", "str"),
+			Entry("a comparison", "a := []\nb := []\nz := a < b\na = [true]", "bool"),
+			Entry("a logical and", "a := []\nz := a and a\na = [1.5]", "bool"),
+			Entry("a logical or", "a := []\nz := a or a\na = [1.5]", "bool"),
+			Entry("not", "a := []\nz := not a\na = [1.5]", "bool"),
+			Entry("numeric use", "a := []\nb := []\nz := a * b\na = [v]", ""),
+			Entry("bool use", "a := []\nz := not a\na = [true]", ""),
+		)
+
 		DescribeTable("Should reject an empty series in non-numeric arithmetic",
 			func(specCtx SpecContext, code, message string) {
 				ctx := analyze(specCtx, code)

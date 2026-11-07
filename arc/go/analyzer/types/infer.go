@@ -250,6 +250,19 @@ func LiteralAssignmentCompatible(
 	return variableType.IsFloat() && literalType.IsNumeric()
 }
 
+// Bool reports whether t, or the element of t, is bool. An unconstrained type variable,
+// such as the element of an empty series literal, is bound to bool in cs and passes.
+func Bool(cs *constraints.System, t types.Type, source antlr.ParserRuleContext) bool {
+	if t.IsBool() {
+		return true
+	}
+	elem := t.Unwrap()
+	if elem.Kind != types.KindVariable || elem.Constraint != nil {
+		return false
+	}
+	return cs.AddEquality(elem, types.Bool(), source, "bool operand") == nil
+}
+
 // Numeric reports whether t, or the element of t, is numeric. An unconstrained type
 // variable, such as the element of an empty series literal, is bound to a numeric type
 // in cs and passes.
