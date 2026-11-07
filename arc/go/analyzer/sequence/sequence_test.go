@@ -362,7 +362,15 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "cannot rebind channel read/write variable p"),
+			`, "type mismatch: cannot rebind 'p'"),
+			Entry("rebinding a top-level channel read/write in a stage", `
+				p := pressure
+				sequence main {
+					stage s1 {
+						p = valve_cmd
+					}
+				}
+			`, "cannot reassign top-level variable 'p'"),
 			Entry("reassigning a variable that was never declared", `
 				sequence main {
 					stage s1 {
@@ -410,7 +418,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						pressure = 1.0
 					}
 				}
-			`, "cannot use '='"),
+			`, "use '<value> -> pressure' to write to 'pressure'"),
 			Entry("rebinding a channel read/write to a literal", `
 				sequence main {
 					p := pressure
@@ -418,7 +426,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 			Entry("rebinding a channel read/write to a value variable", `
 				sequence main {
 					p := pressure
@@ -427,7 +435,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 			Entry("rebinding a channel read/write to an undefined name", `
 				sequence main {
 					p := pressure
@@ -435,7 +443,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 		)
 	})
 

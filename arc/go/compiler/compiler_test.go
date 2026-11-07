@@ -212,6 +212,16 @@ var _ = Describe("Compiler", func() {
 		Expect(r.Close(ctx)).To(Succeed())
 	})
 
+	It("Should reject a function that carries no symbol", func(ctx SpecContext) {
+		prog := MustSucceed(text.Parse(text.Text{Raw: "func f() i64 { return 1 }"}))
+		inter, diag := text.Analyze(ctx, prog, NewRoot(nil))
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		inter.Functions[0].Symbol = nil
+		Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+			ContainSubstring(`function "f" has no symbol`),
+		))
+	})
+
 	Describe("Function Execution", func() {
 		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `

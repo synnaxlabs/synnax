@@ -154,13 +154,13 @@ This section lists the most common diagnostics without a code, not all of them.
 
 <Problem.List>
 
-<Problem.Item
-  message={
-    "cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function"
-  }
->
-  <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
-  <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
+<Problem.Item message={"cannot reassign top-level variable '<name>'"}>
+  <Problem.Cause>
+    An `=`, a `->`, or a rebind changes a variable declared at the top level.
+  </Problem.Cause>
+  <Problem.Fix>
+    Declare the variable in the sequence, stage, or function that changes it.
+  </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"stateful variables cannot be declared at the top level"}>
   <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>

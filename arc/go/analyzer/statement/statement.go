@@ -122,14 +122,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		return
 	}
 	// A bare identifier bound to a reactive variable is itself reactive.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		if ref, rerr := ctx.Scope.Resolve(
-			ctx,
-			primary.IDENTIFIER().GetText(),
-		); rerr == nil {
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		if ref, rerr := ctx.Scope.ResolveMember(ctx, head, tail); rerr == nil {
 			if ref.Kind == symbol.KindStatefulVariable {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"stateful variables cannot be assigned to ':=' variables"))
@@ -170,11 +164,8 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	}
 	// A bare reference that resolves to a channel, channel-read/write, or channel-read
 	// variable.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		ref, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			return false
 		}
@@ -191,8 +182,9 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
-	for _, name := range parser.CollectIdentifiers(expr) {
-		sym, err := ctx.Scope.Resolve(ctx, name)
+	for _, pe := range parser.CollectNamedPrimaries(expr) {
+		head, tail := parser.PrimaryNameParts(pe)
+		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
@@ -384,11 +376,11 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 // getChannelSymbol checks if an expression is a simple identifier referencing
 // a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
-	primary := parser.GetPrimaryExpression(ctx.AST)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(ctx.AST)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}
@@ -407,11 +399,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expr parser.IExpressionContext,
 ) *int {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}
@@ -925,54 +917,10 @@ func analyzeExprReadReassignment(
 	sym.Reassigned = true
 }
 
-// analyzeAliasRebind re-points a channel alias at rhs, recording the candidate
-// for read and write routing.
-func analyzeAliasRebind(
-	ctx context.Context[parser.IAssignmentContext],
-	alias, rhs *symbol.Symbol,
-) {
-	if alias.Parent == alias.Root() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"cannot rebind top-level variable '%s'", alias.Name))
-		return
-	}
-	if !types.StructuralMatch(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
-			alias.Name, alias.Type, rhs.Name, rhs.Type))
-		return
-	}
-	alias.Reassigned = true
-	if alias.Channels.Write == nil {
-		alias.Channels = types.NewChannels()
-	}
-	key := uint32(rhs.ID)
-	if rhs.SourceID != nil {
-		key = uint32(*rhs.SourceID)
-	}
-	alias.Channels.Read[key] = rhs.Name
-	alias.Channels.Write[key] = rhs.Name
-}
-
 func analyzeChannelAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	channelSym *symbol.Symbol,
 ) {
-	// A bare-channel RHS on an alias variable rebinds it rather than writing a value.
-	if channelSym.Kind == symbol.KindVariable {
-		if expr := ctx.AST.Expression(); expr != nil {
-			if p := parser.GetPrimaryExpression(
-				expr,
-			); p != nil &&
-				p.IDENTIFIER() != nil {
-				if rhs, rerr := ctx.Resolve(p.IDENTIFIER().GetText()); rerr == nil &&
-					rhs.Kind == symbol.KindChannel {
-					analyzeAliasRebind(ctx, channelSym, rhs)
-					return
-				}
-			}
-		}
-	}
 	// Validate we're in a function context (channel writes only allowed in imperative
 	// context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
@@ -1350,13 +1298,9 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	// Top-level variables are immutable;
-	isChanAlias := varScope.Type.Kind == types.KindChan && varScope.SourceID != nil
-	if !isChanAlias && varScope.Parent == varScope.Root() &&
-		(varScope.Kind == symbol.KindVariable ||
-			varScope.Kind == symbol.KindStatefulVariable) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"cannot reassign top-level variable '%s'", name))
+	// Assigning to an alias writes its channel.
+	isAlias := varScope.Type.Kind == types.KindChan && varScope.SourceID != nil
+	if !isAlias && ctx.RejectTopLevel(varScope, name) {
 		return
 	}
 

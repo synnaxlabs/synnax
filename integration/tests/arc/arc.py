@@ -45,6 +45,22 @@ class ArcTaskHandle:
     task: sy.task.Task
 
 
+@dataclass
+class ModuleHandle:
+    """A created Arc module, imported by its path from an automation."""
+
+    path: str
+    arc_key: UUID
+
+
+@dataclass
+class DirectoryHandle:
+    """A created directory of Arcs and the import path it prefixes."""
+
+    path: str
+    key: UUID
+
+
 class ArcCase(SimDaqCase, TestCase):
     """Base class for headless Arc integration tests.
 
@@ -61,10 +77,14 @@ class ArcCase(SimDaqCase, TestCase):
     rack: sy.Rack | None
     arc_name: str
     _arcs: list[ArcTaskHandle]
+    _modules: list[ModuleHandle]
+    _directories: list[DirectoryHandle]
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
         super().__init__(**kwargs)
         self._arcs = []
+        self._modules = []
+        self._directories = []
 
     def setup(self) -> None:
         required = [
@@ -128,6 +148,49 @@ class ArcCase(SimDaqCase, TestCase):
         if trigger:
             self.writer.write(trigger, 1)
         return name
+
+    def create_directory(
+        self, name_prefix: str, *, parent: DirectoryHandle | None = None
+    ) -> DirectoryHandle:
+        """Create a directory of Arcs below parent, or below Arcs, and return it.
+
+        Teardown deletes directories after the modules in them, newest first.
+        """
+        name = f"{name_prefix}_{random_name()}"
+        directories = self.client.arcs.directories
+        parent_key = parent.key if parent is not None else directories.root()
+        self.log(f"Creating Arc directory: {name}")
+        directory = directories.create(name, parent=parent_key)
+        path = name if parent is None else f"{parent.path}.{name}"
+        handle = DirectoryHandle(path=path, key=directory.key)
+        self._directories.append(handle)
+        return handle
+
+    def load_module(
+        self,
+        source: str,
+        *,
+        name_prefix: str,
+        parent: DirectoryHandle | None = None,
+    ) -> str:
+        """Create an Arc module below parent, or below Arcs, and return its path.
+
+        The name is an identifier, so an automation imports the path as written
+        and binds its last segment. Teardown deletes the module after the
+        automations that import it.
+        """
+        name = f"{name_prefix}_{random_name()}"
+        self.log(f"Creating Arc module: {name}")
+        module = self.client.arcs.create(
+            name=name, text=sy.Text(raw=source), mode="text", type="module"
+        )
+        path = name
+        if parent is not None:
+            directories = self.client.arcs.directories
+            directories.move(directories.root(), parent.key, module.ontology_id)
+            path = f"{parent.path}.{name}"
+        self._modules.append(ModuleHandle(path=path, arc_key=module.key))
+        return path
 
     def start_arc_task(self, task: sy.task.Task) -> None:
         """Start the task and block until the runtime reports it running.
@@ -196,6 +259,12 @@ class ArcCase(SimDaqCase, TestCase):
                         self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):
                     self.client.arcs.delete(handle.arc_key)
+            for module in reversed(self._modules):
+                with self._try_to(f"delete module {module.path}"):
+                    self.client.arcs.delete(module.arc_key)
+            for directory in reversed(self._directories):
+                with self._try_to(f"delete directory {directory.path}"):
+                    self.client.arcs.directories.delete(directory.key)
             if self.end_cmd_channel and self.sim_daq is not None:
                 self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
                 with self._try_to("signal simulator stop"):

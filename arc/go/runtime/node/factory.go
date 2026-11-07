@@ -50,13 +50,21 @@ type ModuleNamer interface{ ModuleName() string }
 type CompoundFactory []Factory
 
 func (f CompoundFactory) Create(cfg Config) (Node, error) {
-	// Strip module prefix from the node type so factories only match bare names. The
-	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
-	// into the IR; normalizing here keeps prefix awareness out of individual factories.
-	var modulePrefix string
-	if prefix, bare, ok := strings.CutLast(cfg.Node.Type, "."); ok {
-		modulePrefix, cfg.Node.Type = prefix, bare
+	// A program function is keyed by its qualified name, so the full type is tried
+	// first. Only then is the module prefix split off for the host factories.
+	n, err := f.create(cfg, "")
+	if !errors.Is(err, query.ErrNotFound) {
+		return n, err
 	}
+	modulePrefix, bare, ok := strings.CutLast(cfg.Node.Type, ".")
+	if !ok {
+		return nil, query.ErrNotFound
+	}
+	cfg.Node.Type = bare
+	return f.create(cfg, modulePrefix)
+}
+
+func (f CompoundFactory) create(cfg Config, modulePrefix string) (Node, error) {
 	for _, factory := range f {
 		// When the IR node has a module prefix (e.g. "control" from
 		// "control.set_authority"), skip factories belonging to a different module.

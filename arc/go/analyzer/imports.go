@@ -113,9 +113,6 @@ func lookupModule(
 			return child, nil
 		}
 	}
-	// A user module's members resolve and type-check here. Phase 3 of module support
-	// compiles their code into the importer. Until then the Driver cannot run a
-	// program that uses one.
 	module, err := root.ResolveModule(ctx, path)
 	if errors.Is(err, symbol.ErrModuleNotFound) {
 		return nil, errors.Newf("unknown module %q", path)

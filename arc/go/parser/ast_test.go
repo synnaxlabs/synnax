@@ -266,10 +266,14 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("CollectIdentifiers", func() {
-		DescribeTable("collects primary-expression identifiers",
+	Describe("CollectNamedPrimaries", func() {
+		DescribeTable("collects the names an expression reads",
 			func(code string, expected []string) {
-				Expect(parser.CollectIdentifiers(parseExpr(code))).To(Equal(expected))
+				var names []string
+				for _, pe := range parser.CollectNamedPrimaries(parseExpr(code)) {
+					names = append(names, parser.PrimaryName(pe))
+				}
+				Expect(names).To(Equal(expected))
 			},
 			Entry("single identifier", "x", []string{"x"}),
 			Entry("deduplicates repeats", "x + x", []string{"x"}),
@@ -281,7 +285,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("literal only", "42", nil),
 			Entry("format string braces are token text, not identifiers",
 				`f"hi {x}"`, nil),
-			Entry("qualified names are excluded", "math.avg + x", []string{"x"}),
+			Entry("qualified names", "m.doubled + x", []string{"m.doubled", "x"}),
 		)
 	})
 

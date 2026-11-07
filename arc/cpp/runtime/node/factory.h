@@ -58,47 +58,59 @@ public:
         factories(std::move(factories)) {}
 
     std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) override {
-        const auto node_key = cfg.node.key;
-        // Strip module prefix from the node type so factories only match bare
-        // names. The compiler emits qualified names (e.g. "time.interval",
-        // "control.set_authority") into the IR; normalizing here keeps prefix
-        // awareness out of individual factories.
-        std::string module_prefix;
-        if (auto dot = cfg.node.type.rfind('.'); dot != std::string::npos) {
-            module_prefix = cfg.node.type.substr(0, dot);
+        // A program function is keyed by its qualified name, so the full type is
+        // tried first. Only then is the module prefix split off for the host
+        // factories.
+        if (auto *factory = this->find(cfg.node.type, ""); factory != nullptr)
+            return this->create_with(*factory, std::move(cfg));
+        const auto dot = cfg.node.type.rfind('.');
+        if (dot != std::string::npos) {
+            const auto module_prefix = cfg.node.type.substr(0, dot);
             cfg.node.type = cfg.node.type.substr(dot + 1);
-        }
-        const auto node_type = cfg.node.type;
-        for (const auto &factory: this->factories) {
-            // When the IR node has a module prefix (e.g. "status" from
-            // "status.set"), skip factories belonging to a different module.
-            // Factories that don't declare a module name are always considered.
-            if (!module_prefix.empty()) {
-                const auto mod = factory->module_name();
-                if (!mod.empty() && mod != module_prefix) continue;
-            }
-            if (!factory->handles(node_type)) continue;
-            auto [node, err] = factory->create(std::move(cfg));
-            if (err) {
-                return {
-                    nullptr,
-                    x::errors::Error(
-                        err,
-                        err.data + " (while creating node '" + node_key +
-                            "' of type '" + node_type + "')"
-                    )
-                };
-            }
-            return {std::move(node), x::errors::NIL};
+            if (auto *factory = this->find(cfg.node.type, module_prefix);
+                factory != nullptr)
+                return this->create_with(*factory, std::move(cfg));
         }
         return {
             nullptr,
             x::errors::Error(
                 x::errors::NOT_FOUND,
-                "No factory registered for node type '" + node_type +
-                    "' (node: " + node_key + ")"
+                "No factory registered for node type '" + cfg.node.type +
+                    "' (node: " + cfg.node.key + ")"
             )
         };
+    }
+
+private:
+    /// @brief returns the first factory that handles node_type, skipping factories
+    /// that name a module other than module_prefix when one is given.
+    [[nodiscard]] Factory *
+    find(const std::string &node_type, const std::string &module_prefix) const {
+        for (const auto &factory: this->factories) {
+            if (!module_prefix.empty()) {
+                const auto mod = factory->module_name();
+                if (!mod.empty() && mod != module_prefix) continue;
+            }
+            if (factory->handles(node_type)) return factory.get();
+        }
+        return nullptr;
+    }
+
+    static std::pair<std::unique_ptr<Node>, x::errors::Error>
+    create_with(Factory &factory, Config &&cfg) {
+        const auto node_key = cfg.node.key;
+        const auto node_type = cfg.node.type;
+        auto [node, err] = factory.create(std::move(cfg));
+        if (err)
+            return {
+                nullptr,
+                x::errors::Error(
+                    err,
+                    err.data + " (while creating node '" + node_key + "' of type '" +
+                        node_type + "')"
+                )
+            };
+        return {std::move(node), x::errors::NIL};
     }
 };
 }

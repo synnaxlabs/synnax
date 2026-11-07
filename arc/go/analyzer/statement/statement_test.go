@@ -457,43 +457,6 @@ var _ = Describe("Statement", func() {
 		}
 
 		It(
-			"Should rebind a channel alias to a matching channel",
-			func(bCtx SpecContext) {
-				root := NewRoot(nil, channels...)
-				stage := newStage(bCtx, root)
-				declareIn(bCtx, root, stage, "a := sensor")
-				ctx := assignIn(bCtx, root, stage, "a = backup")
-				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				alias := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-				Expect(alias.Reassigned).To(BeTrue())
-				backup := MustSucceed(ctx.Scope.Resolve(ctx, "backup"))
-				Expect(
-					alias.Channels.Read,
-				).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
-				Expect(
-					alias.Channels.Write,
-				).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
-			},
-		)
-
-		It(
-			"Should reject rebinding an alias to a channel of another structure",
-			func(bCtx SpecContext) {
-				root := NewRoot(nil, channels...)
-				stage := newStage(bCtx, root)
-				declareIn(bCtx, root, stage, "a := sensor")
-				ctx := assignIn(bCtx, root, stage, "a = wave")
-				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("type mismatch: cannot rebind"),
-				)
-				Expect(
-					MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned,
-				).To(BeFalse())
-			},
-		)
-
-		It(
 			"Should re-point a channel-read variable at a new derivation",
 			func(bCtx SpecContext) {
 				root := NewRoot(nil, channels...)
@@ -583,18 +546,6 @@ var _ = Describe("Statement", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(
 				ContainSubstring("cannot reassign top-level variable 'gain'"),
 			)
-		})
-
-		It("Should reject rebinding a top-level alias", func(bCtx SpecContext) {
-			root := NewRoot(nil, channels...)
-			declareIn(bCtx, root, root, "a := sensor")
-			stage := newStage(bCtx, root)
-			ctx := assignIn(bCtx, root, stage, "a = backup")
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(
-				ContainSubstring("cannot rebind top-level variable 'a'"),
-			)
-			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
 		})
 
 		It(

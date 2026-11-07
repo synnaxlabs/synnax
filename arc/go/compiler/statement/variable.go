@@ -76,8 +76,13 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 				// Params and variables have WASM locals holding the channel key
 				ctx.Writer.WriteLocalGet(rhsScope.ID)
 			case channelSourceGlobal:
-				// Global channels don't have locals - their ID IS the channel key
-				ctx.Writer.WriteI32Const(int32(rhsScope.ID))
+				// A channel, or an alias declared outside this function, has no
+				// local. Its key is a constant.
+				key := rhsScope.ID
+				if rhsScope.SourceID != nil {
+					key = *rhsScope.SourceID
+				}
+				ctx.Writer.WriteI32Const(int32(key))
 			default:
 			}
 			ctx.Writer.WriteLocalSet(varScope.ID)
@@ -118,11 +123,11 @@ func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
 ) (*symbol.Symbol, channelSourceKind) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil, channelSourceNone
 	}
-	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	scope, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil, channelSourceNone
 	}
@@ -130,11 +135,18 @@ func resolveChannelSource(
 	if scope.Kind == symbol.KindChannel {
 		return scope, channelSourceGlobal
 	}
-	// Param or variable with channel type - has a WASM local holding the key
-	if scope.Type.Kind == types.KindChan &&
-		(scope.Kind == symbol.KindInput ||
-			scope.Kind == symbol.KindVariable) {
+	if scope.Type.Kind != types.KindChan ||
+		(scope.Kind != symbol.KindInput && scope.Kind != symbol.KindVariable) {
+		return nil, channelSourceNone
+	}
+	// A param or variable of this function has a WASM local holding the key.
+	fn, _ := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	owner, _ := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fn == owner {
 		return scope, channelSourceLocal
+	}
+	if scope.SourceID != nil {
+		return scope, channelSourceGlobal
 	}
 	return nil, channelSourceNone
 }

@@ -251,6 +251,8 @@ Function struct {
         is a function template definition with typed parameters, serving as a blueprint
         for node instantiation.
     """
+    @go fields   "Symbol *symbol.Symbol `json:\"-\"`"
+    @go imports  "github.com/synnaxlabs/arc/symbol"
     @go marshal
 }
 

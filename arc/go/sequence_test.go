@@ -6130,8 +6130,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				l := out_a
 				sequence main {
+				    l := out_a
 				    stage s1 {
 				        u8(1) -> l
 				        go2 => next
@@ -6170,8 +6170,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r -> out
 				        go2 => next
@@ -6218,8 +6218,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r * 2 -> out
 				        go2 => next
@@ -6244,50 +6244,6 @@ var _ = Describe("Sequence", func() {
 
 				trigger(h, ctx, 103)
 				trigger(h, ctx, 104)
-				h.Ingest(102, telem.NewSeriesV[uint8](30))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ = h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(60)))
-			},
-		)
-
-		It(
-			"Routes a top-level alias expression read across a stage rebind",
-			func(ctx SpecContext) {
-				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd": {types.U8(), 100},
-					"in_a":      {types.U8(), 101},
-					"in_b":      {types.U8(), 102},
-					"out":       {types.U8(), 105},
-					"go2":       {types.U8(), 103},
-				})
-				h := newRuntimeHarness(ctx, `
-				r := in_a
-				r * 2 -> out
-				sequence main {
-				    stage s1 {
-				        go2 => next
-				    }
-				    stage s2 {
-				        r = in_b
-				    }
-				}
-				start_cmd => main`, resolver,
-					channels.Digest{Key: 105, DataType: telem.Uint8T},
-				)
-				defer h.Close(ctx)
-
-				trigger(h, ctx, 100)
-				h.Ingest(101, telem.NewSeriesV[uint8](10))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ := h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(20)))
-
-				trigger(h, ctx, 103)
 				h.Ingest(102, telem.NewSeriesV[uint8](30))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)

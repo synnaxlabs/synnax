@@ -16,6 +16,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.arc import directory
 from synnax.arc.graph import Graph
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
@@ -34,6 +35,7 @@ from synnax.arc.types_gen import (
     WhereInput,
     ontology_id,
 )
+from synnax.ontology.client import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
@@ -98,9 +100,12 @@ class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
+    directories: directory.Client
+    """Creates, renames, deletes, and moves the directories of Arcs."""
 
-    def __init__(self, client: UnaryClient) -> None:
+    def __init__(self, client: UnaryClient, ontology: OntologyClient) -> None:
         self._client = client
+        self.directories = directory.Client(client, ontology)
 
     @overload
     def create(

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.arc import compiler, graph, ir, program, text, types
+from synnax.arc import compiler, directory, graph, ir, program, text, types
 from synnax.arc.client import Arc, Automation, Client, Module
 from synnax.arc.graph import Edge as GraphEdge
 from synnax.arc.graph import Graph
@@ -53,6 +53,7 @@ __all__ = [
     "Where",
     "WhereInput",
     "compiler",
+    "directory",
     "graph",
     "ir",
     "ontology_id",
