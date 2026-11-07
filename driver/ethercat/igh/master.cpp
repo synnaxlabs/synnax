@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <format>
 
 #include "absl/log/log.h"
 
@@ -138,14 +139,24 @@ Master::activate(x::telem::TimeSpan, const std::function<void()> &start_cycle) {
             std::lock_guard lock(this->mu);
             if (this->disabled_slaves.contains(pos)) continue;
             const auto choice = this->chosen_modes.find(pos);
-            if (choice != this->chosen_modes.end() &&
-                choice->second.assign_activate != 0)
-                return x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    "slave " + std::to_string(pos) + " (" + slave.properties.name +
-                        ") cannot use its chosen mode: the IgH master does not run "
-                        "DC sync"
-                );
+            if (choice != this->chosen_modes.end()) {
+                const auto err = choice->second.assign_activate != 0
+                                   ? x::errors::Error(
+                                         errors::SLAVE_CONFIG_ERROR,
+                                         "the IgH master does not run DC sync"
+                                     )
+                                   : dc::check_cycles({}, choice->second.cycles);
+                if (err)
+                    return x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        std::format(
+                            "slave {} ({}) cannot use its chosen mode: {}",
+                            pos,
+                            slave.properties.name,
+                            err.data
+                        )
+                    );
+            }
         }
         if (this->get_or_create_slave_config(pos) == nullptr)
             return x::errors::Error(
