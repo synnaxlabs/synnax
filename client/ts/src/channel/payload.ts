@@ -20,7 +20,6 @@ import {
   payloadZ,
   type Where,
 } from "@/channel/types.gen";
-import { shortcutZ } from "@/channel/where.gen";
 import { idToString } from "@/ontology/payload";
 import {
   analyzeParams as baseAnalyzeParams,
@@ -87,7 +86,12 @@ export const analyzeParams = (
 };
 
 /**
- * @returns the filter that a retrieve of one channel sends. A numeric string is a key.
+ * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
+ * reads as a number is a key.
  */
-export const singleWhere = (channel: Key | Name): Where =>
-  shortcutZ.parse(channel).where;
+export const singleWhere = (channel: Key | Name): Where => {
+  const { variant, normalized } = analyzeParams(channel);
+  return variant === "keys"
+    ? { key: { eq: normalized[0] } }
+    : { name: { eq: normalized[0] } };
+};
