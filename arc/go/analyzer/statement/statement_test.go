@@ -12,11 +12,13 @@ package statement_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -2929,4 +2931,42 @@ var _ = Describe("Statement", func() {
 			})
 		})
 	})
+})
+
+var _ = Describe("Flow variables from module constants", func() {
+	DescribeTable(
+		"Should check the initializer",
+		func(bCtx SpecContext, source, message string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\n" + source))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			if message == "" {
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				return
+			}
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+		},
+		Entry(
+			"a constant",
+			"limit := math.inf",
+			"'limit' cannot be initialized from math.inf outside a function",
+		),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
+			"'limit' cannot be initialized from math.nan outside a function",
+		),
+		Entry("a channel read", "limit := x * math.inf", ""),
+		Entry(
+			"a function",
+			"func f() {v f64} f64 {\n limit := math.inf\n return limit\n}",
+			"",
+		),
+	)
 })

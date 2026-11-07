@@ -302,11 +302,76 @@ var _ = Describe("NaN and infinity", func() {
 		),
 		Entry(
 			"function",
-			"x := math.inf\nf -> f() -> y",
+			"x := math.is_nan(1.0)\nf -> f() -> y",
 			"f is not a channel",
 			"use f() to instantiate the function",
 		),
 	)
+
+	DescribeTable("Should reject a flow variable initialized from a constant",
+		func(ctx SpecContext, source, message string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}, &symbol.Symbol{
+				Name: "y",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   2,
+			}))
+			Expect(arc.CompileText(
+				ctx,
+				arc.Text{Raw: "import math\n" + source},
+				root,
+			)).Error().To(MatchError(ContainSubstring(message)))
+		},
+		Entry(
+			"a top-level variable",
+			"limit := math.inf\nlimit -> y",
+			"'limit' cannot be initialized from math.inf outside a function",
+		),
+		Entry(
+			"a negated constant",
+			"limit := -math.inf\nlimit -> y",
+			"'limit' cannot be initialized from -math.inf outside a function",
+		),
+		Entry(
+			"an expression on a constant",
+			"limit := math.inf * 2.0\nlimit -> y",
+			"'limit' cannot be initialized from math.inf*2.0 outside a function",
+		),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.inf\n stage a {\n limit -> y\n }\n}\n"+
+				"x => main",
+			"'limit' cannot be initialized from math.inf outside a function",
+		),
+	)
+
+	It("Should accept a flow variable that reads a channel and a constant", func(
+		ctx SpecContext,
+	) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		scaled := x * math.inf
+		scaled -> y`, channelSymbols(map[string]channelDef{
+			"x": {types.F64(), 100},
+			"y": {types.F64(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float64T},
+			channels.Digest{Key: 200, DataType: telem.Float64T},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV(2.0))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series).ToNot(BeEmpty())
+		Expect(
+			out.Get(200).Series[0].Unmarshal[float64](),
+		).To(Equal([]float64{math.Inf(1)}))
+	})
 
 	It("Should reject a constant at the start of a flow", func(ctx SpecContext) {
 		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
@@ -478,7 +543,7 @@ var _ = Describe("NaN and infinity", func() {
 			Entry(
 				"flow variable read in a func",
 				"limit := math.inf\nfunc f() {v f64} f64 { return v + limit }\nx -> f()",
-				"not a compile-time constant",
+				"'limit' cannot be initialized from math.inf outside a function",
 			),
 			Entry(
 				"stateful flow variable",
