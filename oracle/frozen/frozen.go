@@ -29,7 +29,9 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -154,8 +156,67 @@ func hashSchema(
 		}
 	}
 	rendered := versions.Render(decls, versions.RenderOptions{Resolve: table.Get})
-	sum := sha256.Sum256([]byte(rendered))
+	omitted, err := omittedDependencies(ctx, req, origPath, livePath, n)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(rendered + omitted))
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// omittedDependencies renders the live dependency declarations that version n's omitted
+// fields reach. Those fields track the live shape, so a change to it moves the hash.
+func omittedDependencies(
+	ctx context.Context,
+	req *plugin.Request,
+	origPath, livePath string,
+	n int,
+) (string, error) {
+	table, ns, err := gotypes.ChainLatestTable(ctx, req, origPath, livePath, n)
+	if err != nil {
+		return "", err
+	}
+	reached := make(set.Set[string])
+	var queue []resolution.TypeRef
+	for _, t := range table.TypesInNamespace(ns) {
+		if form, ok := t.Form.(resolution.StructForm); ok {
+			for _, f := range form.Fields {
+				if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+					queue = append(queue, f.Type)
+				}
+			}
+		}
+	}
+	for len(queue) > 0 {
+		ref := queue[len(queue)-1]
+		queue = append(queue[:len(queue)-1], ref.TypeArgs...)
+		t, ok := table.Get(ref.Name)
+		if !ok || t.Namespace == ns || reached.Contains(t.QualifiedName) {
+			continue
+		}
+		reached.Add(t.QualifiedName)
+		switch form := t.Form.(type) {
+		case resolution.StructForm:
+			queue = append(queue, form.Extends...)
+			for _, f := range form.Fields {
+				queue = append(queue, f.Type)
+			}
+		case resolution.UnionForm:
+			queue = append(queue, form.Extends...)
+			for _, v := range form.Variants {
+				queue = append(queue, v.Type)
+			}
+		case resolution.AliasForm:
+			queue = append(queue, form.Target)
+		case resolution.DistinctForm:
+			queue = append(queue, form.Base)
+		}
+	}
+	decls := make([]versions.Decl, 0, len(reached))
+	for _, name := range slices.Sorted(maps.Keys(reached)) {
+		decls = append(decls, versions.Decl{Type: table.MustGet(name)})
+	}
+	return versions.Render(decls, versions.RenderOptions{Resolve: table.Get}), nil
 }
 
 // sumPath maps a live path ("schemas/x/telem") to its sum file.
