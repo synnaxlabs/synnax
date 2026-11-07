@@ -12,7 +12,9 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
@@ -21,6 +23,8 @@
 #include <vector>
 
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/soem/api.h"
 
@@ -44,6 +48,8 @@ struct MockSlaveInfo {
     bool lost = false;
     /// @brief whether the slave has a distributed clock.
     bool hasdc = false;
+    /// @brief the propagation delay from the reference clock in nanoseconds.
+    int32_t pdelay = 0;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
@@ -127,7 +133,7 @@ public:
     /// @brief object names returned by readODdescription, keyed by index.
     std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
-    /// @brief the state reconfig_slave returns.
+    /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
     std::vector<uint16_t> reconfigured_slaves;
     /// @brief the value recover_slave returns.
@@ -152,16 +158,39 @@ public:
     /// order of register_writes.
     std::vector<size_t> requests_before_write;
     /// @brief the values read_register gives, keyed by slave and address. A register
-    /// missing from the map reads as zero.
+    /// missing from the map reads as zero. A write_register that reaches the slave
+    /// stores its value here.
     std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
+    /// @brief registers, keyed by slave and address, whose reads get no answer.
+    std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
     /// @brief the value dc_time returns.
     int64_t dc_time_value = 0;
+    /// @brief the host clock that the reference clock of host_dc_offset and
+    /// latch_receive_times run on.
+    x::loop::HostClock clock;
+    /// @brief when set, each send_processdata sets dc_time_value to the clock time plus
+    /// this, in nanoseconds, like a reference clock that runs on.
+    std::optional<int64_t> host_dc_offset;
+    /// @brief the number of latch_receive_times calls.
+    int latch_count = 0;
+    /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
+    int64_t latched_at = 0;
+    /// @brief the value latch_receive_times returns.
+    int latch_return = 1;
+    /// @brief PO2SOconfig hooks keyed by slave. reconfig_slave runs them.
+    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
 
 private:
     uint8_t *iomap_ptr = nullptr;
+
+    /// @brief returns the clock time in nanoseconds.
+    [[nodiscard]] int64_t now() const {
+        return x::telem::TimeSpan(this->clock.steady().time_since_epoch())
+            .nanoseconds();
+    }
 
 public:
     x::errors::Error check_socket(const char *) override {
@@ -204,6 +233,7 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
+        if (this->host_dc_offset) this->dc_time_value = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
@@ -262,24 +292,42 @@ public:
         return this->sync_dc_return;
     }
 
+    int latch_receive_times(int) override {
+        this->latched_at = now();
+        this->latch_count++;
+        return this->latch_return;
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        if (config == nullptr)
+            this->po2so_configs.erase(slave);
+        else
+            this->po2so_configs[slave] = std::move(config);
+    }
+
     int write_register(
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
         int
     ) override {
+        this->requests_before_write.push_back(this->state_change_requests.size());
+        const int wkc = this->unwritable_slaves.contains(slave)
+                          ? 0
+                          : this->write_register_return;
         std::array<uint8_t, sizeof(int64_t)> padded{};
         std::ranges::copy(data, padded.begin());
+        const auto value = x::binary::from_little_endian<int64_t>(padded);
+        if (wkc > 0) this->register_values[{slave, address}] = value;
         this->register_writes.push_back({
             .slave = slave,
             .address = address,
-            .value = x::binary::from_little_endian<int64_t>(padded),
+            .value = value,
             .size = data.size(),
             .mapped = this->mapped_group.has_value(),
         });
-        this->requests_before_write.push_back(this->state_change_requests.size());
-        if (this->unwritable_slaves.contains(slave)) return 0;
-        return this->write_register_return;
+        return wkc;
     }
 
     int read_register(
@@ -293,11 +341,21 @@ public:
             it == this->register_values.end() ? int64_t{0} : it->second
         );
         std::copy_n(bytes.begin(), data.size(), data.begin());
+        if (this->unanswered_reads.contains({slave, address})) return 0;
         return this->read_register_return;
     }
 
+    /// @brief like ecx_reconfig_slave, runs the slave's PO2SOconfig hook in PRE-OP and
+    /// leaves the slave in the state it returns.
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
+        if (const auto it = this->po2so_configs.find(slave);
+            it != this->po2so_configs.end())
+            it->second(slave);
+        if (slave > 0 && slave <= this->slave_infos.size())
+            this->slave_infos[slave - 1].state = static_cast<uint16_t>(
+                this->reconfig_return
+            );
         return this->reconfig_return;
     }
 
@@ -480,6 +538,11 @@ public:
     [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return false;
         return this->slave_infos[pos - 1].hasdc;
+    }
+
+    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
+        if (pos == 0 || pos > this->slave_infos.size()) return 0;
+        return this->slave_infos[pos - 1].pdelay;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {

@@ -68,6 +68,7 @@ namespace {
 int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
@@ -113,10 +114,10 @@ std::string no_slaves_message(API &api, const std::string &iface) {
 }
 }
 
-Master::Master(std::unique_ptr<API> api, std::string interface_name, const Config cfg):
+Master::Master(std::unique_ptr<API> api, std::string interface_name, Config cfg):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
-    cfg(cfg),
+    cfg(std::move(cfg)),
     iomap(DEFAULT_IOMAP_SIZE, 0),
     input_sz(0),
     output_sz(0),
@@ -250,7 +251,8 @@ x::errors::Error Master::activate(
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
     if (!this->wait_for_frame(
-            std::chrono::steady_clock::now() + std::chrono::microseconds(timeout)
+            this->cfg.clock.steady() + std::chrono::microseconds(timeout),
+            [] { return false; }
         ))
         return x::errors::Error(
             errors::STATE_CHANGE_ERROR,
@@ -283,6 +285,12 @@ void Master::deactivate() {
         if (const auto err = this->clear_dc_activation())
             LOG(WARNING) << "[ethercat] " << err.data;
         this->dc_setups.clear();
+        this->last_dc_time = NO_DC_FRAME;
+        this->host_dc_offset.store(NO_DC_FRAME, std::memory_order_relaxed);
+        {
+            std::lock_guard lock(this->mu);
+            this->dc_restore_errors.clear();
+        }
         this->activated = false;
         this->expected_wkc = 0;
         this->has_dc = false;
@@ -317,6 +325,18 @@ x::errors::Error Master::receive() {
                 ", got " + std::to_string(wkc)
         );
 
+    // SOEM takes the DC time without the working counter of its datagram. A lost
+    // reference clock gives a frozen time, and a reset one goes back. The frame read
+    // the time as it went out, which can be a bus period before this receive.
+    if (const int64_t dc = this->api->dc_time();
+        this->has_dc && dc > this->last_dc_time) {
+        this->last_dc_time = dc;
+        const x::telem::TimeSpan sent_at(this->sent_at.time_since_epoch());
+        this->host_dc_offset.store(
+            dc - sent_at.nanoseconds(),
+            std::memory_order_relaxed
+        );
+    }
     return x::errors::NIL;
 }
 
@@ -341,11 +361,12 @@ x::errors::Error Master::send() {
         );
         return x::errors::NIL;
     }
+    const auto sent_at = this->cfg.clock.steady();
     const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
-
+    this->sent_at = sent_at;
     return x::errors::NIL;
 }
 
@@ -402,7 +423,15 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         );
         if (this->al_error(i))
             h.al_status = ec_ALstatuscode2string(this->api->slave_ALstatuscode(i));
-        if (breaker.running()) this->recover(static_cast<uint16_t>(i));
+        {
+            std::lock_guard lock(this->mu);
+            if (const auto it = this->dc_restore_errors.find(i);
+                it != this->dc_restore_errors.end()) {
+                h.faulted = true;
+                h.dc_restore_error = it->second;
+            }
+        }
+        if (breaker.running()) this->recover(static_cast<uint16_t>(i), breaker);
     }
     std::lock_guard lock(this->mu);
     for (const auto &[pos, refusal]: this->left_out)
@@ -410,17 +439,31 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     return health;
 }
 
-void Master::recover(const uint16_t pos) {
+void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
     const uint16_t state = this->api->slave_state(pos);
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        this->api->set_slave_state(pos, EC_STATE_OPERATIONAL);
+        // From PRE-OP, the next check restores the clock again.
+        this->api->set_slave_state(
+            pos,
+            this->restore_failed(pos) ? EC_STATE_PRE_OP : EC_STATE_OPERATIONAL
+        );
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+        if (this->api->slave_hasdc(pos))
+            this->api->set_PO2SOconfig(pos, [this, pos, &breaker](uint16_t) {
+                const auto err = this->restore_dc(pos, breaker);
+                std::lock_guard lock(this->mu);
+                if (err)
+                    this->dc_restore_errors[pos] = err.data;
+                else
+                    this->dc_restore_errors.erase(pos);
+            });
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
+        this->api->set_PO2SOconfig(pos, nullptr);
     } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (this->api->slave_state(pos) == EC_STATE_NONE)
@@ -1111,20 +1154,23 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
     };
 }
 
+x::errors::Error Master::clear_sync(const uint16_t pos) {
+    // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
+    // writes to 0x0981.
+    for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
+        if (auto err = this->write_dc_register<uint8_t>(pos, address, 0)) return err;
+    return x::errors::NIL;
+}
+
 x::errors::Error Master::clear_dc_activation() {
     std::string failed;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP || !this->api->slave_hasdc(i))
             continue;
-        const auto pos = static_cast<uint16_t>(i);
-        // 0x0980 goes first: while it gives the sync unit to the PDI, the slave refuses
-        // writes to 0x0981.
-        for (const uint16_t address: {ECT_REG_DCCUC, ECT_REG_DCSYNCACT})
-            if (const auto err = this->write_dc_register<uint8_t>(pos, address, 0)) {
-                if (!failed.empty()) failed += "; ";
-                failed += err.data;
-                break;
-            }
+        if (const auto err = this->clear_sync(static_cast<uint16_t>(i))) {
+            if (!failed.empty()) failed += "; ";
+            failed += err.data;
+        }
     }
     if (failed.empty()) return x::errors::NIL;
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
@@ -1210,22 +1256,30 @@ Master::resolve_dc(const x::telem::TimeSpan period) const {
     return {setups, x::errors::NIL};
 }
 
-x::errors::Error Master::wait_for_dc_settle() {
-    const auto deadline = std::chrono::steady_clock::now() +
+x::errors::Error Master::wait_for_dc_settle(
+    const std::vector<uint16_t> &positions,
+    const std::function<bool()> &stopped
+) {
+    const auto deadline = this->cfg.clock.steady() +
                           this->cfg.dc_settle_timeout.chrono();
+    const x::errors::Error stop_err(
+        errors::ACTIVATION_ERROR,
+        "the bus stopped before the clocks settled"
+    );
     // 0x092C keeps its old value until a frame carries the reference clock to the
     // slave.
-    if (!this->wait_for_frame(deadline))
+    if (!this->wait_for_frame(deadline, stopped)) {
+        if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no frame carried the reference clock to the slaves within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
+    }
     while (true) {
         uint16_t worst_pos = 0;
         x::telem::TimeSpan worst(0);
-        for (const auto &setup: this->dc_setups) {
-            const auto pos = setup.position;
+        for (const auto pos: positions) {
             const auto [raw, err] = this->read_dc_register<uint32_t>(
                 pos,
                 ECT_REG_DCSYSDIFF
@@ -1239,7 +1293,8 @@ x::errors::Error Master::wait_for_dc_settle() {
             }
         }
         if (worst <= DC_SETTLED_DIFF) return x::errors::NIL;
-        if (std::chrono::steady_clock::now() >= deadline)
+        if (stopped()) return stop_err;
+        if (this->cfg.clock.steady() >= deadline)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
@@ -1252,50 +1307,125 @@ x::errors::Error Master::wait_for_dc_settle() {
                     DC_SETTLED_DIFF.to_string()
                 )
             );
-        std::this_thread::sleep_for(DC_SETTLE_POLL_INTERVAL.chrono());
+        this->cfg.clock.sleep(DC_SETTLE_POLL_INTERVAL);
     }
 }
 
 x::errors::Error Master::start_dc() {
     if (this->dc_setups.empty()) return x::errors::NIL;
-    if (auto err = this->wait_for_dc_settle()) return err;
-    for (const auto &[pos, regs]: this->dc_setups) {
-        const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
-        const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, cuc)) return err;
-        // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
-        if ((regs.assign_activate & dc::PDI_SYNC_UNIT) != 0) continue;
-        const auto [time, time_err] = this->read_dc_register<int64_t>(
-            pos,
-            ECT_REG_DCSYSTIME
-        );
-        if (time_err) return time_err;
-        const int64_t cycle = regs.sync0_cycle;
-        const int64_t shift = regs.sync0_shift;
-        const int64_t ahead = time + DC_START_DELAY.nanoseconds();
-        // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the
-        // cycle lock uses. The first one is at least DC_START_DELAY away.
-        int64_t start = ahead;
-        if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE0, regs.sync0_cycle))
-            return err;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE1, regs.sync1_cycle))
-            return err;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCSTART0, start))
-            return err;
-        if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, act)) return err;
-        LOG(INFO) << std::format(
-            "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
-            "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
-            pos,
-            this->api->slave_name(pos),
-            regs.assign_activate,
-            regs.sync0_cycle,
-            regs.sync1_cycle,
-            start
-        );
-    }
+    std::vector<uint16_t> positions;
+    positions.reserve(this->dc_setups.size());
+    for (const auto &setup: this->dc_setups)
+        positions.push_back(setup.position);
+    if (auto err = this->wait_for_dc_settle(positions, [] { return false; }))
+        return err;
+    for (const auto &setup: this->dc_setups)
+        if (auto err = this->start_sync(setup)) return err;
     return x::errors::NIL;
+}
+
+x::errors::Error Master::start_sync(const DCSetup &setup) {
+    const auto &[pos, regs] = setup;
+    const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
+    const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCCUC, cuc)) return err;
+    // While 0x0980 gives the sync unit to the PDI, the PDI sets it up.
+    if ((regs.assign_activate & dc::PDI_SYNC_UNIT) != 0) return x::errors::NIL;
+    const auto [time, time_err] = this->read_dc_register<int64_t>(
+        pos,
+        ECT_REG_DCSYSTIME
+    );
+    if (time_err) return time_err;
+    const int64_t cycle = regs.sync0_cycle;
+    const int64_t shift = regs.sync0_shift;
+    const int64_t ahead = time + DC_START_DELAY.nanoseconds();
+    // SYNC0 events fall on whole cycles of DC time plus the shift, the grid the cycle
+    // lock uses. The first one is at least DC_START_DELAY away.
+    int64_t start = ahead;
+    if (cycle > 0) start = ((ahead - shift) / cycle + 1) * cycle + shift;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE0, regs.sync0_cycle))
+        return err;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCCYCLE1, regs.sync1_cycle))
+        return err;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCSTART0, start)) return err;
+    if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, act)) return err;
+    LOG(INFO) << std::format(
+        "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
+        "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
+        pos,
+        this->api->slave_name(pos),
+        regs.assign_activate,
+        regs.sync0_cycle,
+        regs.sync1_cycle,
+        start
+    );
+    return x::errors::NIL;
+}
+
+x::errors::Error Master::align_clock(const uint16_t pos) {
+    const x::telem::TimeSpan latched_at(this->cfg.clock.steady().time_since_epoch());
+    if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no slave latched its receive time"
+        );
+    const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
+    if (local_err) return local_err;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        const auto other = static_cast<uint16_t>(i);
+        // A slave in SAFE-OP or OP kept its clock since activation or a restore that
+        // worked. A failed restore leaves its slave in SAFE-OP until the next check.
+        if (other == pos || this->api->slave_group(other) != ENABLED_GROUP ||
+            !this->api->slave_hasdc(other) || this->api->slave_lost(other) ||
+            (this->api->slave_state(other) & 0x0F) < EC_STATE_SAFE_OP ||
+            this->restore_failed(other))
+            continue;
+        const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
+            other,
+            ECT_REG_DCSOF
+        );
+        if (other_local_err) return other_local_err;
+        const auto [other_offset, other_offset_err] = this->read_dc_register<int64_t>(
+            other,
+            ECT_REG_DCSYSOFFSET
+        );
+        if (other_offset_err) return other_offset_err;
+        // Each slave latched its propagation delay after the reference clock.
+        const int64_t system = other_local + other_offset +
+                               this->api->slave_pdelay(pos) -
+                               this->api->slave_pdelay(other);
+        return this->write_dc_register(pos, ECT_REG_DCSYSOFFSET, system - local);
+    }
+    const int64_t offset = this->host_dc_offset.load(std::memory_order_relaxed);
+    if (offset == NO_DC_FRAME)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no frame has carried the DC time to set the clock from"
+        );
+    return this->write_dc_register(
+        pos,
+        ECT_REG_DCSYSOFFSET,
+        latched_at.nanoseconds() + offset - local
+    );
+}
+
+x::errors::Error
+Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
+    if (auto err = this->clear_sync(pos)) return err;
+    if (auto err = this->write_dc_register(
+            pos,
+            ECT_REG_DCSYSDELAY,
+            this->api->slave_pdelay(pos)
+        ))
+        return err;
+    if (auto err = this->align_clock(pos)) return err;
+    if (auto err = this->wait_for_dc_settle({pos}, [&breaker] {
+            return !breaker.running();
+        }))
+        return err;
+    const auto setup = std::ranges::find(this->dc_setups, pos, &DCSetup::position);
+    if (setup == this->dc_setups.end()) return x::errors::NIL;
+    return this->start_sync(*setup);
 }
 
 x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
@@ -1304,8 +1434,7 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
     }
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::microseconds(timeout);
+    const auto deadline = this->cfg.clock.steady() + std::chrono::microseconds(timeout);
     while (true) {
         this->api->readstate();
         std::vector<uint16_t> pending;
@@ -1321,9 +1450,9 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
             return this->refuses(pos, state);
         });
         if (!refused.empty()) return this->state_error(refused, state);
-        if (std::chrono::steady_clock::now() >= deadline)
+        if (this->cfg.clock.steady() >= deadline)
             return this->state_error(pending, state);
-        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+        this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
 }
 
@@ -1332,14 +1461,20 @@ bool Master::al_error(const uint16_t pos) const {
            this->api->slave_ALstatuscode(pos) != 0;
 }
 
+bool Master::restore_failed(const uint16_t pos) const {
+    std::lock_guard lock(this->mu);
+    return this->dc_restore_errors.contains(pos);
+}
+
 bool Master::wait_for_frame(
-    const std::chrono::steady_clock::time_point deadline
+    const std::chrono::steady_clock::time_point deadline,
+    const std::function<bool()> &stopped
 ) const {
     // The next frame to come back can have left before the call.
     const auto target = this->frames.load(std::memory_order_acquire) + 2;
     while (this->frames.load(std::memory_order_acquire) < target) {
-        if (std::chrono::steady_clock::now() >= deadline) return false;
-        std::this_thread::sleep_for(STATE_POLL_INTERVAL.chrono());
+        if (this->cfg.clock.steady() >= deadline || stopped()) return false;
+        this->cfg.clock.sleep(STATE_POLL_INTERVAL);
     }
     return true;
 }

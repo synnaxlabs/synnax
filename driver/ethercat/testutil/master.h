@@ -38,6 +38,8 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, slave::State> slave_states;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
+    /// @brief why the master could not restore the distributed clock of each slave.
+    std::unordered_map<uint16_t, std::string> dc_restore_errors;
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
     std::map<uint16_t, dc::Choice> chosen_modes;
@@ -251,6 +253,13 @@ public:
         this->faults[position] = al_status;
     }
 
+    /// @brief makes check() report that the master could not restore the distributed
+    /// clock of a slave, and keep the slave out of OP, until the master deactivates.
+    void fail_dc_restore(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->dc_restore_errors[position] = error;
+    }
+
     /// @brief makes check() report a slave as not responding until lost is false.
     void set_slave_lost(const uint16_t position, const bool lost) {
         std::lock_guard lock(this->mu);
@@ -416,6 +425,7 @@ public:
         this->input_sz = 0;
         this->output_sz = 0;
         this->faults.clear();
+        this->dc_restore_errors.clear();
         for (auto &[pos, state]: this->slave_states)
             state = slave::State::INIT;
         for (auto &slave: this->slave_list)
@@ -558,14 +568,17 @@ public:
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
             const auto fault = this->faults.find(pos);
+            const auto restore = this->dc_restore_errors.find(pos);
+            const bool restore_failed = restore != this->dc_restore_errors.end();
             health.push_back({
                 .position = pos,
                 .state = this->slave_states[pos],
-                .faulted = fault != this->faults.end(),
+                .faulted = fault != this->faults.end() || restore_failed,
                 .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
+                .dc_restore_error = restore_failed ? restore->second : "",
             });
-            if (this->lost_slaves.contains(pos)) continue;
+            if (this->lost_slaves.contains(pos) || restore_failed) continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&

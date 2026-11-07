@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <map>
 #include <optional>
@@ -19,6 +21,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/errors/errors.h"
@@ -67,8 +70,17 @@ protected:
     x::breaker::Breaker brk;
     /// @brief the bus cycle that activate() starts the master with.
     x::telem::TimeSpan period = PERIOD;
+    /// @brief the time from the send of a frame to its receive in cycle.
+    std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
+        this->create_master(x::telem::MILLISECOND * 50);
+        this->brk.start();
+    }
+
+    /// @brief replaces the master with one on a new mock that gives the DC clocks
+    /// dc_settle_timeout to settle.
+    void create_master(const x::telem::TimeSpan dc_settle_timeout) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(
@@ -77,10 +89,9 @@ protected:
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
                 .state_change_timeout = x::telem::MILLISECOND * 100,
-                .dc_settle_timeout = x::telem::MILLISECOND * 50,
+                .dc_settle_timeout = dc_settle_timeout,
             }
         );
-        this->brk.start();
     }
 
     void TearDown() override { this->brk.stop(); }
@@ -153,6 +164,16 @@ protected:
         this->mock->state_change_requests.clear();
     }
 
+    /// @brief exchanges process data until cycling turns false. Like the engine, it
+    /// receives each frame cycle_gap after it sends it.
+    void cycle(const std::atomic<bool> &cycling) {
+        while (cycling.load()) {
+            static_cast<void>(this->master->send());
+            std::this_thread::sleep_for(this->cycle_gap);
+            static_cast<void>(this->master->receive());
+        }
+    }
+
     /// @brief activates the master with a bus cycle that exchanges process data on its
     /// own thread until activate returns. Calls on_start as the cycle starts.
     x::errors::Error activate(const std::function<void()> &on_start = nullptr) {
@@ -160,17 +181,76 @@ protected:
         std::thread cycle;
         auto err = this->master->activate(this->period, [&] {
             if (on_start) on_start();
-            cycle = std::thread([&] {
-                while (cycling.load()) {
-                    static_cast<void>(this->master->receive());
-                    static_cast<void>(this->master->send());
-                    std::this_thread::sleep_for(std::chrono::microseconds(100));
-                }
-            });
+            cycle = std::thread([&] { this->cycle(cycling); });
         });
         cycling = false;
         if (cycle.joinable()) cycle.join();
         return err;
+    }
+
+    /// @brief checks the slaves while a bus cycle exchanges process data on its own
+    /// thread.
+    std::vector<slave::Health> check_while_cycling() {
+        std::atomic<bool> cycling = true;
+        std::thread cycle([&] { this->cycle(cycling); });
+        auto health = this->master->check(this->brk);
+        cycling = false;
+        cycle.join();
+        return health;
+    }
+
+    /// @brief checks a DC slave that came back from a power loss with a clock that does
+    /// not settle in 10 s, and stops the breaker 100 ms into the check. A bus cycle
+    /// exchanges process data during the check when cycling is true.
+    /// @returns how long the check took.
+    std::chrono::steady_clock::duration stop_during_restore(const bool cycling) {
+        this->create_master(x::telem::SECOND * 10);
+        this->initialize_with_dc_slave({DC_ONLY});
+        this->activate_master();
+        this->mock->slave_infos[0].state = EC_STATE_INIT;
+        this->mock->register_values[{1, 0x092C}] = 20'000;
+        std::atomic<bool> running = cycling;
+        std::thread cycle([&] { this->cycle(running); });
+        std::thread stop([this] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            this->brk.stop();
+        });
+        const auto start = std::chrono::steady_clock::now();
+        this->master->check(this->brk);
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        stop.join();
+        running = false;
+        cycle.join();
+        return elapsed;
+    }
+
+    /// @brief activates the master with two DC slaves named 16xAO that list modes. The
+    /// first is the reference clock, and the second is 300 ns behind it.
+    void activate_two_dc_slaves(const std::vector<dc::OpMode> &modes) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.hasdc = true;
+        slave.name = "16xAO";
+        this->add_slave(slave);
+        slave.pdelay = 300;
+        this->add_slave(slave);
+        this->set_op_modes(modes);
+        ASSERT_NIL(this->master->initialize());
+        this->activate_master();
+        this->mock->register_writes.clear();
+    }
+
+    /// @brief returns the offset (0x0920) that the master wrote to a slave.
+    int64_t written_offset(const uint16_t slave) const {
+        const auto it = std::ranges::find_if(
+            this->mock->register_writes,
+            [slave](const RegisterWrite &w) {
+                return w.slave == slave && w.address == 0x0920;
+            }
+        );
+        EXPECT_NE(it, this->mock->register_writes.end());
+        if (it == this->mock->register_writes.end()) return 0;
+        return it->value;
     }
 
     /// @brief initializes the master with a slave that stays in PRE-OP without an error
@@ -579,6 +659,29 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
     EXPECT_FALSE(this->master->dc_sync_refused());
+}
+
+/// @brief it should wait for a state change on the clock of its config, so a fake clock
+/// ends a one-minute timeout at once.
+TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
+    auto api = std::make_unique<MockAPI>();
+    this->mock = api.get();
+    this->master = std::make_unique<Master>(
+        std::move(api),
+        "eth0",
+        Config{
+            .pre_op_timeout = x::telem::MILLISECOND * 100,
+            .state_change_timeout = x::telem::MINUTE,
+            .clock = x::loop::fake_clock(),
+        }
+    );
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP;
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
 }
 
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
@@ -1541,7 +1644,7 @@ TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
-    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::SAFE_OP);
 }
 
 /// @brief it should report a slave in SAFE_OP with an error as faulted and acknowledge
@@ -1648,6 +1751,283 @@ TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
+/// @brief it should set the propagation delay and the offset of a DC slave that comes
+/// back from a power loss against the reference clock, then start SYNC0 on it, all
+/// before SOEM requests SAFE-OP.
+TEST_F(SOEMMasterTest, CheckRestoresTheClockOfADCSlaveThatLostPower) {
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 1'000'000;
+    this->mock->register_values[{1, 0x0920}] = 9'000'000'000;
+    this->mock->register_values[{2, 0x0918}] = 2'000;
+    this->mock->register_values[{2, 0x0910}] = 5'000'000'000;
+    this->check_while_cycling();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 2, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x0928, .value = 300, .size = 4, .mapped = true},
+        {.slave = 2,
+         .address = 0x0920,
+         .value = 1'000'000 + 9'000'000'000 + 300 - 2'000,
+         .size = 8,
+         .mapped = true},
+        {.slave = 2, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 2, .address = 0x09A0, .value = 1000, .size = 4, .mapped = true},
+        {.slave = 2,
+         .address = 0x09A4,
+         .value = 999'999'000,
+         .size = 4,
+         .mapped = true},
+        {.slave = 2,
+         .address = 0x0990,
+         .value = 5'100'001'000,
+         .size = 8,
+         .mapped = true},
+        {.slave = 2, .address = 0x0981, .value = 0x07, .size = 1, .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+    EXPECT_EQ(this->mock->latch_count, 1);
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{2});
+    EXPECT_TRUE(this->mock->written_slaves.empty());
+}
+
+/// @brief it should set the clock of a reference clock that comes back from a power
+/// loss against the next DC slave, and leave SYNC0 off on a slave in SM mode.
+TEST_F(SOEMMasterTest, CheckRestoresTheReferenceClockFromTheNextDCSlave) {
+    this->activate_two_dc_slaves({SM});
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->mock->register_values[{2, 0x0918}] = 1'000'000;
+    this->mock->register_values[{2, 0x0920}] = 9'000'000'000;
+    this->check_while_cycling();
+    const std::vector<RegisterWrite> expected = {
+        {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
+        {.slave = 1, .address = 0x0928, .value = 0, .size = 4, .mapped = true},
+        {.slave = 1,
+         .address = 0x0920,
+         .value = 1'000'000 + 9'000'000'000 - 300 - 2'000,
+         .size = 8,
+         .mapped = true},
+    };
+    EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should set the clock of the only DC slave, when it comes back from a power
+/// loss, to the DC time of the latest good frame plus the host time since its send.
+TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->cycle_gap = std::chrono::milliseconds(10);
+    this->activate_master();
+    this->mock->register_writes.clear();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->check_while_cycling();
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), (5 * x::telem::MILLISECOND).nanoseconds());
+    EXPECT_EQ(
+        this->mock->register_writes.back(),
+        (RegisterWrite{
+            .slave = 1,
+            .address = 0x0981,
+            .value = 0x07,
+            .size = 1,
+            .mapped = true
+        })
+    );
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should keep the DC time of the latest frame when the only DC slave, which
+/// maps no PDOs, comes back from a power loss with its clock reset, since its frames
+/// keep a matching working counter.
+TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_master();
+    this->mock->register_writes.clear();
+    this->mock->dc_time_value = 1'000;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->check_while_cycling();
+    const auto error = this->written_offset(1) - (7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should set the clock of the first DC slave from the latest frame when the
+/// whole bus comes back from a power loss, then set the next one from the first, and
+/// hold none of them in PRE-OP.
+TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->mock->register_values[{2, 0x0918}] = 5'000;
+    this->check_while_cycling();
+    EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
+    const auto first = this->written_offset(1);
+    const auto error = first - (7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    EXPECT_EQ(this->written_offset(2), 2'000 + first + 300 - 5'000);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should set the clock of a DC slave from the latest frame, and not from a
+/// slave whose restore failed in the same check, when the whole bus comes back from a
+/// power loss.
+TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveWhoseRestoreFailed) {
+    this->mock->dc_time_value = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->unwritable_slaves.insert(1);
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->mock->register_values[{2, 0x0918}] = 5'000;
+    this->check_while_cycling();
+    EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
+    const auto error = this->written_offset(2) - (7'000'000'000 - 5'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should send a DC slave that comes back from a power loss to PRE-OP from
+/// SAFE-OP, and report why, when the master cannot restore its clock.
+TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_SAFE_OP);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+    const auto health = this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
+    );
+    EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_TRUE(health[0].faulted);
+    EXPECT_EQ(health[0].dc_restore_error, "no slave latched its receive time");
+}
+
+/// @brief it should request PRE-OP and never OP on each check of a slave whose clock
+/// restore failed while it stays in SAFE-OP, as when a PRE-OP request gets lost.
+TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    this->mock->slave_infos[0].bus_state = EC_STATE_SAFE_OP;
+    this->master->check(this->brk);
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_PRE_OP},
+            {1, EC_STATE_PRE_OP},
+        })
+    );
+}
+
+/// @brief it should fail the clock restore of a DC slave that comes back from a power
+/// loss, and not set its clock from the host time, when a DC slave that kept running
+/// does not answer the read of its clock.
+TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->unanswered_reads.insert({1, 0x0918});
+    this->check_while_cycling();
+    EXPECT_TRUE(
+        std::ranges::none_of(this->mock->register_writes, [](const RegisterWrite &w) {
+            return w.address == 0x0920;
+        })
+    );
+    EXPECT_EQ(
+        this->master->check(this->brk)[1].dc_restore_error,
+        "slave 1 (16xAO) did not answer a "
+        "read of DC register 0x0918"
+    );
+}
+
+/// @brief it should stop reporting a restore failure once the clock of the slave is
+/// restored.
+TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
+    this->activate_two_dc_slaves({DC_ONLY});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->master->check(this->brk)[1].dc_restore_error,
+        "no slave latched its receive time"
+    );
+    this->mock->latch_return = 1;
+    this->check_while_cycling();
+    const auto health = this->master->check(this->brk);
+    EXPECT_FALSE(health[1].faulted);
+    EXPECT_TRUE(health[1].dc_restore_error.empty());
+}
+
+/// @brief it should set the clock of a DC slave that comes back from a power loss from
+/// the DC time of the latest frame with a matching working counter.
+TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    this->mock->receive_return = 2;
+    this->mock->host_dc_offset = 9'000'000'000;
+    ASSERT_NIL(this->master->send());
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->master->check(this->brk);
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should end the restore of a DC slave whose clock does not settle once the
+/// breaker stops, well before the settle timeout.
+TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
+    EXPECT_LT(this->stop_during_restore(true), std::chrono::seconds(1));
+    EXPECT_EQ(
+        this->master->check(this->brk)[0].dc_restore_error,
+        "the bus stopped before the clocks "
+        "settled"
+    );
+}
+
+/// @brief it should end the restore of a DC slave that waits for a frame once the
+/// breaker stops, well before the settle timeout.
+TEST_F(SOEMMasterTest, CheckEndsAFrameWaitOfAClockRestoreOnceTheBreakerStops) {
+    EXPECT_LT(this->stop_during_restore(false), std::chrono::seconds(1));
+    EXPECT_EQ(
+        this->master->check(this->brk)[0].dc_restore_error,
+        "the bus stopped before the clocks "
+        "settled"
+    );
+}
+
+/// @brief it should leave the clock registers of a slave without DC alone when it
+/// reconfigures the slave.
+TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveWithoutDC) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+    EXPECT_TRUE(this->mock->register_writes.empty());
+    EXPECT_EQ(this->mock->latch_count, 0);
+}
+
 ////////////////////// Deactivation //////////////////////
 
 TEST_F(SOEMMasterTest, DeactivateResetsState) {
@@ -1683,6 +2063,45 @@ TEST_F(SOEMMasterTest, DeactivateWaitsForInitAfterFault) {
     this->master->deactivate();
     EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_INIT);
     EXPECT_EQ(this->mock->readstate_count, 3);
+}
+
+/// @brief it should not set the clock of a DC slave that comes back from a power loss
+/// from a DC time that the master saved before it deactivated.
+TEST_F(SOEMMasterTest, DeactivateDropsTheSavedDCTime) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    this->master->deactivate();
+    ASSERT_NIL(this->master->initialize());
+    this->mock->receive_return = 2;
+    ASSERT_NIL(this->activate());
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(
+        health[0].dc_restore_error,
+        "no frame has carried the DC time to "
+        "set the clock from"
+    );
+}
+
+/// @brief it should stop reporting a restore failure once the master deactivates.
+TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = 0;
+    this->master->check(this->brk);
+    ASSERT_TRUE(this->master->check(this->brk)[0].faulted);
+    this->master->deactivate();
+    this->mock->latch_return = 1;
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_FALSE(health[0].faulted);
+    EXPECT_TRUE(health[0].dc_restore_error.empty());
 }
 
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {

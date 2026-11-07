@@ -14,6 +14,7 @@
 #include <concepts>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -24,6 +25,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
@@ -33,7 +36,7 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
-/// @brief how long the master waits for the slaves.
+/// @brief how long, and on which clock, the master waits for the slaves.
 struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
     /// the PreopTimeout of the ESI files.
@@ -43,6 +46,9 @@ struct Config {
     /// @brief how long the clocks of the slaves in a DC mode get to settle on the
     /// reference clock before SYNC0 starts.
     x::telem::TimeSpan dc_settle_timeout = x::telem::SECOND * 2;
+    /// @brief the host clock that the master waits on and times process data sends
+    /// with.
+    x::loop::HostClock clock;
 };
 
 /// @brief SOEM-based implementation of the Master interface.
@@ -91,6 +97,15 @@ class Master final : public master::Master {
     bool has_dc = false;
     /// @brief the frames that came back to the master.
     std::atomic<uint64_t> frames{0};
+    /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
+    static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
+    /// @brief the latest DC time that moved forward, in nanoseconds.
+    int64_t last_dc_time = NO_DC_FRAME;
+    /// @brief the Config::clock time of the last process data send.
+    std::chrono::steady_clock::time_point sent_at;
+    /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send of
+    /// the frame that gave last_dc_time.
+    std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
     /// @brief whether the cycle holds process data back. A frame then carries only the
     /// reference clock time.
     std::atomic<bool> process_data_held{false};
@@ -105,6 +120,9 @@ class Master final : public master::Master {
     };
     /// @brief the DC setup of each enabled slave in a DC mode, set at activation.
     std::vector<DCSetup> dc_setups;
+    /// @brief why the master could not restore the distributed clock of a slave that
+    /// came back, keyed by position.
+    std::unordered_map<uint16_t, std::string> dc_restore_errors;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -215,6 +233,10 @@ private:
     template<std::integral T>
     std::pair<T, x::errors::Error> read_dc_register(uint16_t pos, uint16_t address);
 
+    /// @brief turns SYNC off on a slave: writes zero to 0x0980, then to 0x0981.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take a write.
+    x::errors::Error clear_sync(uint16_t pos);
+
     /// @brief writes zero to the DC activation registers (0x0980 and 0x0981) of every
     /// enabled slave with a distributed clock, also after a slave fails a write.
     /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
@@ -230,25 +252,53 @@ private:
     resolve_dc(x::telem::TimeSpan period) const;
 
     /// @brief waits until a frame carries the reference clock to the slaves, then until
-    /// the clock of each slave in dc_setups is within 10 µs of the reference clock.
+    /// the clock of each slave at positions is within 10 µs of the reference clock.
+    /// @param stopped returns true when the wait must end early.
     /// @returns errors::ACTIVATION_ERROR when no frame comes back, a slave does not
-    /// answer, or a clock does not settle within Config::dc_settle_timeout.
-    x::errors::Error wait_for_dc_settle();
+    /// answer, a clock does not settle within Config::dc_settle_timeout, or stopped
+    /// returns true first.
+    x::errors::Error wait_for_dc_settle(
+        const std::vector<uint16_t> &positions,
+        const std::function<bool()> &stopped
+    );
 
-    /// @brief starts SYNC0 on each slave in dc_setups, with its first SYNC0 event on a
-    /// whole SYNC0 cycle of DC time at least 100 ms after its system time. Call it
+    /// @brief starts SYNC0 on a slave, with its first SYNC0 event on a whole SYNC0
+    /// cycle of DC time at least 100 ms after its system time.
+    /// @returns errors::ACTIVATION_ERROR when the slave does not take a write.
+    x::errors::Error start_sync(const DCSetup &setup);
+
+    /// @brief starts SYNC0 on each slave in dc_setups once their clocks settle. Call it
     /// while the bus cycles and before SAFE-OP.
     /// @returns errors::ACTIVATION_ERROR when a slave does not take a write.
     x::errors::Error start_dc();
+
+    /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
+    /// matches the clock of another enabled DC slave in SAFE-OP or OP whose latest
+    /// restore did not fail. Without one, the clock continues the latest DC time that
+    /// moved forward.
+    /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, a slave
+    /// does not answer a read, or the slave does not take the write.
+    x::errors::Error align_clock(uint16_t pos);
+
+    /// @brief sets up the distributed clock of a slave that came back to PRE-OP while
+    /// the bus cycles: its propagation delay, its offset, and SYNC0 when it runs in a
+    /// DC mode. Blocks until its clock settles or breaker stops.
+    /// @returns errors::ACTIVATION_ERROR when a step fails or breaker stops first.
+    x::errors::Error restore_dc(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief requests the state from all enabled slaves, then waits until they reach
     /// it, one of them refuses it, or the timeout in microseconds passes.
     x::errors::Error request_state(uint16_t state, int timeout);
 
     /// @brief waits until a frame that the cycle sent after the call comes back.
-    /// @returns false when the deadline passes first.
-    [[nodiscard]] bool
-    wait_for_frame(std::chrono::steady_clock::time_point deadline) const;
+    /// @returns false when the deadline passes or stopped returns true first.
+    [[nodiscard]] bool wait_for_frame(
+        std::chrono::steady_clock::time_point deadline,
+        const std::function<bool()> &stopped
+    ) const;
+
+    /// @brief whether the latest clock restore of the slave failed.
+    [[nodiscard]] bool restore_failed(uint16_t pos) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
@@ -260,8 +310,10 @@ private:
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power.
-    void recover(uint16_t pos);
+    /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
+    /// to PRE-OP, not to OP. A wait for the clock of a DC slave ends once breaker
+    /// stops.
+    void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the error for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start

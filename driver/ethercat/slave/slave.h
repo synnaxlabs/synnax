@@ -219,13 +219,16 @@ struct Health {
     uint16_t position = 0;
     /// @brief application layer state the slave reports.
     State state = State::UNKNOWN;
-    /// @brief true when the slave set the error flag of its AL status.
+    /// @brief true when the slave set the error flag of its AL status, or the master
+    /// could not restore its distributed clock.
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
     /// @brief description of the slave's AL status code, empty when it reports none or
     /// the master cannot read it.
     std::string al_status;
+    /// @brief why the master could not restore the slave's distributed clock, or empty.
+    std::string dc_restore_error;
     /// @brief why the bus started without the slave, or nullopt when the slave is on
     /// the bus.
     std::optional<Refusal> refusal;
@@ -244,6 +247,9 @@ struct Health {
         std::string desc = slave_state_to_string(this->state);
         if (this->faulted) desc += " + ERROR";
         if (!this->al_status.empty()) desc += ": " + this->al_status;
+        if (!this->dc_restore_error.empty())
+            desc += ": failed to restore the distributed clock: " +
+                    this->dc_restore_error;
         return desc;
     }
 };

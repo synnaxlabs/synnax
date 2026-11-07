@@ -11,9 +11,11 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
@@ -104,6 +106,10 @@ public:
     /// frame, in nanoseconds since 2000-01-01.
     [[nodiscard]] virtual int64_t dc_time() const = 0;
 
+    /// @brief makes every slave latch its local time (0x0918) as one frame passes it,
+    /// with a timeout in microseconds, returning the number of slaves that latched.
+    virtual int latch_receive_times(int timeout) = 0;
+
     /// @brief sends a frame that carries only the reference clock time to the slaves of
     /// a group and waits up to timeout microseconds for it. Returns the working
     /// counter, or a value below 1 when the frame does not come back.
@@ -126,6 +132,11 @@ public:
         std::span<uint8_t> data,
         int timeout
     ) = 0;
+
+    /// @brief makes SOEM call config in PRE-OP each time it maps the slave on the way
+    /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes it.
+    virtual void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -217,6 +228,10 @@ public:
     /// @brief returns true when the slave has a distributed clock.
     [[nodiscard]] virtual bool slave_hasdc(uint16_t pos) const = 0;
 
+    /// @brief returns the propagation delay in nanoseconds from the reference clock to
+    /// a slave, as configdc measured it.
+    [[nodiscard]] virtual int32_t slave_pdelay(uint16_t pos) const = 0;
+
     /// @brief returns whether a slave is marked as no longer responding.
     [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
 
@@ -248,6 +263,12 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     ecx_contextt context{};
+    std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+
+    static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
+        static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
+        return 1;
+    }
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
@@ -330,6 +351,18 @@ public:
         return wkc;
     }
 
+    int latch_receive_times(const int timeout) override {
+        int32_t zero = 0;
+        return ecx_BWR(
+            &this->context.port,
+            0x0000,
+            ECT_REG_DCTIME0,
+            sizeof(zero),
+            &zero,
+            timeout
+        );
+    }
+
     int write_register(
         uint16_t slave,
         uint16_t address,
@@ -368,6 +401,18 @@ public:
 
     int recover_slave(uint16_t slave, int timeout) override {
         return ecx_recover_slave(&this->context, slave, timeout);
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        this->context.userdata = this;
+        if (config == nullptr) {
+            this->po2so_configs.erase(slave);
+            this->context.slavelist[slave].PO2SOconfig = nullptr;
+            return;
+        }
+        this->po2so_configs[slave] = std::move(config);
+        this->context.slavelist[slave].PO2SOconfig = &ProdAPI::run_PO2SOconfig;
     }
 
     int SDOread(
@@ -486,6 +531,10 @@ public:
 
     [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
         return this->context.slavelist[pos].hasdc;
+    }
+
+    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
+        return this->context.slavelist[pos].pdelay;
     }
 
     [[nodiscard]] bool slave_lost(uint16_t pos) const override {
