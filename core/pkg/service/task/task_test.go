@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -43,7 +44,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const testType = pagerduty.AlertTaskType
+const (
+	testType = pagerduty.AlertTaskType
+	// namedType is a task type whose config hook records the task name it receives.
+	namedType = "named"
+)
 
 var _ = Describe("Task", Ordered, func() {
 	var (
@@ -56,6 +61,7 @@ var _ = Describe("Task", Ordered, func() {
 		testRack    *rack.Rack
 		stat        *status.Service
 		configs     config.Registry
+		names       []string
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -88,9 +94,27 @@ var _ = Describe("Task", Ordered, func() {
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
-		configs = MustSucceed(config.NewRegistry(
-			slices.Concat(pd.Stores(), at.Stores(), lj.Stores())...,
-		))
+		named := MustOpen(config.OpenService(ctx, config.ServiceConfig[arctask.Config]{
+			DB:          db,
+			Type:        namedType,
+			Ladder:      arcversions.ConfigLadder,
+			SetEntryKey: (*arctask.Config).SetKey,
+			ResolveEntry: func(
+				_ context.Context,
+				_ gorp.Tx,
+				name string,
+				_ *arctask.Config,
+			) error {
+				names = append(names, name)
+				return nil
+			},
+		}))
+		configs = MustSucceed(config.NewRegistry(slices.Concat(
+			pd.Stores(),
+			at.Stores(),
+			lj.Stores(),
+			[]config.Store{named},
+		)...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -381,6 +405,16 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Config storage", func() {
+		It("Should give the config hook the name of the task", func(ctx SpecContext) {
+			names = nil
+			Expect(w.Create(ctx, &task.Task{
+				Type:   namedType,
+				Rack:   testRack.Key,
+				Name:   "Created",
+				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+			})).To(Succeed())
+			Expect(names).To(Equal([]string{"Created"}))
+		})
 		It("Should reject a task with an unregistered type", func(ctx SpecContext) {
 			t := &task.Task{Type: "made_up", Rack: testRack.Key, Name: "Bad"}
 			Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
@@ -655,6 +689,22 @@ var _ = Describe("Task", Ordered, func() {
 		set := func(path []string, value any) task.Action {
 			return task.NewSetAction(task.SetPayload{Path: path, Value: value})
 		}
+		It("Should give the config hook the new name of a renamed task", func(
+			ctx SpecContext,
+		) {
+			named := &task.Task{
+				Type:   namedType,
+				Rack:   testRack.Key,
+				Name:   "Before",
+				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+			}
+			createCommitted(ctx, named)
+			names = nil
+			MustSucceed(svc.Dispatch(ctx, named.Key, "dk", []task.Action{
+				set([]string{"name"}, "After"),
+			}))
+			Expect(names).To(Equal([]string{"After"}))
+		})
 		retrieve := func(ctx context.Context, key task.Key) task.Task {
 			GinkgoHelper()
 			var res task.Task
