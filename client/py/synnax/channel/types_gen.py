@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TypedDict
 from typing import override as _override
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,9 +76,6 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
-        name_patterns: Matches channels whose name matches any of the given patterns. A
-            valid channel name matches exactly, and any other pattern is a regular
-            expression, anchored when unanchored.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -93,7 +90,26 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
-    name_patterns: list[str] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "leaseholder": filter.SetInput[node.Key],
+        "data_type": filter.SetInput[telem.DataType],
+        "is_index": filter.BoolInput,
+        "internal": filter.BoolInput,
+        "virtual": bool,
+    },
+    total=False,
+)
 
 
 class Payload(BaseModel):

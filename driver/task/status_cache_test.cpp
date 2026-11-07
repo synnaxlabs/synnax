@@ -172,6 +172,47 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
     EXPECT_EQ(transport->count(synnax::task::resource_id(held.key)), 2);
 }
 
+/// @brief it should report a failed write as stale until a re-send starts.
+TEST(StatusCacheTest, FailedWriteIsStaleUntilResend) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::resource_id(task.key)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .variant = synnax::status::VARIANT_WARNING,
+        .owner = synnax::task::resource_id(task.key),
+    };
+    EXPECT_FALSE(cache.stale());
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
+    EXPECT_TRUE(cache.stale());
+    ASSERT_NIL(cache.resend());
+    EXPECT_FALSE(cache.stale());
+    EXPECT_EQ(transport->sent().size(), 2);
+}
+
+/// @brief it should stay stale after a failed re-send, until a re-send succeeds.
+TEST(StatusCacheTest, FailedResendStaysStale) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "lost"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::resource_id(task.key)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .variant = synnax::status::VARIANT_WARNING,
+        .owner = synnax::task::resource_id(task.key),
+    };
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.set(status), freighter::UNREACHABLE);
+    transport->release(freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(cache.resend(), freighter::UNREACHABLE);
+    EXPECT_TRUE(cache.stale());
+    ASSERT_NIL(cache.resend());
+    EXPECT_FALSE(cache.stale());
+    EXPECT_EQ(transport->sent().size(), 3);
+}
+
 /// @brief it should write the status of a task while the re-send of another task's
 /// status hangs.
 TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {

@@ -66,7 +66,7 @@ export const MissingForm = (): ReactElement => {
           <Group.SelectSingle
             value={createGroupKey}
             onChange={setCreateGroupKey}
-            initialQuery={{ parent: group.resourceID(symbolGroup.key) }}
+            query={{ parent: group.resourceID(symbolGroup.key) }}
             className={CSS.B("schematic-missing-symbol-select-group")}
             grow
           />

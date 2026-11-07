@@ -153,7 +153,7 @@ describe("Status queries", () => {
       await client.labels.label(status.resourceID("filter-label-test"), [label.key]);
 
       const { result } = renderHook(
-        () => Status.useList({ initialQuery: { where: { labels: [label.key] } } }),
+        () => Status.useList({ query: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
@@ -223,7 +223,7 @@ describe("Status queries", () => {
       const { result } = renderHook(
         () =>
           Status.useList({
-            initialQuery: {
+            query: {
               where: {
                 key: {
                   in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
@@ -278,7 +278,7 @@ describe("Status queries", () => {
       const { result } = renderHook(
         () =>
           Status.useList({
-            initialQuery: {
+            query: {
               where: {
                 key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
                 variant: { in: ["info", "success"] },
@@ -324,7 +324,7 @@ describe("Status queries", () => {
       const { result } = renderHook(
         () =>
           Status.useList({
-            initialQuery: {
+            query: {
               where: {
                 key: { in: [`${prefix}-error`, `${prefix}-warning`] },
                 variant: { in: ["error"] },
@@ -387,7 +387,7 @@ describe("Status queries", () => {
       const { result } = renderHook(
         () =>
           Status.useList({
-            initialQuery: {
+            query: {
               where: {
                 key: { in: [`${prefix}-error-1`, `${prefix}-error-2`] },
                 variant: { in: ["error"] },

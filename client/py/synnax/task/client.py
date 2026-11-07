@@ -12,8 +12,8 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
+from typing import Any, Literal, TypeVar, overload, override
 from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -36,12 +36,12 @@ from synnax.task.types_gen import (
     RetrieveResponse,
     Status,
     Where,
+    WhereInput,
     resource_id,
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
-from synnax.util import one
-from x import filter, lists
-from x.lists import all_none
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.timing import Timer
 
 
@@ -457,105 +457,159 @@ class Client:
         self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
-
-    @overload
-    def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
-
-    @overload
-    def retrieve(self, *, type: str, include_status: bool = False) -> Task: ...
+    def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...
 
     @overload
     def retrieve(
         self,
         *,
-        where: Where | None = None,
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        types: list[str] | None = None,
-        search_term: str = "",
-        rack: int | None = None,
-        internal: bool | None = None,
-        snapshot: bool | None = None,
-        limit: int | None = None,
-        offset: int = 0,
-        include_status: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        types: list[str] | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: Literal[True],
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        types: list[str] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_status: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Task]: ...
 
     def retrieve(
         self,
-        key: Key | None = None,
+        key: filter.SetInput[Key] | None = None,
         *,
-        name: str | None = None,
-        type: str | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
         search_term: str = "",
-        rack: int | None = None,
-        internal: bool | None = None,
-        snapshot: bool | None = None,
         limit: int | None = None,
         offset: int = 0,
         include_status: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters. Returns one task when a key,
-        name, or type is given, and a list otherwise. A filter left as None does not
-        filter.
+        """Retrieves tasks from the Core. With no arguments, retrieves every task.
 
-        :param where: Keeps tasks that match this filter tree.
+        Each filter field takes a value, a list of values, or an operator, and a task
+        must match every field. A plain ``key``, by position or by keyword, or a plain
+        ``name`` returns one task.
+
+        :param key: Keeps tasks with this key.
+        :param name: Keeps tasks with this name.
+        :param type: Keeps tasks of this type.
+        :param rack: Keeps tasks on this rack.
+        :param internal: Keeps only internal tasks when true, or only user tasks when
+            false.
+        :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
+            false.
+        :param and_: Keeps tasks that match every filter in the list.
+        :param or_: Keeps tasks that match any filter in the list.
+        :param not_: Keeps tasks that do not match the filter.
+        :param where: A filter tree that the tasks must also match.
+        :param keys: Keeps tasks with one of these keys.
+        :param names: Keeps tasks with one of these names.
+        :param types: Keeps tasks of one of these types.
         :param search_term: A fuzzy search term matched against task names.
-        :param rack: Only return tasks on the rack with this key.
-        :param internal: Only return internal tasks when true, or only user tasks when
-            false.
-        :param snapshot: Only return snapshot tasks when true, or only live tasks when
-            false.
-        :param limit: The maximum number of tasks to return.
+        :param limit: The maximum number of tasks to retrieve.
         :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
-        :raises ValueError: If two singular selectors are given, or one is
-            combined with a list filter.
-        :raises NotFoundError: If a single task is requested and none matches.
-        :raises MultipleFoundError: If more than one task matches a single name or
-            type.
+        :param one: Returns one task for any filter.
+        :returns: One task for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of tasks. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one task is wanted and none matches.
+        :raises MultipleFoundError: If one task is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one task is wanted
+            beside a limit or an offset.
         """
-        is_single = not all_none(key, name, type)
-        if sum(v is not None for v in (key, name, type)) > 1:
-            raise ValueError("only one of key, name, and type can be given")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, types, rack, internal, snapshot, limit)
-        ):
-            raise ValueError(
-                "key, name, and type cannot be combined with list filters; use "
-                "keys, names, or types instead"
-            )
-        keys = lists.override(key, keys)
-        names = lists.override(name, names)
-        types = lists.override(type, types)
+        if key is not None:
+            fields["key"] = key
+        single = returns_one(fields, one, limit, offset)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
             type=None if types is None else filter.String(in_=types),
-            rack=None if rack is None else filter.Set[rack_.Key](eq=rack),
-            internal=None if internal is None else filter.Bool(eq=internal),
-            snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
             offset=offset,
             include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
-        sug = self.sugar(res.tasks)
-        if not is_single:
-            return sug
-        return one("Task", next(v for v in (key, name, type) if v is not None), sug)
+        tasks = self.sugar(res.tasks)
+        return sole("Task", fields, tasks) if single else tasks
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

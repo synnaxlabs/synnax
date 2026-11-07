@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, zod } from "@synnaxlabs/x";
+import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import {
@@ -49,10 +49,10 @@ export interface CreateParams extends z.infer<typeof createReqZ> {}
 const parentRequestZ = retrieveRequestZ.extend({
   parent: resource.idZ.optional(),
 });
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   parentRequestZ,
   retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
-]);
+);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;

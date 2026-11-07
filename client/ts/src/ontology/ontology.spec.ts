@@ -135,6 +135,16 @@ describe("Ontology", () => {
       const g2 = await client.ontology.retrieve(group.resourceID(g.key));
       expect(g2.name).toEqual(name);
     });
+    test("reject a malformed ID", async () => {
+      await expect(
+        // @ts-expect-error - "bad" is not a resource type.
+        client.ontology.retrieve({ type: "bad", key: "1" }),
+      ).rejects.toThrow(
+        "resource params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse resource single query params (1 issue)\n\n  {\n" +
+          '  ✗ "type": "bad",  × expected one of [',
+      );
+    });
     test("retrieve by string ID", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });

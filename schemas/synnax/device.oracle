@@ -24,10 +24,16 @@ Key = string {
 }
 
 StatusDetails struct {
-    rack rack.Key {
+    rack      rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    data record?  {
+    connected bool = false {
+        @doc value """
+            is true while the Driver confirms that it can reach the device. A device
+            whose state is unknown is not connected.
+        """
+    }
+    data      record?  {
         @doc value "contains device-specific status data."
     }
 

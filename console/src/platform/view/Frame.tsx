@@ -59,7 +59,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   ];
   const staticProps = List.useStaticData<view.Key, View>({ data: staticViews });
   const remoteProps = PView.useList({
-    initialQuery: { where: { type: { eq: resourceType } } },
+    query: { where: { type: { eq: resourceType } } },
   });
   const { retrieve } = remoteProps;
   const handleFetchMore = () => retrieve((p) => p);

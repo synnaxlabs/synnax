@@ -16,6 +16,7 @@ from synnax.view.types_gen import (
     Type,
     View,
     Where,
+    WhereInput,
     resource_id,
 )
 
@@ -28,5 +29,6 @@ __all__ = [
     "Type",
     "View",
     "Where",
+    "WhereInput",
     "resource_id",
 ]

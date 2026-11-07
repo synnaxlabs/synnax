@@ -22,6 +22,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
+    "synnax",
     "synnax-scripts-common",
 ]
 

@@ -126,6 +126,39 @@ class TestArc:
         retrieved = client.arcs.retrieve(where=where, keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
 
+    def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
+        """Should retrieve the Arcs whose name matches an operator."""
+        prefix = f"test-arc-op-{uuid4()}"
+        created = client.arcs.create(
+            [
+                sy.arc.Automation(name=f"{prefix}-a"),
+                sy.arc.Automation(name=f"{prefix}-b"),
+            ]
+        )
+        retrieved = client.arcs.retrieve(name={"starts_with": prefix})
+        assert {arc.key for arc in retrieved} == {arc.key for arc in created}
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one Arc for a plain key beside other fields."""
+        name = f"test-arc-{uuid4()}"
+        created = client.arcs.create(name=name, mode="text")
+        found = client.arcs.retrieve(key=created.key, name={"in": [name]})
+        assert found.key == created.key
+        with pytest.raises(sy.NotFoundError):
+            client.arcs.retrieve(key=created.key, name="other")
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return one Arc for any filter when one is set."""
+        name = f"test-arc-{uuid4()}"
+        created = client.arcs.create(name=name, mode="text")
+        found = client.arcs.retrieve(name={"starts_with": name}, one=True)
+        assert found.key == created.key
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every Arc."""
+        with pytest.raises(sy.ValidationError, match="key is None"):
+            client.arcs.retrieve(key=None)  # type: ignore[call-overload]
+
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
         """Should return the compiled program when include_program is True."""
         created = client.arcs.create(
@@ -240,7 +273,7 @@ class TestArcTask:
             text=sy.Text(raw="x := 1"),
         )
         task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key, auto_start=False)
-        assert task.config.arc_key == str(arc.key)
+        assert task.config.arc_key == arc.key
         assert task.config.auto_start is False
         assert task.TYPE == "arc"
 
@@ -255,6 +288,18 @@ class TestArcTask:
         assert payload.type == "arc"
         assert payload.name == "Test Arc Task"
         assert payload.config["arc_key"] == str(arc.key)
+
+    def test_arc_task_keeps_stored_fields(self) -> None:
+        """Should keep the hash and data saving flag of a stored config."""
+        stored = {
+            "arc_key": str(uuid4()),
+            "hash": "abc",
+            "data_saving_disabled": True,
+        }
+        task = sy.arc.Task(internal=sy.task.Task(type="arc", config=stored))
+        config = task.to_payload().config
+        assert config["hash"] == "abc"
+        assert config["data_saving_disabled"] is True
 
     def test_arc_task_requires_arc_key(self) -> None:
         """Should raise error when arc_key is not provided."""
@@ -314,7 +359,7 @@ class TestArcTask:
         retrieved = client.tasks.retrieve(key=created.key)
         # Wrap the generic Task as an ArcTask
         arc_task = sy.arc.Task(internal=retrieved)
-        assert arc_task.config.arc_key == str(arc.key)
+        assert arc_task.config.arc_key == arc.key
         assert arc_task.config.auto_start is False
 
     def test_performance_defaults_to_auto(self) -> None:

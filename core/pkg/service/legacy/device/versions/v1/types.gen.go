@@ -29,6 +29,9 @@ type Key = v0.Key
 type StatusDetails struct {
 	// Rack is the key of the rack this device belongs to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Connected is true while the Driver confirms that it can reach the device. A
+	// device whose state is unknown is not connected.
+	Connected bool `json:"connected" msgpack:"connected"`
 	// Data contains device-specific status data.
 	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
 }

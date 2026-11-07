@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -46,8 +46,10 @@ const parentRequestZ = retrieveRequestZ.extend({
 type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): Request => query.keysRequest(keys)),
-  parentRequestZ,
-  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    parentRequestZ,
+    retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });

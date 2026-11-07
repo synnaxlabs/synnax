@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, filter, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -49,8 +49,10 @@ const parentRequestZ = retrieveRequestZ.extend({
 type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): Request => query.keysRequest(keys)),
-  parentRequestZ,
-  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    parentRequestZ,
+    retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 

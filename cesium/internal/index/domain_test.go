@@ -618,6 +618,74 @@ var _ = Describe("Domain", func() {
 				)
 			})
 
+			Describe("Coverage", func() {
+				var rolledOver *index.Domain
+				BeforeEach(func(ctx SpecContext) {
+					rolledOver = &index.Domain{DB: openRolledOver(ctx)}
+				})
+				DescribeTable(
+					"Counting the samples of a run",
+					func(
+						ctx SpecContext,
+						tr telem.TimeRange,
+						expectedEnd telem.TimeStamp,
+						expectedCount int64,
+					) {
+						end, count := MustSucceed2(rolledOver.Coverage(ctx, tr))
+						Expect(end).To(Equal(expectedEnd))
+						Expect(count).To(Equal(expectedCount))
+					},
+					Entry("Should count a run from the start of a domain",
+						(10*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(10),
+					),
+					Entry("Should count a run from partway through a domain",
+						(16*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(8),
+					),
+					Entry("Should count from the first sample after an inexact stamp",
+						(12*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(8),
+					),
+					Entry("Should count a run from a domain that begins at the stamp",
+						(17*telem.SecondTS+1).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(6),
+					),
+					Entry("Should stop counting at a gap between domains",
+						(30*telem.SecondTS).Range(40*telem.SecondTS),
+						33*telem.SecondTS+1, int64(3),
+					),
+					Entry(
+						"Should stop at the first domain when it reaches the range end",
+						(12*telem.SecondTS).Range(14*telem.SecondTS),
+						17*telem.SecondTS+1,
+						int64(0),
+					),
+					Entry("Should stop at a later domain that reaches the range end",
+						(12*telem.SecondTS).Range(20*telem.SecondTS),
+						22*telem.SecondTS+1, int64(0),
+					),
+					Entry("Should stop at a domain that ends with the range",
+						(12*telem.SecondTS).Range(26*telem.SecondTS+1),
+						26*telem.SecondTS+1, int64(0),
+					),
+					Entry("Should return zero values for a range that starts in a gap",
+						(28*telem.SecondTS).Range(40*telem.SecondTS),
+						telem.TimeStamp(0), int64(0),
+					),
+					Entry(
+						"Should return zero values for a range that starts at a run end",
+						(26*telem.SecondTS+1).Range(40*telem.SecondTS),
+						telem.TimeStamp(0),
+						int64(0),
+					),
+					Entry("Should return zero values for a range after every domain",
+						(40*telem.SecondTS).Range(50*telem.SecondTS),
+						telem.TimeStamp(0), int64(0),
+					),
+				)
+			})
+
 			Describe("Stamp", func() {
 				Context("Forward", func() {
 					Context("Continuous", func() {

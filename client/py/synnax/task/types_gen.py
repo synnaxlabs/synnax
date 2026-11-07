@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, TypedDict
 from typing import override as _override
 from uuid import UUID, uuid4
 
@@ -135,6 +135,25 @@ class Where(BaseModel):
     rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
     snapshot: filter.Bool | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "type": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "internal": filter.BoolInput,
+        "snapshot": filter.BoolInput,
+    },
+    total=False,
+)
 
 
 class Command(BaseModel):

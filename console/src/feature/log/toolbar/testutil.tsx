@@ -10,6 +10,7 @@
 import { log as clientLog, type log, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -54,6 +55,8 @@ export interface RenderLogOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /** Extra Aether components, for a component that needs the worker. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 // renderLog creates a log on the server, mounts Component inside the panel and tab
@@ -62,7 +65,12 @@ export interface RenderLogOptions {
 // log key.
 export const renderLog = async (
   Component: ComponentType,
-  { log: logOverrides, preloadedState, as = client }: RenderLogOptions = {},
+  {
+    log: logOverrides,
+    preloadedState,
+    as = client,
+    additionalRegistry,
+  }: RenderLogOptions = {},
 ) => {
   const created = await client.logs.create(await project(), {
     name: "Test Log",
@@ -71,6 +79,7 @@ export const renderLog = async (
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: preloadedState?.(created.key),
+    additionalRegistry,
   });
   await loadLog(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
