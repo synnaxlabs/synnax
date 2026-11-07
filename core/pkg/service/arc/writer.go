@@ -96,6 +96,10 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 		exists = err == nil
 	}
+	// A decode defaults an omitted source, but an explicit null clears it.
+	if b.Source.Variant == nil {
+		return errors.Wrap(validate.ErrValidation, "source: required")
+	}
 	if src, ok := b.Source.Variant.(TextSource); ok &&
 		len(src.Text.Doc.Inserts) == 0 && src.Text.Raw != "" {
 		src.Text.Doc = text.Create(src.Text.Raw)

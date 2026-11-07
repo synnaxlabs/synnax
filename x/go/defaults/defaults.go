@@ -33,14 +33,11 @@ func fillFresh(dst, src reflect.Value) {
 	if ok {
 		s.SetDefaults()
 	}
-	if ok || dst.Kind() != reflect.Struct {
+	if ok || dst.Kind() != reflect.Struct || opaque(dst.Type()) {
 		overlay(dst, src)
 		return
 	}
 	for i := range dst.NumField() {
-		if !dst.Type().Field(i).IsExported() {
-			continue
-		}
 		if f := dst.Field(i); f.Kind() == reflect.Struct {
 			fillFresh(f, src.Field(i))
 		} else {
@@ -56,10 +53,12 @@ func overlay(dst, src reflect.Value) {
 	}
 	switch src.Kind() {
 	case reflect.Struct:
+		if opaque(src.Type()) {
+			dst.Set(src)
+			return
+		}
 		for i := range src.NumField() {
-			if dst.Type().Field(i).IsExported() {
-				overlay(dst.Field(i), src.Field(i))
-			}
+			overlay(dst.Field(i), src.Field(i))
 		}
 	case reflect.Slice:
 		out := reflect.MakeSlice(src.Type(), src.Len(), src.Len())
@@ -87,4 +86,15 @@ func overlay(dst, src reflect.Value) {
 	default:
 		dst.Set(src)
 	}
+}
+
+// opaque reports whether t has an unexported field, such as time.Time. Fill cannot
+// reach that state field by field, so it copies such a value whole.
+func opaque(t reflect.Type) bool {
+	for i := range t.NumField() {
+		if !t.Field(i).IsExported() {
+			return true
+		}
+	}
+	return false
 }

@@ -11,6 +11,7 @@ package log_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +32,23 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
+		It("Should reject an explicit empty time zone instead of defaulting it", func(
+			ctx SpecContext,
+		) {
+			var l log.Log
+			Expect(json.Unmarshal([]byte(`{"name":"test","time_zone":""}`), &l)).
+				To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+				To(MatchError(ContainSubstring("time_zone")))
+		})
+
+		It("Should default an omitted time zone", func(ctx SpecContext) {
+			var l log.Log
+			Expect(json.Unmarshal([]byte(`{"name":"test"}`), &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+			Expect(l.TimeZone).To(Equal(telem.TimeZoneLocal))
+		})
+
 		It("Should create a Log", func(ctx SpecContext) {
 			l := defaults.Fill(log.Log{
 				Name: "test",
