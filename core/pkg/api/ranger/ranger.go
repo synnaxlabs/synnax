@@ -12,6 +12,7 @@ package ranger
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -143,17 +144,42 @@ func (s *Service) Create(
 type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 
 // Dispatch applies the action sequence to the target range atomically. Subscribers to
-// the range action signals receive the sequence after the transaction commits.
+// the range action signals receive the sequence after the transaction commits. A change
+// of parent also needs update on the old and the new parent.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(nil)
+	request := access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []resource.ID{ranger.ResourceID(req.Key)},
-	}); err != nil {
+	}
+	if err := enforcer.Enforce(ctx, request); err != nil {
 		return struct{}{}, err
+	}
+	var stored ranger.Range
+	if err := s.internal.NewRetrieve().
+		Where(ranger.MatchKeys(req.Key)).
+		Entry(&stored).
+		Exec(ctx, nil); err != nil {
+		return struct{}{}, err
+	}
+	next, err := ranger.Reduce(stored, req.Actions...)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if lo.FromPtr(next.Parent) != lo.FromPtr(stored.Parent) {
+		request.Objects = nil
+		for _, p := range []*ranger.Key{stored.Parent, next.Parent} {
+			if p != nil {
+				request.Objects = append(request.Objects, ranger.ResourceID(*p))
+			}
+		}
+		if err := enforcer.Enforce(ctx, request); err != nil {
+			return struct{}{}, err
+		}
 	}
 	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
