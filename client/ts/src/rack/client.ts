@@ -284,12 +284,17 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("rack", { key: { eq: q.key } }, racks, true);
+      checkForMultipleOrNoResults(
+        "rack",
+        { where: { key: { eq: q.key } } },
+        racks,
+        true,
+      );
       return this.sugar(racks[0]);
     }
     const racks = await this.fetchThrough(q);
     const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
-    checkForMultipleOrNoResults("rack", where, racks, true);
+    checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }

@@ -50,41 +50,63 @@ describe("retrieve utils", () => {
   });
 
   describe("check for multiple or no results", () => {
-    const where = { name: { startsWith: "press" } };
+    const request = { where: { name: { startsWith: "press" } } };
 
     it("should accept exactly one result", () => {
       expect(() =>
-        checkForMultipleOrNoResults("range", where, [1], true),
+        checkForMultipleOrNoResults("range", request, [1], true),
       ).not.toThrow();
     });
 
     it("should check nothing for a retrieve of many", () => {
       expect(() =>
-        checkForMultipleOrNoResults("range", where, [], false),
+        checkForMultipleOrNoResults("range", request, [], false),
       ).not.toThrow();
     });
 
     it("should describe the filter when nothing matches", () => {
-      expect(() => checkForMultipleOrNoResults("range", where, [], true)).toThrow(
+      expect(() => checkForMultipleOrNoResults("range", request, [], true)).toThrow(
         new NotFoundError('Found no range where name starts with "press"'),
       );
     });
 
     it("should describe the filter when more than one record matches", () => {
-      expect(() => checkForMultipleOrNoResults("range", where, [1, 2], true)).toThrow(
+      expect(() => checkForMultipleOrNoResults("range", request, [1, 2], true)).toThrow(
         new MultipleFoundError(
           'Expected one range where name starts with "press", but found 2',
         ),
       );
     });
 
-    it("should leave out the filter when it is empty", () => {
-      expect(() => checkForMultipleOrNoResults("range", undefined, [], true)).toThrow(
+    it("should name the search term before the filter", () => {
+      const searched = { ...request, searchTerm: "tank" };
+      expect(() => checkForMultipleOrNoResults("range", searched, [], true)).toThrow(
+        new NotFoundError(
+          'Found no range matching "tank" where name starts with "press"',
+        ),
+      );
+    });
+
+    it("should name the search term when there is no filter", () => {
+      expect(() =>
+        checkForMultipleOrNoResults("range", { searchTerm: "tank" }, [1, 2], true),
+      ).toThrow(
+        new MultipleFoundError('Expected one range matching "tank", but found 2'),
+      );
+    });
+
+    it("should leave out the filter and search term when both are empty", () => {
+      expect(() => checkForMultipleOrNoResults("range", {}, [], true)).toThrow(
         new NotFoundError("Found no range"),
       );
-      expect(() => checkForMultipleOrNoResults("range", {}, [1, 2], true)).toThrow(
-        new MultipleFoundError("Expected one range, but found 2"),
-      );
+      expect(() =>
+        checkForMultipleOrNoResults(
+          "range",
+          { where: {}, searchTerm: "" },
+          [1, 2],
+          true,
+        ),
+      ).toThrow(new MultipleFoundError("Expected one range, but found 2"));
     });
   });
 });
