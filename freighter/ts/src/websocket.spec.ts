@@ -114,7 +114,7 @@ describe("websocket", () => {
   });
 });
 
-describe("flow control", () => {
+describe("local server", () => {
   interface Connection {
     ws: WebSocket;
     req: IncomingMessage;
@@ -123,11 +123,14 @@ describe("flow control", () => {
   let server: WebSocketServer;
   let connected: Promise<Connection>;
 
-  const dial = async (flowControl: Partial<FlowControl>) => {
+  const dial = async (
+    flowControl: Partial<FlowControl>,
+    codec: binary.Codec = new binary.JSONCodec(),
+  ) => {
     const { port } = server.address() as AddressInfo;
     const c = new WebSocketClient(
       new url.URL({ host: "127.0.0.1", port }),
-      new binary.JSONCodec(),
+      codec,
       false,
       flowControl,
     );
@@ -151,6 +154,27 @@ describe("flow control", () => {
   afterEach(async () => {
     server.clients.forEach((ws) => ws.terminate());
     await new Promise((resolve) => server.close(resolve));
+  });
+
+  test("should reject a payload that does not match the schema", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    ws.send(Buffer.from(JSON.stringify({ type: "data", payload: { id: "a" } })));
+    await expect(stream.receive()).rejects.toThrow(/stream response/);
+  });
+
+  test("should return the payload a codec builds without parsing it", async () => {
+    // Builds payloads without a schema, as the binary frame codecs do.
+    const codec: binary.Codec = {
+      contentType: "application/json",
+      encode: (payload) => binary.JSON_CODEC.encode(payload),
+      decode: <P extends z.ZodType>(data: Uint8Array | ArrayBuffer) =>
+        binary.JSON_CODEC.decode<P>(data),
+    };
+    const stream = await dial({}, codec);
+    const { ws } = await connected;
+    ws.send(Buffer.from(JSON.stringify({ type: "data", payload: { id: "a" } })));
+    expect(await stream.receive()).toEqual({ id: "a" });
   });
 
   test("should receive queued messages in order", async () => {
