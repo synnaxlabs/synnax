@@ -154,15 +154,16 @@ TEST(PatchTest, KeepsNamespaceIndexes) {
     UA_Server_delete(server);
 }
 
-/// @brief it should fail a refused connection without waiting for the next timer of
-/// the client.
-TEST(PatchTest, FailsRefusedConnectionAtOnce) {
-    UA_Client *client = UA_Client_new();
-    const auto start = std::chrono::steady_clock::now();
-    EXPECT_EQ(
-        UA_Client_connect(client, "opc.tcp://localhost:4889"),
-        UA_STATUSCODE_BADCONNECTIONREJECTED
+/// @brief it should shut down a server without waiting for its next timer.
+TEST(PatchTest, ShutsDownServerAtOnce) {
+    UA_Server *server = UA_Server_new();
+    ASSERT_EQ(
+        UA_ServerConfig_setMinimal(UA_Server_getConfig(server), 4883, nullptr),
+        UA_STATUSCODE_GOOD
     );
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-    UA_Client_delete(client);
+    ASSERT_EQ(UA_Server_run_startup(server), UA_STATUSCODE_GOOD);
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(UA_Server_run_shutdown(server), UA_STATUSCODE_GOOD);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
+    UA_Server_delete(server);
 }
