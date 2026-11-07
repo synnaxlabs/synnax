@@ -298,8 +298,10 @@ export const Configure = ({
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
   const save = async (createTask: boolean) => {
-    // The stored identifier of a new slave is empty, so the rule applies from Save on.
+    // A new slave has no identifier, so the checks apply from the first Save on. They
+    // replace the stored schema's messages with the platform's.
     if (!checked.current) {
+      form.addCheck(path.name, Device.nameZ);
       form.addCheck(path.properties.identifier, Device.identifierZ);
       checked.current = true;
     }

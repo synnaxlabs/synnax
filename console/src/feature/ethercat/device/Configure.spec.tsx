@@ -137,6 +137,14 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     expect(unchanged.properties.identifier).toEqual(slave.properties.identifier);
   });
 
+  it("should ask for a name and not save without one", async () => {
+    const slave = await setup();
+    fireEvent.change(nameInput(), { target: { value: "" } });
+    await save();
+    await screen.findByText("Name is required");
+    expect((await retrieve(slave.key)).name).toEqual(slave.name);
+  });
+
   it("should flag the empty identifier of a new slave only after Save", async () => {
     await setup({ configured: false });
     fireEvent.change(nameInput(), { target: { value: uniqueName("renamed") } });
