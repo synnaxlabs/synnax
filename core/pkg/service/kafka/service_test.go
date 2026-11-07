@@ -51,7 +51,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",
 				"records": []any{map[string]any{
@@ -79,7 +79,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"records": []any{map[string]any{
 					"key":    "r-1",
 					"fields": []any{map[string]any{"key": "f-1"}},
@@ -99,7 +99,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "ch-1"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
@@ -117,7 +117,7 @@ var _ = Describe("Service", func() {
 
 		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"record": map[string]any{
 					"channel_pointer":   "/name",
 					"timestamp_pointer": "/time",
@@ -134,14 +134,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Scan.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
-				Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Read.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
@@ -149,7 +149,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
-				Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Write.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 					"record_key": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},

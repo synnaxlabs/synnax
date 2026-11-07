@@ -78,7 +78,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"device": "dev-1",
 				"rate":   25,
 				"endpoints": []any{map[string]any{
@@ -97,7 +97,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 1))
 		})
@@ -106,7 +106,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"key": "ep-1"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Scan.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -127,7 +127,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
@@ -135,7 +135,7 @@ var _ = Describe("Service", func() {
 		It("Should return the write validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})

@@ -49,7 +49,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Alert.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Alert.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"routing_key": "rk-1",
 				"auto_start":  true,
 				"alerts": []any{map[string]any{

@@ -71,7 +71,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"device": "broker-1",
 				"entries": []any{map[string]any{
 					"key":   "entry-1",
@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
 			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
 					"key":       "entry-1",
 					"type":      "sparkplug",
@@ -111,7 +111,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
@@ -125,7 +125,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Scan.Write(ctx, nil, key, "", msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			MustSucceed(svc.Edge.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Edge.Write(ctx, nil, key, "", msgpack.EncodedJSON{
 				"group":     "plant",
 				"edge_node": "synnax",
 				"tags":      []any{map[string]any{"key": "tag-1", "name": "pressure"}},
@@ -148,7 +148,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an invalid QoS", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "plain", "qos": "twice"}},
 			})).Error().
 				To(MatchError(ContainSubstring("twice")))
@@ -157,7 +157,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an unknown entry type", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "amqp"}},
 			})).Error().
 				To(MatchError(ContainSubstring("amqp")))

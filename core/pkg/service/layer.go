@@ -646,6 +646,25 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Signals:         l.Signals,
+		Channel:         l.Channel,
+		Uses:            certificate.FindSecretUses,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
@@ -774,25 +793,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 		},
 	); !ok(err, l.View) {
-		return nil, err
-	}
-	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
-		Instrumentation: cfg.Child("grant"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Grant) {
-		return nil, err
-	}
-	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
-		Instrumentation: cfg.Child("secret"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		Signals:         l.Signals,
-		Channel:         l.Channel,
-		Uses:            certificate.FindSecretUses,
-		Grant:           l.Grant,
-		EncryptionKey:   cfg.SecretsKey,
-	}); !ok(err, l.Secret) {
 		return nil, err
 	}
 	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
