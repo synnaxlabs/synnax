@@ -203,9 +203,7 @@ var _ = Describe("Relay", func() {
 				Start: 10 * telem.SecondTS,
 			}))
 			openStreamer()
-			// The frames fill the stalled streamer's buffer three times over. Waiting
-			// on
-			// it for 20 ms a frame would take a batch about 1 s.
+			// The frames fill the stalled streamer's buffer three times over.
 			const batchSize = 50
 			batches := 3 * relay.DefaultConfig.StreamerBufferSize / batchSize
 			for range batches {

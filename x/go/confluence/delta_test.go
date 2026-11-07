@@ -173,8 +173,7 @@ var _ = Describe("Delta", func() {
 					delta.Flow(ctx, CloseOutputInletsOnExit())
 					delta.Connect(stalled, live)
 					// The delta sends to live after stalled, so a value on live means
-					// the
-					// delta is done with stalled.
+					// the delta is done with stalled.
 					send := func(v int) {
 						GinkgoHelper()
 						Eventually(input.Inlet()).Should(BeSent(v))

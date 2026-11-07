@@ -79,8 +79,8 @@ type DynamicDeltaMultiplier[V Value] struct {
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
 	Source         AbstractMultiSource[V]
-	// dropping holds the inlets that missed the last value, so a slow consumer logs
-	// once instead of on each value. Only a lossy multiplier uses it.
+	// dropping holds the inlets in a drop episode, which ends when the inlet's buffer
+	// is empty. Only a lossy multiplier uses it.
 	dropping set.Set[address.Address]
 	timeout  time.Duration
 	lossy    bool
