@@ -344,10 +344,10 @@ def _merge(
     reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
 ) -> Review:
     """Joins the reviews of parallel passes. A finding joins at most one finding of
-    each other pass in the same file: first by title, then by the line it ends on. The
-    review keeps the more severe of joined findings, else the one that continues an
-    open thread. The verdict and summary come from the pass with the lowest capped
-    score."""
+    each other pass in the same file: first by title and end line, then by title, then
+    by end line. The review keeps the more severe of joined findings, else the one that
+    continues an open thread. The verdict and summary come from the pass with the
+    lowest capped score."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
@@ -367,6 +367,7 @@ def _merge(
 
     every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
     found = sorted(every, key=lambda t: rank(t[1]))
+    found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
     found = join(found, lambda k, f: k.title == f.title)
     found = join(found, lambda k, f: k.line == f.line)
     lead = min(reviews, key=lambda r: _cap(r, caps).score)

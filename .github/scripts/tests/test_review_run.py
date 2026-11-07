@@ -467,6 +467,14 @@ class TestLenses:
             ("Lock released", 40),
         ]
 
+    def test_should_join_a_title_on_the_same_line_first(self) -> None:
+        races = FakeClaude(
+            5, [at("P2", 10) | {"title": "T"}, at("P2", 50) | {"title": "T"}]
+        )
+        edges = FakeClaude(5, [at("P1", 50) | {"title": "T"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.severity, f.line) for f in got.findings] == [("P1", 50), ("P2", 10)]
+
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."
