@@ -103,7 +103,7 @@ TEST(TestChannel, testCreateMany) {
             .is_virtual = true,
         }
     );
-    ASSERT_TRUE(client.channels.create(channels).ok());
+    ASSERT_NIL(client.channels.create(channels));
     ASSERT_EQ(channels.size(), 3);
     for (const auto &ch: channels)
         ASSERT_FALSE(ch.key == 0);
@@ -130,9 +130,7 @@ TEST(TestChannel, testRetrieve) {
 /// @brief it should return a query error when the channel cannot be found.
 TEST(TestChannel, testRetrieveNotFound) {
     const auto client = new_test_client();
-    auto [retrieved, err] = client.channels.retrieve(22);
-    ASSERT_TRUE(err) << err.message();
-    ASSERT_TRUE(err.matches(x::errors::QUERY));
+    ASSERT_OCCURRED_AS_P(client.channels.retrieve(22), x::errors::QUERY);
 }
 
 /// @brief it should correctly retrieve a channel by name.

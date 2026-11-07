@@ -45,6 +45,10 @@ on:
         description: "Ref whose prompt, rules, and review settings a replay uses"
         type: string
         required: false
+      repeat:
+        description: "Review the head again, even when its last review succeeded"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -64,12 +68,13 @@ jobs:
     name: Start a runner
     runs-on: ubuntu-latest
     permissions:
+      checks: read
       id-token: write
       pull-requests: read
     outputs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
-      fork: ${{ steps.pr.outputs.fork }}
+      skip: ${{ steps.skip.outputs.skip }}
       check: ${{ steps.check.outputs.id }}
     steps:
       - name: Read the pull request
@@ -98,11 +103,36 @@ jobs:
             jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
               "base=\(if $base == "" then .base.sha else $base end)",
-              "fork=\(.head.repo.full_name != .base.repo.full_name)"
+              "fork=\(.head.repo.full_name != .base.repo.full_name)",
+              "key=\(.number):\(.base.ref)"
             ' >> "$GITHUB_OUTPUT"
 
+      # A fork's code never reaches a runner. Sessions often ask again for a review of a
+      # head that has one. The reviews of one pull request take turns, so a head needs
+      # no other review when its last review for this pull request and base succeeded.
+      # The check run's external ID names the pull request and base.
+      - name: Decide whether to review
+        id: skip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          FORK: ${{ steps.pr.outputs.fork }}
+          KEY: ${{ steps.pr.outputs.key }}
+          REPEAT: ${{ inputs.repeat || inputs.replay }}
+        run: |
+          skip=$FORK
+          if [ "$skip" = false ] && [ "$REPEAT" != true ]; then
+            runs="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
+            skip=$(gh api -X GET "$runs" -f check_name="Sedosaur Review" -f filter=all \
+              -f per_page=100 --jq '
+                [.check_runs[] | select(.app.slug == "sedosaur")
+                  | select(.external_id == env.KEY)]
+                | max_by(.started_at) | .conclusion == "success"')
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
       - name: Assume the runner start role
-        if: steps.pr.outputs.fork == 'false'
+        if: steps.skip.outputs.skip == 'false'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -112,7 +142,7 @@ jobs:
       # two concurrent starts sees an instance's previous state as stopped, so the other
       # tries again. The job waits for any runner when none is stopped.
       - name: Start a stopped runner
-        if: steps.pr.outputs.fork == 'false'
+        if: steps.skip.outputs.skip == 'false'
         run: |
           for _ in 1 2 3; do
             ids=$(aws ec2 describe-instances --output text \
@@ -129,7 +159,7 @@ jobs:
 
       - name: Mint the GitHub App token
         id: app
-        if: steps.pr.outputs.fork == 'false'
+        if: steps.skip.outputs.skip == 'false'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
@@ -139,20 +169,21 @@ jobs:
       # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
         id: check
-        if: steps.pr.outputs.fork == 'false' && !inputs.replay
+        if: steps.skip.outputs.skip == 'false' && !inputs.replay
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
         run: |
           id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
-            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" \
+            -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
             -f status=queued -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   # A job of its own, so a deleted comment cannot stop the review.
   react:
     needs: start
-    if: needs.start.outputs.fork == 'false' && inputs.comment != '' && !inputs.replay
+    if: needs.start.outputs.skip == 'false' && inputs.comment != '' && !inputs.replay
     name: React to the request
     runs-on: ubuntu-latest
     steps:
@@ -175,8 +206,7 @@ jobs:
 
   review:
     needs: start
-    # A fork's code never reaches a runner.
-    if: needs.start.outputs.fork == 'false'
+    if: needs.start.outputs.skip == 'false'
     name: Review
     runs-on: [self-hosted, review]
     timeout-minutes: 30

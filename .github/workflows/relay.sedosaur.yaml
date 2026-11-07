@@ -49,7 +49,10 @@ jobs:
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
     steps:
+      # Only `@sedosaur review` reviews a head again after a review of it succeeded.
       - name: Start Review - Sedosaur
+        env:
+          REPEAT: ${{ contains(github.event.comment.body, '@sedosaur review') }}
         run: |
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-            -f comment="$COMMENT"
+            -f comment="$COMMENT" -f repeat="$REPEAT"
