@@ -72,11 +72,12 @@ var _ = Describe("Format string output", func() {
 		Entry("a backslash before a placeholder", `f"\{42}"`, `\42`),
 		Entry("a path before a placeholder", `f"C:\data\{42}"`, `C:\data\42`),
 		Entry("a unicode escape", `f"\u00B0{42}"`, "°42"),
-		// Escapes apply before the split. On main, only a flow rendered this as {42}.
+		// Escapes apply before the split.
 		Entry("an escaped open brace", `f"\u007B42}"`, "42"),
 		Entry("non-ASCII text", `f"温度 {42}°"`, "温度 42°"),
 		Entry("raw text", `rf"a\nb"`, `a\nb`),
 		Entry("a raw backslash before a placeholder", `rf"C:\{42}"`, `C:\42`),
+		Entry("a quoted string in a placeholder", `f"{\"ab\"}"`, "ab"),
 		Entry("a spec", `f"{3.14159:.2f}"`, "3.14"),
 	)
 

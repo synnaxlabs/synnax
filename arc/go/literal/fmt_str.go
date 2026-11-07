@@ -33,9 +33,8 @@ type FmtStrSegment struct {
 	End int
 	// Body byte offset of `:`, or -1 if no spec.
 	SpecOffset int
-	// Offsets holds, for a placeholder that FmtStrSplit returns, the body byte offset
-	// of
-	// each byte of Text and one past its end.
+	// Offsets holds the body byte offset of each byte of a placeholder's Text, and one
+	// past its end. FmtStrSplit sets it.
 	Offsets []int
 }
 

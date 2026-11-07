@@ -10,7 +10,6 @@
 package expression
 
 import (
-	"strings"
 	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -50,10 +49,10 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 		return
 	}
 	sym := strTerm.GetSymbol()
-	base := protocol.Position{
+	at := bodyPositions(protocol.Position{
 		Line:      uint32(sym.GetLine() - 1),
 		Character: uint32(sym.GetColumn() + bodyOffset(text)),
-	}
+	}, body)
 	stored, analyzed := ctx.FmtStrings[strTerm]
 	if !analyzed {
 		stored = make([]parser.FmtSegment, len(segments))
@@ -61,7 +60,7 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	}
 	for i, seg := range segments {
 		if seg.IsPlaceholder {
-			analyzePlaceholder(ctx, body, base, seg, &stored[i], analyzed)
+			analyzePlaceholder(ctx, at, seg, &stored[i], analyzed)
 			continue
 		}
 		if !analyzed {
@@ -85,14 +84,12 @@ func bodyOffset(text string) int {
 // expression. base is the source position of body[0].
 func analyzePlaceholder[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	body string,
-	base protocol.Position,
+	at []protocol.Position,
 	seg literal.FmtStrSegment,
 	out *parser.FmtSegment,
 	analyzed bool,
 ) {
-	segStart := runePosition(base, body[:seg.Start])
-	segEnd := runePosition(base, body[:seg.End])
+	segStart, segEnd := at[seg.Start], at[seg.End]
 	emit := func(d diagnostics.Diagnostic) {
 		ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 	}
@@ -103,7 +100,7 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	if !analyzed {
 		expr, diags := parser.ParseExpressionAt(
 			seg.Text,
-			textPosition(base, body, seg),
+			textPosition(at, seg),
 			ctx.Config,
 		)
 		if diags != nil && !diags.Ok() {
@@ -137,35 +134,36 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 }
 
 // textPosition maps each rune of a placeholder's text to its position in the source,
-// through any escapes. base is the position of body[0].
-func textPosition(
-	base protocol.Position,
-	body string,
-	seg literal.FmtStrSegment,
-) parser.Position {
+// through any escapes. at holds the position of each byte of the body.
+func textPosition(at []protocol.Position, seg literal.FmtStrSegment) parser.Position {
 	positions := make([]protocol.Position, 0, len(seg.Text)+1)
 	for i := range seg.Text {
-		positions = append(positions, runePosition(base, body[:seg.Offsets[i]]))
+		positions = append(positions, at[seg.Offsets[i]])
 	}
-	positions = append(positions, runePosition(base, body[:seg.Offsets[len(seg.Text)]]))
+	positions = append(positions, at[seg.Offsets[len(seg.Text)]])
 	return func(index int) (int, int) {
 		p := positions[min(index, len(positions)-1)]
 		return int(p.Line) + 1, int(p.Character)
 	}
 }
 
-// runePosition returns the position just past prefix, with the column in runes as
-// ANTLR counts it. base is the position of prefix[0].
-func runePosition(base protocol.Position, prefix string) protocol.Position {
-	line := base.Line + uint32(strings.Count(prefix, "\n"))
-	if _, last, found := strings.CutLast(prefix, "\n"); found {
-		return protocol.Position{
-			Line:      line,
-			Character: uint32(utf8.RuneCountInString(last)),
+// bodyPositions returns the source position of each byte of body and of its end, with
+// columns in runes as ANTLR counts them. base is the position of body[0].
+func bodyPositions(base protocol.Position, body string) []protocol.Position {
+	at := make([]protocol.Position, len(body)+1)
+	p := base
+	for i := 0; i < len(body); {
+		r, size := utf8.DecodeRuneInString(body[i:])
+		for j := range size {
+			at[i+j] = p
+		}
+		i += size
+		if r == '\n' {
+			p = protocol.Position{Line: p.Line + 1}
+		} else {
+			p.Character++
 		}
 	}
-	return protocol.Position{
-		Line:      line,
-		Character: base.Character + uint32(utf8.RuneCountInString(prefix)),
-	}
+	at[len(body)] = p
+	return at
 }
