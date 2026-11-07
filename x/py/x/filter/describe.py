@@ -102,7 +102,7 @@ def _conjuncts(node: dict[str, Any]) -> list[_Conjunct]:
 
 def describe(tree: BaseModel | None) -> str:
     """Returns a short, readable description of the records that tree selects, such as
-    ``name starts with "press" and active = true``.
+    ``active = true and name starts with "press"``.
 
     :param tree: A filter tree, or None.
     :returns: The description, or an empty string for None or an empty tree.
