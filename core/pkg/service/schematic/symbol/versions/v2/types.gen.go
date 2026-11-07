@@ -105,8 +105,8 @@ func (s *Spec) SetDefaults() {
 	s.Scale = 1
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (s *Spec) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Spec
 	if reflect.ValueOf(*s).IsZero() {
@@ -157,8 +157,8 @@ func (s *Symbol) SetDefaults() {
 	s.Data.SetDefaults()
 }
 
-// UnmarshalJSONFrom decodes the input over s. A zero value first takes
-// the schema defaults, so an omitted member takes its default and a zero stays.
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
 func (s *Symbol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain Symbol
 	if reflect.ValueOf(*s).IsZero() {
