@@ -18,7 +18,9 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type Where,
 } from "@/channel/types.gen";
+import { shortcutZ } from "@/channel/where.gen";
 import { idToString } from "@/ontology/payload";
 import {
   analyzeParams as baseAnalyzeParams,
@@ -83,3 +85,9 @@ export const analyzeParams = (
     string: "names",
   });
 };
+
+/**
+ * @returns the filter that a retrieve of one channel sends. A numeric string is a key.
+ */
+export const singleWhere = (channel: Key | Name): Where =>
+  shortcutZ.parse(channel).where;

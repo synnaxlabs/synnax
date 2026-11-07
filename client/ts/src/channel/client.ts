@@ -30,6 +30,7 @@ import {
   isCalculated,
   type Params,
   type PrimitiveParams,
+  singleWhere,
   statusKey,
 } from "@/channel/payload";
 import {
@@ -555,17 +556,18 @@ export class Client extends query.Retriever<
     const normalized =
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
-      checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
+      if (isSingle)
+        checkForMultipleOrNoResults("channel", singleWhere(rawNormalized[0]), [], true);
       return [];
     }
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const { where } = shortcutZ.parse(normalized);
+    const { where } = shortcutZ.parse(isSingle ? normalized[0] : normalized);
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
-    checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
+    checkForMultipleOrNoResults("channel", where, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -715,7 +717,7 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults("channel", key, fetched, true);
+      checkForMultipleOrNoResults("channel", { key: { eq: key } }, fetched, true);
       [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
