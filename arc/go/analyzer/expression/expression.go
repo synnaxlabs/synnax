@@ -578,6 +578,12 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		if strTerm := parser.StringTerminal(lit); strTerm != nil {
 			AnalyzeFmtStrLiteral(ctx, strTerm)
 		}
+		if series := lit.SeriesLiteral(); series != nil &&
+			series.ExpressionList() != nil {
+			for _, element := range series.ExpressionList().AllExpression() {
+				Analyze(ctx.Child(element))
+			}
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {

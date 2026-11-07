@@ -283,6 +283,11 @@ var _ = Describe("Graph", func() {
 					Expect(typ.Unwrap().Kind).To(Equal(expected.Kind), node.GetText())
 				}
 			},
+			Entry("series element literal",
+				types.F32(), types.F64(),
+				"{ y series f32 := [1.5] return x }",
+				"{ y series f64 := [1.5] return x }",
+			),
 			Entry("float literal in two float widths",
 				types.F32(), types.F64(),
 				"{ return x + 1.5 }", "{ return x + 1.5 }",

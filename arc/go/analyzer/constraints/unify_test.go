@@ -49,6 +49,33 @@ var _ = Describe("Type Unification", func() {
 		})
 	})
 
+	Describe("Defaults", func() {
+		It("Should give an unbound variable its default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.F64()))
+		})
+
+		It("Should let a constraint override the default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.AddEquality(tv, types.Bool(), nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.Bool()))
+		})
+
+		It("Should fail on an unbound variable without a default", func() {
+			system := constraints.New()
+			Expect(system.AddEquality(
+				types.Variable("a", nil), types.Variable("b", nil), nil, "test",
+			)).To(Succeed())
+			Expect(system.Unify()).To(MatchError(constraints.ErrUnresolvedVariable))
+		})
+	})
+
 	Describe("Untyped float and integer literals", func() {
 		var (
 			floatConstraint = types.FloatConstraint()

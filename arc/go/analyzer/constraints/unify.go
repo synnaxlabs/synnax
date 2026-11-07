@@ -108,6 +108,8 @@ func (s *System) Unify() error {
 		if _, resolved := s.Substitutions[name]; !resolved {
 			if tv.Constraint != nil {
 				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
+			} else if t, ok := s.Defaults[name]; ok {
+				s.Substitutions[name] = t
 			} else {
 				return errors.Wrapf(ErrUnresolvedVariable, "%s", name)
 			}

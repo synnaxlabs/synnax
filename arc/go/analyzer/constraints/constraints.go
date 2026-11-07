@@ -63,6 +63,9 @@ type System struct {
 	Substitutions map[string]types.Type
 	// TypeVars tracks all type variables encountered during constraint collection.
 	TypeVars map[string]types.Type
+	// Defaults maps an unconstrained type variable to the type it takes when no
+	// constraint binds it.
+	Defaults map[string]types.Type
 	// Constraints holds all type relationships to be solved.
 	Constraints []Constraint
 }
@@ -73,7 +76,14 @@ func New() *System {
 		Constraints:   make([]Constraint, 0),
 		Substitutions: make(map[string]types.Type),
 		TypeVars:      make(map[string]types.Type),
+		Defaults:      make(map[string]types.Type),
 	}
+}
+
+// AddDefault records the type tv takes when no constraint binds it.
+func (s *System) AddDefault(tv, t types.Type) {
+	s.recordTypeVars(tv)
+	s.Defaults[tv.Name] = t
 }
 
 // AddEquality adds an equality constraint requiring left and right to unify to the

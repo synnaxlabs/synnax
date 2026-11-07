@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
@@ -942,7 +943,9 @@ var _ = Describe("Type Inference", func() {
 		DescribeTable("literal assignment",
 			func(varType, litType types.Type, expected bool) {
 				Expect(
-					atypes.LiteralAssignmentCompatible(varType, litType),
+					atypes.LiteralAssignmentCompatible(
+						constraints.New(), varType, litType, nil,
+					),
 				).To(Equal(expected))
 			},
 			Entry("same type f32", types.F32(), types.F32(), true),
@@ -956,6 +959,22 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+		)
+
+		DescribeTable("Should bind a series element variable",
+			func(elem, constraint types.Type) {
+				system := constraints.New()
+				literal := types.Variable("lit", &constraint)
+				Expect(atypes.LiteralAssignmentCompatible(
+					system, types.Series(elem), types.Series(literal), nil,
+				)).To(BeTrue())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(literal)).To(Equal(elem))
+			},
+			Entry("float to f32", types.F32(), types.FloatConstraint()),
+			Entry("integer to f32", types.F32(), types.IntegerConstraint()),
+			Entry("integer to i32", types.I32(), types.IntegerConstraint()),
+			Entry("integer to u8", types.U8(), types.IntegerConstraint()),
 		)
 	})
 

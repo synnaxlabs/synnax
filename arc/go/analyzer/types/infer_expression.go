@@ -419,8 +419,10 @@ func inferSeriesLiteralType(
 ) types.Type {
 	exprList := ctx.AST.ExpressionList()
 	if exprList == nil || len(exprList.AllExpression()) == 0 {
-		constraint := types.NumericConstraint()
-		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), &constraint)
+		// An empty literal has no element to constrain its type, so the declared type
+		// can be any element type, numeric or not. Undeclared, it is f64.
+		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), nil)
+		ctx.Constraints.AddDefault(elemType, types.F64())
 		t := types.Series(elemType)
 		ctx.TypeMap[ctx.AST] = t
 		return t
@@ -435,25 +437,31 @@ func inferSeriesLiteralType(
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
 		thisIsLiteral := parser.IsNumericLiteral(exprs[i]) || isUntypedNumber(nextType)
 		// Literals can unify across int/float (like Go), but variables cannot
+		compatible := seriesElementCompatible(elemType, nextType)
 		if allLiterals && thisIsLiteral {
-			if !literalsCompatible(elemType, nextType) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					exprs[i],
-					"series element %d has incompatible type %s, expected %s",
-					i+1,
-					nextType,
-					elemType,
-				))
-			}
+			compatible = literalsCompatible(elemType, nextType)
 		} else {
 			allLiterals = false
-			if !seriesElementCompatible(elemType, nextType) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					exprs[i],
-					"series element %d has incompatible type %s, expected %s", i+1,
-					nextType,
-					elemType,
-				))
+		}
+		if !compatible {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				exprs[i],
+				"series element %d has incompatible type %s, expected %s",
+				i+1,
+				nextType,
+				elemType,
+			))
+		} else if elemType.Kind == types.KindVariable ||
+			nextType.Kind == types.KindVariable {
+			// Linking each element to the first keeps a float literal at the end of
+			// the chain, so an integer literal takes the float type.
+			if err := ctx.Constraints.AddCompatible(
+				nextType,
+				elemType,
+				exprs[i],
+				"series element type",
+			); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, exprs[i]))
 			}
 		}
 		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {

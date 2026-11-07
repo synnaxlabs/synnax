@@ -10,6 +10,8 @@
 package types
 
 import (
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -205,9 +207,12 @@ func AssignmentCompatible(varType, exprType types.Type) bool {
 }
 
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
-// to variableType with implicit numeric widening.
+// to variableType with implicit numeric widening. An element type variable, as in a
+// series literal, is bound to the element type of variableType in cs.
 func LiteralAssignmentCompatible(
+	cs *constraints.System,
 	variableType, literalType types.Type,
+	source antlr.ParserRuleContext,
 ) bool {
 	if variableType.Kind == types.KindInvalid || literalType.Kind == types.KindInvalid {
 		return false
@@ -218,7 +223,12 @@ func LiteralAssignmentCompatible(
 	variableType = variableType.Unwrap()
 	literalType = literalType.Unwrap()
 	if literalType.Kind == types.KindVariable {
-		return true
+		return cs.AddEquality(
+			variableType,
+			literalType,
+			source,
+			"literal element type",
+		) == nil
 	}
 	if variableType.String() == literalType.String() {
 		return true
