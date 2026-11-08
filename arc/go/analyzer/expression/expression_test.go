@@ -2044,12 +2044,13 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(body("a := " + expr)))
 				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
 				analyzer.AnalyzeProgram(aCtx)
+				diags := aCtx.Diagnostics
 				if message == "" {
-					Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+					Expect(diags.Ok()).To(BeTrue(), diags.String())
 					return
 				}
-				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
-				d := (*aCtx.Diagnostics)[0]
+				Expect(*diags).To(HaveLen(1), diags.String())
+				d := (*diags)[0]
 				Expect(d.Code).To(Equal(codes.NaNComparison))
 				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
 				Expect(d.Message).To(ContainSubstring(message))
