@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -70,7 +69,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 		DB: db,
 	}))
 	cfg.DB = db
-	cfg.HostProvider = testutil.NewStaticHostProvider(1)
+	cfg.HostKey = 1
 	cfg.Status = stat
 	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,

@@ -123,6 +123,8 @@ func (c LayerConfig) Validate() error {
 type Layer struct {
 	// DB is the database for storing cluster wide metadata.
 	DB *gorp.DB
+	// Identity names the Core: its cluster key and host key.
+	Identity cluster.Identity
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
 	Cluster cluster.Cluster
@@ -176,6 +178,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	l.Cluster = aspenDB.Cluster
+	l.Identity = cluster.Identity{Key: l.Cluster.Key(), HostKey: l.Cluster.HostKey()}
 	l.DB = gorp.Wrap(
 		aspenDB,
 		gorp.WithCodec(cfg.GorpCodec),

@@ -34,10 +34,10 @@ var _ = Describe("Service", func() {
 			DB: db,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           db,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 		svc = MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,

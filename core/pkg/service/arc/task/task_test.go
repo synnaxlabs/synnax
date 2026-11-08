@@ -140,10 +140,10 @@ var _ = Describe("Task", Ordered, func() {
 			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -165,10 +165,10 @@ var _ = Describe("Task", Ordered, func() {
 			DB: node.DB,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:         node.DB,
+			HostKey:    node.Identity.HostKey,
+			Status:     statusSvc,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 		}))
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: node.DB,

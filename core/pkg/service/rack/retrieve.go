@@ -11,22 +11,21 @@ package rack
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 )
 
 type Retrieve struct {
-	baseTX       gorp.Tx
-	indexes      indexes
-	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider cluster.HostProvider
+	baseTX  gorp.Tx
+	indexes indexes
+	gorp    gorp.Retrieve[Key, Rack]
+	hostKey node.Key
 }
 
 // MatchHostIsNode returns a filter that matches racks on the host Core, or racks on
 // other Cores when v is false.
 func MatchHostIsNode(v bool) Filter {
 	return Match(func(_ gorp.Context, r Retrieve, rack *Rack) (bool, error) {
-		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
+		isNodeHost := rack.Key.Node() == r.hostKey
 		return isNodeHost == v, nil
 	})
 }

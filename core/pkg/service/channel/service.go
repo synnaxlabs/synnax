@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -51,10 +51,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider provides this node's key for default leaseholder assignment.
+	// HostKey is the key of the host node, the default leaseholder of new channels.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -77,7 +77,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("db", c.DB)
-	v.NotNil("host_provider", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -89,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)

@@ -357,7 +357,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
 		DB:              cfg.Distribution.DB,
-		HostProvider:    cfg.Distribution.Cluster,
+		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
@@ -491,7 +491,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
-		HostProvider:    cfg.Distribution.Cluster,
+		HostKey:         cfg.Distribution.Identity.HostKey,
 		Status:          l.Status,
 		DriverRole:      roles.Builtin.DriverKey,
 	}); !ok(err, l.Rack) {
@@ -812,7 +812,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          l.Framer,
 			Channel:         l.Channel,
-			HostProvider:    cfg.Distribution.Cluster,
+			HostKey:         cfg.Distribution.Identity.HostKey,
 			Storage:         cfg.Storage,
 			Group:           l.Group,
 		},
@@ -899,7 +899,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			kafkaFactory,
 			mqttFactory,
 		},
-		Host: cfg.Distribution.Cluster,
+		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}

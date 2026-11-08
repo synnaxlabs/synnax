@@ -16,7 +16,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -132,10 +131,10 @@ func (t *Tasks) openRack(ctx context.Context, cfg *TasksConfig) (err error) {
 		return err
 	}
 	if cfg.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           cfg.DB,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       cfg.Status,
-		DriverRole:   driverRole,
+		DB:         cfg.DB,
+		HostKey:    1,
+		Status:     cfg.Status,
+		DriverRole: driverRole,
 	}); err != nil {
 		return err
 	}
