@@ -141,7 +141,8 @@ included, gets a permission error. The Core's integrations read their secrets in
 with no check, because they run in the Core. A rack reads a secret when:
 
 1. A device or task on the rack uses it, directly or through a certificate.
-2. The request carries a grant for that rack that names it.
+2. The request carries a grant for that rack and the task of the command, and the grant
+   names it.
 
 A user who saves a device or task that names a secret must be able to retrieve that
 secret, or the save fails. Otherwise a user could make a rack or a Core integration use
@@ -150,17 +151,22 @@ devices. Phase 7 adds the first rule, with the first Driver integration.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
-calls `secret/grant/create` with a subject and secrets, and the Core checks that the
-caller can create devices and retrieve each secret. Only a rack can be a subject for
-now. For a certificate, the Console sends the secret in its `private_key`. The Core
-stores the grant with the subject, the secrets, and an expiry one minute away, and
-returns its key. The Console sends the key with the command.
+calls `secret/grant/create` with a subject, a task, and secrets, and the Core checks
+that the caller can create devices and retrieve each secret. Only a rack can be a
+subject for now, and the task must be on that rack. For a certificate, the Console sends
+the secret in its `private_key`. The Core stores the grant with the subject, the task,
+the secrets, and an expiry one minute away, and returns its key. The Console sends the
+key with its command to that task.
 
 The first resolve that carries the key deletes the grant, and reads only the secrets
-that the grant names. A grant that no resolve uses ends at its expiry. The key travels
-on `sy_task_cmd`, where an Operator can read and write any command
-(`core/pkg/service/access/rbac/builtin/builtin.go:171-179`). The Console's command
-spends the grant first, so a copied key reads nothing. Without grants, an Operator could
+that the grant names. The Driver sends the task of the command, and the Core refuses a
+grant for a different task. A grant that no resolve uses ends at its expiry. The key
+travels on `sy_task_cmd`, where an Operator can read and write any command
+(`core/pkg/service/access/rbac/builtin/builtin.go:171-179`). A copied key can reach only
+the same task, and the Driver runs the commands of one task in order
+(`driver/task/manager.cpp:420-453`). So the Console's command spends the grant first,
+and a copied key reads nothing. The Driver spends the grant before any other check on
+the command, so a command that fails still spends it. Without grants, an Operator could
 send a saved password to a server of their choice.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
@@ -303,7 +309,9 @@ the Driver change, so they are separate phases.
    stolen test-stand computer reads only its own secrets.
 8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
    the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
-   when its work is done, so a copied key reads nothing. It names a subject, not a
+   when its work is done, and for one task, so a copied key reads nothing. A hash of the
+   connection settings would also bind it, but the Console and the Driver would have to
+   hash the same fields the same way in two languages. A grant names a subject, not a
    session or a connection, so other subjects can use grants later. Unlike the sessions
    of RFC 0073 §4.4, a grant has a clock, because no person ends a grant that no test
    uses. The trade is real: a stored write for each test, and an Operator can see a key
