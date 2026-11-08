@@ -89,7 +89,11 @@ other bus refuses SAFE-OP with "Invalid DC SYNC configuration".
 
 ## Run DewesoftX and Synnax on one computer
 
-Connect DewesoftX and the Driver to different Ethernet ports. DewesoftX adds a network
-filter to each port, and the filter blocks the Driver also when DewesoftX is closed.
+With an IOLITE, connect DewesoftX and the Driver to different Ethernet ports. A SIRIUS
+connects DewesoftX through USB, so the Driver needs only one Ethernet port.
+
+DewesoftX adds a network filter to each Ethernet port. The filter blocks the Driver,
+also when DewesoftX is closed.
 [Turn off the filter](/reference/hardware/ethercat/configure-device#no-modules-show-on-a-computer-with-dewesoftx)
-on the port of the Driver only, and keep it on the port of DewesoftX.
+on the port of the Driver. If DewesoftX uses an Ethernet port, keep the filter on that
+port.
