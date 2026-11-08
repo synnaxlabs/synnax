@@ -68,17 +68,13 @@ public:
     /// empty list when its bus is not running.
     [[nodiscard]] std::vector<slave::Health> health(const std::string &key) const;
 
-    /// @brief discovers slaves on a master, handling engine lifecycle internally.
-    /// If engine is running, returns cached slaves. If not, initializes first.
-    /// @param key The master key (e.g., "igh:0" or "eth0").
-    /// @return Pair of slave list and error.
+    /// @brief returns the slaves on the master with key, as Engine::discover() does.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-    discover_slaves(const std::string &key);
+    discover(const std::string &key);
 
-    /// @brief discovers the slaves on a master again unless its bus is running, and
-    /// returns them.
+    /// @brief returns the slaves on the master with key, as Engine::rediscover() does.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-    rediscover_slaves(const std::string &key);
+    rediscover(const std::string &key);
 };
 
 }

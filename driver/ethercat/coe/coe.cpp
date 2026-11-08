@@ -32,7 +32,7 @@ read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_c
     );
 }
 
-std::pair<std::vector<Sync>, x::errors::Error>
+std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const Read &read, const uint32_t max_syncs) {
     const auto read_count =
         [&](const uint16_t index,
@@ -52,7 +52,7 @@ read_layout(const Read &read, const uint32_t max_syncs) {
     const auto [sm_count, count_err] = read_count(SM_TYPE_INDEX, max_syncs);
     if (count_err.matches(OBJECT_MISSING)) return {{}, x::errors::NIL};
     if (count_err) return {{}, count_err};
-    std::vector<Sync> syncs;
+    std::vector<pdo::Sync> syncs;
     uint32_t type_shift = 0;
     for (uint32_t sm = FIRST_PROCESS_DATA_SM; sm < sm_count; sm++) {
         auto [type, type_err] = read(SM_TYPE_INDEX, static_cast<uint8_t>(sm + 1));
@@ -68,7 +68,7 @@ read_layout(const Read &read, const uint32_t max_syncs) {
         const bool fixed = pdo_count_err.matches(OBJECT_MISSING);
         if (pdo_count_err && !fixed) return {{}, pdo_count_err};
         auto &sync = syncs.emplace_back(
-            Sync{
+            pdo::Sync{
                 .index = static_cast<uint8_t>(sm),
                 .is_input = type == SM_TYPE_INPUTS,
                 .pdos = {},
@@ -83,7 +83,7 @@ read_layout(const Read &read, const uint32_t max_syncs) {
             if (pdo_err) return {{}, pdo_err};
             if (pdo_index == 0) continue;
             auto &pdo = sync.pdos.emplace_back(
-                PDO{.index = static_cast<uint16_t>(pdo_index), .entries = {}}
+                pdo::PDO{.index = static_cast<uint16_t>(pdo_index), .entries = {}}
             );
             const auto [entry_count, entry_count_err] = read_count(
                 pdo.index,
@@ -105,39 +105,5 @@ read_layout(const Read &read, const uint32_t max_syncs) {
         }
     }
     return {syncs, x::errors::NIL};
-}
-
-void append(std::vector<pdo::Properties> &pdos, const bool is_input, const PDO &pdo) {
-    for (const auto &entry: pdo.entries) {
-        if (entry.index == 0) {
-            if (entry.bit_length > 0)
-                pdos.push_back({
-                    .pdo_index = pdo.index,
-                    .bit_length = entry.bit_length,
-                    .is_input = is_input,
-                });
-            continue;
-        }
-        const auto data_type = telem::map_ethercat_to_synnax(
-            entry.type,
-            entry.bit_length
-        );
-        pdos.push_back({
-            .pdo_index = pdo.index,
-            .index = entry.index,
-            .sub_index = entry.sub_index,
-            .bit_length = entry.bit_length,
-            .is_input = is_input,
-            .name = telem::generate_pdo_entry_name(
-                entry.name,
-                entry.index,
-                entry.sub_index,
-                is_input,
-                data_type
-            ),
-            .data_type = data_type,
-            .pdo_name = pdo.name,
-        });
-    }
 }
 }

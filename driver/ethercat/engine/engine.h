@@ -76,10 +76,15 @@ class Engine {
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
-    /// @brief why the running bus started without each slave, keyed by position.
+    /// @brief a slave that the running bus started without.
+    struct LeftOut {
+        std::string name;
+        slave::Refusal refusal;
+    };
+    /// @brief the slaves that the running bus started without, keyed by position.
     /// Written only while the bus is stopped, so the supervisor reads it without a
     /// lock.
-    std::map<uint16_t, slave::Refusal> left_out;
+    std::map<uint16_t, LeftOut> left_out;
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
@@ -179,6 +184,16 @@ class Engine {
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
+    /// @brief returns err, the error of the last pass of a failed start, with a
+    /// sentence for each slave in left_out. The error ends with slave::DC_SYNC_ADVICE
+    /// once when a slave in refused or left_out needs it.
+    static x::errors::Error start_error(
+        x::errors::Error err,
+        const std::map<uint16_t, slave::Refusal> &refused,
+        const std::map<uint16_t, LeftOut> &left_out
+    );
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover_locked();
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
@@ -332,10 +347,14 @@ public:
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
     /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
-    /// again when rediscover is true or when the number that answer has changed.
-    /// Thread-safe.
+    /// again when the number that answer has changed. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-    discover(bool rediscover = false);
+    discover();
+
+    /// @brief returns the slaves on the bus, and discovers them again while the bus is
+    /// stopped. Thread-safe.
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover();
 
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
