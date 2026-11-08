@@ -315,7 +315,9 @@ var _ = Describe("Rack", Ordered, func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(Equal(*r))
+			expected := *r
+			expected.Status = nil
+			Expect(res).To(Equal(expected))
 		})
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack

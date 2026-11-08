@@ -103,6 +103,8 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+// createRackWithStatus creates a rack that holds a live status. It returns the rack
+// with no status, as the Driver sends it on a create.
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
@@ -118,6 +120,7 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 			Message: "Rack is running",
 		})
 	})).To(Succeed())
+	r.Status = nil
 	return r
 }
 
