@@ -1325,6 +1325,7 @@ int32_t create_empty_str(Fixture &f, const int32_t length) {
         .i32();
 }
 
+/// @brief it should create an empty string series.
 TEST(SeriesModule, CreateEmpty_str) {
     Fixture f{std::string(STR_WAT)};
     auto h = create_empty_str(f, 0);
@@ -1335,6 +1336,7 @@ TEST(SeriesModule, CreateEmpty_str) {
     EXPECT_EQ(s->size(), 0);
 }
 
+/// @brief it should ignore the requested length when creating a string series.
 TEST(SeriesModule, CreateEmptyStrIgnoresRequestedLength) {
     Fixture f{std::string(STR_WAT)};
     auto h = create_empty_str(f, 3);
@@ -1342,11 +1344,13 @@ TEST(SeriesModule, CreateEmptyStrIgnoresRequestedLength) {
     EXPECT_EQ(result[0].i64(), 0);
 }
 
+/// @brief it should return a distinct handle on each call.
 TEST(SeriesModule, CreateEmptyStrReturnsDistinctHandles) {
     Fixture f{std::string(STR_WAT)};
     EXPECT_NE(create_empty_str(f, 0), create_empty_str(f, 0));
 }
 
+/// @brief it should return 0 when slicing an empty string series.
 TEST(SeriesModule, SliceEmptyStrReturnsZero) {
     Fixture f{std::string(STR_WAT)};
     auto h = create_empty_str(f, 0);
