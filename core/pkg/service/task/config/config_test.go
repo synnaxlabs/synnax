@@ -395,7 +395,7 @@ var _ = Describe("Service", func() {
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            db,
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
 					Type:          "versioned_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
@@ -459,7 +459,7 @@ var _ = Describe("Service", func() {
 			eraOnly := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:          db,
+					DB:          DeferClose(gorp.Wrap(memkv.New())),
 					Type:        "era_only_test",
 					Ladder:      arcversions.ConfigLadder,
 					SetEntryKey: (*arctask.Config).SetKey,

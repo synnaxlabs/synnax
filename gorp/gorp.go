@@ -239,6 +239,9 @@ type txState struct {
 	commits []func()
 	// committing is true during a commit attempt.
 	committing atomic.Bool
+	// changes is what the typed writes through the transaction changed. Only the
+	// goroutine that writes through the transaction touches it.
+	changes changeList
 }
 
 // Committing reports whether a commit attempt is in flight.
