@@ -33,7 +33,7 @@ var _ = Describe("Start", func() {
 		sigs = MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  nodeFramer,
 		}))
 		state = actions.NewState[uuid.UUID, action](db)
 		setName, actName = nextName(), nextName()
