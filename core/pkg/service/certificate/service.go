@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -47,6 +48,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Channel finds the channels that Signals publishes changes on.
+	//
+	// [REQUIRED] when Signals is set.
+	Channel *channel.Service
 	// Now returns the current time.
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
@@ -75,6 +80,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.ExpiryCheckInterval = override.Numeric(
 		c.ExpiryCheckInterval,
@@ -90,6 +96,11 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("secret", c.Secret)
 	v.NotNil("status", c.Status)
 	v.NotNil("now", c.Now)
+	v.Ternary(
+		"channel",
+		c.Signals != nil && c.Channel == nil,
+		"required when signals is set",
+	)
 	v.Positive("expiry_check_interval", c.ExpiryCheckInterval)
 	return v.Error()
 }
@@ -97,10 +108,12 @@ func (c ServiceConfig) Validate() error {
 // Service stores certificates, reads their details, and reports their expiry as
 // statuses.
 type Service struct {
-	table   *gorp.Table[Key, Certificate]
-	indexes indexes
-	closer  xio.MultiCloser
-	cfg     ServiceConfig
+	table            *gorp.Table[Key, Certificate]
+	indexes          indexes
+	closer           xio.MultiCloser
+	cfg              ServiceConfig
+	setChannelKey    channel.Key
+	deleteChannelKey channel.Key
 }
 
 // OpenService opens a Service with the given configuration. The Service updates the
@@ -130,6 +143,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		); !ok(err, sig) {
 			return nil, err
 		}
+		if s.setChannelKey, err = s.retrieveChannelKey(
+			ctx,
+			"sy_certificate_set",
+		); !ok(err, nil) {
+			return nil, err
+		}
+		if s.deleteChannelKey, err = s.retrieveChannelKey(
+			ctx,
+			"sy_certificate_delete",
+		); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
 	if !ok(nil, signal.NewHardShutdown(sCtx, cancel)) {
@@ -138,6 +163,31 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	sCtx.Go(s.checkExpiry, signal.WithKey("expiry"))
 	return s, nil
 }
+
+func (s *Service) retrieveChannelKey(
+	ctx context.Context,
+	name string,
+) (channel.Key, error) {
+	var ch channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchNames(name)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return 0, err
+	}
+	return ch.Key(), nil
+}
+
+// SetChannelKey returns the key of the channel that publishes each certificate that is
+// created or changed. Its samples carry the paths of certificates and the keys of
+// their private keys, so only subjects that can retrieve a certificate may receive
+// them. The key is zero when the Service has no Signals.
+func (s *Service) SetChannelKey() channel.Key { return s.setChannelKey }
+
+// DeleteChannelKey returns the key of the channel that publishes the key of each
+// deleted certificate. Only subjects that can retrieve a certificate may receive its
+// samples. The key is zero when the Service has no Signals.
+func (s *Service) DeleteChannelKey() channel.Key { return s.deleteChannelKey }
 
 func (s *Service) checkExpiry(ctx context.Context) error {
 	ticker := time.NewTicker(s.cfg.ExpiryCheckInterval.Duration())
