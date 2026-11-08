@@ -1035,7 +1035,9 @@ var _ = Describe("Driver", func() {
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
 				for i, t := range []*task.Task{&blocker, &recreated} {
-					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, t)
+					})).To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task: t.Key,
 						Type: "start",
@@ -1049,11 +1051,17 @@ var _ = Describe("Driver", func() {
 					g.Expect(configured.Contains(recreated.Key)).To(BeTrue())
 				}).Should(Succeed())
 				blocked.Store(blocker.Key)
-				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, blocker.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				release()
 				Eventually(func() set.Set[task.Key] {
 					mu.Lock()
@@ -1106,7 +1114,9 @@ var _ = Describe("Driver", func() {
 				blocker := newTask(embeddedRackKey(ctx))
 				recreated := newTask(embeddedRackKey(ctx))
 				for i, t := range []*task.Task{&blocker, &recreated} {
-					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskService.NewWriter(tx).Create(ctx, t)
+					})).To(Succeed())
 					writeCommand(ctx, task.Command{
 						Task: t.Key,
 						Type: "start",
@@ -1120,11 +1130,17 @@ var _ = Describe("Driver", func() {
 					g.Expect(configures[recreated.Key]).To(Equal(1))
 				}).Should(Succeed())
 				blocked.Store(blocker.Key)
-				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, blocker.Key, false)
+				})).To(Succeed())
 				Eventually(blocking).Should(BeClosed())
-				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, recreated.Key, false)
+				})).To(Succeed())
 				again := recreated
-				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &again)
+				})).To(Succeed())
 				writeCommand(ctx, task.Command{
 					Task: recreated.Key,
 					Type: "start",
