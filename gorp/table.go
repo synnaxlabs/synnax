@@ -42,6 +42,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
+	// OnDetach runs in the transaction of each delete that detaches a target from an
+	// entry of the table, after Gorp writes the entry. It gets the entry as written.
+	// An error fails the delete.
+	OnDetach func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -64,6 +68,8 @@ type Table[K Key, E Entry[K]] struct {
 	// populateShutdown cancels the populate context and waits for the populate routine
 	// to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
+	// onDetach is TableConfig.OnDetach.
+	onDetach func(ctx context.Context, tx Tx, e E) error
 	// detaches notifies each entry that a delete of a target detached.
 	detaches observe.Observer[E]
 }
@@ -106,6 +112,7 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:    slices.Clone(cfg.Indexes),
 		name:       cfg.Name,
 		references: cfg.References,
+		onDetach:   cfg.OnDetach,
 		detaches:   observe.New[E](),
 	}
 	if t.name == "" {

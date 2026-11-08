@@ -165,7 +165,9 @@ var _ = Describe("Reference", func() {
 		statuses  *gorp.Table[string, refStatus]
 		deviceRef deviceRefs
 		ownerRef  *gorp.TargetReference[string, refStatus]
-		open      = func(ctx SpecContext, opts ...gorp.Option) {
+		// onDetach is the detach hook of the device table. Nil runs no hook.
+		onDetach func(ctx context.Context, tx gorp.Tx, d refDevice) error
+		open     = func(ctx SpecContext, opts ...gorp.Option) {
 			GinkgoHelper()
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
@@ -179,11 +181,18 @@ var _ = Describe("Reference", func() {
 				Name: "label",
 			}))
 			deviceRef = newDeviceRefs()
+			onDetach = nil
 			devices = MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 					DB:         db,
 					Name:       "device",
 					References: deviceRef.all(),
+					OnDetach: func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+						if onDetach == nil {
+							return nil
+						}
+						return onDetach(ctx, tx, d)
+					},
 				}),
 			)
 			ownerRef = newOwnerRef()
@@ -795,14 +804,14 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
-		Describe("ObserveDetaches", func() {
+		Describe("OnDetach", func() {
 			var detached []refDevice
 			BeforeEach(func(ctx SpecContext) {
 				detached = nil
-				record := func(_ context.Context, d refDevice) {
+				onDetach = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
 					detached = append(detached, d)
+					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
 				}
-				DeferCleanup(devices.ObserveDetaches().OnChange(record))
 				createRack(ctx, 1)
 				createLabels(ctx, "l1", "l2")
 				Expect(createDevice(ctx, refDevice{
@@ -818,32 +827,36 @@ var _ = Describe("Reference", func() {
 			})
 
 			It(
-				"Should notify each detached entry after the delete commits",
+				"Should run the hook in the delete's transaction with the entry as written",
 				func(ctx SpecContext) {
-					tx := db.OpenTx()
+					tx := DeferClose(db.OpenTx())
 					Expect(labels.NewDelete().
 						Where(gorp.MatchKeys[string, refLabel]("l1")).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(detached).To(BeEmpty())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
 					Expect(detached).To(HaveLen(1))
 					Expect(detached[0].Key).To(Equal("d1"))
 					Expect(detached[0].Labels).To(Equal([]string{"l2"}))
+					Expect(rackExists(ctx, 7)).To(BeFalse())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(rackExists(ctx, 7)).To(BeTrue())
 				},
 			)
 
-			It(
-				"Should not notify a detach that does not commit",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-					Expect(labels.NewDelete().
-						Where(gorp.MatchKeys[string, refLabel]("l1")).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-					Expect(detached).To(BeEmpty())
-				},
-			)
+			It("Should fail the delete when the hook fails", func(ctx SpecContext) {
+				hookErr := errors.New("hook failed")
+				onDetach = func(context.Context, gorp.Tx, refDevice) error {
+					return hookErr
+				}
+				Expect(labels.NewDelete().
+					Where(gorp.MatchKeys[string, refLabel]("l1")).
+					Exec(ctx, db)).To(MatchError(hookErr))
+				var d refDevice
+				Expect(devices.NewRetrieve().
+					Where(gorp.MatchKeys[string, refDevice]("d1")).
+					Entry(&d).
+					Exec(ctx, db)).To(Succeed())
+				Expect(d.Labels).To(Equal([]string{"l1", "l2"}))
+			})
 		})
 	})
 
