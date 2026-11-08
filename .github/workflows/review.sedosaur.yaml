@@ -232,6 +232,16 @@ jobs:
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=in_progress --silent
 
+      # Eyes on the pull request description show that Sedosaur is reviewing it. The
+      # unwatch job takes them away.
+      - name: Watch the pull request
+        if: ${{ !inputs.replay }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/reactions" \
+            -f content=eyes --silent
+
       # The runner keeps the clone between jobs, so each fetch is small. This checkout
       # holds the scripts and the policy: the pull request and its base are not trusted.
       - name: Check out the scripts and the policy
@@ -316,6 +326,34 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
+
+  # Takes the eyes away however the review ends, even when its runner is lost.
+  unwatch:
+    needs: [start, review]
+    if: always() && needs.start.outputs.skip == 'false' && !inputs.replay
+    name: Unwatch the pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Take the eyes away
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          PR: ${{ inputs.pr }}
+        run: |
+          reactions="repos/$GITHUB_REPOSITORY/issues/$PR/reactions"
+          ids=$(gh api --paginate "$reactions?content=eyes&per_page=100" \
+            --jq '.[] | select(.user.login == env.LOGIN) | .id')
+          for id in $ids; do
+            gh api -X DELETE "$reactions/$id" --silent
+          done
 
   # A review that never gets a runner cannot close its own check run, so a hosted job
   # closes it whenever the review did not succeed.
