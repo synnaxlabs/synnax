@@ -10,7 +10,6 @@
 package arc_test
 
 import (
-	"errors"
 	"sync"
 	"uuid"
 
@@ -23,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
