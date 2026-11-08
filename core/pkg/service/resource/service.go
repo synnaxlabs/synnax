@@ -167,8 +167,7 @@ func (s *Service) list(
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each
 // ID that names no resource, and returns each resource once. Retrieve reads through
-// snap, or through the database when snap is nil. An ID of a type with no Provider is a
-// validation error.
+// snap. An ID of a type with no Provider is a validation error.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap gorp.Snapshot,
