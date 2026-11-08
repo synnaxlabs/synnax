@@ -40,6 +40,7 @@ func newIndexes() indexes {
 			Name:     "role",
 			Table:    "role",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
 			Targets: func(e *User) []role.Key {
 				return []role.Key{e.Role}
 			},

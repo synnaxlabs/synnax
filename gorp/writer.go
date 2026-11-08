@@ -31,11 +31,16 @@ type Writer[K Key, E Entry[K]] struct {
 	table *Table[K, E]
 	// tableName names the table of each record in the change list of tx.
 	tableName string
+	// references are the references whose links the change list of tx records.
+	references []Reference[K, E]
+	// derived is true when the writes of the Writer are cascades or detaches.
+	derived bool
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
 // references. The Writer keeps the indexes of each open Table of E on the DB of tx
-// current, and records its writes under the name of the table of E.
+// current, and records its writes under the name of the table of E, with the links of
+// the references of each open Table of E.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	w := wrapWriter[K, E](tx, "", nil, nil)
 	return &w
@@ -44,8 +49,9 @@ func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 // wrapWriter constructs a Writer that records writes under the table named name,
 // encodes keys under prefix, and stages each Set / Delete against indexes. An empty
 // name falls back to the name of the table that stores under prefix. A nil prefix falls
-// back to the prefix of E's table. Nil indexes fall back to the indexes of the open
-// tables of E. It returns a value so that the Writer of a query stays off the heap.
+// back to the prefix of E's table. Nil indexes fall back to the indexes and the
+// references of the open tables of E. It returns a value so that the Writer of a query
+// stays off the heap.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
 	name string,
@@ -58,15 +64,16 @@ func wrapWriter[K Key, E Entry[K]](
 	if name == "" {
 		name = tableName[E](tx, prefix)
 	}
-	if indexes == nil {
-		indexes = openIndexes[K, E](tx, prefix)
-	}
-	return Writer[K, E]{
+	w := Writer[K, E]{
 		tx:        tx,
 		keyCodec:  key.NewCodec[K](prefix),
 		indexes:   indexes,
 		tableName: name,
 	}
+	if indexes == nil {
+		w.indexes, w.references = openTables[K, E](tx, prefix)
+	}
+	return w
 }
 
 // tableName returns the name of the table that stores under prefix: the name of the
@@ -109,20 +116,27 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 	})
 }
 
-// openIndexes returns the indexes of the open tables of E on the DB of tx that store
-// under prefix.
-func openIndexes[K Key, E Entry[K]](tx Tx, prefix []byte) []Index[K, E] {
+// openTables returns the indexes and the references of the open tables of E on the DB
+// of tx that store under prefix.
+func openTables[K Key, E Entry[K]](
+	tx Tx,
+	prefix []byte,
+) ([]Index[K, E], []Reference[K, E]) {
 	db := txDB(tx)
 	if db == nil {
-		return nil
+		return nil, nil
 	}
-	var indexes []Index[K, E]
+	var (
+		indexes    []Index[K, E]
+		references []Reference[K, E]
+	)
 	for _, t := range db.registry.indexedTables(prefix) {
 		if t, ok := t.(*Table[K, E]); ok {
 			indexes = append(indexes, t.indexes...)
+			references = append(references, t.references...)
 		}
 	}
-	return indexes
+	return indexes, references
 }
 
 // bind returns a copy of w that writes through tx.
@@ -145,14 +159,14 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	k := entry.GorpKey()
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := changes.find(ctx, w.tx, NewTarget(w.tableName, k), encoded)
+	s, err := w.find(ctx, changes, k, encoded)
 	if err != nil {
 		return err
 	}
-	if err = w.tx.Set(ctx, encoded, data, entry.SetOptions()...); err != nil {
+	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
-	changes.set(s, data)
+	changes.set(s, data, w.links(&entry), w.derived)
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
@@ -162,16 +176,70 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := changes.find(ctx, w.tx, NewTarget(w.tableName, k), encoded)
+	s, err := w.find(ctx, changes, k, encoded)
 	if err != nil {
 		return err
 	}
 	if err = w.tx.Delete(ctx, encoded); err != nil {
 		return err
 	}
-	changes.delete(s)
+	changes.delete(s, w.derived)
 	for _, idx := range w.indexes {
 		idx.stageDelete(w.tx, k)
 	}
 	return nil
+}
+
+// find returns the slot in changes of a write to the record with key k, which encoded
+// stores.
+func (w *Writer[K, E]) find(
+	ctx context.Context,
+	changes *changeList,
+	k K,
+	encoded []byte,
+) (slot, error) {
+	return changes.find(
+		ctx,
+		w.tx,
+		NewTarget(w.tableName, k),
+		encoded,
+		func(stored []byte) ([]Link, error) { return w.storedLinks(ctx, k, stored) },
+	)
+}
+
+// storedLinks returns the links that the record with key k holds at its first write in
+// tx. It reads them from the index of each reference that has loaded, and else from
+// stored, the encoded record.
+func (w *Writer[K, E]) storedLinks(
+	ctx context.Context,
+	k K,
+	stored []byte,
+) ([]Link, error) {
+	var (
+		links []Link
+		known bool
+		e     *E
+	)
+	for _, r := range w.references {
+		if links, known = r.indexedLinks(links, w.tx, k); known {
+			continue
+		}
+		if e == nil {
+			e = new(E)
+			if err := w.tx.Decode(ctx, stored, e); err != nil {
+				return nil, err
+			}
+		}
+		links = r.links(links, e)
+	}
+	return links, nil
+}
+
+// links returns the links that e holds.
+func (w *Writer[K, E]) links(e *E) []Link {
+	var links []Link
+	for _, r := range w.references {
+		links = r.links(links, e)
+	}
+	return links
 }

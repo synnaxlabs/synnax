@@ -78,13 +78,13 @@ func (db *DB) OpenTx() Tx {
 }
 
 // Set sets key to value in a transaction of its own.
-func (db *DB) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	return db.WithTx(ctx, func(tx Tx) error { return tx.Set(ctx, key, value, opts...) })
+func (db *DB) Set(ctx context.Context, key, value []byte) error {
+	return db.WithTx(ctx, func(tx Tx) error { return tx.Set(ctx, key, value) })
 }
 
 // Delete deletes key in a transaction of its own.
-func (db *DB) Delete(ctx context.Context, key []byte, opts ...any) error {
-	return db.WithTx(ctx, func(tx Tx) error { return tx.Delete(ctx, key, opts...) })
+func (db *DB) Delete(ctx context.Context, key []byte) error {
+	return db.WithTx(ctx, func(tx Tx) error { return tx.Delete(ctx, key) })
 }
 
 // inTx runs f against tx. When tx is a DB, f runs in a transaction of its own, so its

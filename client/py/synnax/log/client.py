@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax import project as project_
 from synnax import ranger
 from synnax.log.types_gen import (
@@ -108,6 +109,8 @@ class Client:
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -122,6 +125,8 @@ class Client:
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -137,6 +142,8 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -166,6 +173,9 @@ class Client:
         :param keys: Keeps logs with one of these keys.
         :param projects: Keeps the logs owned by any of these projects.
         :param ranges: Keeps the logs owned by any of these ranges.
+        :param groups: Keeps logs in any of these groups.
+        :param grouped: Keeps only logs in a group when True, and only logs in no group
+            when False.
         :param one: Returns one log for any filter.
         :returns: One log for a plain ``key`` or when ``one`` is set, otherwise a list
             of logs. The list leaves out keys that do not exist.

@@ -26,11 +26,6 @@ var _ = Describe("Schematic", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v9.Schematic{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the schematic resource identifier", func() {
 			k := uuid.New()

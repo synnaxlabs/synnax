@@ -40,16 +40,15 @@ import (
 )
 
 var (
-	node         testutil.Node
-	db           *gorp.DB
-	rackService  *rack.Service
-	deviceSvc    *device.Service
-	taskService  *task.Service
-	taskWriter   task.Writer
-	channelSvc   *channel.Service
-	framerSvc    *framer.Service
-	statusSvc    *status.Service
-	hostProvider = testutil.NewStaticHostProvider(1)
+	node        testutil.Node
+	db          *gorp.DB
+	rackService *rack.Service
+	deviceSvc   *device.Service
+	taskService *task.Service
+	taskWriter  task.Writer
+	channelSvc  *channel.Service
+	framerSvc   *framer.Service
+	statusSvc   *status.Service
 )
 
 func TestDriver(t *testing.T) {
@@ -73,10 +72,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           node.DB,
-		HostProvider: hostProvider,
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         node.DB,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     node.DB,
@@ -84,10 +83,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:   rackService,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,

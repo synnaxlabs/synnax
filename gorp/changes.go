@@ -35,8 +35,15 @@ type Change struct {
 	Record Target
 	// Kind is what the transaction did to the record.
 	Kind ChangeKind
+	// Derived is true when Gorp made every write to the record by a cascade or a
+	// detach.
+	Derived bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
+	// Added holds the links that the transaction added to the record.
+	Added []Link
+	// Removed holds the links that the transaction removed from the record.
+	Removed []Link
 }
 
 // Changes is what a transaction changed, one Change per record.
@@ -66,7 +73,13 @@ type changeEntry struct {
 	existed bool
 	// present is true when the last write to the record was a set.
 	present bool
+	// derived is true when every write to the record was a cascade or a detach.
+	derived bool
 	value   []byte
+	// before holds the links of the record at the first write to it.
+	before []Link
+	// after holds the links of the record at the last set.
+	after []Link
 }
 
 // slot is the place of one write in a changeList. at is -1 on the first write to
@@ -75,55 +88,89 @@ type slot struct {
 	at      int
 	record  Target
 	existed bool
+	before  []Link
 }
 
 // find returns the slot of a write to record, which key stores in tx. On the first
-// write to record, it reads whether record exists.
+// write to record, it reads the stored value of record. When record exists, find passes
+// the stored value to held, which returns the links of record.
 func (l *changeList) find(
 	ctx context.Context,
 	tx Tx,
 	record Target,
 	key []byte,
+	held func(stored []byte) ([]Link, error),
 ) (slot, error) {
 	if at, ok := l.at[record]; ok {
 		return slot{at: at}, nil
 	}
-	existed, err := keyExists(ctx, tx, key)
-	return slot{at: -1, record: record, existed: existed}, err
+	s := slot{at: -1, record: record}
+	stored, closer, err := tx.Get(ctx, key)
+	if errors.Is(err, query.ErrNotFound) {
+		return s, nil
+	}
+	if err != nil {
+		return slot{}, err
+	}
+	s.existed = true
+	if s.before, err = held(stored); err != nil {
+		return slot{}, errors.Combine(err, closer.Close())
+	}
+	return s, closer.Close()
 }
 
-// set merges a set of the record of s to value.
-func (l *changeList) set(s slot, value []byte) {
-	e := l.entry(s)
+// set merges a set of the record of s to value, which holds links. derived is true when
+// the set is a cascade or a detach.
+func (l *changeList) set(s slot, value []byte, links []Link, derived bool) {
+	e := l.entry(s, derived)
 	e.present = true
 	e.value = slices.Clone(value)
+	e.after = links
 }
 
-// delete merges a delete of the record of s.
-func (l *changeList) delete(s slot) {
-	e := l.entry(s)
+// delete merges a delete of the record of s. derived is true when the delete is a
+// cascade.
+func (l *changeList) delete(s slot, derived bool) {
+	e := l.entry(s, derived)
 	e.present = false
 	e.value = nil
+	e.after = nil
 }
 
-func (l *changeList) entry(s slot) *changeEntry {
+func (l *changeList) entry(s slot, derived bool) *changeEntry {
 	if s.at < 0 {
 		if l.at == nil {
 			l.at = make(map[Target]int)
 		}
 		s.at = len(l.entries)
 		l.at[s.record] = s.at
-		l.entries = append(l.entries, changeEntry{record: s.record, existed: s.existed})
+		l.entries = append(l.entries, changeEntry{
+			record:  s.record,
+			existed: s.existed,
+			derived: true,
+			before:  s.before,
+		})
 	}
-	return &l.entries[s.at]
+	e := &l.entries[s.at]
+	e.derived = e.derived && derived
+	return e
 }
 
 func (l *changeList) list() Changes {
 	var out Changes
 	for _, e := range l.entries {
-		if kind := e.kind(); kind != 0 {
-			out = append(out, Change{Record: e.record, Kind: kind, Value: e.value})
+		kind := e.kind()
+		if kind == 0 {
+			continue
 		}
+		out = append(out, Change{
+			Record:  e.record,
+			Kind:    kind,
+			Derived: e.derived,
+			Value:   e.value,
+			Added:   subtract(e.after, e.before),
+			Removed: subtract(e.before, e.after),
+		})
 	}
 	return out
 }
@@ -149,17 +196,13 @@ func (e changeEntry) kind() ChangeKind {
 	return 0
 }
 
-// keyExists reports whether key holds a value in tx.
-func keyExists(ctx context.Context, tx Tx, key []byte) (bool, error) {
-	_, closer, err := tx.Get(ctx, key)
-	if errors.Is(err, query.ErrNotFound) {
-		return false, nil
+// subtract returns the distinct links in links that are not in minus.
+func subtract(links, minus []Link) []Link {
+	var out []Link
+	for _, l := range links {
+		if !slices.Contains(minus, l) && !slices.Contains(out, l) {
+			out = append(out, l)
+		}
 	}
-	if err != nil {
-		return false, err
-	}
-	if err = closer.Close(); err != nil {
-		return false, err
-	}
-	return true, nil
+	return out
 }

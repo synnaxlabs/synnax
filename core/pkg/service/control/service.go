@@ -29,7 +29,7 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Control is the distribution-layer control service that reads and observes control
-	// state across the cluster.
+	// state.
 	//
 	// [REQUIRED]
 	Control *control.Service
@@ -57,8 +57,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Service answers control state reads and publishes every control transfer in the
-// cluster on the sy_control channel.
+// Service answers control state reads and publishes every control transfer on the
+// sy_control channel.
 //
 // The Service must be closed after use.
 type Service struct {
@@ -88,9 +88,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// Retrieve returns the control state of the given channels from across the cluster.
-// Passing no keys returns the state of every controlled channel. Channels that no
-// subject controls are absent from the result.
+// Retrieve returns the control state of the given channels. Passing no keys returns the
+// state of every controlled channel. Channels that no subject controls are absent from
+// the result.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	keys ...channel.Key,

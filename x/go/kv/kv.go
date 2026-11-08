@@ -44,10 +44,10 @@ type Reader interface {
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
-	Set(ctx context.Context, key, value []byte, opts ...any) error
+	Set(ctx context.Context, key, value []byte) error
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
-	Delete(ctx context.Context, key []byte, opts ...any) error
+	Delete(ctx context.Context, key []byte) error
 }
 
 // ReadWriter is a read-writeable key-value store.

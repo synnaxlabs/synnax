@@ -569,8 +569,6 @@ type target struct{ Key uuid.UUID }
 
 func (t target) GorpKey() uuid.UUID { return t.Key }
 
-func (target) SetOptions() []any { return nil }
-
 const targetTable = "config_target"
 
 var _ = Describe("TableName", func() {
@@ -590,6 +588,7 @@ var _ = Describe("With a detach reference", func() {
 				Name:     "arc_key",
 				Table:    targetTable,
 				OnDelete: gorp.Detach,
+				Kind:     gorp.Use,
 				Targets: func(c *arctask.Config) []uuid.UUID {
 					if c.ArcKey == uuid.Nil() {
 						return nil

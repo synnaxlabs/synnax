@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax import project as project_
 from synnax import ranger
 from synnax.panel.types_gen import (
@@ -124,6 +125,8 @@ class Client:
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -139,6 +142,8 @@ class Client:
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -155,6 +160,8 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -190,6 +197,9 @@ class Client:
         :param keys: Keeps panels with one of these keys.
         :param projects: Keeps the panels owned by any of these projects.
         :param ranges: Keeps the panels owned by any of these ranges.
+        :param groups: Keeps panels in any of these groups.
+        :param grouped: Keeps only panels in a group when True, and only panels in no
+            group when False.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to retrieve.
         :param offset: The number of panels to skip.

@@ -61,6 +61,7 @@ Device struct<
     }
     rack       rack.Key   {
         @doc value         "is the key of the rack that owns this device."
+        @ref kind          place
         @ref on_delete     restrict
         @validate required
     }
@@ -110,6 +111,7 @@ Device struct<
     group      group.Key? {
         @cpp omit
         @doc value     "is the group the device sits in, if any."
+        @ref kind      place
         @ref on_delete detach
     }
     parent     Key?       {
@@ -118,6 +120,7 @@ Device struct<
             module. Empty for a device that sits directly on its rack.
         """
         @ref acyclic
+        @ref kind      place
         @ref on_delete cascade
     }
 

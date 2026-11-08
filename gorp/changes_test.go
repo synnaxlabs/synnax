@@ -16,16 +16,28 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 type unstoredEntry struct{ Key string }
 
-func (e unstoredEntry) GorpKey() string   { return e.Key }
-func (e unstoredEntry) SetOptions() []any { return nil }
+func (e unstoredEntry) GorpKey() string { return e.Key }
 
 type write = func(SpecContext, gorp.Tx) error
+
+func rackLink(k uint32) gorp.Link {
+	return gorp.Link{Target: gorp.NewTarget("rack", k), Kind: gorp.Place}
+}
+
+func parentLink(k string) gorp.Link {
+	return gorp.Link{Target: gorp.NewTarget("device", k), Kind: gorp.Place}
+}
+
+func labelLink(k string) gorp.Link {
+	return gorp.Link{Target: gorp.NewTarget("label", k), Kind: gorp.Use}
+}
 
 var _ = Describe("Changes", func() {
 	var (
@@ -164,6 +176,13 @@ var _ = Describe("Changes", func() {
 		var (
 			labels  *gorp.Table[string, refLabel]
 			devices *gorp.Table[string, refDevice]
+			device  = refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l2"}}
+			created = []gorp.Link{rackLink(1), labelLink("l1"), labelLink("l2")}
+			unlink  = func(ctx SpecContext, tx gorp.Tx) error {
+				return devices.NewDelete().
+					Where(gorp.MatchKeys[string, refDevice]("d")).
+					Exec(ctx, tx)
+			}
 		)
 
 		BeforeEach(func(ctx SpecContext) {
@@ -180,14 +199,148 @@ var _ = Describe("Changes", func() {
 				Name:       "device",
 				References: newDeviceRefs().all(),
 			}))
-			Expect(racks.NewCreate().Entry(&refRack{Key: 1}).Exec(ctx, db)).
-				To(Succeed())
+			Expect(racks.NewCreate().
+				Entries(&[]refRack{{Key: 1}, {Key: 2}}).
+				Exec(ctx, db)).To(Succeed())
 			Expect(labels.NewCreate().
-				Entries(&[]refLabel{{Key: "l1"}, {Key: "l2"}}).
+				Entries(&[]refLabel{{Key: "l1"}, {Key: "l2"}, {Key: "l3"}}).
 				Exec(ctx, db)).To(Succeed())
 		})
 
-		It("Should record a cascaded delete as a delete", func(ctx SpecContext) {
+		DescribeTable(
+			"Should add every link of a created record",
+			func(ctx SpecContext, w write) {
+				tx := DeferClose(db.OpenTx())
+				Expect(w(ctx, tx)).To(Succeed())
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+					HaveField("Kind", gorp.ChangeCreate),
+					HaveField("Added", created),
+					HaveField("Removed", BeNil()),
+				)))
+			},
+			Entry("through a table", func(ctx SpecContext, tx gorp.Tx) error {
+				return devices.NewCreate().Entry(&device).Exec(ctx, tx)
+			}),
+			Entry("through WrapWriter", func(ctx SpecContext, tx gorp.Tx) error {
+				return gorp.WrapWriter[string, refDevice](tx).Set(ctx, device)
+			}),
+			Entry(
+				"through a Create without a table",
+				func(ctx SpecContext, tx gorp.Tx) error {
+					return gorp.NewCreate[string, refDevice]().Entry(&device).
+						Exec(ctx, tx)
+				},
+			),
+		)
+
+		It(
+			"Should list a link once when a record holds its target twice",
+			func(ctx SpecContext) {
+				twice := refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l1"}}
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().Entry(&twice).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(
+					HaveField("Added", []gorp.Link{rackLink(1), labelLink("l1")}),
+				))
+			},
+		)
+
+		DescribeTable(
+			"Should record the links that an update adds and removes",
+			func(
+				ctx SpecContext,
+				change func(refDevice) refDevice,
+				added, removed []gorp.Link,
+			) {
+				Expect(devices.NewCreate().Entry(&device).Exec(ctx, db)).To(Succeed())
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewUpdate().
+					Where(gorp.MatchKeys[string, refDevice]("d")).
+					Change(func(_ gorp.Context, d refDevice) refDevice {
+						return change(d)
+					}).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+					HaveField("Kind", gorp.ChangeUpdate),
+					HaveField("Added", added),
+					HaveField("Removed", removed),
+				)))
+			},
+			Entry(
+				"a key reference that moves",
+				func(d refDevice) refDevice {
+					d.Rack = 2
+					return d
+				},
+				[]gorp.Link{rackLink(2)},
+				[]gorp.Link{rackLink(1)},
+			),
+			Entry(
+				"an array reference that changes",
+				func(d refDevice) refDevice {
+					d.Labels = []string{"l2", "l3"}
+					return d
+				},
+				[]gorp.Link{labelLink("l3")},
+				[]gorp.Link{labelLink("l1")},
+			),
+			Entry(
+				"no reference",
+				func(d refDevice) refDevice { return d },
+				[]gorp.Link(nil),
+				[]gorp.Link(nil),
+			),
+		)
+
+		DescribeTable(
+			"Should remove every link of a deleted record",
+			func(ctx SpecContext, writes []write) {
+				Expect(devices.NewCreate().Entry(&device).Exec(ctx, db)).To(Succeed())
+				tx := DeferClose(db.OpenTx())
+				for _, w := range writes {
+					Expect(w(ctx, tx)).To(Succeed())
+				}
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+					HaveField("Kind", gorp.ChangeDelete),
+					HaveField("Added", BeNil()),
+					HaveField("Removed", created),
+				)))
+			},
+			Entry("a delete through a table", []write{unlink}),
+			Entry("a delete without a table", []write{
+				func(ctx SpecContext, tx gorp.Tx) error {
+					return gorp.NewDelete[string, refDevice]().
+						Where(gorp.MatchKeys[string, refDevice]("d")).
+						Exec(ctx, tx)
+				},
+			}),
+			Entry("an update then a delete", []write{
+				func(ctx SpecContext, tx gorp.Tx) error {
+					moved := refDevice{Key: "d", Rack: 2}
+					return devices.NewCreate().Entry(&moved).Exec(ctx, tx)
+				},
+				unlink,
+			}),
+		)
+
+		It("Should take the kind of a link from its reference", func(ctx SpecContext) {
+			statuses := MustOpen(
+				gorp.OpenTable(ctx, gorp.TableConfig[string, refStatus]{
+					DB:         db,
+					Name:       "status",
+					References: []gorp.Reference[string, refStatus]{newOwnerRef()},
+				}),
+			)
+			tx := DeferClose(db.OpenTx())
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(HaveExactElements(
+				HaveField("Added", []gorp.Link{rackLink(1)}),
+			))
+		})
+
+		It("Should mark a cascaded delete as derived", func(ctx SpecContext) {
 			Expect(devices.NewCreate().Entries(&[]refDevice{
 				{Key: "a", Rack: 1},
 				{Key: "b", Rack: 1, Parent: "a"},
@@ -198,20 +351,43 @@ var _ = Describe("Changes", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.ChangesOf(tx)).To(ConsistOf(
 				gorp.Change{
-					Record: gorp.NewTarget("device", "a"),
-					Kind:   gorp.ChangeDelete,
+					Record:  gorp.NewTarget("device", "a"),
+					Kind:    gorp.ChangeDelete,
+					Removed: []gorp.Link{rackLink(1)},
 				},
 				gorp.Change{
-					Record: gorp.NewTarget("device", "b"),
-					Kind:   gorp.ChangeDelete,
+					Record:  gorp.NewTarget("device", "b"),
+					Kind:    gorp.ChangeDelete,
+					Derived: true,
+					Removed: []gorp.Link{rackLink(1), parentLink("a")},
 				},
 			))
 		})
 
-		It("Should record a detach as an update", func(ctx SpecContext) {
-			Expect(devices.NewCreate().
-				Entry(&refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l2"}}).
-				Exec(ctx, db)).To(Succeed())
+		It(
+			"Should not mark a record that the caller also writes as derived",
+			func(ctx SpecContext) {
+				Expect(devices.NewCreate().Entries(&[]refDevice{
+					{Key: "a", Rack: 1},
+					{Key: "b", Rack: 1, Parent: "a"},
+				}).Exec(ctx, db)).To(Succeed())
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().
+					Entry(&refDevice{Key: "b", Rack: 1, Parent: "a"}).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(devices.NewDelete().
+					Where(gorp.MatchKeys[string, refDevice]("a")).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.ChangesOf(tx)).To(ContainElement(gorp.Change{
+					Record:  gorp.NewTarget("device", "b"),
+					Kind:    gorp.ChangeDelete,
+					Removed: []gorp.Link{rackLink(1), parentLink("a")},
+				}))
+			},
+		)
+
+		It("Should mark a detach as derived", func(ctx SpecContext) {
+			Expect(devices.NewCreate().Entry(&device).Exec(ctx, db)).To(Succeed())
 			tx := DeferClose(db.OpenTx())
 			Expect(labels.NewDelete().
 				Where(gorp.MatchKeys[string, refLabel]("l1")).
@@ -223,11 +399,70 @@ var _ = Describe("Changes", func() {
 					Kind:   gorp.ChangeDelete,
 				},
 				gorp.Change{
-					Record: gorp.NewTarget("device", "d"),
-					Kind:   gorp.ChangeUpdate,
-					Value:  MustSucceed(msgpack.Codec.Encode(ctx, detached)),
+					Record:  gorp.NewTarget("device", "d"),
+					Kind:    gorp.ChangeUpdate,
+					Derived: true,
+					Value:   MustSucceed(msgpack.Codec.Encode(ctx, detached)),
+					Removed: []gorp.Link{labelLink("l1")},
 				},
 			))
 		})
 	})
+
+	DescribeTable(
+		"Should read the links before a write from the index or the stored record",
+		func(ctx SpecContext, loaded bool) {
+			kvs := DeferClose(memkv.New())
+			pre := gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
+			Expect(gorp.NewCreate[uint32, refRack]().
+				Entries(&[]refRack{{Key: 1}, {Key: 2}}).
+				Exec(ctx, pre)).To(Succeed())
+			Expect(gorp.NewCreate[string, refLabel]().
+				Entries(&[]refLabel{{Key: "l1"}, {Key: "l2"}, {Key: "l3"}}).
+				Exec(ctx, pre)).To(Succeed())
+			Expect(gorp.NewCreate[string, refDevice]().
+				Entry(&refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l2"}}).
+				Exec(ctx, pre)).To(Succeed())
+			store := kvs
+			if !loaded {
+				store = &failOnceDB{DB: kvs, err: errors.New("populate failed")}
+			}
+			linked := gorp.Wrap(store, gorp.WithCodec(msgpack.Codec))
+			refs := newDeviceRefs()
+			devices := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+				DB:         linked,
+				Name:       "device",
+				References: refs.all(),
+			}))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   linked,
+				Name: "rack",
+			}))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refLabel]{
+				DB:   linked,
+				Name: "label",
+			}))
+			if loaded {
+				Expect(refs.rack.Get(ctx, nil, 1)).To(ConsistOf("d"))
+			} else {
+				Expect(refs.rack.Get(ctx, nil, 1)).Error().
+					To(MatchError(gorp.ErrIndexInvalid))
+			}
+			tx := DeferClose(linked.OpenTx())
+			Expect(devices.NewUpdate().
+				Where(gorp.MatchKeys[string, refDevice]("d")).
+				Change(func(_ gorp.Context, d refDevice) refDevice {
+					d.Rack = 2
+					d.Labels = []string{"l2", "l3"}
+					return d
+				}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+				HaveField("Added", []gorp.Link{rackLink(2), labelLink("l3")}),
+				HaveField("Removed", []gorp.Link{rackLink(1), labelLink("l1")}),
+			)))
+		},
+		Entry("when the index has loaded", true),
+		Entry("when the index has not loaded", false),
+	)
 })

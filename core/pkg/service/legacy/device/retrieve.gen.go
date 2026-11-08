@@ -52,6 +52,7 @@ func newIndexes() indexes {
 			Name:     "rack",
 			Table:    "rack",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
@@ -60,6 +61,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Device) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -72,6 +74,7 @@ func newIndexes() indexes {
 			Name:     "parent",
 			Table:    "device",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Acyclic:  true,
 			Targets: func(e *Device) []Key {
 				if e.Parent == nil {

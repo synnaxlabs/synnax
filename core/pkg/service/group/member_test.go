@@ -31,8 +31,6 @@ type rack struct {
 
 func (r rack) GorpKey() string { return r.Key }
 
-func (rack) SetOptions() []any { return nil }
-
 func (r rack) EncodeOrc(w *orc.Writer) error {
 	w.String(r.Key)
 	w.Bool(r.Group != nil)
@@ -62,8 +60,6 @@ type project struct {
 }
 
 func (p project) GorpKey() string { return p.Key }
-
-func (project) SetOptions() []any { return nil }
 
 func (p project) EncodeOrc(w *orc.Writer) error {
 	w.String(p.Key)
@@ -98,6 +94,7 @@ var _ = Describe("Member", func() {
 					Name:     "group",
 					Table:    "group",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Place,
 					Targets: func(r *rack) []group.Key {
 						if r.Group == nil {
 							return nil

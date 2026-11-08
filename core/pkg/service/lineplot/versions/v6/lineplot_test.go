@@ -26,12 +26,6 @@ var _ = Describe("LinePlot", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v6.LinePlot{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("ResourceID", func() {
 		It("Should return the line plot resource identifier", func() {
 			k := uuid.New()
