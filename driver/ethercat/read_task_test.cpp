@@ -166,19 +166,6 @@ protected:
         };
     }
 
-    x::json::json create_unresolved_input_channel_config(
-        const synnax::channel::Channel &channel,
-        const std::string &pdo_name
-    ) {
-        return {
-            {"type", "unresolved"},
-            {"device", slave_device.key},
-            {"pdo", pdo_name},
-            {"channel", channel.key},
-            {"disabled", false}
-        };
-    }
-
     /// @brief starts a source that reads the int16 entry at 0x6000:01 into a float64
     /// channel with the given scale.
     std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
