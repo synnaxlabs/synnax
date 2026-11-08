@@ -91,7 +91,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
 			// A label delete detaches the label from each status that holds it, which
-			// no status write does, so the service sets the status that remains.
+			// no status write does, so the service sets the status that remains. The
+			// device, rack, and channel tables need no hook, as a group delete refuses
+			// a group that holds members.
 			OnDetach: func(_ context.Context, tx gorp.Tx, st Status[any]) error {
 				s.state.Dispatcher().
 					Attach(tx, st.Key, NewSetAction(SetPayload{Status: st}))
