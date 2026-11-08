@@ -695,6 +695,35 @@ var _ = Describe("ResolveRolesWith", func() {
 			To(MatchError(ContainSubstring("lookup failed")))
 	})
 
+	It("Should look up roles through the snapshot of the query", func(
+		ctx SpecContext,
+	) {
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var (
+			looked gorp.Snapshot
+			lookup = rolesOf
+			ps     []policy.Policy
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().
+				ResolveRolesWith(func(
+					ctx context.Context,
+					snap gorp.Snapshot,
+					subjects ...resource.ID,
+				) ([]role.Key, error) {
+					looked = snap
+					return lookup(ctx, snap, subjects...)
+				}).
+				Where(policy.MatchSubjects(subject)).
+				Entries(&ps).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(looked).ToNot(BeNil())
+		_, isTx := looked.(gorp.Tx)
+		Expect(isTx).To(BeFalse())
+		Expect(ps).To(ConsistOf(heldPolicy))
+	})
+
 	It("Should fail to filter by subject without a role lookup", func(ctx SpecContext) {
 		var ps []policy.Policy
 		Expect(svc.NewRetrieve().

@@ -741,6 +741,22 @@ var _ = Describe("Service", func() {
 				To(Equal([]role.Key{r.Key}))
 		})
 
+		It("Should return the roles of a subject through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := &role.Role{Name: "snapshot"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			subject := createUser(ctx, tx)
+			setRole(ctx, tx, subject, r.Key)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			var roles []role.Key
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				roles, err = rbacSvc.RolesOf(ctx, snap, subject)
+				return err
+			})).To(Succeed())
+			Expect(roles).To(Equal([]role.Key{r.Key}))
+		})
+
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {

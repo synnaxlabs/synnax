@@ -168,6 +168,40 @@ var _ = Describe("Alias", Ordered, func() {
 		)
 	})
 
+	It("Should fall back to the parent range through a snapshot", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		tx := DeferClose(db.OpenTx())
+		parent := ranger.Range{
+			Name: "Parent",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+		Expect(
+			aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias"),
+		).To(Succeed())
+		r := ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(7 * telem.Second),
+				End:   telem.TimeStamp(9 * telem.Second),
+			},
+			Parent: &parent.Key,
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var a string
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			a, err = aliasSvc.NewReader(snap).Retrieve(ctx, r.Key, ch.Key())
+			return err
+		})).To(Succeed())
+		Expect(a).To(Equal("Alias"))
+	})
+
 	Describe("Delete", func() {
 		It("Should delete an alias for a channel on a range", func(ctx SpecContext) {
 			ch := createChannel(ctx)
