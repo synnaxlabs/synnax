@@ -45,10 +45,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: mockNode.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      mockNode.Channel,
-		DB:           mockNode.DB,
-		HostProvider: mockNode.Cluster,
-		Status:       statusSvc,
+		Channel: mockNode.Channel,
+		DB:      mockNode.DB,
+		HostKey: mockNode.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
 	writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{

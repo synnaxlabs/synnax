@@ -1115,7 +1115,7 @@ describe("queries", () => {
       });
 
       const devices = await client.devices.retrieve({
-        where: { key: { in: [dev1.key, dev2.key] } },
+        key: [dev1.key, dev2.key],
         includeStatus: true,
       });
 
@@ -1148,7 +1148,7 @@ describe("queries", () => {
       await client.devices.retrieve(dev1.key);
 
       const devices = await client.devices.retrieve({
-        where: { key: { in: [dev1.key, dev2.key] } },
+        key: [dev1.key, dev2.key],
         includeStatus: true,
       });
 
@@ -1156,7 +1156,7 @@ describe("queries", () => {
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
       const cached = client.devices.getCached({
-        where: { key: { in: [dev1.key, dev2.key] } },
+        key: [dev1.key, dev2.key],
         includeStatus: true,
       });
       expect(query.isLive(cached)).toBe(true);
@@ -1183,10 +1183,10 @@ describe("queries", () => {
         properties: {},
       });
 
-      await client.devices.retrieve({ where: { key: { in: [dev1.key, dev2.key] } } });
+      await client.devices.retrieve({ key: [dev1.key, dev2.key] });
 
       const devices = await client.devices.retrieve({
-        where: { key: { in: [dev1.key, dev2.key] } },
+        key: [dev1.key, dev2.key],
         includeStatus: true,
       });
 
@@ -1208,7 +1208,7 @@ describe("queries", () => {
       });
 
       const devices = await client.devices.retrieve({
-        where: { key: { in: [dev.key] } },
+        key: [dev.key],
         includeStatus: true,
       });
 
@@ -1232,7 +1232,7 @@ describe("queries", () => {
       await client.devices.retrieve(dev.key);
 
       const devices = await client.devices.retrieve({
-        where: { key: { in: [dev.key] } },
+        key: [dev.key],
         includeStatus: true,
       });
 

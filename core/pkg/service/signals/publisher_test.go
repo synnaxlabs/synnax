@@ -10,7 +10,6 @@
 package signals_test
 
 import (
-	"io"
 	"time"
 	"uuid"
 
@@ -34,13 +33,11 @@ const (
 
 var _ = Describe("Publisher", Serial, func() {
 	var (
-		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
-		cfg           signals.ObservablePublisherConfig
-		closer        io.Closer
-		streamer      framer.Streamer
-		requests      confluence.Inlet[framer.StreamerRequest]
-		responses     confluence.Outlet[framer.StreamerResponse]
-		closeStreamer io.Closer
+		obs       observe.Observer[[]change.Change[[]byte, struct{}]]
+		cfg       signals.ObservablePublisherConfig
+		streamer  framer.Streamer
+		requests  confluence.Inlet[framer.StreamerRequest]
+		responses confluence.Outlet[framer.StreamerResponse]
 	)
 	BeforeEach(func(ctx SpecContext) {
 		sigs := MustSucceed(signals.New(signals.Config{
@@ -60,7 +57,7 @@ var _ = Describe("Publisher", Serial, func() {
 			},
 			Observable: obs,
 		}
-		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
+		MustOpen(sigs.PublishFromObservable(ctx, cfg))
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
@@ -76,7 +73,7 @@ var _ = Describe("Publisher", Serial, func() {
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		closeStreamer = signal.NewHardShutdown(sCtx, cancel)
+		DeferClose(signal.NewHardShutdown(sCtx, cancel))
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		// Adding this slight delay guarantees that the streamer has started up
 		// and is ready to receive requests.
@@ -85,8 +82,6 @@ var _ = Describe("Publisher", Serial, func() {
 	AfterEach(func() {
 		requests.Close()
 		confluence.Drain(responses)
-		Expect(closeStreamer.Close()).To(Succeed())
-		Expect(closer.Close()).To(Succeed())
 	})
 	It("Should correctly propagate a change", func(ctx SpecContext) {
 		uid := uuid.New()

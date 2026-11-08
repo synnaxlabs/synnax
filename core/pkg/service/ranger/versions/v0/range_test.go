@@ -26,12 +26,6 @@ var _ = Describe("Range", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Range{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("ResourceID", func() {
 		It("Should return the range resource identifier", func() {
 			k := uuid.New()

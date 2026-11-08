@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -36,10 +36,10 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	// HostProvider is used to assign keys to racks.
+	// HostKey is the key of the host node. Rack keys embed it.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// DB is the gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
@@ -80,7 +80,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
 	c.HealthCheckInterval = override.Numeric(
@@ -95,7 +95,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
 	v.NotNil("db", c.DB)
-	v.NotNil("host", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("status", c.Status)
 	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
 	v.Positive("health", c.HealthCheckInterval)
@@ -129,8 +129,8 @@ func OpenService(
 		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
-			HostProvider: cfg.HostProvider,
-			Status:       cfg.Status,
+			HostKey: cfg.HostKey,
+			Status:  cfg.Status,
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -144,7 +144,7 @@ func OpenService(
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
+	counterKey := []byte(cfg.HostKey.String() + ".rack.counter")
 	if s.localKeyCounter, err = kv.NewCounter(
 		ctx,
 		cfg.DB.KV(),
@@ -179,7 +179,7 @@ func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	r, err := s.RetrieveOrCreateEmbedded(
 		ctx,
-		fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey()),
+		fmt.Sprintf("Node %s Embedded Driver", s.HostKey),
 		nil,
 	)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	name string,
 	edit func(*Rack),
 ) (r Rack, err error) {
-	bindingKey := []byte(s.HostProvider.HostKey().String() + ".rack.embedded." + name)
+	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		q := s.NewRetrieve().Entry(&r)
 		b, closer, err := tx.Get(ctx, bindingKey)
@@ -210,7 +210,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 			q = q.
 				Where(MatchNames(name)).
 				Where(MatchEmbedded(true)).
-				Where(MatchNode(s.HostProvider.HostKey()))
+				Where(MatchNode(s.HostKey))
 		} else {
 			return err
 		}
@@ -255,15 +255,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) newKey(ctx context.Context) (Key, error) {
 	n, err := s.localKeyCounter.Add(ctx, 1)
-	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
+	return NewKey(s.HostKey, uint16(n)), err
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		indexes:      s.indexes,
-		baseTX:       s.DB,
-		gorp:         s.table.NewRetrieve(),
-		hostProvider: s.HostProvider,
+		indexes: s.indexes,
+		baseTX:  s.DB,
+		gorp:    s.table.NewRetrieve(),
 	}
 }
 

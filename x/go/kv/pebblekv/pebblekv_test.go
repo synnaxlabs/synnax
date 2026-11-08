@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,9 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,15 +39,11 @@ var _ = Describe("PebbleKV", func() {
 		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
+			DeferCleanup(func() { Expect(os.RemoveAll(dbPath)).To(Succeed()) })
 			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
-			db = pebblekv.Wrap(pdb)
-		})
-
-		AfterAll(func() {
-			Expect(db.Close()).To(Succeed())
-			Expect(os.RemoveAll(dbPath)).To(Succeed())
+			db = DeferClose(pebblekv.Wrap(pdb))
 		})
 
 		It("Should handle basic CRUD operations", func(ctx SpecContext) {
@@ -185,29 +184,6 @@ var _ = Describe("PebbleKV", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should respect NoSync write options", func(ctx SpecContext) {
-			key := []byte("nosync-key")
-			value := []byte("nosync-value")
-
-			Expect(db.Set(ctx, key, value, pebble.NoSync)).To(Succeed())
-
-			got, closer := MustSucceed2(db.Get(ctx, key))
-			Expect(got).To(Equal(value))
-			Expect(closer.Close()).To(Succeed())
-
-			tx := db.OpenTx()
-			txKey := []byte("nosync-tx-key")
-			txValue := []byte("nosync-tx-value")
-
-			Expect(tx.Set(ctx, txKey, txValue)).To(Succeed())
-			Expect(tx.Commit(ctx, pebble.NoSync)).To(Succeed())
-			Expect(tx.Close()).To(Succeed())
-
-			got, closer = MustSucceed2(db.Get(ctx, txKey))
-			Expect(got).To(Equal(txValue))
-			Expect(closer.Close()).To(Succeed())
-		})
-
 		It("Should handle OpenIterator errors", func() {
 			// Invalid bounds should still create a valid iterator
 			iter := MustSucceed(db.OpenIterator(kv.IteratorOptions{
@@ -260,23 +236,19 @@ var _ = Describe("PebbleKV", func() {
 	Describe("Observer", func() {
 		var db kv.DB
 
-		open := func(disableObserver bool) {
+		open := func() {
 			GinkgoHelper()
 			path := GinkgoT().TempDir()
 			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
-			var opts []pebblekv.OpenOption
-			if disableObserver {
-				opts = append(opts, pebblekv.DisableObservation())
-			}
-			db = DeferClose(pebblekv.Wrap(pdb, opts...))
+			db = DeferClose(pebblekv.Wrap(pdb))
 		}
 
 		Context("With observation enabled (default)", Ordered, func() {
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
-				open(false)
+				open()
 			})
 
 			It("Should notify observers when using Set", func(ctx SpecContext) {
@@ -406,127 +378,94 @@ var _ = Describe("PebbleKV", func() {
 			)
 		})
 
-		Context("With observation disabled", Ordered, func() {
-			BeforeAll(func() {
-				ShouldNotLeakGoroutines()
-				open(true)
+		It("Should deliver commits through the given observer", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			observer := observe.New[kv.TxReader]()
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			var keys [][]byte
+			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
+				for ch := range r {
+					keys = append(keys, ch.Key)
+				}
 			})
+			defer disconnect()
+			Expect(db.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(keys).To(Equal([][]byte{[]byte("key")}))
+		})
 
-			It(
-				"Should not panic when using Set without an observer",
-				func(ctx SpecContext) {
-					key := []byte("no-observer-key")
-					value := []byte("no-observer-value")
-					Expect(db.Set(ctx, key, value)).To(Succeed())
-
-					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(value))
-					Expect(closer.Close()).To(Succeed())
-				},
+		It("Should notify the given observer in commit order", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer func() {
+				cancel()
+				Expect(sCtx.Wait()).To(Succeed())
+			}()
+			observer := observe.NewAsync[kv.TxReader](sCtx)
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			values := make(chan string, 2)
+			disconnect := observer.OnChange(func(_ context.Context, r kv.TxReader) {
+				for ch := range r {
+					values <- string(ch.Value)
+				}
+			})
+			defer disconnect()
+			var (
+				firstApplied = make(chan struct{})
+				secondDone   = make(chan struct{})
 			)
+			go func() {
+				defer GinkgoRecover()
+				defer close(secondDone)
+				<-firstApplied
+				Expect(db.Set(ctx, []byte("key"), []byte("second"))).To(Succeed())
+			}()
+			tx := db.OpenTx()
+			Expect(tx.Set(ctx, []byte("key"), []byte("first"))).To(Succeed())
+			// The second commit can apply before the first one notifies only when no
+			// lock orders them.
+			Expect(tx.Commit(ctx, kv.OnApplied(func() {
+				close(firstApplied)
+				select {
+				case <-secondDone:
+				case <-time.After(100 * time.Millisecond):
+				}
+			}))).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Eventually(secondDone).Should(BeClosed())
+			Eventually(values).Should(Receive(Equal("first")))
+			Eventually(values).Should(Receive(Equal("second")))
+		})
 
-			It(
-				"Should not panic when committing transactions without an observer",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-					key := []byte("no-observer-tx-key")
-					value := []byte("no-observer-tx-value")
-
-					Expect(tx.Set(ctx, key, value)).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					got, closer := MustSucceed2(db.Get(ctx, key))
-					Expect(got).To(Equal(value))
-					Expect(closer.Close()).To(Succeed())
-				},
-			)
-
-			It(
-				"Should handle Delete operations without an observer",
-				func(ctx SpecContext) {
-					key := []byte("no-observer-delete-key")
-					value := []byte("no-observer-delete-value")
-
-					Expect(db.Set(ctx, key, value)).To(Succeed())
-					Expect(db.Delete(ctx, key)).To(Succeed())
-
-					Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
-				},
-			)
-
-			It(
-				"Should perform basic operations correctly without observers",
-				func(ctx SpecContext) {
-					// Multiple operations to ensure no observer-related panics
-					for i := range 10 {
-						key := []byte{byte(100 + i)}
-						value := []byte{byte(200 + i)}
-						Expect(db.Set(ctx, key, value)).To(Succeed())
+		It("Should let async handlers read an empty commit", func(ctx SpecContext) {
+			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer func() {
+				cancel()
+				Expect(sCtx.Wait()).To(Succeed())
+			}()
+			observer := observe.NewAsync[kv.TxReader](sCtx)
+			db := DeferClose(pebblekv.Wrap(pdb, pebblekv.WithObserver(observer)))
+			read := make(chan int, 2)
+			for range 2 {
+				defer observer.OnChange(func(_ context.Context, r kv.TxReader) {
+					n := 0
+					for range r {
+						n++
 					}
-
-					// Verify all values
-					for i := range 10 {
-						key := []byte{byte(100 + i)}
-						expectedValue := []byte{byte(200 + i)}
-						got, closer := MustSucceed2(db.Get(ctx, key))
-						Expect(got).To(Equal(expectedValue))
-						Expect(closer.Close()).To(Succeed())
-					}
-				},
-			)
-
-			It(
-				"Should handle batch operations in transactions without observers",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-
-					// Batch set
-					for i := range 5 {
-						key := []byte{byte(50 + i)}
-						value := []byte{byte(150 + i)}
-						Expect(tx.Set(ctx, key, value)).To(Succeed())
-					}
-
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					// Verify all values
-					for i := range 5 {
-						key := []byte{byte(50 + i)}
-						expectedValue := []byte{byte(150 + i)}
-						got, closer := MustSucceed2(db.Get(ctx, key))
-						Expect(got).To(Equal(expectedValue))
-						Expect(closer.Close()).To(Succeed())
-					}
-				},
-			)
-
-			It(
-				"Should never invoke handlers registered via OnChange",
-				func(ctx SpecContext) {
-					handlerCalled := false
-					disconnect := db.OnChange(func(context.Context, kv.TxReader) {
-						handlerCalled = true
-					})
-					Expect(disconnect).NotTo(BeNil())
-
-					Expect(
-						db.Set(ctx, []byte("disabled-notify-set"), []byte("v")),
-					).To(Succeed())
-					Expect(db.Delete(ctx, []byte("disabled-notify-set"))).To(Succeed())
-
-					tx := db.OpenTx()
-					Expect(
-						tx.Set(ctx, []byte("disabled-notify-tx"), []byte("v")),
-					).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-
-					Expect(handlerCalled).To(BeFalse())
-					disconnect()
-				},
-			)
+					read <- n
+				})()
+			}
+			tx := db.OpenTx()
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Eventually(read).Should(Receive(BeZero()))
+			Eventually(read).Should(Receive(BeZero()))
 		})
 	})
 })

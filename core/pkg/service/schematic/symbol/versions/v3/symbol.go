@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Symbol{}
 // GorpKey implements gorp.Entry.
 func (s Symbol) GorpKey() Key { return s.Key }
 
-// SetOptions implements gorp.Entry.
-func (Symbol) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the symbol.
 func (s Symbol) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeSchematicSymbol, Key: s.Key.String()}

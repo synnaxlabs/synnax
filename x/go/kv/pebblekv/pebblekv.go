@@ -19,6 +19,7 @@ package pebblekv
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
@@ -34,61 +35,44 @@ import (
 type db struct {
 	observe.Observer[kv.TxReader]
 	*pebble.DB
+	// notifyMu orders the notifications of an injected observer by commit. It is nil
+	// for the default observer, whose handlers can commit inline.
+	notifyMu *sync.Mutex
 }
 
 var _ kv.DB = (*db)(nil)
 
-var defaultWriteOpts = pebble.Sync
-
-func parseOpts(opts []any) *pebble.WriteOptions {
-	if len(opts) > 0 {
-		for _, o := range opts {
-			if o, ok := o.(*pebble.WriteOptions); ok {
-				return o
-			}
-		}
-	}
-	return defaultWriteOpts
-}
-
 type openOptions struct {
-	enableObserver bool
+	observer observe.Observer[kv.TxReader]
+	injected bool
 }
 
 // OpenOption configures behavior when wrapping a pebble.DB.
 type OpenOption func(*openOptions)
 
-// DisableObservation disables the observer pattern, preventing change notifications.
-// This improves performance when observation is not needed. When observation is
-// disabled, OnChange is a safe no-op: registered handlers are never invoked and the
-// returned Disconnect is a no-op as well.
-func DisableObservation() OpenOption {
-	return func(o *openOptions) { o.enableObserver = false }
+// WithObserver sets the observer that delivers each commit to OnChange handlers. The DB
+// holds a lock from each apply through its notify, so handlers see commits in the order
+// they apply, and concurrent commits do not share a sync. A handler that the observer
+// runs inline must not write to the DB. The default observer runs the handlers on the
+// committing goroutine, before Commit returns, and gives no order across goroutines.
+func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
+	return func(o *openOptions) {
+		o.observer = observer
+		o.injected = true
+	}
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
-	o := &openOptions{enableObserver: true}
+	o := &openOptions{observer: observe.New[kv.TxReader]()}
 	for _, opt := range opts {
 		opt(o)
 	}
-	wrapped := &db{DB: base}
-	if o.enableObserver {
-		wrapped.Observer = observe.New[kv.TxReader]()
+	d := &db{DB: base, Observer: o.observer}
+	if o.injected {
+		d.notifyMu = &sync.Mutex{}
 	}
-	return wrapped
-}
-
-// OnChange implements kv.Observable. When observation has been disabled via
-// DisableObservation, OnChange is a no-op: the supplied handler is never invoked,
-// and the returned Disconnect is itself a no-op.
-func (d db) OnChange(
-	handler func(context.Context, kv.TxReader),
-) observe.Disconnect {
-	if d.Observer == nil {
-		return func() {}
-	}
-	return d.Observer.OnChange(handler)
+	return d
 }
 
 type logger struct{ alamos.Instrumentation }
@@ -141,15 +125,8 @@ func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) (err error) {
 }
 
 // Set implement kv.DB.
-func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	// Hot path: if we don't need to notify observers of changes, then go straight
-	// to the underlying DB.
-	if d.Observer == nil {
-		return translateError(d.DB.Set(key, value, parseOpts(opts)))
-	}
-	return d.withTx(ctx, func(tx kv.Tx) error {
-		return tx.Set(ctx, key, value, opts...)
-	})
+func (d db) Set(ctx context.Context, key, value []byte) error {
+	return d.withTx(ctx, func(tx kv.Tx) error { return tx.Set(ctx, key, value) })
 }
 
 // Get implement kv.DB.
@@ -159,15 +136,8 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 }
 
 // Delete implement kv.DB.
-func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	// Hot path: if we don't need to notify observers of changes, then go straight
-	// to the underlying DB.
-	if d.Observer == nil {
-		return translateError(d.DB.Delete(key, parseOpts(opts)))
-	}
-	return d.withTx(ctx, func(tx kv.Tx) error {
-		return tx.Delete(ctx, key, opts...)
-	})
+func (d db) Delete(ctx context.Context, key []byte) error {
+	return d.withTx(ctx, func(tx kv.Tx) error { return tx.Delete(ctx, key) })
 }
 
 // OpenIterator implement kv.DB.
@@ -176,6 +146,10 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
+	if d.notifyMu != nil {
+		d.notifyMu.Lock()
+		defer d.notifyMu.Unlock()
+	}
 	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
@@ -185,11 +159,8 @@ func (d db) apply(ctx context.Context, txn *tx, opts []any) error {
 			applied()
 		}
 	}
-	if d.Observer != nil {
-		// We need to notify with a generator so that each subscriber gets a fresh
-		// reader.
-		d.NotifyGenerator(ctx, txn.NewReader)
-	}
+	// A generator gives each subscriber a fresh reader.
+	d.NotifyGenerator(ctx, txn.NewReader)
 	return nil
 }
 
@@ -213,8 +184,8 @@ type tx struct {
 var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
-func (txn *tx) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
+func (txn *tx) Set(_ context.Context, key, value []byte) error {
+	return translateError(txn.Batch.Set(key, value, nil))
 }
 
 // Get implements kv.Writer.
@@ -228,12 +199,8 @@ func (txn *tx) Get(
 }
 
 // Delete implements kv.Writer.
-func (txn *tx) Delete(
-	_ context.Context,
-	key []byte,
-	opts ...any,
-) error {
-	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
+func (txn *tx) Delete(_ context.Context, key []byte) error {
+	return translateError(txn.Batch.Delete(key, nil))
 }
 
 // OpenIterator implements kv.Writer.
@@ -257,10 +224,13 @@ func (txn *tx) Close() error {
 	return nil
 }
 
-// NewReader implements kv.Writer.
+// NewReader implements kv.Writer. It reads the operations as they are when NewReader is
+// called. Readers that NewReader returns are safe to run on separate goroutines.
 func (txn *tx) NewReader() kv.TxReader {
+	// Batch.Reader sets up an empty batch, so it must not run on reader goroutines.
+	ops := txn.Reader()
 	return func(yield func(kv.Change) bool) {
-		r := txn.Reader()
+		r := ops
 		for {
 			kind, k, v, ok, err := r.Next()
 			if err != nil {

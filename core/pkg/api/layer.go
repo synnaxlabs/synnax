@@ -812,7 +812,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		User:     cfg.Service.User,
 		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
-		Cluster:  cfg.Distribution.Cluster,
+		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
 	}
@@ -860,8 +860,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(connectivity.ServiceConfig{
-		Cluster: cfg.Distribution.Cluster,
-		License: cfg.Service.License,
+		Identity: cfg.Distribution.Identity,
+		License:  cfg.Service.License,
 	}); err != nil {
 		return nil, err
 	}

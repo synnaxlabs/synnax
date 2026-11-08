@@ -413,7 +413,7 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       const snapshots = await waitFor(async () => {
-        const tasks = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
         expect(tasks).not.toHaveLength(0);
         return tasks;
       });
