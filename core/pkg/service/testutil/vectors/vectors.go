@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package testutil holds helpers that specs of several services share.
-package testutil
+// Package vectors reads the filter vectors of the Core and the TypeScript client.
+package vectors
 
 import (
 	"encoding/json/jsontext"
@@ -40,13 +40,16 @@ type Vectors[R, W any] struct {
 	Cases []Case[W] `json:"cases"`
 }
 
-// ReadVectors reads the filter vectors of the entity, such as "ranges", which the
-// TypeScript client shares. It returns an error if the entity has no vectors or a
-// vector has an unknown member.
-func ReadVectors[R, W any](entity string) (Vectors[R, W], error) {
+// Read reads the filter vectors of the entity, such as "ranges", which the TypeScript
+// client shares. It returns an error if the entity has no vectors or a vector has an
+// unknown member.
+func Read[R, W any](entity string) (Vectors[R, W], error) {
 	var v Vectors[R, W]
 	_, file, _, _ := runtime.Caller(0)
-	path := filepath.Join(filepath.Dir(file), "../../../testdata/filter/vectors.json")
+	path := filepath.Join(
+		filepath.Dir(file),
+		"../../../../testdata/filter/vectors.json",
+	)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return v, err
