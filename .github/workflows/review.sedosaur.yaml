@@ -190,7 +190,6 @@ jobs:
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      # Greptile reacts with eyes, so Sedosaur reacts with a rocket.
       - name: React with a rocket
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
