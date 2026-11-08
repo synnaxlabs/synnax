@@ -18,6 +18,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/testutil/testutil.h"
@@ -138,11 +139,7 @@ protected:
         this->brk.start();
     }
 
-    void TearDown() override {
-        // A failed assertion must not leave the bus stalled, or the teardown hangs.
-        this->master->resume();
-        this->brk.stop();
-    }
+    void TearDown() override { this->brk.stop(); }
 
     /// @brief reads n samples of a single 16-bit entry and returns their times.
     x::telem::Series read_times(Engine::Reader &reader, const size_t n) {
@@ -579,9 +576,11 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3)
     );
+    // Destroyed before the reader, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
     this->master->wait_until_stalled();
-    // Lets one cycle through, so that the reader samples before the bus takes the
-    // faster rate.
+    // Lets one cycle through, so that the bus runs the reader at 10 Hz before the
+    // writer raises the rate.
     this->master->step();
     this->master->wait_until_stalled();
     const auto writer = ASSERT_NIL_P(
@@ -600,15 +599,23 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
 /// @brief it should decode each sample of reads that cross the end of the sample
 /// buffer, for entries of different widths.
 TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
-    // 250 samples pass through a buffer that holds 200, so the reads wrap around it.
-    constexpr size_t SAMPLES = 50;
-    constexpr size_t READS = 5;
+    // 210 samples pass through a buffer that holds 200, so the last read crosses its
+    // end.
+    constexpr size_t SAMPLES = 30;
+    constexpr size_t READS = 7;
+    // The writer runs the bus at the rate of the reader, so the reader joins a running
+    // bus at a known cycle.
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
     this->master->stall();
+    this->master->wait_until_stalled();
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16, IN_I24, IN_U4}, x::telem::Rate(100), SAMPLES)
     );
-    // The first cycle runs before the reader joins the schedule.
-    this->master->wait_until_stalled();
+    // Destroyed before the reader, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    // The stalled cycle took its schedule before the reader joined.
     this->master->step();
     for (size_t r = 0; r < READS; ++r) {
         for (size_t s = 0; s < SAMPLES; ++s) {
@@ -633,7 +640,6 @@ TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
             EXPECT_EQ(frame.series->at(2).at<uint8_t>(s), k % 16);
         }
     }
-    this->master->resume();
 }
 
 /// @brief it should reject a reader with a sample rate below 0.001 Hz and not start the
