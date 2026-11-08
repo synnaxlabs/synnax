@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -433,6 +434,73 @@ var _ = Describe("Reader", func() {
 				r.ResetBytes(data)
 				_, err = r.StringBytes()
 			})).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should copy strings out of the decoded data", func() {
+			w := orc.NewWriter(0)
+			w.String("hello")
+			w.String("")
+			w.String("world")
+			data := w.Bytes()
+			r := orc.NewReader(nil)
+			r.ResetBytes(data)
+			hello := MustSucceed(r.String())
+			Expect(r.String()).To(BeEmpty())
+			world := MustSucceed(r.String())
+			clear(data)
+			Expect(hello).To(Equal("hello"))
+			Expect(world).To(Equal("world"))
+		})
+
+		It("Should keep strings valid after the reader decodes new data", func() {
+			w := orc.NewWriter(0)
+			w.String("hello")
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			hello := MustSucceed(r.String())
+			next := orc.NewWriter(0)
+			next.String("other")
+			r.ResetBytes(next.Bytes())
+			Expect(r.String()).To(Equal("other"))
+			Expect(hello).To(Equal("hello"))
+		})
+
+		It("Should read strings that do not fit in one buffer", func() {
+			values := []string{
+				strings.Repeat("a", 5000),
+				strings.Repeat("b", 5000),
+				strings.Repeat("c", 10000),
+			}
+			w := orc.NewWriter(0)
+			for _, v := range values {
+				w.String(v)
+			}
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			read := make([]string, len(values))
+			for i := range values {
+				read[i] = MustSucceed(r.String())
+			}
+			Expect(read).To(Equal(values))
+		})
+
+		It("Should make one allocation for the strings of a small decode", func() {
+			w := orc.NewWriter(0)
+			w.String("key")
+			w.String("name")
+			w.String("port")
+			data := w.Bytes()
+			r := orc.NewReader(nil)
+			var err error
+			Expect(testing.AllocsPerRun(100, func() {
+				r.ResetBytes(data)
+				for range 3 {
+					if _, err = r.String(); err != nil {
+						return
+					}
+				}
+			})).To(Equal(1.0))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
