@@ -67,9 +67,7 @@ describe("Project", () => {
     });
     test("omit missing keys from a filter on keys", async () => {
       const proj = await client.projects.create({ name: "survivor" });
-      const res = await client.projects.retrieve({
-        where: { key: { in: [proj.key, uuid.create()] } },
-      });
+      const res = await client.projects.retrieve({ key: [proj.key, uuid.create()] });
       expect(res.map(({ key }) => key)).toEqual([proj.key]);
     });
   });

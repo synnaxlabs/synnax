@@ -16,6 +16,7 @@ import "schemas/synnax/ranger"
 Alias struct {
     range   ranger.Key  {
         @doc value     "is the unique identifier of the range containing this alias."
+        @ref kind      place
         @ref on_delete cascade
     }
     channel channel.Key {

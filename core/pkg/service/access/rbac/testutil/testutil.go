@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -63,10 +62,10 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 		return nil, err
 	}
 	if s.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           cfg.DB,
-		HostProvider: disttestutil.NewStaticHostProvider(1),
-		Status:       cfg.Status,
-		DriverRole:   roles.Builtin.DriverKey,
+		DB:         cfg.DB,
+		HostKey:    1,
+		Status:     cfg.Status,
+		DriverRole: roles.Builtin.DriverKey,
 	}); !ok(err, s.Rack) {
 		return nil, err
 	}
@@ -81,30 +80,95 @@ func Open(ctx context.Context, cfg Config) (s *Services, err error) {
 	return s, nil
 }
 
-// Grant gives the user with the given key a new role whose one policy allows the
-// actions on the objects, and returns the key of the role.
+// CreateUser creates u holding a new role of its own with no policies, so the user can
+// do nothing until Grant allows it. It assigns u a key when u.Key is zero.
+func CreateUser(
+	ctx context.Context,
+	db *gorp.DB,
+	rbacSvc *rbac.Service,
+	users *user.Service,
+	u user.User,
+) (user.User, error) {
+	if u.Key == uuid.Nil() {
+		u.Key = uuid.New()
+	}
+	err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		r := role.Role{Name: ownRoleName(u.Key)}
+		if err = rbacSvc.Role.NewWriter(tx, false).Create(ctx, &r); err != nil {
+			return err
+		}
+		u.Role = r.Key
+		u, err = users.NewWriter(tx).Create(ctx, u)
+		return err
+	})
+	if err != nil {
+		return user.User{}, err
+	}
+	return u, nil
+}
+
+// Grant allows the user with the given key the actions on the objects through a new
+// policy on the user's own role, and returns the policy. A user that does not hold a
+// role of its own first gets one in place of its role, so grants to one user add up
+// without changing what other users can do.
 func Grant(
 	ctx context.Context,
+	db *gorp.DB,
 	rbacSvc *rbac.Service,
 	users *user.Service,
 	key user.Key,
 	actions []access.Action,
 	objects ...resource.ID,
+) (policy.Policy, error) {
+	var p policy.Policy
+	err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		r, err := ownRole(ctx, tx, rbacSvc, users, key)
+		if err != nil {
+			return err
+		}
+		p = policy.Policy{
+			Role:    r,
+			Name:    ownRoleName(key),
+			Objects: objects,
+			Actions: actions,
+		}
+		return rbacSvc.Policy.NewWriter(tx, false).Create(ctx, &p)
+	})
+	if err != nil {
+		return policy.Policy{}, err
+	}
+	return p, nil
+}
+
+func ownRoleName(key user.Key) string { return "grant-" + key.String() }
+
+func ownRole(
+	ctx context.Context,
+	tx gorp.Tx,
+	rbacSvc *rbac.Service,
+	users *user.Service,
+	key user.Key,
 ) (role.Key, error) {
-	r := role.Role{Name: "grant-" + uuid.New().String()}
-	if err := rbacSvc.Role.NewWriter(nil, false).Create(ctx, &r); err != nil {
+	var u user.User
+	if err := users.NewRetrieve().
+		Where(user.MatchKeys(key)).
+		Entry(&u).
+		Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
-	if err := rbacSvc.Policy.NewWriter(nil, false).Create(ctx, &policy.Policy{
-		Role:    r.Key,
-		Name:    r.Name,
-		Objects: objects,
-		Actions: actions,
-	}); err != nil {
+	var held role.Role
+	if err := rbacSvc.Role.NewRetrieve().
+		Where(role.MatchKeys(u.Role)).
+		Entry(&held).
+		Exec(ctx, tx); err != nil {
 		return uuid.Nil(), err
 	}
-	if err := users.NewWriter(nil).AssignRole(ctx, r.Key, key); err != nil {
+	if held.Name == ownRoleName(key) {
+		return held.Key, nil
+	}
+	r := role.Role{Name: ownRoleName(key)}
+	if err := rbacSvc.Role.NewWriter(tx, false).Create(ctx, &r); err != nil {
 		return uuid.Nil(), err
 	}
-	return r.Key, nil
+	return r.Key, users.NewWriter(tx).SetRole(ctx, r.Key, nil, key)
 }

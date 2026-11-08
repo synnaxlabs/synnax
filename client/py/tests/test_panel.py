@@ -128,6 +128,17 @@ class TestClient:
         panels = client.panels.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in panels} == {p1.key, p2.key}
 
+    def test_retrieve_by_group(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should filter the panels by group."""
+        made = client.panels.create(name="Ungrouped", project=project)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project))
+        assert client.panels.retrieve(groups=g.key) == []
+        ungrouped = client.panels.retrieve(projects=project, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.panels.retrieve(projects=project, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should keep the panels that match the where and the other filters."""
         a = client.panels.create(name="A", project=project)

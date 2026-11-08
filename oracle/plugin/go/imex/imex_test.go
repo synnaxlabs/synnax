@@ -180,8 +180,10 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"package log",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
 					`"github.com/synnaxlabs/synnax/pkg/service/resource"`,
-					"func (s *Service) Export(ctx context.Context, id resource.ID) "+
-						"(imex.Envelope, error)",
+					"func (s *Service) Export(\n\tctx context.Context,\n"+
+						"\tsnap gorp.Snapshot,\n\tid resource.ID,\n"+
+						") (imex.Envelope, error)",
+					"Exec(ctx, snap)",
 					"var v Log",
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",

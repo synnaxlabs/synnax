@@ -45,9 +45,6 @@ func (v View) WithName(name string) View {
 // GorpKey returns the view's storage key.
 func (v View) GorpKey() Key { return v.Base().Key }
 
-// SetOptions returns no additional storage options.
-func (View) SetOptions() []any { return nil }
-
 // ResourceID returns the view's resource identifier.
 func (v View) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeView, Key: v.Base().Key.String()}

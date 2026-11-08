@@ -11,10 +11,10 @@ package user
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -30,7 +30,11 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// DB opens the snapshots that access checks read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// RBAC checks the user writes that it must check before they run.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -42,10 +46,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Password *password.Service
-	// Auth logs subjects in and checks their session tokens.
-	//
-	// [REQUIRED]
-	Auth *svcauth.Service
 }
 
 var (
@@ -56,29 +56,29 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
 	c.Password = override.Nil(c.Password, other.Password)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.user")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
 	v.NotNil("password", c.Password)
-	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
-	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -89,10 +89,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
-		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -101,9 +101,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // username.
 type NewUser struct {
 	svcauth.Credentials
-	Name  string     `json:"name"  msgpack:"name"`
-	Key   user.Key   `json:"key"   msgpack:"key"`
-	Roles []role.Key `json:"roles" msgpack:"roles"`
+	Name string   `json:"name" msgpack:"name"`
+	Key  user.Key `json:"key"  msgpack:"key"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 type (
@@ -115,39 +115,41 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users. Creating a user with roles also requires update on
-// users and on each of the roles.
+// PrepareCreate hashes the password of each new user in req. It returns
+// access.ErrDenied when the subject cannot create users, and a validation error when a
+// password is empty.
+func (s *Service) PrepareCreate(
+	ctx context.Context,
+	req CreateRequest,
+) ([]password.Hash, error) {
+	// Each hash is slow, so a subject that cannot create users costs none.
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []resource.ID{{Type: resource.TypeUser}},
+		})
+	}); err != nil {
+		return nil, err
+	}
+	hashes := make([]password.Hash, len(req.Users))
+	for i, nu := range req.Users {
+		var err error
+		if hashes[i], err = s.password.Hash(nu.Password); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
+}
+
+// Create creates the new users with the roles in req and the passwords that
+// PrepareCreate hashed, and returns them.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
+	hashes []password.Hash,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeUser}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var roles []role.Key
-	for _, u := range req.Users {
-		roles = append(roles, u.Roles...)
-	}
-	if len(roles) > 0 {
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: append(
-				[]resource.ID{{Type: resource.TypeUser}},
-				role.ResourceIDs(roles)...,
-			),
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
@@ -156,11 +158,16 @@ func (s *Service) Create(
 		if name == "" {
 			name = nu.Username
 		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Roles: nu.Roles})
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Role: nu.Role})
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.ResourceID(), nu.Credentials); err != nil {
+		if err = passwordW.Set(
+			ctx,
+			u.ResourceID(),
+			nu.Username,
+			hashes[i],
+		); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -196,13 +203,6 @@ func (s *Service) ChangeUsername(
 	if p.Username == req.Username {
 		return struct{}{}, nil
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{user.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.password.NewWriter(tx).
 		Rename(ctx, user.ResourceID(req.Key), req.Username)
 }
@@ -218,35 +218,33 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{user.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		ChangeName(ctx, req.Key, req.Name)
 }
 
-// Retrieve returns the users that the request selects.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the users that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, user.ResourceID)
+}
+
+// Retrieve returns the users that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Users))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Users))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: user.ResourceIDsFromUsers(res.Users),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, user.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -256,53 +254,62 @@ type DeleteRequest struct {
 	Keys []user.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the users with the provided keys from the Synnax cluster.
+// Delete deletes the users with the provided keys, with their passwords, API keys, and
+// sessions. It returns access.ErrDenied when the subject cannot delete the users, and
+// an error when a user is a root user.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: user.ResourceIDsFromKeys(req.Keys),
-	}); err != nil {
+	if err := s.enforceOnUsers(ctx, access.ActionDelete, req.Keys); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// SetRolesRequest removes the roles in Remove from the users with Keys, then adds the
-// roles in Add.
-type SetRolesRequest struct {
-	Keys   []user.Key `json:"keys"   msgpack:"keys"`
-	Add    []role.Key `json:"add"    msgpack:"add"`
-	Remove []role.Key `json:"remove" msgpack:"remove"`
+// SetRoleRequest gives Role to the users with Keys.
+type SetRoleRequest struct {
+	Keys []user.Key `json:"keys" msgpack:"keys"`
+	Role role.Key   `json:"role" msgpack:"role"`
 }
 
-// SetRoles removes and adds roles on the users with the provided keys in one
-// transaction. It returns access.ErrDenied unless the subject can update the users and
-// every added and removed role, and a validation error when a user is a root user.
-func (s *Service) SetRoles(
+// SetRole gives a role to the users with the provided keys in one transaction. It
+// returns access.ErrDenied when the subject cannot update the users, a validation error
+// when a user is a root user, and query.ErrNotFound when a user does not exist.
+func (s *Service) SetRole(
 	ctx context.Context,
 	tx gorp.Tx,
-	req SetRolesRequest,
+	req SetRoleRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: slices.Concat(
-			user.ResourceIDsFromKeys(req.Keys),
-			role.ResourceIDs(req.Add),
-			role.ResourceIDs(req.Remove),
-		),
-	}); err != nil {
+	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
 		return struct{}{}, err
 	}
+	guard := func(u user.User) error {
+		if !u.RootUser {
+			return nil
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot change the role of root user %s",
+			u.Name,
+		)
+	}
 	return struct{}{}, s.internal.NewWriter(tx).
-		SetRoles(ctx, req.Add, req.Remove, req.Keys...)
+		SetRole(ctx, req.Role, guard, req.Keys...)
+}
+
+// enforceOnUsers checks the action on the users with the provided keys before a write
+// reads them, so a subject without access learns nothing from the root-user guard. It
+// reads committed policies, so a policy staged in the same transaction grants nothing.
+func (s *Service) enforceOnUsers(
+	ctx context.Context,
+	action access.Action,
+	keys []user.Key,
+) error {
+	return s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  action,
+		Objects: user.ResourceIDsFromKeys(keys),
+	})
 }
