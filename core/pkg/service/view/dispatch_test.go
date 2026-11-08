@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Dispatch", func() {
@@ -82,7 +83,9 @@ var _ = Describe("Dispatch", func() {
 		act view.Action,
 		matcher string,
 	) {
-		Expect(apply(ctx, act)).To(MatchError(ContainSubstring(matcher)))
+		err := apply(ctx, act)
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(err).To(MatchError(ContainSubstring(matcher)))
 		Expect(retrieve(ctx)).To(Equal(v))
 	},
 		Entry("of the type", set("type", "range"), `unknown object member name "type"`),

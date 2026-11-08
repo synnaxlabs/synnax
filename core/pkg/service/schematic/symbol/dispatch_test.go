@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Dispatch", func() {
@@ -115,21 +116,27 @@ var _ = Describe("Dispatch", func() {
 		act func(context.Context) symbol.Action,
 		msg string,
 	) {
-		Expect(apply(ctx, act(ctx))).To(MatchError(ContainSubstring(msg)))
+		err := apply(ctx, act(ctx))
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(err).To(MatchError(ContainSubstring(msg)))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	},
 		Entry("of the key", func(context.Context) symbol.Action {
 			return set("key", sym.Key)
 		}, `unknown object member name "key"`),
-		Entry("to an invalid data", func(context.Context) symbol.Action {
-			return set("data", symbol.Spec{Variant: "static"})
-		}, "data.svg: required"),
 		Entry("to a group that cannot hold a symbol", func(
 			ctx context.Context,
 		) symbol.Action {
 			return set("group", createGroup(ctx, resource.TypeChannel).Key)
 		}, "a schematic_symbol cannot sit in a channel group"),
 	)
+
+	It("Should refuse an invalid data", func(ctx SpecContext) {
+		// Generated validators return errors that do not wrap validate.ErrValidation.
+		Expect(apply(ctx, set("data", symbol.Spec{Variant: "static"}))).
+			To(MatchError(ContainSubstring("data.svg: required")))
+		Expect(retrieve(ctx)).To(Equal(sym))
+	})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {
 		rec := record()

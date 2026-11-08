@@ -78,9 +78,9 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should refuse a path outside the editable fields", func(ctx SpecContext) {
-		Expect(
-			apply(ctx, set("key", uuid.New())),
-		).To(MatchError(validate.ErrValidation))
+		err := apply(ctx, set("key", uuid.New()))
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(err).To(MatchError(ContainSubstring(`unknown object member name "key"`)))
 		Expect(retrieve(ctx)).To(Equal(p))
 	})
 
@@ -89,7 +89,9 @@ var _ = Describe("Dispatch", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &other)
 		})).To(Succeed())
-		Expect(apply(ctx, set("group", other.Key))).
+		err := apply(ctx, set("group", other.Key))
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(err).
 			To(MatchError(ContainSubstring("a project cannot sit in a channel group")))
 		Expect(retrieve(ctx)).To(Equal(p))
 	})

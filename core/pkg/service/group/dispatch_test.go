@@ -107,8 +107,11 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should refuse a path to the parent", func(ctx SpecContext) {
-		Expect(apply(ctx, set("parent", parent.ResourceID()))).
-			To(MatchError(validate.ErrValidation))
+		err := apply(ctx, set("parent", parent.ResourceID()))
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(
+			err,
+		).To(MatchError(ContainSubstring(`unknown object member name "parent"`)))
 		Expect(retrieve(ctx)).To(Equal(child))
 	})
 
