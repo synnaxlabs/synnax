@@ -579,7 +579,9 @@ var _ = Describe("Delete cascades", func() {
 			TimeRange: telem.NewRangeSeconds(1, 5),
 			Parent:    &r.Key,
 		}
-		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &child)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
 		return held{
 			id: child.ResourceID(),
 			exists: func(ctx SpecContext) bool {
@@ -595,9 +597,12 @@ var _ = Describe("Delete cascades", func() {
 			DataType: telem.Float64T,
 			Virtual:  true,
 		}
-		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-		Expect(svc.Alias.NewWriter(nil).Set(ctx, r.Key, ch.Key(), "alias")).
-			To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
+		})).To(Succeed())
 		return held{
 			id: alias.ResourceID(r.Key, ch.Key()),
 			exists: func(ctx SpecContext) bool {
@@ -611,7 +616,9 @@ var _ = Describe("Delete cascades", func() {
 	createLinePlot := func(ctx SpecContext) held {
 		GinkgoHelper()
 		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
-		Expect(svc.LinePlot.NewWriter(nil).Create(ctx, &lp)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
+		})).To(Succeed())
 		return held{
 			id: lineplot.ResourceID(lp.Key),
 			exists: func(ctx SpecContext) bool {
@@ -631,7 +638,9 @@ var _ = Describe("Delete cascades", func() {
 			Snapshot: true,
 			Range:    &r.Key,
 		}
-		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
 		grant(
 			ctx,
 			access.ActionUpdate,
