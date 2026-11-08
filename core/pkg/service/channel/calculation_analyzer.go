@@ -18,6 +18,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -44,6 +45,9 @@ type CalculationAnalyzer struct {
 	symbols  arc.SymbolResolver
 	resolver *resolver
 	cfg      parser.Config
+	// stl holds the Arc standard library symbols, built on the first analysis.
+	// symbol.NewRoot copies them into each analysis, so later analyses reuse them.
+	stl []*symbol.Symbol
 }
 
 // NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
@@ -112,7 +116,11 @@ func (a *CalculationAnalyzer) Analyze(
 	if err != nil {
 		return CalculationAnalysisResult{}, err
 	}
-	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
+	if a.stl == nil {
+		a.stl = stl.NewSymbols()
+	}
+	root := symbol.NewRoot(a.resolver, a.stl)
+	aCtx := acontext.NewRoot(ctx, t, root).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if a.resolver.readErr != nil {
 		return CalculationAnalysisResult{}, a.resolver.readErr

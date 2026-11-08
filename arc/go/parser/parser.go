@@ -65,15 +65,15 @@ type dashAwareStream struct {
 	allowDashedNames bool
 }
 
-// dashJoinsIdentifier reports whether the lexer should absorb the upcoming '-' into the
-// current IDENTIFIER token. Invoked from the generated IDENTIFIER predicate.
+// dashJoinsIdentifier reports whether the lexer should absorb the '-' it just matched
+// into the current IDENTIFIER token. Invoked from the generated IDENTIFIER predicate.
 func (l *ArcLexer) dashJoinsIdentifier() bool {
 	in := l.GetInputStream()
 	s, ok := in.(*dashAwareStream)
 	if !ok || !s.allowDashedNames {
 		return false
 	}
-	return in.LA(2) != '>' && in.LA(2) != '='
+	return in.LA(1) != '>' && in.LA(1) != '='
 }
 
 // NewLexer constructs an ArcLexer over source configured with cfg.
@@ -163,17 +163,46 @@ func parseWithContext[T any](
 		parser = NewArcParser(stream)
 		diag   = &diagnostics.Diagnostics{}
 		errLis = &errorListener{Diagnostics: diag}
+		sllErr = &syntaxErrorFlag{}
 	)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(errLis)
 	parser.RemoveErrorListeners()
-	parser.AddErrorListener(errLis)
+	// SLL prediction is much faster than LL, and when it reports no syntax error it
+	// returns the tree LL would. Only source that fails SLL is parsed again with LL.
+	parser.AddErrorListener(sllErr)
+	parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 	result := parseFn(parser)
+	if sllErr.reported {
+		stream.Seek(0)
+		parser.SetTokenStream(stream)
+		parser.RemoveErrorListeners()
+		parser.AddErrorListener(errLis)
+		parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeLL)
+		result = parseFn(parser)
+	}
 	if !diag.Ok() {
 		var zeroT T
 		return zeroT, diag
 	}
 	return result, nil
+}
+
+// syntaxErrorFlag records whether a parse reported a syntax error.
+type syntaxErrorFlag struct {
+	*antlr.DefaultErrorListener
+	reported bool
+}
+
+func (f *syntaxErrorFlag) SyntaxError(
+	antlr.Recognizer,
+	any,
+	int,
+	int,
+	string,
+	antlr.RecognitionException,
+) {
+	f.reported = true
 }
 
 // errorListener collects syntax errors encountered during parsing.
