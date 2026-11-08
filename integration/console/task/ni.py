@@ -118,8 +118,6 @@ class NITask(TaskPage):
         Assert a channel form is set correctly
 
         :param name: Channel name or list of channel names to assert
-
-        Returns: None
         """
         names = [name] if isinstance(name, str) else name
 

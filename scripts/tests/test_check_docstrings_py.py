@@ -23,6 +23,21 @@ GOOGLE = '''def f(a: int) -> int:
     return a * 2
 '''
 
+ONE_LINE = '''def f() -> None:
+    """Stops.
+
+    Returns: None
+    """
+'''
+
+ESCAPED = r'''def f(a: str) -> None:
+    """Writes a, as in write("a\n").
+
+    Args:
+        a: The text.
+    """
+'''
+
 SPHINX = '''def f(a: int) -> int:
     """Doubles a.
 
@@ -56,6 +71,28 @@ class TestCheck:
                 line=7,
                 message="use Sphinx fields, not a Google Returns: section",
             ),
+        ]
+
+    def test_should_report_a_one_line_section(self, tmp_path: Path) -> None:
+        write(tmp_path, {"mod.py": ONE_LINE})
+        assert check(tmp_path) == [
+            Finding(
+                path="mod.py",
+                line=4,
+                message="use Sphinx fields, not a Google Returns: section",
+            )
+        ]
+
+    def test_should_report_the_source_line_after_an_escape(
+        self, tmp_path: Path
+    ) -> None:
+        write(tmp_path, {"mod.py": ESCAPED})
+        assert check(tmp_path) == [
+            Finding(
+                path="mod.py",
+                line=4,
+                message="use Sphinx fields, not a Google Args: section",
+            )
         ]
 
     def test_should_report_a_return_field(self, tmp_path: Path) -> None:

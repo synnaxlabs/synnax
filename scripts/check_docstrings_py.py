@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SKIPPED_DIRS = {".venv", "node_modules", "build", "dist", "__pycache__"}
-_SECTION = re.compile(r"^\s*(Args|Arguments|Returns|Raises|Yields):\s*$")
+_SECTION = re.compile(r"^\s*(Args|Arguments|Returns|Raises|Yields):(\s|$)")
 _RETURN = re.compile(r"^\s*:return:")
 
 
@@ -60,17 +60,18 @@ def check_file(path: Path, *, root: Path) -> list[Finding]:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", SyntaxWarning)
         tree = ast.parse(source, filename=str(path))
+    # Read the source lines, not the parsed value, whose escapes add or remove lines.
+    lines = source.split("\n")
     for doc in _docstrings(tree):
-        for offset, line in enumerate(str(doc.value).splitlines()):
+        span = lines[doc.lineno - 1 : doc.end_lineno]
+        for number, line in enumerate(span, start=doc.lineno):
             if m := _SECTION.match(line):
                 message = f"use Sphinx fields, not a Google {m.group(1)}: section"
             elif _RETURN.match(line):
                 message = "use :returns:, not :return:"
             else:
                 continue
-            findings.append(
-                Finding(path=rel, line=doc.lineno + offset, message=message)
-            )
+            findings.append(Finding(path=rel, line=number, message=message))
     return findings
 
 
