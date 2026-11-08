@@ -109,10 +109,9 @@ func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 }
 
 // MatchKeysFunc returns a Filter that restricts results to the keys that f returns.
-// Exec, Count, and Exists each call f with the open transaction, so f can read state
-// the transaction staged. Through a Snapshot that is not a Tx, Context.Tx is nil. A key
-// with no entry is a non-match, while a bare MatchKeys fails Exec with
-// query.ErrNotFound.
+// Exec, Count, and Exists each call f with the snapshot they read through, so under a
+// Tx, f can read state the transaction staged. A key with no entry is a non-match,
+// while a bare MatchKeys fails Exec with query.ErrNotFound.
 func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {

@@ -53,7 +53,11 @@ type Store interface {
 	) (Record, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
-	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
+	Read(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		key uuid.UUID,
+	) (msgpack.EncodedJSON, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 	// Copy duplicates the record stored under from into a new record stored under to,
@@ -294,10 +298,10 @@ func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
 // Read implements Store.
 func (s *Service[E]) Read(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key uuid.UUID,
 ) (msgpack.EncodedJSON, error) {
-	e, err := s.retrieve(ctx, tx, key)
+	e, err := s.retrieve(ctx, snap, key)
 	if err != nil {
 		return nil, err
 	}
@@ -396,13 +400,13 @@ func (s *Service[E]) Copy(
 
 func (s *Service[E]) retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key uuid.UUID,
 ) (e E, err error) {
 	err = s.table.NewRetrieve().
 		Where(gorp.MatchKeys[uuid.UUID, E](key)).
 		Entry(&e).
-		Exec(ctx, gorp.OverrideTx(s.cfg.DB, tx))
+		Exec(ctx, gorp.OverrideSnapshot(s.cfg.DB, snap))
 	if err != nil {
 		return e, errors.Wrapf(err, "%s config %s", s.cfg.Type, key)
 	}

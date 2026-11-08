@@ -168,6 +168,12 @@ func OverrideTx(
 	return lo.Ternary(override != nil, override, base)
 }
 
+// OverrideSnapshot returns the override snapshot if it is not nil. Otherwise, it
+// returns the base snapshot.
+func OverrideSnapshot(base, override Snapshot) Snapshot {
+	return lo.Ternary(override != nil, override, base)
+}
+
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a
 // new transaction, call gorp.OpenTx and pass it to the required queries
@@ -206,15 +212,14 @@ type Snapshot interface {
 type Context struct {
 	// Context is the underlying request-scoped context.
 	context.Context
-	// Tx is the transaction the query is operating under. It is nil when the query
-	// reads through a Snapshot that is not a Tx.
-	Tx Tx
+	// Snapshot is the snapshot the query reads through. Under a Tx, it is the Tx, so a
+	// read through it sees the writes of the transaction.
+	Snapshot Snapshot
 }
 
 // newContext returns the Context of a query that reads through snap.
 func newContext(ctx context.Context, snap Snapshot) Context {
-	tx, _ := snap.(Tx)
-	return Context{Context: ctx, Tx: tx}
+	return Context{Context: ctx, Snapshot: snap}
 }
 
 // txState owns per-tx ephemeral state and runs cleanups when the owning
