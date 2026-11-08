@@ -10,23 +10,20 @@
 // Package actions provides shared runtime primitives for action-based dispatch on
 // stateful services in Synnax. Each such service implements the same shape: a
 // discriminated union of actions reduced atomically against a stored entry, then
-// notified to subscribers so the cluster signals subsystem can broadcast the sequence
-// on a free channel. This package hosts the pieces of that shape that are independent
-// of the per-service action variant set: the Scoped envelope sent to subscribers, the
+// attached to the transaction that applied them, so the commit delivers them to the
+// change channels. This package hosts the pieces of that shape that are independent of
+// the per-service action variant set: the Scoped envelope that a commit delivers, the
 // DispatchRequest wire body accepted by the API layer, the State that owns the
-// observer, the monotonic sequence counter, the serialized dispatch execution, and the
-// Dispatcher that stamps and forwards each notification.
+// attachment and runs dispatches, and the Dispatcher that attaches each batch.
 package actions
 
 import (
 	"context"
 	"slices"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
-	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,22 +34,20 @@ func CoreOnlyError(what string) error {
 }
 
 // Scoped wraps an action sequence with the targeted entry key, the dispatch-batch
-// identifier supplied by the originating client, and a monotonic sequence number
-// assigned by the Core that handled the dispatch. Subscribers compare Seq against the
-// last value they applied for the same Key to decide whether the frame is fresh or a
-// stale echo. DispatchKey is carried verbatim so the originating client can match the
-// echo against the set of outstanding local replays it registered before sending, and
-// skip a redundant reduce when no foreign action interleaved.
-//
-// Seq is monotonic within a Core.
+// identifier supplied by the originating client, and the number of the commit that
+// applied it. Subscribers compare Seq against the last value they applied for the same
+// Key to decide whether the frame is fresh or a stale echo. DispatchKey is carried
+// verbatim so the originating client can match the echo against the set of outstanding
+// local replays it registered before sending, and skip a redundant reduce when no
+// foreign action interleaved.
 type Scoped[K comparable, A any] struct {
 	// Key identifies the entry the action sequence targets.
 	Key K `json:"key" msgpack:"key"`
 	// DispatchKey is the client-generated batch identifier carried verbatim
 	// from the originating dispatch onto every echo.
 	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
-	// Seq is the per-node monotonic sequence number stamped by the Dispatcher
-	// after the underlying transaction commits.
+	// Seq is the number of the commit that applied the actions. It grows with each
+	// commit of the Core, so it is monotonic for each Key.
 	Seq uint64 `json:"seq" msgpack:"seq"`
 	// Actions is the action sequence applied in order. Subscribers receive the
 	// sequence verbatim; reducing it is the consumer's responsibility.
@@ -83,34 +78,22 @@ type DispatchResponse[A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
-// State owns the per-service observer, monotonic sequence counter, and dispatch
-// execution. Construct it once in OpenService, hand Dispatcher() to each Writer,
-// expose subscriptions via OnChange, and execute dispatches through Dispatch. The
-// observer is always non-nil so writers do not need to nil-check it.
-//
-// Seq is in-memory and resets on process restart. Clients reload service state on
-// reconnect and reset their per-key high-water marks alongside it, so the reset is
-// observable but not destructive.
+// State attaches the action batches of one service to the transactions that apply
+// them, and runs the dispatches of the service. Construct it once in OpenService and
+// hand Dispatcher() to each Writer.
 type State[K comparable, A any] struct {
-	observer observe.Observer[Scoped[K, A]]
-	seq      atomic.Uint64
 	db       *gorp.DB
-	locks    xsync.KeyedMutex[K]
+	attached *gorp.Attachment[Scoped[K, A]]
 }
 
-// NewState constructs a State with a fresh observer and a zero sequence counter.
-// db backs Dispatch's transactions; it may be nil only when Dispatch is never
-// called.
+// NewState constructs a State on db.
 func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
-	return &State[K, A]{observer: observe.New[Scoped[K, A]](), db: db}
+	return &State[K, A]{db: db, attached: gorp.NewAttachment[Scoped[K, A]]()}
 }
 
-// Dispatch runs stage serialized per key, each call in its own transaction. After the
-// commit, it notifies acts, then the actions that stage returns, such as a set of a
-// field that only the Core computes. Two concurrent dispatches on the same key can
-// never interleave their read-reduce-write cycles, so neither can overwrite the other's
-// committed actions. When stage or the commit fails, nothing persists and no
-// notification is emitted.
+// Dispatch runs stage in a transaction of its own, then attaches acts and the actions
+// that stage returns, such as a set of a field that only the Core computes. When stage
+// or the commit fails, nothing persists and the commit delivers no actions.
 func (s *State[K, A]) Dispatch(
 	ctx context.Context,
 	key K,
@@ -118,74 +101,66 @@ func (s *State[K, A]) Dispatch(
 	acts []A,
 	stage func(gorp.Tx) ([]A, error),
 ) error {
-	return s.locks.Do(key, func() error {
-		var added []A
-		if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			added, err = stage(tx)
-			return err
-		}); err != nil {
+	return s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		added, err := stage(tx)
+		if err != nil {
 			return err
 		}
 		s.Dispatcher().
 			WithDispatchKey(dispatchKey).
-			Notify(ctx, key, slices.Concat(acts, added)...)
+			Attach(tx, key, slices.Concat(acts, added)...)
 		return nil
 	})
 }
 
-// OnChange subscribes the given handler to the action stream emitted by every
-// Dispatcher bound to this State. The handler runs synchronously inside the
-// Dispatcher.Notify call. The returned Disconnect removes the handler.
+// Of returns the action batches that the transaction of c attached, in the order that
+// it attached them, each with Seq set to c.Seq.
+func (s *State[K, A]) Of(c gorp.Commit) []Scoped[K, A] {
+	batches := slices.Clone(s.attached.Of(c))
+	for i := range batches {
+		batches[i].Seq = c.Seq
+	}
+	return batches
+}
+
+// OnChange calls handler with each batch that Of returns for each commit of the DB.
+// The handler runs on the committing goroutine, as the readers of gorp.DB.Observe do.
+// The returned Disconnect removes the handler.
 func (s *State[K, A]) OnChange(
 	handler func(context.Context, Scoped[K, A]),
 ) observe.Disconnect {
-	return s.observer.OnChange(handler)
+	return s.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+		for _, batch := range s.Of(c) {
+			handler(ctx, batch)
+		}
+	})
 }
 
-// Dispatcher returns a value-typed Dispatcher bound to this State. Embed the
-// returned value on a Writer; each call to Notify increments the shared
-// sequence counter and fans the resulting Scoped envelope out to every handler
-// registered via OnChange.
+// Dispatcher returns a Dispatcher that attaches batches for the State.
 func (s *State[K, A]) Dispatcher() Dispatcher[K, A] {
-	return Dispatcher[K, A]{observer: s.observer, seq: &s.seq}
+	return Dispatcher[K, A]{attached: s.attached}
 }
 
-// Dispatcher stamps an incrementing Seq onto each action sequence and forwards
-// the resulting Scoped envelope to the State's observer. Construct via
+// Dispatcher attaches action batches to transactions. Construct it via
 // State.Dispatcher; the zero value is not usable.
 type Dispatcher[K comparable, A any] struct {
-	observer    observe.Observer[Scoped[K, A]]
-	seq         *atomic.Uint64
+	attached    *gorp.Attachment[Scoped[K, A]]
 	dispatchKey string
 }
 
 // WithDispatchKey returns a copy of the Dispatcher that stamps dispatchKey onto each
-// envelope it emits, so the client that sent the write recognizes its own echo.
+// batch it attaches, so the client that sent the write recognizes its own echo.
 func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
 	d.dispatchKey = dispatchKey
 	return d
 }
 
-// Notify increments the bound sequence counter and emits a Scoped envelope to
-// the bound observer. Call Notify only after the underlying transaction
-// commits so subscribers never observe an action sequence whose effects are
-// not yet persisted.
-func (d Dispatcher[K, A]) Notify(ctx context.Context, key K, actions ...A) {
-	d.observer.Notify(ctx, Scoped[K, A]{
+// Attach attaches actions on the entry with key to tx, after the batches attached to
+// tx before. The commit of tx delivers them. It panics when tx is a DB.
+func (d Dispatcher[K, A]) Attach(tx gorp.Tx, key K, actions ...A) {
+	d.attached.Add(tx, Scoped[K, A]{
 		Key:         key,
 		DispatchKey: d.dispatchKey,
-		Seq:         d.seq.Add(1),
 		Actions:     actions,
 	})
-}
-
-// NotifyOnCommit calls Notify with the given actions once tx commits. It notifies
-// nothing when tx aborts, and notifies at once when tx is not a transaction.
-func (d Dispatcher[K, A]) NotifyOnCommit(
-	ctx context.Context,
-	tx gorp.Tx,
-	key K,
-	actions ...A,
-) {
-	gorp.OnCommit(tx, func() { d.Notify(ctx, key, actions...) })
 }

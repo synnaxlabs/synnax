@@ -102,8 +102,7 @@ func (w Writer) create(
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		p.Key,
 		NewCreateAction(CreatePayload{Panel: *p}),
@@ -159,8 +158,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		return err
 	}
 	for _, k := range moved {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetProjectAction(SetProjectPayload{Project: p}),
@@ -171,8 +169,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 
 func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
 	for _, k := range keys {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetGroupAction(SetGroupPayload{Group: g}),

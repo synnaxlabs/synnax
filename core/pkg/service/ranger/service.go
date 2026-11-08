@@ -107,20 +107,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Group:           cfg.Group,
 			Instrumentation: cfg.Instrumentation,
 		}),
+		// A label delete detaches the label from each range that holds it, which no
+		// range write does, so the service sets the labels that the range keeps.
+		OnDetach: func(_ context.Context, tx gorp.Tx, r Range) error {
+			s.state.Dispatcher().Attach(tx, r.Key, labelsAction(r.Labels))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// A label delete detaches the label from each range that holds it, which no range
-	// write does, so the service publishes the labels the range keeps.
-	detaches := s.table.ObserveDetaches()
-	disconnect := detaches.OnChange(func(ctx context.Context, r Range) {
-		s.state.Dispatcher().Notify(ctx, r.Key, labelsAction(r.Labels))
-	})
-	s.closer = append(s.closer, xio.CloserFunc(func() error {
-		disconnect()
-		return nil
-	}))
 	if cfg.Signals == nil {
 		return s, nil
 	}

@@ -213,8 +213,7 @@ func (w Writer) create(ctx context.Context, t *Task) error {
 		return err
 	}
 	t.Status = stat
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		t.Key,
 		NewCreateAction(CreatePayload{Task: *t}),
@@ -433,8 +432,7 @@ func (w Writer) copy(
 			return Task{}, err
 		}
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		newKey,
 		NewCreateAction(CreatePayload{Task: res}),

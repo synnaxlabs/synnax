@@ -10,6 +10,7 @@
 package signals_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"sync/atomic"
@@ -18,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -92,7 +94,7 @@ var _ = Describe("Actions", func() {
 				Channel: channelSvc,
 				Framer:  framerSvc,
 			}))
-			state = actions.NewState[uuid.UUID, action](nil)
+			state = actions.NewState[uuid.UUID, action](db)
 			name := nextActionsName()
 			MustOpen(sigs.PublishActions(
 				ctx,
@@ -146,14 +148,21 @@ var _ = Describe("Actions", func() {
 		) {
 			key := uuid.New()
 			acts := []action{{Type: "rename", Payload: "next-name"}}
-			state.Dispatcher().WithDispatchKey("dk-1").Notify(ctx, key, acts...)
+			var seq uint64
+			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+				seq = c.Seq
+			}))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().WithDispatchKey("dk-1").Attach(tx, key, acts...)
+				return nil
+			})).To(Succeed())
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(ConsistOf(ch.Key()))
 			Expect(decode(res)).To(ConsistOf(scoped{
 				Key:         key,
 				DispatchKey: "dk-1",
-				Seq:         1,
+				Seq:         seq,
 				Actions:     acts,
 			}))
 		})
@@ -161,9 +170,12 @@ var _ = Describe("Actions", func() {
 		It("Should publish increasing sequence numbers", func(ctx SpecContext) {
 			key := uuid.New()
 			d := state.Dispatcher()
-			d.Notify(ctx, key, action{Type: "a"})
-			d.Notify(ctx, key, action{Type: "b"})
-			d.Notify(ctx, key, action{Type: "c"})
+			for _, t := range []string{"a", "b", "c"} {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					d.Attach(tx, key, action{Type: t})
+					return nil
+				})).To(Succeed())
+			}
 			var seqs []uint64
 			for len(seqs) < 3 {
 				var res framer.StreamerResponse
@@ -172,7 +184,8 @@ var _ = Describe("Actions", func() {
 					seqs = append(seqs, sa.Seq)
 				}
 			}
-			Expect(seqs).To(Equal([]uint64{1, 2, 3}))
+			Expect(seqs[1]).To(Equal(seqs[0] + 1))
+			Expect(seqs[2]).To(Equal(seqs[1] + 1))
 		})
 	})
 })
