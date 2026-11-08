@@ -943,6 +943,75 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
+			"should stop a deleted task that is created again before its stop runs",
+			func(ctx SpecContext) {
+				var (
+					mu         sync.Mutex
+					stopped    = make(set.Set[task.Key])
+					configured = make(set.Set[task.Key])
+					blocked    atomic.Value
+					blocking   = make(chan struct{})
+					released   = make(chan struct{})
+					release    = sync.OnceFunc(func() { close(released) })
+				)
+				DeferCleanup(release)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						mu.Lock()
+						configured.Add(t.Key)
+						mu.Unlock()
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == blocked.Load() {
+									close(blocking)
+									<-released
+								}
+								mu.Lock()
+								defer mu.Unlock()
+								stopped.Add(t.Key)
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				blocker := newTask(embeddedRackKey(ctx))
+				recreated := newTask(embeddedRackKey(ctx))
+				for i, t := range []*task.Task{&blocker, &recreated} {
+					Expect(taskWriter.Create(ctx, t)).To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task: t.Key,
+						Type: "start",
+						Key:  fmt.Sprintf("cmd-%d", i),
+					})
+				}
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(configured.Contains(blocker.Key)).To(BeTrue())
+					g.Expect(configured.Contains(recreated.Key)).To(BeTrue())
+				}).Should(Succeed())
+				blocked.Store(blocker.Key)
+				Expect(taskWriter.Delete(ctx, blocker.Key, false)).To(Succeed())
+				Eventually(blocking).Should(BeClosed())
+				Expect(taskWriter.Delete(ctx, recreated.Key, false)).To(Succeed())
+				again := recreated
+				Expect(taskWriter.Create(ctx, &again)).To(Succeed())
+				release()
+				Eventually(func() set.Set[task.Key] {
+					mu.Lock()
+					defer mu.Unlock()
+					return stopped.Copy()
+				}).Should(Equal(set.New(blocker.Key, recreated.Key)))
+			},
+		)
+
+		It(
 			"should not resurrect the status of a deleted task",
 			func(ctx SpecContext) {
 				var (
