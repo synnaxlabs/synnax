@@ -386,6 +386,23 @@ var _ = Describe("Index", func() {
 				DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 			})
 
+			It(
+				"Should index writes through another open table of the type",
+				func(ctx SpecContext) {
+					other := DeferClose(openIndexedTable(
+						ctx,
+						idxDB,
+						gorp.NewLookupIndex(
+							"other", func(e *indexedEntry) string { return e.Name },
+						),
+					))
+					Expect(other.NewCreate().
+						Entry(&indexedEntry{ID: 20, Name: "delta"}).
+						Exec(ctx, idxDB)).To(Succeed())
+					Expect(nameIdx.Get(ctx, nil, "delta")).To(Equal([]int32{20}))
+				},
+			)
+
 			It("Should index newly created entries", func(ctx SpecContext) {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entry(&indexedEntry{ID: 10, Name: "gamma"}).
