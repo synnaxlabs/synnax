@@ -30,7 +30,9 @@ on:
         type: string
         required: false
       head:
-        description: "Commit to review, if not the head of the pull request"
+        description:
+          "Commit to review, if not the head of the pull request. A live review takes
+          the head instead when it is newer."
         type: string
         required: false
       base:
@@ -99,13 +101,22 @@ jobs:
             exit 1
           fi
           set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
-            jq -r --arg head "$HEAD" --arg base "$BASE" '
+          pull=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          # The relay names the pushed head, but a later push can reach the queue
+          # first. The API can also still serve the last head. So a live review takes
+          # the newer of the two.
+          current=$(jq -r .head.sha <<< "$pull")
+          if [ -n "$HEAD" ] && [ "$REPLAY" != true ] && [ "$HEAD" != "$current" ] &&
+            [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/$HEAD...$current" \
+              --jq .status)" != behind ]; then
+            HEAD=$current
+          fi
+          jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
               "base=\(if $base == "" then .base.sha else $base end)",
               "fork=\(.head.repo.full_name != .base.repo.full_name)",
               "key=\(.number):\(.base.ref)"
-            ' >> "$GITHUB_OUTPUT"
+            ' <<< "$pull" >> "$GITHUB_OUTPUT"
 
       - name: Check out the scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
