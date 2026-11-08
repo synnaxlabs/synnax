@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -142,19 +143,22 @@ var _ = Describe("Identity", func() {
 		"Should reject the data directory of a node other than node 1",
 		func(ctx SpecContext) {
 			Expect(db.Set(ctx, identityKey, aspenRecord(2, 2))).To(Succeed())
-			Expect(
-				cluster.OpenIdentity(ctx, db, "localhost:9090"),
-			).Error().
-				To(MatchError(
-					"the data directory belongs to node 2 of a cluster, and a Core no longer runs as a cluster",
-				))
+			Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"the data directory belongs to node 2 of a cluster",
+				)),
+			))
 		},
 	)
 
 	It("Should reject a data directory that lists other nodes", func(ctx SpecContext) {
 		Expect(db.Set(ctx, identityKey, aspenRecord(1, 1, 2, 3))).To(Succeed())
-		Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().To(MatchError(
-			"the data directory belongs to node 1 of a cluster, and a Core no longer runs as a cluster",
+		Expect(cluster.OpenIdentity(ctx, db, "localhost:9090")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"the data directory belongs to node 1 of a cluster",
+			)),
 		))
 	})
 })
