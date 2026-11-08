@@ -100,12 +100,13 @@ var _ = Describe("Layer", func() {
 	})
 
 	It("Should refuse a framer writer on a change channel", func(ctx SpecContext) {
-		layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
 		var ch channel.Channel
 		Expect(layer.Channel.NewRetrieve().
 			Where(channel.MatchNames("sy_range_set")).
 			Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, node.DB)).To(Succeed())
 		Expect(layer.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 			Keys:  channel.Keys{ch.Key()},
 			Start: telem.SecondTS,
