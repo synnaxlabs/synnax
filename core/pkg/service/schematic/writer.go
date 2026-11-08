@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -221,4 +222,40 @@ func (w Writer) Delete(
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// Apply applies a sequence of actions to the schematic with the given key and attaches
+// them to the transaction of w, so its commit broadcasts them with the dispatch key of
+// w. Snapshots are immutable except for Rename: returns validate.ErrValidation if the
+// target is a snapshot and any action other than Rename is included. Also returns a
+// validation error, and stores nothing, if the actions leave the schematic invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+		ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
+			if sch.Snapshot {
+				for _, a := range acts {
+					if a.Type != ActionTypeRename {
+						return sch, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							sch.Name,
+						)
+					}
+				}
+			}
+			reduced, err := Reduce(sch, acts...)
+			if err != nil {
+				return Schematic{}, err
+			}
+			if err = reduced.Validate(); err != nil {
+				return Schematic{}, err
+			}
+			return reduced, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }

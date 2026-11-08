@@ -106,20 +106,6 @@ func (s *Service) Changes(
 // transactions.
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
-// Apply applies the actions to the label with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create or the
-// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
-// label has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.dispatcher.Dispatch(
-		w.tx,
-		key,
-		acts,
-		func(gorp.Tx) ([]Action, error) { return nil, w.apply(ctx, key, acts) },
-	)
-}
-
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{

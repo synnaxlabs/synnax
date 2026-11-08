@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -157,45 +156,6 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
-}
-
-// Apply applies a sequence of actions to the schematic with the given key and attaches
-// them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. Snapshots are immutable except for Rename: returns validate.ErrValidation if the
-// target is a snapshot and any action other than Rename is included. Also returns a
-// validation error, and stores nothing, if the actions leave the schematic invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	return w.dispatcher.Dispatch(
-		w.tx,
-		key,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-				ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-					if sch.Snapshot {
-						for _, a := range acts {
-							if a.Type != ActionTypeRename {
-								return sch, errors.Wrapf(
-									validate.ErrValidation,
-									"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-									a.Type,
-									key,
-									sch.Name,
-								)
-							}
-						}
-					}
-					reduced, err := Reduce(sch, acts...)
-					if err != nil {
-						return Schematic{}, err
-					}
-					if err = reduced.Validate(); err != nil {
-						return Schematic{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting schematics in
