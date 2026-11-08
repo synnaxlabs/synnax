@@ -40,6 +40,15 @@ var _ = Describe("Errors", func() {
 			Expect(parent).To(MatchError(ContainSubstring("title.level: cat")))
 			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
 		})
+		It("Should match the error at the path", func() {
+			base := errors.Wrap(validate.ErrValidation, "cat")
+			pathed := validate.PathedError(
+				validate.PathedError(base, "first"),
+				"parent",
+			)
+			Expect(pathed).To(MatchError(validate.ErrValidation))
+			Expect(pathed).To(MatchError(base))
+		})
 		It("Should return nil when the error is nil", func() {
 			Expect(validate.PathedError(nil, "field")).To(Succeed())
 		})
