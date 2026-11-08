@@ -129,6 +129,15 @@ class TestClient:
         )
         assert client.tables.retrieve(ranges=[rng.key]) == []
 
+    def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should filter the tables by group."""
+        made = client.tables.create(name="Ungrouped", project=project.key)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project.key))
+        assert client.tables.retrieve(groups=g.key) == []
+        ungrouped = client.tables.retrieve(projects=project.key, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.tables.retrieve(projects=project.key, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the tables that match the where and the other filters."""
         a = client.tables.create(name="A", project=project.key)

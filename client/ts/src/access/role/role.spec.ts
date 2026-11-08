@@ -68,16 +68,12 @@ describe("role", () => {
       });
 
       // Retrieve only internal roles (built-in system roles)
-      const internalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: true } },
-      });
+      const internalRoles = await client.access.roles.retrieve({ internal: true });
       expect(internalRoles.length).toBeGreaterThan(0);
       expect(internalRoles.every((r) => r.internal === true)).toBe(true);
       expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
 
-      const nonInternalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: false } },
-      });
+      const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
     });
