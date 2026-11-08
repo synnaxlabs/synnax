@@ -41,8 +41,3 @@ func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 		return resource.ParseUUIDKey(id)
 	})
 }
-
-// ResourceIDsFromSymbols returns the resource IDs of the symbols.
-func ResourceIDsFromSymbols(symbols []Symbol) []resource.ID {
-	return lo.Map(symbols, func(s Symbol, _ int) resource.ID { return s.ResourceID() })
-}
