@@ -306,24 +306,38 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req AliasedRetrieveRequest,
 ) ([]channel.Channel, error) {
+	if !namesByName(req.Request.Where) {
+		return s.match(ctx, snap, req, bind.Filter(snap, channel.Match))
+	}
+	res, err := s.match(ctx, snap, req, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// match returns the channels that req selects and that filter keeps. A nil filter keeps
+// every channel.
+func (s *Service) match(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req AliasedRetrieveRequest,
+	filter channel.Filter,
+) ([]channel.Channel, error) {
 	r := req.Request
-	allowed := bind.Filter(snap, channel.Match)
 	if req.RangeKey == nil || r.SearchTerm == "" {
 		var res []channel.Channel
 		q, err := ApplyRetrieve(r, s.internal.NewRetrieve().Entries(&res))
 		if err != nil {
 			return nil, err
 		}
-		if !namesByName(r.Where) {
-			if err = q.Where(allowed).Exec(ctx, snap); err != nil {
-				return nil, err
-			}
-			return res, nil
+		if filter != nil {
+			q = q.Where(filter)
 		}
 		if err = q.Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -332,6 +346,9 @@ func (s *Service) retrieve(
 	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
+	}
+	if filter != nil {
+		q = q.Where(filter)
 	}
 	var limit int
 	if r.Limit != nil {
@@ -344,7 +361,7 @@ func (s *Service) retrieve(
 	rng := *req.RangeKey
 	return s.alias.NewReader(snap).SearchChannels(
 		ctx,
-		q.Where(allowed),
+		q,
 		rng,
 		r.SearchTerm,
 		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },

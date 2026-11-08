@@ -580,6 +580,44 @@ var _ = Describe("Service", func() {
 					),
 				).To(Equal([]channel.Key{byName.Key()}))
 			})
+
+			It(
+				"Should deny a channel named by name that the subject cannot retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					reader := MustSucceed(rbactestutil.CreateUser(
+						ctx,
+						db,
+						rbacSvc,
+						userSvc,
+						user.User{Name: "reader-" + uuid.New().String()},
+					))
+					grantOn(
+						ctx,
+						reader.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						byAlias.ResourceID(),
+						resource.ID{Type: resource.TypeRangeAlias},
+					)
+					Expect(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{
+								Where: &channel.Where{Name: &filter.String{
+									In: []string{byName.Name, byAlias.Name},
+								}},
+								SearchTerm: term,
+							},
+							RangeKey: &rng.Key,
+						},
+					)).Error().To(MatchError(access.Denied(
+						reader.ResourceID(),
+						access.ActionRetrieve,
+						byName.ResourceID(),
+					).Error()))
+				},
+			)
 		})
 
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
