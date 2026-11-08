@@ -67,6 +67,9 @@ struct MockSlaveInfo {
     /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief abort codes for objects that reject SDO reads, keyed by index and
+    /// sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
@@ -502,7 +505,13 @@ public:
         // SOEM sends no mailbox request to a slave whose last read state is below
         // PRE-OP.
         if ((this->context.slavelist[slave].state & 0x0F) < EC_STATE_PRE_OP) return 0;
-        const auto &objects = this->slave_infos.at(slave - 1).sdo_objects;
+        const auto &info = this->slave_infos.at(slave - 1);
+        if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
+            abort != info.sdo_read_aborts.end()) {
+            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            return 0;
+        }
+        const auto &objects = info.sdo_objects;
         const auto it = objects.find({index, sub_index});
         if (it == objects.end()) {
             this->push_sdo_abort(slave, index, sub_index, 0x06020000);
