@@ -72,10 +72,10 @@ func DisableObservation() OpenOption {
 }
 
 // WithObserver sets the observer that delivers each commit to OnChange handlers. The DB
-// holds a lock while it notifies the observer, so handlers see commits in the order
-// they apply. A handler that the observer runs inline must not write to the DB. The
-// default observer runs the handlers on the committing goroutine, before Commit
-// returns, and gives no order across goroutines.
+// holds a lock from each apply through its notify, so handlers see commits in the order
+// they apply, and concurrent commits do not share a sync. A handler that the observer
+// runs inline must not write to the DB. The default observer runs the handlers on the
+// committing goroutine, before Commit returns, and gives no order across goroutines.
 func WithObserver(observer observe.Observer[kv.TxReader]) OpenOption {
 	return func(o *openOptions) {
 		o.observer = observer
