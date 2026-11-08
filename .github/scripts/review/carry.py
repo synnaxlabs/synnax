@@ -12,9 +12,8 @@ change, as after a merge of the base, so the head needs no review of its own."""
 
 import json
 import re
-from typing import Any
 
-from review.post import GH, Target, reviewed, write
+from review.post import GH, Target, newest, recheck, reviewed, write
 
 LISTED = 300
 """The most files that a comparison of two commits lists."""
@@ -26,14 +25,15 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     """Completes the check run of the target with the review of the newest commit that
     the bot reviewed, when that review succeeded for the key and the diff from the base
     to that commit is the diff to the head. The line numbers of the two diffs can
-    differ. Returns whether the head got the review.
+    differ. The head scores 5/5 when a member dismissed every finding of the review.
+    Returns whether the head got the review.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
     old = next(iter(reviewed(t, gh)), None)
     if old is None or old == t.head:
         return False
-    run = _newest(t, gh, old, key)
+    run = newest(t, gh, old, key)
     if run is None or run["conclusion"] != "success":
         return False
     before = _diff(t, gh, old)
@@ -49,20 +49,8 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
         output["text"] = run["output"]["text"]
     done = {"status": "completed", "conclusion": "success", "output": output}
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    recheck(t, gh)
     return True
-
-
-def _newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
-    out = gh(
-        "api",
-        f"repos/{t.repo}/commits/{commit}/check-runs"
-        "?check_name=Sedosaur%20Review&filter=all&per_page=100",
-        "--jq",
-        ".check_runs[] | tojson",
-    )
-    runs = [json.loads(line) for line in out.splitlines() if line]
-    ours = [r for r in runs if r["app"]["slug"] == t.bot and r["external_id"] == key]
-    return max(ours, key=lambda r: r["started_at"], default=None)
 
 
 def _diff(t: Target, gh: GH, commit: str) -> list[tuple[str, ...]] | None:
