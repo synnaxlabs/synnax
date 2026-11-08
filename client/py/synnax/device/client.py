@@ -14,8 +14,7 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import group as group_
-from synnax import rack as rack_
+from synnax import group as group_, rack as rack_
 from synnax.device.types_gen import (
     Device,
     Key,

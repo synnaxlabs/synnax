@@ -15,8 +15,7 @@ from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, parse, post, reviewed
-from review import gh as call_gh
+from review import Finding, Review, Target, gh as call_gh, parse, post, reviewed
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(

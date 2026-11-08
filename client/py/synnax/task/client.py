@@ -12,8 +12,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Any, Literal, TypeVar, overload, override
-from typing import Protocol as BaseProtocol
+from typing import Any, Literal, Protocol as BaseProtocol, TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -21,13 +20,7 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import rack as rack_
-from synnax import ranger
-from synnax.device import Client as DeviceClient
-from synnax.device import Device
-from synnax.framer import Client as FrameClient
-from synnax.rack import Client as RackClient
-from synnax.rack import Rack
+from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
 from synnax.task.types_gen import (
     Command,
@@ -106,7 +99,7 @@ class Task:
     config_hash: str
     snapshot: bool
     status: Status | None
-    _cached_frame_client: FrameClient | None
+    _cached_frame_client: framer.Client | None
 
     def __init__(
         self,
@@ -120,7 +113,7 @@ class Task:
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
-        _frame_client: FrameClient | None = None,
+        _frame_client: framer.Client | None = None,
     ):
         self.key = uuid4() if key is None else key
         self.rack = rack
@@ -134,7 +127,7 @@ class Task:
         self._cached_frame_client = _frame_client
 
     @property
-    def _frame_client(self) -> FrameClient:
+    def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or "
@@ -165,7 +158,9 @@ class Task:
     def resource_id(self) -> ID:
         return resource_id(self.key)
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         Default implementation for base Task class does nothing and returns None.
@@ -252,7 +247,9 @@ class Protocol(BaseProtocol):
 
     def set_internal(self, task: Task) -> None: ...
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         This method can be overridden by tasks that need to synchronize
@@ -333,19 +330,19 @@ class JSONConfigMixin[C: BaseModel](Protocol):
 
 class Client:
     _client: UnaryClient
-    _frame_client: FrameClient
-    _default_rack: Rack | None
-    _racks: RackClient
-    _device_client: DeviceClient
+    _frame_client: framer.Client
+    _default_rack: rack_.Rack | None
+    _racks: rack_.Client
+    _device_client: device_.Client
     instrumentation: Instrumentation = NOOP
 
     def __init__(
         self,
         *,
         client: UnaryClient,
-        frame_client: FrameClient,
-        rack_client: RackClient,
-        device_client: DeviceClient,
+        frame_client: framer.Client,
+        rack_client: rack_.Client,
+        device_client: device_.Client,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client

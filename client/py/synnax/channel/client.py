@@ -15,8 +15,7 @@ from uuid import UUID
 from pydantic import PrivateAttr
 
 from freighter import UnaryClient
-from synnax import framer, node
-from synnax import group as group_
+from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
     Params,

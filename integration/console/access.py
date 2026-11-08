@@ -23,8 +23,7 @@ NOT implemented in Console UI (no helpers for these):
 
 import time
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.base import ResourceClient

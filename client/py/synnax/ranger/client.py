@@ -18,14 +18,11 @@ from uuid import UUID
 import numpy as np
 from pydantic import BaseModel, PrivateAttr
 
-import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer, label
-from synnax.channel.retrieve import Retriever as ChannelRetriever
+from synnax import channel, framer, label
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import alias as alias_
-from synnax.ranger import kv
+from synnax.ranger import alias as alias_, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Key,
@@ -47,8 +44,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util import request_where, returns_one, sole
-from x import color as color_
-from x import filter
+from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
 from x.params import require_named_params
@@ -56,8 +52,7 @@ from x.uuid import NIL
 
 # synnax.task imports this module through its range field.
 if TYPE_CHECKING:
-    from synnax.task import Client as TaskClient
-    from synnax.task import Task
+    from synnax.task import Client as TaskClient, Task
 
 _RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -249,7 +244,7 @@ class Range(Payload):
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    _channels: ChannelRetriever | None = PrivateAttr(None)
+    _channels: channel.Retriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
@@ -273,7 +268,7 @@ class Range(Payload):
         labels: Sequence[label.Key] = (),
         parent: Key | Payload | None = None,
         _frame_client: framer.Client | None = None,
-        _channel_retriever: ChannelRetriever | None = None,
+        _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
         _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
@@ -409,7 +404,7 @@ class Range(Payload):
         return self._cached_label_client
 
     @property
-    def _channel_retriever(self) -> ChannelRetriever:
+    def _channel_retriever(self) -> channel.Retriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
@@ -517,7 +512,7 @@ class Range(Payload):
 
 class Client:
     _frame_client: framer.Client
-    _channels: ChannelRetriever
+    _channels: channel.Retriever
     _retriever: Retriever
     _writer: Writer
     _unary_client: UnaryClient
@@ -532,7 +527,7 @@ class Client:
         frame_client: framer.Client,
         writer: Writer,
         retriever: Retriever,
-        channel_retriever: ChannelRetriever,
+        channel_retriever: channel.Retriever,
         signals: Registry,
         tasks: TaskClient,
         labels: label.Client,
