@@ -20,9 +20,6 @@ import (
 
 // RetrieveGroupSymbols returns the resource ID of every symbol in the group identified
 // by key, reading through snap. It returns query.ErrNotFound when no group has key.
-//
-// Callers that go on to write must pass the transaction they write under, so the IDs
-// they act on and the IDs the write touches come from one snapshot.
 func (s *Service) RetrieveGroupSymbols(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -46,16 +43,14 @@ func (s *Service) RetrieveGroupSymbols(
 	}), nil
 }
 
-// DeleteGroup deletes the symbols that ids names, then the group identified by key.
-// Pass the ids RetrieveGroupSymbols returned under tx, so the symbols removed and the
-// symbols the caller enforced access on come from one snapshot. It returns a validation
-// error when the group still holds anything after the symbols are deleted.
-func (s *Service) DeleteGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	key group.Key,
-	ids []resource.ID,
-) error {
+// DeleteGroup deletes the group identified by key and every symbol in it. It returns
+// query.ErrNotFound when no group has key, and a validation error when the group holds
+// anything other than symbols.
+func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) error {
+	ids, err := s.RetrieveGroupSymbols(ctx, tx, key)
+	if err != nil {
+		return err
+	}
 	keys, err := KeysFromResourceIDs(ids)
 	if err != nil {
 		return err

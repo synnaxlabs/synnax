@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // createGroup creates a symbol group, under parent when one is given.
@@ -63,19 +62,11 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 }
 
 var _ = Describe("DeleteGroup", func() {
-	// The api reads the members through the same tx it deletes under, which every spec
-	// below mirrors.
-	deleteGroup := func(ctx SpecContext, tx gorp.Tx, key group.Key) error {
-		GinkgoHelper()
-		return svc.DeleteGroup(ctx, tx, key, MustSucceed(
-			svc.RetrieveGroupSymbols(ctx, tx, key),
-		))
-	}
 	It("Should delete the group and every symbol in it", func(ctx SpecContext) {
 		g := createGroup(ctx, nil)
 		sym := createSymbol(ctx, g)
 		tx := DeferClose(db.OpenTx())
-		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
 		Expect(svc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
@@ -84,7 +75,7 @@ var _ = Describe("DeleteGroup", func() {
 	It("Should delete an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, nil)
 		tx := DeferClose(db.OpenTx())
-		Expect(deleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
 	})
 	It(
 		"Should refuse to delete a group that holds another group",
@@ -92,22 +83,16 @@ var _ = Describe("DeleteGroup", func() {
 			g := createGroup(ctx, nil)
 			createGroup(ctx, &g)
 			tx := DeferClose(db.OpenTx())
-			Expect(deleteGroup(ctx, tx, g.Key)).To(MatchError(
+			Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(MatchError(
 				ContainSubstring(
 					"cannot delete group deletable because it is not empty",
 				),
 			))
 		},
 	)
-	It("Should reject an id no symbol key can come from", func(ctx SpecContext) {
-		g := createGroup(ctx, nil)
+	It("Should return not found for a missing group", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		Expect(svc.DeleteGroup(ctx, tx, g.Key, []resource.ID{
-			{Type: resource.TypeSchematicSymbol, Key: "not-a-uuid"},
-		})).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`key "not-a-uuid"`)),
-		))
+		Expect(svc.DeleteGroup(ctx, tx, uuid.New())).To(MatchError(query.ErrNotFound))
 	})
 })
 

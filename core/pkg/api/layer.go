@@ -598,6 +598,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
+	// Frame delete changes Cesium data, not Gorp records, so it checks its own access.
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
 	t.FrameRead.BindHandler(l.Framer.Read)
 
@@ -674,24 +675,18 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCopy.BindHandler(bind.Write(l.binder, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
-	)
+	t.SchematicSymbolCreate.BindHandler(bind.Write(l.binder, l.Symbol.Create))
 	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
-	t.SchematicSymbolDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
-	)
-	t.SchematicSymbolRename.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
-	)
+	t.SchematicSymbolDelete.BindHandler(bind.Write(l.binder, l.Symbol.Delete))
+	t.SchematicSymbolRename.BindHandler(bind.Write(l.binder, l.Symbol.Rename))
 	t.SchematicSymbolExportGroup.BindHandler(
 		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
 	t.SchematicSymbolImportGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
+		bind.Write(l.binder, l.Symbol.ImportGroup),
 	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
+		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
 
 	// LINE PLOT
@@ -762,10 +757,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
-	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
+	t.ViewCreate.BindHandler(bind.Write(l.binder, l.View.Create))
 	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
-	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
-	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
+	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
+	t.ViewRename.BindHandler(bind.Write(l.binder, l.View.Rename))
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -781,7 +776,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ImEx.Import))
+	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
 	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
@@ -898,7 +893,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
 		Symbol: cfg.Service.Schematic.Symbol,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -967,13 +961,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		ImEx: cfg.Service.ImEx,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

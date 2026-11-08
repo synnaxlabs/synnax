@@ -14,14 +14,30 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	apiview "github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
 
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
@@ -30,6 +46,14 @@ func createView(ctx SpecContext) view.View {
 		return svc.View.NewWriter(tx).Create(ctx, &v)
 	})).To(Succeed())
 	return v
+}
+
+// exists returns whether a view has key.
+func exists(ctx SpecContext, key view.Key) bool {
+	GinkgoHelper()
+	return MustSucceed(svc.View.NewRetrieve().
+		Where(view.MatchKeys(key)).
+		Exists(ctx, nil))
 }
 
 func retrieveView(ctx SpecContext, key view.Key) view.View {
@@ -42,15 +66,61 @@ func retrieveView(ctx SpecContext, key view.Key) view.View {
 	return v
 }
 
+var _ = Describe("Create", func() {
+	newView := func() view.View {
+		return view.View{Variant: view.RangeView{Name: "Created"}}.WithKey(uuid.New())
+	}
+	It("Should create the view with create on views", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := newView()
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, resource.ID{
+			Type: resource.TypeView,
+		})
+		res := MustSucceed(create(AuthedCtx(ctx, u), apiview.CreateRequest{
+			Views: []view.View{v},
+		}))
+		Expect(res.Views).To(HaveLen(1))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Created"))
+	})
+	It("Should reject the request without create on the view", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := newView()
+		Expect(create(AuthedCtx(ctx, u), apiview.CreateRequest{
+			Views: []view.View{v},
+		})).Error().To(denied(u, access.ActionCreate, v.ResourceID()))
+		Expect(exists(ctx, v.GorpKey())).To(BeFalse())
+	})
+})
+
+var _ = Describe("Delete", func() {
+	It("Should delete the view with delete on it", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionDelete, v.ResourceID())
+		MustSucceed(del(AuthedCtx(ctx, u), apiview.DeleteRequest{
+			Keys: []view.Key{v.GorpKey()},
+		}))
+		Expect(exists(ctx, v.GorpKey())).To(BeFalse())
+	})
+	It("Should reject the request without delete on the view", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		Expect(del(AuthedCtx(ctx, u), apiview.DeleteRequest{
+			Keys: []view.Key{v.GorpKey()},
+		})).Error().To(denied(u, access.ActionDelete, v.ResourceID()))
+		Expect(exists(ctx, v.GorpKey())).To(BeTrue())
+	})
+})
+
 var _ = Describe("Rename", func() {
 	It("Should rename the view when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		MustSucceed(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		)).Error().ToNot(HaveOccurred())
+		))
 		renamed := retrieveView(ctx, v.GorpKey())
 		Expect(renamed.Base().Name).To(Equal("After"))
 		Expect(renamed.Type()).To(Equal(view.TypeRange))
@@ -59,7 +129,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantUpdateOn(ctx, u.ResourceID(), v.ResourceID())
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		Expect(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
@@ -69,7 +139,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		key := uuid.New()
 		grantUpdateOn(ctx, u.ResourceID(), view.ResourceID(key))
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		Expect(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: key, Name: "After"},
 		)).Error().To(MatchError(query.ErrNotFound))
@@ -77,10 +147,10 @@ var _ = Describe("Rename", func() {
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
-		Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Rename)(
+		Expect(rename(
 			AuthedCtx(ctx, u),
 			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		)).Error().To(MatchError(access.ErrDenied))
+		)).Error().To(denied(u, access.ActionUpdate, v.ResourceID()))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })
