@@ -15,9 +15,8 @@ import {
   type ReactFlowState,
 } from "@xyflow/react";
 
+import { type Diagram } from "@/vis/diagram";
 import { type diagram } from "@/vis/diagram/aether";
-
-import { type Diagram } from ".";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);

@@ -89,9 +89,8 @@ export type CrudeFrame =
  * A horizontal frame typically has a single array (in which case, it's also 'square'),
  * although it can have multiple series if all the series are continuous in time.
  *
- * - Vertical frames are strongly aligned and have on or more channels, but ONLY a
- *   single
- * array per channel. Synnax requires that all frames written to the database are
+ * - Vertical frames are strongly aligned and have one or more channels, but ONLY a
+ * single array per channel. Synnax requires that all frames written to the database are
  * vertical.
  *
  * - Square frames are both horizontal and vertical. Only a frame with a single channel
@@ -192,7 +191,7 @@ export class Frame {
 
   /**
    * @returns the unique channel names if the frame is keyed by channel name, and throws
-   * an otherwise.
+   * an error otherwise.
    */
   get uniqueNames(): string[] {
     return unique.unique(this.names);

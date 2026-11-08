@@ -25,10 +25,9 @@ export interface SplitProps extends Omit<
   children: [ReactNode, ReactNode];
   /**
    * The fraction of the container occupied by the first pane, as a decimal between 0
-   * and
-   * 1. Acts as the source of truth whenever the handle is not being actively dragged;
-   * while a drag is in progress the panes render their transient drag ratio instead.
-   * Defaults to 0.5.
+   * and 1. Acts as the source of truth whenever the handle is not being actively
+   * dragged; while a drag is in progress the panes render their transient drag ratio
+   * instead. Defaults to 0.5.
    */
   size?: number;
   /** The smallest size, in pixels, either pane can be resized to. Defaults to 100. */

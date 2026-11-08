@@ -303,7 +303,7 @@ export abstract class Node implements Component {
   /** Diffs the keys read this pass against the prior subscriptions, updating both this
    * node's {@link ctxSubscriptions} and each provider's {@link ctxSubscribers}. Re-runs
    * every pass so conditional reads subscribe/unsubscribe as they appear and disappear.
-   * */
+   */
   private reconcileSubscriptions(reads: Map<string, Node | null>): void {
     for (const [key, oldProvider] of this.ctxSubscriptions) {
       const stillReading = reads.has(key);

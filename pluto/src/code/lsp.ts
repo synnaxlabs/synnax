@@ -27,7 +27,7 @@ export interface LSPMessage {
 /** LSPStream is the bidirectional message stream a language server is reached through.
  * It is structurally a freighter stream of LSPMessages, so a concrete
  * `Stream<lspMessageZ, lspMessageZ>` satisfies it without code depending on the schema.
- * */
+ */
 export interface LSPStream {
   receive: () => Promise<LSPMessage>;
   send: (req: LSPMessage) => Promise<void>;

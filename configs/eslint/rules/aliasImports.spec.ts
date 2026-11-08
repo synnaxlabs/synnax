@@ -70,6 +70,7 @@ tester.run("alias-imports", aliasImports, {
     relative('import { c } from "./c";', 'import { c } from "@/a/c";', "@/a/c"),
     relative('import { d } from "../d/d";', 'import { d } from "@/d/d";', "@/d/d"),
     relative('import "./b.css";', 'import "@/a/b.css";', "@/a/b.css"),
+    relative('import { a } from ".";', 'import { a } from "@/a";', "@/a"),
     relative('export * from "./c";', 'export * from "@/a/c";', "@/a/c"),
     relative('export { c } from "./c";', 'export { c } from "@/a/c";', "@/a/c"),
     relative('void import("./c");', 'void import("@/a/c");', "@/a/c"),

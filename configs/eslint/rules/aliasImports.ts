@@ -13,7 +13,7 @@ import path from "path";
 
 import { contains, findSrc } from "./packageSrc";
 
-const RELATIVE = /^\.\.?\//;
+const RELATIVE = /^\.\.?(\/|$)/;
 // Plain Node runs a module that imports with a .ts extension, and Node does not know
 // the alias.
 const TS_EXTENSION = /\.tsx?$/;

@@ -28,7 +28,7 @@ export interface TextMateRule {
 /** LanguageTheme declares how a language's tokens are colored, split by editor theme
  * (`dark`/`light`). `semanticTokenColors` maps semantic token types to colors;
  * `textMateRules` colors raw TextMate scopes for languages without a semantic provider.
- * */
+ */
 export interface LanguageTheme {
   semanticTokenColors?: {
     dark: Record<string, string>;

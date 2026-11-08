@@ -1098,9 +1098,8 @@ describe("schematic reducer inverses", () => {
           n1: cfg({ variant: "tank", label: { level: "p" }, strokeColor: "#ff0000" }),
         },
       });
-      // Each dispatch carries the FULL form values, matching IndividualConfig's
-      // onChange: ({ values }) => dispatch(schematic.setConfig({ key, config: values
-      // })).
+      // Each dispatch carries the FULL form values, as the onChange of IndividualConfig
+      // does: ({ values }) => dispatch(schematic.setConfig({ key, config: values })).
       const r1 = schematic.reduceAll(initial, [
         schematic.setConfig({
           key: "n1",

@@ -75,7 +75,7 @@ export type MainMessage =
 
 /** Send-only channel handed to individual aether components. Takes one
  * {@link WorkerMessage} at a time; the implementation decides when it reaches the wire.
- * */
+ */
 export interface Sender {
   send: (value: WorkerMessage, transfer?: Transferable[]) => void;
 }
