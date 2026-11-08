@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ranger.client import Client, Range
+from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Cursor,
     Key,
@@ -28,6 +29,7 @@ __all__ = [
     "Order",
     "Range",
     "Ref",
+    "Retriever",
     "Where",
     "WhereInput",
     "WindowRef",

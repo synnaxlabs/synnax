@@ -11,18 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel, ranger
-from synnax import group as group_
-from synnax import project as project_
+from synnax import channel, group as group_, project as project_, ranger
 from synnax.resource import ID
-from x import color as color_
-from x import filter, spatial, text
+from x import color as color_, filter, spatial, text
 from x.filter import shorthand
 
 AXIS_KEY_X1: Literal["x1"] = "x1"

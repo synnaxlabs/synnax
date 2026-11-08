@@ -328,7 +328,7 @@ class TestChannel:
         res = client.channels.retrieve(
             [a.name, b.name, c.name],
             where=sy.channel.Where(
-                not_=sy.channel.Where(key=filter.Set[int](eq=c.key))
+                not_=sy.channel.Where(key=filter.Set[sy.channel.Key](eq=c.key))
             ),
             data_types=["float32"],
         )
@@ -680,7 +680,7 @@ class TestChannelRetrieveFilters:
         return [ch.name for ch in channels]
 
     @staticmethod
-    def keys(channels: list[sy.Channel]) -> set[int]:
+    def keys(channels: list[sy.Channel]) -> set[sy.channel.Key]:
         return {ch.key for ch in channels}
 
     def test_search_term(

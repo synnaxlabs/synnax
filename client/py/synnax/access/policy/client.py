@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -39,7 +38,7 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 _RESOURCE_TYPE = ID(type="policy")
@@ -107,7 +106,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Policy: ...
@@ -124,7 +123,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         order: Order | None = ...,
@@ -136,7 +135,7 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         order: Order | None = None,
@@ -173,7 +172,7 @@ class Client:
             beside a limit.
         """
         single = returns_one(fields, one, limit)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
@@ -184,6 +183,6 @@ class Client:
         res = self._client.send("/access/policy/retrieve", req, RetrieveResponse)
         return sole("policy", req, res.policies) if single else res.policies
 
-    def delete(self, keys: UUID | list[UUID]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/policy/delete", req, Empty)

@@ -12,9 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_
-from synnax import project as project_
-from synnax import ranger
+from synnax import group as group_, project as project_, ranger
 from synnax.panel.types_gen import (
     Cursor,
     Key,

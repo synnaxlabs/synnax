@@ -10,7 +10,7 @@
 import re
 from collections.abc import Callable
 from typing import cast, override
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import numpy as np
 import pydantic
@@ -37,7 +37,7 @@ class TestWhere:
             name=sy.filter.String(eq="a"),
             labels=[key],
             or_=[
-                ranger.Where(key=sy.filter.Set[UUID](in_=[key])),
+                ranger.Where(key=sy.filter.Set[ranger.Key](in_=[key])),
                 ranger.Where(name=sy.filter.String(starts_with="b")),
             ],
         )

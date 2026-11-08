@@ -25,8 +25,7 @@ from synnax.label.types_gen import (
 )
 from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
-from x import color as color_
-from x import filter
+from x import color as color_, filter
 from x.lists import normalize
 
 

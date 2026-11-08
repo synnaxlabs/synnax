@@ -47,7 +47,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[str]
+    keys: list[Key]
 
 
 _SET_ENDPOINT = "/status/set"
@@ -251,7 +251,7 @@ class Client:
         """
         self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
-    def delete(self, keys: str | list[str]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         """Delete statuses by their keys.
 
         This operation is idempotent - deleting a non-existent status will not

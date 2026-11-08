@@ -43,7 +43,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _RetrieveResponse(BaseModel):
@@ -71,7 +71,7 @@ class Client:
 
     @overload
     def create(
-        self, *, key: int = 0, name: str = "", group: group_.Key | None = None
+        self, *, key: Key = 0, name: str = "", group: group_.Key | None = None
     ) -> Rack: ...
 
     @overload
@@ -84,7 +84,7 @@ class Client:
         self,
         racks: Rack | list[Rack] | None = None,
         *,
-        key: int = 0,
+        key: Key = 0,
         name: str = "",
         group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
@@ -101,7 +101,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 

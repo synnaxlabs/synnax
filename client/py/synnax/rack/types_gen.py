@@ -11,13 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_
-from synnax import status as status_
+from synnax import group as group_, status as status_
 from synnax.access import role as role_
 from synnax.resource import ID
 from x import filter

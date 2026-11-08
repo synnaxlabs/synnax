@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -36,16 +35,16 @@ class _RetrieveResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class _ChangeUsernameRequest(BaseModel):
-    key: UUID
+    key: Key
     username: str
 
 
 class _ChangeNameRequest(BaseModel):
-    key: UUID
+    key: Key
     name: str
 
 
@@ -68,7 +67,7 @@ class Client:
         password: str,
         role: role_.Key,
         name: str = "",
-        key: UUID | None = None,
+        key: Key | None = None,
     ) -> User: ...
 
     @overload
@@ -85,7 +84,7 @@ class Client:
         password: str | None = None,
         role: role_.Key | None = None,
         name: str = "",
-        key: UUID | None = None,
+        key: Key | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
@@ -109,14 +108,14 @@ class Client:
             return res[0]
         return res
 
-    def change_username(self, key: UUID, username: str) -> None:
+    def change_username(self, key: Key, username: str) -> None:
         self.client.send(
             "/user/change-username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
 
-    def change_name(self, key: UUID, *, name: str) -> None:
+    def change_name(self, key: Key, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
     def set_role(self, keys: Key | list[Key], role: role_.Key) -> None:
@@ -137,7 +136,7 @@ class Client:
     def retrieve(
         self,
         *,
-        key: UUID,
+        key: Key,
         usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
@@ -152,7 +151,7 @@ class Client:
     def retrieve(
         self,
         *,
-        key: filter.SetInput[UUID] = ...,
+        key: filter.SetInput[Key] = ...,
         username: str,
         usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
@@ -168,14 +167,14 @@ class Client:
     def retrieve(
         self,
         *,
-        key: filter.SetInput[UUID] = ...,
+        key: filter.SetInput[Key] = ...,
         usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> User: ...
@@ -184,14 +183,14 @@ class Client:
     def retrieve(
         self,
         *,
-        key: list[UUID] | filter.SetDict[UUID] | filter.Set[UUID] = ...,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         order: Order | None = ...,
@@ -204,7 +203,7 @@ class Client:
         self,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         order: Order | None = None,
@@ -249,7 +248,7 @@ class Client:
             where = filter.merge(where, Where(usernames=[username]))
             one = True
         single = returns_one(fields, one, limit)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
@@ -260,5 +259,5 @@ class Client:
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
         return sole("user", req, res.users) if single else res.users
 
-    def delete(self, keys: UUID | list[UUID] | None = None) -> None:
+    def delete(self, keys: Key | list[Key] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)
