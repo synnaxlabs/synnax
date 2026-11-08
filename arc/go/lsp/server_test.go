@@ -567,6 +567,7 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Add(workers)
 			for range workers {
 				go func() {
+					defer GinkgoRecover()
 					defer wg.Done()
 					params := &protocol.PrepareRenameParams{
 						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -577,9 +578,9 @@ var _ = Describe("External Change Notifications", func() {
 						case <-done:
 							return
 						default:
-							// Errors are irrelevant here; the assertion is the race
-							// detector observing no concurrent access to the IR.
-							_, _ = server.PrepareRename(ctx, params)
+							// The race detector checks that no query reads the IR as it
+							// changes.
+							MustSucceed(server.PrepareRename(ctx, params))
 						}
 					}
 				}()

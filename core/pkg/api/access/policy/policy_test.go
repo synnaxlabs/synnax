@@ -196,7 +196,7 @@ var _ = Describe("Retrieve", func() {
 			To(HaveEach(HaveField("Role", svc.RBAC.Builtin.ViewerKey)))
 	})
 
-	It("Should retrieve no policies for a subject with no roles", func(
+	It("Should retrieve no policies for a subject whose role has none", func(
 		ctx SpecContext,
 	) {
 		res := MustSucceed(apiSvc.Retrieve(

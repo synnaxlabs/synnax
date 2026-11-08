@@ -127,7 +127,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil),
+					).To(Succeed())
 				}
 				done <- true
 			}()
@@ -137,7 +139,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil),
+					).To(Succeed())
 				}
 				done <- true
 			}()
