@@ -114,9 +114,13 @@ var _ = Describe("SearchIndex", func() {
 		)
 
 		It("Should index entries that a committed tx writes", func(ctx SpecContext) {
-			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "flow meter"})
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 5, Name: "flow meter"}).
+				Exec(ctx, db)).To(Succeed())
 			Expect(find(ctx, db, "flow")).To(Equal([]int32{5}))
-			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "valve"})
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 5, Name: "valve"}).
+				Exec(ctx, db)).To(Succeed())
 			Expect(find(ctx, db, "flow")).To(BeEmpty())
 			Expect(table.NewDelete().
 				Where(gorp.MatchKeys[int32, indexedEntry](3)).
@@ -288,6 +292,15 @@ var _ = Describe("SearchIndex", func() {
 				Term:   "pressure digital",
 				Except: func(key int32) bool { return key == 2 },
 			})).Keys).To(Equal([]int32{1}))
+		})
+
+		It("Should search by scanning through a snapshot", func(ctx SpecContext) {
+			var res search.Result[int32]
+			Expect(failing.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				res, err = failed.Search(ctx, snap, search.Query[int32]{Term: "analog"})
+				return err
+			})).To(Succeed())
+			Expect(res.Keys).To(Equal([]int32{3, 1, 4}))
 		})
 
 		It("Should retrieve the matches closest match first", func(ctx SpecContext) {

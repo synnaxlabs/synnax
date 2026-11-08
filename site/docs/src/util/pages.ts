@@ -54,7 +54,9 @@ export const PAGES: Page[] = Object.entries(FRONTMATTER)
   }))
   .sort((a, b) => a.route.localeCompare(b.route));
 
-/** Every page a prerendered route can rewrite to. A flagged page renders per request. */
+/**
+ * Every page a prerendered route can rewrite to. A flagged page renders per request.
+ */
 export const PRERENDERED_PAGES: Page[] = PAGES.filter(({ flag }) => flag == null);
 
 /** The blog posts, newest first. */

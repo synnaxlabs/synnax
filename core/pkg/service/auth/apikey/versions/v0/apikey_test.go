@@ -23,9 +23,6 @@ var _ = Describe("APIKey", func() {
 		key := uuid.New()
 		Expect(v0.APIKey{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.APIKey{}.SetOptions()).To(BeNil())
-	})
 	It("Should validate its subject", func() {
 		Expect(v0.APIKey{}.Validate()).To(MatchError(ContainSubstring("subject")))
 		Expect(v0.APIKey{Subject: resource.ID{

@@ -11,7 +11,6 @@ package project
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -80,11 +79,13 @@ func OpenService(
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishFromGorp(
+	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, Project]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -94,26 +95,24 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:   s,
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		tx:    tx,
 		table: s.table,
 	}
 }
 
 // Children returns the ID of every record that references the project with key, as seen
-// by tx: the groups directly under it and every visualization it owns.
+// by snap: the groups directly under it and every visualization it owns.
 func (s *Service) Children(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

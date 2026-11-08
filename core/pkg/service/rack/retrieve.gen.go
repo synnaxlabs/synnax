@@ -30,7 +30,7 @@ const tableName = "rack"
 // instead of relying on package-level state.
 type indexes struct {
 	group  *gorp.KeyReference[Key, Rack, group.Key]
-	roles  *gorp.KeyReference[Key, Rack, role.Key]
+	role   *gorp.KeyReference[Key, Rack, role.Key]
 	search *gorp.SearchIndex[Key, Rack]
 }
 
@@ -43,6 +43,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Rack) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -51,17 +52,13 @@ func newIndexes() indexes {
 			},
 			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
 		}),
-		roles: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, role.Key]{
-			Name:     "roles",
+		role: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, role.Key]{
+			Name:     "role",
 			Table:    "role",
-			OnDelete: gorp.Detach,
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *Rack) []role.Key {
-				return e.Roles
-			},
-			Detach: func(e *Rack, t role.Key) {
-				e.Roles = slices.DeleteFunc(e.Roles, func(v role.Key) bool {
-					return v == t
-				})
+				return []role.Key{e.Role}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Rack](
@@ -86,7 +83,7 @@ func (i indexes) all() []gorp.Index[Key, Rack] {
 func (i indexes) references() []gorp.Reference[Key, Rack] {
 	return []gorp.Reference[Key, Rack]{
 		i.group,
-		i.roles,
+		i.role,
 	}
 }
 
@@ -214,19 +211,11 @@ func setGroup(
 }
 
 // MatchRoles returns a filter for racks
-// whose Roles contains any of the provided
+// whose Role matches any of the provided
 // values.
 func MatchRoles(vals ...role.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Rack] {
-		return r.indexes.roles.Filter(vals...)
-	}
-}
-
-// MatchHasRoles returns a filter for racks whose
-// Roles holds a target when has is true, and holds none when has is false.
-func MatchHasRoles(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Rack] {
-		return r.indexes.roles.FilterHolding(has)
+		return r.indexes.role.Filter(vals...)
 	}
 }
 
@@ -271,17 +260,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of racks matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of racks in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any racks match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any racks in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

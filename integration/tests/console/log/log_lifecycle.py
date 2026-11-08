@@ -153,7 +153,7 @@ class LogLifecycle(ConsoleCase):
             self.writer.write(
                 {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
             )
-            sy.sleep(0.1)
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
 
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
@@ -174,7 +174,7 @@ class LogLifecycle(ConsoleCase):
 
         for _ in range(5):
             self.writer.write(self.timestamp_name, sy.TimeStamp.now())
-            sy.sleep(0.1)
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
 
         assert log.wait_until_streaming(), (
             "Log should stream entries from a timestamp channel"
@@ -204,7 +204,7 @@ class LogLifecycle(ConsoleCase):
 
         for i in range(5):
             self.writer.write(self.virtual_name, float(i))
-            sy.sleep(0.1)
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
         assert log.wait_until_streaming(), (
             "Log should be streaming virtual channel data"
         )

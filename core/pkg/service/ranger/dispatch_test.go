@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -34,7 +35,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(svc.NewRetrieve().
 			Where(ranger.MatchKeys(key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return res
 	}
 	// Dispatch commits on its own, so its ranges commit too and are deleted after each
@@ -42,14 +43,18 @@ var _ = Describe("Dispatch", func() {
 	var hotFire ranger.Range
 	BeforeEach(func(ctx SpecContext) {
 		hotFire = ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
-		Expect(svc.NewWriter(db).Create(ctx, &hotFire)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &hotFire)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(db).Delete(ctx, hotFire.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, hotFire.Key)
+			})).To(Succeed())
 		})
 	})
 
 	It("Should store the edited name, time range, and color", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
+		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"name"}, "Cold flow"),
 			set([]string{"time_range", "end"}, "9000000000"),
 			set([]string{"color"}, "#ff0000"),
@@ -64,7 +69,7 @@ var _ = Describe("Dispatch", func() {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
 		acts := []ranger.Action{set([]string{"name"}, "Cold flow")}
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk-1", acts)).To(Succeed())
+		Expect(dispatch(ctx, hotFire.Key, "dk-1", acts)).To(Succeed())
 		frames := rec.Snapshot()
 		Expect(frames).To(HaveLen(1))
 		f := frames[0]
@@ -77,7 +82,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
+		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"name"}, "Cold flow"),
 			set([]string{"key"}, "renamed"),
 		})).To(MatchError(validate.ErrValidation))
@@ -86,13 +91,13 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject an empty name", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
+		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"name"}, ""),
 		})).To(MatchError(ContainSubstring("name: required")))
 	})
 
 	It("Should reject an end before the start", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
+		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"time_range", "end"}, "0"),
 		})).To(MatchError(
 			ContainSubstring("time_range.start cannot be after time_range.end"),
@@ -102,7 +107,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should reject a create", func(ctx SpecContext) {
 		overwritten := hotFire
 		overwritten.Name = "Overwritten"
-		Expect(svc.Dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
+		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			ranger.NewCreateAction(ranger.CreatePayload{Range: overwritten}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -112,7 +117,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should return not found for a missing range", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, uuid.New(), "dk", []ranger.Action{
+		Expect(dispatch(ctx, uuid.New(), "dk", []ranger.Action{
 			set([]string{"name"}, "Cold flow"),
 		})).To(MatchError(query.ErrNotFound))
 	})

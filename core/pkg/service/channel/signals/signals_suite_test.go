@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -31,6 +32,7 @@ func TestSignals(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 )
@@ -38,6 +40,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
@@ -45,10 +48,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
@@ -64,9 +67,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		DB:      node.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
-	MustOpen(signals.Publish(ctx, sigs, channelSvc.Observe()))
+	Expect(sigs.PublishTable(ctx, signals.TableConfig(channelSvc))).To(Succeed())
+	MustOpen(sigs.Start(ctx))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

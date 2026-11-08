@@ -22,6 +22,7 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.
 message Rack {
+  reserved 8;
   // key is the composite identifier for this rack.
   uint32 key = 1;
   // name is a human-readable name for the rack.
@@ -38,8 +39,6 @@ message Rack {
   optional string version = 6;
   // group is the group the rack sits in, if any.
   optional string group = 7;
-  // roles are the roles that grant the rack its permissions.
-  repeated string roles = 8;
 }
 message WhereList {
   repeated Where values = 1;
@@ -85,11 +84,8 @@ message Where {
   optional .x.filter.pb.Bool embedded = 6;
   // integrations selects by integrations.
   optional StringContains integrations = 7;
-  // host_is_node matches racks on the Core that serves the request, or racks on other
-  // Cores when false.
-  optional bool host_is_node = 8;
   // groups matches the racks in any of the given groups.
-  GroupKeyList groups = 9;
+  GroupKeyList groups = 8;
   // grouped matches the racks in a group, or in no group when false.
-  optional bool grouped = 10;
+  optional bool grouped = 9;
 }

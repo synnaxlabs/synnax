@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -37,6 +39,16 @@ var (
 	node   testutil.Node
 	svc    *service.Layer
 	apiSvc *apitask.Service
+	// create, copyTask, dispatch, rename, and retrieve run their routes as the API
+	// layer binds them.
+	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
+	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
+	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
+	rename   freighter.UnaryHandler[apitask.RenameRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apitask.RetrieveRequest,
+		apitask.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -50,17 +62,28 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   svc.RBAC,
 		Framer: svc.Framer,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	copyTask = bind.Write(binder, apiSvc.Copy)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	rename = bind.Write(binder, apiSvc.Rename)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Name: "user-" + uuid.New().String(),
-	}))
+	return MustSucceed(
+		rbactestutil.CreateUser(ctx, node.DB, svc.RBAC, svc.User, user.User{
+			Name: "user-" + uuid.New().String(),
+		}),
+	)
 }
 
-// grant grants the action on the objects to the subject through a new role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	action access.Action,
@@ -70,5 +93,7 @@ func grant(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, node.DB, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

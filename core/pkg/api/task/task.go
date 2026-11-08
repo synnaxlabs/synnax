@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -26,13 +27,12 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the task API service.
 type ServiceConfig struct {
-	// DB runs the transaction of a delete.
+	// DB runs the snapshot and the transaction of a delete.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -44,7 +44,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of delete requests, and the read access that a dispatch
+	// response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -129,79 +130,18 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. It needs create access on tasks, and update
-// access on the range of each new snapshot. An existing snapshot keeps its range.
+// Create creates or updates the tasks. An existing snapshot keeps its range.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeTask}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	ranges, err := s.newSnapshotRanges(ctx, tx, req.Tasks)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if len(ranges) > 0 {
-		if err = enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: ranges,
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
 	if err := s.task.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Tasks); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tasks: req.Tasks}, nil
-}
-
-// newSnapshotRanges returns the ranges that the tasks place a snapshot in, leaving out
-// the tasks stored as snapshots, which keep their stored range.
-func (s *Service) newSnapshotRanges(
-	ctx context.Context,
-	tx gorp.Tx,
-	tasks []task.Task,
-) ([]resource.ID, error) {
-	var keys []task.Key
-	for _, t := range tasks {
-		if t.Range != nil {
-			keys = append(keys, t.Key)
-		}
-	}
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var stored []task.Task
-	if err := s.task.NewRetrieve().
-		Where(task.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	snapshots := make(set.Set[task.Key], len(stored))
-	for _, t := range stored {
-		if t.Snapshot {
-			snapshots.Add(t.Key)
-		}
-	}
-	var ids []resource.ID
-	for _, t := range tasks {
-		if t.Range != nil && !snapshots.Contains(t.Key) {
-			ids = append(ids, ranger.ResourceID(*t.Range))
-		}
-	}
-	return ids, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single task. DispatchKey is
@@ -213,50 +153,61 @@ type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 // config hash, after a set of the stored config when storing changed it.
 type DispatchResponse = actions.DispatchResponse[task.Action]
 
-// Dispatch applies the action sequence to the target task atomically. Subscribers to
-// the task action signals receive the sequence after the transaction commits. The
-// response holds no actions for a subject that cannot read the task, because they can
-// carry its stored config.
+// Dispatch applies the action sequence to the target task in tx. Subscribers to the
+// task action signals receive the sequence after the transaction commits. The response
+// holds no actions for a subject that cannot read the task, because they can carry its
+// stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	enforcer := s.access.NewEnforcer(nil)
-	request := access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{task.ResourceID(req.Key)},
-	}
-	if err := enforcer.Enforce(ctx, request); err != nil {
-		return DispatchResponse{}, err
-	}
-	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	request.Action = access.ActionRetrieve
-	if err = enforcer.Enforce(ctx, request); err != nil {
+	// Committed policies decide, as in bind.Write.
+	if err = s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []resource.ID{task.ResourceID(req.Key)},
+	}); err != nil {
 		return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
 	}
 	return DispatchResponse{Actions: computed}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the tasks that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, task.ResourceID)
+}
+
+// Retrieve returns the tasks that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.task.NewRetrieve().Entries(&res.Tasks))
+	q, err := ApplyRetrieve(req, s.task.NewRetrieve().Entries(&res.Tasks))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	if err := q.Where(bind.Filter(snap, task.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
-			nil,
+			snap,
 			task.ResourceIDsFromTasks(res.Tasks),
 		)
 		if err != nil {
@@ -265,13 +216,6 @@ func (s *Service) Retrieve(
 		for i, st := range statuses {
 			res.Tasks[i].Status = st
 		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: task.ResourceIDsFromTasks(res.Tasks),
-	}); err != nil {
-		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
@@ -284,21 +228,17 @@ type RenameRequest struct {
 	Key task.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the task. It requires update access on it.
+// Rename renames the task and its status.
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{task.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
+	_, err := s.task.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
+	)
 	return struct{}{}, err
 }
 
@@ -311,10 +251,12 @@ type DeleteRequest struct {
 // in time is still deleted, and it can hold its channels open until its Driver removes
 // it. Delete holds no transaction while it waits for the stops.
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: task.ResourceIDs(req.Keys),
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: task.ResourceIDs(req.Keys),
+		})
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -345,38 +287,19 @@ type (
 	}
 )
 
-// Copy copies a task. It needs retrieve access on the task, create access on the copy,
-// and update access on the range of a snapshot copy.
+// Sources implements bind.Copy.
+func (r CopyRequest) Sources() []resource.ID {
+	return []resource.ID{task.ResourceID(r.Key)}
+}
+
+// Copy copies a task. A snapshot copy sits in req.Range, or in no range when it is nil.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{task.ResourceID(req.Key)},
-	}); err != nil {
-		return CopyResponse{}, err
-	}
-	if req.Range != nil {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []resource.ID{ranger.ResourceID(*req.Range)},
-		}); err != nil {
-			return CopyResponse{}, err
-		}
-	}
 	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
 	if err != nil {
-		return CopyResponse{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{t.ResourceID()},
-	}); err != nil {
 		return CopyResponse{}, err
 	}
 	return CopyResponse{Task: t}, nil

@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -50,6 +52,18 @@ var (
 	rackSvc   *rack.Service
 	devices   *gorp.Table[device.Key, device.Device]
 	tasks     *gorp.Table[task.Key, task.Task]
+	// The handlers below run their routes as the API layer binds them.
+	setStatuses    freighter.UnaryHandler[apistatus.SetRequest, apistatus.SetResponse]
+	del            freighter.UnaryHandler[apistatus.DeleteRequest, struct{}]
+	rename         freighter.UnaryHandler[apistatus.RenameRequest, struct{}]
+	setByKeyOrName freighter.UnaryHandler[
+		apistatus.SetByKeyOrNameRequest,
+		apistatus.SetByKeyOrNameResponse,
+	]
+	retrieve freighter.UnaryHandler[
+		apistatus.RetrieveRequest,
+		apistatus.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -80,24 +94,34 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc, rackSvc = svcs.RBAC, svcs.Rack
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
-		RBAC:   rbacSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	setStatuses = bind.Write(binder, apiSvc.Set)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
-// freshUser creates a user with no role assignments. Use this for "unauthorized"
+// freshUser creates a user that can do nothing. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.
 func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
-		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
+		rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "anon-" + uuid.New().String()},
+		),
 	)
 }
 
-// grantOn grants the actions on the objects to the subject through a new role.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -106,5 +130,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

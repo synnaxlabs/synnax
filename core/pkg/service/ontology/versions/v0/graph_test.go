@@ -29,8 +29,6 @@ type member struct {
 
 func (m member) GorpKey() string { return m.Key }
 
-func (member) SetOptions() []any { return nil }
-
 var _ = Describe("NewFieldMigration", func() {
 	var db *gorp.DB
 	BeforeEach(func() {
