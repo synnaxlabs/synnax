@@ -219,17 +219,18 @@ minimum becomes the minimum, or 0 with none, above the maximum becomes the maxim
 a fraction truncates, as the Driver's cast does. It logs the task, field, old value, and
 new value. An identifier (NI `port` and `line`, LabJack `neg_chan`) never clamps,
 because a clamped one picks a channel the user did not choose. Out of range, the
-integration's store migration sets it to its minimum, disables its channel, and logs it,
-so boot succeeds and the task runs its other channels. A `neg_chan` of 199 and a backlog
-count of 0 become absent. Each migration phase tests a clamp at both bounds and a
-disabled identifier.
+integration's store migration sets it to its minimum, disables its channel, and sets a
+warning task status that names the channel and its old value, so boot succeeds, the task
+runs its other channels, and the user sees what to fix before enabling it. A `neg_chan`
+of 199 and a backlog count of 0 become absent. Each migration phase tests a clamp at
+both bounds and a disabled identifier.
 
 LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
 if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
-Phase 25 renames the Modbus device keys in the RFC 0081 `modbus.Server` cutover (RFC
-0081 §4.8), which already rewrites every Modbus device and types its writes. The old
-Python client writes `swap_bytes`, and an old Driver requires it (`device.h:273`), so
-that release's notes say to upgrade both with the Core.
+Phase 25 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
+cutover (RFC 0081 §4.8), which already rewrites every Modbus device and types its
+writes. The old Python client writes `swap_bytes`, and an old Driver requires it
+(`device.h:273`), so that release's notes say to upgrade both with the Core.
 
 ## 7 Migration
 
@@ -316,5 +317,5 @@ config keeps the `Float` text form; check C++ `to_json`.
 | 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                         | 12, 13                         |
 | 23    | Narrow LabJack v3 config field types                  | `schemas/synnax`, `core/pkg/service/labjack`, `driver/labjack`, `console/src/feature/labjack`, `client`               | -                              |
 | 24    | Narrow NI config field types                          | `schemas/synnax`, `core/pkg/service/ni`, `driver/ni`, `console/src/feature/ni`, `client`                              | -                              |
-| 25    | Rename the Modbus device swap flags                   | `core/pkg/service/modbus`, `driver/modbus/device`, `console/src/feature/modbus`, `client`                             | -                              |
+| 25    | Rename the Modbus device swap flags                   | `schemas/synnax`, `core/pkg/service/modbus`, `driver/modbus/device`, `console/src/feature/modbus`, `client`           | 21                             |
 | 26    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                              | 14, 15, 19, 20, 21, 23, 24, 25 |
