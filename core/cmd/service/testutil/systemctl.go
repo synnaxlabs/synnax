@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -73,10 +74,14 @@ func (s *Systemctl) Install(workDir, binary string, args ...string) {
 		fmt.Appendf(nil, "LoadState=loaded\nWorkingDirectory=%s\n", workDir),
 		0o644,
 	)).To(gomega.Succeed())
+	// busctl escapes an apostrophe, and Go does not.
+	quote := func(s string) string {
+		return strings.ReplaceAll(strconv.Quote(s), "'", `\'`)
+	}
 	argv := append([]string{binary}, args...)
-	property := fmt.Appendf(nil, "a(sasbttttuii) 1 %q %d", binary, len(argv))
+	property := fmt.Appendf(nil, "a(sasbttttuii) 1 %s %d", quote(binary), len(argv))
 	for _, arg := range argv {
-		property = fmt.Appendf(property, " %q", arg)
+		property = fmt.Appendf(property, " %s", quote(arg))
 	}
 	gomega.Expect(os.WriteFile(
 		filepath.Join(s.dir, "exec-start"),

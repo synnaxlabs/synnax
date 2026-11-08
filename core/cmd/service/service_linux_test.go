@@ -93,6 +93,11 @@ var _ = Describe("Service", func() {
 				[]string{"start", "--data", "/mnt/my data"},
 				"/mnt/my data",
 			),
+			Entry(
+				"path with an apostrophe and a backslash",
+				[]string{"start", "--data", `/mnt/O'Brien\'s data`},
+				`/mnt/O'Brien\'s data`,
+			),
 			Entry("default", []string{"start"}, "/var/lib/synnax/synnax-data"),
 		)
 

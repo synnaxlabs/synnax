@@ -287,24 +287,46 @@ func execStart() (string, []string, error) {
 func busValues(out string) ([]string, error) {
 	var values []string
 	for rest := strings.TrimSpace(out); rest != ""; rest = strings.TrimSpace(rest) {
-		if rest[0] != '"' {
-			var value string
+		var (
+			value string
+			err   error
+		)
+		if rest[0] == '"' {
+			value, rest, err = unescape(rest[1:])
+		} else {
 			value, rest, _ = strings.Cut(rest, " ")
-			values = append(values, value)
-			continue
 		}
-		quoted, err := strconv.QuotedPrefix(rest)
-		if err != nil {
-			return nil, err
-		}
-		value, err := strconv.Unquote(quoted)
 		if err != nil {
 			return nil, err
 		}
 		values = append(values, value)
-		rest = rest[len(quoted):]
 	}
 	return values, nil
+}
+
+// unescape reads a C-escaped string up to its closing quote, and returns the string and
+// the text after the quote. Go reads every C escape but \'.
+func unescape(s string) (string, string, error) {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '"':
+			value, err := strconv.Unquote(`"` + b.String() + `"`)
+			return value, s[i+1:], err
+		case '\\':
+			if i+1 == len(s) {
+				return "", "", strconv.ErrSyntax
+			}
+			i++
+			if s[i] != '\'' {
+				b.WriteByte('\\')
+			}
+			b.WriteByte(s[i])
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return "", "", strconv.ErrSyntax
 }
 
 // dataDir returns the data directory of a `synnax start` with the given arguments in
