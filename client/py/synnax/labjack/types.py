@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from typing import Final, Literal, TypeAlias, get_args, override
 
 from synnax import device, task
+from synnax import rack as rack_
 from synnax.labjack.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -197,7 +198,7 @@ class Device(device.Device):
         serial_number: int,
         name: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         configured: bool = False,
     ):
         valid_models = get_args(SUPPORTED_MODELS)

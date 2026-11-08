@@ -49,7 +49,7 @@ class _CreateResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Automation(AutomationPayload):
