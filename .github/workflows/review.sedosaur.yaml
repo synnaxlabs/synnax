@@ -337,8 +337,8 @@ jobs:
           REVIEWED: ${{ needs.start.outputs.head }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
-          read -r head draft < <(gh api "repos/$GH_REPO/pulls/$PR" \
-            --jq '"\(.head.sha) \(.draft)"')
+          pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.head.sha) \(.draft)"')
+          read -r head draft <<< "$pull"
           if [ "$head" != "$REVIEWED" ] && [ "$draft" = false ]; then
             gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR"
           fi
