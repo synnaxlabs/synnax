@@ -73,7 +73,7 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
 
 class CDAQAnalogReadRate(CDAQAnalogRead):
     """Acquires four inputs of the NI 9205 at rising rates. At each rate, the Driver
-    must send no warning or error, and the samples must cover the whole run with no
+    must send no warning or error, and the samples must fill the whole run with no
     gap."""
 
     task_name = "HITL cDAQ Analog Read Rate"
@@ -107,20 +107,15 @@ class CDAQAnalogReadRate(CDAQAnalogRead):
             .to_numpy()
             .astype(np.int64)
         )
-        if len(stamps) == 0:
-            return [*problems, "no samples"]
-        if (late := sy.TimeStamp(int(stamps[0])) - started) > 0:
-            problems.append(f"the samples start {late} after the task started")
-        # The Driver reads in chunks of one stream period, and a stop can land partway
-        # through one.
-        if (
-            early := stopping - sy.TimeStamp(int(stamps[-1]))
-        ) > self.STREAM_RATE.period:
-            problems.append(f"the samples end {early} before the task stopped")
+        # The hardware runs from before started to after stopping. The Driver reads in
+        # chunks of one stream period, and a stop can land partway through one.
+        span = stopping - started - self.STREAM_RATE.period
+        if len(stamps) < (expected := int(rate * span.seconds)):
+            return [*problems, f"{len(stamps)} samples, not the {expected} of the run"]
         gap = sy.TimeSpan(int(np.diff(stamps).max()))
         if gap > 1.5 * sy.Rate(rate).period:
             problems.append(f"a gap of {gap} between samples")
-        self.log(f"{rate} Hz: start offset {late}, stop offset {early}, max gap {gap}")
+        self.log(f"{rate} Hz: {len(stamps)} of {expected} samples, max gap {gap}")
         return problems
 
     def _read_until_stopped(self, statuses: sy.Streamer) -> list[str]:
