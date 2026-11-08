@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -70,7 +69,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 		DB: db,
 	}))
 	cfg.DB = db
-	cfg.HostProvider = testutil.NewStaticHostProvider(1)
+	cfg.HostKey = 1
 	cfg.Status = stat
 	roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
@@ -319,21 +318,6 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
-		It(
-			"Should retrieve racks where the host is the rack's node",
-			func(ctx SpecContext) {
-				r := &rack.Rack{Name: "rack4"}
-				Expect(writer.Create(ctx, r)).To(Succeed())
-				var res rack.Rack
-				Expect(
-					svc.NewRetrieve().
-						Where(rack.MatchHostIsNode(true)).
-						Entry(&res).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(Equal(*r))
-			},
-		)
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
 			Expect(
@@ -565,20 +549,6 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Name).To(Equal("combo-not-opc"))
 			})
-			It(
-				"Should compose MatchHostIsNode under And with MatchNames",
-				func(ctx SpecContext) {
-					r := &rack.Rack{Name: "combo-host-rack"}
-					Expect(writer.Create(ctx, r)).To(Succeed())
-					var res []rack.Rack
-					Expect(svc.NewRetrieve().Where(rack.And(
-						rack.MatchNames("combo-host-rack"),
-						rack.MatchHostIsNode(true),
-					)).Entries(&res).Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(1))
-					Expect(res[0].Key).To(Equal(r.Key))
-				},
-			)
 		})
 		Describe("Exists", func() {
 			It("Should return true when a rack matches", func(ctx SpecContext) {

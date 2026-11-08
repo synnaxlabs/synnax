@@ -12,7 +12,6 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 )
@@ -25,12 +24,6 @@ var _ = Describe("Task", func() {
 	Describe("GorpKey", func() {
 		It("Should return the task's key", func() {
 			Expect(v1.Task{Key: key}.GorpKey()).To(Equal(key))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should lease the task to its rack's node", func() {
-			Expect(v1.Task{Key: key}.SetOptions()).To(Equal([]any{node.Key(1)}))
 		})
 	})
 

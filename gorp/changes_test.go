@@ -23,8 +23,7 @@ import (
 
 type unstoredEntry struct{ Key string }
 
-func (e unstoredEntry) GorpKey() string   { return e.Key }
-func (e unstoredEntry) SetOptions() []any { return nil }
+func (e unstoredEntry) GorpKey() string { return e.Key }
 
 type write = func(SpecContext, gorp.Tx) error
 

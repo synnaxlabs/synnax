@@ -56,10 +56,10 @@ func serviceConfig(
 		DB: db,
 	}))
 	return channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}, groupSvc
 }
 

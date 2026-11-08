@@ -126,8 +126,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the service-layer entry point for reading, writing, streaming, and
-// deleting telemetry against a Synnax cluster. It composes the writer, iterator,
-// streamer, and calculation services behind a single handle.
+// deleting telemetry. It composes the writer, iterator, streamer, and calculation
+// services behind a single handle.
 type Service struct {
 	closer   io.MultiCloser
 	streamer *streamer.Service

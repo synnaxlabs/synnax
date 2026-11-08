@@ -53,10 +53,10 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		DB: node.DB,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	return &benchEnv{
 		ctx:           b.Context(),
