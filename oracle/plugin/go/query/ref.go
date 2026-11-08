@@ -188,6 +188,9 @@ var refExpressions = set.New("on_delete", "kind", "types", "unique", "acyclic")
 // singleRefExpressions are the @ref expressions that hold one value.
 var singleRefExpressions = set.New("on_delete", "kind")
 
+// flagRefExpressions are the @ref expressions that hold no value.
+var flagRefExpressions = set.New("unique", "acyclic")
+
 // extractRef returns the reference that field of typ holds. inArray is true when a
 // detach can drop the array element that holds field.
 func extractRef(
@@ -219,6 +222,9 @@ func extractRef(
 		}
 		if singleRefExpressions.Contains(expr.Name) && len(expr.Values) > 1 {
 			return fail("needs one value for %s, not %d", expr.Name, len(expr.Values))
+		}
+		if flagRefExpressions.Contains(expr.Name) && len(expr.Values) > 0 {
+			return fail("needs no value for %s, not %d", expr.Name, len(expr.Values))
 		}
 	}
 	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
