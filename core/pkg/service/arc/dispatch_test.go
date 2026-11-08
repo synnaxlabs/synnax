@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"errors"
 	"sync"
 	"uuid"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/crdt"
@@ -382,6 +384,49 @@ var _ = Describe("Collaborative text", func() {
 			Expect(textOf(swept.Base()).Doc.Deletes).To(BeEmpty())
 			Expect(textOf(swept.Base()).Doc.Inserts).To(HaveLen(8))
 			Expect(textOf(swept.Base()).Materialize().Raw).To(Equal("YXhello "))
+		},
+	)
+
+	It(
+		"Should keep the quiet window of an Arc whose delete rolls back",
+		func(ctx SpecContext) {
+			base := telem.Now()
+			arcClock = func() telem.TimeStamp { return base }
+			DeferCleanup(func() { arcClock = telem.Now })
+			a := newAutomation(arc.Base{
+				Name: "collab-sweep-rollback",
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
+				},
+			})
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			client := crdt.New(2)
+			seeded := fetch(ctx, a.Base().Key)
+			client.Load(
+				textOf(seeded.Base()).Doc.Inserts,
+				textOf(seeded.Base()).Doc.Deletes,
+			)
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toDeleteActions(client.Delete(6, 5)),
+			)).To(Succeed())
+			base = base.Add(2 * telem.Second)
+			rollback := errors.New("rolled back")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Delete(ctx, a.Base().Key); err != nil {
+					return err
+				}
+				return rollback
+			})).To(MatchError(rollback))
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toInsertActions(client.Insert(0, "X")),
+			)).To(Succeed())
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 		},
 	)
 
