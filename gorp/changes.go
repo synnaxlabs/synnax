@@ -163,22 +163,41 @@ func (l *changeList) entry(s slot, derived bool) *changeEntry {
 func (l *changeList) list() Changes {
 	var out Changes
 	for _, e := range l.entries {
-		c := Change{Record: e.record, Derived: e.derived, Value: e.value}
-		switch {
-		case e.present && e.existed:
-			c.Kind = ChangeUpdate
-		case e.present:
-			c.Kind = ChangeCreate
-		case e.existed:
-			c.Kind = ChangeDelete
-		default:
+		kind := e.kind()
+		if kind == 0 {
 			continue
 		}
-		c.Added = subtract(e.after, e.before)
-		c.Removed = subtract(e.before, e.after)
-		out = append(out, c)
+		out = append(out, Change{
+			Record:  e.record,
+			Kind:    kind,
+			Derived: e.derived,
+			Value:   e.value,
+			Added:   subtract(e.after, e.before),
+			Removed: subtract(e.before, e.after),
+		})
 	}
 	return out
+}
+
+// changed reports whether the transaction changed a record.
+func (l *changeList) changed() bool {
+	return slices.ContainsFunc(l.entries, func(e changeEntry) bool {
+		return e.kind() != 0
+	})
+}
+
+// kind returns what the transaction did to the record of e, or zero when the record is
+// as it was before the transaction.
+func (e changeEntry) kind() ChangeKind {
+	switch {
+	case e.present && e.existed:
+		return ChangeUpdate
+	case e.present:
+		return ChangeCreate
+	case e.existed:
+		return ChangeDelete
+	}
+	return 0
 }
 
 // subtract returns the distinct links in links that are not in minus.
