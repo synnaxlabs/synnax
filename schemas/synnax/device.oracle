@@ -111,6 +111,8 @@ Device struct<
     group      group.Key? {
         @cpp omit
         @doc value     "is the group the device sits in, if any."
+        @group pinned
+        @group scope   device
         @ref kind      place
         @ref on_delete detach
     }
