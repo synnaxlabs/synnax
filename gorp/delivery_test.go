@@ -78,8 +78,7 @@ var _ = Describe("Delivery", func() {
 		// holdFirstCommit holds the first commit until release closes. The hold is
 		// after the store applies the commit, which is after the release of the write
 		// lock and before delivery. secondApplied closes when the store applies the
-		// second commit,
-		// which has its number by then.
+		// second commit, which has its number by then.
 		holdFirstCommit = func(
 			release <-chan struct{},
 		) (firstApplied, secondApplied chan struct{}) {
