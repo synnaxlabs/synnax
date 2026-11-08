@@ -123,7 +123,9 @@ var _ = Describe("State", func() {
 		}}))
 	})
 
-	It("Should set Seq to the number of each commit", func(ctx SpecContext) {
+	It("Should give each batch a higher Seq than the batches before it", func(
+		ctx SpecContext,
+	) {
 		key := uuid.New()
 		for range 3 {
 			attach(ctx, state.Dispatcher(), key)
@@ -136,7 +138,7 @@ var _ = Describe("State", func() {
 	})
 
 	It(
-		"Should deliver the batches of one transaction in order with one Seq",
+		"Should deliver the batches of one transaction in order with rising Seq values",
 		func(ctx SpecContext) {
 			a, b := uuid.New(), uuid.New()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -148,8 +150,47 @@ var _ = Describe("State", func() {
 			})).To(Succeed())
 			Expect(rec.Snapshot()).To(Equal([]actions.Scoped[uuid.UUID, testAction]{
 				{Key: a, DispatchKey: "dk", Seq: 1, Actions: []testAction{{Type: "a"}}},
-				{Key: b, Seq: 1, Actions: []testAction{{Type: "b"}}},
+				{Key: b, Seq: 2, Actions: []testAction{{Type: "b"}}},
 			}))
+		},
+	)
+
+	It(
+		"Should number two batches for one key in one commit so a client keeps both",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().
+					WithDispatchKey("dk").
+					Attach(tx, key, testAction{Type: "edit"})
+				state.Dispatcher().Attach(tx, key, testAction{Type: "sweep"})
+				return nil
+			})).To(Succeed())
+			var (
+				last uint64
+				kept []string
+			)
+			for _, b := range rec.Snapshot() {
+				// A client drops a batch whose Seq does not exceed the last it applied.
+				if b.Seq <= last {
+					continue
+				}
+				last = b.Seq
+				kept = append(kept, b.Actions[0].Type)
+			}
+			Expect(kept).To(Equal([]string{"edit", "sweep"}))
+		},
+	)
+
+	It(
+		"Should skip the numbers that an aborted transaction took",
+		func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().Attach(tx, uuid.New())
+				return errors.New("abort")
+			})).To(HaveOccurred())
+			attach(ctx, state.Dispatcher(), uuid.New())
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Seq", uint64(2))))
 		},
 	)
 
@@ -183,7 +224,7 @@ var _ = Describe("State", func() {
 	})
 
 	Describe("Of", func() {
-		It("Should return the batches of a commit with its Seq", func(ctx SpecContext) {
+		It("Should return the batches of a commit", func(ctx SpecContext) {
 			var commits []gorp.Commit
 			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
 				commits = append(commits, c)

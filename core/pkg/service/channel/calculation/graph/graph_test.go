@@ -12,7 +12,9 @@ package graph_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,8 +28,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -35,6 +39,8 @@ var (
 	statusSvc     *status.Service
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
+	// channelLimit is the number of external channels that channelSvc allows.
+	channelLimit atomic.Int64
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -47,11 +53,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: node.DB,
 	}))
+	channelLimit.Store(math.MaxInt64)
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
+		Limit: func(n types.Uint20) error {
+			if int64(n) > channelLimit.Load() {
+				return errors.New("past the channel limit")
+			}
+			return nil
+		},
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
 })
@@ -1296,6 +1309,43 @@ var _ = Describe("Graph", func() {
 			},
 		)
 	})
+
+	It(
+		"Should reconcile the rest of a batch that holds a channel past the limit",
+		func(ctx SpecContext) {
+			idx := channel.Channel{
+				Name:     "limit_past_idx",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+			dep := createDep(ctx, "limit_heal_dep")
+			calc := channel.Channel{
+				Name: "limit_heal", DataType: telem.Int64T, Virtual: true,
+				Expression: "return limit_heal_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			openGraph(ctx)
+			Expect(channelWriter.Rename(ctx, dep.Key(), "limit_heal_moved", false)).
+				To(Succeed())
+			expectStatus(ctx, calc.Key())
+			channelLimit.Store(0)
+			DeferCleanup(func() { channelLimit.Store(math.MaxInt64) })
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.Rename(
+					ctx,
+					idx.Key(),
+					"limit_past_renamed",
+					false,
+				); err != nil {
+					return err
+				}
+				return w.Rename(ctx, dep.Key(), "limit_heal_dep", false)
+			})).To(Succeed())
+			eventuallyExpectNoStatus(ctx, calc.Key())
+		},
+	)
 
 	Describe("SetRuntimeStatus", func() {
 		It("Should persist the reported status", func(ctx SpecContext) {
