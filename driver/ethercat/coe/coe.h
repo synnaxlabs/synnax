@@ -38,8 +38,11 @@ using Read = std::function<
 
 /// @brief an object that a PDO maps.
 struct Entry {
+    /// @brief the index of the object.
     uint16_t index;
+    /// @brief the sub-index of the object.
     uint8_t sub_index;
+    /// @brief the number of bits the PDO maps.
     uint8_t bit_length;
     /// @brief the name of the object, or empty when the slave gives none.
     std::string name;
@@ -49,7 +52,9 @@ struct Entry {
 
 /// @brief a PDO and the objects it maps, in order.
 struct PDO {
+    /// @brief the index of the PDO, such as 0x1A00.
     uint16_t index;
+    /// @brief the objects the PDO maps.
     std::vector<Entry> entries;
     /// @brief the name of the PDO, when the slave gives one.
     std::optional<std::string> name;
@@ -57,8 +62,11 @@ struct PDO {
 
 /// @brief a process data sync manager and the PDOs it carries.
 struct Sync {
+    /// @brief the number of the sync manager.
     uint8_t index;
+    /// @brief whether the sync manager carries inputs.
     bool is_input;
+    /// @brief the PDOs the sync manager carries, in order.
     std::vector<PDO> pdos;
     /// @brief the slave has no PDO assign object for the sync manager, so its PDOs are
     /// the ones its EEPROM lists.

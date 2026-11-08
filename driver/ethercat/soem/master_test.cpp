@@ -319,6 +319,7 @@ protected:
 
 ////////////////////// Initialization //////////////////////
 
+/// @brief it should read the identity and name of each slave on the bus.
 TEST_F(SOEMMasterTest, ScanHappyPath) {
     this->initialize_with_slave();
     auto slaves = this->master->scan().first;
@@ -342,6 +343,8 @@ TEST_F(SOEMMasterTest, ScanSocketCheckFails) {
     EXPECT_FALSE(this->mock->init_called);
 }
 
+/// @brief it should tell the user how to get raw Ethernet access when the socket fails
+/// to open, and close the socket.
 TEST_F(SOEMMasterTest, ScanInitFails) {
     this->add_default_slave();
     this->mock->init_return = 0;
@@ -421,6 +424,7 @@ TEST_F(SOEMMasterTest, CountSlavesFailsBeforeInitialize) {
     ASSERT_OCCURRED_AS_P(this->master->count_slaves(), errors::MASTER_INIT_ERROR);
 }
 
+/// @brief it should scan again without an error.
 TEST_F(SOEMMasterTest, ScanIdempotent) {
     this->initialize_with_slave();
     ASSERT_NIL_P(this->master->scan());
@@ -626,6 +630,7 @@ TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
 
 ////////////////////// Activation //////////////////////
 
+/// @brief it should activate a scanned bus.
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->activate_master();
@@ -640,16 +645,19 @@ TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
     EXPECT_TRUE(this->mock->sms_cleared_at_map);
 }
 
+/// @brief it should reject an activate before a scan.
 TEST_F(SOEMMasterTest, ActivateNotInitialized) {
     ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
 
+/// @brief it should reject a second activate.
 TEST_F(SOEMMasterTest, ActivateAlreadyActivated) {
     this->initialize_with_slave();
     this->activate_master();
     ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
 
+/// @brief it should fail to activate when SOEM cannot map the process data.
 TEST_F(SOEMMasterTest, ActivateConfigMapFails) {
     this->initialize_with_slave();
     this->mock->config_map_return = 0;
@@ -753,8 +761,8 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     EXPECT_EQ(this->activation.refusals, expected);
 }
 
-/// @brief it should record why a slave refused OP after SAFE-OP when another slave
-/// with process data reached OP.
+/// @brief it should record why a slave refused OP after SAFE-OP when another slave with
+/// process data reached OP.
 TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
     for (const auto *name: {"RunningSlave", "RefusingSlave"}) {
         MockSlaveInfo slave;
@@ -883,6 +891,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRestartRequestIsNotARefusal) {
     );
 }
 
+/// @brief it should fail to activate when a slave does not reach OP.
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
@@ -891,8 +900,8 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
 }
 
-/// @brief it should start the bus cycle once send() works and before it requests
-/// SAFE-OP.
+/// @brief it should start the bus cycle once send() works and before it requests SAFE-
+/// OP.
 TEST_F(SOEMMasterTest, ActivateStartsTheCycleBeforeSAFEOP) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
@@ -988,6 +997,8 @@ TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
     );
 }
 
+/// @brief it should put a disabled slave in a group that does not exchange process
+/// data.
 TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     MockSlaveInfo slave1;
     slave1.state = EC_STATE_PRE_OP;
@@ -1403,10 +1414,12 @@ TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
 
 ////////////////////// Receive //////////////////////
 
+/// @brief it should reject a receive before activate.
 TEST_F(SOEMMasterTest, ReceiveNotActivated) {
     ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
 }
 
+/// @brief it should fail a receive when no frame comes back.
 TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1414,6 +1427,7 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
 }
 
+/// @brief it should fail a receive whose working counter is not the expected count.
 TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1423,6 +1437,7 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
 }
 
+/// @brief it should accept a receive whose working counter is the expected count.
 TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1431,10 +1446,12 @@ TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
 
 ////////////////////// Send //////////////////////
 
+/// @brief it should reject a send before activate.
 TEST_F(SOEMMasterTest, SendNotActivated) {
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
 }
 
+/// @brief it should fail a send that SOEM cannot put on the wire.
 TEST_F(SOEMMasterTest, SendReturnsZero) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1442,6 +1459,7 @@ TEST_F(SOEMMasterTest, SendReturnsZero) {
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
 }
 
+/// @brief it should send the process data of an active bus.
 TEST_F(SOEMMasterTest, SendSucceeds) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1953,6 +1971,7 @@ TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveWithoutDC) {
 
 ////////////////////// Deactivation //////////////////////
 
+/// @brief it should close the socket on deactivate.
 TEST_F(SOEMMasterTest, DeactivateResetsState) {
     this->initialize_with_slave();
     this->activate_master();
@@ -1960,6 +1979,7 @@ TEST_F(SOEMMasterTest, DeactivateResetsState) {
     EXPECT_TRUE(this->mock->close_called);
 }
 
+/// @brief it should request INIT from the slaves on deactivate.
 TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
     this->initialize_with_slave();
     this->activate_master();
@@ -2046,6 +2066,7 @@ TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
     EXPECT_TRUE(health[0].dc_restore_error.empty());
 }
 
+/// @brief it should do nothing on a deactivate before a scan.
 TEST_F(SOEMMasterTest, DeactivateNotInitializedIsNoop) {
     this->master->deactivate();
     EXPECT_FALSE(this->mock->close_called);
@@ -2312,8 +2333,7 @@ TEST_F(SOEMMasterTest, ActivateWritesNothingAfterStartupParametersAreCleared) {
     EXPECT_TRUE(this->mock->sdo_writes.empty());
 }
 
-/// @brief it should write only the parameters of the configs that replace the old
-/// ones.
+/// @brief it should write only the parameters of the configs that replace the old ones.
 TEST_F(SOEMMasterTest, ActivateWritesOnlyReplacedStartupParameters) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
