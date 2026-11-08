@@ -55,7 +55,9 @@ var _ = Describe("Channel references", func() {
 			tx := DeferClose(db.OpenTx())
 			gorp.OnCommit(tx, func() {
 				Expect(svc.Dispatch(ctx, plot.Key, "", []lineplot.Action{
-					lineplot.NewRenameAction(lineplot.RenamePayload{Name: "renamed"}),
+					lineplot.NewSetAction(
+						lineplot.SetPayload{Path: []string{"name"}, Value: "renamed"},
+					),
 				})).To(Succeed())
 			})
 			Expect(channelSvc.NewWriter(tx).Delete(ctx, gone, false)).To(Succeed())

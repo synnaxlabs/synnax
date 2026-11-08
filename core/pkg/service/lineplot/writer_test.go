@@ -365,7 +365,9 @@ var _ = Describe("Writer", func() {
 						To(Succeed())
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewRenameAction(lineplot.RenamePayload{}),
+							lineplot.NewSetAction(
+								lineplot.SetPayload{Path: []string{"name"}, Value: ""},
+							),
 						}),
 					).To(MatchError(ContainSubstring("name: required")))
 					var res lineplot.LinePlot
@@ -380,13 +382,51 @@ var _ = Describe("Writer", func() {
 				},
 			)
 
-			It("Should apply Rename", func(ctx SpecContext) {
+			DescribeTable(
+				"Should reject a path action that does not set the name",
+				func(ctx SpecContext, action lineplot.Action, msg string) {
+					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
+					Expect(svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+						action,
+					})).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(msg)),
+					))
+				},
+				Entry(
+					"a set of another field",
+					lineplot.NewSetAction(lineplot.SetPayload{
+						Path:  []string{"title", "visible"},
+						Value: true,
+					}),
+					`unknown object member name "title"`,
+				),
+				Entry(
+					"a remove of the name",
+					lineplot.NewRemoveAction(lineplot.RemovePayload{Key: "name"}),
+					"[name]: the document requires a value",
+				),
+				Entry(
+					"a set of the name to a number",
+					lineplot.NewSetAction(lineplot.SetPayload{
+						Path:  []string{"name"},
+						Value: 1,
+					}),
+					"decoding document",
+				),
+			)
+
+			It("Should apply a set of the name", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Project: &proj.Key, Name: "original"}
 				Expect(svc.NewWriter(nil).Create(ctx, &plot)).To(Succeed())
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-						lineplot.NewRenameAction(
-							lineplot.RenamePayload{Name: "renamed"},
+						lineplot.NewSetAction(
+							lineplot.SetPayload{
+								Path:  []string{"name"},
+								Value: "renamed",
+							},
 						),
 					}),
 				).To(Succeed())
@@ -1306,8 +1346,11 @@ var _ = Describe("Writer", func() {
 					rec := &Recorder[lineplot.Key, lineplot.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					actions := []lineplot.Action{
-						lineplot.NewRenameAction(
-							lineplot.RenamePayload{Name: "broadcast"},
+						lineplot.NewSetAction(
+							lineplot.SetPayload{
+								Path:  []string{"name"},
+								Value: "broadcast",
+							},
 						),
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
 							AxisKey: lineplot.XAxisKeyX1, Channel: ch5,
@@ -1322,7 +1365,7 @@ var _ = Describe("Writer", func() {
 					Expect(seen[0].Key).To(Equal(plot.Key))
 					Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 					Expect(seen[0].Actions).To(HaveLen(2))
-					Expect(seen[0].Actions[0].Type).To(Equal(lineplot.ActionTypeRename))
+					Expect(seen[0].Actions[0].Type).To(Equal(lineplot.ActionTypeSet))
 					Expect(
 						seen[0].Actions[1].Type,
 					).To(Equal(lineplot.ActionTypeSetXChannel))
@@ -1341,8 +1384,11 @@ var _ = Describe("Writer", func() {
 					for _, name := range []string{"a", "b", "c"} {
 						Expect(
 							svc.Dispatch(ctx, plot.Key, "d", []lineplot.Action{
-								lineplot.NewRenameAction(
-									lineplot.RenamePayload{Name: name},
+								lineplot.NewSetAction(
+									lineplot.SetPayload{
+										Path:  []string{"name"},
+										Value: name,
+									},
 								),
 							}),
 						).To(Succeed())

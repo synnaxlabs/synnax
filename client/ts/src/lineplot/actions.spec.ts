@@ -38,6 +38,9 @@ const roundTrip = (
 const createLine = (key: string, color: string): lineplot.Line =>
   lineplot.lineZ.parse({ key, color, yAxis: "y1", yChannel: 1 });
 
+const setName = (name: string): lineplot.Action =>
+  lineplot.set({ path: ["name"], value: name });
+
 const keyRef = (k: string): ranger.Ref => ({ variant: "key", key: k });
 
 const windowRef = (timeSpan: number): ranger.Ref => ({
@@ -55,21 +58,23 @@ const createRule = (key: string, label: string): lineplot.Rule =>
   });
 
 describe("lineplot reducer", () => {
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should set the line plot name", () => {
-      const out = apply(createEmpty({ name: "old" }), lineplot.rename({ name: "new" }));
+      const out = apply(createEmpty({ name: "old" }), setName("new"));
       expect(out.name).toEqual("new");
     });
     it("should round-trip the previous name through its inverse", () => {
       const state = createEmpty({ name: "before" });
-      expect(roundTrip(state, lineplot.rename({ name: "after" })).name).toEqual(
-        "before",
-      );
+      expect(roundTrip(state, setName("after")).name).toEqual("before");
     });
-    it("should target the plot key so plot-level edits invalidate each other", () => {
-      const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
-      const { targets } = lineplot.reduceAll(state, [lineplot.rename({ name: "x" })]);
-      expect(targets).toEqual([state.key]);
+    it("should target the name so concurrent sets of it invalidate each other", () => {
+      const { targets } = lineplot.reduceAll(createEmpty(), [setName("x")]);
+      expect(targets).toEqual(["name"]);
+    });
+    it("should throw on a path to a field outside the patchable fields", () => {
+      expect(() =>
+        apply(createEmpty(), lineplot.set({ path: ["title", "visible"], value: true })),
+      ).toThrow("title.visible is not inside a field of name, group, project");
     });
   });
 
@@ -790,7 +795,7 @@ describe("lineplot reducer", () => {
     it("should apply actions sequentially", () => {
       const out = apply(
         createEmpty({ name: "old" }),
-        lineplot.rename({ name: "renamed" }),
+        setName("renamed"),
         lineplot.addChannel({ axisKey: "y1", channel: 1 }),
         lineplot.addChannel({ axisKey: "y1", channel: 2 }),
       );
@@ -799,20 +804,19 @@ describe("lineplot reducer", () => {
     });
     it("should collect inverses in reverse application order so undo replays them correctly", () => {
       const { inverse } = lineplot.reduceAll(createEmpty(), [
-        lineplot.rename({ name: "a" }),
-        lineplot.rename({ name: "b" }),
+        setName("a"),
+        setName("b"),
       ]);
       // first inverse popped is for the LAST action applied
-      expect(inverse[0]).toEqual(lineplot.rename({ name: "a" }));
-      expect(inverse[1]).toEqual(lineplot.rename({ name: "Test Line Plot" }));
+      expect(inverse[0]).toEqual(setName("a"));
+      expect(inverse[1]).toEqual(setName("Test Line Plot"));
     });
     it("should deduplicate targets", () => {
-      const created = createEmpty();
-      const { targets } = lineplot.reduceAll(created, [
-        lineplot.rename({ name: "a" }),
-        lineplot.rename({ name: "b" }),
+      const { targets } = lineplot.reduceAll(createEmpty(), [
+        setName("a"),
+        setName("b"),
       ]);
-      expect(targets).toEqual([created.key]);
+      expect(targets).toEqual(["name"]);
     });
     it("should union the distinct per-resource targets it touched", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
@@ -830,8 +834,11 @@ describe("actionZ wire format", () => {
     expect(() => lineplot.actionZ.parse({ type: "bogus", bogus: {} })).toThrow();
   });
   it("should accept a known action with its payload field", () => {
-    const parsed = lineplot.actionZ.parse({ type: "rename", rename: { name: "x" } });
-    expect(parsed.type).toEqual("rename");
+    const parsed = lineplot.actionZ.parse({
+      type: "set_title_visible",
+      setTitleVisible: { visible: true },
+    });
+    expect(parsed.type).toEqual("set_title_visible");
   });
 });
 
@@ -841,7 +848,7 @@ describe("scopedActionZ", () => {
       key: "00000000-0000-4000-8000-000000000001",
       dispatchKey: "client-xyz",
       seq: 7,
-      actions: [{ type: "rename", rename: { name: "new" } }],
+      actions: [{ type: "set", set: { path: ["group"], value: "g" } }],
     });
     expect(parsed.dispatchKey).toEqual("client-xyz");
     expect(parsed.seq).toEqual(7);
@@ -857,54 +864,34 @@ describe("scopedActionZ", () => {
   });
 });
 
-describe("setGroup", () => {
+describe("group and project patches", () => {
   const G1 = "11111111-1111-4111-8111-111111111111";
   const G2 = "22222222-2222-4222-8222-222222222222";
   it("should move the document into the group", () => {
     const doc = createEmpty();
     expect(
-      lineplot.reduceAll(doc, [lineplot.setGroup({ group: G1 })]).next.group,
+      lineplot.reduceAll(doc, [lineplot.set({ path: ["group"], value: G1 })]).next
+        .group,
     ).toEqual(G1);
   });
   it("should move the document out of its group", () => {
     const doc = createEmpty({ group: G1 });
-    expect(lineplot.reduceAll(doc, [lineplot.setGroup({})]).next.group).toBeUndefined();
+    expect(
+      lineplot.reduceAll(doc, [lineplot.remove({ key: "group" })]).next.group,
+    ).toBeUndefined();
   });
   it("should restore the previous group through its inverse", () => {
     const doc = createEmpty({ group: G1 });
     const { next, inverse } = lineplot.reduceAll(doc, [
-      lineplot.setGroup({ group: G2 }),
+      lineplot.set({ path: ["group"], value: G2 }),
     ]);
     expect(lineplot.reduceAll(next, inverse).next.group).toEqual(G1);
   });
-  it("should target nothing, so it never enters the undo stack", () => {
-    const doc = createEmpty();
-    expect(lineplot.reduceAll(doc, [lineplot.setGroup({ group: G1 })]).targets).toEqual(
-      [],
-    );
-  });
-});
-
-describe("setProject", () => {
-  const P1 = "11111111-1111-4111-8111-111111111111";
-  const P2 = "22222222-2222-4222-8222-222222222222";
   it("should move the document into the project", () => {
-    const doc = createEmpty({ project: P1 });
+    const doc = createEmpty({ project: G1 });
     expect(
-      lineplot.reduceAll(doc, [lineplot.setProject({ project: P2 })]).next.project,
-    ).toEqual(P2);
-  });
-  it("should restore the previous project through its inverse", () => {
-    const doc = createEmpty({ project: P1 });
-    const { next, inverse } = lineplot.reduceAll(doc, [
-      lineplot.setProject({ project: P2 }),
-    ]);
-    expect(lineplot.reduceAll(next, inverse).next.project).toEqual(P1);
-  });
-  it("should target nothing, so it never enters the undo stack", () => {
-    const doc = createEmpty();
-    expect(
-      lineplot.reduceAll(doc, [lineplot.setProject({ project: P1 })]).targets,
-    ).toEqual([]);
+      lineplot.reduceAll(doc, [lineplot.set({ path: ["project"], value: G2 })]).next
+        .project,
+    ).toEqual(G2);
   });
 });

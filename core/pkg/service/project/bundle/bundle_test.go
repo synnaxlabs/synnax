@@ -765,7 +765,9 @@ var _ = Describe("Import", func() {
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		// The import lands beside the original, where the name is taken.
 		Expect(arcSvc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "Startup Source"},
+			),
 		})).To(Succeed())
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)

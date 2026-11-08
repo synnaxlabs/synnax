@@ -40,19 +40,20 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenamePayload(BaseModel):
-    name: str
+class _SetPayload(BaseModel):
+    path: list[str]
+    value: Any
 
 
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: _SetPayload
 
 
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_RenameAction]
+    actions: list[_SetAction]
 
 
 class Client:
@@ -114,7 +115,7 @@ class Client:
         :param name: The new name for the panel.
         """
         req = _DispatchRequest(
-            key=key, actions=[_RenameAction(rename=_RenamePayload(name=name))]
+            key=key, actions=[_SetAction(set=_SetPayload(path=["name"], value=name))]
         )
         self._client.send("/panel/dispatch", req, Empty)
 

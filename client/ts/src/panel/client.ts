@@ -18,8 +18,8 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/panel/actions.gen";
 import {
   type Key,
@@ -167,7 +167,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });

@@ -359,7 +359,9 @@ var _ = Describe("Dispatched Arc names", func() {
 			).To(Succeed())
 		})
 		Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "dispatch_taken"},
+			),
 		})).To(MatchError(ContainSubstring("already used")))
 	})
 })
@@ -386,7 +388,9 @@ var _ = Describe("Move broadcast", func() {
 			tx := DeferClose(db.OpenTx())
 			gorp.OnCommit(tx, func() {
 				Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
-					arc.NewRenameAction(arc.RenamePayload{Name: "renamed"}),
+					arc.NewSetAction(
+						arc.SetPayload{Path: []string{"name"}, Value: "renamed"},
+					),
 				})).To(Succeed())
 			})
 			Expect(svc.NewWriter(tx).Move(ctx, root, lib.Key, a.ResourceID())).

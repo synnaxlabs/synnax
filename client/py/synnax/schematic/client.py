@@ -52,19 +52,20 @@ class _CopyResponse(BaseModel):
     schematic: Schematic
 
 
-class _RenamePayload(BaseModel):
-    name: str
+class _SetPayload(BaseModel):
+    path: list[str]
+    value: Any
 
 
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: _SetPayload
 
 
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_RenameAction]
+    actions: list[_SetAction]
 
 
 class Client:
@@ -214,7 +215,7 @@ class Client:
         :param name: The new name for the schematic.
         :raises NotFoundError: If no schematic exists for key.
         """
-        action = _RenameAction(rename=_RenamePayload(name=name))
+        action = _SetAction(set=_SetPayload(path=["name"], value=name))
         self._client.send(
             "/schematic/dispatch",
             _DispatchRequest(key=key, actions=[action]),

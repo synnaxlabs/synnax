@@ -193,7 +193,9 @@ describe("store", () => {
     await client.connect();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
-    await client.lineplots.dispatch(plot.key, [lineplot.rename({ name })]);
+    await client.lineplots.dispatch(plot.key, [
+      lineplot.set({ path: ["name"], value: name }),
+    ]);
     await expect.poll(() => cachedName(plot.key)).toBe(name);
   });
 });

@@ -475,7 +475,9 @@ var _ = Describe("Task sync", func() {
 			),
 		)
 		Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "renamed_by_dispatch"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "renamed_by_dispatch"},
+			),
 		})).To(Succeed())
 		Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_by_dispatch"))
 	})

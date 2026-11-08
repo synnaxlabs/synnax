@@ -197,6 +197,63 @@ describe("applyEntryPath", () => {
   });
 });
 
+describe("applyFieldPath", () => {
+  const docZ = z.object({
+    name: z.string(),
+    group: z.string().optional(),
+    maxSize: z.number(),
+  });
+  type Doc = z.infer<typeof docZ>;
+  const DOC: Doc = { name: "a", group: "g1", maxSize: 1 };
+  const FIELDS = ["name", "group"];
+  const apply = (action: patch.Action) => {
+    let result: actions.HandlerResult<patch.Action> = actions.NO_OP_RESULT;
+    const next = produce(DOC, (draft) => {
+      result = actions.applyFieldPath(draft, action, FIELDS, docZ);
+    });
+    return { next, result };
+  };
+
+  it("should apply a set of a field and target its path", () => {
+    const { next, result } = apply({
+      type: "set",
+      set: { path: ["name"], value: "b", guards: [] },
+    });
+    expect(next.name).toBe("b");
+    expect(result).toEqual({
+      inverse: [{ type: "set", set: { path: ["name"], value: "a", guards: [] } }],
+      targets: ["name"],
+    });
+  });
+
+  it("should apply a remove of a field", () => {
+    const { next, result } = apply({
+      type: "remove",
+      remove: { path: [], key: "group", guards: [] },
+    });
+    expect(next).not.toHaveProperty("group");
+    expect(result).toEqual({
+      inverse: [{ type: "set", set: { path: ["group"], value: "g1", guards: [] } }],
+      targets: ["group"],
+    });
+  });
+
+  it("should throw on an action at another field", () => {
+    expect(() =>
+      apply({ type: "set", set: { path: ["max_size"], value: 2, guards: [] } }),
+    ).toThrow("max_size is not inside a field of name, group");
+  });
+
+  it("should return NO_OP_RESULT when a guard fails", () => {
+    const { next, result } = apply({
+      type: "set",
+      set: { path: ["name"], value: "b", guards: [{ path: ["kind"], value: "a" }] },
+    });
+    expect(next).toBe(DOC);
+    expect(result).toBe(actions.NO_OP_RESULT);
+  });
+});
+
 describe("createPathHandlers", () => {
   const set: patch.Set = { path: ["a"], value: 1, guards: [] };
   const remove: patch.Remove = { path: [], key: "a", guards: [] };

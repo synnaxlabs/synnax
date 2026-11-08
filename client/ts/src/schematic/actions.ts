@@ -19,12 +19,9 @@ import {
   type Handlers,
   removeEdge,
   removeNode,
-  rename,
   setConfig,
-  setGroup,
   setNode,
   setNodePosition,
-  setProject,
 } from "@/schematic/actions.gen";
 import {
   type ElementConfig,
@@ -34,6 +31,9 @@ import {
 } from "@/schematic/types.gen";
 
 const CONFIGS_FIELD = "configs";
+
+// The Core alone sets the group and the project.
+const FIELDS = ["name", "group", "project"];
 
 const hasNode = (state: Draft<Schematic>, key: string): boolean =>
   state.nodes.some((n) => n.key === key);
@@ -45,12 +45,12 @@ const hasEdge = (state: Draft<Schematic>, key: string): boolean =>
 const hasElement = (state: Draft<Schematic>, key: string): boolean =>
   hasNode(state, key) || hasEdge(state, key);
 
-// Path actions edit only the element configs. An action on the config of a node or edge
-// that does not exist does nothing.
+// An action on the config of a node or edge that does not exist does nothing.
 const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
   const path = patch.pathOf(action);
-  if (path.length > 1 && path[0] === CONFIGS_FIELD && !hasElement(state, path[1]))
-    return actions.NO_OP_RESULT;
+  if (path[0] !== CONFIGS_FIELD)
+    return actions.applyFieldPath(state, action, FIELDS, schematicZ);
+  if (path.length > 1 && !hasElement(state, path[1])) return actions.NO_OP_RESULT;
   return actions.applyEntryPath(state, action, [CONFIGS_FIELD], schematicZ);
 };
 
@@ -62,32 +62,22 @@ const snapshotConfig = (
   return config != null ? actions.snapshotDraft(config) : undefined;
 };
 
+const isConfigEdit = (action: Action): boolean => {
+  switch (action.type) {
+    case "set_config":
+      return true;
+    case "set":
+    case "remove":
+      return patch.pathOf(action)[0] === CONFIGS_FIELD;
+    default:
+      return false;
+  }
+};
+
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.schematic);
     return { inverse: [], targets: [payload.schematic.key] };
-  },
-
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return {
-      inverse: [rename({ name: oldName })],
-      targets: [state.key],
-    };
-  },
-
-  setGroup: (state, payload) => {
-    const oldGroup = state.group;
-    state.group = payload.group;
-    return { inverse: [setGroup({ group: oldGroup })], targets: [] };
-  },
-
-  setProject: (state, payload) => {
-    const oldProject = state.project;
-    state.project = payload.project;
-    const inverse = oldProject == null ? [] : [setProject({ project: oldProject })];
-    return { inverse, targets: [] };
   },
 
   setNodePosition: (state, payload) => {
@@ -238,9 +228,6 @@ export const encode = (state: Schematic, action: Action): Action => {
 // action so frames for never-cached documents ingest instead of drop.
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.schematic : undefined;
-
-const isConfigEdit = ({ type }: Action): boolean =>
-  type === "set_config" || type === "set" || type === "remove";
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";

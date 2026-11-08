@@ -73,7 +73,9 @@ var _ = Describe("Signals", func() {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
 			Expect(svc.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
-				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
+				panel.NewSetAction(
+					panel.SetPayload{Path: []string{"name"}, Value: "renamed"},
+				),
 			})).To(Succeed())
 			var decoded []actions.Scoped[panel.Key, panel.Action]
 			for len(decoded) < 2 {
@@ -95,7 +97,7 @@ var _ = Describe("Signals", func() {
 			Expect(last.Key).To(Equal(p.Key))
 			Expect(last.DispatchKey).To(Equal("dk-1"))
 			Expect(last.Actions).To(HaveLen(1))
-			Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
+			Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeSet))
 		},
 	)
 

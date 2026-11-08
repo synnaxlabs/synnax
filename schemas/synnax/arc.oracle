@@ -107,12 +107,6 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Rename {
-        name string
-
-        @doc value "renames the Arc module."
-    }
-
     action SetNode {
         node graph.Node
 
@@ -212,7 +206,9 @@ Arc union on type Type extends Base {
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the graph's node inputs."
+        @doc value """
+            replaces the Arc's name, or the value at a path in the graph's node inputs.
+        """
     }
 
     action Remove extends patch.Remove {

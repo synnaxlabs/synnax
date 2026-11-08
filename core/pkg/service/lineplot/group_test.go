@@ -76,7 +76,10 @@ var _ = Describe("SetGroup", func() {
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(target.Key))
 			Expect(seen[0].Actions).To(Equal([]lineplot.Action{
-				lineplot.NewSetGroupAction(lineplot.SetGroupPayload{Group: &g.Key}),
+				lineplot.NewSetAction(lineplot.SetPayload{
+					Path:  []string{"group"},
+					Value: g.Key,
+				}),
 			}))
 			Expect(retrieveGroup(ctx, target.Key)).To(Equal(&g.Key))
 		},
@@ -135,11 +138,24 @@ var _ = Describe("SetGroup", func() {
 		func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
 			dest := createProject(ctx)
+			rec := &Recorder[lineplot.Key, lineplot.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(nil).SetProject(ctx, dest.Key, target.Key)).
 				To(Succeed())
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(BeNil())
 			Expect(res.Project).To(Equal(&dest.Key))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(2))
+			Expect(seen[0].Actions).To(Equal([]lineplot.Action{
+				lineplot.NewRemoveAction(lineplot.RemovePayload{Key: "group"}),
+			}))
+			Expect(seen[1].Actions).To(Equal([]lineplot.Action{
+				lineplot.NewSetAction(lineplot.SetPayload{
+					Path:  []string{"project"},
+					Value: dest.Key,
+				}),
+			}))
 		},
 	)
 
@@ -180,27 +196,29 @@ var _ = Describe("SetGroup", func() {
 		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
 	})
 
-	It("Should reject a client dispatch of a group change", func(ctx SpecContext) {
+	It("Should reject a client patch of the group", func(ctx SpecContext) {
 		Expect(svc.Dispatch(ctx, target.Key, "d1", []lineplot.Action{
-			lineplot.NewSetGroupAction(lineplot.SetGroupPayload{Group: &g.Key}),
+			lineplot.NewSetAction(lineplot.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key,
+			}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(
-				"only the Core dispatches a line plot group change",
-			)),
+			MatchError(ContainSubstring(`unknown object member name "group"`)),
 		))
 		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
 	})
 
-	It("Should reject a client dispatch of a project change", func(ctx SpecContext) {
+	It("Should reject a client patch of the project", func(ctx SpecContext) {
 		dest := createProject(ctx)
 		Expect(svc.Dispatch(ctx, target.Key, "d1", []lineplot.Action{
-			lineplot.NewSetProjectAction(lineplot.SetProjectPayload{Project: dest.Key}),
+			lineplot.NewSetAction(lineplot.SetPayload{
+				Path:  []string{"project"},
+				Value: dest.Key,
+			}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(
-				"only the Core dispatches a line plot project change",
-			)),
+			MatchError(ContainSubstring(`unknown object member name "project"`)),
 		))
 		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
 	})

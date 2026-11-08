@@ -206,7 +206,9 @@ var _ = Describe("Writer", func() {
 				s := table.Table{Project: &proj.Key, Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: ""},
+					),
 				})).To(MatchError(ContainSubstring("name: required")))
 				Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
 			},
@@ -215,7 +217,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
-				{Type: table.ActionTypeRename},
+				{Type: table.ActionTypeSet},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
 		})
@@ -258,7 +260,9 @@ var _ = Describe("Writer", func() {
 			s := table.Table{Project: &proj.Key, Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
 			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
+				table.NewSetAction(
+					table.SetPayload{Path: []string{"name"}, Value: "test2"},
+				),
 			})).To(Succeed())
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test2"))
 		})
@@ -268,7 +272,9 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				s := seed(ctx)
 				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "multi"},
+					),
 					table.NewAddRowAction(table.AddRowPayload{
 						Index: 1,
 						Key:   "r1",
@@ -296,10 +302,14 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[table.Key, table.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "first"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "first"},
+					),
 				})).To(Succeed())
 				Expect(svc.Dispatch(ctx, s.Key, "dk-2", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "second"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "second"},
+					),
 				})).To(Succeed())
 				received := rec.Snapshot()
 				Expect(received).To(HaveLen(2))

@@ -165,9 +165,10 @@ func (s *Service) OnAction(
 // committed before the actions are notified, so two concurrent dispatches can never
 // overwrite each other's edits. dispatchKey is a client-generated identifier carried
 // verbatim onto the broadcast so the originating client can recognize its own echo.
-// Snapshots are immutable except for Rename: returns validate.ErrValidation if the
-// target is a snapshot and any action other than Rename is included. Also returns a
-// validation error, and stores nothing, if the actions leave the schematic invalid.
+// Snapshots are immutable except for their name: returns validate.ErrValidation if the
+// target is a snapshot and any action other than a set of the name is included. Also
+// returns a validation error, and stores nothing, if the actions leave the schematic
+// invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -184,7 +185,7 @@ func (s *Service) Dispatch(
 				ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
 					if sch.Snapshot {
 						for _, a := range acts {
-							if a.Type != ActionTypeRename {
+							if !setsName(a) {
 								return sch, errors.Wrapf(
 									validate.ErrValidation,
 									"[Schematic] - cannot dispatch %s on snapshot %s:%s",

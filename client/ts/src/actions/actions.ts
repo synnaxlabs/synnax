@@ -94,6 +94,28 @@ export const applyEntryPath = <S extends object>(
 };
 
 /**
+ * Applies a path action to a top-level field of a draft of a cached document, such as
+ * its name. The result targets the path that the action changes.
+ * @param fields - The top-level fields that path actions change.
+ * @param schema - The document's schema, which names the keys that keep their case.
+ * @throws {Error} if the action's path starts at another field, or if the document
+ * cannot hold the action.
+ */
+export const applyFieldPath = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  fields: readonly string[],
+  schema: z.ZodType,
+): HandlerResult<patch.Action> => {
+  const path = patch.pathOf(action);
+  if (!fields.includes(path[0]))
+    throw new Error(`${path.join(".")} is not inside a field of ${fields.join(", ")}`);
+  const inverse = applyPath(state, action, schema);
+  if (inverse.length === 0) return NO_OP_RESULT;
+  return { inverse, targets: [path.join(".")] };
+};
+
+/**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
  * action union from one function that applies a path action.
  */

@@ -324,7 +324,12 @@ var _ = Describe("Service", func() {
 							Key:         p.Key,
 							DispatchKey: "sess-1",
 							Actions: []panel.Action{
-								panel.NewRenameAction(panel.RenamePayload{Name: "x"}),
+								panel.NewSetAction(
+									panel.SetPayload{
+										Path:  []string{"name"},
+										Value: "x",
+									},
+								),
 							},
 						},
 					),
@@ -345,8 +350,11 @@ var _ = Describe("Service", func() {
 							Key:         p.Key,
 							DispatchKey: "sess-1",
 							Actions: []panel.Action{
-								panel.NewRenameAction(
-									panel.RenamePayload{Name: "renamed"},
+								panel.NewSetAction(
+									panel.SetPayload{
+										Path:  []string{"name"},
+										Value: "renamed",
+									},
 								),
 							},
 						},
