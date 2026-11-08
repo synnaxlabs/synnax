@@ -686,7 +686,7 @@ var _ = Describe("Write", func() {
 			"a role",
 			func(ctx context.Context, tx gorp.Tx, u user.User) error {
 				return svc.User.NewWriter(tx).
-					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, nil, u.Key)
+					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, u.Key)
 			},
 		),
 	)

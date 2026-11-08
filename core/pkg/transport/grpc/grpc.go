@@ -106,6 +106,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
 	t.UserSetRole = noop.UnaryServer[user.SetRoleRequest, struct{}]{}
+	t.UserDispatch = noop.UnaryServer[user.DispatchRequest, struct{}]{}
 
 	// RESOURCE
 	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
@@ -223,6 +224,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
 	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
+	t.AccessDispatchPolicy = noop.UnaryServer[policy.DispatchRequest, struct{}]{}
+	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

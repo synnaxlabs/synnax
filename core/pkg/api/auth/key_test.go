@@ -45,7 +45,7 @@ func setBuiltinRole(ctx context.Context, subject user.Key, name string) {
 		Entry(&r).
 		Exec(ctx, db)).To(Succeed())
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return userSvc.NewWriter(tx).SetRole(ctx, r.Key, nil, subject)
+		return userSvc.NewWriter(tx).SetRole(ctx, r.Key, subject)
 	})).To(Succeed())
 }
 

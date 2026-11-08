@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -181,30 +183,30 @@ type ChangeUsernameRequest struct {
 }
 
 // ChangeUsername changes the username of the password held by the user with the given
-// key.
+// key. It returns an error when the user is the subject, and the errors of
+// user.Writer.Apply.
 func (s *Service) ChangeUsername(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangeUsernameRequest,
 ) (struct{}, error) {
-	subject := auth.GetSubject(ctx)
-	if subject.Key == req.Key.String() {
-		return struct{}{}, errors.New(
-			"you cannot change your own username through the user service",
-		)
-	}
-	var p password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.ResourceID(req.Key))).
-		Entry(&p).
-		Exec(ctx, tx); err != nil {
+	if err := checkOtherUser(ctx, req.Key); err != nil {
 		return struct{}{}, err
 	}
-	if p.Username == req.Username {
-		return struct{}{}, nil
+	return struct{}{}, s.internal.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
+		user.NewSetUsernameAction(user.SetUsernamePayload{Username: req.Username}),
+	)
+}
+
+// checkOtherUser returns an error when the user with key is the subject, as a subject
+// cannot change its own username.
+func checkOtherUser(ctx context.Context, key user.Key) error {
+	if auth.GetSubject(ctx) != user.ResourceID(key) {
+		return nil
 	}
-	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, user.ResourceID(req.Key), req.Username)
+	return errors.New("you cannot change your own username through the user service")
 }
 
 type RenameRequest struct {
@@ -219,7 +221,44 @@ func (s *Service) Rename(
 	req RenameRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).
-		ChangeName(ctx, req.Key, req.Name)
+		Apply(ctx, req.Key, setAction("name", req.Name))
+}
+
+func setAction(path string, value any) user.Action {
+	return user.NewSetAction(user.SetPayload{Path: []string{path}, Value: value})
+}
+
+// DispatchRequest carries an action sequence to apply to a single user. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[user.Key, user.Action]
+
+// Dispatch applies the action sequence to the target user atomically. It returns
+// access.ErrDenied when the subject cannot update the user, checked before the write
+// reads the user, an error when a set username action targets the subject, and the
+// errors of user.Writer.Apply.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	if err := s.enforceOnUsers(
+		ctx,
+		access.ActionUpdate,
+		[]user.Key{req.Key},
+	); err != nil {
+		return struct{}{}, err
+	}
+	if slices.ContainsFunc(req.Actions, func(a user.Action) bool {
+		return a.Type == user.ActionTypeSetUsername
+	}) {
+		if err := checkOtherUser(ctx, req.Key); err != nil {
+			return struct{}{}, err
+		}
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -285,18 +324,13 @@ func (s *Service) SetRole(
 	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
 		return struct{}{}, err
 	}
-	guard := func(u user.User) error {
-		if !u.RootUser {
-			return nil
+	w := s.internal.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.Apply(ctx, k, setAction("role", req.Role)); err != nil {
+			return struct{}{}, err
 		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"cannot change the role of root user %s",
-			u.Name,
-		)
 	}
-	return struct{}{}, s.internal.NewWriter(tx).
-		SetRole(ctx, req.Role, guard, req.Keys...)
+	return struct{}{}, nil
 }
 
 // enforceOnUsers checks the action on the users with the provided keys before a write
