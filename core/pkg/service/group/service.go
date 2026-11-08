@@ -299,8 +299,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Group{}, err
 			}
-			if err = next.Validate(); err != nil || sameID(g.Parent, next.Parent) {
-				return next, err
+			if err = next.Validate(); err != nil {
+				return Group{}, err
+			}
+			if sameID(g.Parent, next.Parent) {
+				return next, nil
 			}
 			var scope resource.Type
 			if next.Parent != nil {
@@ -311,10 +314,12 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if top, moved, err = w.checkMove(ctx, g, next.Parent); err != nil {
 				return Group{}, err
 			}
-			if next.Parent == nil {
-				return next, nil
+			if next.Parent != nil {
+				if err = checkScope(next, scope); err != nil {
+					return Group{}, err
+				}
 			}
-			return next, checkScope(next, scope)
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

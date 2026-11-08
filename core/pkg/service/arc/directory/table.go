@@ -158,7 +158,10 @@ func (w Writer) Update(
 			if err != nil {
 				return Directory{}, err
 			}
-			return d, d.Validate()
+			if err = d.Validate(); err != nil {
+				return Directory{}, err
+			}
+			return d, nil
 		}).
 		Exec(ctx, w.tx)
 }

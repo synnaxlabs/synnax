@@ -93,19 +93,23 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Symbol{}, err
 			}
+			next.ApplyDefaults()
 			if err = next.Validate(); err != nil {
 				return Symbol{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
 				return next, nil
 			}
-			return next, group.CheckMember(
+			if err = group.CheckMember(
 				ctx,
 				w.tx,
 				next.Group,
 				resource.TypeSchematicSymbol,
 				nil,
-			)
+			); err != nil {
+				return Symbol{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

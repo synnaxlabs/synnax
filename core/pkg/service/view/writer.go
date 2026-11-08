@@ -72,7 +72,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err = next.Validate(); err != nil {
 				return View{}, err
 			}
-			return next, w.validate(next)
+			if err = w.validate(next); err != nil {
+				return View{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

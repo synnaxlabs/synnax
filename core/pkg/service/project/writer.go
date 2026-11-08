@@ -97,13 +97,16 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if lo.FromPtr(next.Group) == lo.FromPtr(p.Group) {
 				return next, nil
 			}
-			return next, group.CheckMember(
+			if err = group.CheckMember(
 				ctx,
 				w.tx,
 				next.Group,
 				resource.TypeProject,
 				nil,
-			)
+			); err != nil {
+				return Project{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

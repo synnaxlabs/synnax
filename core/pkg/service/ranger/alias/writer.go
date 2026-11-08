@@ -68,7 +68,11 @@ func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[string, Alias](key)).
 		ChangeErr(func(_ gorp.Context, a Alias) (Alias, error) {
-			return Reduce(a, acts...)
+			next, err := Reduce(a, acts...)
+			if err != nil {
+				return Alias{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

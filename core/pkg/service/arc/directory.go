@@ -72,9 +72,12 @@ func (w Writer) ApplyDirectory(
 				validate.ErrRequired, "parent",
 			)
 		}
-		return next, w.validateEntry(
+		if err = w.validateEntry(
 			ctx, *next.Parent, directory.ResourceID(key), next.Name, true,
-		)
+		); err != nil {
+			return directory.Directory{}, err
+		}
+		return next, nil
 	}); err != nil {
 		return err
 	}

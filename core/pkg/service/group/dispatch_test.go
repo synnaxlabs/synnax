@@ -30,7 +30,7 @@ var _ = Describe("Dispatch", func() {
 		db            *gorp.DB
 		svc           *group.Service
 		parent, child group.Group
-		moved         []group.Key
+		moved         [][]group.Key
 	)
 	write := func(ctx context.Context, fn func(group.Writer) error) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -53,7 +53,7 @@ var _ = Describe("Dispatch", func() {
 				groups []group.Key,
 				_ *resource.ID,
 			) error {
-				moved = append(moved, groups...)
+				moved = append(moved, groups)
 				return nil
 			},
 		}))
@@ -124,7 +124,7 @@ var _ = Describe("Dispatch", func() {
 			Type: resource.TypeProject,
 			Key:  "p1",
 		}))).To(Succeed())
-		Expect(moved).To(Equal([]group.Key{child.Key}))
+		Expect(moved).To(Equal([][]group.Key{{child.Key}}))
 	})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {
@@ -170,4 +170,24 @@ var _ = Describe("Dispatch", func() {
 			return w.SetParent(ctx, new(parent.ResourceID()), child.Key)
 		}, func() group.Action { return setParent(new(parent.ResourceID())) }),
 	)
+
+	It("Should apply one parent change and member move for each group", func(
+		ctx SpecContext,
+	) {
+		other := group.Group{Name: "Other", Scope: resource.TypeProject}
+		create(ctx, &other)
+		rec := record()
+		top := resource.ID{Type: resource.TypeProject, Key: "p1"}
+		Expect(write(ctx, func(w group.Writer) error {
+			return w.SetParent(ctx, &top, child.Key, other.Key)
+		})).To(Succeed())
+		Expect(moved).To(Equal([][]group.Key{{child.Key}, {other.Key}}))
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(2))
+		want := []group.Action{setParent(&top)}
+		Expect(frames).To(Equal([]frame{
+			{Key: child.Key, DispatchKey: "dk", Seq: frames[0].Seq, Actions: want},
+			{Key: other.Key, DispatchKey: "dk", Seq: frames[1].Seq, Actions: want},
+		}))
+	})
 })

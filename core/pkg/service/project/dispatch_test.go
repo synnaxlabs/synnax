@@ -141,4 +141,24 @@ var _ = Describe("Dispatch", func() {
 			return w.SetGroup(ctx, &g.Key, p.Key)
 		}, func() project.Action { return set("group", &g.Key) }),
 	)
+
+	It("Should broadcast one set for each project of a group change", func(
+		ctx SpecContext,
+	) {
+		other := project.Project{Name: "Other"}
+		Expect(write(ctx, func(w project.Writer) error {
+			return w.Create(ctx, &other)
+		})).To(Succeed())
+		rec := record()
+		Expect(write(ctx, func(w project.Writer) error {
+			return w.SetGroup(ctx, &g.Key, p.Key, other.Key)
+		})).To(Succeed())
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(2))
+		want := []project.Action{set("group", &g.Key)}
+		Expect(frames).To(Equal([]frame{
+			{Key: p.Key, DispatchKey: "dk", Seq: frames[0].Seq, Actions: want},
+			{Key: other.Key, DispatchKey: "dk", Seq: frames[1].Seq, Actions: want},
+		}))
+	})
 })

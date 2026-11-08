@@ -131,6 +131,12 @@ var _ = Describe("Dispatch", func() {
 		}, "a schematic_symbol cannot sit in a channel group"),
 	)
 
+	It("Should fill the defaults of an edited data", func(ctx SpecContext) {
+		Expect(apply(ctx, set("data", symbol.Spec{SVG: "<svg/>", Variant: "static"}))).
+			To(Succeed())
+		Expect(retrieve(ctx).Data.Scale).To(Equal(1.0))
+	})
+
 	It("Should refuse an invalid data", func(ctx SpecContext) {
 		// Generated validators return errors that do not wrap validate.ErrValidation.
 		Expect(apply(ctx, set("data", symbol.Spec{Variant: "static"}))).
@@ -186,4 +192,27 @@ var _ = Describe("Dispatch", func() {
 			return w.SetGroup(ctx, &g.Key, sym.Key)
 		}, func() symbol.Action { return set("group", &g.Key) }),
 	)
+
+	It("Should broadcast one set for each symbol of a group change", func(
+		ctx SpecContext,
+	) {
+		other := symbol.Symbol{
+			Name: "Other",
+			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+		}
+		Expect(write(ctx, func(w symbol.Writer) error {
+			return w.Create(ctx, &other)
+		})).To(Succeed())
+		rec := record()
+		Expect(write(ctx, func(w symbol.Writer) error {
+			return w.SetGroup(ctx, &g.Key, sym.Key, other.Key)
+		})).To(Succeed())
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(2))
+		want := []symbol.Action{set("group", &g.Key)}
+		Expect(frames).To(Equal([]frame{
+			{Key: sym.Key, DispatchKey: "dk", Seq: frames[0].Seq, Actions: want},
+			{Key: other.Key, DispatchKey: "dk", Seq: frames[1].Seq, Actions: want},
+		}))
+	})
 })
