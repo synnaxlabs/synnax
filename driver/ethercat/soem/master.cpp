@@ -491,6 +491,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        this->confirm_silent(static_cast<uint16_t>(i));
         const uint16_t state = this->api->slave_state(i);
         auto &h = health.emplace_back(
             slave::Health{
@@ -521,6 +522,14 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     for (const auto &[pos, refusal]: this->left_out)
         health.push_back({.position = pos, .refusal = refusal});
     return health;
+}
+
+void Master::confirm_silent(const uint16_t pos) {
+    if (this->api->slave_state(pos) != EC_STATE_NONE || this->api->slave_lost(pos))
+        return;
+    this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
+    if (this->api->slave_state(pos) == EC_STATE_NONE)
+        this->api->set_slave_lost(pos, true);
 }
 
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
@@ -569,10 +578,6 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
             this->api->set_slave_state(pos, EC_STATE_PRE_OP);
             this->api->writestate(pos);
         }
-    } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
-        this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
-        if (this->api->slave_state(pos) == EC_STATE_NONE)
-            this->api->set_slave_lost(pos, true);
     }
     if (!this->api->slave_lost(pos)) return;
     if (this->api->slave_state(pos) != EC_STATE_NONE ||

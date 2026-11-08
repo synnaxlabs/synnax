@@ -1705,17 +1705,33 @@ TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
     EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
 }
 
-/// @brief it should mark a slave that does not answer as lost after a failed recovery.
+/// @brief it should report a slave that does not answer a second read as lost.
 TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_NONE;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_NONE;
     this->mock->recover_return = 0;
-    EXPECT_FALSE(this->master->check(this->brk)[0].lost);
-    EXPECT_TRUE(this->mock->slave_infos[0].lost);
+    EXPECT_TRUE(this->master->check(this->brk)[0].lost);
     EXPECT_TRUE(this->master->check(this->brk)[0].lost);
     EXPECT_EQ(this->mock->recovered_slaves, (std::vector<uint16_t>{1, 1}));
+}
+
+/// @brief it should report each slave in OP when a state read gets no reply.
+TEST_F(SOEMMasterTest, CheckKeepsStatesOnDroppedStateRead) {
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    this->mock->dropped_state_reads = 1;
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 2);
+    for (const auto &h: health) {
+        EXPECT_EQ(h.state, slave::State::OP);
+        EXPECT_FALSE(h.lost);
+    }
+    EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
+    EXPECT_TRUE(this->mock->recovered_slaves.empty());
 }
 
 /// @brief it should recover a lost slave and clear its lost flag.
