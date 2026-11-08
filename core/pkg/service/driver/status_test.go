@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 type statusCall = func(context.Context, *driver.StatusHandler) error
@@ -500,22 +501,21 @@ var _ = Describe("StatusHandler", func() {
 			message, cmd string,
 			running bool,
 		) {
-			gated := &gatedDB{
-				DB:      db.KV(),
-				held:    make(chan struct{}),
-				release: make(chan struct{}),
-			}
-			handler := driver.NewStatusHandler(gorp.Wrap(gated), statusSvc, t)
+			handler := driver.NewStatusHandler(db, statusSvc, t)
 			Expect(handler.Send(
 				ctx, "cmd-0", status.VariantSuccess, true, "Started task", "",
 			)).To(Succeed())
 			// Cleanup opens the gate for a spec that fails before the release below.
-			release := sync.OnceFunc(func() { close(gated.release) })
+			held, gate := make(chan struct{}), make(chan struct{})
+			release := sync.OnceFunc(func() { close(gate) })
 			DeferCleanup(release)
-			gated.gated.Store(true)
+			DeferCleanup(hookedKV.HookKey(
+				[]byte(retrieve(ctx).Key),
+				hookkv.Hold(held, gate),
+			))
 			firstDone, secondDone := make(chan error, 1), make(chan error, 1)
 			go func() { firstDone <- first(ctx, handler) }()
-			Eventually(gated.held).Should(BeClosed())
+			Eventually(held).Should(BeClosed())
 			go func() { secondDone <- second(ctx, handler) }()
 			Consistently(secondDone).ShouldNot(Receive())
 			release()
