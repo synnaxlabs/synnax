@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -103,7 +102,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	d.configureExistingTasks(ctx)
 	// A reader of a commit must not wait for a task to stop, so a worker stops the
 	// tasks that commits delete.
-	changed, err := coalesce.Open(coalesce.Config[task.Key, change.Variant]{
+	changed, err := coalesce.Open(coalesce.Config[task.Key, gorp.ChangeKind]{
 		Instrumentation: cfg.Instrumentation,
 		Handle:          d.deleteTasks,
 	})
@@ -115,7 +114,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		r gorp.TxReader[task.Key, task.Task],
 	) {
 		for ch := range r {
-			changed.Add(ch.Key, ch.Variant)
+			changed.Add(ch.Key, ch.Kind)
 		}
 	})
 	ok(nil, io.NoFailCloserFunc(disconnect))
@@ -523,9 +522,9 @@ func unsupportedDescription(cmdType string) string {
 // deleteTasks stops the instance of each task whose latest change is a delete. Sets
 // need nothing: configs deploy on start, and a rack move leaves the old instance
 // running until the task deploys again.
-func (d *Driver) deleteTasks(_ context.Context, latest map[task.Key]change.Variant) {
-	for key, variant := range latest {
-		if variant == change.VariantDelete {
+func (d *Driver) deleteTasks(_ context.Context, latest map[task.Key]gorp.ChangeKind) {
+	for key, kind := range latest {
+		if kind == gorp.ChangeDelete {
 			d.delete(key)
 		}
 	}

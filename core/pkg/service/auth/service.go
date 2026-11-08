@@ -13,7 +13,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"io"
-	"iter"
 	"maps"
 	"slices"
 	"sync"
@@ -24,7 +23,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -292,12 +290,12 @@ func (s *Service) endHold(key SessionKey) {
 
 func (s *Service) endDeletedHolds(
 	_ context.Context,
-	changes iter.Seq[change.Change[SessionKey, Session]],
+	changes gorp.TxReader[SessionKey, Session],
 ) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for ch := range changes {
-		if ch.Variant != change.VariantDelete {
+		if ch.Kind != gorp.ChangeDelete {
 			continue
 		}
 		if h, ok := s.mu.holds[ch.Key]; ok && !h.over {

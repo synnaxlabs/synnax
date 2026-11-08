@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -27,9 +26,14 @@ import (
 // demand represents a demand for streaming data from a specific entity. This entity
 // should generate a unique address (preferably through address.Rand) and use it
 // throughout its lifecycle. To update the requested keys, the entity sends a demand
-// with change.VariantSet. To remove the demand, it sends one with change.VariantDelete.
+// with its keys. To remove the demand, it sends one with removed set.
 type demand struct {
-	change.Change[address.Address, Request]
+	// addr is the address of the entity.
+	addr address.Address
+	// keys are the channels that the entity demands.
+	keys channel.Keys
+	// removed is true when the entity no longer demands any channels.
+	removed bool
 	// ack, when non-nil, is closed by the tapper after it has fully applied this demand
 	// to its taps. It lets a streamer acknowledge an open or a key update only once the
 	// relay is actually filtering its channels in, closing the window where a write
@@ -101,10 +105,10 @@ func (t *tapper) sink(_ context.Context, d demand) error {
 // updateDemands applies d to the current demands and returns every demanded channel,
 // split into the channels that have storage and the free channels.
 func (t *tapper) updateDemands(d demand) (stored, free channel.Keys) {
-	if d.Variant == change.VariantDelete {
-		delete(t.demands, d.Key)
+	if d.removed {
+		delete(t.demands, d.addr)
 	} else {
-		t.demands[d.Key] = d.Value.Keys
+		t.demands[d.addr] = d.keys
 	}
 	for _, keys := range t.demands {
 		for _, k := range keys {
