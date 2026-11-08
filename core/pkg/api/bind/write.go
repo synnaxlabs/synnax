@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -62,7 +63,7 @@ func Write[RQ, RS freighter.Payload](
 func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
 	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
 	need := func(action access.Action, target gorp.Target) error {
-		id, err := s.resourceOf(target)
+		id, err := resourceOf(target)
 		if err != nil {
 			return err
 		}
@@ -113,8 +114,8 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, req any) error {
 
 // resourceOf returns the resource of a record. A task config record maps to its task.
 // It returns an error when no resource type matches the table of the record.
-func (s *Service) resourceOf(t gorp.Target) (resource.ID, error) {
-	if id, ok := s.cfg.Task.ConfigTask(t); ok {
+func resourceOf(t gorp.Target) (resource.ID, error) {
+	if id, ok := taskconfig.TaskOf(t); ok {
 		return id, nil
 	}
 	id := resource.ID{Type: resource.Type(t.Table), Key: t.Key}

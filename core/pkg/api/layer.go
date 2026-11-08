@@ -305,7 +305,6 @@ func (l *Layer) BindTo(t Transport) {
 		gate     = license.Middleware(l.config.Service.License)
 		restrict = restrictMiddleware(
 			l.config.Service.Resource,
-			l.config.Service.Task,
 			l.config.Service.RBAC,
 		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
@@ -562,14 +561,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
-	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
+	t.UserRename.BindHandler(bind.Write(l.binder, l.User.Rename))
 	t.UserChangeUsername.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
 	)
 	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
 	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
-	t.UserSetRole.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRole))
+	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
@@ -747,29 +746,19 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
 
 	// ACCESS
-	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Create),
-	)
-	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Delete),
-	)
+	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
+	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
 	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
-	t.AccessCreateRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Create),
-	)
-	t.AccessDeleteRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
-	)
+	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
+	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
 	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
 
 	// STATUS
 	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
-	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
-	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
-	t.StatusSetByKeyOrName.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
-	)
+	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
+	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
+	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
 	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
@@ -812,7 +801,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
 		DB:   cfg.Distribution.DB,
 		RBAC: cfg.Service.RBAC,
-		Task: cfg.Service.Task,
 	}); err != nil {
 		return nil, err
 	}

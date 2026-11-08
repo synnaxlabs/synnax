@@ -291,7 +291,7 @@ var _ = Describe("Service", func() {
 						user.User{Name: "rename"},
 					),
 				)
-				Expect(apiSvc.Rename(rootCtx(ctx), db, apiuser.RenameRequest{
+				Expect(rename(rootCtx(ctx), apiuser.RenameRequest{
 					Key:  u.Key,
 					Name: "Renamed User",
 				})).Error().ToNot(HaveOccurred())
@@ -312,11 +312,22 @@ var _ = Describe("Service", func() {
 						user.User{Name: "rename-denied"},
 					),
 				)
-				fctx, _ := nonRootCtx(ctx)
-				Expect(apiSvc.Rename(fctx, db, apiuser.RenameRequest{
+				fctx, subject := nonRootCtx(ctx)
+				Expect(rename(fctx, apiuser.RenameRequest{
 					Key:  u.Key,
 					Name: "Should Not Apply",
-				})).Error().To(MatchError(access.ErrDenied))
+				})).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot update %s",
+						subject.ResourceID(),
+						u.ResourceID(),
+					)),
+				))
+				var stored user.User
+				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
+					Entry(&stored).Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Name).To(Equal("rename-denied"))
 			},
 		)
 	})
@@ -521,7 +532,7 @@ var _ = Describe("Service", func() {
 			engineer := rbacSvc.Builtin.EngineerKey
 			a := createUser(ctx, "set-role-"+uuid.New().String())
 			b := createUser(ctx, "set-role-"+uuid.New().String())
-			Expect(apiSvc.SetRole(rootCtx(ctx), db, apiuser.SetRoleRequest{
+			Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
 				Keys: []user.Key{a.Key, b.Key},
 				Role: engineer,
 			})).Error().ToNot(HaveOccurred())
@@ -533,7 +544,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
 				before := roleOf(ctx, u.Key)
-				Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{u.Key},
 					Role: rbacSvc.Builtin.OwnerKey,
 				})).Error().To(MatchError(access.ErrDenied))
@@ -548,7 +559,7 @@ var _ = Describe("Service", func() {
 				before := roleOf(ctx, target.Key)
 				grantRoleChange(ctx, u, before)
 				r := createRole(ctx)
-				Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{target.Key},
 					Role: r,
 				})).Error().To(beDeniedUpdateOn(r))
@@ -563,7 +574,7 @@ var _ = Describe("Service", func() {
 				before := roleOf(ctx, target.Key)
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, r)
-				Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{target.Key},
 					Role: r,
 				})).Error().To(beDeniedUpdateOn(before))
@@ -577,7 +588,7 @@ var _ = Describe("Service", func() {
 				target := createUser(ctx, "set-role-"+uuid.New().String())
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, roleOf(ctx, target.Key), r)
-				Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{target.Key},
 					Role: r,
 				})).Error().ToNot(HaveOccurred())
@@ -587,7 +598,7 @@ var _ = Describe("Service", func() {
 		It("Should refuse to change the role of the root user", func(ctx SpecContext) {
 			fctx, u := nonRootCtx(ctx)
 			grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey, rbacSvc.Builtin.ViewerKey)
-			Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+			Expect(setRole(fctx, apiuser.SetRoleRequest{
 				Keys: []user.Key{root.Key},
 				Role: rbacSvc.Builtin.ViewerKey,
 			})).Error().To(SatisfyAll(
@@ -599,19 +610,31 @@ var _ = Describe("Service", func() {
 			Expect(roleOf(ctx, root.Key)).To(Equal(rbacSvc.Builtin.OwnerKey))
 		})
 		It(
-			"Should not reveal the root user to a subject without update access",
+			"Should refuse to change the role of the root user before checking access",
 			func(ctx SpecContext) {
 				fctx, _ := nonRootCtx(ctx)
-				Expect(apiSvc.SetRole(fctx, db, apiuser.SetRoleRequest{
+				Expect(setRole(fctx, apiuser.SetRoleRequest{
 					Keys: []user.Key{root.Key},
 					Role: rbacSvc.Builtin.ViewerKey,
-				})).Error().To(MatchError(access.ErrDenied))
+				})).Error().To(MatchError(validate.ErrValidation))
+			},
+		)
+		It(
+			"Should give a role with no update on the roles when the role stays",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				target := createUser(ctx, "set-role-"+uuid.New().String())
+				grantOnUsers(ctx, u, access.ActionUpdate)
+				MustSucceed(setRole(fctx, apiuser.SetRoleRequest{
+					Keys: []user.Key{target.Key},
+					Role: roleOf(ctx, target.Key),
+				}))
 			},
 		)
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(apiSvc.SetRole(rootCtx(ctx), db, apiuser.SetRoleRequest{
+			Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
 				Keys: []user.Key{uuid.New()},
 				Role: rbacSvc.Builtin.ViewerKey,
 			})).Error().To(MatchError(query.ErrNotFound))
@@ -622,7 +645,7 @@ var _ = Describe("Service", func() {
 				owner := createUser(ctx, "owner-"+uuid.New().String())
 				Expect(writer.SetRole(ctx, rbacSvc.Builtin.OwnerKey, nil, owner.Key)).
 					To(Succeed())
-				Expect(apiSvc.SetRole(rootCtx(ctx), db, apiuser.SetRoleRequest{
+				Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
 					Keys: []user.Key{owner.Key},
 					Role: rbacSvc.Builtin.ViewerKey,
 				})).Error().ToNot(HaveOccurred())

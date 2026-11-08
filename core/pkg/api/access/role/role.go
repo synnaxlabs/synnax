@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -25,7 +24,7 @@ import (
 
 // ServiceConfig is the configuration for the role API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of retrieve requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -75,19 +74,12 @@ type (
 	}
 )
 
-// Create creates the roles in the request.
+// Create creates or overwrites the roles in the request.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []resource.ID{{Type: resource.TypeRole}},
-		Action:  access.ActionCreate,
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	if err := w.CreateMany(ctx, &req.Roles); err != nil {
 		return CreateResponse{}, err
@@ -123,19 +115,12 @@ type DeleteRequest struct {
 	Keys []rbacrole.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the roles in the request.
+// Delete deletes the roles in the request and their policies.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: rbacrole.ResourceIDs(req.Keys),
-		Action:  access.ActionDelete,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, key); err != nil {

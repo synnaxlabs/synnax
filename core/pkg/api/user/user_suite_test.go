@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -43,6 +44,9 @@ var (
 	apiSvc      *apiuser.Service
 	rbacSvc     *rbac.Service
 	root        user.User
+	// rename and setRole run their routes as the API layer binds them.
+	rename  freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
+	setRole freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -84,6 +88,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:     authSvc,
 	}))
 	root = findRoot(ctx, userSvc)
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	rename = bind.Write(binder, apiSvc.Rename)
+	setRole = bind.Write(binder, apiSvc.SetRole)
 })
 
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {

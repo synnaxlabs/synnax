@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -50,6 +52,13 @@ var (
 	rackSvc   *rack.Service
 	devices   *gorp.Table[device.Key, device.Device]
 	tasks     *gorp.Table[task.Key, task.Task]
+	// del, rename, and setByKeyOrName run their routes as the API layer binds them.
+	del            freighter.UnaryHandler[apistatus.DeleteRequest, struct{}]
+	rename         freighter.UnaryHandler[apistatus.RenameRequest, struct{}]
+	setByKeyOrName freighter.UnaryHandler[
+		apistatus.SetByKeyOrNameRequest,
+		apistatus.SetByKeyOrNameResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -82,6 +91,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 		RBAC:   rbacSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

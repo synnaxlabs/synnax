@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	apipolicy "github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -40,6 +42,9 @@ var (
 	svc    *service.Layer
 	apiSvc *apipolicy.Service
 	root   user.User
+	// create and del run their routes as the API layer binds them.
+	create freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
+	del    freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -59,6 +64,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		svc.RBAC.Builtin.OwnerKey,
 	))
 	apiSvc = MustSucceed(apipolicy.NewService(apipolicy.ServiceConfig{RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
 })
 
 // createUser creates a user that can do nothing.

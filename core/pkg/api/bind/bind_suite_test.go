@@ -41,7 +41,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
 		RBAC: svc.RBAC,
-		Task: svc.Task,
 	}))
 })
 

@@ -56,7 +56,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
-		Task: svc.Task,
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)

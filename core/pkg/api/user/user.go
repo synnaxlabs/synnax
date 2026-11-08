@@ -30,7 +30,8 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC checks the access of create, change username, retrieve, and delete
+	// requests.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -216,13 +217,6 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{user.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		ChangeName(ctx, req.Key, req.Name)
 }
@@ -281,41 +275,22 @@ type SetRoleRequest struct {
 }
 
 // SetRole gives a role to the users with the provided keys in one transaction. It
-// returns access.ErrDenied unless the subject can update the users, the role, and the
-// roles the users hold, a validation error when a user is a root user, and
-// query.ErrNotFound when a user does not exist. A role that another request gives a
-// user while SetRole runs is replaced with no access check on it.
+// returns a validation error when a user is a root user, and query.ErrNotFound when a
+// user does not exist.
 func (s *Service) SetRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRoleRequest,
 ) (struct{}, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: append(
-			user.ResourceIDsFromKeys(req.Keys),
-			role.ResourceID(req.Role),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	// The guard checks the role each user holds when the write reads it.
 	guard := func(u user.User) error {
-		if u.RootUser {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot change the role of root user %s",
-				u.Name,
-			)
+		if !u.RootUser {
+			return nil
 		}
-		return enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: []resource.ID{role.ResourceID(u.Role)},
-		})
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot change the role of root user %s",
+			u.Name,
+		)
 	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		SetRole(ctx, req.Role, guard, req.Keys...)

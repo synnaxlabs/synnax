@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -284,17 +283,6 @@ func (s *Service) ActionChannelKey() channel.Key {
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
-
-// ConfigTask returns the ID of the task whose config record target names, and false
-// when target names no config record.
-func (s *Service) ConfigTask(target gorp.Target) (resource.ID, bool) {
-	for _, typ := range s.cfg.Configs.Types() {
-		if config.TableName(typ) == target.Table {
-			return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
-		}
-	}
-	return resource.ID{}, false
-}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
