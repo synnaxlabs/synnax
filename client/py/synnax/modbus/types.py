@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import JsonValue
 
 from synnax import device, task
+from synnax import rack as rack_
 from synnax.exceptions import PathError, ValidationError
 from synnax.modbus.types_gen import (
     ReadChannel,
@@ -255,8 +256,8 @@ class Device(device.Device):
         delay_ms: int = 0,
         name: str = "",
         location: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = False,
     ):
         if not key:

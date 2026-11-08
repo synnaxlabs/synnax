@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from uuid import uuid4
 
 from synnax import device, task
+from synnax import rack as rack_
 from synnax.exceptions import ValidationError
 from synnax.ni.types_gen import (
     AIChannel,
@@ -308,8 +309,8 @@ class Device(device.Device):
         name: str = "",
         model: str = "",
         location: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = False,
     ):
         if not key:
