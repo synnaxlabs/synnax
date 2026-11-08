@@ -262,7 +262,7 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.enforceOnUsers(ctx, access.ActionDelete, req.Keys); err != nil {
+	if err := s.enforceOnUsers(ctx, tx, access.ActionDelete, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
@@ -282,7 +282,7 @@ func (s *Service) SetRole(
 	tx gorp.Tx,
 	req SetRoleRequest,
 ) (struct{}, error) {
-	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
+	if err := s.enforceOnUsers(ctx, tx, access.ActionUpdate, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	guard := func(u user.User) error {
@@ -303,10 +303,11 @@ func (s *Service) SetRole(
 // reads them, so a subject without access learns nothing from the root-user guard.
 func (s *Service) enforceOnUsers(
 	ctx context.Context,
+	tx gorp.Tx,
 	action access.Action,
 	keys []user.Key,
 ) error {
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
 		Objects: user.ResourceIDsFromKeys(keys),

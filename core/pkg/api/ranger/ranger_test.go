@@ -644,7 +644,7 @@ var _ = Describe("Delete cascades", func() {
 			id: alias.ResourceID(r.Key, ch.Key()),
 			exists: func(ctx SpecContext) bool {
 				GinkgoHelper()
-				_, err := svc.Alias.NewReader(nil).Resolve(ctx, r.Key, "alias")
+				_, err := svc.Alias.NewReader(db).Resolve(ctx, r.Key, "alias")
 				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
 				return err == nil
 			},
@@ -662,7 +662,7 @@ var _ = Describe("Delete cascades", func() {
 				GinkgoHelper()
 				return MustSucceed(svc.LinePlot.NewRetrieve().
 					Where(lineplot.MatchKeys(lp.Key)).
-					Exists(ctx, nil))
+					Exists(ctx, db))
 			},
 		}
 	}
@@ -694,7 +694,7 @@ var _ = Describe("Delete cascades", func() {
 				GinkgoHelper()
 				return MustSucceed(svc.Task.NewRetrieve().
 					Where(task.MatchKeys(t.Key)).
-					Exists(ctx, nil))
+					Exists(ctx, db))
 			},
 		}
 	}

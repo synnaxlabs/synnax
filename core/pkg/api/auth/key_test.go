@@ -258,7 +258,7 @@ var _ = Describe("API keys", func() {
 			Expect(passwordSvc.NewRetrieve().
 				Where(password.MatchSubjects(bob.ResourceID())).
 				Entry(&p).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(del(ctx, bobToken, p.Key)).To(Succeed())
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		})
