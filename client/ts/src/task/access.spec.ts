@@ -62,8 +62,9 @@ describe("task", () => {
         {
           name: "test",
           objects: [task.resourceID(""), rack.resourceID(0)],
-          actions: ["create", "retrieve", "update"],
+          actions: ["create", "retrieve"],
         },
+        { name: "test", objects: [rack.resourceID(0)], actions: ["update"] },
         { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
       ]);
       const rck = await client.racks.create({

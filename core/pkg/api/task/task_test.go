@@ -289,12 +289,11 @@ var _ = Describe("Create", func() {
 		}
 	}
 	// createNeeds returns what a create of t needs: create on t and its new status, and
-	// update on t and its rack, which the status and t place themselves in.
+	// update on the rack that t sits in.
 	createNeeds := func(t task.Task) []need {
 		return []need{
 			{access.ActionCreate, t.ResourceID()},
 			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-			{access.ActionUpdate, t.ResourceID()},
 			{access.ActionUpdate, t.Rack.ResourceID()},
 		}
 	}
@@ -335,8 +334,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, node.DB)).To(BeFalse())
 		},
 		Entry("without create on the task", 0),
-		Entry("without update on the task, which its status sits in", 2),
-		Entry("without update on its rack", 3),
+		Entry("without update on its rack", 2),
 	)
 
 	It(
@@ -853,13 +851,12 @@ var _ = Describe("Copy", func() {
 		r = createRange(ctx)
 	})
 	// copyNeeds returns what a snapshot copy of t into r needs: retrieve on t, create
-	// on the copy and its status, and update on the copy, its rack, and r.
+	// on the copy and its status, and update on its rack and r.
 	copyNeeds := func() []need {
 		return []need{
 			{access.ActionRetrieve, t.ResourceID()},
 			{access.ActionCreate, resource.ID{Type: resource.TypeTask}},
 			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-			{access.ActionUpdate, resource.ID{Type: resource.TypeTask}},
 			{access.ActionUpdate, t.Rack.ResourceID()},
 			{access.ActionUpdate, ranger.ResourceID(r.Key)},
 		}
@@ -894,6 +891,6 @@ var _ = Describe("Copy", func() {
 			Expect(countInRange(ctx, r)).To(BeZero())
 		},
 		Entry("without retrieve on the task", 0),
-		Entry("without update on the range", 5),
+		Entry("without update on the range", 4),
 	)
 })

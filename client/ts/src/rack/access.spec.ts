@@ -49,7 +49,7 @@ describe("rack", () => {
 
     it("should allow the caller to create racks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, [
-        { name: "test", objects: [rack.resourceID(0)], actions: ["create", "update"] },
+        { name: "test", objects: [rack.resourceID(0)], actions: ["create"] },
         { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
         { name: "test", objects: [role.TYPE_RESOURCE_ID], actions: ["retrieve"] },
       ]);
@@ -76,7 +76,7 @@ describe("rack", () => {
         {
           name: "test",
           objects: [rack.resourceID(0)],
-          actions: ["delete", "retrieve", "update"],
+          actions: ["delete", "retrieve"],
         },
         { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
       ]);

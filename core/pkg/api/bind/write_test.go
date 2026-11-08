@@ -275,11 +275,8 @@ var _ = Describe("Write", func() {
 				write: func(ctx context.Context, tx gorp.Tx) error {
 					return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
 				},
-				granted: []need{
-					{access.ActionDelete, parent.ResourceID()},
-					{access.ActionUpdate, parent.ResourceID()},
-				},
-				needed: need{access.ActionDelete, child.ResourceID()},
+				granted: []need{{access.ActionDelete, parent.ResourceID()}},
+				needed:  need{access.ActionDelete, child.ResourceID()},
 			}
 		}),
 		Entry(
@@ -293,23 +290,6 @@ var _ = Describe("Write", func() {
 					},
 					granted: []need{{access.ActionDelete, child.ResourceID()}},
 					needed:  need{access.ActionUpdate, parent.ResourceID()},
-				}
-			},
-		),
-		Entry(
-			"update on the place target of a cascaded record",
-			func(ctx context.Context) rule {
-				parent := createRange(ctx, nil)
-				child := createRange(ctx, &parent.Key)
-				return rule{
-					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
-					},
-					granted: []need{
-						{access.ActionDelete, parent.ResourceID()},
-						{access.ActionDelete, child.ResourceID()},
-					},
-					needed: need{access.ActionUpdate, parent.ResourceID()},
 				}
 			},
 		),
@@ -533,6 +513,53 @@ var _ = Describe("Write", func() {
 					RemoveLabels(ctx, r.Key, []label.Key{l.Key})
 			})).To(Succeed())
 		},
+	)
+
+	DescribeTable(
+		"Should not require access on the target of a link when the write creates or "+
+			"deletes the target",
+		func(ctx SpecContext, setup func(ctx context.Context) (apply, []need)) {
+			u := newUser(ctx)
+			f, granted := setup(ctx)
+			for _, g := range granted {
+				grant(ctx, u, g.action, g.object)
+			}
+			Expect(write(ctx, u, f)).To(Succeed())
+		},
+		Entry("a place target created", func(context.Context) (apply, []need) {
+			parent := newRange(nil)
+			child := newRange(&parent.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).
+					CreateMany(ctx, &[]ranger.Range{parent, child})
+			}, []need{
+				{access.ActionCreate, parent.ResourceID()},
+				{access.ActionCreate, child.ResourceID()},
+			}
+		}),
+		Entry("a place target deleted", func(ctx context.Context) (apply, []need) {
+			parent := createRange(ctx, nil)
+			child := createRange(ctx, &parent.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
+			}, []need{
+				{access.ActionDelete, parent.ResourceID()},
+				{access.ActionDelete, child.ResourceID()},
+			}
+		}),
+		Entry("a use target created", func(context.Context) (apply, []need) {
+			l := label.Label{Key: uuid.New(), Name: "new"}
+			r := newRange(nil, l.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
+					return err
+				}
+				return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+			}, []need{
+				{access.ActionCreate, l.ResourceID()},
+				{access.ActionCreate, r.ResourceID()},
+			}
+		}),
 	)
 
 	It("Should let a user write its own API keys", func(ctx SpecContext) {
