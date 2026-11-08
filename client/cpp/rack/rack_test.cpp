@@ -60,20 +60,22 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
-/// @brief it should reject a limit on a retrieve of one rack.
+/// @brief it should reject a limit or a cursor on a retrieve of one rack.
 TEST(RackTests, testRetrieveRackRejectsPage) {
     const auto client = new_test_client();
-    const auto options = RetrieveOptions{.limit = 1};
-    for (const auto &err:
-         {client.racks.retrieve("rack", options).second,
-          client.racks.retrieve({.name = "rack"}, x::filter::one, options).second}) {
-        ASSERT_MATCHES(err, x::errors::VALIDATION);
-        ASSERT_EQ(
-            err.data,
-            "a query for one record takes no limit or cursor, since a page could hide "
-            "a second match"
-        );
-    }
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
+        for (const auto &err: {
+                 client.racks.retrieve("rack", options).second,
+                 client.racks.retrieve({.name = "rack"}, x::filter::one, options).second
+             }) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or cursor, since a page could "
+                "hide a second match"
+            );
+        }
 }
 
 /// @brief it should page a retrieve of the racks that a filter matches.

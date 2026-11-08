@@ -106,20 +106,21 @@ TEST(TestArc, testRetrieveByKey) {
     ASSERT_EQ(base(retrieved).name, name);
 }
 
-/// @brief it should reject a limit on a retrieve of one Arc.
+/// @brief it should reject a limit or a cursor on a retrieve of one Arc.
 TEST(TestArc, testRetrieveRejectsPage) {
     const auto client = new_test_client();
-    const auto options = RetrieveOptions{.limit = 1};
-    for (const auto &err:
-         {client.arcs.retrieve("arc", options).second,
-          client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
-        ASSERT_MATCHES(err, x::errors::VALIDATION);
-        ASSERT_EQ(
-            err.data,
-            "a query for one record takes no limit or cursor, since a page could hide "
-            "a second match"
-        );
-    }
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
+        for (const auto &err:
+             {client.arcs.retrieve("arc", options).second,
+              client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or cursor, since a page could "
+                "hide a second match"
+            );
+        }
 }
 
 /// @brief it should page a retrieve of Arcs by keys or by names.
