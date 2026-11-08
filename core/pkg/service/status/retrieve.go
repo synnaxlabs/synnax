@@ -20,7 +20,7 @@ import (
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
-	gorp   gorp.Retrieve[Key, Status[D]]
+	gorp gorp.Retrieve[Key, Status[D]]
 	// indexes are on the table, whose entries hold details of any type.
 	indexes indexes
 }
