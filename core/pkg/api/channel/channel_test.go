@@ -17,14 +17,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -47,11 +52,208 @@ func createNamedChannel(
 ) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{Name: name, DataType: dt, Virtual: true}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
+	return ch
+}
+
+func createChannelGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	g := group.Group{Name: name, Scope: resource.TypeChannel}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
+	return g
+}
+
+func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
+	GinkgoHelper()
+	var ch channel.Channel
+	Expect(channelSvc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, db)).To(Succeed())
 	return ch
 }
 
 var _ = Describe("Service", func() {
+	Describe("Group", func() {
+		It(
+			"Should create a channel in a group and return the group on retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate, access.ActionRetrieve},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := group.Group{Name: "API Channels", Scope: resource.TypeChannel}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					group.ResourceID(g.Key),
+				)
+				created := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
+					AuthedCtx(ctx, author),
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Channels
+				Expect(created[0].Group).To(Equal(&g.Key))
+				retrieved := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, author),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{
+							Where: &channel.Where{
+								Key: &filter.Set[channel.Key]{Eq: &created[0].Key},
+							},
+						},
+					},
+				)).Channels
+				Expect(retrieved[0].Group).To(Equal(&g.Key))
+			},
+		)
+		It(
+			"Should refuse a created channel without update on its group",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := createChannelGroup(ctx, "Create denied")
+				Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
+					AuthedCtx(ctx, author),
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+	})
+	Describe("SetGroup", func() {
+		// denied matches an error that denies the subject the action on object.
+		denied := func(
+			subject resource.ID,
+			action access.Action,
+			object resource.ID,
+		) types.GomegaMatcher {
+			return SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(
+					ContainSubstring("%s cannot %s %s", subject, action, object),
+				),
+			)
+		}
+		move := func(
+			ctx SpecContext,
+			g group.Group,
+			ch channel.Channel,
+		) (struct{}, error) {
+			return setGroup(
+				AuthedCtx(ctx, author),
+				apichannel.SetGroupRequest{
+					Group: &g.Key,
+					Keys:  []channel.Key{ch.Key()},
+				},
+			)
+		}
+		It(
+			"Should refuse a move without update on the destination group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group denied")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				Expect(move(ctx, g, ch)).
+					Error().
+					To(denied(author.ResourceID(), access.ActionUpdate, g.ResourceID()))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
+			},
+		)
+		It(
+			"Should refuse a move without update on the source group",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				from := createChannelGroup(ctx, "Set group source denied")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).SetGroup(ctx, &from.Key, ch.Key())
+				})).
+					To(Succeed())
+				to := createChannelGroup(ctx, "Set group destination granted")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+					to.ResourceID(),
+				)
+				Expect(move(ctx, to, ch)).Error().To(denied(
+					author.ResourceID(),
+					access.ActionUpdate,
+					from.ResourceID(),
+				))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&from.Key))
+			},
+		)
+		It(
+			"Should refuse a move without update on the channel",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				g := createChannelGroup(ctx, "Set group channel denied")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					g.ResourceID(),
+				)
+				Expect(move(ctx, g, ch)).Error().To(denied(
+					author.ResourceID(),
+					access.ActionUpdate,
+					channel.ResourceID(ch.Key()),
+				))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(BeNil())
+			},
+		)
+		It(
+			"Should move a channel with update on the channel and both groups",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Float32T)
+				from := createChannelGroup(ctx, "Set group source granted")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).SetGroup(ctx, &from.Key, ch.Key())
+				})).
+					To(Succeed())
+				to := createChannelGroup(ctx, "Set group granted")
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+					from.ResourceID(),
+					to.ResourceID(),
+				)
+				MustSucceed(move(ctx, to, ch))
+				Expect(retrieveChannel(ctx, ch.Key()).Group).To(Equal(&to.Key))
+			},
+		)
+	})
 	Describe("RetrieveDataTypes", func() {
 		It(
 			"Should resolve the data types of the channels in key order",
@@ -121,26 +323,28 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 			})
 
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Key:     channel.OntologyID(ch.Key()).String(),
-					Name:    ch.Name,
-					Variant: status.VariantSuccess,
-					Message: "ok",
-					Time:    telem.Now(),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &apichannel.Status{
+						Owner:   new(channel.ResourceID(ch.Key())),
+						Name:    ch.Name,
+						Variant: status.VariantSuccess,
+						Message: "ok",
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 			}
 
 			retrieve := func(ctx SpecContext, keys ...channel.Key) []apichannel.Channel {
 				GinkgoHelper()
-				return MustSucceed(apiSvc.Retrieve(
+				return MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{
 						Request: apichannel.RetrieveRequest{
@@ -190,10 +394,10 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
-					ontology.ID{Type: ontology.ResourceTypeRangeAlias},
+					resource.ID{Type: resource.TypeChannel},
+					resource.ID{Type: resource.TypeRangeAlias},
 				)
 				rng = ranger.Range{
 					Name: "range",
@@ -202,13 +406,17 @@ var _ = Describe("Service", func() {
 						End:   telem.TimeStamp(10 * telem.Second),
 					},
 				}
-				Expect(rangeSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangeSvc.NewWriter(tx).Create(ctx, &rng)
+				})).To(Succeed())
 				term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
 				byName = createNamedChannel(ctx, term, telem.Float32T)
 				byAlias = createChannel(ctx, telem.Float32T)
-				Expect(aliasSvc.NewWriter(nil).Set(
-					ctx, rng.Key, byAlias.Key(), term+" inlet",
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return aliasSvc.NewWriter(tx).Set(
+						ctx, rng.Key, byAlias.Key(), term+" inlet",
+					)
+				})).To(Succeed())
 				both = &channel.Where{Key: &filter.Set[channel.Key]{
 					In: []channel.Key{byName.Key(), byAlias.Key()},
 				}}
@@ -216,7 +424,7 @@ var _ = Describe("Service", func() {
 
 			retrieve := func(ctx SpecContext, req apichannel.RetrieveRequest) []channel.Key {
 				GinkgoHelper()
-				res := MustSucceed(apiSvc.Retrieve(
+				res := MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{Request: req, RangeKey: &rng.Key},
 				))
@@ -231,7 +439,7 @@ var _ = Describe("Service", func() {
 			It(
 				"Should fill the alias of each channel on the range",
 				func(ctx SpecContext) {
-					res := MustSucceed(apiSvc.Retrieve(
+					res := MustSucceed(retrieveChannels(
 						AuthedCtx(ctx, author),
 						apichannel.AliasedRetrieveRequest{
 							Request:  apichannel.RetrieveRequest{Where: both},
@@ -283,9 +491,11 @@ var _ = Describe("Service", func() {
 			It("Should return a channel whose alias and name both match once", func(
 				ctx SpecContext,
 			) {
-				Expect(aliasSvc.NewWriter(nil).Set(
-					ctx, rng.Key, byName.Key(), term+" outlet",
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return aliasSvc.NewWriter(tx).Set(
+						ctx, rng.Key, byName.Key(), term+" outlet",
+					)
+				})).To(Succeed())
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,
 					SearchTerm: term,
@@ -300,38 +510,125 @@ var _ = Describe("Service", func() {
 				})).To(BeEmpty())
 			})
 
-			It("Should require retrieve access on the aliases it fills", func(
+			It("Should leave out the aliases that the subject cannot retrieve", func(
 				ctx SpecContext,
 			) {
-				reader := MustSucceed(userSvc.NewWriter(nil).Create(
+				reader := MustSucceed(rbactestutil.CreateUser(
 					ctx,
+					db,
+					rbacSvc,
+					userSvc,
 					user.User{Name: "reader-" + uuid.New().String()},
 				))
 				grantOn(
 					ctx,
-					reader.OntologyID(),
+					reader.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
-				Expect(apiSvc.Retrieve(
+				res := MustSucceed(retrieveChannels(
 					AuthedCtx(ctx, reader),
 					apichannel.AliasedRetrieveRequest{
 						Request:  apichannel.RetrieveRequest{Where: both},
 						RangeKey: &rng.Key,
 					},
-				)).Error().To(MatchError(access.ErrDenied))
+				))
+				Expect(res.Channels).To(ConsistOf(
+					SatisfyAll(
+						HaveField("Key", byAlias.Key()),
+						HaveField("Alias", BeNil()),
+					),
+					SatisfyAll(
+						HaveField("Key", byName.Key()),
+						HaveField("Alias", BeNil()),
+					),
+				))
 			})
+
+			It("Should not match the aliases that the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				reader := MustSucceed(rbactestutil.CreateUser(
+					ctx,
+					db,
+					rbacSvc,
+					userSvc,
+					user.User{Name: "reader-" + uuid.New().String()},
+				))
+				grantOn(
+					ctx,
+					reader.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{
+							Where:      both,
+							SearchTerm: term,
+						},
+						RangeKey: &rng.Key,
+					},
+				))
+				Expect(
+					lo.Map(
+						res.Channels,
+						func(ch apichannel.Channel, _ int) channel.Key {
+							return ch.Key
+						},
+					),
+				).To(Equal([]channel.Key{byName.Key()}))
+			})
+
+			It(
+				"Should deny a channel named by name that the subject cannot retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					reader := MustSucceed(rbactestutil.CreateUser(
+						ctx,
+						db,
+						rbacSvc,
+						userSvc,
+						user.User{Name: "reader-" + uuid.New().String()},
+					))
+					grantOn(
+						ctx,
+						reader.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						byAlias.ResourceID(),
+						resource.ID{Type: resource.TypeRangeAlias},
+					)
+					Expect(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{
+								Where: &channel.Where{Name: &filter.String{
+									In: []string{byName.Name, byAlias.Name},
+								}},
+								SearchTerm: term,
+							},
+							RangeKey: &rng.Key,
+						},
+					)).Error().To(MatchError(access.Denied(
+						reader.ResourceID(),
+						access.ActionRetrieve,
+						byName.ResourceID(),
+					).Error()))
+				},
+			)
 		})
 
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 			grantOn(
 				ctx,
-				author.OntologyID(),
+				author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
-				ontology.ID{Type: ontology.ResourceTypeChannel},
+				resource.ID{Type: resource.TypeChannel},
 			)
 			ch := createChannel(ctx, telem.Float32T)
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieveChannels(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &channel.Where{
@@ -345,8 +642,105 @@ var _ = Describe("Service", func() {
 			Expect(res.Channels[0].Key).To(Equal(ch.Key()))
 		})
 
+		Describe("Access", func() {
+			var (
+				prefix           string
+				reader           user.User
+				allowed, blocked channel.Channel
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = fmt.Sprintf("access%09d", rand.IntN(999999999))
+				allowed = createNamedChannel(ctx, prefix+"_allowed", telem.Float32T)
+				blocked = createNamedChannel(ctx, prefix+"_blocked", telem.Float32T)
+				reader = MustSucceed(rbactestutil.CreateUser(
+					ctx,
+					db,
+					rbacSvc,
+					userSvc,
+					user.User{Name: "reader-" + uuid.New().String()},
+				))
+				grantOn(
+					ctx,
+					reader.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					allowed.ResourceID(),
+				)
+			})
+
+			It("Should leave out the matches the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{Where: &channel.Where{
+							Name: &filter.String{StartsWith: new(prefix)},
+						}},
+					},
+				))
+				Expect(res.Channels).To(ConsistOf(HaveField("Key", allowed.Key())))
+			})
+
+			It("Should deny a named channel the subject cannot retrieve", func(
+				ctx SpecContext,
+			) {
+				Expect(retrieveChannels(
+					AuthedCtx(ctx, reader),
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{Where: &channel.Where{
+							Key: &filter.Set[channel.Key]{
+								In: []channel.Key{allowed.Key(), blocked.Key()},
+							},
+						}},
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(blocked.ResourceID().String())),
+				))
+			})
+
+			It(
+				"Should deny a channel named by name that the subject cannot retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					Expect(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{Where: &channel.Where{
+								Name: &filter.String{
+									In: []string{allowed.Name, blocked.Name},
+								},
+							}},
+						},
+					)).Error().To(MatchError(access.Denied(
+						reader.ResourceID(),
+						access.ActionRetrieve,
+						blocked.ResourceID(),
+					).Error()))
+				},
+			)
+
+			It(
+				"Should return a channel named by name that the subject can retrieve",
+				func(
+					ctx SpecContext,
+				) {
+					res := MustSucceed(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.AliasedRetrieveRequest{
+							Request: apichannel.RetrieveRequest{Where: &channel.Where{
+								Name: &filter.String{Eq: new(allowed.Name)},
+							}},
+						},
+					))
+					Expect(res.Channels).To(ConsistOf(HaveField("Key", allowed.Key())))
+				},
+			)
+		})
+
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
-			Expect(apiSvc.Retrieve(
+			Expect(retrieveChannels(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &channel.Where{Name: &filter.String{Regex: new("(a")}},

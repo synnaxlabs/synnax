@@ -15,6 +15,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/token"
+	"go/types"
 
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/tools/go/analysis"
@@ -24,20 +25,23 @@ const testutilImport = `"github.com/synnaxlabs/x/testutil"`
 
 var Analyzer = &analysis.Analyzer{
 	Name: "must",
-	Doc: `detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with MustSucceed.
+	Doc: `detects errors that a test captures in a variable before it asserts on them.
 
 This analyzer finds statements where an error is assigned from a function call and then
-checked with Expect(err).ToNot(HaveOccurred()). These can be simplified:
+checked with Expect(err). These can assert on the call itself:
 
   result, err := f()                    →  result := MustSucceed(f())
   Expect(err).ToNot(HaveOccurred())
 
   err := f()                            →  Expect(f()).To(Succeed())
-  Expect(err).ToNot(HaveOccurred())
+  Expect(err).To(Succeed())
 
-The Expect(err) check does not need to be immediately adjacent to the assignment;
-the analyzer walks backwards to find the binding assignment as long as no intervening
-statement references err.`,
+  _, err := f()                         →  Expect(f()).Error().To(MatchError(e))
+  Expect(err).To(MatchError(e))
+
+Error() also asserts that every other result is zero. The Expect(err) check does not
+need to be immediately adjacent to the assignment; the analyzer walks backwards to find
+the binding assignment as long as no intervening statement references err.`,
 	Run: run,
 }
 
@@ -174,47 +178,48 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		if !ok {
 			continue
 		}
-		errName, isExpectErr := matchExpectErrNotHaveOccurred(expectStmt.X)
-		if !isExpectErr {
-			continue
-		}
-		// Walk backwards through preceding statements looking for the assignment that
-		// binds errName. Bail out as soon as any intervening statement references
-		// errName, since the err identifier must remain bound for those statements.
-		var (
-			assignStmt *ast.AssignStmt
-			assignIdx  = -1
-		)
-		for j := i - 1; j >= 0; j-- {
-			if a, ok := stmts[j].(*ast.AssignStmt); ok && assignsToName(a, errName) {
-				assignStmt = a
-				assignIdx = j
-				break
+		if errName, ok := matchExpectErrSucceeds(expectStmt.X); ok {
+			assignStmt, assignIdx, rhsCall := findBinding(stmts, i, errName)
+			if assignStmt == nil {
+				continue
 			}
-			if usesIdent(stmts[j], errName) {
-				break
+			replaceable, fixable := dropBinding(pass, stmts, assignStmt, i, errName)
+			if replaceable && reportDiagnostic(
+				pass,
+				assignStmt,
+				expectStmt,
+				rhsCall,
+				errName,
+				assignIdx == i-1,
+				fixable,
+			) {
+				found = true
 			}
-		}
-		if assignStmt == nil {
 			continue
 		}
-		if len(assignStmt.Rhs) != 1 {
-			continue
-		}
-		rhsCall, ok := assignStmt.Rhs[0].(*ast.CallExpr)
+		m, ok := matchExpectErrMatches(expectStmt.X)
 		if !ok {
 			continue
 		}
-		if reportDiagnostic(
+		assignStmt, assignIdx, rhsCall := findBinding(stmts, i, m.errName)
+		if assignStmt == nil ||
+			!bindsOnlyError(pass, assignStmt, m.errName) ||
+			usesIdentIn(stmts[i+1:], m.errName) {
+			continue
+		}
+		replaceable, fixable := dropBinding(pass, stmts, assignStmt, i, m.errName)
+		if !replaceable {
+			continue
+		}
+		reportInlineDiagnostic(
 			pass,
 			assignStmt,
 			expectStmt,
 			rhsCall,
-			errName,
+			m,
 			assignIdx == i-1,
-		) {
-			found = true
-		}
+			fixable,
+		)
 	}
 	return found
 }
@@ -245,35 +250,112 @@ func usesIdent(node ast.Node, name string) bool {
 	return found
 }
 
-// matchExpectErrNotHaveOccurred checks if an expression matches:
+// usesIdentIn reports whether any of the given statements references name.
+func usesIdentIn(stmts []ast.Stmt, name string) bool {
+	for _, s := range stmts {
+		if usesIdent(s, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// dropBinding reports whether an assertion on the call can replace assign's binding of
+// name, which stmts[i] asserts: no later code reads the bound value. fixable reports
+// whether deleting the binding also keeps the code compiling. It holds only when the
+// binding declares name, since a declaration left behind may have no reads.
+func dropBinding(
+	pass *analysis.Pass,
+	stmts []ast.Stmt,
+	assign *ast.AssignStmt,
+	i int,
+	name string,
+) (replaceable, fixable bool) {
+	var ident *ast.Ident
+	for _, lhs := range assign.Lhs {
+		if id, ok := lhs.(*ast.Ident); ok && id.Name == name {
+			ident = id
+		}
+	}
+	declares := pass.TypesInfo.Defs[ident] != nil
+	// A variable declared in this block is out of scope after it.
+	local := pass.TypesInfo.ObjectOf(ident).Pos() >= stmts[0].Pos()
+	for _, s := range stmts[i+1:] {
+		if !usesIdent(s, name) {
+			continue
+		}
+		next, ok := s.(*ast.AssignStmt)
+		if !ok || !assignsToName(next, name) {
+			return false, false
+		}
+		for _, rhs := range next.Rhs {
+			if usesIdent(rhs, name) {
+				return false, false
+			}
+		}
+		if next.Tok == token.ASSIGN {
+			return true, false
+		}
+		return local, declares
+	}
+	return local, declares
+}
+
+// findBinding walks backwards from stmts[i] to the assignment that binds name from a
+// single call. It stops at the first statement that references name, since name must
+// stay bound for that statement.
+func findBinding(
+	stmts []ast.Stmt,
+	i int,
+	name string,
+) (*ast.AssignStmt, int, *ast.CallExpr) {
+	for j := i - 1; j >= 0; j-- {
+		if a, ok := stmts[j].(*ast.AssignStmt); ok && assignsToName(a, name) {
+			if len(a.Rhs) != 1 {
+				return nil, -1, nil
+			}
+			call, ok := a.Rhs[0].(*ast.CallExpr)
+			if !ok {
+				return nil, -1, nil
+			}
+			return a, j, call
+		}
+		if usesIdent(stmts[j], name) {
+			return nil, -1, nil
+		}
+	}
+	return nil, -1, nil
+}
+
+// matchExpectErrSucceeds checks if an expression matches:
 //
 //	Expect(<name>).ToNot(HaveOccurred())
 //	Expect(<name>).To(Not(HaveOccurred()))
+//	Expect(<name>).To(Succeed())
+//	Expect(<name>).Should(Succeed())
 //
 // Returns the name used in Expect() and true if matched.
-func matchExpectErrNotHaveOccurred(expr ast.Expr) (string, bool) {
+func matchExpectErrSucceeds(expr ast.Expr) (string, bool) {
 	outerCall, ok := expr.(*ast.CallExpr)
 	if !ok {
 		return "", false
 	}
 	sel, ok := outerCall.Fun.(*ast.SelectorExpr)
-	if !ok {
+	if !ok || len(outerCall.Args) != 1 {
 		return "", false
 	}
+	arg := outerCall.Args[0]
 	switch sel.Sel.Name {
 	case "ToNot", "NotTo":
-		if len(outerCall.Args) != 1 {
+		if !isCallTo(arg, "HaveOccurred", 0) {
 			return "", false
 		}
-		if !isCallTo(outerCall.Args[0], "HaveOccurred", 0) {
-			return "", false
+	case "To", "Should":
+		if isCallTo(arg, "Succeed", 0) {
+			break
 		}
-	case "To":
-		if len(outerCall.Args) != 1 {
-			return "", false
-		}
-		notCall, ok := outerCall.Args[0].(*ast.CallExpr)
-		if !ok {
+		notCall, ok := arg.(*ast.CallExpr)
+		if !ok || sel.Sel.Name != "To" {
 			return "", false
 		}
 		if !isNamedFunc(notCall, "Not") || len(notCall.Args) != 1 {
@@ -285,7 +367,161 @@ func matchExpectErrNotHaveOccurred(expr ast.Expr) (string, bool) {
 	default:
 		return "", false
 	}
+	return expectedIdent(sel.X)
+}
+
+// errorMatchers are the matchers on a captured error that the check moves inline.
+var errorMatchers = set.New(
+	"MatchError",
+	"SatisfyAll",
+	"SatisfyAny",
+	"And",
+	"Or",
+	"Equal",
+)
+
+// errMatch is an Expect(<errName>).<verb>(<matcher>) assertion on a captured error.
+type errMatch struct {
+	errName string
+	verb    string
+	matcher *ast.CallExpr
+}
+
+// matchExpectErrMatches checks if an expression matches Expect(<name>).To(<m>) or
+// Expect(<name>).Should(<m>), where <m> is one of errorMatchers.
+func matchExpectErrMatches(expr ast.Expr) (errMatch, bool) {
+	outerCall, ok := expr.(*ast.CallExpr)
+	if !ok || len(outerCall.Args) != 1 {
+		return errMatch{}, false
+	}
+	sel, ok := outerCall.Fun.(*ast.SelectorExpr)
+	if !ok || (sel.Sel.Name != "To" && sel.Sel.Name != "Should") {
+		return errMatch{}, false
+	}
+	matcher, ok := outerCall.Args[0].(*ast.CallExpr)
+	if !ok || !isErrorMatcher(matcher) {
+		return errMatch{}, false
+	}
 	expectCall, ok := sel.X.(*ast.CallExpr)
+	if !ok || !isNamedFunc(expectCall, "Expect") || len(expectCall.Args) != 1 {
+		return errMatch{}, false
+	}
+	ident, ok := expectCall.Args[0].(*ast.Ident)
+	if !ok {
+		return errMatch{}, false
+	}
+	return errMatch{errName: ident.Name, verb: sel.Sel.Name, matcher: matcher}, true
+}
+
+func isErrorMatcher(call *ast.CallExpr) bool {
+	for name := range errorMatchers {
+		if !isNamedFunc(call, name) {
+			continue
+		}
+		if name == "Equal" {
+			return len(call.Args) == 1 && !isNil(call.Args[0])
+		}
+		return len(call.Args) > 0
+	}
+	return false
+}
+
+func isNil(expr ast.Expr) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "nil"
+}
+
+var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+
+// bindsOnlyError reports whether assign binds errName, of an error type, as its last
+// value and discards every other value.
+func bindsOnlyError(pass *analysis.Pass, assign *ast.AssignStmt, errName string) bool {
+	if pass.TypesInfo == nil {
+		return false
+	}
+	last, ok := assign.Lhs[len(assign.Lhs)-1].(*ast.Ident)
+	if !ok || last.Name != errName {
+		return false
+	}
+	t := pass.TypesInfo.TypeOf(last)
+	if t == nil || !types.Implements(t, errorType) {
+		return false
+	}
+	for _, lhs := range assign.Lhs[:len(assign.Lhs)-1] {
+		if !isBlank(lhs) {
+			return false
+		}
+	}
+	return true
+}
+
+// reportInlineDiagnostic reports an Expect(err) assertion on a captured error that
+// can assert on the call itself. A call with more than one result asserts through
+// Error(), which checks that every other result is zero only when the error is not
+// nil.
+func reportInlineDiagnostic(
+	pass *analysis.Pass,
+	assign *ast.AssignStmt,
+	expectStmt *ast.ExprStmt,
+	rhsCall *ast.CallExpr,
+	m errMatch,
+	adjacent bool,
+	fixable bool,
+) {
+	callStr := nodeString(pass.Fset, rhsCall)
+	errorCall := ""
+	if len(assign.Lhs) > 1 {
+		errorCall = ".Error()"
+	}
+	fixText := fmt.Sprintf(
+		"Expect(%s)%s.%s(%s)",
+		callStr,
+		errorCall,
+		m.verb,
+		nodeString(pass.Fset, m.matcher),
+	)
+	d := analysis.Diagnostic{
+		Pos: assign.Pos(),
+		End: expectStmt.End(),
+		Message: fmt.Sprintf(
+			"assert the error inline with Expect(%s)%s.%s(...)",
+			callStr,
+			errorCall,
+			m.verb,
+		),
+	}
+	if fixable {
+		d.SuggestedFixes = []analysis.SuggestedFix{{
+			Message: "Assert the error inline",
+			TextEdits: replacementEdits(
+				pass.Fset,
+				assign,
+				expectStmt,
+				fixText,
+				adjacent,
+			),
+		}}
+	}
+	pass.Report(d)
+}
+
+// assertionString prints an assertion that matchExpectErrSucceeds matched on one line,
+// so a diagnostic quotes the code in the file.
+func assertionString(fset *token.FileSet, expr ast.Expr) string {
+	call := expr.(*ast.CallExpr)
+	sel := call.Fun.(*ast.SelectorExpr)
+	return fmt.Sprintf(
+		"%s.%s(%s)",
+		nodeString(fset, sel.X),
+		sel.Sel.Name,
+		nodeString(fset, call.Args[0]),
+	)
+}
+
+// expectedIdent returns the name of the identifier that an Expect or ExpectWithOffset
+// call asserts on.
+func expectedIdent(expr ast.Expr) (string, bool) {
+	expectCall, ok := expr.(*ast.CallExpr)
 	if !ok {
 		return "", false
 	}
@@ -347,9 +583,9 @@ func assignsToName(assign *ast.AssignStmt, name string) bool {
 // reportDiagnostic reports a single code replacement diagnostic. The adjacent flag
 // indicates whether the assignment and Expect statements are directly adjacent in the
 // source — when they are, a single text edit can rewrite both at once; otherwise the
-// fix needs two edits (rewrite the assignment, delete the Expect line). Returns true if
-// the replacement uses MustSucceed/MustSucceed2 (meaning the testutil import is
-// needed).
+// fix needs two edits (rewrite the assignment, delete the Expect line). The diagnostic
+// carries a fix only when fixable. Returns true if the fix uses MustSucceed or
+// MustSucceed2, which need the testutil import.
 func reportDiagnostic(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
@@ -357,8 +593,10 @@ func reportDiagnostic(
 	rhsCall *ast.CallExpr,
 	errName string,
 	adjacent bool,
+	fixable bool,
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
+	assertion := assertionString(pass.Fset, expectStmt.X)
 	numLHS := len(assign.Lhs)
 	errIdx := -1
 	for i, lhs := range assign.Lhs {
@@ -374,91 +612,92 @@ func reportDiagnostic(
 	)
 	if numLHS == 1 && errIdx == 0 {
 		msg = fmt.Sprintf(
-			"Expect(%s).ToNot(HaveOccurred()) can be replaced with Expect(%s).To(Succeed())",
-			errName,
+			"%s can be replaced with Expect(%s).To(Succeed())",
+			assertion,
 			callStr,
 		)
 		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
 	} else if numLHS == 2 && errIdx == 1 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) {
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
 			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
 		} else {
 			resultName := nodeString(pass.Fset, assign.Lhs[0])
-			tok := ":="
-			if assign.Tok == token.ASSIGN {
-				tok = "="
-			}
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
-				errName,
-			)
+			tok := resultTok(pass, assign)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
 			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
 		}
 	} else if numLHS == 3 && errIdx == 2 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
-				errName,
-			)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
 			fixText = fmt.Sprintf("MustSucceed2(%s)", callStr)
 		} else {
 			r1 := nodeString(pass.Fset, assign.Lhs[0])
 			r2 := nodeString(pass.Fset, assign.Lhs[1])
-			tok := ":="
-			if assign.Tok == token.ASSIGN {
-				tok = "="
-			}
-			msg = fmt.Sprintf(
-				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
-				errName,
-			)
+			tok := resultTok(pass, assign)
+			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
 			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		}
 	} else {
 		return false
 	}
 
-	var edits []analysis.TextEdit
+	d := analysis.Diagnostic{Pos: assign.Pos(), End: expectStmt.End(), Message: msg}
+	if fixable {
+		d.SuggestedFixes = []analysis.SuggestedFix{{
+			Message: "Replace with MustSucceed",
+			TextEdits: replacementEdits(
+				pass.Fset,
+				assign,
+				expectStmt,
+				fixText,
+				adjacent,
+			),
+		}}
+	}
+	pass.Report(d)
+	return needsImport && fixable
+}
+
+// resultTok returns the token that assigns the results once the error leaves assign.
+// := needs at least one new variable among them.
+func resultTok(pass *analysis.Pass, assign *ast.AssignStmt) string {
+	if assign.Tok != token.DEFINE {
+		return "="
+	}
+	for _, lhs := range assign.Lhs[:len(assign.Lhs)-1] {
+		if ident, ok := lhs.(*ast.Ident); ok && !isBlank(ident) &&
+			pass.TypesInfo.Defs[ident] != nil {
+			return ":="
+		}
+	}
+	return "="
+}
+
+// replacementEdits replaces an assignment and its Expect statement with fixText. When
+// the two are adjacent, one edit rewrites both. Otherwise, the assignment becomes
+// fixText and the Expect statement's lines are deleted.
+func replacementEdits(
+	fset *token.FileSet,
+	assign *ast.AssignStmt,
+	expectStmt *ast.ExprStmt,
+	fixText string,
+	adjacent bool,
+) []analysis.TextEdit {
 	if adjacent {
-		edits = []analysis.TextEdit{{
+		return []analysis.TextEdit{{
 			Pos:     assign.Pos(),
 			End:     expectStmt.End(),
 			NewText: []byte(fixText),
 		}}
-	} else {
-		deleteStart, deleteEnd := lineRange(pass.Fset, expectStmt)
-		edits = []analysis.TextEdit{
-			{
-				Pos:     assign.Pos(),
-				End:     assign.End(),
-				NewText: []byte(fixText),
-			},
-			{
-				Pos:     deleteStart,
-				End:     deleteEnd,
-				NewText: nil,
-			},
-		}
 	}
-
-	pass.Report(analysis.Diagnostic{
-		Pos:     assign.Pos(),
-		End:     expectStmt.End(),
-		Message: msg,
-		SuggestedFixes: []analysis.SuggestedFix{
-			{
-				Message:   "Replace with MustSucceed",
-				TextEdits: edits,
-			},
-		},
-	})
-	return needsImport
+	deleteStart, deleteEnd := lineRange(fset, expectStmt)
+	return []analysis.TextEdit{
+		{Pos: assign.Pos(), End: assign.End(), NewText: []byte(fixText)},
+		{Pos: deleteStart, End: deleteEnd},
+	}
 }
 
 // lineRange returns the start of the first line that stmt occupies and the start of the

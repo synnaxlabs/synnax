@@ -90,6 +90,35 @@ var _ = Describe("Dashed identifier lexing", func() {
 })
 
 var _ = Describe("Parser", func() {
+	Describe("ParseExpressionAt", func() {
+		// at places rune i of a source at line 3, column 7 + 2i.
+		at := func(i int) (int, int) { return 3, 7 + 2*i }
+
+		It("Should give each token the position of its first rune", func() {
+			expr := MustSucceed(parser.ParseExpressionAt("a + b", at))
+			start := expr.GetStart()
+			Expect(start.GetLine()).To(Equal(3))
+			Expect(start.GetColumn()).To(Equal(7))
+			stop := expr.GetStop()
+			Expect(stop.GetText()).To(Equal("b"))
+			Expect(stop.GetColumn()).To(Equal(15))
+		})
+
+		It("Should report a parse error at its position in the source", func() {
+			_, diags := parser.ParseExpressionAt("a +", at)
+			Expect(*diags).To(HaveLen(1))
+			Expect((*diags)[0].Range.Start.Line).To(Equal(uint32(2)))
+			Expect((*diags)[0].Range.Start.Character).To(Equal(uint32(13)))
+		})
+
+		It("Should report a lexer error at its position in the source", func() {
+			_, diags := parser.ParseExpressionAt("a\n  # b", at)
+			Expect(*diags).ToNot(BeEmpty())
+			Expect((*diags)[0].Range.Start.Line).To(Equal(uint32(2)))
+			Expect((*diags)[0].Range.Start.Character).To(Equal(uint32(15)))
+		})
+	})
+
 	Describe("Expressions", func() {
 		Context("Numeric Literals", func() {
 			It("Should parse integer literals", func() {

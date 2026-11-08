@@ -11,7 +11,10 @@
 
 package status
 
-import servicestatus "github.com/synnaxlabs/synnax/pkg/service/status"
+import (
+	servicestatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // RetrieveRequest is a request to retrieve statuses.
 type RetrieveRequest struct {
@@ -23,8 +26,16 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching statuses to skip.
 	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeLabels includes the labels of each record.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Where != nil {
+		v.Exec(func() error { return validate.PathedError(r.Where.Validate(), "where") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

@@ -169,11 +169,11 @@ describe("arc selector stability under dispatch", () => {
 const client = createTestClient();
 
 const baseObjects = [
-  channel.TYPE_ONTOLOGY_ID,
-  framer.TYPE_ONTOLOGY_ID,
-  user.TYPE_ONTOLOGY_ID,
-  access.role.TYPE_ONTOLOGY_ID,
-  access.policy.TYPE_ONTOLOGY_ID,
+  channel.TYPE_RESOURCE_ID,
+  framer.TYPE_RESOURCE_ID,
+  user.TYPE_RESOURCE_ID,
+  access.role.TYPE_RESOURCE_ID,
+  access.policy.TYPE_RESOURCE_ID,
 ];
 
 interface SetupParams {
@@ -222,7 +222,7 @@ describe("useSelectEditable", () => {
   it("blocks editing when the user lacks update permission", async () => {
     const userClient = await createTestClientWithPolicy(client, {
       name: id.create(),
-      objects: [arc.TYPE_ONTOLOGY_ID, ...baseObjects],
+      objects: [arc.TYPE_RESOURCE_ID, ...baseObjects],
       actions: ["retrieve"],
     });
     const result = await setup({ editable: true, userClient });

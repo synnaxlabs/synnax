@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -27,9 +28,7 @@ import (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates an
 // Arc.
 func (CreatePayload) Handle(Arc) (Arc, error) {
-	return Arc{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches an Arc create",
-	)
+	return Arc{}, actions.CoreOnlyError("an Arc create")
 }
 
 // Handle replaces the Arc module's name.

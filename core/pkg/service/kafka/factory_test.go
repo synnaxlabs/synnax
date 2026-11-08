@@ -18,8 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -64,13 +64,13 @@ var _ = Describe("Factory", func() {
 
 	Describe("ConfigureTask", func() {
 		It("Should not handle other task types", func(ctx SpecContext) {
-			Expect(f.ConfigureTask(ctx, newTask("other", nil), driver.NoCommand)).
+			Expect(f.ConfigureTask(ctx, newTask(ctx, "other", nil), driver.NoCommand)).
 				Error().To(MatchError(driver.ErrTaskNotHandled))
 		})
 
 		It("Should reject a scan task with a rate that is not positive",
 			func(ctx SpecContext) {
-				t := newTask(kafka.ScanTaskType, map[string]any{"rate": -1})
+				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": -1})
 				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(validate.ErrValidation))
 			},
@@ -78,20 +78,20 @@ var _ = Describe("Factory", func() {
 
 		It("Should only log an invalid config when no command waits on it",
 			func(ctx SpecContext) {
-				t := newTask(kafka.WriteTaskType, kafka.WriteConfig{})
+				t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{})
 				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 					To(MatchError(validate.ErrValidation))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&stat).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
 		It("Should answer the command with an error status for an invalid config",
 			func(ctx SpecContext) {
-				t := newTask(kafka.WriteTaskType, kafka.WriteConfig{})
+				t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{})
 				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(validate.ErrValidation))
 				stat := taskStatus(ctx, t)
@@ -138,7 +138,7 @@ var _ = Describe("Factory", func() {
 	DescribeTable("Should answer the command when an auto-started task fails to start",
 		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
-			t := newTask(typ, build(ctx, dev.Key, true))
+			t := newTask(ctx, typ, build(ctx, dev.Key, true))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 				To(MatchError(ContainSubstring("connecting to cluster")))
 			stat := taskStatus(ctx, t)
@@ -153,7 +153,7 @@ var _ = Describe("Factory", func() {
 	DescribeTable("Should answer a command that needs no work with the current state",
 		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, clusterProperties())
-			t := newTask(typ, build(ctx, dev.Key, false))
+			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			exec := func(cmd, key string) task.Status {
@@ -178,7 +178,7 @@ var _ = Describe("Factory", func() {
 	DescribeTable("Should reject an unknown command",
 		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, clusterProperties())
-			t := newTask(typ, build(ctx, dev.Key, false))
+			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).
@@ -199,8 +199,10 @@ var _ = Describe("Factory", func() {
 				Name:       "box-" + uuid.New().String()[:8],
 				Configured: true,
 			}
-			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
-			t := newTask(typ, build(ctx, dev.Key, false))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
+			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("is not a Kafka cluster")),
@@ -223,8 +225,10 @@ var _ = Describe("Factory", func() {
 				Configured: true,
 				Properties: toJSON(map[string]any{"brokers": "localhost:9092"}),
 			}
-			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
-			t := newTask(typ, build(ctx, dev.Key, false))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
+			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 				To(MatchError(ContainSubstring("parsing properties")))
 		},
@@ -234,7 +238,7 @@ var _ = Describe("Factory", func() {
 
 	DescribeTable("Should reject an unknown device",
 		func(ctx SpecContext, typ string, build buildConfig) {
-			t := newTask(typ, build(ctx, uuid.New().String(), false))
+			t := newTask(ctx, typ, build(ctx, uuid.New().String(), false))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 		},
@@ -248,7 +252,7 @@ var _ = Describe("Factory", func() {
 			t  task.Task
 		)
 		BeforeEach(func(ctx SpecContext) {
-			t = newTask(kafka.ScanTaskType, map[string]any{"rate": 2})
+			t = newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
@@ -332,10 +336,9 @@ var _ = Describe("Factory", func() {
 				caPEM   string
 			)
 			BeforeEach(func() {
-				certs := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:      xfs.NewMem(),
-					KeySize: testutil.SmallKeySize,
-				}))
+				certs := MustSucceed(
+					cert.NewFactory(cert.FactoryConfig{FS: xfs.NewMem()}),
+				)
 				Expect(certs.CreateCAPair()).To(Succeed())
 				ca := MustSucceed(certs.Loader.LoadCAs())[0]
 				caPEM = string(

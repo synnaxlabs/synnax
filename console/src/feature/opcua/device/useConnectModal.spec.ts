@@ -116,7 +116,9 @@ const answerGetCertificate = async (
     data: certificates,
   });
 
-/** Opens the dialog on a running rack with security on and the Driver certificate shown. */
+/**
+ * Opens the dialog on a running rack with security on and the Driver certificate shown.
+ */
 const openWithDriverCertificate = async () => {
   const rack = await createRunningRack(client, "opc");
   const scan = await createScanTask(rack);

@@ -42,7 +42,7 @@ type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB

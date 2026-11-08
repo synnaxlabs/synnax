@@ -196,26 +196,14 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
-        after_undo = schematic.get_symbol_count()
-        assert after_undo == baseline, (
-            f"Expected {baseline} symbols after undo of delete, got {after_undo}"
-        )
+        schematic.wait_for_symbol_count(baseline)
 
         self.console.layout.press_key("ControlOrMeta+Shift+Z")
-        sy.sleep(0.3)
-        after_redo = schematic.get_symbol_count()
-        assert after_redo == baseline - 1, (
-            f"Expected {baseline - 1} symbols after redo of delete, got {after_redo}"
-        )
+        schematic.wait_for_symbol_count(baseline - 1)
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
-        final = schematic.get_symbol_count()
-        assert final == baseline, (
-            f"Expected {baseline} symbols after restoring undo, got {final}"
-        )
+        schematic.wait_for_symbol_count(baseline)
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the project resources

@@ -14,6 +14,7 @@ package arc
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/x/filter"
+	"uuid"
 )
 
 // Key is a unique identifier for an Arc module.
@@ -78,4 +79,6 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Directories matches the Arcs in any of the given directories.
+	Directories []uuid.UUID `json:"directories,omitzero" msgpack:"directories,omitempty"`
 }

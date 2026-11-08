@@ -22,18 +22,6 @@
 
 namespace synnax::rack {
 
-inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
-    return StatusDetails{
-        .rack = parser.field<Key>("rack"),
-    };
-}
-
-inline x::json::json StatusDetails::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["rack"] = this->rack;
-    return j;
-}
-
 inline Rack Rack::parse(x::json::Parser parser) {
     return Rack{
         .key = parser.field<Key>("key"),
@@ -70,7 +58,6 @@ inline Where Where::parse(x::json::Parser parser) {
         .integrations = parser.field<std::optional<::x::filter::Contains<std::string>>>(
             "integrations"
         ),
-        .host_is_node = parser.field<std::optional<bool>>("host_is_node"),
     };
 }
 
@@ -84,7 +71,6 @@ inline x::json::json Where::to_json() const {
     if (this->embedded.has_value()) j["embedded"] = this->embedded->to_json();
     if (this->integrations.has_value())
         j["integrations"] = this->integrations->to_json();
-    if (this->host_is_node.has_value()) j["host_is_node"] = *this->host_is_node;
     return j;
 }
 
