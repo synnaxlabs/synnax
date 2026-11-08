@@ -4,7 +4,8 @@
 - **Date**: 2026-11-03
 - **Related**: [RFC 0073 - Authentication](0073-authentication.md),
   [RFC 0079 - Kafka integration](0079-kafka-integration.md),
-  [RFC 0089 - OPC UA certificates](0089-opc-ua-certificates.md)
+  [RFC 0089 - OPC UA certificates](0089-opc-ua-certificates.md),
+  [RFC 0100 - Gorp references](0100-gorp-references.md)
 
 ## 0 Summary
 
@@ -71,7 +72,7 @@ Secret struct {
 ```
 
 The schema is `schemas/synnax/secret.oracle`, the package `core/pkg/service/secret`, and
-the ontology type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@py omit`,
+the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@py omit`,
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
@@ -165,13 +166,15 @@ streams, and exports.
 
 ### 3.4 References
 
-The Core finds what uses an item by reading device properties and task configs when it
-needs to, with no stored index. Each integration's Go service gives a function from its
-properties or config to the item keys in them. `core/pkg/service/layer.go` passes a map
-from make to function into a finder that both services take in their config. OPC UA and
-HTTP get small Go structs for their item fields in `core/pkg/service/opcua` and
-`core/pkg/service/http`. The finder serves the rack rule, delete, and the Console's
-"Used by" list. A Core holds hundreds of devices, so a scan costs little.
+Each field that names an item is a Gorp reference (RFC 0100) with
+`@ref on_delete restrict`, such as PagerDuty's `routing_key` and a certificate's
+`private_key`. Gorp refuses a write that names a missing item, and keeps a reverse
+index. A delete of an item in use fails with a `gorp.RestrictError`, which
+`core/pkg/api/restrict.go` rewrites to name the task or device. A task config lives in
+its own table, so the API maps it to its task with `task.Service.ConfigTask`. The
+Console's "Used by" list and the rack rule (§3.3) read the index through
+`resource.Dependents`. A certificate is a union on its source, so Oracle reads `@ref`
+inside a union variant.
 
 ### 3.5 File items and the file integration
 
@@ -310,8 +313,10 @@ the Driver change, so they are separate phases.
 11. **The file browser is its own integration**: A site can turn it off. Its reply is a
     task status, as OPC UA browse replies are. The trade is real: a Viewer can see file
     names in a reply, and an Operator can list folders, as with any command.
-12. **References found on demand**: The device stays the one source of truth. The trade
-    is real: a scan per resolve and delete.
+12. **References in Gorp, not found on demand**: Gorp refuses a delete or a missing item
+    with no code in each integration, and "Used by" reads an index instead of a scan.
+    The trade is real: each field that names an item must be a typed schema field, and
+    each write updates the index.
 13. **Pins become items**: A pinned server certificate gets details and expiry warnings.
     The trade is real: one list entry per pinned server.
 
