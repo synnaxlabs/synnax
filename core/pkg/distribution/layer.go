@@ -33,7 +33,7 @@ import (
 
 // LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
-	// GorpCodec sets the codec used to encode/decode data structures within the cluster
+	// GorpCodec sets the codec used to encode/decode data structures within the
 	// metadata DB.
 	//
 	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
